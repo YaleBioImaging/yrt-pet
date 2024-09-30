@@ -118,6 +118,7 @@ void py_setup_image(py::module& m)
 	c_owned.def(py::init<const ImageParams&, std::string>(),
 	            py::arg("img_params"), py::arg("filename"));
 	c_owned.def("allocate", &ImageOwned::allocate);
+	c_owned.def("isAllocated", &ImageOwned::isAllocated);
 	c_owned.def("readFromFile", &ImageOwned::readFromFile, py::arg("filename"));
 }
 
@@ -879,6 +880,11 @@ void ImageOwned::allocate()
 {
 	static_cast<Array3D<double>*>(m_dataPtr.get())
 	    ->allocate(getParams().nz, getParams().ny, getParams().nx);
+}
+
+bool ImageOwned::isAllocated() const
+{
+	return m_dataPtr.get()->getRawPointer() != nullptr;
 }
 
 ImageAlias::ImageAlias(const ImageParams& img_params) : Image(img_params)

@@ -36,7 +36,7 @@ void py_setup_osem(pybind11::module& m)
 	    [](OSEM& self, const std::string& out_fname,
 	       bool saveToMemory) -> py::list
 	    {
-		    ASSERT_MSG(self.imageParams.isValid(),
+		    ASSERT_MSG(self.getImageParams().isValid(),
 		               "Image parameters not valid/set");
 		    py::list pySensImagesList;
 		    if (!saveToMemory)
@@ -77,6 +77,7 @@ void py_setup_osem(pybind11::module& m)
 	c.def("setSaveSteps", &OSEM::setSaveSteps);
 	c.def("setListModeEnabled", &OSEM::setListModeEnabled);
 	c.def("setProjector", &OSEM::setProjector);
+	c.def("setImageParams", &OSEM::setImageParams);
 	c.def("isListModeEnabled", &OSEM::isListModeEnabled);
 
 	c.def_readwrite("num_MLEM_iterations", &OSEM::num_MLEM_iterations);
@@ -84,7 +85,6 @@ void py_setup_osem(pybind11::module& m)
 	c.def_readwrite("hardThreshold", &OSEM::hardThreshold);
 	c.def_readwrite("numRays", &OSEM::numRays);
 	c.def_readwrite("projectorType", &OSEM::projectorType);
-	c.def_readwrite("imageParams", &OSEM::imageParams);
 	c.def_readwrite("maskImage", &OSEM::maskImage);
 	c.def_readwrite("attenuationImage", &OSEM::attenuationImage);
 	c.def_readwrite("addHis", &OSEM::addHis);
@@ -255,12 +255,18 @@ void OSEM::setSensitivityImages(
 		    "The number of sensitivity image objects provided does "
 		    "not match the number of subsets");
 	}
-
+	ImageParams imageParams;
 	sensitivityImages.clear();
-	for (const auto& sensImage : sensImages)
+	for (size_t i = 0; i < sensImages.size(); i++)
 	{
+		auto sensImage = sensImages[i];
+		if (i == 0)
+		{
+			imageParams = sensImage->getParams();
+		}
 		sensitivityImages.push_back(sensImage);
 	}
+	setImageParams(imageParams);
 }
 
 #if BUILD_PYBIND11
@@ -273,13 +279,25 @@ void OSEM::setSensitivityImages(py::list& imageList)
 		    "The number of sensitivity image objects provided does "
 		    "not match the number of subsets");
 	}
+	ImageParams imageParams;
 
 	sensitivityImages.clear();
 	for (int i = 0; i < imageListSize; i++)
 	{
-		sensitivityImages.push_back(
-		    imageList[i].cast<std::shared_ptr<Image>>());
+		auto img = imageList[i].cast<std::shared_ptr<Image>>();
+		ImageParams currParams = img->getParams();
+		if (i == 0)
+		{
+			imageParams = currParams;
+		}
+		else
+		{
+			ASSERT_MSG(imageParams.isSameAs(currParams),
+			           "Image parameters differ between images");
+		}
+		sensitivityImages.push_back(img);
 	}
+	setImageParams(imageParams);
 }
 #endif
 
@@ -368,6 +386,16 @@ void OSEM::enableNeedToMakeCopyOfSensImage()
 	needToMakeCopyOfSensImage = true;
 }
 
+ImageParams OSEM::getImageParams() const
+{
+	return imageParams;
+}
+
+void OSEM::setImageParams(const ImageParams& params)
+{
+	imageParams = params;
+}
+
 const Image* OSEM::getSensitivityImage(int subsetId) const
 {
 	if (copiedSensitivityImage != nullptr)
@@ -396,12 +424,8 @@ int OSEM::getNumBatches(int subsetId, bool forRecon) const
 std::shared_ptr<Image> OSEM::reconstruct(const std::string& out_fname)
 {
 	ASSERT_MSG(dataInput != nullptr, "Data input unspecified");
-	ASSERT_MSG(!sensitivityImages.empty(), "Sensitivity image(s) unspecified");
-
-	if (!imageParams.isValid())
-	{
-		imageParams = sensitivityImages[0]->getParams();
-	}
+	ASSERT_MSG(!sensitivityImages.empty(), "Sensitivity image(s) not set");
+	ASSERT(imageParams.isValid());
 
 	outImage = std::make_shared<ImageOwned>(imageParams);
 	outImage->allocate();

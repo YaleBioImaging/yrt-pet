@@ -60,6 +60,7 @@ public:
 	ImageOwned(const ImageParams& img_params);
 	ImageOwned(const ImageParams& img_params, const std::string& filename);
 	void allocate();
+	bool isAllocated() const;
 	void readFromFile(const std::string& image_file_name);
 };
 

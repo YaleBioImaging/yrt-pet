@@ -5,14 +5,14 @@
 
 #include "catch.hpp"
 
+#include "../test_utils.hpp"
 #include "datastruct/image/Image.hpp"
-#include "datastruct/projection/ListModeLUT.hpp"
 #include "datastruct/projection/ListMode.hpp"
+#include "datastruct/projection/ListModeLUT.hpp"
 #include "datastruct/scanner/DetRegular.hpp"
 #include "operators/OperatorProjectorDD.hpp"
 #include "operators/OperatorProjectorSiddon.hpp"
 #include "utils/ReconstructionUtils.hpp"
-#include "../test_utils.hpp"
 
 #include <algorithm>
 #include <utility>
@@ -41,11 +41,11 @@ double get_rmse(const Image* img_ref, const Image* img)
 	return rmse;
 }
 
-void dd(const Scanner& scanner, ListMode* proj,
-        std::shared_ptr<Image>& out, const bool flag_cuda)
+void dd(const Scanner& scanner, ListMode* proj, std::shared_ptr<Image>& out,
+        const bool flag_cuda)
 {
 	const auto osem = Util::createOSEM(scanner, flag_cuda);
-	osem->imageParams = out->getParams();
+	osem->setImageParams(out->getParams());
 	osem->num_OSEM_subsets = 1;
 	osem->setSensDataInput(proj);
 	if (flag_cuda)

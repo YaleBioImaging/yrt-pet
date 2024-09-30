@@ -134,7 +134,7 @@ int main(int argc, char** argv)
 		osem->num_MLEM_iterations = numIterations;
 		osem->num_OSEM_subsets = numSubsets;
 		osem->hardThreshold = hardThreshold;
-		osem->imageParams = ImageParams(imgParams_fname);
+		osem->setImageParams(ImageParams{imgParams_fname});
 		osem->projectorType = projectorType;
 		osem->numRays = numRays;
 		Globals::set_num_threads(numThreads);
@@ -166,8 +166,8 @@ int main(int argc, char** argv)
 		std::unique_ptr<OperatorPsf> imageSpacePsf;
 		if (!imageSpacePsf_fname.empty())
 		{
-			imageSpacePsf = std::make_unique<OperatorPsf>(osem->imageParams,
-			                                              imageSpacePsf_fname);
+			imageSpacePsf = std::make_unique<OperatorPsf>(
+			    osem->getImageParams(), imageSpacePsf_fname);
 			osem->addImagePSF(imageSpacePsf.get());
 		}
 
@@ -203,7 +203,7 @@ int main(int argc, char** argv)
 			for (auto& sensImg_fname : sensImg_fnames)
 			{
 				sensImages.push_back(std::make_unique<ImageOwned>(
-				    osem->imageParams, sensImg_fname));
+				    osem->getImageParams(), sensImg_fname));
 			}
 		}
 		else
@@ -255,7 +255,7 @@ int main(int argc, char** argv)
 		if (!warpParamFile.empty())
 		{
 			warper = std::make_unique<ImageWarperMatrix>();
-			warper->setImageHyperParam(osem->imageParams);
+			warper->setImageHyperParam(osem->getImageParams());
 			warper->setFramesParamFromFile(warpParamFile);
 			osem->warper = warper.get();
 		}

@@ -65,6 +65,8 @@ public:
 	void setProjector(const std::string& projectorName);  // Helper
 	bool isListModeEnabled() const;
 	void enableNeedToMakeCopyOfSensImage();
+	ImageParams getImageParams() const;
+	void setImageParams(const ImageParams& params);
 
 	// ---------- Public members ----------
 	int num_MLEM_iterations;
@@ -72,7 +74,6 @@ public:
 	float hardThreshold;
 	int numRays;  // For Siddon only
 	OperatorProjector::ProjectorType projectorType;
-	ImageParams imageParams; // TODO: Make this private
 	const Scanner& scanner;
 	const Image* maskImage;
 	const Image* attenuationImage;
@@ -87,8 +88,6 @@ protected:
 
 	auto& getProjector() { return mp_projector; }
 	const auto& getProjector() const { return mp_projector; }
-
-	const ImageParams& getImageParams() const { return imageParams; }
 
 	const Image* getSensitivityImage(int subsetId) const;
 	Image* getSensitivityImage(int subsetId);
@@ -106,6 +105,7 @@ protected:
 	bool usingListModeInput;  // true => ListMode, false => Histogram
 	std::unique_ptr<OperatorProjectorBase> mp_projector;
 	bool needToMakeCopyOfSensImage;
+	ImageParams imageParams;
 	std::shared_ptr<ImageOwned> outImage;  // Note: This is a host image
 
 	// ---------- Virtual pure functions ----------

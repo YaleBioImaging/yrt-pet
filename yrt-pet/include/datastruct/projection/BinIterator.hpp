@@ -67,9 +67,9 @@ protected:
 class BinIteratorRangeHistogram3D : public BinIterator
 {
 public:
-	BinIteratorRangeHistogram3D(size_t p_n_z_bin, size_t p_n_phi,
-	                              size_t p_n_r, int p_num_subsets,
-	                              int p_idx_subset);
+	BinIteratorRangeHistogram3D(size_t p_numZBin, size_t p_numPhi,
+	                              size_t p_numR, int p_numSubsets,
+	                              int p_idxSubset);
 	bin_t begin() const override;
 	bin_t end() const override;
 	size_t size() const override;

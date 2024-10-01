@@ -123,16 +123,16 @@ bin_t BinIteratorRange2D::getSafe(bin_t idx) const
 	return m_idxStart + m_idxStride * sliceIdx + idxOffset;
 }
 
-BinIteratorRangeHistogram3D::BinIteratorRangeHistogram3D(size_t p_n_z_bin,
-	size_t p_n_phi,
-	size_t p_n_r,
-	int p_num_subsets,
-	int p_idx_subset)
-	: m_numZBin(p_n_z_bin),
-	  m_numPhi(p_n_phi),
-	  m_numR(p_n_r),
-	  m_numSubsets(p_num_subsets),
-	  m_idxSubset(p_idx_subset)
+BinIteratorRangeHistogram3D::BinIteratorRangeHistogram3D(size_t p_numZBin,
+	size_t p_numPhi,
+	size_t p_numR,
+	int p_numSubsets,
+	int p_idxSubset)
+	: m_numZBin(p_numZBin),
+	  m_numPhi(p_numPhi),
+	  m_numR(p_numR),
+	  m_numSubsets(p_numSubsets),
+	  m_idxSubset(p_idxSubset)
 {
 	m_phiStride = m_numSubsets;
 	m_phi0 = m_idxSubset;

@@ -178,7 +178,7 @@ int main(int argc, char** argv)
 		}
 
 		// Sensitivity image(s)
-		std::vector<std::shared_ptr<Image>> sensImages;
+		std::vector<std::unique_ptr<Image>> sensImages;
 		if (sensImg_fnames.empty())
 		{
 			std::unique_ptr<ProjectionData> sensData = nullptr;

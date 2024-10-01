@@ -35,8 +35,7 @@ void py_setup_imageparams(py::module& m)
 {
 	auto c = py::class_<ImageParams>(m, "ImageParams");
 	c.def(py::init<>());
-	c.def(py::init<int, int, int, float, float, float, float, float,
-	               float>(),
+	c.def(py::init<int, int, int, float, float, float, float, float, float>(),
 	      py::arg("nx"), py::arg("ny"), py::arg("nz"), py::arg("length_x"),
 	      py::arg("length_y"), py::arg("length_z"), py::arg("offset_x") = 0.,
 	      py::arg("offset_y") = 0., py::arg("offset_z") = 0.);
@@ -65,53 +64,54 @@ void py_setup_imageparams(py::module& m)
 	c.def("deserialize", &ImageParams::deserialize);
 
 	c.def(py::pickle(
-		[](const ImageParams& g)
-		{
-			nlohmann::json geom_json;
-			g.writeToJSON(geom_json);
-			std::stringstream oss;
-			oss << geom_json;
-			return oss.str();
-		},
-		[](const std::string& s)
-		{
-			nlohmann::json geom_json;
-			geom_json = json::parse(s);
-			ImageParams g;
-			g.readFromJSON(geom_json);
-			return g;
-		}));
+	    [](const ImageParams& g)
+	    {
+		    nlohmann::json geom_json;
+		    g.writeToJSON(geom_json);
+		    std::stringstream oss;
+		    oss << geom_json;
+		    return oss.str();
+	    },
+	    [](const std::string& s)
+	    {
+		    nlohmann::json geom_json;
+		    geom_json = json::parse(s);
+		    ImageParams g;
+		    g.readFromJSON(geom_json);
+		    return g;
+	    }));
 }
 #endif
 
 
 ImageParams::ImageParams()
-	: nx(-1),
-	  ny(-1),
-	  nz(-1),
-	  length_x(-1.0),
-	  length_y(-1.0),
-	  length_z(-1.0),
-	  off_x(0.0),
-	  off_y(0.0),
-	  off_z(0.0),
-	  vx(-1.0),
-	  vy(-1.0),
-	  vz(-1.0) {}
+    : nx(-1),
+      ny(-1),
+      nz(-1),
+      length_x(-1.0),
+      length_y(-1.0),
+      length_z(-1.0),
+      off_x(0.0),
+      off_y(0.0),
+      off_z(0.0),
+      vx(-1.0),
+      vy(-1.0),
+      vz(-1.0)
+{
+}
 
 ImageParams::ImageParams(int nxi, int nyi, int nzi, float length_xi,
-                         float length_yi, float length_zi,
-                         float offset_xi, float offset_yi,
-                         float offset_zi)
-	: nx(nxi),
-	  ny(nyi),
-	  nz(nzi),
-	  length_x(length_xi),
-	  length_y(length_yi),
-	  length_z(length_zi),
-	  off_x(offset_xi),
-	  off_y(offset_yi),
-	  off_z(offset_zi)
+                         float length_yi, float length_zi, float offset_xi,
+                         float offset_yi, float offset_zi)
+    : nx(nxi),
+      ny(nyi),
+      nz(nzi),
+      length_x(length_xi),
+      length_y(length_yi),
+      length_z(length_zi),
+      off_x(offset_xi),
+      off_y(offset_yi),
+      off_z(offset_zi)
 {
 	setup();
 }
@@ -203,38 +203,35 @@ void ImageParams::readFromJSON(json& j)
 {
 	float version;
 
-	Util::getParam<float>(&j, &version,
-	                      {"VERSION", "GCIMAGEPARAMS_FILE_VERSION"}, -1.0, true,
-	                      "Error in ImageParams file version : Version unspecified");
+	Util::getParam<float>(
+	    &j, &version, {"VERSION", "GCIMAGEPARAMS_FILE_VERSION"}, -1.0, true,
+	    "Error in ImageParams file version : Version unspecified");
 
 	if (version > IMAGEPARAMS_FILE_VERSION + SMALL_FLT)
 	{
-		throw std::logic_error(
-			"Error in ImageParams file version : Wrong version. Current version: "
-			+ std::to_string(IMAGEPARAMS_FILE_VERSION) + ", Given version: " +
-			std::to_string(version));
+		throw std::logic_error("Error in ImageParams file version : Wrong "
+		                       "version. Current version: " +
+		                       std::to_string(IMAGEPARAMS_FILE_VERSION) +
+		                       ", Given version: " + std::to_string(version));
 	}
 
-	Util::getParam<int>(&j, &nx,
-	                    "nx", 0, true,
-	                    "Error in ImageParams file version : \'nx\' unspecified");
+	Util::getParam<int>(
+	    &j, &nx, "nx", 0, true,
+	    "Error in ImageParams file version : \'nx\' unspecified");
 
-	Util::getParam<int>(&j, &ny,
-	                    "ny", 0, true,
-	                    "Error in ImageParams file version : \'ny\' unspecified");
+	Util::getParam<int>(
+	    &j, &ny, "ny", 0, true,
+	    "Error in ImageParams file version : \'ny\' unspecified");
 
-	Util::getParam<int>(&j, &nz,
-	                    "nz", 0, true,
-	                    "Error in ImageParams file version : \'nz\' unspecified");
+	Util::getParam<int>(
+	    &j, &nz, "nz", 0, true,
+	    "Error in ImageParams file version : \'nz\' unspecified");
 
-	Util::getParam<float>(&j, &off_x,
-	                       {"off_x", "offset_x"}, 0.0, false);
+	Util::getParam<float>(&j, &off_x, {"off_x", "offset_x"}, 0.0, false);
 
-	Util::getParam<float>(&j, &off_y,
-	                       {"off_y", "offset_y"}, 0.0, false);
+	Util::getParam<float>(&j, &off_y, {"off_y", "offset_y"}, 0.0, false);
 
-	Util::getParam<float>(&j, &off_z,
-	                       {"off_z", "offset_z"}, 0.0, false);
+	Util::getParam<float>(&j, &off_z, {"off_z", "offset_z"}, 0.0, false);
 
 	length_x = readLengthFromJSON(j, "length_x", "vx", nx);
 	length_y = readLengthFromJSON(j, "length_y", "vy", ny);
@@ -244,15 +241,17 @@ void ImageParams::readFromJSON(json& j)
 }
 
 float ImageParams::readLengthFromJSON(nlohmann::json& j,
-                                       const std::string& length_name,
-                                       const std::string& v_name, int n)
+                                      const std::string& length_name,
+                                      const std::string& v_name, int n)
 {
 	float given_v;
 	if (!Util::getParam<float>(&j, &given_v, v_name, -1.0, false))
 	{
 		float length;
 		Util::getParam<float>(&j, &length, length_name, -1.0, true,
-		                       "You need to specify either the voxel size (vx, vy or vz) or the length (length_x, length_y or length_z) for all three dimensions.");
+		                      "You need to specify either the voxel size (vx, "
+		                      "vy or vz) or the length (length_x, length_y or "
+		                      "length_z) for all three dimensions.");
 		return length;
 	}
 	return given_v * n;
@@ -289,8 +288,7 @@ bool ImageParams::isSameAs(const ImageParams& other) const
 	       isSameOffsetsAs(other);
 }
 
-ImageBase::ImageBase(const ImageParams& img_params)
-	: m_params(img_params) {}
+ImageBase::ImageBase(const ImageParams& img_params) : m_params(img_params) {}
 
 const ImageParams& ImageBase::getParams() const
 {

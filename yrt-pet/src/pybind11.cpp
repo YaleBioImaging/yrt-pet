@@ -7,7 +7,6 @@
 
 #if BUILD_PYBIND11
 
-#include "recon/Variable.hpp"
 #include <pybind11/pybind11.h>
 
 namespace py = pybind11;
@@ -18,6 +17,7 @@ void py_setup_straightlineparam(py::module&);
 void py_setup_tubeofresponse(py::module& m);
 void py_setup_timeofflight(py::module& m);
 
+void py_setup_variable(py::module& m);
 void py_setup_imagebase(py::module&);
 void py_setup_imageparams(py::module&);
 void py_setup_image(py::module&);
@@ -69,15 +69,13 @@ void py_setup_operatorprojectordd_gpu(py::module& m);
 
 PYBIND11_MODULE(pyyrtpet, m)
 {
-	// Variable is added here because the class is empty
-	auto gcvariable = py::class_<Variable>(m, "Variable");
-
 	py_setup_array(m);
 	py_setup_vector3dall(m);
 	py_setup_straightlineparam(m);
 	py_setup_tubeofresponse(m);
 	py_setup_timeofflight(m);
 
+	py_setup_variable(m);
 	py_setup_imagebase(m);
 	py_setup_imageparams(m);
 	py_setup_image(m);

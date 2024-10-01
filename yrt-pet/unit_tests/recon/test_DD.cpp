@@ -56,7 +56,7 @@ void dd(const Scanner& scanner, ListMode* proj, std::shared_ptr<Image>& out,
 	{
 		osem->projectorType = OperatorProjector::DD;
 	}
-	std::vector<std::shared_ptr<Image>> sensImages;
+	std::vector<std::unique_ptr<Image>> sensImages;
 	osem->generateSensitivityImages(sensImages, "");
 	out = std::move(sensImages[0]);
 }

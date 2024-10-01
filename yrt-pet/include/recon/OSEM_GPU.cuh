@@ -21,7 +21,7 @@ public:
 	// Sens Image generator driver
 	void setupOperatorsForSensImgGen() override;
 	void allocateForSensImgGen() override;
-	std::shared_ptr<Image>
+	std::unique_ptr<Image>
 	    getLatestSensitivityImage(bool isLastSubset) override;
 	void endSensImgGen() override;
 

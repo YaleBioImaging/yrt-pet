@@ -230,7 +230,7 @@ int main(int argc, char** argv)
 				sensDataHis->writeToFile("intermediary_sensData.his");
 			}
 
-			std::vector<std::shared_ptr<Image>> sensImages;
+			std::vector<std::unique_ptr<Image>> sensImages;
 
 			// Generate source Image
 			auto projectorType = IO::getProjector(projector_name);

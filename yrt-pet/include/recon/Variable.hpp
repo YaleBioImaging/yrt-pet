@@ -9,5 +9,6 @@ class Variable
 {
 public:
 	virtual ~Variable() = default;
+
 private:
 };

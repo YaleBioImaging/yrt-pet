@@ -21,7 +21,7 @@ OSEM_GPU::OSEM_GPU(const Scanner& pr_scanner)
       mpd_datTmp(nullptr),
       m_current_OSEM_subset(-1)
 {
-	std::cout << "Creating an instance of OSEM gpu" << std::endl;
+	std::cout << "Creating an instance of OSEM GPU" << std::endl;
 
 	// Since the only available projector in GPU right now is DD_GPU:
 	projectorType = OperatorProjector::DD_GPU;
@@ -72,11 +72,11 @@ void OSEM_GPU::allocateForSensImgGen()
 	mpd_tempSensDataInput = std::move(tempSensDataInput);
 }
 
-std::shared_ptr<Image> OSEM_GPU::getLatestSensitivityImage(bool isLastSubset)
+std::unique_ptr<Image> OSEM_GPU::getLatestSensitivityImage(bool isLastSubset)
 {
 	(void)isLastSubset;  // Copy flag is obsolete since the data is not yet on
 	// Host-side
-	auto img = std::make_shared<ImageOwned>(getImageParams());
+	auto img = std::make_unique<ImageOwned>(getImageParams());
 	img->allocate();
 	mpd_sensImageBuffer->transferToHostMemory(img.get(), true);
 	return img;

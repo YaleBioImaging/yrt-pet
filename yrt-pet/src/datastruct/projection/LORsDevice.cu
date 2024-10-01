@@ -45,14 +45,14 @@ void LORsDevice::loadEventLORs(const BinIterator& binIter,
 
 	const size_t batchSize = batchSetup.getBatchSize(batchId);
 
-	PageLockedBuffer<float4> tempBufferLorDet1Pos(batchSize);
-	PageLockedBuffer<float4> tempBufferLorDet2Pos(batchSize);
-	PageLockedBuffer<float4> tempBufferLorDet1Orient(batchSize);
-	PageLockedBuffer<float4> tempBufferLorDet2Orient(batchSize);
-	float4* tempBufferLorDet1Pos_ptr = tempBufferLorDet1Pos.getPointer();
-	float4* tempBufferLorDet2Pos_ptr = tempBufferLorDet2Pos.getPointer();
-	float4* tempBufferLorDet1Orient_ptr = tempBufferLorDet1Orient.getPointer();
-	float4* tempBufferLorDet2Orient_ptr = tempBufferLorDet2Orient.getPointer();
+	m_tempLorDet1Pos.reAllocateIfNeeded(batchSize);
+	m_tempLorDet2Pos.reAllocateIfNeeded(batchSize);
+	m_tempLorDet1Orient.reAllocateIfNeeded(batchSize);
+	m_tempLorDet2Orient.reAllocateIfNeeded(batchSize);
+	float4* tempBufferLorDet1Pos_ptr = m_tempLorDet1Pos.getPointer();
+	float4* tempBufferLorDet2Pos_ptr = m_tempLorDet2Pos.getPointer();
+	float4* tempBufferLorDet1Orient_ptr = m_tempLorDet1Orient.getPointer();
+	float4* tempBufferLorDet2Orient_ptr = m_tempLorDet2Orient.getPointer();
 
 	PageLockedBuffer<float> tempBufferLorTOFValue;
 	if (hasTOF)
@@ -110,16 +110,21 @@ void LORsDevice::loadEventLORs(const BinIterator& binIter,
 
 	allocateForLORs(hasTOF, stream);
 
-	mp_lorDet1Pos->copyFromHost(tempBufferLorDet1Pos_ptr, batchSize, stream);
-	mp_lorDet2Pos->copyFromHost(tempBufferLorDet2Pos_ptr, batchSize, stream);
+	mp_lorDet1Pos->copyFromHost(tempBufferLorDet1Pos_ptr, batchSize, stream, false);
+	mp_lorDet2Pos->copyFromHost(tempBufferLorDet2Pos_ptr, batchSize, stream, false);
 	mp_lorDet1Orient->copyFromHost(tempBufferLorDet1Orient_ptr, batchSize,
-	                               stream);
+	                               stream, false);
 	mp_lorDet2Orient->copyFromHost(tempBufferLorDet2Orient_ptr, batchSize,
-	                               stream);
+	                               stream, false);
 	if (hasTOF)
 	{
 		mp_lorTOFValue->copyFromHost(tempBufferLorTOFValue_ptr, batchSize,
-		                             stream);
+		                             stream, false);
+	}
+
+	if(stream != nullptr)
+	{
+		cudaStreamSynchronize(*stream);
 	}
 
 	m_areLORsGathered = true;
@@ -137,13 +142,20 @@ void LORsDevice::initializeDeviceArrays()
 void LORsDevice::allocateForLORs(bool hasTOF, const cudaStream_t* stream)
 {
 	ASSERT_MSG(m_loadedBatchSize > 0, "No batch loaded");
-	mp_lorDet1Pos->allocate(m_loadedBatchSize, stream);
-	mp_lorDet2Pos->allocate(m_loadedBatchSize, stream);
-	mp_lorDet1Orient->allocate(m_loadedBatchSize, stream);
-	mp_lorDet2Orient->allocate(m_loadedBatchSize, stream);
+	bool hasAllocated = false;
+
+	hasAllocated |= mp_lorDet1Pos->allocate(m_loadedBatchSize, stream, false);
+	hasAllocated |= mp_lorDet2Pos->allocate(m_loadedBatchSize, stream, false);
+	hasAllocated |= mp_lorDet1Orient->allocate(m_loadedBatchSize, stream, false);
+	hasAllocated |= mp_lorDet2Orient->allocate(m_loadedBatchSize, stream, false);
 	if (hasTOF)
 	{
-		mp_lorTOFValue->allocate(m_loadedBatchSize, stream);
+		hasAllocated |= mp_lorTOFValue->allocate(m_loadedBatchSize, stream, false);
+	}
+
+	if(hasAllocated && stream != nullptr)
+	{
+		cudaStreamSynchronize(*stream);
 	}
 }
 

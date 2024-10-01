@@ -8,6 +8,7 @@
 #include "datastruct/projection/BinIterator.hpp"
 #include "datastruct/scanner/ScannerDevice.cuh"
 #include "utils/GPUTypes.cuh"
+#include "utils/PageLockedBuffer.cuh"
 
 #include <memory>
 
@@ -51,7 +52,10 @@ public:
 	bool areLORsGathered() const;
 
 	static constexpr size_t MemoryUsagePerLOR =
-	    sizeof(float4) * 4 + sizeof(float);
+	    sizeof(float4) * 4;
+
+	static constexpr size_t MemoryUsagePerLORWithTOF =
+	    MemoryUsagePerLOR + sizeof(float);
 
 private:
 	void initializeDeviceArrays();
@@ -63,6 +67,10 @@ private:
 	std::unique_ptr<DeviceArray<float4>> mp_lorDet2Pos;
 	std::unique_ptr<DeviceArray<float4>> mp_lorDet1Orient;
 	std::unique_ptr<DeviceArray<float4>> mp_lorDet2Orient;
+	PageLockedBuffer<float4> m_tempLorDet1Pos;
+	PageLockedBuffer<float4> m_tempLorDet2Pos;
+	PageLockedBuffer<float4> m_tempLorDet1Orient;
+	PageLockedBuffer<float4> m_tempLorDet2Orient;
 	std::unique_ptr<DeviceArray<float>> mp_lorTOFValue;
 	bool m_areLORsGathered;
 	size_t m_loadedBatchSize;

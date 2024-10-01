@@ -21,15 +21,14 @@ PageLockedBuffer<T>::PageLockedBuffer()
 
 template <typename T>
 PageLockedBuffer<T>::PageLockedBuffer(const size_t size,
-                                          const unsigned int flags)
+                                      const unsigned int flags)
     : PageLockedBuffer()
 {
 	allocate(size, flags);
 }
 
 template <typename T>
-void PageLockedBuffer<T>::allocate(const size_t size,
-                                     const unsigned int flags)
+void PageLockedBuffer<T>::allocate(const size_t size, const unsigned int flags)
 {
 	cudaHostAlloc(reinterpret_cast<void**>(&mph_dataPointer), size * sizeof(T),
 	              flags);
@@ -50,13 +49,15 @@ void PageLockedBuffer<T>::allocate(const size_t size,
 }
 
 template <typename T>
-void PageLockedBuffer<T>::reAllocateIfNeeded(const size_t newSize,
-                                               const unsigned int flags)
+bool PageLockedBuffer<T>::reAllocateIfNeeded(const size_t newSize,
+                                             const unsigned int flags)
 {
 	if (newSize > m_size || m_currentFlags != flags)
 	{
 		allocate(newSize, flags);
+		return true;
 	}
+	return false;
 }
 template <typename T>
 void PageLockedBuffer<T>::deallocate()

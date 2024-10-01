@@ -18,8 +18,7 @@ class PageLockedBuffer
 public:
 	PageLockedBuffer();
 
-	explicit PageLockedBuffer(size_t size,
-	                            unsigned int flags = 0u);
+	explicit PageLockedBuffer(size_t size, unsigned int flags = 0u);
 
 	virtual ~PageLockedBuffer();
 
@@ -27,8 +26,7 @@ public:
 
 	void deallocate();
 
-	void reAllocateIfNeeded(size_t newSize,
-	                        unsigned int flags = 0u);
+	bool reAllocateIfNeeded(size_t newSize, unsigned int flags = 0u);
 
 	T* getPointer();
 	const T* getPointer() const;

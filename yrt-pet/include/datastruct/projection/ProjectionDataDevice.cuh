@@ -102,9 +102,6 @@ public:
     size_t getNumBatches(size_t subsetId) const;
     bool areLORsGathered() const;
 
-    static constexpr size_t MemoryUsagePerEvent =
-        sizeof(float) + LORsDevice::MemoryUsagePerLOR;
-
     // Use 90% of what is available
     static constexpr float DefaultMemoryShare = 0.9f;
 

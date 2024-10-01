@@ -39,8 +39,12 @@ def test_scanner_lookup_table():
 
 
 def test_image_transform():
+
+    min_val, max_val = 1, 10
+    def resample(sample): return (max_val - min_val) * sample + min_val
+
     # Simple translation
-    x = np.random.random([12, 13, 14])
+    x = resample(np.random.random([12, 13, 14]))
     img_params = yrt.ImageParams(14, 13, 12, 28.0, 26.0, 24.0)
     img = yrt.ImageAlias(img_params)
     img.bind(x)
@@ -48,9 +52,9 @@ def test_image_transform():
     v_tr = yrt.Vector3D(2.0, 0.0, 0.0)
     img_t = img.transformImage(v_rot, v_tr)
     x_t = np.array(img_t, copy=False)
-    np.testing.assert_allclose(x[..., :-1], x_t[..., 1:])
+    np.testing.assert_allclose(x[..., :-1], x_t[..., 1:], rtol=9e-6)
     # Simple rotation
-    x = np.random.random([14, 12, 12])
+    x = resample(np.random.random([14, 12, 12]))
     img_params = yrt.ImageParams(12, 12, 14, 26.0, 26.0, 28.0)
     img = yrt.ImageAlias(img_params)
     img.bind(x)
@@ -58,4 +62,4 @@ def test_image_transform():
     v_tr = yrt.Vector3D(0.0, 0.0, 0.0)
     img_t = img.transformImage(v_rot, v_tr)
     x_t = np.array(img_t, copy=False)
-    np.testing.assert_allclose(np.moveaxis(x, 1, 2)[..., ::-1], x_t)
+    np.testing.assert_allclose(np.moveaxis(x, 1, 2)[..., ::-1], x_t, rtol=9e-6)

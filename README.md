@@ -272,7 +272,7 @@ There are two types of tests available, unit tests and integration tests.
   compiling (with `make`).
 - To run the integration tests,
     - The following environment variables have to be set:
-        - `YRTPET_TESTS_DATA` which refers to the path where the test files are located.
-        - `YRTPET_TESTS_OUT` which refers to where output files are to be written.
+        - `YRTPET_TEST_DATA` which refers to the path where the test files are located.
+        - `YRTPET_TEST_OUT` which refers to where output files are to be written.
     - Run `pytest <build folder>/integration_tests/test_recon.py`
         - Optionally, Use the `-k` option to restrict the tests wanted

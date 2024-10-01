@@ -18,6 +18,7 @@ osem = yrt.createOSEM(scanner)
 # or, alternatively, use GPU reconstruction (if compiled with CUDA)
 osem = yrt.createOSEM(scanner, useGPU=True)
 
+osem.setDataInput(dataset) # Dataset to use as input for the reconstruction.
 osem.setProjector("<Projector>") # Possible values: S (Siddon), DD (Distance-Driven), or DD_GPU (GPU Distance-Driven, available only if useGPU is 'True')
 osem.num_MLEM_iterations = 10 # Number of MLEM iterations
 osem.num_OSEM_subsets = 5 # Number of OSEM subsets
@@ -28,7 +29,7 @@ osem.addImagePSF(...) # To add Image-space PSF. Takes, as input, a OperatorPsf o
 osem.setListModeEnabled(<True/False>) # To enable if the dataset to use for reconstruction will be in ListMode format. This is important as it changes the way sensitivity images are generated.
 osem.attenuationImage = ... # To add an attenuation image (Image object)
 osem.addHis = ... # To add an additive histogram (Histogram format) for example for Scatter and Randoms correction.
-osem.imageParams = imgParams # Set the parameters of the output image
+osem.setImageParams(imgParams) # Set the parameters of the output image
 
 # --- Generate the sensitivity images
 
@@ -40,13 +41,6 @@ sens_imgs = osem.generateSensitivityImages() # Returns a list of Image objects
 osem.setSensitivityImages(...) # Takes, as input, a python list of Image objects.
 
 # --- Reconstruction
-
-# Prepare the output image to be filled
-outImg = yrt.ImageOwned(imgParams)
-outImg.allocate()
-osem.outImage = outImg
-
-osem.setDataInput(dataset) # Dataset to use as input for the reconstruction.
-osem.reconstruct() # Launch the reconstruction. It will fill 'outImg' with the reconstructed image
+outImg = osem.reconstruct() # Launch the reconstruction. It will fill 'outImg' with the reconstructed image
 
 outImg.writeToFile("<path where to save the output image>")

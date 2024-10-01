@@ -89,6 +89,8 @@ void py_setup_osem(pybind11::module& m)
 	c.def_readwrite("projectorType", &OSEM::projectorType);
 	c.def_readwrite("maskImage", &OSEM::maskImage);
 	c.def_readwrite("attenuationImage", &OSEM::attenuationImage);
+	c.def_readwrite("attenuationImageForBackprojection",
+	                &OSEM::attenuationImageForBackprojection);
 	c.def_readwrite("addHis", &OSEM::addHis);
 	c.def_readwrite("warper", &OSEM::warper);
 }
@@ -570,9 +572,9 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 		{
 			std::string iteration_name =
 			    Util::padZeros(iter + 1, numDigitsInFilename);
-			std::string out_fname = Util::addBeforeExtension(
+			std::string outIteration_fname = Util::addBeforeExtension(
 			    saveStepsPath, std::string("_iteration") + iteration_name);
-			getMLEMImageBuffer()->writeToFile(out_fname);
+			getMLEMImageBuffer()->writeToFile(outIteration_fname);
 		}
 		completeMLEMIteration();
 	}

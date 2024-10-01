@@ -25,19 +25,16 @@ def get_test_folders():
 
 # %% Helper test functions
 # Note: this works only for ListModes
-def _test_reconstruction(img_params, scanner, dataset, sens_img,
+def _test_reconstruction(img_params: yrt.ImageParams, scanner: yrt.Scanner, dataset: yrt.ProjectionData,
+                         sens_img: yrt.Image,
                          out_img_file: str, ref_img_file: str,
                          attenuationImage=None, warper=None,
                          num_MLEM_iterations=30, num_OSEM_subsets=1,
                          hard_threshold=1.0, num_threads=-1,
                          tof_width_ps=None, tof_n_std=None,
                          proj_psf_fname=None, num_rays=1):
-    out_img = yrt.ImageOwned(img_params)
-    out_img.allocate()
-    out_img.setValue(0.0)
-
     osem = yrt.createOSEM(scanner)
-    osem.imageParams = img_params
+    osem.setImageParams(img_params)
     osem.num_MLEM_iterations = num_MLEM_iterations
     osem.num_OSEM_subsets = num_OSEM_subsets
     osem.hardThreshold = hard_threshold
@@ -49,19 +46,19 @@ def _test_reconstruction(img_params, scanner, dataset, sens_img,
     if proj_psf_fname is not None:
         osem.addProjPSF(proj_psf_fname)
 
-    osem.registerSensitivityImages([sens_img])
+    osem.setSensitivityImages([sens_img])
 
     if warper is not None:
         osem.warper = warper
     if attenuationImage is not None:
         osem.attenuationImage = attenuationImage
-    osem.outImage = out_img
 
     # Launch Reconstruction
     if warper is None:
-        osem.reconstruct()
+        out_img = osem.reconstruct()
     else:
-        osem.reconstructWithWarperMotion()
+        out_img = osem.reconstructWithWarperMotion()
+
     out_img.writeToFile(out_img_file)
 
     ref_img = yrt.ImageOwned(img_params, ref_img_file)

@@ -37,7 +37,7 @@ osem.imageParams = imgParams # Set the parameters of the output image
 sens_imgs = osem.generateSensitivityImages() # Returns a list of Image objects
 # Note that the returned object should *not* be discarded. Otherwise it would cause Segmentation faults during the reconstruction because Python's garbage collector will invalidate the references
 # or, alternatively. If you've already generated the sensitivity images:
-osem.registerSensitivityImages(...) # Takes, as input, a python list of Image objects.
+osem.setSensitivityImages(...) # Takes, as input, a python list of Image objects.
 
 # --- Reconstruction
 

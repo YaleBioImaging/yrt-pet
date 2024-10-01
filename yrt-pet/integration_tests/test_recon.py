@@ -90,7 +90,7 @@ def test_sens():
     dataset = yrt.UniformHistogram(scanner)
 
     osem = yrt.createOSEM(scanner)
-    osem.imageParams = img_params
+    osem.setImageParams(img_params)
     osem.setDataInput(dataset)
     out_imgs = osem.generateSensitivityImages()
 
@@ -190,8 +190,8 @@ def test_psf_adjoint():
     oper_psf.applyA(img_X, Ax)
     oper_psf.applyAH(img_Y, Aty)
 
-    dot_Ax_y = Ax.dot_product(img_Y)
-    dot_x_Aty = img_X.dot_product(Aty)
+    dot_Ax_y = Ax.dotProduct(img_Y)
+    dot_x_Aty = img_X.dotProduct(Aty)
 
     assert abs(dot_Ax_y - dot_x_Aty) < 10**-4
 

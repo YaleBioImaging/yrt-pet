@@ -142,7 +142,7 @@ Histogram3D::Histogram3D(const Scanner& pr_scanner)
     : mp_data(nullptr), mr_scanner(pr_scanner)
 {
 	m_rCut = mr_scanner.minAngDiff / 2;
-	m_numDOIPoss = mr_scanner.numDoi * mr_scanner.numDoi;
+	m_numDOIPoss = mr_scanner.numDOI * mr_scanner.numDOI;
 
 	numR =
 	    m_numDOIPoss * (mr_scanner.detsPerRing / 2 + 1 - mr_scanner.minAngDiff);
@@ -268,8 +268,8 @@ void Histogram3D::getDetPairFromCoords(coord_t r, coord_t phi, coord_t z_bin,
 	getDetPairInSameRing(r_ring, phi, d1_ring, d2_ring);
 
 	coord_t doi_case = r % m_numDOIPoss;
-	coord_t doi_d1 = doi_case % mr_scanner.numDoi;
-	coord_t doi_d2 = doi_case / mr_scanner.numDoi;
+	coord_t doi_d1 = doi_case % mr_scanner.numDOI;
+	coord_t doi_d2 = doi_case / mr_scanner.numDOI;
 
 	// Determine delta Z and Z1
 	coord_t z1, z2;
@@ -326,7 +326,7 @@ void Histogram3D::getCoordsFromDetPair(det_id_t d1, det_id_t d2, coord_t& r,
 	det_id_t doi_d2 = d2 / (mr_scanner.numRings * mr_scanner.detsPerRing);
 	if (d1_ring > d2_ring)
 		std::swap(doi_d1, doi_d2);
-	r = r_ring * m_numDOIPoss + (doi_d1 + doi_d2 * mr_scanner.numDoi);
+	r = r_ring * m_numDOIPoss + (doi_d1 + doi_d2 * mr_scanner.numDOI);
 
 	int z1 = (d1 / (mr_scanner.detsPerRing)) % (mr_scanner.numRings);
 	int z2 = (d2 / (mr_scanner.detsPerRing)) % (mr_scanner.numRings);

@@ -49,7 +49,7 @@ public:
 	// num_doi : Number of DOI crystals (ex: 2 for SAVANT)
 	// max_ring_diff : Maximum ring difference (number of rings)
 	// min_ang_diff : Minimum angular difference, in terms of detector indices
-	size_t detsPerRing, numRings, numDoi, maxRingDiff, minAngDiff;
+	size_t detsPerRing, numRings, numDOI, maxRingDiff, minAngDiff;
 	size_t detsPerBlock;
 
 protected:

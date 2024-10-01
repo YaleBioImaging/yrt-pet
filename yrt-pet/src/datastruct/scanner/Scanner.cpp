@@ -45,7 +45,7 @@ void py_setup_scanner(pybind11::module& m)
 	c.def_readwrite("detsPerRing", &Scanner::detsPerRing);
 	c.def_readwrite("fwhm", &Scanner::fwhm);
 	c.def_readwrite("numRings", &Scanner::numRings);
-	c.def_readwrite("numDoi", &Scanner::numDoi);
+	c.def_readwrite("numDoi", &Scanner::numDOI);
 	c.def_readwrite("maxRingDiff", &Scanner::maxRingDiff);
 	c.def_readwrite("minAngDiff", &Scanner::minAngDiff);
 	c.def_readwrite("detsPerBlock", &Scanner::detsPerBlock);
@@ -88,7 +88,7 @@ Scanner::Scanner(std::string pr_scannerName, float p_axialFOV,
       energyLLD(400),
       detsPerRing(p_detsPerRing),
       numRings(p_numRings),
-      numDoi(p_numDOI),
+      numDOI(p_numDOI),
       maxRingDiff(p_maxRingDiff),
       minAngDiff(p_minAngDiff),
       detsPerBlock(p_detsPerBlock)
@@ -107,7 +107,7 @@ size_t Scanner::getNumDets() const
 
 size_t Scanner::getTheoreticalNumDets() const
 {
-	return numDoi * numRings * detsPerRing;
+	return numDOI * numRings * detsPerRing;
 }
 
 Vector3DFloat Scanner::getDetectorPos(det_id_t id) const
@@ -199,7 +199,7 @@ void Scanner::readFromString(const std::string& fileContents)
 	Util::getParam<size_t>(&j, &detsPerRing, {"dets_per_ring", "detsPerRing"},
 	                       0, true);
 	Util::getParam<size_t>(&j, &numRings, {"num_rings", "numRings"}, 0, true);
-	Util::getParam<size_t>(&j, &numDoi, {"num_doi", "numDOI"}, 0, true);
+	Util::getParam<size_t>(&j, &numDOI, {"num_doi", "numDOI"}, 0, true);
 	Util::getParam<size_t>(&j, &maxRingDiff, {"max_ring_diff", "maxRingDiff"},
 	                       0, true);
 	Util::getParam<size_t>(&j, &minAngDiff, {"min_ang_diff", "minAngDiff"}, 0,

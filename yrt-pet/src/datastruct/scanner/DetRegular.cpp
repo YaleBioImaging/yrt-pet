@@ -43,7 +43,7 @@ void DetRegular::generateLUT()
 		block_length = 2 * std::sqrt((std::pow(scanner_longerRadius, 2) -
 		                              std::pow(mp_scanner->scannerRadius, 2)));
 	}
-	for (size_t doi = 0; doi < mp_scanner->numDoi; doi++)
+	for (size_t doi = 0; doi < mp_scanner->numDOI; doi++)
 	{
 		float block_distance =
 		    mp_scanner->scannerRadius + mp_scanner->crystalDepth * doi;

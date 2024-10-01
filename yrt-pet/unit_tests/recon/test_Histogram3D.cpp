@@ -60,7 +60,7 @@ TEST_CASE("histo3d", "[histo]")
 	auto scanner = TestUtils::makeScanner();
 
 	size_t n_total_detectors =
-	    scanner->numDoi * scanner->numRings * scanner->detsPerRing;
+	    scanner->numDOI * scanner->numRings * scanner->detsPerRing;
 	auto histo3d = std::make_unique<Histogram3DOwned>(*scanner);
 
 	SECTION("histo3d-sizes")

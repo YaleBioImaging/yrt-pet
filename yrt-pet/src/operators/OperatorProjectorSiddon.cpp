@@ -264,7 +264,7 @@ void OperatorProjectorSiddon::project_helper(
 	double A = (p2.x - p1.x) * (p2.x - p1.x) + (p2.y - p1.y) * (p2.y - p1.y);
 	double B = 2.0 * ((p2.x - p1.x) * p1.x + (p2.y - p1.y) * p1.y);
 	double C =
-	    p1.x * p1.x + p1.y * p1.y - params.fov_radius * params.fov_radius;
+	    p1.x * p1.x + p1.y * p1.y - params.fovRadius * params.fovRadius;
 	double Delta = B * B - 4 * A * C;
 	if (A != 0.0)
 	{

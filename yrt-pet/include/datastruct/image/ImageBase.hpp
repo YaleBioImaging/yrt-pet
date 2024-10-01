@@ -18,21 +18,21 @@ public:
     int nx;
     int ny;
     int nz;
-    float length_x;
-    float length_y;
-    float length_z;
-    float off_x;
-    float off_y;
-    float off_z;
+    double length_x;
+    double length_y;
+    double length_z;
+    double off_x;
+    double off_y;
+    double off_z;
 
     // Automatically populated fields
-    float vx, vy, vz;
-    float fov_radius;
+    double vx, vy, vz;
+    double fovRadius;
 
     ImageParams();
-    ImageParams(int nxi, int nyi, int nzi, float length_xi, float length_yi,
-                float length_zi, float offset_xi = 0.,
-                float offset_yi = 0., float offset_zi = 0.);
+    ImageParams(int nxi, int nyi, int nzi, double length_xi, double length_yi,
+                double length_zi, double offset_xi = 0.,
+                double offset_yi = 0., double offset_zi = 0.);
     ImageParams(const ImageParams& in);
     ImageParams& operator=(const ImageParams& in);
     explicit ImageParams(const std::string& fname);
@@ -50,7 +50,7 @@ public:
     bool isValid() const;
 
 private:
-    static float readLengthFromJSON(nlohmann::json& j, const std::string& length_name, const std::string& v_name, int n);
+    static double readLengthFromJSON(nlohmann::json& j, const std::string& length_name, const std::string& v_name, int n);
 };
 
 class ImageBase : public Variable
@@ -60,7 +60,7 @@ public:
     ~ImageBase() override = default;
 
     // Common functions
-    float getRadius() const;
+    double getRadius() const;
     const ImageParams& getParams() const;
     void setParams(const ImageParams& newParams);
 

@@ -35,7 +35,7 @@ void py_setup_imageparams(py::module& m)
 {
 	auto c = py::class_<ImageParams>(m, "ImageParams");
 	c.def(py::init<>());
-	c.def(py::init<int, int, int, float, float, float, float, float, float>(),
+	c.def(py::init<int, int, int, double, double, double, double, double, double>(),
 	      py::arg("nx"), py::arg("ny"), py::arg("nz"), py::arg("length_x"),
 	      py::arg("length_y"), py::arg("length_z"), py::arg("offset_x") = 0.,
 	      py::arg("offset_y") = 0., py::arg("offset_z") = 0.);
@@ -57,7 +57,7 @@ void py_setup_imageparams(py::module& m)
 	c.def_readwrite("vx", &ImageParams::vx);
 	c.def_readwrite("vy", &ImageParams::vy);
 	c.def_readwrite("vz", &ImageParams::vz);
-	c.def_readwrite("fov_radius", &ImageParams::fov_radius);
+	c.def_readwrite("fov_radius", &ImageParams::fovRadius);
 
 	c.def("setup", &ImageParams::setup);
 	c.def("serialize", &ImageParams::serialize);
@@ -100,9 +100,9 @@ ImageParams::ImageParams()
 {
 }
 
-ImageParams::ImageParams(int nxi, int nyi, int nzi, float length_xi,
-                         float length_yi, float length_zi, float offset_xi,
-                         float offset_yi, float offset_zi)
+ImageParams::ImageParams(int nxi, int nyi, int nzi, double length_xi,
+                         double length_yi, double length_zi, double offset_xi,
+                         double offset_yi, double offset_zi)
     : nx(nxi),
       ny(nyi),
       nz(nzi),
@@ -148,11 +148,11 @@ ImageParams::ImageParams(const std::string& fname)
 
 void ImageParams::setup()
 {
-	vx = length_x / static_cast<float>(nx);
-	vy = length_y / static_cast<float>(ny);
-	vz = length_z / static_cast<float>(nz);
-	fov_radius = static_cast<float>(std::max(length_x / 2, length_y / 2));
-	fov_radius -= static_cast<float>(std::max(vx, vy) / 1000);
+	vx = length_x / static_cast<double>(nx);
+	vy = length_y / static_cast<double>(ny);
+	vz = length_z / static_cast<double>(nz);
+	fovRadius = static_cast<double>(std::max(length_x / 2, length_y / 2));
+	fovRadius -= static_cast<double>(std::max(vx, vy) / 1000);
 }
 
 void ImageParams::serialize(const std::string& fname) const
@@ -227,11 +227,11 @@ void ImageParams::readFromJSON(json& j)
 	    &j, &nz, "nz", 0, true,
 	    "Error in ImageParams file version : \'nz\' unspecified");
 
-	Util::getParam<float>(&j, &off_x, {"off_x", "offset_x"}, 0.0, false);
+	Util::getParam<double>(&j, &off_x, {"off_x", "offset_x"}, 0.0, false);
 
-	Util::getParam<float>(&j, &off_y, {"off_y", "offset_y"}, 0.0, false);
+	Util::getParam<double>(&j, &off_y, {"off_y", "offset_y"}, 0.0, false);
 
-	Util::getParam<float>(&j, &off_z, {"off_z", "offset_z"}, 0.0, false);
+	Util::getParam<double>(&j, &off_z, {"off_z", "offset_z"}, 0.0, false);
 
 	length_x = readLengthFromJSON(j, "length_x", "vx", nx);
 	length_y = readLengthFromJSON(j, "length_y", "vy", ny);
@@ -240,15 +240,15 @@ void ImageParams::readFromJSON(json& j)
 	setup();
 }
 
-float ImageParams::readLengthFromJSON(nlohmann::json& j,
+double ImageParams::readLengthFromJSON(nlohmann::json& j,
                                       const std::string& length_name,
                                       const std::string& v_name, int n)
 {
-	float given_v;
-	if (!Util::getParam<float>(&j, &given_v, v_name, -1.0, false))
+	double given_v;
+	if (!Util::getParam<double>(&j, &given_v, v_name, -1.0, false))
 	{
-		float length;
-		Util::getParam<float>(&j, &length, length_name, -1.0, true,
+		double length;
+		Util::getParam<double>(&j, &length, length_name, -1.0, true,
 		                      "You need to specify either the voxel size (vx, "
 		                      "vy or vz) or the length (length_x, length_y or "
 		                      "length_z) for all three dimensions.");
@@ -300,7 +300,7 @@ void ImageBase::setParams(const ImageParams& newParams)
 	m_params = newParams;
 }
 
-float ImageBase::getRadius() const
+double ImageBase::getRadius() const
 {
-	return m_params.fov_radius;
+	return m_params.fovRadius;
 }

@@ -75,8 +75,10 @@ Usage:
 
 ## Python interface
 
-Almost all the functions defined in the header files have an equivalent in a Python binding. A more thorough documentation is to be written in the future.
+Almost all the functions defined in the header files have an equivalent in a Python binding. A more thorough
+documentation is to be written in the future.
 You need to add the compilation folder to you `PYTHONPATH` environment variable:
+
 ```
 export PYTHONPATH=${PYTHONPATH}:<compilation folder>
 ```
@@ -93,6 +95,7 @@ Most binary files are either raw binary files without header (legacy mode)
 or follow the YRT-PET raw data format.
 
 ### YRT-PET raw data format
+
 The YRT-PET format is defined as follows:
 
     MAGIC NUMBER (int32): 732174000 in decimal, used to detect YRT-PET file type
@@ -105,11 +108,10 @@ The YRT-PET format is defined as follows:
 
 Notes:
 
--   The data format is arbitrary and must be known when reading a data file.  For
-    instance, images are stored in `float64`.
--   The dimensions are ordered with the contiguous dimension last (e.g. Z, Y, X
-    following usual conventions).
-
+- The data format is arbitrary and must be known when reading a data file. For
+  instance, images are stored in `float64`.
+- The dimensions are ordered with the contiguous dimension last (e.g. Z, Y, X
+  following usual conventions).
 
 ### Scanner parameter file
 
@@ -118,153 +120,159 @@ Here is, as an example, the SAVANT parameters file.
 
 ```JSON
 {
-        "VERSION" : 3.0,
-        "scannerName" : "SAVANT",
-        "detCoord" : "SAVANT.lut",
-        "axialFOV" : 235,
-        "crystalSize_z" : 1.1,
-        "crystalSize_trans" : 1.1,
-        "crystalDepth" : 6,
-        "scannerRadius" : 197.4,
-        "fwhm" : 0.2,
-        "energyLLD" : 400,
-        "collimatorRadius" : 167.4,
-        "dets_per_ring" : 896,
-        "num_rings" : 144,
-        "num_doi" : 2,
-        "max_ring_diff" : 24,
-        "min_ang_diff" : 238,
-        "dets_per_block" : 8
+  "VERSION": 3.0,
+  "scannerName": "SAVANT",
+  "detCoord": "SAVANT.lut",
+  "axialFOV": 235,
+  "crystalSize_z": 1.1,
+  "crystalSize_trans": 1.1,
+  "crystalDepth": 6,
+  "scannerRadius": 197.4,
+  "fwhm": 0.2,
+  "energyLLD": 400,
+  "collimatorRadius": 167.4,
+  "dets_per_ring": 896,
+  "num_rings": 144,
+  "num_doi": 2,
+  "max_ring_diff": 24,
+  "min_ang_diff": 238,
+  "dets_per_block": 8
 }
 ```
+
 The file specified at the `detCoord` field is the Scanner's Look-Up-Table specified below.
 
 ### Detector coordinates (`DetCoord`)
 
-The `detCoord` value in the scanner definition allows to provide a Look-Up-Table decribing each detector's coordinates and orientation, ordered by ID.
+The `detCoord` value in the scanner definition allows to provide a Look-Up-Table decribing each detector's coordinates
+and orientation, ordered by ID.
 The detectors order must follow the following rules:
+
 * If a scanner has several layers of crystals, the detectors closest to center must be listed first
 * If the scanner has several rings, the detectors must be sorted by ascending order of z-coordinates
 * Within a ring, the detectors must be sorted counter-clockwise (in a cartesian plane)
 * The scanner definition must match the LUT (num_doi, num_rings, dets_per_ring)
-The file contains no header and, for each detector, the x, y, z position and x,
-y, z components of the normal orientation vector, all stored in `float32` format (4 bytes).
-The total file size is \(N_d \times 6 \times 4\) bytes where \(N_d\) is the total
-number of detectors. Note that all the values are in mm.
+  The file contains no header and, for each detector, the x, y, z position and x,
+  y, z components of the normal orientation vector, all stored in `float32` format (4 bytes).
+  The total file size is \(N_d \times 6 \times 4\) bytes where \(N_d\) is the total
+  number of detectors. Note that all the values are in mm.
 
-    Detector 0 position x (float32)
-    Detector 0 position y (float32)
-    Detector 0 position z (float32)
-    Detector 0 orientation x (float32)
-    Detector 0 orientation y (float32)
-    Detector 0 orientation z (float32)
-    Detector 1 position x (float32)
-    ...
-The file extension used is `.lut`.
+  Detector 0 position x (float32)
+  Detector 0 position y (float32)
+  Detector 0 position z (float32)
+  Detector 0 orientation x (float32)
+  Detector 0 orientation y (float32)
+  Detector 0 orientation z (float32)
+  Detector 1 position x (float32)
+  ...
+  The file extension used is `.lut`.
 
 ### Image (`Image`)
 
 Images are stored in YRT-PET raw data format (i.e. with the header described
-[earlier](#yrt-pet_raw_data_format)).  Images are currently stored as
-`float64` although this is likely to change in the future.
+[earlier](#yrt-pet-raw-data-format)). Images are currently stored as
+64-bin floating point numbers although this is likely to change in the future.
 The file extension used is `.img`.
 
 ### Listmode (``ListmodeLUT``)
 
-The listmode file is a record of all the events to be considered for the reconstruction. It is similar to the Histogram as it has all the same fields, except for the Value (which is considered to be 1.0 in all listmode events)
+The listmode file is a record of all the events to be considered for the reconstruction. It is similar to the Histogram
+as it has all the same fields, except for the Value (which is considered to be 1.0 in all listmode events)
 
     Timestamp for Event 0 (s) (float32)
     Detector1 of the Event 0 (int)
     Detector2 of the Event 0 (int)
     Timestamp for Event 1 (s) (float32)
     ...
+
 The file extension used is `.lmDat`.
 
 ### Histogram (`Histogram3D`)
 
-Histograms are in YRT-PET raw data format (described earlier). They are stored as `float32`. The histogram's dimensions are defined by the scanner properties defined in the `json` file decribed earlier.
+Histograms are in YRT-PET raw data format (described earlier). They are stored as `float32`. The histogram's dimensions
+are defined by the scanner properties defined in the `json` file decribed earlier.
 The file extension used is `.his`.
 
 ### Image parameters file
 
 Images require a side configuration file which describes the physical
-coordinates of the volume.  The configuration is in `json` format.
+coordinates of the volume. The configuration is in `json` format.
 An example is provided here for reference. Note that the values are all in mm.
+
 ```JSON
     {
-        "VERSION": 1.0,
-        "nx": 250,
-        "ny": 250,
-        "nz": 118,
-        "length_x": 250.0,
-        "length_y": 250.0,
-        "length_z": 235.0,
-        "off_x": 0.0,
-        "off_y": 0.0,
-        "off_z": 0.0
-    }
+  "VERSION": 1.0,
+  "nx": 250,
+  "ny": 250,
+  "nz": 118,
+  "length_x": 250.0,
+  "length_y": 250.0,
+  "length_z": 235.0,
+  "off_x": 0.0,
+  "off_y": 0.0,
+  "off_z": 0.0
+}
 ```
-Note that the offset entries are currently ignored by the code, this might change in the future.
 
+Note that the offset entries are currently ignored by the code, this might change in the future.
 
 # Setup
 
 To start working on the code,
 
--   clone this repository,
--   compile the reconstruction engine,
--   start modifying the code,
--   add tests,
--   submit pull requests to merge the modified code to the `main` branch.
+- clone this repository,
+- compile the reconstruction engine,
+- start modifying the code,
+- add tests,
+- submit pull requests to merge the modified code to the `main` branch.
 
 ## Conventions
 
-
 ### Git
 
--   The main branch is the stable branch of the project, it is designed to
-    remain "clean" (i.e. tested and documented).
--   Work on the project should be performed on *branches*.  A branch is created
-    for each feature, bug, etc. and progress is committed on that branch.
--   Once the work is ready to *merge* (i.e. the code is complete, tested and
-    documented) it can be submitted for review: the process is called *merge
-    request*.  Follow Github's instructions to submit a pull request.
--   The request is then reviewed by one of the project's maintainers.  After
-    discussions, it should eventually be merged to the main branch by the
-    maintainer.
--   The branch on which the work was performed can then be deleted (the history is
-    preserved).  The branch commits will be squashed before the merge (this can
-    be done in Github's web interface).
--   If the main branch has changed between the beginning of the work and the
-    pull request submission, the branch should be *rebased* to the main branch
-    (in practice, tests should be run after a rebase to avoid potential
-    regressions).
-    -   In some cases, unexpected rebase are reported (for instance if the history
-        is A&#x2013;B&#x2013;C and B is merged to A, a later rebase of C to A may cause
-        conflicts that should not exist). In such cases, two fixes are possible:
-        - Launching an interactive rebase (`git rebase -i <main branch>`) and dropping the commits that would be duplicated.
-        - Using `git merge <main branch>`
-    -   After a rebase, `git push` by default will not allow an update that is not `fast-forward`
-        with the corresponding remote branch, causing an error when trying to push.
-        `git push --force-with-lease` can be used to force a push while checking that the remote branch has not changed. Note that this will lose history
-
+- The main branch is the stable branch of the project, it is designed to
+  remain "clean" (i.e. tested and documented).
+- Work on the project should be performed on *branches*. A branch is created
+  for each feature, bug, etc. and progress is committed on that branch.
+- Once the work is ready to *merge* (i.e. the code is complete, tested and
+  documented) it can be submitted for review: the process is called *merge
+  request*. Follow Github's instructions to submit a pull request.
+- The request is then reviewed by one of the project's maintainers. After
+  discussions, it should eventually be merged to the main branch by the
+  maintainer.
+- The branch on which the work was performed can then be deleted (the history is
+  preserved). The branch commits will be squashed before the merge (this can
+  be done in Github's web interface).
+- If the main branch has changed between the beginning of the work and the
+  pull request submission, the branch should be *rebased* to the main branch
+  (in practice, tests should be run after a rebase to avoid potential
+  regressions).
+    - In some cases, unexpected rebase are reported (for instance if the history
+      is A&#x2013;B&#x2013;C and B is merged to A, a later rebase of C to A may cause
+      conflicts that should not exist). In such cases, two fixes are possible:
+        - Launching an interactive rebase (`git rebase -i <main branch>`) and dropping the commits that would be
+          duplicated.
+    - After a rebase, `git push` by default will not allow an update that is not `fast-forward`
+      with the corresponding remote branch, causing an error when trying to push.
+      `git push --force-with-lease` can be used to force a push while checking that the remote branch has not changed.
+      Note that this will lose history
 
 ### Coding conventions
 
 This section will contain guidelines for writing code, once agreed upon by the
-members of the team.  As a starting point `clang-format` is used with a
+members of the team. As a starting point `clang-format` is used with a
 configuration file stored in the repository at `src/.clang-format`
 
 ## Testing
 
 There are two types of tests available, unit tests and integration tests.
 
--   Unit tests are short validation programs that check the operation of
-    individual modules.  To run the unit test suite, simply run `make test` after
-    compiling (with `make`).
--   To run the integration tests,
+- Unit tests are short validation programs that check the operation of
+  individual modules. To run the unit test suite, simply run `make test` after
+  compiling (with `make`).
+- To run the integration tests,
     - The following environment variables have to be set:
-        - `GCRECONTESTS_FOLD_DATA` which refers to the path where the test files are located.
-        - `GCRECONTESTS_FOLD_OUT` which refers to where output files are to be written.
+        - `YRTPET_TESTS_DATA` which refers to the path where the test files are located.
+        - `YRTPET_TESTS_OUT` which refers to where output files are to be written.
     - Run `pytest <build folder>/integration_tests/test_recon.py`
         - Optionally, Use the `-k` option to restrict the tests wanted

@@ -10,8 +10,8 @@ import pyyrtpet as yrt
 
 # %% Test folders
 def get_test_folders():
-    fold_data = os.getenv('GCRECONTESTS_FOLD_DATA')
-    fold_out = os.getenv('GCRECONTESTS_FOLD_OUT')
+    fold_data = os.getenv('YRTPET_TESTS_DATA')
+    fold_out = os.getenv('YRTPET_TESTS_OUT')
     fold_bin = os.path.join(os.path.dirname(__file__), '../executables')
     return fold_data, fold_out, fold_bin
 

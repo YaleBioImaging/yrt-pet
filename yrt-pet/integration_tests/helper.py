@@ -10,10 +10,17 @@ import pyyrtpet as yrt
 
 # %% Test folders
 def get_test_folders():
-    fold_data = os.getenv('YRTPET_TEST_DATA')
-    fold_out = os.getenv('YRTPET_TEST_OUT')
+    env_data = "YRTPET_TEST_DATA"
+    env_out = "YRTPET_TEST_OUT"
+
+    fold_data_from_env = os.getenv(env_data)
+    fold_out_from_env = os.getenv(env_out)
+    if fold_data_from_env is None or fold_out_from_env is None:
+        raise RuntimeError("environment variables " + env_data
+                           + " and " + env_out + " need to be set")
+
     fold_bin = os.path.join(os.path.dirname(__file__), '../executables')
-    return fold_data, fold_out, fold_bin
+    return fold_data_from_env, fold_out_from_env, fold_bin
 
 
 # %% Helper test functions
@@ -134,8 +141,8 @@ def get_test_summary(x0, x1):
     x0_mean = np.mean(x0)
     x0_median = np.median(x0)
 
-    rmse = np.sqrt(np.mean((x0 - x1) ** 2))
-    nrmse = rmse / np.sqrt(np.mean(x0 ** 2))
+    rmse = np.sqrt(np.mean((x0 - x1)**2))
+    nrmse = rmse / np.sqrt(np.mean(x0**2))
     linf = np.max(np.abs(x0 - x1))
     npix_diff = np.size(np.nonzero(x0 != x1)[0])
     return {'x0_max': x0_max,
@@ -162,6 +169,7 @@ def get_rmse(x0, x1):
 def get_nrmse(x0, x1):
     rmse = get_rmse(x0, x1)
     return rmse / np.sqrt(np.mean(x0**2))
+
 
 # %% Datasets
 
@@ -213,11 +221,11 @@ out_paths = {'test_mlem_simple': 'test_mlem_simple.img',
                                   ['UHR2D-SensImg-5Subsets_subset' + str(i) +
                                    '.img' for i in range(5)]],
              'test_dd_cpu_gpu_similarity':
-             ['test_dd_cpu.img', 'test_dd_gpu.img',
-              'test_dd_cpu_sens.img', 'test_dd_gpu_sens.img'],
+                 ['test_dd_cpu.img', 'test_dd_gpu.img',
+                  'test_dd_cpu_sens.img', 'test_dd_gpu_sens.img'],
              'test_dd_cpu_gpu_similarity_exec':
-             ['test_dd_cpu_exec.img', 'test_dd_gpu_exec.img',
-              'test_dd_cpu_sens_exec.img', 'test_dd_gpu_sens_exec.img'],
+                 ['test_dd_cpu_exec.img', 'test_dd_gpu_exec.img',
+                  'test_dd_cpu_sens_exec.img', 'test_dd_gpu_sens_exec.img'],
              'test_osem_siddon_multi_ray': 'test_osem_siddon_multi_ray.img'}
 
 ref_paths = {'test_mlem_simple': 'test_mlem_simple_ref.img',

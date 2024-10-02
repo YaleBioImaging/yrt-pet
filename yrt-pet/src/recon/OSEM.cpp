@@ -581,6 +581,9 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 
 	endRecon();
 
+	// Deallocate the copied sensitivity image if it was allocated
+	copiedSensitivityImage = nullptr;
+
 	if (!out_fname.empty())
 	{
 		std::cout << "Saving image..." << std::endl;

@@ -171,7 +171,7 @@ The detectors order must follow the following rules:
 
 Images are stored in YRT-PET raw data format (i.e. with the header described
 [earlier](#yrt-pet-raw-data-format)). Images are currently stored as
-64-bin floating point numbers although this is likely to change in the future.
+64-bit floating point numbers although this is likely to change in the future.
 The file extension used is `.img`.
 
 ### Listmode (``ListmodeLUT``)

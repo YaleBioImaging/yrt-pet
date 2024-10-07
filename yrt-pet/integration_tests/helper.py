@@ -16,8 +16,12 @@ def get_test_folders():
     fold_data_from_env = os.getenv(env_data)
     fold_out_from_env = os.getenv(env_out)
     if fold_data_from_env is None or fold_out_from_env is None:
-        raise RuntimeError("environment variables " + env_data
+        raise RuntimeError("Environment variables " + env_data
                            + " and " + env_out + " need to be set")
+    if not os.path.exists(fold_data_from_env):
+        raise RuntimeError("Path specified by " + env_data + " does not exist.")
+    if not os.path.exists(fold_out_from_env):
+        os.mkdir(fold_out_from_env)
 
     fold_bin = os.path.join(os.path.dirname(__file__), '../executables')
     return fold_data_from_env, fold_out_from_env, fold_bin

@@ -41,10 +41,10 @@ def test_scanner_lookup_table():
 def test_image_transform():
 
     min_val, max_val = 1, 10
-    def resample(sample): return (max_val - min_val) * sample + min_val
+    def rescale(sample): return (max_val - min_val) * sample + min_val
 
     # Simple translation
-    x = resample(np.random.random([12, 13, 14]))
+    x = rescale(np.random.random([12, 13, 14]))
     img_params = yrt.ImageParams(14, 13, 12, 28.0, 26.0, 24.0)
     img = yrt.ImageAlias(img_params)
     img.bind(x)
@@ -54,7 +54,7 @@ def test_image_transform():
     x_t = np.array(img_t, copy=False)
     np.testing.assert_allclose(x[..., :-1], x_t[..., 1:], rtol=9e-6)
     # Simple rotation
-    x = resample(np.random.random([14, 12, 12]))
+    x = rescale(np.random.random([14, 12, 12]))
     img_params = yrt.ImageParams(12, 12, 14, 26.0, 26.0, 28.0)
     img = yrt.ImageAlias(img_params)
     img.bind(x)

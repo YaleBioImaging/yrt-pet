@@ -21,23 +21,23 @@ void py_setup_biniterator(py::module& m)
 	c.def("size", &BinIterator::size);
 
 	auto c_range =
-		py::class_<BinIteratorRange, BinIterator>(m, "BinIteratorRange");
+	    py::class_<BinIteratorRange, BinIterator>(m, "BinIteratorRange");
 	c_range.def(py::init<bin_t>());
-	c_range.def(py::init<bin_t, bin_t, bin_t>()); // add default argument
+	c_range.def(py::init<bin_t, bin_t, bin_t>());  // add default argument
 	c_range.def(py::init<std::tuple<bin_t, bin_t, bin_t>>());
 
-	auto c_vector = py::class_<BinIteratorVector, BinIterator>(
-		m, "BinIteratorVector");
+	auto c_vector =
+	    py::class_<BinIteratorVector, BinIterator>(m, "BinIteratorVector");
 	c_vector.def(py::init(
-		[](const std::vector<bin_t>& vec)
-		{
-			auto idxs = std::make_unique<std::vector<bin_t>>(vec);
-			return BinIteratorVector(idxs);
-		}));
+	    [](const std::vector<bin_t>& vec)
+	    {
+		    auto idxs = std::make_unique<std::vector<bin_t>>(vec);
+		    return BinIteratorVector(idxs);
+	    }));
 
 	auto c_chronological =
-		py::class_<BinIteratorChronological, BinIteratorRange>(
-			m, "BinIteratorChronological");
+	    py::class_<BinIteratorChronological, BinIteratorRange>(
+	        m, "BinIteratorChronological");
 	c_chronological.def(py::init<bin_t, bin_t, bin_t>());
 }
 #endif
@@ -47,27 +47,31 @@ bin_t BinIterator::get(bin_t idx) const
 	if (idx >= size())
 	{
 		throw std::range_error(
-			"The idx given does not exist in the range of the BinIterator");
+		    "The idx given does not exist in the range of the BinIterator");
 	}
 	return getSafe(idx);
 }
 
 BinIteratorRange::BinIteratorRange(bin_t num)
-	: m_idxStart(0),
-	  m_idxEnd(num - 1),
-	  m_idxStride(1) {}
+    : m_idxStart(0), m_idxEnd(num - 1), m_idxStride(1)
+{
+}
 
 BinIteratorRange::BinIteratorRange(bin_t p_idxStart, bin_t p_idxEnd,
                                    bin_t p_idxStride)
-	: m_idxStart(p_idxStart),
-	  m_idxEnd(getIdxEnd(p_idxStart, p_idxEnd, p_idxStride)),
-	  m_idxStride(p_idxStride) {}
+    : m_idxStart(p_idxStart),
+      m_idxEnd(getIdxEnd(p_idxStart, p_idxEnd, p_idxStride)),
+      m_idxStride(p_idxStride)
+{
+}
 
 BinIteratorRange::BinIteratorRange(std::tuple<bin_t, bin_t, bin_t> info)
-	: m_idxStart(std::get<0>(info)),
-	  m_idxEnd(
-		  getIdxEnd(std::get<0>(info), std::get<1>(info), std::get<2>(info))),
-	  m_idxStride(std::get<2>(info)) {}
+    : m_idxStart(std::get<0>(info)),
+      m_idxEnd(
+          getIdxEnd(std::get<0>(info), std::get<1>(info), std::get<2>(info))),
+      m_idxStride(std::get<2>(info))
+{
+}
 
 bin_t BinIteratorRange::getIdxEnd(bin_t idxStart, bin_t idxEnd, bin_t stride)
 {
@@ -96,10 +100,12 @@ size_t BinIteratorRange::size() const
 
 BinIteratorRange2D::BinIteratorRange2D(bin_t p_idxStart, bin_t p_numSlices,
                                        bin_t p_sliceSize, bin_t p_idxStride)
-	: m_idxStart(p_idxStart),
-	  m_numSlices(p_numSlices),
-	  m_sliceSize(p_sliceSize),
-	  m_idxStride(p_idxStride) {}
+    : m_idxStart(p_idxStart),
+      m_numSlices(p_numSlices),
+      m_sliceSize(p_sliceSize),
+      m_idxStride(p_idxStride)
+{
+}
 
 bin_t BinIteratorRange2D::begin() const
 {
@@ -124,19 +130,19 @@ bin_t BinIteratorRange2D::getSafe(bin_t idx) const
 }
 
 BinIteratorRangeHistogram3D::BinIteratorRangeHistogram3D(size_t p_numZBin,
-	size_t p_numPhi,
-	size_t p_numR,
-	int p_numSubsets,
-	int p_idxSubset)
-	: m_numZBin(p_numZBin),
-	  m_numPhi(p_numPhi),
-	  m_numR(p_numR),
-	  m_numSubsets(p_numSubsets),
-	  m_idxSubset(p_idxSubset)
+                                                         size_t p_numPhi,
+                                                         size_t p_numR,
+                                                         int p_numSubsets,
+                                                         int p_idxSubset)
+    : m_numZBin(p_numZBin),
+      m_numPhi(p_numPhi),
+      m_numR(p_numR),
+      m_numSubsets(p_numSubsets),
+      m_idxSubset(p_idxSubset)
 {
 	m_phiStride = m_numSubsets;
 	m_phi0 = m_idxSubset;
-	m_numPhiSubset = m_numPhi / m_numSubsets; // Number of rs in the subset
+	m_numPhiSubset = m_numPhi / m_numSubsets;  // Number of rs in the subset
 	// In the case that we would miss some bins because of the "floor" division
 	// above
 	if (m_phi0 + m_numPhiSubset * m_phiStride < m_numPhi)
@@ -172,13 +178,13 @@ bin_t BinIteratorRangeHistogram3D::getSafe(bin_t idx) const
 	bin_t z_bin = idx / (m_numPhiSubset * m_numR);
 	bin_t phi = (idx % (m_numPhiSubset * m_numR)) / m_numR;
 	bin_t r = (idx % (m_numPhiSubset * m_numR)) % m_numR;
-	phi = m_phiStride * phi + m_phi0; // scale and shift the phi coordinate
+	phi = m_phiStride * phi + m_phi0;  // scale and shift the phi coordinate
 	return z_bin * m_numPhi * m_numR + phi * m_numR + r;
 }
 
 
 BinIteratorVector::BinIteratorVector(
-	std::unique_ptr<std::vector<bin_t>>& p_idxList)
+    std::unique_ptr<std::vector<bin_t>>& p_idxList)
 {
 	m_idxList = std::move(p_idxList);
 }
@@ -207,17 +213,18 @@ size_t BinIteratorVector::size() const
 BinIteratorChronological::BinIteratorChronological(bin_t p_numSubsets,
                                                    bin_t p_numEvents,
                                                    bin_t p_idxSubset)
-	: BinIteratorRange(
-		getSubsetRange(p_numSubsets, p_numEvents, p_idxSubset)) {}
+    : BinIteratorRange(getSubsetRange(p_numSubsets, p_numEvents, p_idxSubset))
+{
+}
 
 std::tuple<bin_t, bin_t, bin_t>
-	BinIteratorChronological::getSubsetRange(bin_t numSubsets,
-	                                         bin_t numEvents, bin_t idxSubset)
+    BinIteratorChronological::getSubsetRange(bin_t numSubsets, bin_t numEvents,
+                                             bin_t idxSubset)
 {
 	if (idxSubset > numSubsets)
 	{
 		throw std::invalid_argument("The number of subsets has to be higher "
-			"than the desired subset index.");
+		                            "than the desired subset index.");
 	}
 	const bin_t rest = numEvents % numSubsets;
 
@@ -228,7 +235,7 @@ std::tuple<bin_t, bin_t, bin_t>
 	{
 		// the last numBins % numSubsets are added here
 		idxEnd =
-			(((numEvents - rest) * (idxSubset + 1)) / numSubsets + rest) - 1;
+		    (((numEvents - rest) * (idxSubset + 1)) / numSubsets + rest) - 1;
 	}
 	else
 	{

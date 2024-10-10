@@ -10,6 +10,7 @@
 #include "datastruct/scanner/Scanner.hpp"
 #include "utils/ReconstructionUtils.hpp"
 
+#include <algorithm>
 
 #if BUILD_PYBIND11
 #include <pybind11/pybind11.h>

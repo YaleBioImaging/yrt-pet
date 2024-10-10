@@ -11,11 +11,10 @@
 #include <memory>
 
 
-// A Class that stores projection values, but does not
-// store the lines associated to each one.
-// Instead, it uses a reference projection class to get the line.
-// Useful for temporary projections where you don't want to necessarily
-// copy all the detector coordinates in your list-mode/histogram.
+// A Class that stores projection values, but does not store the lines
+// associated to each one.  Instead, it uses a reference projection instance to
+// get the line.  Can be used to store weights associated with projection data,
+// without storing lines-of-response explicitly.
 
 class ProjectionList : public ProjectionData
 {
@@ -31,7 +30,7 @@ public:
 	det_pair_t getDetectorPair(bin_t evId) const override;
 	histo_bin_t getHistogramBin(bin_t id) const override;
 	std::unique_ptr<BinIterator> getBinIter(int numSubsets,
-	                                          int idxSubset) const override;
+	                                        int idxSubset) const override;
 	frame_t getFrame(bin_t id) const override;
 	timestamp_t getTimestamp(bin_t id) const override;
 	size_t getNumFrames() const override;

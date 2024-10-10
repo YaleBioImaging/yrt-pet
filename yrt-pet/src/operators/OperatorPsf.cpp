@@ -21,13 +21,15 @@ void py_setup_operatorpsf(py::module& m)
 	c.def("readFromFile", &OperatorPsf::readFromFile);
 	c.def("convolve", &OperatorPsf::convolve);
 	c.def(
-	    "applyA", [](OperatorPsf& self, const Image* img_in, Image* img_out)
-	    { self.applyA(img_in, img_out); }, py::arg("img_in"),
-	    py::arg("img_out"));
+	    "applyA",
+	    [](OperatorPsf& self, const Image* img_in, Image* img_out)
+	    { self.applyA(img_in, img_out); },
+	    py::arg("img_in"), py::arg("img_out"));
 	c.def(
-	    "applyAH", [](OperatorPsf& self, const Image* img_in, Image* img_out)
-	    { self.applyAH(img_in, img_out); }, py::arg("img_in"),
-	    py::arg("img_out"));
+	    "applyAH",
+	    [](OperatorPsf& self, const Image* img_in, Image* img_out)
+	    { self.applyAH(img_in, img_out); },
+	    py::arg("img_in"), py::arg("img_out"));
 }
 #endif
 
@@ -43,7 +45,7 @@ OperatorPsf::OperatorPsf(const ImageParams& img_params)
 }
 
 OperatorPsf::OperatorPsf(const ImageParams& img_params,
-                             const std::string& image_space_psf_filename)
+                         const std::string& image_space_psf_filename)
     : OperatorPsf(img_params)
 {
 	readFromFile(image_space_psf_filename);
@@ -110,9 +112,9 @@ void OperatorPsf::applyAH(const Variable* in, Variable* out)
 }
 
 void OperatorPsf::convolve(const Image* in, Image* out,
-                             const std::vector<float>& KernelX,
-                             const std::vector<float>& KernelY,
-                             const std::vector<float>& KernelZ) const
+                           const std::vector<float>& KernelX,
+                           const std::vector<float>& KernelY,
+                           const std::vector<float>& KernelZ) const
 {
 	// kernel size must always be an odd number and must have same size in all 3
 	// dimensions

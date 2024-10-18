@@ -11,10 +11,10 @@
 
 #include <unordered_map>
 
-class SparseHistogram : public Histogram
+class SparseHistogram final : public Histogram
 {
 public:
-	SparseHistogram(const Scanner& pr_scanner);
+	explicit SparseHistogram(const Scanner& pr_scanner);
 	SparseHistogram(const Scanner& pr_scanner, const std::string& filename);
 	SparseHistogram(const Scanner& pr_scanner,
 	                  const ProjectionData& pr_projData,
@@ -81,5 +81,4 @@ private:
 	    m_detectorMap;
 	std::vector<det_pair_t> m_detPairs;
 	std::vector<float> m_projValues;
-	const Scanner& mr_scanner;
 };

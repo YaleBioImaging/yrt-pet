@@ -174,7 +174,7 @@ void Kernel::build_K_full(float* x, float* k, int* k_i, int* k_j, size_t nz,
 		for (size_t j = 0; j < numPixels; j++)
 		{
 			float v1 = x[j];
-			float d = fabs(v0 - v1);
+			float d = std::abs(v0 - v1);
 			if ((int)n_list.size() < num_k)
 			{
 				n_list.push(std::pair<size_t, float>(j, d));

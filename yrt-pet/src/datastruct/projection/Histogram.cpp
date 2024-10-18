@@ -13,3 +13,5 @@ void py_setup_histogram(py::module& m)
 	auto c = py::class_<Histogram, ProjectionData>(m, "Histogram");
 }
 #endif
+
+Histogram::Histogram(const Scanner& pr_scanner) : ProjectionData{pr_scanner} {}

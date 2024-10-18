@@ -38,7 +38,9 @@ namespace Util
 	void gauss1DKernelFill(Array1DBase<T>& kernel);
 
 	// Complementary error function
-	double erfc(double x);
+	template<typename TFloat>
+	TFloat erfc(TFloat x);
+
 	std::string addBeforeExtension(const std::string& fname,
 	                               const std::string& addition);
 
@@ -84,8 +86,5 @@ namespace Util
 	{
 		return exp(-proj * unitFactor);
 	}
-
-	float calculateIntegral(const float* kernel, int kernelSize,
-	                        float kernelStep, float x0, float x1);
 
 }  // namespace Util

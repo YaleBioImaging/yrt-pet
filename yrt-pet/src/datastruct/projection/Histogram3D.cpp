@@ -14,7 +14,6 @@ void py_setup_histogram3d(pybind11::module& m)
 {
 	auto c = py::class_<Histogram3D, Histogram>(m, "Histogram3D",
 	                                            py::buffer_protocol());
-	c.def("getScanner", &Histogram3D::getScanner);
 	c.def_readonly("numZBin", &Histogram3D::numZBin);
 	c.def_readonly("numPhi", &Histogram3D::numPhi);
 	c.def_readonly("numR", &Histogram3D::numR);
@@ -28,6 +27,8 @@ void py_setup_histogram3d(pybind11::module& m)
 		                           d.getDims(), d.getStrides());
 	    });
 	c.def("writeToFile", &Histogram3D::writeToFile);
+	c.def("getShape", [](const Histogram3D& self)
+	      { return py::make_tuple(self.numZBin, self.numPhi, self.numR); });
 	c.def("getBinIdFromCoords", &Histogram3D::getBinIdFromCoords);
 	c.def("getCoordsFromBinId",
 	      [](const Histogram3D& self, size_t binId)
@@ -81,6 +82,7 @@ void py_setup_histogram3d(pybind11::module& m)
 		      return py::make_tuple(r, phi, z_bin);
 	      });
 	c.def("getBinIdFromDetPair", &Histogram3D::getBinIdFromDetPair);
+	c.def("incrementProjection", &Histogram3D::incrementProjection);
 	c.def(
 	    "getZ1Z2",
 	    [](const Histogram3D& self, coord_t z_bin)
@@ -139,8 +141,10 @@ void py_setup_histogram3d(pybind11::module& m)
 #endif
 
 Histogram3D::Histogram3D(const Scanner& pr_scanner)
-    : mp_data(nullptr), mr_scanner(pr_scanner)
+    : Histogram{pr_scanner}, mp_data(nullptr)
 {
+	// LIMITATION: mr_scanner.minAngDiff has to be an even number for the
+	// histogram to be properly defined
 	m_rCut = mr_scanner.minAngDiff / 2;
 	m_numDOIPoss = mr_scanner.numDOI * mr_scanner.numDOI;
 
@@ -438,17 +442,17 @@ void Histogram3D::getCoordsInSameRing(det_id_t d1_ring, det_id_t d2_ring,
 
 float Histogram3D::getProjectionValue(bin_t binId) const
 {
-	return mp_data->get_flat(binId);
+	return mp_data->getFlat(binId);
 }
 
 void Histogram3D::setProjectionValue(bin_t binId, float val)
 {
-	mp_data->set_flat(binId, val);
+	mp_data->setFlat(binId, val);
 }
 
 void Histogram3D::incrementProjection(bin_t binId, float val)
 {
-	mp_data->increment_flat(binId, val);
+	mp_data->incrementFlat(binId, val);
 }
 
 det_id_t Histogram3D::getDetector1(bin_t evId) const

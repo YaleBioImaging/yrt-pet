@@ -33,7 +33,7 @@ private:
 	// List of private function
 	// Implementation of the parent virtual methods.
 	void initWarpModeSpecificParameters() override;
-	void Reset() override;
+	void reset() override;
 	void warp(Image* image, int motionFrameId) const override;
 	void inverseWarp(Image* image, int motionFrameId) const override;
 	void setFrameWarpParameters(int motionFrameId,

@@ -9,6 +9,6 @@ define_target_exe(yrtpet_convert_to_histogram conversion/ConvertToHistogram.cpp 
 define_target_exe(yrtpet_cumulate_histograms conversion/CumulateHistograms.cpp PluginOptionsHelper.cpp)
 define_target_exe(yrtpet_histogram_to_listmode conversion/Histogram3DToListMode.cpp)
 
-define_target_exe(yrtpet_prepare_scatter_correction scatter/PrepareScatterCorrection.cpp)
+define_target_exe(yrtpet_prepare_additive_correction scatter/PrepareAdditiveCorrection.cpp)
 
 define_target_exe(yrtpet_build_k kernel/BuildK.cpp)

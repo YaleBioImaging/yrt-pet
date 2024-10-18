@@ -5,6 +5,7 @@
 
 #include "datastruct/projection/ProjectionData.hpp"
 
+#include "geometry/Matrix.hpp"
 #include "utils/Globals.hpp"
 
 #include <stdexcept>
@@ -17,6 +18,7 @@ namespace py = pybind11;
 void py_setup_projectiondata(py::module& m)
 {
 	auto c = py::class_<ProjectionData, Variable>(m, "ProjectionData");
+	c.def("getScanner", &ProjectionData::getScanner);
 	c.def("count", &ProjectionData::count);
 	c.def("getProjectionValue", &ProjectionData::getProjectionValue);
 	c.def("setProjectionValue", &ProjectionData::setProjectionValue);
@@ -50,17 +52,22 @@ void py_setup_projectiondata(py::module& m)
 	c.def("getArbitraryLOR",
 	      [](const ProjectionData& self, bin_t bin)
 	      {
-		      line_t l = self.getArbitraryLOR(bin);
+		      Line3D l = self.getArbitraryLOR(bin);
 		      // Return the raw data
-		      return py::make_tuple(l.x1, l.y1, l.z1, l.x2, l.y2, l.z2);
+		      return py::make_tuple(l.point1.x, l.point1.y, l.point1.z,
+		                            l.point2.x, l.point2.y, l.point2.z);
 	      });
 	c.def("divideMeasurements", &ProjectionData::divideMeasurements);
 }
 
 #endif  // if BUILD_PYBIND11
 
-void ProjectionData::operationOnEachBin(
-    const std::function<float(bin_t)>& func)
+ProjectionData::ProjectionData(const Scanner& pr_scanner)
+    : mr_scanner(pr_scanner)
+{
+}
+
+void ProjectionData::operationOnEachBin(const std::function<float(bin_t)>& func)
 {
 	for (bin_t i = 0; i < count(); i++)
 	{
@@ -126,10 +133,56 @@ bool ProjectionData::hasArbitraryLORs() const
 	return false;
 }
 
-line_t ProjectionData::getArbitraryLOR(bin_t id) const
+Line3D ProjectionData::getArbitraryLOR(bin_t id) const
 {
 	(void)id;
 	throw std::logic_error("getArbitraryLOR Unimplemented");
+}
+
+ProjectionProperties ProjectionData::getProjectionProperties(bin_t bin) const
+{
+	auto [d1, d2] = getDetectorPair(bin);
+
+	Line3D lor;
+	if (hasArbitraryLORs())
+	{
+		lor = getArbitraryLOR(bin);
+	}
+	else
+	{
+		const Vector3D p1 = mr_scanner.getDetectorPos(d1);
+		const Vector3D p2 = mr_scanner.getDetectorPos(d2);
+		lor = Line3D{p1, p2};
+	}
+
+	float tofValue = 0.0f;
+	if (hasTOF())
+	{
+		tofValue = getTOFValue(bin);
+	}
+	const float randomsEstimate = getRandomsEstimate(bin);
+	if (hasMotion())
+	{
+		const frame_t frame = getFrame(bin);
+		const transform_t transfo = getTransformOfFrame(frame);
+
+		const Matrix MRot{transfo.r00, transfo.r01, transfo.r02,
+		                  transfo.r10, transfo.r11, transfo.r12,
+		                  transfo.r20, transfo.r21, transfo.r22};
+		const Vector3D VTrans{transfo.tx, transfo.ty, transfo.tz};
+
+		Vector3D point1Prim = MRot * lor.point1;
+		point1Prim = point1Prim + VTrans;
+
+		Vector3D point2Prim = MRot * lor.point2;
+		point2Prim = point2Prim + VTrans;
+
+		lor.update(point1Prim, point2Prim);
+	}
+	const Vector3D det1Orient = mr_scanner.getDetectorOrient(d1);
+	const Vector3D det2Orient = mr_scanner.getDetectorOrient(d2);
+	return ProjectionProperties{lor, tofValue, randomsEstimate, det1Orient,
+	                            det2Orient};
 }
 
 timestamp_t ProjectionData::getTimestamp(bin_t id) const
@@ -142,6 +195,11 @@ frame_t ProjectionData::getFrame(bin_t id) const
 {
 	(void)id;
 	return 0u;
+}
+
+const Scanner& ProjectionData::getScanner() const
+{
+	return mr_scanner;
 }
 
 det_pair_t ProjectionData::getDetectorPair(bin_t id) const
@@ -161,13 +219,13 @@ void ProjectionData::clearProjections(float value)
 }
 
 void ProjectionData::divideMeasurements(const ProjectionData* measurements,
-                                         const BinIterator* binIter)
+                                        const BinIterator* binIter)
 {
 	int num_threads = Globals::get_num_threads();
 #pragma omp parallel for num_threads(num_threads)
 	for (size_t binIdx = 0; binIdx < binIter->size(); binIdx++)
 	{
-		size_t bin = binIter->get(binIdx);
+		const size_t bin = binIter->get(binIdx);
 		// to prevent numerical instability
 		if (getProjectionValue(bin) > 1e-8)
 		{

@@ -11,6 +11,7 @@ import numpy as np
 fold_py = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.append(os.path.join(fold_py))
 import pyyrtpet as yrt
+yrt.Globals.set_num_threads(-1)
 
 import helper as _helper
 
@@ -23,6 +24,12 @@ fold_out = _helper.fold_out
 fold_bin = _helper.fold_bin
 
 # %% Tests
+
+def test_omp_multithreading():
+    yrt.Globals.set_num_threads(8)
+    num_threads = yrt.Globals.get_num_threads()
+    assert(num_threads == 8)
+    yrt.Globals.set_num_threads(-1)
 
 def test_mlem_simple():
     img_params = yrt.ImageParams(util_paths['img_params_500'])
@@ -103,6 +110,22 @@ def test_sens():
     assert rmse < 10**-4
 
 
+def test_sens_exec():
+    exec_str = os.path.join(fold_bin, 'yrtpet_reconstruct --sens_only')
+    exec_str += ' --scanner ' + util_paths['SAVANT_json']
+    exec_str += ' --params ' + util_paths['img_params_500']
+    exec_str += ' --out_sens ' + out_paths['test_sens']
+    ret = os.system(exec_str)
+    assert ret == 0
+
+    img_params = yrt.ImageParams(util_paths['img_params_500'])
+    out_img = yrt.ImageOwned(img_params, out_paths['test_sens'])
+    ref_img = yrt.ImageOwned(img_params, ref_paths['test_sens'])
+    rmse = _helper.get_rmse(np.array(out_img, copy=False),
+                            np.array(ref_img, copy=False))
+    assert rmse < 10**-4
+
+
 def _test_savant_motion_post_mc(test_name: str):
     img_params = yrt.ImageParams(util_paths['img_params_500'])
     file_list = dataset_paths[test_name]
@@ -142,8 +165,7 @@ def test_post_recon_mc_wobble():
 def test_psf():
     img_params = yrt.ImageParams(50, 50, 25, 50, 50, 25, 0.0, 0.0, 0.0)
     image_in = yrt.ImageOwned(img_params, dataset_paths['test_psf'][0])
-    oper_psf = yrt.OperatorPsf(img_params, dataset_paths['test_psf'][1])
-    image_ref = yrt.ImageOwned(img_params, ref_paths['test_psf'])
+    oper_psf = yrt.OperatorPsf(dataset_paths['test_psf'][1])
     image_out = yrt.ImageOwned(img_params)
     image_out.allocate()
     image_out.setValue(0.0)
@@ -151,6 +173,7 @@ def test_psf():
     oper_psf.applyA(image_in, image_out)
 
     image_out.writeToFile(out_paths['test_psf'])
+    image_ref = yrt.ImageOwned(img_params, ref_paths['test_psf'])
     rmse = _helper.get_rmse(np.array(image_out, copy=False),
                             np.array(image_ref, copy=False))
     assert rmse < 10**-4
@@ -173,12 +196,12 @@ def test_psf_adjoint():
     img_X = yrt.ImageAlias(img_params)
     img_Y = yrt.ImageAlias(img_params)
 
-    img_X_a = rng.random([nz, ny, nx]) * 10 - 5
-    img_Y_a = rng.random([nz, ny, nx]) * 10 - 5
+    img_X_a = (rng.random([nz, ny, nx]) * 10 - 5).astype(np.float32)
+    img_Y_a = (rng.random([nz, ny, nx]) * 10 - 5).astype(np.float32)
     img_X.bind(img_X_a)
     img_Y.bind(img_Y_a)
 
-    oper_psf = yrt.OperatorPsf(img_params, dataset_paths['test_psf'][1])
+    oper_psf = yrt.OperatorPsf( dataset_paths['test_psf'][1])
 
     Ax = yrt.ImageOwned(img_params)
     Aty = yrt.ImageOwned(img_params)

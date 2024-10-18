@@ -43,6 +43,7 @@ public:
 	// Common methods
 	void loadBatch(int batchId, bool forRecon) override;
 	void loadSubset(int subsetId, bool forRecon) override;
+	void addImagePSF(const std::string& p_imageSpacePsf_fname) override;
 
 private:
 	const cudaStream_t* getAuxStream() const;

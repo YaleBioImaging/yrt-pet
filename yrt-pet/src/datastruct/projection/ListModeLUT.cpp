@@ -108,8 +108,7 @@ void py_setup_listmodelut(py::module& m)
 
 
 ListModeLUT::ListModeLUT(const Scanner& pr_scanner, bool p_flagTOF)
-	: ListMode(),
-	  mr_scanner(pr_scanner),
+	: ListMode(pr_scanner),
 	  m_flagTOF(p_flagTOF) {}
 
 ListModeLUTOwned::ListModeLUTOwned(const Scanner& pr_scanner, bool p_flagTOF)
@@ -252,7 +251,7 @@ void ListModeLUT::addLORMotion(const std::string& lorMotion_fname)
 	const timestamp_t firstTimestamp = mp_lorMotion->getStartingTimestamp(0);
 	while (getTimestamp(evId) < firstTimestamp)
 	{
-		mp_frames->set_flat(evId, -1);
+		mp_frames->setFlat(evId, -1);
 		evId++;
 	}
 
@@ -264,7 +263,7 @@ void ListModeLUT::addLORMotion(const std::string& lorMotion_fname)
 			mp_lorMotion->getStartingTimestamp(currentFrame + 1);
 		while (evId < numEvents && getTimestamp(evId) < endingTimestamp)
 		{
-			mp_frames->set_flat(evId, currentFrame);
+			mp_frames->setFlat(evId, currentFrame);
 			evId++;
 		}
 	}
@@ -272,7 +271,7 @@ void ListModeLUT::addLORMotion(const std::string& lorMotion_fname)
 	// Fill the events at the end
 	for (; evId < numEvents; evId++)
 	{
-		mp_frames->set_flat(evId, currentFrame);
+		mp_frames->setFlat(evId, currentFrame);
 	}
 }
 
@@ -300,7 +299,7 @@ frame_t ListModeLUT::getFrame(bin_t id) const
 {
 	if (mp_lorMotion != nullptr)
 	{
-		return mp_frames->get_flat(id);
+		return mp_frames->getFlat(id);
 	}
 	return ProjectionData::getFrame(id);
 }
@@ -342,11 +341,6 @@ void ListModeLUT::setDetectorIdsOfEvent(bin_t eventId, det_id_t d1,
 	(*mp_detectorId2)[eventId] = d2;
 }
 
-const Scanner& ListModeLUT::getScanner() const
-{
-	return mr_scanner;
-}
-
 Array1DBase<timestamp_t>* ListModeLUT::getTimestampArrayPtr() const
 {
 	return (mp_timestamps.get());
@@ -362,7 +356,7 @@ Array1DBase<det_id_t>* ListModeLUT::getDetector2ArrayPtr() const
 	return (mp_detectorId2.get());
 }
 
-StraightLineParam ListModeLUT::getNativeLORFromId(bin_t id) const
+Line3D ListModeLUT::getNativeLORFromId(bin_t id) const
 {
 	return Util::getNativeLOR(mr_scanner, *this, id);
 }

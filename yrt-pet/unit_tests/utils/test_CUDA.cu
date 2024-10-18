@@ -58,7 +58,7 @@ TEST_CASE("cuda", "[cuda]")
 		float max_err = 0.f;
 		for (int i = 0; i < n; i++)
 		{
-			max_err = std::max(max_err, fabs(c_ref[i] - c[i]));
+			max_err = std::max(max_err, std::abs(c_ref[i] - c[i]));
 		}
 
 		REQUIRE(max_err < 1e-6);

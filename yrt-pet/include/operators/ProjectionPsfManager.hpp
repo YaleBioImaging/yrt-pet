@@ -5,24 +5,29 @@
 
 #pragma once
 
-#include "geometry/StraightLineParam.hpp"
+#include "geometry/Line3D.hpp"
 #include "utils/Array.hpp"
 
 class ProjectionPsfManager
 {
 public:
 	explicit ProjectionPsfManager(const std::string& psfFilename);
-	void readFromFile(const std::string& psfFilename);
+	virtual ~ProjectionPsfManager() = default;
+	virtual void readFromFile(const std::string& psfFilename);
 	float getHalfWidth_mm() const;
-	float getWeight(const float* kernel, float x0, float x1) const;
-	float* getKernel(const StraightLineParam& lor,
-	                 bool flagFlipped = false) const;
 	int getKernelSize() const;
 
+	float getWeight(const float* kernel, float x0, float x1) const;
+	const float* getKernel(const Line3D& lor, bool flagFlipped = false) const;
+
 protected:
+	ProjectionPsfManager();
 	Array2D<float> m_kernelDataRaw;
 	Array2DAlias<float> m_kernels;
 	Array2D<float> m_kernelsFlipped;
 	float m_sStep;
 	float m_kSpacing;
+
+private:
+	void readFromFileInternal(const std::string& psfFilename);
 };

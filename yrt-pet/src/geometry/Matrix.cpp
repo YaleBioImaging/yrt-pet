@@ -11,18 +11,19 @@
 #include <iostream>
 
 
-Matrix::Matrix(double a00, double a01, double a02, double a10, double a11,
-               double a12, double a20, double a21, double a22)
-	: m_a00(a00),
-	  m_a01(a01),
-	  m_a02(a02),
-	  m_a10(a10),
-	  m_a11(a11),
-	  m_a12(a12),
-	  m_a20(a20),
-	  m_a21(a21),
-	  m_a22(a22) {}
-
+Matrix::Matrix(float a00, float a01, float a02, float a10, float a11,
+               float a12, float a20, float a21, float a22)
+    : m_a00(a00),
+      m_a01(a01),
+      m_a02(a02),
+      m_a10(a10),
+      m_a11(a11),
+      m_a12(a12),
+      m_a20(a20),
+      m_a21(a21),
+      m_a22(a22)
+{
+}
 
 Matrix::Matrix(const Matrix& v)
 {
@@ -37,27 +38,26 @@ Matrix::Matrix(const Matrix& v)
 	m_a22 = v.m_a22;
 }
 
-
 Matrix::Matrix()
-	: m_a00(0.0),
-	  m_a01(0.0),
-	  m_a02(0.0),
-	  m_a10(0.0),
-	  m_a11(0.0),
-	  m_a12(0.0),
-	  m_a20(0.0),
-	  m_a21(0.0),
-	  m_a22(0.0) {}
+    : m_a00(0.0),
+      m_a01(0.0),
+      m_a02(0.0),
+      m_a10(0.0),
+      m_a11(0.0),
+      m_a12(0.0),
+      m_a20(0.0),
+      m_a21(0.0),
+      m_a22(0.0)
+{
+}
 
 Matrix Matrix::identity()
 {
 	return Matrix{1, 0, 0, 0, 1, 0, 0, 0, 1};
 }
 
-
-void Matrix::update(double a00, double a01, double a02, double a10,
-                    double a11, double a12, double a20, double a21,
-                    double a22)
+void Matrix::update(float a00, float a01, float a02, float a10, float a11,
+                    float a12, float a20, float a21, float a22)
 {
 	m_a00 = a00;
 	m_a01 = a01;
@@ -69,24 +69,6 @@ void Matrix::update(double a00, double a01, double a02, double a10,
 	m_a21 = a21;
 	m_a22 = a22;
 }
-
-Matrix Matrix::operator=(Matrix v)
-{
-	Matrix vv;
-
-	vv.m_a00 = v.m_a00;
-	vv.m_a01 = v.m_a01;
-	vv.m_a02 = v.m_a02;
-	vv.m_a10 = v.m_a10;
-	vv.m_a11 = v.m_a11;
-	vv.m_a12 = v.m_a12;
-	vv.m_a20 = v.m_a20;
-	vv.m_a21 = v.m_a21;
-	vv.m_a22 = v.m_a22;
-
-	return vv;
-}
-
 
 // update 3:
 void Matrix::update(const Matrix& v)
@@ -102,7 +84,7 @@ void Matrix::update(const Matrix& v)
 	m_a22 = v.m_a22;
 }
 
-Matrix Matrix::operator-(Matrix v)
+Matrix Matrix::operator-(Matrix v) const
 {
 
 	Matrix res;
@@ -120,8 +102,7 @@ Matrix Matrix::operator-(Matrix v)
 	return res;
 }
 
-
-Matrix Matrix::operator+(Matrix v)
+Matrix Matrix::operator+(Matrix v) const
 {
 
 	Matrix res;
@@ -139,7 +120,7 @@ Matrix Matrix::operator+(Matrix v)
 	return res;
 }
 
-Matrix Matrix::operator*(Matrix matrix)
+Matrix Matrix::operator*(Matrix matrix) const
 {
 	Matrix res;
 
@@ -156,7 +137,7 @@ Matrix Matrix::operator*(Matrix matrix)
 	return res;
 }
 
-Vector3D Matrix::operator*(const Vector3D& vector)
+Vector3D Matrix::operator*(const Vector3D& vector) const
 {
 	Vector3D res;
 
@@ -168,7 +149,7 @@ Vector3D Matrix::operator*(const Vector3D& vector)
 }
 
 
-Matrix Matrix::operator+(double scal)
+Matrix Matrix::operator+(float scal) const
 {
 	Matrix res;
 
@@ -185,8 +166,7 @@ Matrix Matrix::operator+(double scal)
 	return res;
 }
 
-
-Matrix Matrix::operator-(double scal)
+Matrix Matrix::operator-(float scal) const
 {
 	Matrix res;
 
@@ -203,8 +183,7 @@ Matrix Matrix::operator-(double scal)
 	return res;
 }
 
-
-Matrix Matrix::operator*(double scal)
+Matrix Matrix::operator*(float scal) const
 {
 	Matrix res;
 
@@ -221,12 +200,11 @@ Matrix Matrix::operator*(double scal)
 	return res;
 }
 
-
-Matrix Matrix::operator/(double scal)
+Matrix Matrix::operator/(float scal) const
 {
 	Matrix res;
 
-	if (fabs(scal) > DOUBLE_PRECISION)
+	if (std::abs(scal) > SMALL_FLT)
 	{
 		res.m_a00 = m_a00 / scal;
 		res.m_a01 = m_a01 / scal;
@@ -254,11 +232,10 @@ Matrix Matrix::operator/(double scal)
 	return res;
 }
 
-
 // return true if matrices are the same:
-bool Matrix::operator==(Matrix matrix)
+bool Matrix::operator==(Matrix matrix) const
 {
-	double sqr_norm = (m_a00 - matrix.m_a00) * (m_a00 - matrix.m_a00) +
+	float sqr_norm = (m_a00 - matrix.m_a00) * (m_a00 - matrix.m_a00) +
 	                  (m_a01 - matrix.m_a01) * (m_a01 - matrix.m_a01) +
 	                  (m_a02 - matrix.m_a02) * (m_a02 - matrix.m_a02) +
 	                  (m_a10 - matrix.m_a10) * (m_a10 - matrix.m_a10) +
@@ -268,15 +245,14 @@ bool Matrix::operator==(Matrix matrix)
 	                  (m_a21 - matrix.m_a21) * (m_a21 - matrix.m_a21) +
 	                  (m_a22 - matrix.m_a22) * (m_a22 - matrix.m_a22);
 
-
-	return sqrt(sqr_norm) < DOUBLE_PRECISION;
+	return sqrt(sqr_norm) < SMALL_FLT;
 }
 
 std::ostream& operator<<(std::ostream& oss, const Matrix& v)
 {
 	oss << "("
-		<< "(" << v.m_a00 << ", " << v.m_a01 << ", " << v.m_a02 << "), ("
-		<< v.m_a10 << ", " << v.m_a11 << ", " << v.m_a12 << "), (" << v.m_a20
-		<< ", " << v.m_a21 << ", " << v.m_a22 << ")";
+	    << "(" << v.m_a00 << ", " << v.m_a01 << ", " << v.m_a02 << "), ("
+	    << v.m_a10 << ", " << v.m_a11 << ", " << v.m_a12 << "), (" << v.m_a20
+	    << ", " << v.m_a21 << ", " << v.m_a22 << ")";
 	return oss;
 }

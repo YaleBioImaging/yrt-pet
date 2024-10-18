@@ -101,14 +101,14 @@ class ProjectionOper:
 
         self._x = np.require(np.zeros(
             [self._img_params.nz, self._img_params.ny, self._img_params.nx],
-            dtype=np.float64), requirements=['C_CONTIGUOUS'])
+            dtype=np.float32), requirements=['C_CONTIGUOUS'])
         self._y = np.require(np.zeros(self._projData.count(),
                                       dtype=np.float32),
                              requirements=['C_CONTIGUOUS'])
 
     def A(self, x):
         """Forward projection"""
-        xx = np.require(x, dtype=np.float64)
+        xx = np.require(x, dtype=np.float32)
         if xx.ndim == 2:
             xx = xx[None, ...]
         img = yrt.ImageAlias(self._img_params)

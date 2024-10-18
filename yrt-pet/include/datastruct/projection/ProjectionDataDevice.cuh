@@ -69,7 +69,6 @@ public:
                                   const cudaStream_t* stream = nullptr) const;
 
     std::shared_ptr<ScannerDevice> getScannerDevice() const;
-    const Scanner& getScanner() const;
 
     // Gets the size of the last-loaded batch
     size_t getCurrentBatchSize() const;

@@ -9,7 +9,7 @@
 namespace Util
 {
 	FileReader::FileReader(std::istream& pr_istream, bool p_useCache,
-	                           size_t p_cacheSize)
+	                       size_t p_cacheSize)
 	    : m_cacheStart(-1),
 	      mr_istream(pr_istream),
 	      m_foundEof(false),
@@ -23,38 +23,34 @@ namespace Util
 	}
 
 	std::streamsize FileReader::read(std::streamoff startPos,
-	                                   char* receivingBuffer,
-	                                   std::streamsize bytesToRead)
+	                                 char* receivingBuffer,
+	                                 std::streamsize bytesToRead)
 	{
 		if (isUsingCache())
 		{
-			// Check if hit or miss
-			bool cacheHit = m_cacheStart >= 0;     // Before first reading
-			cacheHit &= startPos >= m_cacheStart;  // First byte
-			cacheHit &= (startPos + bytesToRead) <=
-			            (m_cacheStart + m_cacheSize);  // Last byte
 			if (bytesToRead > m_cacheSize)
 			{
 				throw std::range_error("The requested number of bytes to read "
 				                       "exceeds the cache size");
 			}
 
+			// Check if hit or miss
+			bool cacheHit = m_cacheStart >= 0;     // Before first reading
+			cacheHit &= startPos >= m_cacheStart;  // First byte
+			cacheHit &= (startPos + bytesToRead) <=
+			            (m_cacheStart + m_cacheSize);  // Last byte
+
 			if (!cacheHit)
 			{
-				if (m_foundEof)
-				{
-					std::cerr << "Warning: the file might be incomplete"
-					          << std::endl;
-				}
-				else
+				if (!m_foundEof)
 				{
 					m_foundEof = readStreamToCache(startPos);
 				}
 			}
 
-			std::streamoff offset = (startPos - m_cacheStart);
+			const std::streamoff offset = (startPos - m_cacheStart);
 			char* initPos = m_cache.getRawPointer() + offset;
-			char* lastPos = std::copy_n(
+			const char* lastPos = std::copy_n(
 			    initPos, std::min(m_cacheSize - offset, bytesToRead),
 			    receivingBuffer);
 			// Return the number of bytes copied
@@ -107,8 +103,8 @@ namespace Util
 	}
 
 	FileReaderContiguous::FileReaderContiguous(std::istream& pr_istream,
-	                                               bool p_useCache,
-	                                               size_t p_cacheSize)
+	                                           bool p_useCache,
+	                                           size_t p_cacheSize)
 	    : FileReader(pr_istream, p_useCache, p_cacheSize), m_readPos(0ull)
 	{
 	}
@@ -120,8 +116,8 @@ namespace Util
 	}
 
 	std::streamsize FileReaderContiguous::read(std::streamoff startPos,
-	                                             char* receivingBuffer,
-	                                             std::streamsize bytesToRead)
+	                                           char* receivingBuffer,
+	                                           std::streamsize bytesToRead)
 	{
 		(void)startPos;
 		(void)receivingBuffer;
@@ -131,7 +127,7 @@ namespace Util
 	}
 
 	std::streamsize FileReaderContiguous::read(char* receivingBuffer,
-	                                             std::streamsize bytesToRead)
+	                                           std::streamsize bytesToRead)
 	{
 		const std::streamsize bytesRead =
 		    FileReader::read(m_readPos, receivingBuffer, bytesToRead);

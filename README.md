@@ -109,7 +109,7 @@ The YRT-PET format is defined as follows:
 Notes:
 
 - The data format is arbitrary and must be known when reading a data file. For
-  instance, images are stored in `float64`.
+  instance, images are stored in `float32`.
 - The dimensions are ordered with the contiguous dimension last (e.g. Z, Y, X
   following usual conventions).
 
@@ -169,10 +169,7 @@ The detectors order must follow the following rules:
 
 ### Image (`Image`)
 
-Images are stored in YRT-PET raw data format (i.e. with the header described
-[earlier](#yrt-pet-raw-data-format)). Images are currently stored as
-64-bit floating point numbers although this is likely to change in the future.
-The file extension used is `.img`.
+Images are stored and read in NIFTI format.
 
 ### Listmode (``ListmodeLUT``)
 

@@ -19,5 +19,8 @@ public:
 	void setProjectionValue(bin_t id, float val) override;
 
 	std::unique_ptr<BinIterator> getBinIter(int numSubsets,
-	                                          int idxSubset) const override;
+	                                        int idxSubset) const override;
+
+protected:
+	explicit ListMode(const Scanner& pr_scanner);
 };

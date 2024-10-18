@@ -5,17 +5,29 @@
 
 #pragma once
 
+#include "datastruct/scanner/Scanner.hpp"
 #include "datastruct/projection/BinIterator.hpp"
 #include "recon/Variable.hpp"
 #include "utils/Types.hpp"
+#include "geometry/Line3D.hpp"
 
 #include <functional>
 #include <memory>
+
+struct ProjectionProperties
+{
+	Line3D lor;
+	float tofValue;
+	float randomsEstimate;
+	Vector3D det1Orient;
+	Vector3D det2Orient;
+};
 
 class ProjectionData : public Variable
 {
 public:
 	~ProjectionData() override = default;
+	const Scanner& getScanner() const;
 
 	// Mandatory methods
 	virtual size_t count() const = 0;
@@ -42,9 +54,10 @@ public:
 	virtual transform_t getTransformOfFrame(frame_t frame) const;
 	// Special case when the LOR is not defined directly from the scanner's LUT
 	virtual bool hasArbitraryLORs() const;
-	virtual line_t getArbitraryLOR(bin_t id) const;
+	virtual Line3D getArbitraryLOR(bin_t id) const;
 
 	// Helper functions
+	virtual ProjectionProperties getProjectionProperties(bin_t bin) const;
 	virtual void clearProjections(float value);
 	virtual void divideMeasurements(const ProjectionData* measurements,
 	                                const BinIterator* binIter);
@@ -56,4 +69,9 @@ public:
 	// to the same memory location.
 	virtual void
 	    operationOnEachBinParallel(const std::function<float(bin_t)>& func);
+
+protected:
+	explicit ProjectionData(const Scanner& pr_scanner);
+
+	const Scanner& mr_scanner;
 };

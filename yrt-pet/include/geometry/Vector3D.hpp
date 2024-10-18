@@ -7,27 +7,23 @@
 
 #include <ostream>
 
-template<typename TFloat>
+template <typename TFloat>
 class Vector3DBase
 {
 public:
-	Vector3DBase(TFloat xi, TFloat yi, TFloat zi);
-	Vector3DBase(const Vector3DBase& v);
-	Vector3DBase();
-	virtual ~Vector3DBase();
-
 	TFloat getNorm() const;
+	TFloat getNormSquared() const;
 	void update(TFloat xi, TFloat yi, TFloat zi);
-	Vector3DBase& operator=(const Vector3DBase& v);
 	void update(const Vector3DBase& v);
 	Vector3DBase& normalize();
 	Vector3DBase getNormalized();
+	bool isNormalized() const;
 	Vector3DBase operator-(const Vector3DBase& v) const;
-	Vector3DBase operator+(const Vector3DBase& vector) const;
+	Vector3DBase operator+(const Vector3DBase& v) const;
 	TFloat scalProd(const Vector3DBase& vector) const;
 	Vector3DBase crossProduct(const Vector3DBase& B) const;
-	void linear_transformation(const Vector3DBase& i, const Vector3DBase& j,
-	                           const Vector3DBase& k);
+	void linearTransformation(const Vector3DBase& i, const Vector3DBase& j,
+	                          const Vector3DBase& k);
 	int argmax();
 	Vector3DBase operator*(const Vector3DBase& vector) const;
 	Vector3DBase operator+(TFloat scal) const;
@@ -38,20 +34,19 @@ public:
 	TFloat operator[](int idx);
 	bool operator==(const Vector3DBase& vector) const;
 
-	template<typename TargetType>
+	template <typename TargetType>
 	Vector3DBase<TargetType> to() const;
 
 public:
 	TFloat x;
 	TFloat y;
 	TFloat z;
-	bool isNormalized;
 };
 
 template <typename TFloat>
 std::ostream& operator<<(std::ostream& oss, const Vector3DBase<TFloat>& v);
 
-using Vector3D = Vector3DBase<double>;
+using Vector3D = Vector3DBase<float>;
 
 // Created to avoid type-castings
-using Vector3DFloat = Vector3DBase<float>;
+using Vector3DDouble = Vector3DBase<double>;

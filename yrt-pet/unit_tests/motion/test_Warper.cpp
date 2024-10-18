@@ -12,7 +12,7 @@
 
 float l1DistBetweenTwoImage(Image* im1, Image* im2)
 {
-	float l1Dist = 0.0;
+	float l1Dist = 0.0f;
 	const ImageParams& im1_params = im1->getParams();
 	const ImageParams& im2_params = im2->getParams();
 	if ((im1_params.nx != im2_params.nx) || (im1_params.ny != im2_params.ny) ||
@@ -21,15 +21,15 @@ float l1DistBetweenTwoImage(Image* im1, Image* im2)
 		// Random value to show that the image are not similar.
 		return 3.14159;
 	}
-	Array3DAlias<double> x1 = im1->getArray();
-	Array3DAlias<double> x2 = im2->getArray();
+	Array3DAlias<float> x1 = im1->getArray();
+	Array3DAlias<float> x2 = im2->getArray();
 	for (int i = 0; i < im1_params.nx; i++)
 	{
 		for (int j = 0; j < im1_params.ny; j++)
 		{
 			for (int k = 0; k < im1_params.nz; k++)
 			{
-				l1Dist += fabs(x1[k][j][i] - x2[k][j][i]);
+				l1Dist += std::abs(x1[k][j][i] - x2[k][j][i]);
 			}
 		}
 	}
@@ -48,7 +48,7 @@ TEST_CASE("Warper-basic_iso_unWeighted", "[warper]")
 	auto refImage = std::make_unique<ImageOwned>(img_params);
 	refImage->allocate();
 	refImage->setValue(0.0);
-	Array3DAlias<double> x_ref = refImage->getArray();
+	Array3DAlias<float> x_ref = refImage->getArray();
 	x_ref[2][4][2] = 1.0;
 
 	int nbFrame = 4;
@@ -101,7 +101,7 @@ TEST_CASE("Warper-basic_iso_unWeighted", "[warper]")
 		float l1Dist;
 		l1Dist = l1DistBetweenTwoImage(refImage.get(), warpedImage.get());
 
-		REQUIRE(0.0 == l1Dist);
+		REQUIRE(0.0f == l1Dist);
 	}
 
 	SECTION("warp_translation_integer")
@@ -120,7 +120,7 @@ TEST_CASE("Warper-basic_iso_unWeighted", "[warper]")
 		float l1Dist;
 		l1Dist = l1DistBetweenTwoImage(compImage.get(), warpedImage.get());
 
-		REQUIRE(0.0 == l1Dist);
+		REQUIRE(0.0f == Approx(l1Dist));
 	}
 
 	SECTION("warp_rotation")
@@ -155,7 +155,7 @@ TEST_CASE("Warper-basic_iso_unWeighted", "[warper]")
 		float l1Dist;
 		l1Dist = l1DistBetweenTwoImage(compImage.get(), warpedImage.get());
 
-		REQUIRE(l1Dist < 1e-5);
+		REQUIRE(l1Dist < 1e-6);
 	}
 
 	// Where the results is saved.
@@ -171,7 +171,7 @@ TEST_CASE("Warper-basic_iso_unWeighted", "[warper]")
 		float l1Dist;
 		l1Dist = l1DistBetweenTwoImage(refImage.get(), invWarpedImage.get());
 
-		REQUIRE(0.0 == l1Dist);
+		REQUIRE(l1Dist < 1e-6);
 	}
 
 	SECTION("invWarp_translation")
@@ -192,7 +192,7 @@ TEST_CASE("Warper-basic_iso_unWeighted", "[warper]")
 		float l1Dist;
 		l1Dist = l1DistBetweenTwoImage(invWarpedImage.get(), compImage.get());
 
-		REQUIRE(0.0 == l1Dist);
+		REQUIRE(l1Dist < 1e-6);
 	}
 
 	SECTION("invWarp_rotation")
@@ -205,12 +205,12 @@ TEST_CASE("Warper-basic_iso_unWeighted", "[warper]")
 		auto compImage = std::make_unique<ImageOwned>(img_params);
 		compImage->allocate();
 		auto compImage_arr = compImage->getArray();
-		compImage_arr[2][4][2] = 1.0;
+		compImage_arr[2][4][2] = 1.0f;
 
 		float l1Dist;
 		l1Dist = l1DistBetweenTwoImage(invWarpedImage.get(), compImage.get());
 
-		REQUIRE(l1Dist < 1e-6);
+		REQUIRE(l1Dist < 1e-6f);
 	}
 
 	// Not ready!!!

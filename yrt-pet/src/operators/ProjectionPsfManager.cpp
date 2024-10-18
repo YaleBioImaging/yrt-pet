@@ -5,21 +5,29 @@
 
 #include "operators/ProjectionPsfManager.hpp"
 
+#include "geometry/ProjectorUtils.hpp"
 #include "utils/Tools.hpp"
 
+ProjectionPsfManager::ProjectionPsfManager() : m_sStep(0.f), m_kSpacing(0.f) {}
+
 ProjectionPsfManager::ProjectionPsfManager(const std::string& psfFilename)
-    : m_sStep(0.f), m_kSpacing(0.f)
+    : ProjectionPsfManager{}
 {
-	readFromFile(psfFilename);
+	readFromFileInternal(psfFilename);
 }
 
 void ProjectionPsfManager::readFromFile(const std::string& psfFilename)
 {
+	readFromFileInternal(psfFilename);
+}
+
+void ProjectionPsfManager::readFromFileInternal(const std::string& psfFilename)
+{
 	Util::readCSV<float>(psfFilename, m_kernelDataRaw);
 	m_sStep = m_kernelDataRaw[0][0];
 	m_kSpacing = m_kernelDataRaw[0][1];
-	int kernel_size = m_kernelDataRaw[0][2];
-	int num_s = (m_kernelDataRaw.getSize(1) - 3) / kernel_size;
+	const int kernel_size = m_kernelDataRaw[0][2];
+	const int num_s = (m_kernelDataRaw.getSize(1) - 3) / kernel_size;
 
 	if ((kernel_size % 2) == 0)
 	{
@@ -49,14 +57,14 @@ int ProjectionPsfManager::getKernelSize() const
 	return m_kernels.getSize(1);
 }
 
-float* ProjectionPsfManager::getKernel(const StraightLineParam& lor,
-                                         bool flagFlipped) const
+const float* ProjectionPsfManager::getKernel(const Line3D& lor,
+                                             bool flagFlipped) const
 {
 	const Vector3D p1 = lor.point1;
 	const Vector3D p2 = lor.point2;
 	float n_plane_x = p2.y - p1.y;
 	float n_plane_y = p1.x - p2.x;
-	float n_plane_norm =
+	const float n_plane_norm =
 	    std::sqrt(n_plane_x * n_plane_x + n_plane_y * n_plane_y);
 	size_t s_idx;
 	if (n_plane_norm == 0)
@@ -76,16 +84,13 @@ float* ProjectionPsfManager::getKernel(const StraightLineParam& lor,
 	{
 		return m_kernels[s_idx];
 	}
-	else
-	{
-		return m_kernelsFlipped[s_idx];
-	}
+	return m_kernelsFlipped[s_idx];
 }
 
 float ProjectionPsfManager::getWeight(const float* kernel, const float x0,
-                                        const float x1) const
+                                      const float x1) const
 {
-	int halfWidth = (m_kernels.getSize(1) + 1) / 2;
+	const int halfWidth = (m_kernels.getSize(1) + 1) / 2;
 	if (x0 > halfWidth * m_kSpacing || x1 < -halfWidth * m_kSpacing || x0 >= x1)
 	{
 		return 0.f;

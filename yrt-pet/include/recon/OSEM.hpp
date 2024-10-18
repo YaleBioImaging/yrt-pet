@@ -53,15 +53,15 @@ public:
 	void summary() const;
 
 	// ---------- Getters and setters ----------
-	ProjectionData* getSensDataInput() { return sensDataInput; }
-	const ProjectionData* getSensDataInput() const { return sensDataInput; }
+	ProjectionData* getSensDataInput() { return mp_sensDataInput; }
+	const ProjectionData* getSensDataInput() const { return mp_sensDataInput; }
 	void setSensDataInput(ProjectionData* p_sensDataInput);
-	ProjectionData* getDataInput() { return dataInput; }
-	const ProjectionData* getDataInput() const { return dataInput; }
+	ProjectionData* getDataInput() { return mp_dataInput; }
+	const ProjectionData* getDataInput() const { return mp_dataInput; }
 	void setDataInput(ProjectionData* p_dataInput);
 	void addTOF(float p_tofWidth_ps, int p_tofNumStd);
 	void addProjPSF(const std::string& p_projSpacePsf_fname);
-	void addImagePSF(OperatorPsf* p_imageSpacePsf);
+	virtual void addImagePSF(const std::string& p_imageSpacePsf_fname);
 	void setSaveSteps(int p_saveSteps, const std::string& p_saveStepsPath);
 	void setListModeEnabled(bool enabled);
 	void setProjector(const std::string& projectorName);  // Helper
@@ -78,7 +78,7 @@ public:
 	OperatorProjector::ProjectorType projectorType;
 	const Scanner& scanner;
 	const Image* maskImage;
-	const Image* attenuationImage;
+	const Image* attenuationImageForForwardProjection;
 	const Image* attenuationImageForBackprojection;
 	const Histogram* addHis;
 	ImageWarperTemplate* warper;  // For MLEM with Warper only
@@ -96,7 +96,8 @@ protected:
 
 	// ---------- Protected members ----------
 	bool flagImagePSF;
-	OperatorPsf* imageSpacePsf;
+	std::string imageSpacePsf_fname;
+	std::unique_ptr<OperatorPsf> imageSpacePsf;
 	bool flagProjPSF;
 	std::string projSpacePsf_fname;
 	bool flagProjTOF;
@@ -149,10 +150,10 @@ private:
 
 	std::vector<std::unique_ptr<BinIterator>> m_binIterators;
 
-	ProjectionData* sensDataInput;
-	ProjectionData* dataInput;
+	ProjectionData* mp_sensDataInput;
+	ProjectionData* mp_dataInput;
 
-	std::vector<Image*> sensitivityImages;
+	std::vector<Image*> m_sensitivityImages;
 	// In the specific case of ListMode reconstructions launched from Python
-	std::unique_ptr<ImageOwned> copiedSensitivityImage;
+	std::unique_ptr<ImageOwned> mp_copiedSensitivityImage;
 };

@@ -25,7 +25,6 @@ int main(int argc, char** argv)
 		std::string input_format;
 		std::vector<std::string> sensImg_fnames;
 		std::string attImg_fname;
-		std::string attImgParams_fname;
 		std::string imageSpacePsf_fname;
 		std::string projSpacePsf_fname;
 		std::string addHis_fname;
@@ -60,7 +59,6 @@ int main(int argc, char** argv)
 		("f,format", "Input file format. Possible values: " + IO::possibleFormats(), cxxopts::value<std::string>(input_format))
 		("sens", "Sensitivity image files (separated by a comma)", cxxopts::value<std::vector<std::string>>(sensImg_fnames))
 		("att", "Attenuation image filename", cxxopts::value<std::string>(attImg_fname))
-		("att_params", "Attenuation image parameters filename", cxxopts::value<std::string>(attImgParams_fname))
 		("psf", "Image-space PSF kernel file", cxxopts::value<std::string>(imageSpacePsf_fname))
 		("proj_psf", "Projection-space PSF kernel file", cxxopts::value<std::string>(projSpacePsf_fname))
 		("add_his", "Histogram with additive corrections (scatter & randoms)", cxxopts::value<std::string>(addHis_fname))
@@ -82,7 +80,7 @@ int main(int argc, char** argv)
 		("num_subsets","Number of OSEM subsets (Default: 1)", cxxopts::value<int>(numSubsets))
 		("hard_threshold", "Hard Threshold", cxxopts::value<float>(hardThreshold))
 		("save_steps", "Enable saving each MLEM iteration image (step)", cxxopts::value<int>(saveSteps))
-		("sens_only", "Only generate the sensitivity image. Do not launch reconstruction", cxxopts::value<bool>(sensOnly))
+		("sens_only", "Only generate the sensitivity image(s). Do not launch reconstruction", cxxopts::value<bool>(sensOnly))
 		("out_sens", "Filename for the generated sensitivity image (if it needed to be computed). Leave blank to not save it", cxxopts::value<std::string>(out_sensImg_fname))
 		("h,help", "Print help");
 		/* clang-format on */
@@ -97,7 +95,7 @@ int main(int argc, char** argv)
 			return 0;
 		}
 
-		std::vector<std::string> requiredParams = {"scanner", "params"};
+		std::vector<std::string> requiredParams = {"scanner"};
 		std::vector<std::string> requiredParamsIfSensOnly = {"out_sens"};
 		std::vector<std::string> requiredParamsIfRecon = {"input", "format",
 		                                                  "out"};
@@ -125,16 +123,22 @@ int main(int argc, char** argv)
 		pluginOptionsResults =
 		    PluginOptionsHelper::convertPluginResultsToMap(result);
 
+		if (sensOnly)
+		{
+			ASSERT_MSG(
+			    sensImg_fnames.empty(),
+			    "Logic error: Sensitivity image generation was requested while "
+			    "pre-existing sensitivity images were provided");
+		}
+
 		auto scanner = std::make_unique<Scanner>(scanner_fname);
 		auto projectorType = IO::getProjector(projector_name);
-
 		std::unique_ptr<OSEM> osem =
 		    Util::createOSEM(*scanner, IO::requiresGPU(projectorType));
 
 		osem->num_MLEM_iterations = numIterations;
 		osem->num_OSEM_subsets = numSubsets;
 		osem->hardThreshold = hardThreshold;
-		osem->setImageParams(ImageParams{imgParams_fname});
 		osem->projectorType = projectorType;
 		osem->numRays = numRays;
 		Globals::set_num_threads(numThreads);
@@ -145,30 +149,17 @@ int main(int argc, char** argv)
 		osem->setListModeEnabled(useListMode);
 
 		// Attenuation image
-		std::unique_ptr<ImageParams> att_img_params = nullptr;
 		std::unique_ptr<ImageOwned> att_img = nullptr;
 		if (!attImg_fname.empty())
 		{
-			if (attImgParams_fname.empty())
-			{
-				std::cerr << "If passing an attenuation image, the "
-				             "corresponding image "
-				          << "parameter file must also be provided"
-				          << std::endl;
-				return -1;
-			}
-			att_img_params = std::make_unique<ImageParams>(attImgParams_fname);
-			att_img =
-			    std::make_unique<ImageOwned>(*att_img_params, attImg_fname);
+			att_img = std::make_unique<ImageOwned>(attImg_fname);
 		}
 
 		// Image-space PSF
 		std::unique_ptr<OperatorPsf> imageSpacePsf;
 		if (!imageSpacePsf_fname.empty())
 		{
-			imageSpacePsf = std::make_unique<OperatorPsf>(
-			    osem->getImageParams(), imageSpacePsf_fname);
-			osem->addImagePSF(imageSpacePsf.get());
+			osem->addImagePSF(imageSpacePsf_fname);
 		}
 
 		// Projection-space PSF
@@ -181,6 +172,11 @@ int main(int argc, char** argv)
 		std::vector<std::unique_ptr<Image>> sensImages;
 		if (sensImg_fnames.empty())
 		{
+			ASSERT_MSG(!imgParams_fname.empty(),
+			           "Image parameters file unspecified");
+			ImageParams imgParams{imgParams_fname};
+			osem->setImageParams(imgParams);
+
 			std::unique_ptr<ProjectionData> sensData = nullptr;
 			if (!sensData_fname.empty())
 			{
@@ -202,14 +198,16 @@ int main(int argc, char** argv)
 		{
 			for (auto& sensImg_fname : sensImg_fnames)
 			{
-				sensImages.push_back(std::make_unique<ImageOwned>(
-				    osem->getImageParams(), sensImg_fname));
+				sensImages.push_back(
+				    std::make_unique<ImageOwned>(sensImg_fname));
 			}
 		}
 		else
 		{
-			std::cout << "number of sensImages given: " << sensImg_fnames.size()
-			          << std::endl;
+			std::cerr << "The number of sensitivity images given is "
+			          << sensImg_fnames.size() << std::endl;
+			std::cerr << "The expected number of sensitivity images is "
+			          << (useListMode ? 1 : numSubsets) << std::endl;
 			throw std::invalid_argument(
 			    "The number of sensitivity images given "
 			    "doesn't match the number of "

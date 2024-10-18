@@ -11,6 +11,7 @@ include(ExternalProject)
 
 # Program requirements
 find_package(OpenMP REQUIRED)
+find_package(SimpleITK REQUIRED)
 
 # User options
 option(BUILD_PYBIND11 "Build python bindings using pybind11" ON)
@@ -44,7 +45,8 @@ endif (USE_CUDA)
 
 # Common variables
 set(YRTPET_COMPILE_FEATURES cxx_std_17)
-set(YRTPET_LINK_LIBRARIES OpenMP::OpenMP_CXX)
+set(YRTPET_LINK_LIBRARIES OpenMP::OpenMP_CXX ${SimpleITK_LIBRARIES})
+set(YRTPET_INCLUDE_DIRECTORIES ${SimpleITK_INCLUDE_DIRS})
 set(YRTPET_LIB_NAME yrtpet)
 
 # Default build type
@@ -65,7 +67,7 @@ function(setup_target TARGET JSON CXXOPTS PYBIND11)
     string(CONCAT LINK_EXTRA "$<$<AND:$<CXX_COMPILER_ID:GNU>,"
             "$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:stdc++fs>")
     target_link_libraries(${TARGET} PRIVATE ${LINK_EXTRA})
-    target_include_directories(${TARGET} PUBLIC
+    target_include_directories(${TARGET} PUBLIC ${YRTPET_INCLUDE_DIRECTORIES}
             $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include/>
             $<INSTALL_INTERFACE:include/${CMAKE_PROJECT_NAME}>)
     target_link_libraries(${TARGET} PUBLIC ${YRTPET_LINK_LIBRARIES})

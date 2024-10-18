@@ -14,8 +14,7 @@
 #include "recon/OSEM_CPU.hpp"
 #include "utils/Assert.hpp"
 #include "utils/Globals.hpp"
-#include "utils/ProgressDisplay.hpp"
-
+#include "utils/ProgressDisplayMultiThread.hpp"
 
 #if BUILD_CUDA
 #include "operators/OperatorProjectorDD_GPU.cuh"
@@ -233,24 +232,18 @@ namespace Util
 		float* histoDataPointer = histoOut.getData().getRawPointer();
 		const size_t numDatBins = dat.count();
 
-		ProgressDisplay progressBar(numDatBins, 1);
-		int64_t currentProgress = 0;
+		ProgressDisplayMultiThread progressBar(Globals::get_num_threads(),
+		                                       numDatBins, 5);
+		progressBar.start();
 
 		const Histogram3D* histoOut_constptr = &histoOut;
 		const ProjectionData* dat_constptr = &dat;
 #pragma omp parallel for default(none)                                         \
-    firstprivate(histoDataPointer, progressBar, numDatBins, histoOut_constptr, \
-                     dat_constptr) shared(currentProgress)
+    firstprivate(histoDataPointer, numDatBins, histoOut_constptr, \
+                     dat_constptr) shared(progressBar)
 		for (bin_t datBin = 0; datBin < numDatBins; ++datBin)
 		{
-			// Still use atomic for the progress report
-#pragma omp atomic
-			++currentProgress;
-
-			if (omp_get_thread_num() == 0)
-			{
-				progressBar.progress(currentProgress);
-			}
+			progressBar.progress(omp_get_thread_num(), 1);
 
 			const float projValue = dat_constptr->getProjectionValue(datBin);
 			if (projValue > 0)
@@ -274,6 +267,7 @@ namespace Util
 				}
 			}
 		}
+		progressBar.finish();
 	}
 
 	template void convertToHistogram3D<true>(const ProjectionData&,
@@ -281,88 +275,35 @@ namespace Util
 	template void convertToHistogram3D<false>(const ProjectionData&,
 	                                          Histogram3D&);
 
-	OperatorProjectorBase::ProjectionProperties
-	    getProjectionProperties(const Scanner& scanner,
-	                            const ProjectionData& dat, bin_t bin)
-	{
-		auto [d1, d2] = dat.getDetectorPair(bin);
-
-		StraightLineParam lor;
-		if (dat.hasArbitraryLORs())
-		{
-			const line_t lorPts = dat.getArbitraryLOR(bin);
-			lor = StraightLineParam{Vector3D{lorPts.x1, lorPts.y1, lorPts.z1},
-			                        Vector3D{lorPts.x2, lorPts.y2, lorPts.z2}};
-		}
-		else
-		{
-			const Vector3DFloat p1 = scanner.getDetectorPos(d1);
-			const Vector3DFloat p2 = scanner.getDetectorPos(d2);
-			lor = StraightLineParam{p1, p2};
-		}
-
-		float tofValue = 0.0f;
-		if (dat.hasTOF())
-		{
-			tofValue = dat.getTOFValue(bin);
-		}
-		float randomsEstimate = dat.getRandomsEstimate(bin);
-		if (dat.hasMotion())
-		{
-			frame_t frame = dat.getFrame(bin);
-			transform_t transfo = dat.getTransformOfFrame(frame);
-			Vector3D point1 = lor.point1;
-			Vector3D point2 = lor.point2;
-
-			Matrix MRot(transfo.r00, transfo.r01, transfo.r02, transfo.r10,
-			            transfo.r11, transfo.r12, transfo.r20, transfo.r21,
-			            transfo.r22);
-			Vector3D VTrans(transfo.tx, transfo.ty, transfo.tz);
-
-			Vector3D point1Prim = MRot * point1;
-			point1Prim = point1Prim + VTrans;
-
-			Vector3D point2Prim = MRot * point2;
-			point2Prim = point2Prim + VTrans;
-
-			lor.update(point1Prim, point2Prim);
-		}
-		Vector3DFloat det1Orient = scanner.getDetectorOrient(d1);
-		Vector3DFloat det2Orient = scanner.getDetectorOrient(d2);
-		return OperatorProjectorBase::ProjectionProperties{
-		    lor, tofValue, randomsEstimate, det1Orient.to<double>(),
-		    det2Orient.to<double>()};
-	}
-
-	StraightLineParam getNativeLOR(const Scanner& scanner,
-	                               const ProjectionData& dat, bin_t binId)
+	Line3D getNativeLOR(const Scanner& scanner, const ProjectionData& dat,
+	                    bin_t binId)
 	{
 		const auto [d1, d2] = dat.getDetectorPair(binId);
-		const Vector3DFloat p1 = scanner.getDetectorPos(d1);
-		const Vector3DFloat p2 = scanner.getDetectorPos(d2);
-		return StraightLineParam{p1, p2};
+		const Vector3D p1 = scanner.getDetectorPos(d1);
+		const Vector3D p2 = scanner.getDetectorPos(d2);
+		return Line3D{p1, p2};
 	}
 
-	std::tuple<StraightLineParam, Vector3D, Vector3D>
+	std::tuple<Line3D, Vector3D, Vector3D>
 	    generateTORRandomDOI(const Scanner& scanner, det_id_t d1, det_id_t d2,
 	                         int vmax)
 	{
-		const Vector3DFloat p1 = scanner.getDetectorPos(d1);
-		const Vector3DFloat p2 = scanner.getDetectorPos(d2);
-		const Vector3DFloat n1 = scanner.getDetectorOrient(d1);
-		const Vector3DFloat n2 = scanner.getDetectorOrient(d2);
-		const double doi_1_t = (rand() % vmax) /
-		                       (static_cast<float>(1 << 8) - 1) *
-		                       scanner.crystalDepth;
-		const double doi_2_t = (rand() % vmax) /
-		                       (static_cast<float>(1 << 8) - 1) *
-		                       scanner.crystalDepth;
-		const Vector3D p1_doi(p1.x + doi_1_t * n1.x, p1.y + doi_1_t * n1.y,
-		                      p1.z + doi_1_t * n1.z);
-		const Vector3D p2_doi(p2.x + doi_2_t * n2.x, p2.y + doi_2_t * n2.y,
-		                      p2.z + doi_2_t * n2.z);
-		const StraightLineParam lorDOI(p1_doi, p2_doi);
-		return {lorDOI, n1.to<double>(), n2.to<double>()};
+		const Vector3D p1 = scanner.getDetectorPos(d1);
+		const Vector3D p2 = scanner.getDetectorPos(d2);
+		const Vector3D n1 = scanner.getDetectorOrient(d1);
+		const Vector3D n2 = scanner.getDetectorOrient(d2);
+		const float doi_1_t = (rand() % vmax) /
+		                      (static_cast<float>(1 << 8) - 1) *
+		                      scanner.crystalDepth;
+		const float doi_2_t = (rand() % vmax) /
+		                      (static_cast<float>(1 << 8) - 1) *
+		                      scanner.crystalDepth;
+		const Vector3D p1_doi{p1.x + doi_1_t * n1.x, p1.y + doi_1_t * n1.y,
+		                      p1.z + doi_1_t * n1.z};
+		const Vector3D p2_doi{p2.x + doi_2_t * n2.x, p2.y + doi_2_t * n2.y,
+		                      p2.z + doi_2_t * n2.z};
+		const Line3D lorDOI{p1_doi, p2_doi};
+		return {lorDOI, n1, n2};
 	}
 
 	std::unique_ptr<OSEM> createOSEM(const Scanner& scanner, bool useGPU)
@@ -383,6 +324,7 @@ namespace Util
 		}
 		return osem;
 	}
+
 
 	// Forward and backward projections
 	template <bool IS_FWD>

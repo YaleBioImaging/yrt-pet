@@ -142,7 +142,7 @@ def planes_intersect(a, b):
 
     return p_inter[0], (p_inter + aXb_vec)[0]
 
-#From three 3D points, get you the A,B,C and D of the plane
+#From three 3D points, gets the A,B,C and D of the plane
 def plane_from_three_pts(p1,p2,p3):
     n = np.cross(p2-p1,p3-p1)
     n = n*1/(np.sqrt(n.dot(n))) # normalize

@@ -30,9 +30,9 @@ ImageWarperMatrix::~ImageWarperMatrix() {}
 /* **************************************************************************************
  * Def.: Clean all the variable of this class.
  * *************************************************************************************/
-void ImageWarperMatrix::Reset()
+void ImageWarperMatrix::reset()
 {
-	ImageWarperTemplate::Reset();
+	ImageWarperTemplate::reset();
 	// TODO: Clean the children specific variables.
 }
 
@@ -83,8 +83,8 @@ void ImageWarperMatrix::warp(Image* _image, int _frameId) const
 	std::vector<double> voxPos;
 	voxPos.resize(3);
 	Vector3D movVoxPos{0.0, 0.0, 0.0};
-	Array3DAlias<double> data = _image->getArray();
-	Array2DAlias<double> slice;
+	Array3DAlias<float> data = _image->getArray();
+	Array2DAlias<float> slice;
 
 	for (int k = 0; k < m_imNbVoxel[2]; k++)
 	{
@@ -93,7 +93,7 @@ void ImageWarperMatrix::warp(Image* _image, int _frameId) const
 		for (int j = 0; j < m_imNbVoxel[1]; j++)
 		{
 			voxPos[1] = getVoxelPhysPos(j, 1);
-			double* ptr = slice[j];
+			float* ptr = slice[j];
 			for (int i = 0; i < m_imNbVoxel[0]; i++)
 			{
 				voxPos[0] = getVoxelPhysPos(i, 0);
@@ -137,10 +137,10 @@ void ImageWarperMatrix::inverseWarp(Image* _image, int _frameId) const
 	double currVoxelVal;
 	bool pointValid;
 
-	Array3DAlias<double> data_copy = tmpCopy->getArray();
-	Array2DAlias<double> slice_copy;
-	Array3DAlias<double> data = _image->getArray();
-	double* raw_img_ptr = &data.get_flat(0);
+	Array3DAlias<float> data_copy = tmpCopy->getArray();
+	Array2DAlias<float> slice_copy;
+	Array3DAlias<float> data = _image->getArray();
+	float* raw_img_ptr = &data.getFlat(0);
 	size_t num_x = img_params.nx;
 	size_t num_xy = img_params.nx * img_params.ny;
 
@@ -152,7 +152,7 @@ void ImageWarperMatrix::inverseWarp(Image* _image, int _frameId) const
 		for (int j = 0; j < m_imNbVoxel[1]; j++)
 		{
 			voxPos[1] = getVoxelPhysPos(j, 1);
-			double* row_ptr = slice_copy[j];
+			float* row_ptr = slice_copy[j];
 			for (int i = 0; i < m_imNbVoxel[0]; i++)
 			{
 				voxPos[0] = getVoxelPhysPos(i, 0);
@@ -166,7 +166,7 @@ void ImageWarperMatrix::inverseWarp(Image* _image, int _frameId) const
 				{
 					for (size_t l = 0; l < voxCompIndex.size(); l++)
 					{
-						double* cur_img_ptr =
+						float* cur_img_ptr =
 							raw_img_ptr + voxCompIndex[l][2] * num_xy +
 							voxCompIndex[l][1] * num_x + voxCompIndex[l][0];
 						*cur_img_ptr += currVoxelVal * voxCompInterpWeight[l];
@@ -312,8 +312,8 @@ const
 	double dx, dy, dz, dx1, dy1, dz1, delta_x, delta_y, delta_z;
 
 	// if point outside of the image, return 0:
-	if ((fabs(pt.x) >= (m_imSize[0] / 2)) ||
-	    (fabs(pt.y) >= (m_imSize[1] / 2)) || (fabs(pt.z) >= (m_imSize[2] / 2)))
+	if ((std::abs(pt.x) >= (m_imSize[0] / 2)) ||
+	    (std::abs(pt.y) >= (m_imSize[1] / 2)) || (std::abs(pt.z) >= (m_imSize[2] / 2)))
 	{
 		return false;
 	}

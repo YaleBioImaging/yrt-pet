@@ -3,8 +3,12 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
+#include "geometry/ProjectorUtils.hpp"
 #include "operators/OperatorProjectorDD_GPUKernels.cuh"
+#include "operators/ProjectionPsfManagerDevice.cuh"
+#include "operators/ProjectionPsfUtils.cuh"
 
+#include <cuda_runtime.h>
 
 __device__ float3 operator+(const float3& a, const float3& b)
 {
@@ -41,33 +45,6 @@ __device__ float3 operator/(const float3& a, const float f)
 	return make_float3(a.x / f, a.y / f, a.z / f);
 }
 
-__device__ void get_alpha(float r0, float r1, float p1, float p2, float inv_p12,
-                          float& amin, float& amax)
-{
-	amin = 0.0;
-	amax = 1.0;
-	if (p1 != p2)
-	{
-		float a0 = (r0 - p1) * inv_p12;
-		float a1 = (r1 - p1) * inv_p12;
-		if (a0 < a1)
-		{
-			amin = a0;
-			amax = a1;
-		}
-		else
-		{
-			amin = a1;
-			amax = a0;
-		}
-	}
-	else if (p1 < r0 || p1 > r1)
-	{
-		amax = 0.0;
-		amin = 1.0;
-	}
-}
-
 __global__ void gatherLORs_kernel(const uint2* pd_lorDetsIds,
                                   const float4* pd_detsPos,
                                   const float4* pd_detsOrient,
@@ -98,22 +75,29 @@ __global__ void gatherLORs_kernel(const uint2* pd_lorDetsIds,
 	}
 }
 
-
 __device__ inline float get_overlap_safe(const float p0, const float p1,
                                          const float d0, const float d1)
 {
-	// TODO: Modify this for PSF
 	return min(p1, d1) - max(p0, d0);
 }
 
+__device__ inline float
+    get_overlap_safe(const float p0, const float p1, const float d0,
+                     const float d1, const float* psfKernel,
+                     const ProjectionPsfProperties& projectionPsfProperties)
+{
+	return Util::getWeight(psfKernel, projectionPsfProperties, p0 - d1,
+	                       p1 - d0);
+}
 
-template <bool IsForward, bool HasTOF>
+template <bool IsForward, bool HasTOF, bool HasProjPSF>
 __global__ void OperatorProjectorDDCU_kernel(
     float* pd_projValues, float* pd_image, const float4* pd_lorDet1Pos,
     const float4* pd_lorDet2Pos, const float4* pd_lorDet1Orient,
     const float4* pd_lorDet2Orient, const float* pd_lorTOFValue,
-    const TimeOfFlightHelper* pd_tofHelper, CUScannerParams scannerParams,
-    CUImageParams imgParams, size_t batchSize)
+    const TimeOfFlightHelper* pd_tofHelper, const float* pd_projPsfKernels,
+    ProjectionPsfProperties projectionPsfProperties,
+    CUScannerParams scannerParams, CUImageParams imgParams, size_t batchSize)
 {
 	const long eventId = blockIdx.x * blockDim.x + threadIdx.x;
 	if (eventId < batchSize)
@@ -144,9 +128,15 @@ __global__ void OperatorProjectorDDCU_kernel(
 		const float d_norm =
 		    norm3df(d1_minus_d2.x, d1_minus_d2.y, d1_minus_d2.z);
 
-		// TODO: Add PSF Kernel
-		// float* psfKernel = nullptr;
+		const float* psfKernel = nullptr;
 		float detFootprintExt = 0.f;
+		if constexpr (HasProjPSF)
+		{
+			psfKernel =
+			    Util::getKernel(pd_projPsfKernels, projectionPsfProperties,
+			                    d1.x, d1.y, d2.x, d2.y);
+			detFootprintExt = projectionPsfProperties.halfWidth;
+		}
 
 		// ----------------------- Compute Pixel limits
 		const int nx = imgParams.voxelNumber[0];
@@ -165,12 +155,12 @@ __global__ void OperatorProjectorDDCU_kernel(
 		const float inv_d12_z = (d1.z == d2.z) ? 0.0f : 1.0f / (d2.z - d1.z);
 
 		float ax_min, ax_max, ay_min, ay_max, az_min, az_max;
-		get_alpha(-0.5f * (imgLength_x - dx), 0.5f * (imgLength_x - dx), d1.x,
-		          d2.x, inv_d12_x, ax_min, ax_max);
-		get_alpha(-0.5f * (imgLength_y - dy), 0.5f * (imgLength_y - dy), d1.y,
-		          d2.y, inv_d12_y, ay_min, ay_max);
-		get_alpha(-0.5f * (imgLength_z - dz), 0.5f * (imgLength_z - dz), d1.z,
-		          d2.z, inv_d12_z, az_min, az_max);
+		Util::get_alpha(-0.5f * (imgLength_x - dx), 0.5f * (imgLength_x - dx),
+		                d1.x, d2.x, inv_d12_x, ax_min, ax_max);
+		Util::get_alpha(-0.5f * (imgLength_y - dy), 0.5f * (imgLength_y - dy),
+		                d1.y, d2.y, inv_d12_y, ay_min, ay_max);
+		Util::get_alpha(-0.5f * (imgLength_z - dz), 0.5f * (imgLength_z - dz),
+		                d1.z, d2.z, inv_d12_z, az_min, az_max);
 
 		float amin = fmaxf(0.0f, ax_min);
 		amin = fmaxf(amin, ay_min);
@@ -180,10 +170,9 @@ __global__ void OperatorProjectorDDCU_kernel(
 		amax = fminf(amax, ay_max);
 		amax = fminf(amax, az_max);
 
-		// TODO: Add TOF support
 		if constexpr (HasTOF)
 		{
-			double amin_tof, amax_tof;
+			float amin_tof, amax_tof;
 			pd_tofHelper->getAlphaRange(amin_tof, amax_tof, d_norm, tofValue);
 			amin = max(amin, amin_tof);
 			amax = min(amax, amax_tof);
@@ -364,8 +353,19 @@ __global__ void OperatorProjectorDDCU_kernel(
 				const float dd_yx_p_1 = pix_yx + dyx * 0.5f;
 				if (dd_yx_r_1 >= dd_yx_p_0 && dd_yx_r_0 < dd_yx_p_1)
 				{
-					const float weight_xy = get_overlap_safe(
-					    dd_yx_p_0, dd_yx_p_1, dd_yx_r_0_ov, dd_yx_r_1_ov);
+					float weight_xy;
+					if constexpr (HasProjPSF)
+					{
+						weight_xy = get_overlap_safe(
+						    dd_yx_p_0, dd_yx_p_1, dd_yx_r_0_ov, dd_yx_r_1_ov,
+						    psfKernel, projectionPsfProperties);
+					}
+					else
+					{
+						weight_xy = get_overlap_safe(
+						    dd_yx_p_0, dd_yx_p_1, dd_yx_r_0_ov, dd_yx_r_1_ov);
+					}
+
 					const float weight_xy_s = weight_xy / widthFrac_yx;
 					const float offset_dd_z_i =
 					    static_cast<float>(nz - 1) * 0.5f;
@@ -437,31 +437,62 @@ __global__ void OperatorProjectorDDCU_kernel(
 	}
 }
 
-template __global__ void OperatorProjectorDDCU_kernel<true, true>(
+template __global__ void OperatorProjectorDDCU_kernel<true, true, false>(
     float* pd_projValues, float* pd_image, const float4* pd_lorDet1Pos,
     const float4* pd_lorDet2Pos, const float4* pd_lorDet1Orient,
     const float4* pd_lorDet2Orient, const float* pd_lorTOFValue,
-    const TimeOfFlightHelper* pd_tofHelper, CUScannerParams scannerParams,
-    CUImageParams imgParams, size_t batchSize);
-template __global__ void OperatorProjectorDDCU_kernel<false, true>(
+    const TimeOfFlightHelper* pd_tofHelper, const float* pd_projPsfKernels,
+    ProjectionPsfProperties projectionPsfProperties,
+    CUScannerParams scannerParams, CUImageParams imgParams, size_t batchSize);
+template __global__ void OperatorProjectorDDCU_kernel<false, true, false>(
     float* pd_projValues, float* pd_image, const float4* pd_lorDet1Pos,
     const float4* pd_lorDet2Pos, const float4* pd_lorDet1Orient,
     const float4* pd_lorDet2Orient, const float* pd_lorTOFValue,
-    const TimeOfFlightHelper* pd_tofHelper, CUScannerParams scannerParams,
-    CUImageParams imgParams, size_t batchSize);
-template __global__ void OperatorProjectorDDCU_kernel<true, false>(
+    const TimeOfFlightHelper* pd_tofHelper, const float* pd_projPsfKernels,
+    ProjectionPsfProperties projectionPsfProperties,
+    CUScannerParams scannerParams, CUImageParams imgParams, size_t batchSize);
+template __global__ void OperatorProjectorDDCU_kernel<true, false, false>(
     float* pd_projValues, float* pd_image, const float4* pd_lorDet1Pos,
     const float4* pd_lorDet2Pos, const float4* pd_lorDet1Orient,
     const float4* pd_lorDet2Orient, const float* pd_lorTOFValue,
-    const TimeOfFlightHelper* pd_tofHelper, CUScannerParams scannerParams,
-    CUImageParams imgParams, size_t batchSize);
-template __global__ void OperatorProjectorDDCU_kernel<false, false>(
+    const TimeOfFlightHelper* pd_tofHelper, const float* pd_projPsfKernels,
+    ProjectionPsfProperties projectionPsfProperties,
+    CUScannerParams scannerParams, CUImageParams imgParams, size_t batchSize);
+template __global__ void OperatorProjectorDDCU_kernel<false, false, false>(
     float* pd_projValues, float* pd_image, const float4* pd_lorDet1Pos,
     const float4* pd_lorDet2Pos, const float4* pd_lorDet1Orient,
     const float4* pd_lorDet2Orient, const float* pd_lorTOFValue,
-    const TimeOfFlightHelper* pd_tofHelper, CUScannerParams scannerParams,
-    CUImageParams imgParams, size_t batchSize);
-
+    const TimeOfFlightHelper* pd_tofHelper, const float* pd_projPsfKernels,
+    ProjectionPsfProperties projectionPsfProperties,
+    CUScannerParams scannerParams, CUImageParams imgParams, size_t batchSize);
+template __global__ void OperatorProjectorDDCU_kernel<true, true, true>(
+    float* pd_projValues, float* pd_image, const float4* pd_lorDet1Pos,
+    const float4* pd_lorDet2Pos, const float4* pd_lorDet1Orient,
+    const float4* pd_lorDet2Orient, const float* pd_lorTOFValue,
+    const TimeOfFlightHelper* pd_tofHelper, const float* pd_projPsfKernels,
+    ProjectionPsfProperties projectionPsfProperties,
+    CUScannerParams scannerParams, CUImageParams imgParams, size_t batchSize);
+template __global__ void OperatorProjectorDDCU_kernel<false, true, true>(
+    float* pd_projValues, float* pd_image, const float4* pd_lorDet1Pos,
+    const float4* pd_lorDet2Pos, const float4* pd_lorDet1Orient,
+    const float4* pd_lorDet2Orient, const float* pd_lorTOFValue,
+    const TimeOfFlightHelper* pd_tofHelper, const float* pd_projPsfKernels,
+    ProjectionPsfProperties projectionPsfProperties,
+    CUScannerParams scannerParams, CUImageParams imgParams, size_t batchSize);
+template __global__ void OperatorProjectorDDCU_kernel<true, false, true>(
+    float* pd_projValues, float* pd_image, const float4* pd_lorDet1Pos,
+    const float4* pd_lorDet2Pos, const float4* pd_lorDet1Orient,
+    const float4* pd_lorDet2Orient, const float* pd_lorTOFValue,
+    const TimeOfFlightHelper* pd_tofHelper, const float* pd_projPsfKernels,
+    ProjectionPsfProperties projectionPsfProperties,
+    CUScannerParams scannerParams, CUImageParams imgParams, size_t batchSize);
+template __global__ void OperatorProjectorDDCU_kernel<false, false, true>(
+    float* pd_projValues, float* pd_image, const float4* pd_lorDet1Pos,
+    const float4* pd_lorDet2Pos, const float4* pd_lorDet1Orient,
+    const float4* pd_lorDet2Orient, const float* pd_lorTOFValue,
+    const TimeOfFlightHelper* pd_tofHelper, const float* pd_projPsfKernels,
+    ProjectionPsfProperties projectionPsfProperties,
+    CUScannerParams scannerParams, CUImageParams imgParams, size_t batchSize);
 
 __global__ void applyAttenuationFactors_kernel(const float* pd_attImgProjData,
                                                const float* pd_imgProjData,

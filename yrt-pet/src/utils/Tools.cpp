@@ -10,7 +10,6 @@
 
 namespace Util
 {
-
 	template <typename T>
 	void readCSV(const std::string& filename, Array2D<T>& output)
 	{
@@ -84,11 +83,12 @@ namespace Util
 	template void readCSV(const std::string& filename, Array2D<float>& output);
 	template void readCSV(const std::string& filename, Array2D<double>& output);
 
-	double erfc(double x)
+	template <typename TFloat>
+	TFloat erfc(TFloat x)
 	{
-		double t, z, ans;
+		TFloat t, z, ans;
 
-		z = fabs(x);
+		z = std::abs(x);
 		t = 1.0 / (1.0 + 0.5 * z);
 		ans =
 		    t *
@@ -104,6 +104,8 @@ namespace Util
 		                                                t * 0.17087277)))))))));
 		return x >= 0.0 ? ans : 2.0 - ans;
 	}
+	template float erfc<float>(float);
+	template double erfc<double>(double);
 
 	int reflect(int M, int x)
 	{
@@ -187,7 +189,7 @@ namespace Util
 					     kk++)
 					{
 						r = circular(nx, i - kk);
-						sum += kernelX.get_flat(kk + kerIndexCentered) *
+						sum += kernelX.getFlat(kk + kerIndexCentered) *
 						       src.get({k, j, r});
 					}
 					dst1->set({k, j, i}, sum);
@@ -207,7 +209,7 @@ namespace Util
 					     kk++)
 					{
 						r = circular(ny, j - kk);
-						sum += kernelY.get_flat(kk + kerIndexCentered) *
+						sum += kernelY.getFlat(kk + kerIndexCentered) *
 						       dst1->get({k, r, i});
 					}
 					dst2->set({k, j, i}, sum);
@@ -227,7 +229,7 @@ namespace Util
 					     kk++)
 					{
 						r = circular(nz, k - kk);
-						sum += kernelZ.get_flat(kk + kerIndexCentered) *
+						sum += kernelZ.getFlat(kk + kerIndexCentered) *
 						       dst2->get({r, j, i});
 					}
 					dst.set({k, j, i}, sum);
@@ -302,7 +304,7 @@ namespace Util
 		{
 			double gauss = 1 / ((double)kerSize) *
 			               std::exp(-0.5 * std::pow(i - kerSize / 2.0, 2.0));
-			kernel.set_flat(i, gauss);
+			kernel.setFlat(i, gauss);
 		}
 	}
 
@@ -376,71 +378,16 @@ namespace Util
 
 	std::string padZeros(int number, int num_digits)
 	{
-		int numberOfZerosToPad = num_digits - maxNumberOfDigits(number);
+		const int numberOfZerosToPad = num_digits - maxNumberOfDigits(number);
 		if (numberOfZerosToPad < 0)
 		{
 			throw std::invalid_argument("The number given in padZeros "
 			                            "exceeds the number of digits allowed");
 		}
-		std::string outString = "";
+		std::string outString;
 		outString.append("00000000000000000000000000000", numberOfZerosToPad);
 		outString.append(std::to_string(number));
 		return outString;
-	}
-
-	float calculateIntegral(const float* kernel, int kernelSize,
-	                        float kernelStep, float x0, float x1)
-	{
-		int halfSize = (kernelSize - 1) / 2;
-		if (x0 > (halfSize + 1) * kernelStep ||
-		    x1 < -(halfSize + 1) * kernelStep || x0 >= x1)
-		{
-			return 0.f;
-		}
-
-		// x0
-		float x0_s = x0 / kernelStep;
-		int x0_i = (int)std::floor(x0_s + halfSize);
-		float tau_0 = x0_s + -(-halfSize + x0_i);
-		float v0_lo = (x0_i < 0 || x0_i >= kernelSize) ? 0 : kernel[x0_i];
-		float v0_hi =
-		    (x0_i < -1 || x0_i >= kernelSize - 1) ? 0.f : kernel[x0_i + 1];
-		// Interpolated value at x0
-		float v0 = v0_lo * (1 - tau_0) + v0_hi * tau_0;
-
-		// x1
-		float x1_s = x1 / kernelStep;
-		int x1_i = (int)std::floor(x1_s + halfSize);
-		float tau_1 = x1_s - (-halfSize + x1_i);
-		float v1_lo = (x1_i < 0 || x1_i >= kernelSize) ? 0 : kernel[x1_i];
-		float v1_hi =
-		    (x1_i < -1 || x1_i >= kernelSize - 1) ? 0.f : kernel[x1_i + 1];
-		// Interpolated value at x1
-		float v1 = v1_lo * (1 - tau_1) + v1_hi * tau_1;
-
-		// Integral calculation
-		float out = 0;
-		if (x0_i == x1_i)
-		{
-			// Special case when x0 and x1 are in the same bin
-			out = 0.5f * (v0 + v1) * (x1 - x0);
-		}
-		else
-		{
-			// Integration over partial bin for x0
-			out += 0.5f * (v0 + v0_hi) * kernelStep * (1 - tau_0);
-			// Integration over partial bin for x1
-			out += 0.5f * (v1_lo + v1) * kernelStep * tau_1;
-			// Add full bins between x0 and x1
-			for (int xi = x0_i + 1; xi < x1_i; xi++)
-			{
-				float v_lo = (xi < 0 || xi >= kernelSize) ? 0.f : kernel[xi];
-				float v_hi =
-				    (xi + 1 < 0 || xi + 1 >= kernelSize) ? 0.f : kernel[xi + 1];
-				out += kernelStep * 0.5f * (v_lo + v_hi);
-			}
-		}
-		return out;
 	}
 
 	template float getAttenuationCoefficientFactor(float proj,

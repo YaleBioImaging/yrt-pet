@@ -7,7 +7,6 @@
 
 #include "datastruct/projection/Histogram3D.hpp"
 #include "datastruct/projection/ListModeLUT.hpp"
-#include "datastruct/scanner/DetRegular.hpp"
 #include "test_utils.hpp"
 #include "utils/ReconstructionUtils.hpp"
 
@@ -15,6 +14,48 @@
 bool check_coords(std::array<coord_t, 3> c1, std::array<coord_t, 3> c2)
 {
 	return (c1[0] == c2[0] && c1[1] == c2[1] && c1[2] == c2[2]);
+}
+bool check_det_pairs(det_pair_t p1, det_pair_t p2)
+{
+	return (p1.d1 == p2.d1 && p1.d2 == p2.d2) ||
+	       (p1.d1 == p2.d2 && p1.d2 == p2.d1);
+}
+bool compare_det_pairs(det_pair_t detPair1, det_pair_t detPair2)
+{
+	det_pair_t p1 = detPair1;
+	if (p1.d1 > p1.d2)
+	{
+		p1 = {p1.d2, p1.d1};
+	}
+	det_pair_t p2 = detPair2;
+	if (p2.d1 > p2.d2)
+	{
+		p2 = {p2.d2, p2.d1};
+	}
+
+	if (p1.d1 < p2.d1)
+	{
+		return true;
+	}
+	else if (p1.d1 > p2.d1)
+	{
+		return false;
+	}
+	else
+	{
+		if (p1.d2 < p2.d2)
+		{
+			return true;
+		}
+		else if (p1.d2 > p2.d2)
+		{
+			return false;
+		}
+		else
+		{
+			return false;
+		}
+	}
 }
 bool compare_coords(std::array<coord_t, 3> c1, std::array<coord_t, 3> c2)
 {
@@ -132,7 +173,7 @@ TEST_CASE("histo3d", "[histo]")
 	}
 
 
-	SECTION("histo3d-detectors-uniqueness")
+	SECTION("histo3d-coords-uniqueness")
 	{
 		std::vector<std::array<coord_t, 3>> all_coords;
 
@@ -169,6 +210,27 @@ TEST_CASE("histo3d", "[histo]")
 		REQUIRE(!containsDuplicate);
 	}
 
+	SECTION("histo3d-detector-pairs-uniqueness")
+	{
+		std::vector<det_pair_t> allDetPairs;
+
+		const size_t numBins = histo3d->count();
+		allDetPairs.resize(numBins);
+
+		for (bin_t binId = 0; binId < numBins; binId++)
+		{
+			det_pair_t currPair = histo3d->getDetectorPair(binId);
+			allDetPairs[binId] = currPair;
+		}
+
+		std::sort(std::begin(allDetPairs), std::end(allDetPairs),
+		          compare_det_pairs);
+		auto u = std::unique(std::begin(allDetPairs), std::end(allDetPairs),
+		                     check_det_pairs);
+		bool containsDuplicate = u != std::end(allDetPairs);
+		REQUIRE(!containsDuplicate);
+	}
+
 	SECTION("histo3d-line-integrity")
 	{
 		auto someListMode = std::make_unique<ListModeLUTOwned>(*scanner);
@@ -180,9 +242,11 @@ TEST_CASE("histo3d", "[histo]")
 		for (size_t lmEv = 0; lmEv < someListMode->count(); lmEv++)
 		{
 			auto [d1, d2] = someListMode->getDetectorPair(lmEv);
-			StraightLineParam lor = Util::getNativeLOR(*scanner, *someListMode, lmEv);
+			Line3D lor =
+			    Util::getNativeLOR(*scanner, *someListMode, lmEv);
 			bin_t binId = histo3d->getBinIdFromDetPair(d1, d2);
-			StraightLineParam histoLor = Util::getNativeLOR(*scanner, *histo3d, binId);
+			Line3D histoLor =
+			    Util::getNativeLOR(*scanner, *histo3d, binId);
 
 			CHECK(((std::abs(histoLor.point1.x - lor.point1.x) < epsilon &&
 			        std::abs(histoLor.point1.y - lor.point1.y) < epsilon &&

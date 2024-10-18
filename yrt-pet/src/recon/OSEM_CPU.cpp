@@ -8,6 +8,7 @@
 #include "datastruct/projection/ProjectionList.hpp"
 #include "operators/OperatorProjectorDD.hpp"
 #include "operators/OperatorProjectorSiddon.hpp"
+#include "utils/Assert.hpp"
 
 #include <utility>
 
@@ -147,9 +148,9 @@ void OSEM_CPU::setupOperatorsForRecon()
 		mp_projector = std::make_unique<OperatorProjectorDD>(projParams);
 	}
 
-	if (attenuationImage != nullptr)
+	if (attenuationImageForForwardProjection != nullptr)
 	{
-		mp_projector->setAttenuationImage(attenuationImage);
+		mp_projector->setAttenuationImage(attenuationImageForForwardProjection);
 	}
 	if (addHis != nullptr)
 	{

@@ -44,8 +44,8 @@ def test_image_transform():
     def rescale(sample): return (max_val - min_val) * sample + min_val
 
     # Simple translation
-    x = rescale(np.random.random([12, 13, 14]))
-    img_params = yrt.ImageParams(14, 13, 12, 28.0, 26.0, 24.0)
+    x = rescale(np.random.random([12, 13, 14])).astype(np.float32)
+    img_params = yrt.ImageParams(14, 13, 12, 28.0, 26.0, 24.0, 1, 2, 3)
     img = yrt.ImageAlias(img_params)
     img.bind(x)
     v_rot = yrt.Vector3D(0.0, 0.0, 0.0)
@@ -54,7 +54,7 @@ def test_image_transform():
     x_t = np.array(img_t, copy=False)
     np.testing.assert_allclose(x[..., :-1], x_t[..., 1:], rtol=9e-6)
     # Simple rotation
-    x = rescale(np.random.random([14, 12, 12]))
+    x = rescale(np.random.random([14, 12, 12])).astype(np.float32)
     img_params = yrt.ImageParams(12, 12, 14, 26.0, 26.0, 28.0)
     img = yrt.ImageAlias(img_params)
     img.bind(x)

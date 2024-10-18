@@ -31,8 +31,8 @@ void py_setup_scanner(pybind11::module& m)
 	c.def(py::init<const std::string&>());
 	c.def("getNumDets", &Scanner::getNumDets);
 	c.def("getTheoreticalNumDets", &Scanner::getTheoreticalNumDets);
-	c.def("getDetectorPos", &Scanner::getDetectorPos);
-	c.def("getDetectorOrient", &Scanner::getDetectorOrient);
+	c.def("getDetectorPos", &Scanner::getDetectorPos, "det_id"_a);
+	c.def("getDetectorOrient", &Scanner::getDetectorOrient, "det_id"_a);
 	c.def_readwrite("scannerName", &Scanner::scannerName);
 	c.def_readwrite("axialFOV", &Scanner::axialFOV);
 	c.def_readwrite("crystalSize_z", &Scanner::crystalSize_z);
@@ -45,7 +45,7 @@ void py_setup_scanner(pybind11::module& m)
 	c.def_readwrite("detsPerRing", &Scanner::detsPerRing);
 	c.def_readwrite("fwhm", &Scanner::fwhm);
 	c.def_readwrite("numRings", &Scanner::numRings);
-	c.def_readwrite("numDoi", &Scanner::numDOI);
+	c.def_readwrite("numDOI", &Scanner::numDOI);
 	c.def_readwrite("maxRingDiff", &Scanner::maxRingDiff);
 	c.def_readwrite("minAngDiff", &Scanner::minAngDiff);
 	c.def_readwrite("detsPerBlock", &Scanner::detsPerBlock);
@@ -59,8 +59,8 @@ void py_setup_scanner(pybind11::module& m)
 		          shape, std::move(lut.get())->getRawPointer());
 		      return lut_array;
 	      });
-	c.def("readFromFile", &Scanner::readFromFile);
-	c.def("readFromString", &Scanner::readFromString);
+	c.def("readFromFile", &Scanner::readFromFile, "fname"_a);
+	c.def("readFromString", &Scanner::readFromString, "json_string"_a);
 	c.def(pybind11::pickle([](const Scanner& s) { return s.getScannerPath(); },
 	                       [](const std::string& fname)
 	                       {
@@ -110,12 +110,12 @@ size_t Scanner::getTheoreticalNumDets() const
 	return numDOI * numRings * detsPerRing;
 }
 
-Vector3DFloat Scanner::getDetectorPos(det_id_t id) const
+Vector3D Scanner::getDetectorPos(det_id_t id) const
 {
 	return mp_detectors->getPos(id);
 }
 
-Vector3DFloat Scanner::getDetectorOrient(det_id_t id) const
+Vector3D Scanner::getDetectorOrient(det_id_t id) const
 {
 	return mp_detectors->getOrient(id);
 }
@@ -135,8 +135,8 @@ void Scanner::createLUT(Array2D<float>& lut) const
 	lut.allocate(this->getNumDets(), 6);
 	for (size_t i = 0; i < this->getNumDets(); i++)
 	{
-		const Vector3DFloat pos = mp_detectors->getPos(i);
-		const Vector3DFloat orient = mp_detectors->getOrient(i);
+		const Vector3D pos = mp_detectors->getPos(i);
+		const Vector3D orient = mp_detectors->getOrient(i);
 		lut[i][0] = pos.x;
 		lut[i][1] = pos.y;
 		lut[i][2] = pos.z;

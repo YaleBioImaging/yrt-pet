@@ -6,7 +6,9 @@
 #include "utils/Utilities.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <cstdint>
+#include <ctime>
 #include <iomanip>
 
 #if BUILD_PYBIND11
@@ -23,10 +25,27 @@ void py_setup_utilities(py::module& m)
 namespace Util
 {
 	bool beginWithNonWhitespace(const std::string& input)
-	{  // From Jinsong Ouyang's class : MISoftware.cpp
-
+	{
 		const std::string whiteSpace(" \t");
 		return (input.find_first_not_of(whiteSpace) == 0);
+	}
+
+	std::string getDatetime()
+	{
+		const auto now = std::chrono::system_clock::now();
+
+		// Convert the time point to a time_t, which represents the calendar
+		// time
+		const std::time_t now_time_t = std::chrono::system_clock::to_time_t(now);
+
+		// Convert the time_t to a tm structure, which represents the calendar
+		// time broken down into components
+		const std::tm now_tm = *std::localtime(&now_time_t);
+
+		// Print the current date and time in a human-readable format
+		char buffer[80];
+		std::strftime(buffer, 80, "%Y-%m-%d %H:%M:%S", &now_tm);
+		return std::string{buffer};
 	}
 
 	/*

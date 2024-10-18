@@ -443,7 +443,7 @@ void solveSRTMBasisJoint(const T* tac_all, T* kin_out, const T* kin_p,
 				opt_r1_b = theta_1;
 				opt_r1_d = theta_3;
 				T opt_bp_b_div = opt_bp_b;
-				if (fabs(opt_bp_b) < 1e-8)
+				if (std::abs(opt_bp_b) < 1e-8)
 				{
 					opt_bp_b_div = ((opt_bp_b >= 0) - (opt_bp_b < 0)) * 1e-8;
 				}

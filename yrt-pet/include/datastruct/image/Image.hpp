@@ -9,64 +9,82 @@
 #include "geometry/Vector3D.hpp"
 #include "utils/Array.hpp"
 
+#include <sitkImage.h>
+
 #include <string>
 
 class Image : public ImageBase
 {
 public:
-	Image(const ImageParams& img_params);
 	~Image() override = default;
 
-	Array3DBase<double>& getData();
-	const Array3DBase<double>& getData() const;
+	Array3DBase<float>& getData();
+	const Array3DBase<float>& getData() const;
+	float* getRawPointer();
+	const float* getRawPointer() const;
+	bool isMemoryValid() const;
+
 	void copyFromImage(const Image* imSrc);
-	void multWithScalar(double scalar);
+	void multWithScalar(float scalar);
 	void addFirstImageToSecond(ImageBase* secondImage) const override;
 
-	void setValue(double initValue) override;
-	void applyThreshold(const ImageBase* maskImg, double threshold,
-	                    double val_le_scale, double val_le_off,
-	                    double val_gt_scale, double val_gt_off) override;
+	void setValue(float initValue) override;
+	void applyThreshold(const ImageBase* maskImg, float threshold,
+	                    float val_le_scale, float val_le_off,
+	                    float val_gt_scale, float val_gt_off) override;
 	void updateEMThreshold(ImageBase* updateImg, const ImageBase* normImg,
-	                       double threshold) override;
-	void writeToFile(const std::string& image_fname) const override;
+	                       float threshold) override;
+	void writeToFile(const std::string& fname) const override;
 
-	Array3DAlias<double> getArray() const;
+	Array3DAlias<float> getArray() const;
 	std::unique_ptr<Image> transformImage(const Vector3D& rotation,
 	                                      const Vector3D& translation) const;
 
-	double dotProduct(const Image& y) const;
-	double nearestNeighbor(const Vector3D& pt) const;
-	double nearestNeighbor(const Vector3D& pt, int* pi, int* pj, int* pk) const;
-	void updateImageNearestNeighbor(const Vector3D& pt, double value,
+	float dotProduct(const Image& y) const;
+	float nearestNeighbor(const Vector3D& pt) const;
+	float nearestNeighbor(const Vector3D& pt, int* pi, int* pj, int* pk) const;
+	void updateImageNearestNeighbor(const Vector3D& pt, float value,
 	                                bool mult_flag);
-	void assignImageNearestNeighbor(const Vector3D& pt, double value);
+	void assignImageNearestNeighbor(const Vector3D& pt, float value);
 	bool getNearestNeighborIdx(const Vector3D& pt, int* pi, int* pj,
 	                           int* pk) const;
 
-	double interpolateImage(const Vector3D& pt) const;
-	double interpolateImage(const Vector3D& pt, const Image& sens) const;
-	void updateImageInterpolate(const Vector3D& point, double value,
+	float interpolateImage(const Vector3D& pt) const;
+	float interpolateImage(const Vector3D& pt, const Image& sens) const;
+	void updateImageInterpolate(const Vector3D& point, float value,
 	                            bool mult_flag);
-	void assignImageInterpolate(const Vector3D& point, double value);
+	void assignImageInterpolate(const Vector3D& point, float value);
 
 protected:
-	std::unique_ptr<Array3DBase<double>> m_dataPtr;
+	static ImageParams
+	    createImageParamsFromSitkImage(const itk::simple::Image& sitkImage);
+	static float sitkOriginToImageParamsOffset(double sitkOrigin,
+	                                           float voxelSize, float length);
+	static double imageParamsOffsetToSitkOrigin(float off, float voxelSize,
+	                                            float length);
+	Image();
+	explicit Image(const ImageParams& imgParams);
+	std::unique_ptr<Array3DBase<float>> mp_array;
 };
 
 class ImageOwned : public Image
 {
 public:
-	ImageOwned(const ImageParams& img_params);
-	ImageOwned(const ImageParams& img_params, const std::string& filename);
+	explicit ImageOwned(const ImageParams& imgParams);
+	ImageOwned(const ImageParams& imgParams, const std::string& filename);
+	explicit ImageOwned(const std::string& filename);
 	void allocate();
-	bool isAllocated() const;
-	void readFromFile(const std::string& image_file_name);
+	void readFromFile(const std::string& fname);
+	void writeToFile(const std::string& fname) const override;
+
+private:
+	void checkImageParamsWithSitkImage() const;
+	std::unique_ptr<itk::simple::Image> mp_sitkImage;
 };
 
 class ImageAlias : public Image
 {
 public:
-	ImageAlias(const ImageParams& img_params);
-	void bind(Array3DBase<double>& p_data);
+	explicit ImageAlias(const ImageParams& imgParams);
+	void bind(Array3DBase<float>& p_data);
 };

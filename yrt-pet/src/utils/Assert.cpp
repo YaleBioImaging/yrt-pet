@@ -38,7 +38,7 @@ void assertion_failed_msg(char const* expr, char const* msg,
 	}
 	fullErrorMessage += msg;
 
-	fullErrorMessage += "\nDetails: assertion failed: (" + std::string{expr} +
+	fullErrorMessage += "\n\nDetails: assertion failed: (" + std::string{expr} +
 	                    ") in " + file + ":" + std::to_string(line) + ": " +
 	                    function;
 

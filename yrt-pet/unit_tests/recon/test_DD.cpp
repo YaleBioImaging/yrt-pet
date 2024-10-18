@@ -27,8 +27,8 @@ double get_rmse(const Image* img_ref, const Image* img)
 	const ImageParams& params = img_ref->getParams();
 	const size_t numPixels =
 	    static_cast<size_t>(params.nx * params.ny * params.nz);
-	const double* ptr_ref = img_ref->getData().getRawPointer();
-	const double* ptr = img->getData().getRawPointer();
+	const float* ptr_ref = img_ref->getRawPointer();
+	const float* ptr = img->getRawPointer();
 	double rmse = 0.0;
 
 	for (size_t i = 0; i < numPixels; i++)
@@ -96,13 +96,13 @@ TEST_CASE("DD", "[dd]")
 	const int nx = 100;
 	const int ny = 100;
 	const int nz = 100;
-	const double sx = 256.0;
-	const double sy = 256.0;
-	const double sz = 96.0;
-	const double ox = 0.0;
-	const double oy = 0.0;
-	const double oz = 0.0;
-	ImageParams img_params(nx, ny, nz, sx, sy, sz, ox, oy, oz);
+	const float sx = 256.0f;
+	const float sy = 256.0f;
+	const float sz = 96.0f;
+	const float ox = 0.0f;
+	const float oy = 0.0f;
+	const float oz = 0.0f;
+	ImageParams img_params{nx, ny, nz, sx, sy, sz, ox, oy, oz};
 	auto img = std::make_unique<ImageOwned>(img_params);
 	img->allocate();
 
@@ -116,7 +116,7 @@ TEST_CASE("DD", "[dd]")
 		data->setDetectorIdsOfEvent(binId, d1, d2);
 	}
 
-	// Helpter aliases
+	// Helper aliases
 	using ImageSharedPTR = std::shared_ptr<Image>;
 	const auto toOwned = [](const ImageSharedPTR& i)
 	{ return reinterpret_cast<ImageOwned*>(i.get()); };

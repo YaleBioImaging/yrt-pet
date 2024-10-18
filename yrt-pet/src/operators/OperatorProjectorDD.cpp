@@ -8,6 +8,7 @@
 #include "datastruct/image/Image.hpp"
 #include "datastruct/projection/ProjectionData.hpp"
 #include "datastruct/scanner/Scanner.hpp"
+#include "geometry/ProjectorUtils.hpp"
 #include "utils/ReconstructionUtils.hpp"
 
 #include <algorithm>
@@ -24,9 +25,8 @@ void py_setup_operatorprojectordd(py::module& m)
 	c.def(
 	    "forward_projection",
 	    [](const OperatorProjectorDD& self, const Image* in_image,
-	       const StraightLineParam& lor, const Vector3D& n1,
-	       const Vector3D& n2, const TimeOfFlightHelper* tofHelper,
-	       float tofValue) -> double
+	       const Line3D& lor, const Vector3D& n1, const Vector3D& n2,
+	       const TimeOfFlightHelper* tofHelper, float tofValue) -> float
 	    {
 		    return self.forwardProjection(in_image, lor, n1, n2, tofHelper,
 		                                  tofValue, nullptr);
@@ -35,9 +35,8 @@ void py_setup_operatorprojectordd(py::module& m)
 	    py::arg("tofHelper") = nullptr, py::arg("tofValue") = 0.0f);
 	c.def(
 	    "back_projection",
-	    [](const OperatorProjectorDD& self, Image* in_image,
-	       const StraightLineParam& lor, const Vector3D& n1,
-	       const Vector3D& n2, double proj_value,
+	    [](const OperatorProjectorDD& self, Image* in_image, const Line3D& lor,
+	       const Vector3D& n1, const Vector3D& n2, float proj_value,
 	       const TimeOfFlightHelper* tofHelper, float tofValue)
 	    {
 		    self.backProjection(in_image, lor, n1, n2, proj_value, tofHelper,
@@ -54,44 +53,39 @@ void py_setup_operatorprojectordd(py::module& m)
 
 OperatorProjectorDD::OperatorProjectorDD(
     const OperatorProjectorParams& p_projParams)
-    : OperatorProjector(p_projParams)
+    : OperatorProjector{p_projParams}
 {
 }
 
-double OperatorProjectorDD::forwardProjection(const Image* img,
-                                                const ProjectionData* dat,
-                                                bin_t bin)
+float OperatorProjectorDD::forwardProjection(
+    const Image* img, const ProjectionProperties& projectionProperties) const
 {
-	auto [lor, tofValue, randomsEstimate, n1, n2] =
-	    Util::getProjectionProperties(scanner, *dat, bin);
-
-	// TODO: What to do with randomsEstimate ?
-
-	return forwardProjection(img, lor, n1, n2, mp_tofHelper.get(), tofValue,
-	                         mp_projPsfManager.get());
+	return forwardProjection(
+	    img, projectionProperties.lor, projectionProperties.det1Orient,
+	    projectionProperties.det2Orient, mp_tofHelper.get(),
+	    projectionProperties.tofValue, mp_projPsfManager.get());
 }
 
-void OperatorProjectorDD::backProjection(Image* img,
-                                           const ProjectionData* dat,
-                                           bin_t bin, double projValue)
+void OperatorProjectorDD::backProjection(
+    Image* img, const ProjectionProperties& projectionProperties,
+    float projValue) const
 {
-	auto [lor, tofValue, randomsEstimate, n1, n2] =
-	    Util::getProjectionProperties(scanner, *dat, bin);
-
-	backProjection(img, lor, n1, n2, projValue, mp_tofHelper.get(), tofValue,
-	               mp_projPsfManager.get());
+	backProjection(
+	    img, projectionProperties.lor, projectionProperties.det1Orient,
+	    projectionProperties.det2Orient, projValue, mp_tofHelper.get(),
+	    projectionProperties.tofValue, mp_projPsfManager.get());
 }
 
-double OperatorProjectorDD::forwardProjection(
-    const Image* in_image, const StraightLineParam& lor, const Vector3D& n1,
+float OperatorProjectorDD::forwardProjection(
+    const Image* in_image, const Line3D& lor, const Vector3D& n1,
     const Vector3D& n2, const TimeOfFlightHelper* tofHelper, float tofValue,
     const ProjectionPsfManager* psfManager) const
 {
-	double v = 0;
+	float v = 0;
 	if (tofHelper != nullptr)
 	{
-		dd_project_ref<true, true>(const_cast<Image*>(in_image), lor, n1, n2,
-		                           v, tofHelper, tofValue, psfManager);
+		dd_project_ref<true, true>(const_cast<Image*>(in_image), lor, n1, n2, v,
+		                           tofHelper, tofValue, psfManager);
 	}
 	else
 	{
@@ -102,9 +96,8 @@ double OperatorProjectorDD::forwardProjection(
 }
 
 void OperatorProjectorDD::backProjection(
-    Image* in_image, const StraightLineParam& lor, const Vector3D& n1,
-    const Vector3D& n2, double proj_value,
-    const TimeOfFlightHelper* tofHelper, float tofValue,
+    Image* in_image, const Line3D& lor, const Vector3D& n1, const Vector3D& n2,
+    float proj_value, const TimeOfFlightHelper* tofHelper, float tofValue,
     const ProjectionPsfManager* psfManager) const
 {
 	if (tofHelper != nullptr)
@@ -120,7 +113,7 @@ void OperatorProjectorDD::backProjection(
 }
 
 float OperatorProjectorDD::get_overlap_safe(float p0, float p1, float d0,
-                                              float d1)
+                                            float d1)
 {
 	return std::min(p1, d1) - std::max(p0, d0);
 }
@@ -136,9 +129,10 @@ float OperatorProjectorDD::get_overlap_safe(
 	return get_overlap_safe(p0, p1, d0, d1);
 }
 
-float OperatorProjectorDD::get_overlap(
-    const float p0, const float p1, const float d0, const float d1,
-    const ProjectionPsfManager* psfManager, const float* psfKernel)
+float OperatorProjectorDD::get_overlap(const float p0, const float p1,
+                                       const float d0, const float d1,
+                                       const ProjectionPsfManager* psfManager,
+                                       const float* psfKernel)
 {
 	return std::max(0.f,
 	                get_overlap_safe(p0, p1, d0, d1, psfManager, psfKernel));
@@ -146,33 +140,32 @@ float OperatorProjectorDD::get_overlap(
 
 template <bool IS_FWD, bool FLAG_TOF>
 void OperatorProjectorDD::dd_project_ref(
-    Image* in_image, const StraightLineParam& lor, const Vector3D& n1,
-    const Vector3D& n2, double& proj_value,
-    const TimeOfFlightHelper* tofHelper, float tofValue,
+    Image* in_image, const Line3D& lor, const Vector3D& n1, const Vector3D& n2,
+    float& proj_value, const TimeOfFlightHelper* tofHelper, float tofValue,
     const ProjectionPsfManager* psfManager) const
 {
 	if constexpr (IS_FWD)
 	{
-		proj_value = 0.0;
+		proj_value = 0.0f;
 	}
 	const ImageParams& params = in_image->getParams();
 	const Vector3D offsetVec = {params.off_x, params.off_y, params.off_z};
-	StraightLineParam lorWithoffset = lor;
+	Line3D lorWithoffset = lor;
 	lorWithoffset.point1 = lorWithoffset.point1 - offsetVec;
 	lorWithoffset.point2 = lorWithoffset.point2 - offsetVec;
 
 	const Vector3D& d1 = lorWithoffset.point1;
 	const Vector3D& d2 = lorWithoffset.point2;
 	const Vector3D d1_minus_d2 = d1 - d2;
-	const bool flag_y = fabs(d1_minus_d2.y) > fabs(d1_minus_d2.x);
-	const double d_norm = d1_minus_d2.getNorm();
+	const bool flag_y = std::abs(d1_minus_d2.y) > std::abs(d1_minus_d2.x);
+	const float d_norm = d1_minus_d2.getNorm();
 
 	// Scanner size
 	const float thickness_z = scanner.crystalSize_z;
 	const float thickness_trans = scanner.crystalSize_trans;
 
 	// PSF
-	float* psfKernel = nullptr;
+	const float* psfKernel = nullptr;
 	float detFootprintExt = 0.f;
 	if (psfManager != nullptr)
 	{
@@ -180,31 +173,31 @@ void OperatorProjectorDD::dd_project_ref(
 		detFootprintExt = psfManager->getHalfWidth_mm();
 	}
 	// Pixel limits (ignore detector width)
-	double* raw_img_ptr = in_image->getData().getRawPointer();
+	float* raw_img_ptr = in_image->getRawPointer();
 	const int num_xy = params.nx * params.ny;
 	const float dx = params.vx;
 	const float dy = params.vy;
 	const float dz = params.vz;
 
-	const double inv_d12_x = (d1.x == d2.x) ? 0.0 : 1 / (d2.x - d1.x);
-	const double inv_d12_y = (d1.y == d2.y) ? 0.0 : 1 / (d2.y - d1.y);
-	const double inv_d12_z = (d1.z == d2.z) ? 0.0 : 1 / (d2.z - d1.z);
+	const float inv_d12_x = (d1.x == d2.x) ? 0.0f : 1.0f / (d2.x - d1.x);
+	const float inv_d12_y = (d1.y == d2.y) ? 0.0f : 1.0f / (d2.y - d1.y);
+	const float inv_d12_z = (d1.z == d2.z) ? 0.0f : 1.0f / (d2.z - d1.z);
 
-	double ax_min, ax_max, ay_min, ay_max, az_min, az_max;
-	OperatorProjector::get_alpha(-0.5 * (params.length_x - dx),
-	                               0.5 * (params.length_x - dx), d1.x, d2.x,
-	                               inv_d12_x, ax_min, ax_max);
-	OperatorProjector::get_alpha(-0.5 * (params.length_y - dy),
-	                               0.5 * (params.length_y - dy), d1.y, d2.y,
-	                               inv_d12_y, ay_min, ay_max);
-	OperatorProjector::get_alpha(-0.5 * (params.length_z - dz),
-	                               0.5 * (params.length_z - dz), d1.z, d2.z,
-	                               inv_d12_z, az_min, az_max);
-	double amin = std::max({0.0, ax_min, ay_min, az_min});
-	double amax = std::min({1.0, ax_max, ay_max, az_max});
+	float ax_min, ax_max, ay_min, ay_max, az_min, az_max;
+	Util::get_alpha(-0.5f * (params.length_x - dx),
+	                0.5f * (params.length_x - dx), d1.x, d2.x, inv_d12_x,
+	                ax_min, ax_max);
+	Util::get_alpha(-0.5f * (params.length_y - dy),
+	                0.5f * (params.length_y - dy), d1.y, d2.y, inv_d12_y,
+	                ay_min, ay_max);
+	Util::get_alpha(-0.5f * (params.length_z - dz),
+	                0.5f * (params.length_z - dz), d1.z, d2.z, inv_d12_z,
+	                az_min, az_max);
+	float amin = std::max({0.0f, ax_min, ay_min, az_min});
+	float amax = std::min({1.0f, ax_max, ay_max, az_max});
 	if constexpr (FLAG_TOF)
 	{
-		double amin_tof, amax_tof;
+		float amin_tof, amax_tof;
 		tofHelper->getAlphaRange(amin_tof, amax_tof, d_norm, tofValue);
 		amin = std::max(amin, amin_tof);
 		amax = std::min(amax, amax_tof);
@@ -349,15 +342,15 @@ void OperatorProjectorDD::dd_project_ref(
 		dd_yx_r_1 += detFootprintExt;
 		const float dd_yx_i_offset = (nyx - 1) / 2.f;
 		const float inv_dyx = 1.0f / dyx;
-		const int dd_yx_i_0 =
-		    std::max(0, static_cast<int>(std::rintf(dd_yx_r_0 * inv_dyx +
-		                                              dd_yx_i_offset)));
-		const int dd_yx_i_1 =
-		    std::min(nyx - 1, static_cast<int>(std::rintf(
-		                          dd_yx_r_1 * inv_dyx + dd_yx_i_offset)));
+		const int dd_yx_i_0 = std::max(
+		    0,
+		    static_cast<int>(std::rintf(dd_yx_r_0 * inv_dyx + dd_yx_i_offset)));
+		const int dd_yx_i_1 = std::min(
+		    nyx - 1,
+		    static_cast<int>(std::rintf(dd_yx_r_1 * inv_dyx + dd_yx_i_offset)));
 		for (int yxi = dd_yx_i_0; yxi <= dd_yx_i_1; yxi++)
 		{
-			const float pix_yx = -0.5 * lyx + (yxi + 0.5f) * dyx;
+			const float pix_yx = -0.5f * lyx + (yxi + 0.5f) * dyx;
 			float dd_z_r_0 = d1_z_lo_z + a_z_lo * (d2_z_lo_z - d1_z_lo_z);
 			float dd_z_r_1 = d1_z_hi_z + a_z_hi * (d2_z_hi_z - d1_z_hi_z);
 			if (dd_z_r_0 > dd_z_r_1)
@@ -377,8 +370,8 @@ void OperatorProjectorDD::dd_project_ref(
 				const float dd_z_i_offset = (params.nz - 1) * 0.5f;
 				const float inv_dz = 1.0f / dz;
 				const int dd_z_i_0 =
-				    std::max(0, static_cast<int>(std::rintf(
-				                    dd_z_r_0 * inv_dz + dd_z_i_offset)));
+				    std::max(0, static_cast<int>(std::rintf(dd_z_r_0 * inv_dz +
+				                                            dd_z_i_offset)));
 				const int dd_z_i_1 = std::min(
 				    params.nz - 1, static_cast<int>(std::rintf(
 				                       dd_z_r_1 * inv_dz + dd_z_i_offset)));
@@ -419,7 +412,7 @@ void OperatorProjectorDD::dd_project_ref(
 							weight *= tof_weight;
 						}
 
-						double* ptr = raw_img_ptr + idx;
+						float* ptr = raw_img_ptr + idx;
 						if constexpr (IS_FWD)
 						{
 							proj_value += (*ptr) * weight;
@@ -437,18 +430,14 @@ void OperatorProjectorDD::dd_project_ref(
 }
 
 template void OperatorProjectorDD::dd_project_ref<true, false>(
-    Image*, const StraightLineParam&, const Vector3D&, const Vector3D&,
-    double&, const TimeOfFlightHelper*, float,
-    const ProjectionPsfManager*) const;
+    Image*, const Line3D&, const Vector3D&, const Vector3D&, float&,
+    const TimeOfFlightHelper*, float, const ProjectionPsfManager*) const;
 template void OperatorProjectorDD::dd_project_ref<false, false>(
-    Image*, const StraightLineParam&, const Vector3D&, const Vector3D&,
-    double&, const TimeOfFlightHelper*, float,
-    const ProjectionPsfManager*) const;
+    Image*, const Line3D&, const Vector3D&, const Vector3D&, float&,
+    const TimeOfFlightHelper*, float, const ProjectionPsfManager*) const;
 template void OperatorProjectorDD::dd_project_ref<true, true>(
-    Image*, const StraightLineParam&, const Vector3D&, const Vector3D&,
-    double&, const TimeOfFlightHelper*, float,
-    const ProjectionPsfManager*) const;
+    Image*, const Line3D&, const Vector3D&, const Vector3D&, float&,
+    const TimeOfFlightHelper*, float, const ProjectionPsfManager*) const;
 template void OperatorProjectorDD::dd_project_ref<false, true>(
-    Image*, const StraightLineParam&, const Vector3D&, const Vector3D&,
-    double&, const TimeOfFlightHelper*, float,
-    const ProjectionPsfManager*) const;
+    Image*, const Line3D&, const Vector3D&, const Vector3D&, float&,
+    const TimeOfFlightHelper*, float, const ProjectionPsfManager*) const;

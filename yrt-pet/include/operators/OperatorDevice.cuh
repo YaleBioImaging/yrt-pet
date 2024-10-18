@@ -10,6 +10,7 @@
 #include "datastruct/projection/ProjectionDataDevice.cuh"
 #include "operators/Operator.hpp"
 #include "operators/OperatorProjector.hpp"
+#include "operators/ProjectionPsfManagerDevice.cuh"
 #include "recon/CUParameters.hpp"
 #include "utils/DeviceObject.cuh"
 #include "utils/GPUTypes.cuh"
@@ -28,23 +29,31 @@ namespace Util
 
 class OperatorDevice : public Operator
 {
-	// Nothing here for now...
-
 public:
+	const cudaStream_t* getMainStream() const;
+	const cudaStream_t* getAuxStream() const;
+
 	static CUScannerParams getCUScannerParams(const Scanner& scanner);
 	static CUImageParams getCUImageParams(const ImageParams& imgParams);
 
 protected:
-	OperatorDevice() = default;
+	explicit OperatorDevice(bool p_synchronized = true,
+	                        const cudaStream_t* pp_mainStream = nullptr,
+	                        const cudaStream_t* pp_auxStream = nullptr);
+
+	bool m_synchronized;
+	const cudaStream_t* mp_mainStream;
+	const cudaStream_t* mp_auxStream;
 };
 
 class OperatorProjectorDevice : public OperatorProjectorBase,
-                                  public OperatorDevice
+                                public OperatorDevice
 {
 public:
 	OperatorProjectorDevice() = delete;
 
 	size_t getBatchSize() const;
+	void setupProjPsfManager(const std::string& psfFilename);
 
 	unsigned int getGridSize() const;
 	unsigned int getBlockSize() const;
@@ -54,17 +63,15 @@ public:
 
 	void setAttImage(const Image* attImage) override;
 	void setAttImageForBackprojection(const Image* attImage) override;
-	void setAddHisto(const Histogram *p_addHisto) override;
+	void setAddHisto(const Histogram* p_addHisto) override;
 	void setupTOFHelper(float tofWidth_ps, int tofNumStd = -1);
 
 protected:
-	OperatorProjectorDevice(const OperatorProjectorParams& projParams,
-	                          bool p_synchronized = true,
-	                          const cudaStream_t* pp_mainStream = nullptr,
-	                          const cudaStream_t* pp_auxStream = nullptr);
-
-	const cudaStream_t* getMainStream() const;
-	const cudaStream_t* getAuxStream() const;
+	explicit
+	    OperatorProjectorDevice(const OperatorProjectorParams& projParams,
+	                            bool p_synchronized = true,
+	                            const cudaStream_t* pp_mainStream = nullptr,
+	                            const cudaStream_t* pp_auxStream = nullptr);
 
 	void setBatchSize(size_t newBatchSize);
 
@@ -75,14 +82,16 @@ protected:
 	void prepareIntermediaryBufferIfNeeded(const ProjectionDataDevice* orig);
 
 	const TimeOfFlightHelper* getTOFHelperDevicePointer() const;
+	const float* getProjPsfKernelsDevicePointer(bool flipped) const;
+
+	// Projection-domain PSF
+	std::unique_ptr<ProjectionPsfManagerDevice> mp_projPsfManager;
 
 private:
 	size_t m_batchSize;
 	GPULaunchParams m_launchParams{};
-	const cudaStream_t* mp_mainStream;
-	const cudaStream_t* mp_auxStream;
-	bool m_synchonized;
 
+	// Time of flight
 	std::unique_ptr<DeviceObject<TimeOfFlightHelper>> mp_tofHelper;
 
 	// For attenuation correction

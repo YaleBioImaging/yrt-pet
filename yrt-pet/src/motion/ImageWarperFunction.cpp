@@ -29,9 +29,9 @@ ImageWarperFunction::~ImageWarperFunction() {}
 /* **************************************************************************************
  * Def.: Clean all the variable of this class.
  * *************************************************************************************/
-void ImageWarperFunction::Reset()
+void ImageWarperFunction::reset()
 {
-	ImageWarperTemplate::Reset();
+	ImageWarperTemplate::reset();
 	// TODO: Clean the children specific variables.
 }
 
@@ -81,8 +81,8 @@ void ImageWarperFunction::warp(Image* image, int frameId) const
 	std::vector<double> voxPos;
 	voxPos.resize(3);
 	Vector3D movVoxPos{0.0, 0.0, 0.0};
-	Array3DAlias<double> data = image->getArray();
-	Array2DAlias<double> slice;
+	Array3DAlias<float> data = image->getArray();
+	Array2DAlias<float> slice;
 
 	for (int k = 0; k < m_imNbVoxel[2]; k++)
 	{
@@ -91,7 +91,7 @@ void ImageWarperFunction::warp(Image* image, int frameId) const
 		for (int j = 0; j < m_imNbVoxel[1]; j++)
 		{
 			voxPos[1] = getVoxelPhysPos(j, 1);
-			double* ptr = slice[j];
+			float* ptr = slice[j];
 			for (int i = 0; i < m_imNbVoxel[0]; i++)
 			{
 				voxPos[0] = getVoxelPhysPos(i, 0);
@@ -120,8 +120,8 @@ void ImageWarperFunction::inverseWarp(Image* image, int frameId) const
 	std::vector<double> voxPos;
 	voxPos.resize(3);
 	auto movVoxPos = Vector3D{0.0, 0.0, 0.0};
-	Array3DAlias<double> data = image->getArray();
-	Array2DAlias<double> slice;
+	Array3DAlias<float> data = image->getArray();
+	Array2DAlias<float> slice;
 
 	for (int k = 0; k < m_imNbVoxel[2]; k++)
 	{
@@ -130,7 +130,7 @@ void ImageWarperFunction::inverseWarp(Image* image, int frameId) const
 		for (int j = 0; j < m_imNbVoxel[1]; j++)
 		{
 			voxPos[1] = getVoxelPhysPos(j, 1);
-			double* ptr = slice[j];
+			float* ptr = slice[j];
 			for (int i = 0; i < m_imNbVoxel[0]; i++)
 			{
 				voxPos[0] = getVoxelPhysPos(i, 0);

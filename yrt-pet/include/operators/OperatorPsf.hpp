@@ -13,32 +13,29 @@
 class OperatorPsf : public Operator
 {
 public:
-	OperatorPsf(const ImageParams& img_params);
-	OperatorPsf(const ImageParams& img_params,
-	              const std::string& image_space_psf_filename);
-	~OperatorPsf() override;
+	OperatorPsf();
+	explicit OperatorPsf(const std::string& imageSpacePsf_fname);
+	~OperatorPsf() override = default;
 
-	void readFromFile(const std::string& image_space_psf_filename);
+	virtual void readFromFile(const std::string& imageSpacePsf_fname);
 
 	void applyA(const Variable* in, Variable* out) override;
 	void applyAH(const Variable* in, Variable* out) override;
 
-	void convolve(const Image* in, Image* out,
-	              const std::vector<float>& KernelX,
-	              const std::vector<float>& KernelY,
-	              const std::vector<float>& KernelZ) const;
+	virtual void convolve(const Image* in, Image* out,
+	                      const std::vector<float>& kernelX,
+	                      const std::vector<float>& kernelY,
+	                      const std::vector<float>& kernelZ) const;
 
 protected:
+	std::vector<float> m_kernelX;
+	std::vector<float> m_kernelY;
+	std::vector<float> m_kernelZ;
+	std::vector<float> m_kernelX_flipped;
+	std::vector<float> m_kernelY_flipped;
+	std::vector<float> m_kernelZ_flipped;
+
+private:
+	void readFromFileInternal(const std::string& imageSpacePsf_fname);
 	mutable std::vector<float> m_buffer_tmp;
-	std::vector<int> m_kerSize;
-	int m_nx;
-	int m_ny;
-	int m_nz;
-	std::vector<float> m_KernelX;
-	std::vector<float> m_KernelY;
-	std::vector<float> m_KernelZ;
-	std::vector<float> m_KernelX_flipped;
-	std::vector<float> m_KernelY_flipped;
-	std::vector<float> m_KernelZ_flipped;
-	ImageParams m_params;
 };

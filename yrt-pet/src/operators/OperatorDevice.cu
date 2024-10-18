@@ -72,13 +72,22 @@ namespace Util
 	GPULaunchParams initiateDeviceParameters(size_t batchSize)
 	{
 		GPULaunchParams launchParams{};
-		launchParams.gridSize = static_cast<unsigned int>(
-		    std::ceil(batchSize /
-		              static_cast<float>(GlobalsCuda::ThreadsPerBlockData)));
+		launchParams.gridSize = static_cast<unsigned int>(std::ceil(
+		    batchSize / static_cast<float>(GlobalsCuda::ThreadsPerBlockData)));
 		launchParams.blockSize = GlobalsCuda::ThreadsPerBlockData;
 		return launchParams;
 	}
 }  // namespace Util
+
+const cudaStream_t* OperatorDevice::getMainStream() const
+{
+	return mp_mainStream;
+}
+
+const cudaStream_t* OperatorDevice::getAuxStream() const
+{
+	return mp_auxStream;
+}
 
 CUScannerParams OperatorDevice::getCUScannerParams(const Scanner& scanner)
 {
@@ -89,8 +98,7 @@ CUScannerParams OperatorDevice::getCUScannerParams(const Scanner& scanner)
 	return params;
 }
 
-CUImageParams
-    OperatorDevice::getCUImageParams(const ImageParams& imgParams)
+CUImageParams OperatorDevice::getCUImageParams(const ImageParams& imgParams)
 {
 	CUImageParams params;
 
@@ -113,26 +121,38 @@ CUImageParams
 	return params;
 }
 
-OperatorProjectorDevice::OperatorProjectorDevice(
-    const OperatorProjectorParams& projParams, bool p_synchronized,
-    const cudaStream_t* pp_mainStream, const cudaStream_t* pp_auxStream)
-    : OperatorProjectorBase(projParams), OperatorDevice()
+OperatorDevice::OperatorDevice(bool p_synchronized,
+                               const cudaStream_t* pp_mainStream,
+                               const cudaStream_t* pp_auxStream)
 {
-	if (projParams.tofWidth_ps > 0.f)
+	m_synchronized = p_synchronized;
+	mp_mainStream = pp_mainStream;
+	mp_auxStream = pp_auxStream;
+}
+
+OperatorProjectorDevice::OperatorProjectorDevice(
+    const OperatorProjectorParams& p_projParams, bool p_synchronized,
+    const cudaStream_t* pp_mainStream, const cudaStream_t* pp_auxStream)
+    : OperatorProjectorBase{p_projParams},
+      OperatorDevice{p_synchronized, pp_mainStream, pp_auxStream}
+{
+	if (p_projParams.tofWidth_ps > 0.f)
 	{
-		setupTOFHelper(projParams.tofWidth_ps, projParams.tofNumStd);
+		setupTOFHelper(p_projParams.tofWidth_ps, p_projParams.tofNumStd);
+	}
+	if (!p_projParams.psfProjFilename.empty())
+	{
+		setupProjPsfManager(p_projParams.psfProjFilename);
 	}
 
 	m_batchSize = 0ull;
-	m_synchonized = p_synchronized;
-	mp_mainStream = pp_mainStream;
-	mp_auxStream = pp_auxStream;
 }
 
 unsigned int OperatorProjectorDevice::getGridSize() const
 {
 	return m_launchParams.gridSize;
 }
+
 unsigned int OperatorProjectorDevice::getBlockSize() const
 {
 	return m_launchParams.blockSize;
@@ -140,17 +160,7 @@ unsigned int OperatorProjectorDevice::getBlockSize() const
 
 bool OperatorProjectorDevice::isSynchronized() const
 {
-	return m_synchonized;
-}
-
-const cudaStream_t* OperatorProjectorDevice::getMainStream() const
-{
-	return mp_mainStream;
-}
-
-const cudaStream_t* OperatorProjectorDevice::getAuxStream() const
-{
-	return mp_auxStream;
+	return m_synchronized;
 }
 
 void OperatorProjectorDevice::setBatchSize(size_t newBatchSize)
@@ -159,8 +169,7 @@ void OperatorProjectorDevice::setBatchSize(size_t newBatchSize)
 	m_launchParams = Util::initiateDeviceParameters(m_batchSize);
 }
 
-ProjectionDataDeviceOwned&
-    OperatorProjectorDevice::getIntermediaryProjData()
+ProjectionDataDeviceOwned& OperatorProjectorDevice::getIntermediaryProjData()
 {
 	ASSERT_MSG(mp_intermediaryProjData != nullptr,
 	           "Projection-space GPU Intermediary buffer not initialized");
@@ -185,6 +194,15 @@ const ImageDevice&
 size_t OperatorProjectorDevice::getBatchSize() const
 {
 	return m_batchSize;
+}
+
+void OperatorProjectorDevice::setupProjPsfManager(
+    const std::string& psfFilename)
+{
+	mp_projPsfManager =
+	    std::make_unique<ProjectionPsfManagerDevice>(psfFilename);
+	ASSERT_MSG(mp_projPsfManager != nullptr,
+	           "Error occured during the setup of ProjectionPsfManagerDevice");
 }
 
 void OperatorProjectorDevice::setAttImage(const Image* attImage)
@@ -223,8 +241,8 @@ bool OperatorProjectorDevice::requiresIntermediaryProjData() const
 {
 	// We need an intermediary projectorParam if we'll need to do attenuation
 	// correction or additive correction (scatter/randoms)
-	return attImage != nullptr || attImageForBackprojection != nullptr ||
-	       addHisto != nullptr;
+	return attImageForForwardProjection != nullptr ||
+	       attImageForBackprojection != nullptr || addHisto != nullptr;
 }
 
 void OperatorProjectorDevice::prepareIntermediaryBufferIfNeeded(
@@ -248,11 +266,25 @@ void OperatorProjectorDevice::prepareIntermediaryBuffer(
 }
 
 const TimeOfFlightHelper*
-	OperatorProjectorDevice::getTOFHelperDevicePointer() const
+    OperatorProjectorDevice::getTOFHelperDevicePointer() const
 {
-	if(mp_tofHelper != nullptr)
+	if (mp_tofHelper != nullptr)
 	{
 		return mp_tofHelper->getDevicePointer();
+	}
+	return nullptr;
+}
+
+const float*
+    OperatorProjectorDevice::getProjPsfKernelsDevicePointer(bool flipped) const
+{
+	if (mp_projPsfManager != nullptr)
+	{
+		if (!flipped)
+		{
+			return mp_projPsfManager->getKernelsDevicePointer();
+		}
+		return mp_projPsfManager->getFlippedKernelsDevicePointer();
 	}
 	return nullptr;
 }

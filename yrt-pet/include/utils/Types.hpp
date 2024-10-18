@@ -29,9 +29,3 @@ struct transform_t
 	float r00, r01, r02, r10, r11, r12, r20, r21, r22;
 	float tx, ty, tz;
 };
-
-// Defining a line of response
-struct line_t
-{
-	float x1,y1,z1,x2,y2,z2;
-};

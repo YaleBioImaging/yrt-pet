@@ -35,7 +35,7 @@ void py_setup_imagewarpertemplate(py::module& m)
 	c.def("setReferenceFrameParam",
 	      &ImageWarperTemplate::setReferenceFrameParam);
 	c.def("setFrameParam", &ImageWarperTemplate::setFrameParam);
-	c.def("Reset", &ImageWarperTemplate::Reset);
+	c.def("reset", &ImageWarperTemplate::reset);
 	c.def("isFrameUsed", &ImageWarperTemplate::isFrameUsed);
 	c.def("getImNbVoxel", &ImageWarperTemplate::getImNbVoxel);
 	c.def("getReferenceFrameId", &ImageWarperTemplate::getReferenceFrameId);
@@ -249,7 +249,7 @@ void ImageWarperTemplate::initParamContainer()
 }
 
 
-void ImageWarperTemplate::Reset()
+void ImageWarperTemplate::reset()
 {
 	m_imNbVoxel.clear();
 	m_imSize.clear();

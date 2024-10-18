@@ -19,7 +19,6 @@
 #include "operators/OperatorPsf.hpp"
 #include "utils/Assert.hpp"
 #include "utils/Globals.hpp"
-#include "utils/ReconstructionUtils.hpp"
 #include "utils/Tools.hpp"
 
 #if BUILD_PYBIND11
@@ -88,7 +87,8 @@ void py_setup_osem(pybind11::module& m)
 	c.def_readwrite("numRays", &OSEM::numRays);
 	c.def_readwrite("projectorType", &OSEM::projectorType);
 	c.def_readwrite("maskImage", &OSEM::maskImage);
-	c.def_readwrite("attenuationImage", &OSEM::attenuationImage);
+	c.def_readwrite("attenuationImageForForwardProjection",
+	                &OSEM::attenuationImageForForwardProjection);
 	c.def_readwrite("attenuationImageForBackprojection",
 	                &OSEM::attenuationImageForBackprojection);
 	c.def_readwrite("addHis", &OSEM::addHis);
@@ -104,7 +104,7 @@ OSEM::OSEM(const Scanner& pr_scanner)
       projectorType(OperatorProjector::SIDDON),
       scanner(pr_scanner),
       maskImage(nullptr),
-      attenuationImage(nullptr),
+      attenuationImageForForwardProjection(nullptr),
       attenuationImageForBackprojection(nullptr),
       addHis(nullptr),
       warper(nullptr),
@@ -118,9 +118,9 @@ OSEM::OSEM(const Scanner& pr_scanner)
       usingListModeInput(false),
       needToMakeCopyOfSensImage(false),
       outImage(nullptr),
-      sensDataInput(nullptr),
-      dataInput(nullptr),
-      copiedSensitivityImage(nullptr)
+      mp_sensDataInput(nullptr),
+      mp_dataInput(nullptr),
+      mp_copiedSensitivityImage(nullptr)
 {
 }
 
@@ -253,7 +253,7 @@ bool OSEM::validateSensImagesAmount(int size) const
 void OSEM::setSensitivityImages(const std::vector<Image*>& sensImages)
 {
 	ImageParams imageParams;
-	sensitivityImages.clear();
+	m_sensitivityImages.clear();
 
 	for (size_t i = 0; i < sensImages.size(); i++)
 	{
@@ -272,7 +272,7 @@ void OSEM::setSensitivityImages(const std::vector<Image*>& sensImages)
 			ASSERT_MSG(sensImage->getParams().isSameAs(imageParams),
 			           "Image parameters mismatch");
 		}
-		sensitivityImages.push_back(sensImage);
+		m_sensitivityImages.push_back(sensImage);
 	}
 	setImageParams(imageParams);
 }
@@ -316,9 +316,9 @@ void OSEM::setSensitivityImage(Image* sensImage, int subset)
 		ASSERT_MSG(false, errorMessage.c_str());
 	}
 	const size_t expectedSize = usingListModeInput ? 1 : num_OSEM_subsets;
-	if (sensitivityImages.size() != expectedSize)
+	if (m_sensitivityImages.size() != expectedSize)
 	{
-		sensitivityImages.resize(expectedSize);
+		m_sensitivityImages.resize(expectedSize);
 	}
 
 	ASSERT(sensImage != nullptr);
@@ -335,7 +335,7 @@ void OSEM::setSensitivityImage(Image* sensImage, int subset)
 		setImageParams(sensImage->getParams());
 	}
 
-	sensitivityImages[subset] = sensImage;
+	m_sensitivityImages[subset] = sensImage;
 }
 
 void OSEM::loadSubsetInternal(int p_subsetId, bool p_forRecon)
@@ -358,13 +358,13 @@ void OSEM::initializeForRecon()
 
 void OSEM::setSensDataInput(ProjectionData* p_sensDataInput)
 {
-	sensDataInput = p_sensDataInput;
+	mp_sensDataInput = p_sensDataInput;
 }
 
 void OSEM::setDataInput(ProjectionData* p_dataInput)
 {
-	dataInput = p_dataInput;
-	if (dynamic_cast<const ListMode*>(dataInput))
+	mp_dataInput = p_dataInput;
+	if (dynamic_cast<const ListMode*>(mp_dataInput))
 	{
 		usingListModeInput = true;
 	}
@@ -387,10 +387,12 @@ void OSEM::addProjPSF(const std::string& p_projSpacePsf_fname)
 	flagProjPSF = !projSpacePsf_fname.empty();
 }
 
-void OSEM::addImagePSF(OperatorPsf* p_imageSpacePsf)
+void OSEM::addImagePSF(const std::string& p_imageSpacePsf_fname)
 {
-	imageSpacePsf = p_imageSpacePsf;
-	flagImagePSF = imageSpacePsf != nullptr;
+	ASSERT_MSG(!p_imageSpacePsf_fname.empty(),
+	           "Empty filename for Image-space PSF");
+	imageSpacePsf = std::make_unique<OperatorPsf>(p_imageSpacePsf_fname);
+	flagImagePSF = true;
 }
 
 void OSEM::setSaveSteps(int p_saveSteps, const std::string& p_saveStepsPath)
@@ -434,20 +436,20 @@ void OSEM::setImageParams(const ImageParams& params)
 
 const Image* OSEM::getSensitivityImage(int subsetId) const
 {
-	if (copiedSensitivityImage != nullptr)
+	if (mp_copiedSensitivityImage != nullptr)
 	{
-		return copiedSensitivityImage.get();
+		return mp_copiedSensitivityImage.get();
 	}
-	return sensitivityImages.at(subsetId);
+	return m_sensitivityImages.at(subsetId);
 }
 
 Image* OSEM::getSensitivityImage(int subsetId)
 {
-	if (copiedSensitivityImage != nullptr)
+	if (mp_copiedSensitivityImage != nullptr)
 	{
-		return copiedSensitivityImage.get();
+		return mp_copiedSensitivityImage.get();
 	}
-	return sensitivityImages.at(subsetId);
+	return m_sensitivityImages.at(subsetId);
 }
 
 int OSEM::getNumBatches(int subsetId, bool forRecon) const
@@ -459,11 +461,17 @@ int OSEM::getNumBatches(int subsetId, bool forRecon) const
 
 std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 {
-	ASSERT_MSG(dataInput != nullptr, "Data input unspecified");
-	ASSERT_MSG(!sensitivityImages.empty(), "Sensitivity image(s) not set");
-	ASSERT(imageParams.isValid());
+	ASSERT_MSG(mp_dataInput != nullptr, "Data input unspecified");
+	ASSERT_MSG(!m_sensitivityImages.empty(), "Sensitivity image(s) not set");
+	ASSERT_MSG(num_OSEM_subsets > 0, "Not enough OSEM subsets");
+	ASSERT_MSG(num_MLEM_iterations > 0, "Not enough MLEM iterations");
 
-	if (!validateSensImagesAmount(static_cast<int>(sensitivityImages.size())))
+	if (!imageParams.isValid())
+	{
+		imageParams = m_sensitivityImages[0]->getParams();
+	}
+
+	if (!validateSensImagesAmount(static_cast<int>(m_sensitivityImages.size())))
 	{
 		throw std::logic_error(
 		    "The number of sensitivity image objects provided does "
@@ -481,16 +489,17 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 		{
 			// This is for the specific case of doing a list-mode reconstruction
 			// from Python
-			copiedSensitivityImage = std::make_unique<ImageOwned>(imageParams);
-			copiedSensitivityImage->allocate();
-			copiedSensitivityImage->copyFromImage(sensitivityImages.at(0));
-			copiedSensitivityImage->multWithScalar(
-			    1.0 / (static_cast<double>(num_OSEM_subsets)));
+			mp_copiedSensitivityImage =
+			    std::make_unique<ImageOwned>(imageParams);
+			mp_copiedSensitivityImage->allocate();
+			mp_copiedSensitivityImage->copyFromImage(m_sensitivityImages.at(0));
+			mp_copiedSensitivityImage->multWithScalar(
+			    1.0f / (static_cast<float>(num_OSEM_subsets)));
 		}
 		else
 		{
-			sensitivityImages[0]->multWithScalar(
-			    1.0 / (static_cast<double>(num_OSEM_subsets)));
+			m_sensitivityImages[0]->multWithScalar(
+			    1.0f / (static_cast<float>(num_OSEM_subsets)));
 		}
 	}
 
@@ -582,7 +591,7 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 	endRecon();
 
 	// Deallocate the copied sensitivity image if it was allocated
-	copiedSensitivityImage = nullptr;
+	mp_copiedSensitivityImage = nullptr;
 
 	if (!out_fname.empty())
 	{
@@ -599,15 +608,15 @@ std::unique_ptr<ImageOwned>
 	ASSERT_MSG(
 	    !IO::requiresGPU(projectorType),
 	    "Error: The Reconstruction with an image warper only works on CPU");
-	ASSERT(warper != nullptr);
-	ASSERT_MSG(sensitivityImages.size() == 1,
+	ASSERT_MSG(warper != nullptr, "Warper not defined");
+	ASSERT_MSG(m_sensitivityImages.size() == 1,
 	           "Exactly one sensitivity image is needed for MLEM "
 	           "reconstruction with image warper");
-	ASSERT_MSG(dataInput != nullptr, "Data input unspecified");
+	ASSERT_MSG(mp_dataInput != nullptr, "Data input unspecified");
 
 	if (!imageParams.isValid())
 	{
-		imageParams = sensitivityImages.at(0)->getParams();
+		imageParams = m_sensitivityImages.at(0)->getParams();
 	}
 
 	outImage = std::make_unique<ImageOwned>(imageParams);
@@ -619,7 +628,7 @@ std::unique_ptr<ImageOwned>
 	auto mlem_image_curr_frame = std::make_unique<ImageOwned>(imageParams);
 	mlem_image_curr_frame->allocate();
 
-	Image* sens_image = sensitivityImages.at(0);
+	Image* sens_image = m_sensitivityImages.at(0);
 	std::cout << "Computing global Warp-to-ref frame" << std::endl;
 	warper->computeGlobalWarpToRefFrame(sens_image, saveSteps > 0);
 	std::cout << "Applying threshold" << std::endl;
@@ -655,7 +664,7 @@ std::unique_ptr<ImageOwned>
 	}
 	warper->setRefImage(outImage.get());
 	OperatorWarpRefImage warpImg(0);
-	constexpr double UpdateEMThreshold = 1e-8;
+	constexpr float UpdateEMThreshold = 1e-8f;
 
 	const int numFrames = warper->getNumberOfFrame();
 
@@ -688,9 +697,9 @@ std::unique_ptr<ImageOwned>
 		throw std::logic_error(
 		    "Error during reconstruction: Unknown projector type");
 	}
-	if (attenuationImage != nullptr)
+	if (attenuationImageForForwardProjection != nullptr)
 	{
-		mp_projector->setAttenuationImage(attenuationImage);
+		mp_projector->setAttenuationImage(attenuationImageForForwardProjection);
 	}
 
 	const int num_digits_in_fname =
@@ -765,9 +774,9 @@ void OSEM::summary() const
 	}
 
 	int numberOfSensImagesSet = 0;
-	for (size_t i = 0; i < sensitivityImages.size(); i++)
+	for (size_t i = 0; i < m_sensitivityImages.size(); i++)
 	{
-		if (sensitivityImages[i] != nullptr)
+		if (m_sensitivityImages[i] != nullptr)
 		{
 			numberOfSensImagesSet++;
 		}

@@ -7,6 +7,7 @@
 
 #include "datastruct/image/Image.hpp"
 #include "datastruct/scanner/Scanner.hpp"
+#include "geometry/ProjectorUtils.hpp"
 #include "utils/Assert.hpp"
 #include "utils/Globals.hpp"
 #include "utils/ReconstructionUtils.hpp"
@@ -27,9 +28,8 @@ void py_setup_operatorprojectorsiddon(py::module& m)
 	c.def(
 	    "forward_projection",
 	    [](const OperatorProjectorSiddon& self, const Image* in_image,
-	       const StraightLineParam& lor, const Vector3D& n1,
-	       const Vector3D& n2, const TimeOfFlightHelper* tofHelper,
-	       float tofValue) -> double {
+	       const Line3D& lor, const Vector3D& n1, const Vector3D& n2,
+	       const TimeOfFlightHelper* tofHelper, float tofValue) -> float {
 		    return self.forwardProjection(in_image, lor, n1, n2, tofHelper,
 		                                  tofValue);
 	    },
@@ -38,9 +38,9 @@ void py_setup_operatorprojectorsiddon(py::module& m)
 	c.def(
 	    "back_projection",
 	    [](const OperatorProjectorSiddon& self, Image* in_image,
-	       const StraightLineParam& lor, const Vector3D& n1,
-	       const Vector3D& n2, double proj_value,
-	       const TimeOfFlightHelper* tofHelper, float tofValue) -> void
+	       const Line3D& lor, const Vector3D& n1, const Vector3D& n2,
+	       float proj_value, const TimeOfFlightHelper* tofHelper,
+	       float tofValue) -> void
 	    {
 		    self.backProjection(in_image, lor, n1, n2, proj_value, tofHelper,
 		                        tofValue);
@@ -50,7 +50,7 @@ void py_setup_operatorprojectorsiddon(py::module& m)
 	    py::arg("tofValue") = 0.0f);
 	c.def_static(
 	    "single_back_projection",
-	    [](Image* in_image, const StraightLineParam& lor, double proj_value,
+	    [](Image* in_image, const Line3D& lor, float proj_value,
 	       const TimeOfFlightHelper* tofHelper, float tofValue) -> void
 	    {
 		    OperatorProjectorSiddon::singleBackProjection(
@@ -60,8 +60,8 @@ void py_setup_operatorprojectorsiddon(py::module& m)
 	    py::arg("tofHelper") = nullptr, py::arg("tofValue") = 0.0f);
 	c.def_static(
 	    "single_forward_projection",
-	    [](const Image* in_image, const StraightLineParam& lor,
-	       const TimeOfFlightHelper* tofHelper, float tofValue) -> double
+	    [](const Image* in_image, const Line3D& lor,
+	       const TimeOfFlightHelper* tofHelper, float tofValue) -> float
 	    {
 		    return OperatorProjectorSiddon::singleForwardProjection(
 		        in_image, lor, tofHelper, tofValue);
@@ -79,9 +79,12 @@ OperatorProjectorSiddon::OperatorProjectorSiddon(
 	{
 		mp_lineGen = std::make_unique<std::vector<MultiRayGenerator>>(
 		    Globals::get_num_threads(),
-		    MultiRayGenerator(scanner.crystalSize_z,
-		                        scanner.crystalSize_trans));
+		    MultiRayGenerator{scanner.crystalSize_z,
+		                      scanner.crystalSize_trans});
 	}
+	ASSERT_MSG_WARNING(
+	    mp_projPsfManager == nullptr,
+	    "Siddon does not support Projection space PSF. It will be ignored.");
 }
 
 int OperatorProjectorSiddon::getNumRays() const
@@ -94,108 +97,104 @@ void OperatorProjectorSiddon::setNumRays(int n)
 	m_numRays = n;
 }
 
-double OperatorProjectorSiddon::forwardProjection(const Image* img,
-                                                    const ProjectionData* dat,
-                                                    bin_t bin)
+float OperatorProjectorSiddon::forwardProjection(
+    const Image* img, const ProjectionProperties& projectionProperties) const
 {
-	auto [lor, tofValue, randomsEstimate, n1, n2] =
-	    Util::getProjectionProperties(scanner, *dat, bin);
-
-	// TODO: What to do with randomsEstimate ?
-
-	return forwardProjection(img, lor, n1, n2, mp_tofHelper.get(), tofValue);
+	return forwardProjection(img, projectionProperties.lor,
+	                         projectionProperties.det1Orient,
+	                         projectionProperties.det2Orient,
+	                         mp_tofHelper.get(), projectionProperties.tofValue);
 }
 
-void OperatorProjectorSiddon::backProjection(Image* img,
-                                               const ProjectionData* dat,
-                                               bin_t bin, double projValue)
+void OperatorProjectorSiddon::backProjection(
+    Image* img, const ProjectionProperties& projectionProperties,
+    float projValue) const
 {
-	auto [lor, tofValue, randomsEstimate, n1, n2] =
-	    Util::getProjectionProperties(scanner, *dat, bin);
-
-	backProjection(img, lor, n1, n2, projValue, mp_tofHelper.get(), tofValue);
+	backProjection(img, projectionProperties.lor,
+	               projectionProperties.det1Orient,
+	               projectionProperties.det2Orient, projValue,
+	               mp_tofHelper.get(), projectionProperties.tofValue);
 }
 
-double OperatorProjectorSiddon::forwardProjection(
-    const Image* img, const StraightLineParam& lor, const Vector3D& n1,
-    const Vector3D& n2, const TimeOfFlightHelper* tofHelper,
-    float tofValue) const
+float OperatorProjectorSiddon::forwardProjection(
+    const Image* img, const Line3D& lor, const Vector3D& n1, const Vector3D& n2,
+    const TimeOfFlightHelper* tofHelper, float tofValue) const
 {
 	const ImageParams& params = img->getParams();
 	const Vector3D offsetVec = {params.off_x, params.off_y, params.off_z};
 
-	double imProj = 0.;
+	float imProj = 0.;
 
 	// Avoid multi-ray siddon on attenuation image
-	const int numRaysToCast =
-	    (img == attImage || img == attImageForBackprojection) ? 1 : m_numRays;
+	const int numRaysToCast = (img == attImageForForwardProjection ||
+	                           img == attImageForBackprojection) ?
+	                              1 :
+	                              m_numRays;
 
 	int currThread = 0;
 	if (numRaysToCast > 1)
 	{
 		currThread = omp_get_thread_num();
 		ASSERT(mp_lineGen != nullptr);
-		mp_lineGen->at(currThread).setupGenerator(lor, n1, n2, scanner);
+		mp_lineGen->at(currThread).setupGenerator(lor, n1, n2);
 	}
 
 	for (int i_line = 0; i_line < numRaysToCast; i_line++)
 	{
 		unsigned int seed = 13;
-		StraightLineParam randLine =
-		    (i_line == 0) ? lor :
-		                    mp_lineGen->at(currThread).getRandomLine(seed);
+		Line3D randLine = (i_line == 0) ?
+		                      lor :
+		                      mp_lineGen->at(currThread).getRandomLine(seed);
 		randLine.point1 = randLine.point1 - offsetVec;
 		randLine.point2 = randLine.point2 - offsetVec;
 
-		double currentProjValue = 0.0;
+		float currentProjValue = 0.0;
 		if (tofHelper != nullptr)
 		{
-			project_helper<true, true, true>(const_cast<Image*>(img),
-			                                 randLine, currentProjValue,
-			                                 tofHelper, tofValue);
+			project_helper<true, true, true>(const_cast<Image*>(img), randLine,
+			                                 currentProjValue, tofHelper,
+			                                 tofValue);
 		}
 		else
 		{
-			project_helper<true, true, false>(const_cast<Image*>(img),
-			                                  randLine, currentProjValue,
-			                                  nullptr, 0);
+			project_helper<true, true, false>(const_cast<Image*>(img), randLine,
+			                                  currentProjValue, nullptr, 0);
 		}
 		imProj += currentProjValue;
 	}
 
 	if (numRaysToCast > 1)
 	{
-		imProj = imProj / static_cast<double>(numRaysToCast);
+		imProj = imProj / static_cast<float>(numRaysToCast);
 	}
 
 	return imProj;
 }
 
 void OperatorProjectorSiddon::backProjection(
-    Image* img, const StraightLineParam& lor, const Vector3D& n1,
-    const Vector3D& n2, double projValue, const TimeOfFlightHelper* tofHelper,
-    float tofValue) const
+    Image* img, const Line3D& lor, const Vector3D& n1, const Vector3D& n2,
+    float projValue, const TimeOfFlightHelper* tofHelper, float tofValue) const
 {
 	const ImageParams& params = img->getParams();
 	const Vector3D offsetVec = {params.off_x, params.off_y, params.off_z};
 
 
 	int currThread = 0;
-	double projValuePerLor = projValue;
+	float projValuePerLor = projValue;
 	if (m_numRays > 1)
 	{
 		ASSERT(mp_lineGen != nullptr);
 		currThread = omp_get_thread_num();
-		mp_lineGen->at(currThread).setupGenerator(lor, n1, n2, scanner);
-		projValuePerLor = projValue / static_cast<double>(m_numRays);
+		mp_lineGen->at(currThread).setupGenerator(lor, n1, n2);
+		projValuePerLor = projValue / static_cast<float>(m_numRays);
 	}
 
 	for (int i_line = 0; i_line < m_numRays; i_line++)
 	{
 		unsigned int seed = 13;
-		StraightLineParam randLine =
-		    (i_line == 0) ? lor :
-		                    mp_lineGen->at(currThread).getRandomLine(seed);
+		Line3D randLine = (i_line == 0) ?
+		                      lor :
+		                      mp_lineGen->at(currThread).getRandomLine(seed);
 		randLine.point1 = randLine.point1 - offsetVec;
 		randLine.point2 = randLine.point2 - offsetVec;
 		if (tofHelper != nullptr)
@@ -211,18 +210,18 @@ void OperatorProjectorSiddon::backProjection(
 	}
 }
 
-double OperatorProjectorSiddon::singleForwardProjection(
-    const Image* img, const StraightLineParam& lor,
-    const TimeOfFlightHelper* tofHelper, float tofValue)
+float OperatorProjectorSiddon::singleForwardProjection(
+    const Image* img, const Line3D& lor, const TimeOfFlightHelper* tofHelper,
+    float tofValue)
 {
-	double v;
+	float v;
 	project_helper<true, true, false>(const_cast<Image*>(img), lor, v,
 	                                  tofHelper, tofValue);
 	return v;
 }
 
 void OperatorProjectorSiddon::singleBackProjection(
-    Image* img, const StraightLineParam& lor, double projValue,
+    Image* img, const Line3D& lor, float projValue,
     const TimeOfFlightHelper* tofHelper, float tofValue)
 {
 	project_helper<false, true, false>(img, lor, projValue, tofHelper,
@@ -245,7 +244,7 @@ enum SIDDON_DIR
 // default.
 template <bool IS_FWD, bool FLAG_INCR, bool FLAG_TOF>
 void OperatorProjectorSiddon::project_helper(
-    Image* img, const StraightLineParam& lor, double& value,
+    Image* img, const Line3D& lor, float& value,
     const TimeOfFlightHelper* tofHelper, float tofValue)
 {
 	if (IS_FWD)
@@ -258,14 +257,13 @@ void OperatorProjectorSiddon::project_helper(
 	const Vector3D& p1 = lor.point1;
 	const Vector3D& p2 = lor.point2;
 	// 1. Intersection with FOV
-	double t0;
-	double t1;
+	float t0;
+	float t1;
 	// Intersection with (centered) FOV cylinder
-	double A = (p2.x - p1.x) * (p2.x - p1.x) + (p2.y - p1.y) * (p2.y - p1.y);
-	double B = 2.0 * ((p2.x - p1.x) * p1.x + (p2.y - p1.y) * p1.y);
-	double C =
-	    p1.x * p1.x + p1.y * p1.y - params.fovRadius * params.fovRadius;
-	double Delta = B * B - 4 * A * C;
+	float A = (p2.x - p1.x) * (p2.x - p1.x) + (p2.y - p1.y) * (p2.y - p1.y);
+	float B = 2.0 * ((p2.x - p1.x) * p1.x + (p2.y - p1.y) * p1.y);
+	float C = p1.x * p1.x + p1.y * p1.y - params.fovRadius * params.fovRadius;
+	float Delta = B * B - 4 * A * C;
 	if (A != 0.0)
 	{
 		if (Delta <= 0.0)
@@ -283,75 +281,75 @@ void OperatorProjectorSiddon::project_helper(
 		t1 = 1.0;
 	}
 
-	double d_norm = (p1 - p2).getNorm();
+	float d_norm = (p1 - p2).getNorm();
 	bool flat_x = (p1.x == p2.x);
 	bool flat_y = (p1.y == p2.y);
 	bool flat_z = (p1.z == p2.z);
-	double inv_p12_x = flat_x ? 0.0 : 1 / (p2.x - p1.x);
-	double inv_p12_y = flat_y ? 0.0 : 1 / (p2.y - p1.y);
-	double inv_p12_z = flat_z ? 0.0 : 1 / (p2.z - p1.z);
+	float inv_p12_x = flat_x ? 0.0 : 1 / (p2.x - p1.x);
+	float inv_p12_y = flat_y ? 0.0 : 1 / (p2.y - p1.y);
+	float inv_p12_z = flat_z ? 0.0 : 1 / (p2.z - p1.z);
 	int dir_x = (inv_p12_x >= 0.0) ? 1 : -1;
 	int dir_y = (inv_p12_y >= 0.0) ? 1 : -1;
 	int dir_z = (inv_p12_z >= 0.0) ? 1 : -1;
 
 	// 2. Intersection with volume
-	double dx = params.vx;
-	double dy = params.vy;
-	double dz = params.vz;
-	double inv_dx = 1.0 / dx;
-	double inv_dy = 1.0 / dy;
-	double inv_dz = 1.0 / dz;
+	float dx = params.vx;
+	float dy = params.vy;
+	float dz = params.vz;
+	float inv_dx = 1.0 / dx;
+	float inv_dy = 1.0 / dy;
+	float inv_dz = 1.0 / dz;
 
-	double x0 = -params.length_x / 2;
-	double x1 = params.length_x / 2;
-	double y0 = -params.length_y / 2;
-	double y1 = params.length_y / 2;
-	double z0 = -params.length_z / 2;
-	double z1 = params.length_z / 2;
-	double ax_min, ax_max, ay_min, ay_max, az_min, az_max;
-	get_alpha(-0.5 * params.length_x, 0.5 * params.length_x, p1.x, p2.x,
-	          inv_p12_x, ax_min, ax_max);
-	get_alpha(-0.5 * params.length_y, 0.5 * params.length_y, p1.y, p2.y,
-	          inv_p12_y, ay_min, ay_max);
-	get_alpha(-0.5 * params.length_z, 0.5 * params.length_z, p1.z, p2.z,
-	          inv_p12_z, az_min, az_max);
-	double amin = std::max({0.0, t0, ax_min, ay_min, az_min});
-	double amax = std::min({1.0, t1, ax_max, ay_max, az_max});
+	float x0 = -params.length_x * 0.5f;
+	float x1 = params.length_x * 0.5f;
+	float y0 = -params.length_y * 0.5f;
+	float y1 = params.length_y * 0.5f;
+	float z0 = -params.length_z * 0.5f;
+	float z1 = params.length_z * 0.5f;
+	float ax_min, ax_max, ay_min, ay_max, az_min, az_max;
+	Util::get_alpha(-0.5f * params.length_x, 0.5f * params.length_x, p1.x, p2.x,
+	                inv_p12_x, ax_min, ax_max);
+	Util::get_alpha(-0.5f * params.length_y, 0.5f * params.length_y, p1.y, p2.y,
+	                inv_p12_y, ay_min, ay_max);
+	Util::get_alpha(-0.5f * params.length_z, 0.5f * params.length_z, p1.z, p2.z,
+	                inv_p12_z, az_min, az_max);
+	float amin = std::max({0.0f, t0, ax_min, ay_min, az_min});
+	float amax = std::min({1.0f, t1, ax_max, ay_max, az_max});
 	if (FLAG_TOF)
 	{
-		double amin_tof, amax_tof;
+		float amin_tof, amax_tof;
 		tofHelper->getAlphaRange(amin_tof, amax_tof, d_norm, tofValue);
 		amin = std::max(amin, amin_tof);
 		amax = std::min(amax, amax_tof);
 	}
 
-	double a_cur = amin;
-	double a_next = -1.0;
-	double x_cur = (inv_p12_x > 0.0) ? x0 : x1;
-	double y_cur = (inv_p12_y > 0.0) ? y0 : y1;
-	double z_cur = (inv_p12_z > 0.0) ? z0 : z1;
-	if ((inv_p12_x >= 0.0 && p1.x > x1) || (inv_p12_x < 0.0 && p1.x < x0) ||
-	    (inv_p12_y >= 0.0 && p1.y > y1) || (inv_p12_y < 0.0 && p1.y < y0) ||
-	    (inv_p12_z >= 0.0 && p1.z > z1) || (inv_p12_z < 0.0 && p1.z < z0))
+	float a_cur = amin;
+	float a_next = -1.0f;
+	float x_cur = (inv_p12_x > 0.0f) ? x0 : x1;
+	float y_cur = (inv_p12_y > 0.0f) ? y0 : y1;
+	float z_cur = (inv_p12_z > 0.0f) ? z0 : z1;
+	if ((inv_p12_x >= 0.0f && p1.x > x1) || (inv_p12_x < 0.0f && p1.x < x0) ||
+	    (inv_p12_y >= 0.0f && p1.y > y1) || (inv_p12_y < 0.0f && p1.y < y0) ||
+	    (inv_p12_z >= 0.0f && p1.z > z1) || (inv_p12_z < 0.0f && p1.z < z0))
 	{
 		return;
 	}
 	// Move starting point inside FOV
-	double ax_next = flat_x ? std::numeric_limits<double>::max() : ax_min;
+	float ax_next = flat_x ? std::numeric_limits<float>::max() : ax_min;
 	if (!flat_x)
 	{
 		int kx = (int)ceil(dir_x * (a_cur * (p2.x - p1.x) - x_cur + p1.x) / dx);
 		x_cur += kx * dir_x * dx;
 		ax_next = (x_cur - p1.x) * inv_p12_x;
 	}
-	double ay_next = flat_y ? std::numeric_limits<double>::max() : ay_min;
+	float ay_next = flat_y ? std::numeric_limits<float>::max() : ay_min;
 	if (!flat_y)
 	{
 		int ky = (int)ceil(dir_y * (a_cur * (p2.y - p1.y) - y_cur + p1.y) / dy);
 		y_cur += ky * dir_y * dy;
 		ay_next = (y_cur - p1.y) * inv_p12_y;
 	}
-	double az_next = flat_z ? std::numeric_limits<double>::max() : az_min;
+	float az_next = flat_z ? std::numeric_limits<float>::max() : az_min;
 	if (!flat_z)
 	{
 		int kz = (int)ceil(dir_z * (a_cur * (p2.z - p1.z) - z_cur + p1.z) / dz);
@@ -373,8 +371,8 @@ void OperatorProjectorSiddon::project_helper(
 
 	// Prepare data pointer (this assumes that the data is stored as a
 	// contiguous array)
-	double* raw_img_ptr = img->getData().getRawPointer();
-	double* cur_img_ptr = nullptr;
+	float* raw_img_ptr = img->getRawPointer();
+	float* cur_img_ptr = nullptr;
 	int num_x = params.nx;
 	int num_xy = params.nx * params.ny;
 
@@ -423,7 +421,7 @@ void OperatorProjectorSiddon::project_helper(
 		}
 		// Determine pixel location
 		float tof_weight = 1.f;
-		double a_mid = 0.5 * (a_cur + a_next);
+		float a_mid = 0.5 * (a_cur + a_next);
 		if (FLAG_TOF)
 		{
 			tof_weight = tofHelper->getWeight(d_norm, tofValue, a_cur * d_norm,
@@ -485,7 +483,7 @@ void OperatorProjectorSiddon::project_helper(
 			continue;
 		}
 		dir_prev = dir_next;
-		double weight = (a_next - a_cur) * d_norm;
+		float weight = (a_next - a_cur) * d_norm;
 		if (FLAG_TOF)
 		{
 			weight *= tof_weight;
@@ -496,8 +494,8 @@ void OperatorProjectorSiddon::project_helper(
 		}
 		else
 		{
-			double output = value * weight;
-			double* ptr = &cur_img_ptr[vx];
+			float output = value * weight;
+			float* ptr = &cur_img_ptr[vx];
 #pragma omp atomic
 			*ptr += output;
 		}
@@ -511,14 +509,10 @@ void OperatorProjectorSiddon::project_helper(
 
 // Explicit instantiation of slow version used in tests
 template void OperatorProjectorSiddon::project_helper<true, false, true>(
-    Image* img, const StraightLineParam&, double&,
-    const TimeOfFlightHelper*, float);
+    Image* img, const Line3D&, float&, const TimeOfFlightHelper*, float);
 template void OperatorProjectorSiddon::project_helper<false, false, true>(
-    Image* img, const StraightLineParam&, double&,
-    const TimeOfFlightHelper*, float);
+    Image* img, const Line3D&, float&, const TimeOfFlightHelper*, float);
 template void OperatorProjectorSiddon::project_helper<true, false, false>(
-    Image* img, const StraightLineParam&, double&,
-    const TimeOfFlightHelper*, float);
+    Image* img, const Line3D&, float&, const TimeOfFlightHelper*, float);
 template void OperatorProjectorSiddon::project_helper<false, false, false>(
-    Image* img, const StraightLineParam&, double&,
-    const TimeOfFlightHelper*, float);
+    Image* img, const Line3D&, float&, const TimeOfFlightHelper*, float);

@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include "datastruct/projection/ProjectionData.hpp"
 #include "recon/OSEM.hpp"
 
 #include <memory>
@@ -19,23 +20,16 @@ namespace Util
 	                              ListModeLUTOwned* listMode,
 	                              size_t numEvents = 0);
 
-	template<bool RequiresAtomic>
-	void convertToHistogram3D(const ProjectionData& dat,
-	                          Histogram3D& histoOut);
+	template <bool RequiresAtomic>
+	void convertToHistogram3D(const ProjectionData& dat, Histogram3D& histoOut);
 
-	// Helper function to unify LOR loading
-	OperatorProjectorBase::ProjectionProperties
-	    getProjectionProperties(const Scanner& scanner,
-	                            const ProjectionData& dat, bin_t bin);
-
-	StraightLineParam getNativeLOR(const Scanner& scanner,
-	                                 const ProjectionData& dat, bin_t binId);
+	Line3D getNativeLOR(const Scanner& scanner, const ProjectionData& dat,
+	                    bin_t binId);
 
 	std::unique_ptr<OSEM> createOSEM(const Scanner& scanner,
-	                                   bool useGPU = false);
+	                                 bool useGPU = false);
 
-
-	std::tuple<StraightLineParam, Vector3D, Vector3D>
+	std::tuple<Line3D, Vector3D, Vector3D>
 	    generateTORRandomDOI(const Scanner& scanner, det_id_t d1, det_id_t d2,
 	                         int vmax = 256);
 
@@ -47,8 +41,7 @@ namespace Util
 	                 const Image* attImage = nullptr,
 	                 const Histogram* additiveHistogram = nullptr);
 	void forwProject(const Scanner& scanner, const Image& img,
-	                 ProjectionData& projData,
-	                 const BinIterator& binIterator,
+	                 ProjectionData& projData, const BinIterator& binIterator,
 	                 OperatorProjector::ProjectorType projectorType =
 	                     OperatorProjector::SIDDON,
 	                 const Image* attImage = nullptr,

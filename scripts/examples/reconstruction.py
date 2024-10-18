@@ -32,7 +32,7 @@ osem.setSensitivityImages(sens_imgs) # Takes, as input, a python list of Image o
 
 # Optionally, save the sensitivity images:
 for i in range(len(sens_imgs)):
-    sens_imgs[i].writeToFile("<path where to save the sensitivity images>/sens_img_subset"+str(i)+".img")
+    sens_imgs[i].writeToFile("<path where to save the sensitivity images>/sens_img_subset"+str(i)+".nii")
 
 # --- Reconstruction
 

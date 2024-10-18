@@ -30,7 +30,7 @@ void py_setup_scatterestimator(py::module& m)
 	    "mask_threshold"_a, "save_intermediary"_a);
 	c.def("computeAdditiveScatterCorrection",
 	      &Scatter::ScatterEstimator::computeAdditiveScatterCorrection,
-	      "num_z"_a, "num_phi"_a, "num_r"_a, "print_progress"_a = false);
+	      "num_z"_a, "num_phi"_a, "num_r"_a);
 	c.def("getScatterHistogram",
 	      &Scatter::ScatterEstimator::getScatterHistogram);
 }
@@ -66,12 +66,11 @@ namespace Scatter
 
 	void ScatterEstimator::computeAdditiveScatterCorrection(size_t numberZ,
 	                                                        size_t numberPhi,
-	                                                        size_t numberR,
-	                                                        bool printProgress)
+	                                                        size_t numberR)
 	{
 		if (mp_scatterHisto == nullptr)
 		{
-			computeScatterEstimate(numberZ, numberPhi, numberR, printProgress);
+			computeScatterEstimate(numberZ, numberPhi, numberR);
 		}
 
 		generateScatterTailsMask();
@@ -99,15 +98,13 @@ namespace Scatter
 
 	void ScatterEstimator::computeScatterEstimate(size_t numberZ,
 	                                              size_t numberPhi,
-	                                              size_t numberR,
-	                                              bool printProgress)
+	                                              size_t numberR)
 	{
 		mp_scatterHisto = std::make_shared<Histogram3DOwned>(mr_scanner);
 		mp_scatterHisto->allocate();
 		mp_scatterHisto->clearProjections();
 
-		m_sss.runSSS(numberZ, numberPhi, numberR, *mp_scatterHisto,
-		             printProgress);
+		m_sss.runSSS(numberZ, numberPhi, numberR, *mp_scatterHisto);
 		if (m_saveIntermediary)
 		{
 			mp_scatterHisto->writeToFile(

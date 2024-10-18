@@ -17,6 +17,7 @@ namespace Util
 	std::string getSizeWithSuffix(double size, int precision);
 	std::string toLower(const std::string& s);
 	std::string toUpper(const std::string& s);
+	std::string getDatetime();
 
 	// ----------------- Bit manipulation -----------------
 

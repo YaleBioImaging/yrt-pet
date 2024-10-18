@@ -18,21 +18,21 @@ public:
     int nx;
     int ny;
     int nz;
-    double length_x;
-    double length_y;
-    double length_z;
-    double off_x;
-    double off_y;
-    double off_z;
+    float length_x;
+    float length_y;
+    float length_z;
+    float off_x;
+    float off_y;
+    float off_z;
 
     // Automatically populated fields
-    double vx, vy, vz;
-    double fovRadius;
+    float vx, vy, vz;
+    float fovRadius;
 
     ImageParams();
-    ImageParams(int nxi, int nyi, int nzi, double length_xi, double length_yi,
-                double length_zi, double offset_xi = 0.,
-                double offset_yi = 0., double offset_zi = 0.);
+    ImageParams(int nxi, int nyi, int nzi, float length_xi, float length_yi,
+                float length_zi, float offset_xi = 0.,
+                float offset_yi = 0., float offset_zi = 0.);
     ImageParams(const ImageParams& in);
     ImageParams& operator=(const ImageParams& in);
     explicit ImageParams(const std::string& fname);
@@ -50,29 +50,30 @@ public:
     bool isValid() const;
 
 private:
-    static double readLengthFromJSON(nlohmann::json& j, const std::string& length_name, const std::string& v_name, int n);
+    static float readLengthFromJSON(nlohmann::json& j, const std::string& length_name, const std::string& v_name, int n);
 };
 
 class ImageBase : public Variable
 {
 public:
+    ImageBase() = default;
     explicit ImageBase(const ImageParams& imgParams);
     ~ImageBase() override = default;
 
     // Common functions
-    double getRadius() const;
+    float getRadius() const;
     const ImageParams& getParams() const;
     void setParams(const ImageParams& newParams);
 
-    virtual void setValue(double initValue) = 0;
+    virtual void setValue(float initValue) = 0;
     virtual void addFirstImageToSecond(ImageBase* second) const = 0;
-    virtual void applyThreshold(const ImageBase* mask_img, double threshold,
-                                double val_le_scale, double val_le_off,
-                                double val_gt_scale, double val_gt_off) = 0;
+    virtual void applyThreshold(const ImageBase* mask_img, float threshold,
+                                float val_le_scale, float val_le_off,
+                                float val_gt_scale, float val_gt_off) = 0;
     virtual void writeToFile(const std::string& image_fname) const = 0;
     virtual void updateEMThreshold(ImageBase* update_img,
                                    const ImageBase* norm_img,
-                                   double threshold) = 0;
+                                   float threshold) = 0;
 
 private:
     ImageParams m_params;

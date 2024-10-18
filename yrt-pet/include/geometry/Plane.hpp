@@ -5,7 +5,7 @@
 
 #pragma once
 
-#include "geometry/StraightLineParam.hpp"
+#include "geometry/Line3D.hpp"
 #include "geometry/Vector3D.hpp"
 
 class Plane
@@ -27,6 +27,6 @@ public:
 	void update(const Vector3D& pt1, const Vector3D& pt2, const Vector3D& pt3);
 	void update_eq(const Vector3D& pt1, const Vector3D& pt2, const Vector3D& pt3);
 	bool isCoplanar(const Vector3D& pt) const;
-	bool isParrallel(const StraightLineParam& line) const;
-	Vector3D findInterLine(const StraightLineParam& line) const;
+	bool isParrallel(const Line3D& l) const;
+	Vector3D findInterLine(const Line3D& line) const;
 };

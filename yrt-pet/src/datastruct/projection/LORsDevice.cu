@@ -34,11 +34,10 @@ LORsDevice::LORsDevice(const Scanner& pr_scanner)
 }
 
 void LORsDevice::loadEventLORs(const BinIterator& binIter,
-                                 const GPUBatchSetup& batchSetup,
-                                 size_t subsetId, size_t batchId,
-                                 const ProjectionData& reference,
-                                 const ImageParams& imgParams,
-                                 const cudaStream_t* stream)
+                               const GPUBatchSetup& batchSetup, size_t subsetId,
+                               size_t batchId, const ProjectionData& reference,
+                               const ImageParams& imgParams,
+                               const cudaStream_t* stream)
 {
 	m_areLORsGathered = false;
 	const bool hasTOF = reference.hasTOF();
@@ -63,8 +62,7 @@ void LORsDevice::loadEventLORs(const BinIterator& binIter,
 
 	const size_t offset = batchId * batchSetup.getBatchSize(0);
 	auto* binIter_ptr = &binIter;
-	const Vector3D offsetVec{imgParams.off_x, imgParams.off_y,
-	                            imgParams.off_z};
+	const Vector3D offsetVec{imgParams.off_x, imgParams.off_y, imgParams.off_z};
 	const Scanner* scanner = &getScanner();
 	const ProjectionData* reference_ptr = &reference;
 
@@ -79,7 +77,7 @@ void LORsDevice::loadEventLORs(const BinIterator& binIter,
 	{
 		binId = binIter_ptr->get(binIdx + offset);
 		auto [lor, tofValue, randomsEstimate, det1Orient, det2Orient] =
-		    Util::getProjectionProperties(*scanner, *reference_ptr, binId);
+		    reference_ptr->getProjectionProperties(binId);
 
 		// TODO: What to do with randoms estimate?
 
@@ -110,8 +108,10 @@ void LORsDevice::loadEventLORs(const BinIterator& binIter,
 
 	allocateForLORs(hasTOF, stream);
 
-	mp_lorDet1Pos->copyFromHost(tempBufferLorDet1Pos_ptr, batchSize, stream, false);
-	mp_lorDet2Pos->copyFromHost(tempBufferLorDet2Pos_ptr, batchSize, stream, false);
+	mp_lorDet1Pos->copyFromHost(tempBufferLorDet1Pos_ptr, batchSize, stream,
+	                            false);
+	mp_lorDet2Pos->copyFromHost(tempBufferLorDet2Pos_ptr, batchSize, stream,
+	                            false);
 	mp_lorDet1Orient->copyFromHost(tempBufferLorDet1Orient_ptr, batchSize,
 	                               stream, false);
 	mp_lorDet2Orient->copyFromHost(tempBufferLorDet2Orient_ptr, batchSize,
@@ -122,7 +122,7 @@ void LORsDevice::loadEventLORs(const BinIterator& binIter,
 		                             stream, false);
 	}
 
-	if(stream != nullptr)
+	if (stream != nullptr)
 	{
 		cudaStreamSynchronize(*stream);
 	}
@@ -146,14 +146,17 @@ void LORsDevice::allocateForLORs(bool hasTOF, const cudaStream_t* stream)
 
 	hasAllocated |= mp_lorDet1Pos->allocate(m_loadedBatchSize, stream, false);
 	hasAllocated |= mp_lorDet2Pos->allocate(m_loadedBatchSize, stream, false);
-	hasAllocated |= mp_lorDet1Orient->allocate(m_loadedBatchSize, stream, false);
-	hasAllocated |= mp_lorDet2Orient->allocate(m_loadedBatchSize, stream, false);
+	hasAllocated |=
+	    mp_lorDet1Orient->allocate(m_loadedBatchSize, stream, false);
+	hasAllocated |=
+	    mp_lorDet2Orient->allocate(m_loadedBatchSize, stream, false);
 	if (hasTOF)
 	{
-		hasAllocated |= mp_lorTOFValue->allocate(m_loadedBatchSize, stream, false);
+		hasAllocated |=
+		    mp_lorTOFValue->allocate(m_loadedBatchSize, stream, false);
 	}
 
-	if(hasAllocated && stream != nullptr)
+	if (hasAllocated && stream != nullptr)
 	{
 		cudaStreamSynchronize(*stream);
 	}

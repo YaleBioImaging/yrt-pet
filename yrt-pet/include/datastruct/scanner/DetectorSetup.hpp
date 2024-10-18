@@ -22,6 +22,6 @@ public:
 	virtual float getYorient(det_id_t id) const = 0;
 	virtual float getZorient(det_id_t id) const = 0;
 	virtual void writeToFile(const std::string& detCoord_fname) const = 0;
-	virtual Vector3DFloat getPos(det_id_t id) const;
-	virtual Vector3DFloat getOrient(det_id_t id) const;
+	virtual Vector3D getPos(det_id_t id) const;
+	virtual Vector3D getOrient(det_id_t id) const;
 };

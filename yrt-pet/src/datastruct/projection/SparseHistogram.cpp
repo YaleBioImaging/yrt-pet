@@ -52,7 +52,7 @@ void py_setup_sparsehistogram(py::module& m)
 #endif
 
 SparseHistogram::SparseHistogram(const Scanner& pr_scanner)
-    : mr_scanner(pr_scanner)
+    : Histogram(pr_scanner)
 {
 }
 

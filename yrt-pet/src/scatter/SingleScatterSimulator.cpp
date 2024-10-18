@@ -32,9 +32,10 @@ void py_setup_singlescattersimulator(py::module& m)
 	      "scanner"_a, "attenuation_image"_a, "source_image"_a,
 	      "crystal_material"_a, "seed"_a);
 	c.def("runSSS", &Scatter::SingleScatterSimulator::runSSS, "num_z"_a,
-	      "num_phi"_a, "num_r"_a, "scatter_histo"_a, "print_progress"_a = true);
+	      "num_phi"_a, "num_r"_a, "scatter_histo"_a);
 	c.def("computeSingleScatterInLOR",
-	      &Scatter::SingleScatterSimulator::computeSingleScatterInLOR, "lor"_a);
+	      &Scatter::SingleScatterSimulator::computeSingleScatterInLOR, "lor"_a,
+	      "n1"_a, "n2"_a);
 	c.def("getSamplePoint", &Scatter::SingleScatterSimulator::getSamplePoint,
 	      "i"_a);
 	c.def("getNumSamples", &Scatter::SingleScatterSimulator::getNumSamples);
@@ -67,11 +68,11 @@ namespace Scatter
 
 		const Vector3D c{0., 0., 0.};
 		// YP: creates 2 cylinders of axial extent "afov" in millimiters xs
-		m_cyl1 = Cylinder(c, m_axialFOV, m_scannerRadius);
-		m_cyl2 = Cylinder(c, m_axialFOV, m_scannerRadius + m_crystalDepth);
+		m_cyl1 = Cylinder{c, m_axialFOV, m_scannerRadius};
+		m_cyl2 = Cylinder{c, m_axialFOV, m_scannerRadius + m_crystalDepth};
 		// YP 3 points located in the last ring of the scanner
-		Vector3D p1{1.0, 0.0, -m_axialFOV / 2.0},
-		    p2{0.0, 1.0, -m_axialFOV / 2.0}, p3{0.0, 0.0, -m_axialFOV / 2.0};
+		Vector3D p1{1.0f, 0.0f, -m_axialFOV / 2.0f},
+		    p2{0.0f, 1.0f, -m_axialFOV / 2.0f}, p3{0.0f, 0.0f, -m_axialFOV / 2.0f};
 		// YP defines a plane according to these 3 points
 		m_endPlate1 = Plane{p1, p2, p3};
 
@@ -102,36 +103,36 @@ namespace Scatter
 		m_ySamples.reserve(nzsamp * nysamp * nxsamp);
 		m_zSamples.reserve(nzsamp * nysamp * nxsamp);
 		// YP spacing between scatter points
-		const double dxsamp =
-		    mu_params.length_x / (static_cast<double>(nxsamp));
-		const double dysamp =
-		    mu_params.length_y / (static_cast<double>(nysamp));
-		const double dzsamp =
-		    mu_params.length_z / (static_cast<double>(nzsamp));
+		const float dxsamp =
+		    mu_params.length_x / (static_cast<float>(nxsamp));
+		const float dysamp =
+		    mu_params.length_y / (static_cast<float>(nysamp));
+		const float dzsamp =
+		    mu_params.length_z / (static_cast<float>(nzsamp));
 		Vector3D p;
 		m_xSamples.clear();
 		m_ySamples.clear();
 		m_zSamples.clear();
 		for (int k = 0; k < nzsamp; k++)
 		{
-			const double z =
-			    k / (static_cast<double>(nzsamp)) * mu_params.length_z -
+			const float z =
+			    k / (static_cast<float>(nzsamp)) * mu_params.length_z -
 			    mu_params.length_z / 2 + mu_params.vz / 2.0 + mu_params.off_z;
 			for (int j = 0; j < nysamp; j++)
 			{
-				const double y =
-				    j / (static_cast<double>(nysamp)) * mu_params.length_y -
+				const float y =
+				    j / (static_cast<float>(nysamp)) * mu_params.length_y -
 				    mu_params.length_y / 2 + mu_params.vy / 2.0 +
 				    mu_params.off_y;
 				for (int i = 0; i < nxsamp; i++)
 				{
-					const double x =
-					    i / (static_cast<double>(nxsamp)) * mu_params.length_x -
+					const float x =
+					    i / (static_cast<float>(nxsamp)) * mu_params.length_x -
 					    mu_params.length_x / 2 + mu_params.vx / 2.0 +
 					    mu_params.off_x;
-					const double x2 = ran1(&seed) * dxsamp + x;
-					const double y2 = ran1(&seed) * dysamp + y;
-					const double z2 = ran1(&seed) * dzsamp + z;
+					const float x2 = ran1(&seed) * dxsamp + x;
+					const float y2 = ran1(&seed) * dysamp + y;
+					const float z2 = ran1(&seed) * dzsamp + z;
 					// YP generate a random scatter poitn within its cell
 					p.update(x2, y2, z2);
 					if (mr_mu.nearestNeighbor(p) > 0.005)
@@ -160,8 +161,7 @@ namespace Scatter
 
 	void SingleScatterSimulator::runSSS(size_t numberZ, size_t numberPhi,
 	                                    size_t numberR,
-	                                    Histogram3D& scatterHisto,
-	                                    bool printProgress)
+	                                    Histogram3D& scatterHisto)
 	{
 		const size_t num_i_z = numberZ;
 		const size_t num_i_phi = numberPhi;
@@ -188,31 +188,31 @@ namespace Scatter
 		const size_t num_r = scatterHisto.numR;
 
 		// Sampling
-		const double d_z = (num_z - min_z) / static_cast<double>(num_i_z - 1);
-		const double d_phi =
-		    (num_phi - min_phi) / static_cast<double>(num_i_phi - 1);
-		const double d_r = (num_r - min_r) / static_cast<double>(num_i_r - 1);
+		const float d_z = (num_z - min_z) / static_cast<float>(num_i_z - 1);
+		const float d_phi =
+		    (num_phi - min_phi) / static_cast<float>(num_i_phi - 1);
+		const float d_r = (num_r - min_r) / static_cast<float>(num_i_r - 1);
 		m_zBinSamples.reserve(num_i_z);
 		m_phiSamples.reserve(num_i_phi);
 		m_rSamples.reserve(num_i_r);
 		// Z-bin dimension
 		for (size_t i = 0; i < num_i_z; i++)
 		{
-			const double z = static_cast<double>(min_z) + d_z * i;
+			const float z = static_cast<float>(min_z) + d_z * i;
 			m_zBinSamples.push_back(
 			    std::min(static_cast<size_t>(z), num_z - 1));
 		}
 		// Phi dimension
 		for (size_t i = 0; i < num_i_phi; i++)
 		{
-			const double phi = static_cast<double>(min_phi) + d_phi * i;
+			const float phi = static_cast<float>(min_phi) + d_phi * i;
 			m_phiSamples.push_back(
 			    std::min(static_cast<size_t>(phi), num_phi - 1));
 		}
 		// R dimension
 		for (size_t i = 0; i < num_i_r; i++)
 		{
-			const double r = static_cast<double>(min_r) + d_r * i;
+			const float r = static_cast<float>(min_r) + d_r * i;
 			m_rSamples.push_back(std::min(static_cast<size_t>(r), num_r - 1));
 		}
 
@@ -229,26 +229,22 @@ namespace Scatter
 			{
 				for (size_t r_i = 0; r_i < num_i_r; r_i++)
 				{
-					if (printProgress)
+					const int thread_num = omp_get_thread_num();
+					if (thread_num == 0)
 					{
-						const int thread_num = omp_get_thread_num();
-						if (thread_num == 0)
+						constexpr size_t percentageInterval = 5;
+						// Print progress
+						size_t progress =
+						    (z_i * num_i_phi * num_i_r + phi_i * num_i_r + r_i);
+						progress = progress * 100 / progress_max;
+						if (progress - last_progress_print >=
+						    percentageInterval)
 						{
-							constexpr size_t percentage_interval = 5;
-							// Print progress
-							size_t progress = (z_i * num_i_phi * num_i_r +
-							                   phi_i * num_i_r + r_i);
-							progress = progress * 100 / progress_max;
-							if (progress - last_progress_print >=
-							    percentage_interval)
-							{
-								last_progress_print = progress;
-								std::cout
-								    << "Progress: " +
-								           std::to_string(last_progress_print) +
-								           "%"
-								    << std::endl;
-							}
+							last_progress_print = progress;
+							std::cout
+							    << "Progress: " +
+							           std::to_string(last_progress_print) + "%"
+							    << std::endl;
 						}
 					}
 
@@ -259,11 +255,22 @@ namespace Scatter
 					// Compute current LOR
 					const size_t scatterHistoBinId =
 					    scatterHisto.getBinIdFromCoords(r, phi, z);
-					const StraightLineParam lor = Util::getNativeLOR(
-					    mr_scanner, scatterHisto, scatterHistoBinId);
 
-					const float scatterResult =
-					    static_cast<float>(computeSingleScatterInLOR(lor));
+					const auto [d1, d2] =
+					    scatterHisto.getDetectorPair(scatterHistoBinId);
+					const Vector3D p1 =
+					    mr_scanner.getDetectorPos(d1);
+					const Vector3D p2 =
+					    mr_scanner.getDetectorPos(d2);
+					const Vector3D n1 =
+					    mr_scanner.getDetectorOrient(d1);
+					const Vector3D n2 =
+					    mr_scanner.getDetectorOrient(d2);
+
+					const Line3D lor{p1, p2};
+
+					const float scatterResult = static_cast<float>(
+					    computeSingleScatterInLOR(lor, n1, n2));
 					if (scatterResult <= 0.0)
 						continue;  // Ignore irrelevant lines?
 					scatterHisto.setProjectionValue(scatterHistoBinId,
@@ -328,21 +335,16 @@ namespace Scatter
 	}
 
 	// YP LOR in which to compute the scatter contribution
-	double SingleScatterSimulator::computeSingleScatterInLOR(
-	    const StraightLineParam& lor) const
+	float SingleScatterSimulator::computeSingleScatterInLOR(
+	    const Line3D& lor, const Vector3D& n1, const Vector3D& n2) const
 	{
-		auto n1 = Vector3D{lor.point1.x, lor.point1.y, 0.};
-		n1.normalize();
-		auto n2 = Vector3D{lor.point2.x, lor.point2.y, 0.};
-		n2.normalize();
-
 		int i;
-		double res = 0., dist1, dist2, energy, cosa, mu_scaling_factor;
-		double vatt, att_s_1_511, att_s_1, att_s_2_511, att_s_2;
-		double dsigcompdomega, lamb_s_1, lamb_s_2, sig_s_1, sig_s_2;
-		double eps_s_1_511, eps_s_1, eps_s_2_511, eps_s_2, fac1, fac2;
-		double tmp, tmp511, delta_1, delta_2, mu_det, mu_det_511;
-		StraightLineParam lor_1_s, lor_2_s;
+		float res = 0., dist1, dist2, energy, cosa, mu_scaling_factor;
+		float vatt, att_s_1_511, att_s_1, att_s_2_511, att_s_2;
+		float dsigcompdomega, lamb_s_1, lamb_s_2, sig_s_1, sig_s_2;
+		float eps_s_1_511, eps_s_1, eps_s_2_511, eps_s_2, fac1, fac2;
+		float tmp, tmp511, delta_1, delta_2, mu_det, mu_det_511;
+		Line3D lor_1_s, lor_2_s;
 		Vector3D ps, p1, p2, u, v;
 
 		p1.update(lor.point1);
@@ -364,7 +366,7 @@ namespace Scatter
 
 			// check that the rays S-det1 and S-det2 pass the end plates
 			// collimator before going further:
-			if (fabs(ps.z) > m_axialFOV / 2 &&
+			if (std::abs(ps.z) > m_axialFOV / 2 &&
 			    (!passCollimator(lor_1_s) || !passCollimator(lor_2_s)))
 				continue;
 
@@ -435,8 +437,8 @@ namespace Scatter
 
 			// geometric efficiencies (n1 and n2 must be normalized unit
 			// vectors):
-			sig_s_1 = fabs(n1.scalProd(u));
-			sig_s_2 = fabs(n2.scalProd(v));
+			sig_s_1 = std::abs(n1.scalProd(u));
+			sig_s_2 = std::abs(n2.scalProd(v));
 
 			// detection efficiencies (energy+spatial):
 			eps_s_1_511 = eps_s_2_511 = Util::erfc(tmp511);
@@ -463,10 +465,10 @@ namespace Scatter
 		u.x /= dist1;
 		u.y /= dist1;
 		u.z /= dist1;
-		sig_s_1 = fabs(n1.scalProd(u));
-		sig_s_2 = fabs(n2.scalProd(u));
+		sig_s_1 = std::abs(n1.scalProd(u));
+		sig_s_2 = std::abs(n2.scalProd(u));
 		eps_s_1_511 = eps_s_2_511 = Util::erfc(tmp511);
-		Vector3D mid(p1.x + p2.x, p1.y + p2.y, p1.z + p2.z);
+		Vector3D mid{p1.x + p2.x, p1.y + p2.y, p1.z + p2.z};
 		mid.x /= 2;
 		mid.y /= 2;
 		mid.z /= 2;
@@ -494,12 +496,12 @@ namespace Scatter
 		return m_numSamples;
 	}
 
-	double SingleScatterSimulator::ran1(int* idum)
+	float SingleScatterSimulator::ran1(int* idum)
 	{
 		int j, k;
 		static int iy = 0;
 		static int iv[NTAB];
-		double temp;
+		float temp;
 
 		if (*idum <= 0 || !iy)
 		{
@@ -532,10 +534,10 @@ namespace Scatter
 	}
 
 	// This is the integrated KN formula up to a proportionaity constant:
-	double SingleScatterSimulator::getMuScalingFactor(double energy)
+	float SingleScatterSimulator::getMuScalingFactor(float energy)
 	{
-		double a = energy / 511.0;
-		double res = (1 + a) / (a * a);
+		float a = energy / 511.0;
+		float res = (1 + a) / (a * a);
 		res *= 2.0 * (1 + a) / (1 + 2.0 * a) - log(1 + 2.0 * a) / a;
 		res += log(1 + 2 * a) / (2 * a) -
 		       (1 + 3 * a) / ((1 + 2 * a) * (1 + 2 * a));
@@ -545,35 +547,37 @@ namespace Scatter
 
 	// The first point of lor must be the detector, the second point must be the
 	// scatter point.
-	double SingleScatterSimulator::getIntersectionLengthLORCrystal(
-	    const StraightLineParam& lor) const
+	float SingleScatterSimulator::getIntersectionLengthLORCrystal(
+	    const Line3D& lor) const
 	{
-		Vector3D c{0.0, 0.0, 0.0}, a1, a2, inter1, inter2;
-		const Vector3D n1 = (lor.point1) - (lor.point2);
+		Vector3D a1, a2, inter1, inter2;
 		// direction of prop.
+		const Vector3D n1 = (lor.point1) - (lor.point2);
+
 		// Compute entry point:
-		m_cyl1.does_line_inter_cyl(&lor, &a1, &a2);
+		m_cyl1.doesLineIntersectCylinder(lor, a1, a2);
 		Vector3D n2 = a1 - (lor.point2);
 		if (n2.scalProd(n1) > 0)
 			inter1.update(a1);
 		else
 			inter1.update(a2);
+
 		// Compute out point:
-		m_cyl2.does_line_inter_cyl(&lor, &a1, &a2);
+		m_cyl2.doesLineIntersectCylinder(lor, a1, a2);
 		n2 = a1 - (lor.point2);
 		if (n2.scalProd(n1) > 0)
 			inter2.update(a1);
 		else
 			inter2.update(a2);
+
 		// Return distance of prop. in detector:
-		const double dist = (inter1 - inter2).getNorm();
+		const float dist = (inter1 - inter2).getNorm();
 		return dist;
 	}
 
 	// Return true if the line lor does not cross the end plates
 	// First point is detector, second point is scatter point
-	bool SingleScatterSimulator::passCollimator(
-	    const StraightLineParam& lor) const
+	bool SingleScatterSimulator::passCollimator(const Line3D& lor) const
 	{
 		if (m_collimatorRadius < 1e-7)
 			return true;
@@ -582,7 +586,7 @@ namespace Scatter
 			inter = m_endPlate1.findInterLine(lor);
 		else
 			inter = m_endPlate2.findInterLine(lor);
-		const double r = std::sqrt(inter.x * inter.x + inter.y * inter.y);
+		const float r = std::sqrt(inter.x * inter.x + inter.y * inter.y);
 		if (r < m_collimatorRadius)
 		{
 			return true;
@@ -592,9 +596,9 @@ namespace Scatter
 
 	// This is the differential KN formula up to a proportionality constant for
 	// Ep=511keV.
-	double SingleScatterSimulator::getKleinNishina(double cosa)
+	float SingleScatterSimulator::getKleinNishina(float cosa)
 	{
-		double res = (1 + cosa * cosa) / 2;
+		float res = (1 + cosa * cosa) / 2;
 		res /= (2 - cosa) * (2 - cosa);
 		res *= 1 + (1 - cosa) * (1 - cosa) / ((2 - cosa) * (1 + cosa * cosa));
 		return res;

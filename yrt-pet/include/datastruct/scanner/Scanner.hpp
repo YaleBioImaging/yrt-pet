@@ -29,8 +29,8 @@ public:
 	std::string getScannerPath() const;
 	size_t getNumDets() const;
 	size_t getTheoreticalNumDets() const;
-	Vector3DFloat getDetectorPos(det_id_t id) const;
-	Vector3DFloat getDetectorOrient(det_id_t id) const;
+	Vector3D getDetectorPos(det_id_t id) const;
+	Vector3D getDetectorOrient(det_id_t id) const;
 	std::shared_ptr<DetectorSetup> getDetectorSetup() const;
 	bool isValid() const;
 

@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include "datastruct/projection/ProjectionData.hpp"
 #include "operators/Operator.hpp"
 #include "operators/ProjectionPsfManager.hpp"
 #include "operators/TimeOfFlight.hpp"
@@ -20,10 +21,10 @@ class OperatorProjectorParams
 {
 public:
 	OperatorProjectorParams(const BinIterator* pp_binIter,
-	                          const Scanner& pr_scanner,
-	                          float p_tofWidth_ps = 0.f, int p_tofNumStd = 0,
-	                          std::string p_psfProjFilename = "",
-	                          int p_num_rays = 1);
+	                        const Scanner& pr_scanner,
+	                        float p_tofWidth_ps = 0.f, int p_tofNumStd = 0,
+	                        std::string p_psfProjFilename = "",
+	                        int p_num_rays = 1);
 
 	const BinIterator* binIter;
 	const Scanner& scanner;
@@ -43,16 +44,7 @@ public:
 class OperatorProjectorBase : public Operator
 {
 public:
-	struct ProjectionProperties
-	{
-		StraightLineParam lor;
-		float tofValue;
-		float randomsEstimate;
-		Vector3D det1Orient;
-		Vector3D det2Orient;
-	};
-
-	OperatorProjectorBase(const OperatorProjectorParams& p_projParams);
+	explicit OperatorProjectorBase(const OperatorProjectorParams& p_projParams);
 
 	const Scanner& getScanner() const;
 	const BinIterator* getBinIter() const;
@@ -75,7 +67,7 @@ protected:
 	const BinIterator* binIter;
 
 	// Attenuation image for forward projection (when there is motion)
-	const Image* attImage;
+	const Image* attImageForForwardProjection;
 	// For generating a sensitivity image with attenuation correction
 	const Image* attImageForBackprojection;
 	// Additive histogram
@@ -92,13 +84,16 @@ public:
 		DD_GPU
 	};
 
-	OperatorProjector(const OperatorProjectorParams& p_projParams);
+	explicit OperatorProjector(const OperatorProjectorParams& p_projParams);
 
 	// Virtual functions
-	virtual double forwardProjection(const Image* in_image,
-	                                 const ProjectionData* dat, bin_t bin) = 0;
-	virtual void backProjection(Image* in_image, const ProjectionData* dat,
-	                            bin_t bin, double projValue) = 0;
+	virtual float forwardProjection(
+	    const Image* image,
+	    const ProjectionProperties& projectionProperties) const = 0;
+	virtual void
+	    backProjection(Image* image,
+	                   const ProjectionProperties& projectionProperties,
+	                   float projValue) const = 0;
 
 	void applyA(const Variable* in, Variable* out) override;
 	void applyAH(const Variable* in, Variable* out) override;
@@ -108,9 +103,6 @@ public:
 
 	const TimeOfFlightHelper* getTOFHelper() const;
 	const ProjectionPsfManager* getProjectionPsfManager() const;
-
-	static void get_alpha(double r0, double r1, double p1, double p2,
-	                      double inv_p12, double& amin, double& amax);
 
 protected:
 	// Time of flight

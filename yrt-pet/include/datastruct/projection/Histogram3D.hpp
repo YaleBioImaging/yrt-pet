@@ -37,7 +37,6 @@ typedef std::array<coord_t, 2> DetRingCoordinates;  // r, phi
 class Histogram3D : public Histogram
 {
 public:
-	const Scanner& getScanner() const { return mr_scanner; }
 	Array3DBase<float>& getData() { return *mp_data; }
 	const Array3DBase<float>& getData() const { return *mp_data; }
 	virtual void writeToFile(const std::string& filename) const;
@@ -103,7 +102,6 @@ protected:
 	std::unordered_map<det_pair_t, DetRingCoordinates, HashDetPair,
 	                   EqualDetPair>
 	    m_ringMap;
-	const Scanner& mr_scanner;
 	size_t m_rCut;
 	size_t m_numDOIPoss;   // Number of DOI combinations (ex: 2 doi -> 4 lor
 	                       // possibilities)

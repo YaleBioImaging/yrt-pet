@@ -317,11 +317,6 @@ std::shared_ptr<ScannerDevice> ProjectionDataDevice::getScannerDevice() const
 	return mp_LORs->getScannerDevice();
 }
 
-const Scanner& ProjectionDataDevice::getScanner() const
-{
-	return mr_scanner;
-}
-
 size_t ProjectionDataDevice::getCurrentBatchSize() const
 {
 	return mp_LORs->getLoadedBatchSize();

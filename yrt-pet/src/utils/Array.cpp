@@ -39,11 +39,12 @@ void declare_array(pybind11::module& m, std::string type_str)
 	c.def("getSize", &T::getSize);
 	c.def("getStrides", &T::getStrides);
 	c.def("getSizeTotal", &T::getSizeTotal);
+	c.def("getMaxValue", &T::getMaxValue);
 	c.def("getFlatIdx",
 	      static_cast<size_t (T::*)(const std::array<size_t, ndim>&) const>(
 	          &T::getFlatIdx));
-	c.def("get_flat", &T::get_flat);
-	c.def("set_flat", &T::set_flat);
+	c.def("getFlat", &T::getFlat);
+	c.def("setFlat", &T::setFlat);
 	c.def(
 	    "__getitem__",
 	    static_cast<U& (T::*)(const std::array<size_t, ndim>&) const>(&T::get));

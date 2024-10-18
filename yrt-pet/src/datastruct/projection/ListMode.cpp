@@ -24,21 +24,23 @@ void py_setup_listmode(py::module& m)
 
 #endif  // if BUILD_PYBIND11
 
+ListMode::ListMode(const Scanner& pr_scanner) : ProjectionData{pr_scanner} {}
+
 float ListMode::getProjectionValue(bin_t id) const
 {
-	(void) id;
+	(void)id;
 	return 1.0f;
 }
 
 void ListMode::setProjectionValue(bin_t id, float val)
 {
-	(void) id;
-	(void) val;
+	(void)id;
+	(void)val;
 	throw std::logic_error("setProjectionValue unimplemented");
 }
 
 std::unique_ptr<BinIterator> ListMode::getBinIter(int numSubsets,
-                                                     int idxSubset) const
+                                                  int idxSubset) const
 {
 	ASSERT_MSG(idxSubset < numSubsets,
 	           "The subset index has to be smaller than the number of subsets");
@@ -49,5 +51,5 @@ std::unique_ptr<BinIterator> ListMode::getBinIter(int numSubsets,
 
 	size_t numEvents = count();
 	return std::make_unique<BinIteratorChronological>(numSubsets, numEvents,
-	                                                    idxSubset);
+	                                                  idxSubset);
 }

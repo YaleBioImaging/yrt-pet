@@ -99,8 +99,8 @@ void py_setup_imagedevice(py::module& m)
 	    "Transfer device image to host-side memory and return it as a numpy "
 	    "array");
 	c.def(
-	    "transferToHostMemory", [](ImageDevice& self, Image* img)
-	    { self.transferToHostMemory(img); },
+	    "transferToHostMemory",
+	    [](ImageDevice& self, Image* img) { self.transferToHostMemory(img); },
 	    "Transfer device image to host-side Image", "image"_a);
 
 	c.def("setValue", &ImageDevice::setValue, "initValue"_a = 0.0);
@@ -121,16 +121,15 @@ void py_setup_imagedevice(py::module& m)
 	    py::class_<ImageDeviceOwned, ImageDevice>(m, "ImageDeviceOwned");
 	c_owned.def(
 	    py::init(
-	        [](const ImageParams& imgParams) {
-		        return std::make_unique<ImageDeviceOwned>(imgParams, nullptr);
-	        }),
+	        [](const ImageParams& imgParams)
+	        { return std::make_unique<ImageDeviceOwned>(imgParams, nullptr); }),
 	    "Create ImageDevice using image parameters (will not allocate)",
 	    "img_params"_a);
 	c_owned.def(
 	    py::init(
 	        [](const ImageParams& imgParams, const std::string& filename) {
 		        return std::make_unique<ImageDeviceOwned>(imgParams, filename,
-		                                                    nullptr);
+		                                                  nullptr);
 	        }),
 	    "Create ImageDevice using image parameters and filename",
 	    "img_params"_a, "filename"_a);
@@ -146,9 +145,8 @@ void py_setup_imagedevice(py::module& m)
 	    py::class_<ImageDeviceAlias, ImageDevice>(m, "ImageDeviceAlias");
 	c_alias.def(
 	    py::init(
-	        [](const ImageParams& imgParams) {
-		        return std::make_unique<ImageDeviceAlias>(imgParams, nullptr);
-	        }),
+	        [](const ImageParams& imgParams)
+	        { return std::make_unique<ImageDeviceAlias>(imgParams, nullptr); }),
 	    "Create ImageDevice using image parameters (will not allocate)",
 	    "img_params"_a);
 	c_alias.def("getDevicePointer", &ImageDeviceAlias::getDevicePointerInULL);
@@ -166,7 +164,7 @@ void py_setup_imagedevice(py::module& m)
 
 
 ImageDevice::ImageDevice(const ImageParams& imgParams,
-                             const cudaStream_t* stream_ptr)
+                         const cudaStream_t* stream_ptr)
     : ImageBase(imgParams), mp_stream(stream_ptr)
 {
 	m_launchParams = Util::initiateDeviceParameters(imgParams);
@@ -184,7 +182,7 @@ size_t ImageDevice::getImageSize() const
 }
 
 void ImageDevice::transferToDeviceMemory(const float* hp_img_ptr,
-                                           bool p_synchronize)
+                                         bool p_synchronize)
 {
 	ASSERT_MSG(getDevicePointer() != nullptr, "Device Image not allocated yet");
 	Util::copyHostToDevice(getDevicePointer(), hp_img_ptr, m_imgSize, mp_stream,
@@ -192,26 +190,19 @@ void ImageDevice::transferToDeviceMemory(const float* hp_img_ptr,
 }
 
 void ImageDevice::transferToDeviceMemory(const Image* hp_img_ptr,
-                                           bool p_synchronize)
+                                         bool p_synchronize)
 {
 	ASSERT_MSG(getParams().isSameDimensionsAs(hp_img_ptr->getParams()),
 	           "Image dimensions mismatch");
+	const float* hp_ptr = hp_img_ptr->getRawPointer();
 
-	m_tempBuffer.reAllocateIfNeeded(m_imgSize);
-	float* h_floatTempBuffer_ptr = m_tempBuffer.getPointer();
-	const double* h_double_ptr = hp_img_ptr->getData().getRawPointer();
-	ASSERT_MSG(h_double_ptr != nullptr,
-	           "Either the image given is invalid or not allocated");
-
-	for (int id = 0; id < static_cast<int>(m_imgSize); id++)
-	{
-		h_floatTempBuffer_ptr[id] = static_cast<float>(h_double_ptr[id]);
-	}
-	transferToDeviceMemory(h_floatTempBuffer_ptr, p_synchronize);
+	std::cout << "Transferring image from Host to Device..." << std::endl;
+	transferToDeviceMemory(hp_ptr, p_synchronize);
+	std::cout << "Done transferring image from Host to Device." << std::endl;
 }
 
 void ImageDevice::transferToHostMemory(float* hp_img_ptr,
-                                         bool p_synchronize) const
+                                       bool p_synchronize) const
 {
 	ASSERT_MSG(getDevicePointer() != nullptr, "Device Image not allocated yet");
 	Util::copyDeviceToHost(hp_img_ptr, getDevicePointer(), m_imgSize, mp_stream,
@@ -219,32 +210,23 @@ void ImageDevice::transferToHostMemory(float* hp_img_ptr,
 }
 
 void ImageDevice::transferToHostMemory(Image* hp_img_ptr,
-                                         bool p_synchronize) const
+                                       bool p_synchronize) const
 {
-	m_tempBuffer.reAllocateIfNeeded(m_imgSize);
-	float* tempBufPointer = m_tempBuffer.getPointer();
-	std::cout << "Transferring image from Device to Host..." << std::endl;
-	transferToHostMemory(tempBufPointer, p_synchronize);
-	std::cout << "Done transferring image from Device to Host." << std::endl;
+	float* hp_ptr = hp_img_ptr->getRawPointer();
 
-	ASSERT(hp_img_ptr != nullptr);
-	// Note: Eventually we'll need to use float32 for images in order to avoid
-	// caveats like this
-	double* hp_double_ptr = hp_img_ptr->getData().getRawPointer();
-	ASSERT_MSG(hp_double_ptr != nullptr,
-	           "The Image provided is not yet allocated or bound");
-	for (int id = 0; id < static_cast<int>(m_imgSize); id++)
-	{
-		hp_double_ptr[id] = static_cast<double>(tempBufPointer[id]);
-	}
+	std::cout << "Transferring image from Device to Host..." << std::endl;
+	transferToHostMemory(hp_ptr, p_synchronize);
+	std::cout << "Done transferring image from Device to Host." << std::endl;
 }
 
-void ImageDevice::applyThresholdDevice(const ImageDevice* maskImg,
-                                         const float threshold,
-                                         const float val_le_scale,
-                                         const float val_le_off,
-                                         const float val_gt_scale,
-                                         const float val_gt_off)
+GPULaunchParams3D ImageDevice::getLaunchParams() const
+{
+	return m_launchParams;
+}
+
+void ImageDevice::applyThresholdDevice(
+    const ImageDevice* maskImg, const float threshold, const float val_le_scale,
+    const float val_le_off, const float val_gt_scale, const float val_gt_off)
 {
 	ASSERT_MSG(getDevicePointer() != nullptr, "Device Image not allocated yet");
 
@@ -269,19 +251,16 @@ void ImageDevice::applyThresholdDevice(const ImageDevice* maskImg,
 	cudaCheckError();
 }
 
-void ImageDevice::applyThreshold(const ImageBase* maskImg, double threshold,
-                                   double val_le_scale, double val_le_off,
-                                   double val_gt_scale, double val_gt_off)
+void ImageDevice::applyThreshold(const ImageBase* maskImg, float threshold,
+                                 float val_le_scale, float val_le_off,
+                                 float val_gt_scale, float val_gt_off)
 {
-	const auto maskImg_ImageDevice =
-	    dynamic_cast<const ImageDevice*>(maskImg);
+	const auto maskImg_ImageDevice = dynamic_cast<const ImageDevice*>(maskImg);
 	ASSERT_MSG(maskImg_ImageDevice != nullptr,
 	           "Input image has the wrong type");
 
-	applyThresholdDevice(
-	    maskImg_ImageDevice, static_cast<float>(threshold),
-	    static_cast<float>(val_le_scale), static_cast<float>(val_le_off),
-	    static_cast<float>(val_gt_scale), static_cast<float>(val_gt_off));
+	applyThresholdDevice(maskImg_ImageDevice, threshold, val_le_scale,
+	                     val_le_off, (val_gt_scale), val_gt_off);
 }
 
 void ImageDevice::writeToFile(const std::string& image_fname) const
@@ -293,12 +272,10 @@ void ImageDevice::writeToFile(const std::string& image_fname) const
 }
 
 void ImageDevice::updateEMThreshold(ImageBase* updateImg,
-                                      const ImageBase* normImg,
-                                      double threshold)
+                                    const ImageBase* normImg, float threshold)
 {
 	auto* updateImg_ImageDevice = dynamic_cast<ImageDevice*>(updateImg);
-	const auto* normImg_ImageDevice =
-	    dynamic_cast<const ImageDevice*>(normImg);
+	const auto* normImg_ImageDevice = dynamic_cast<const ImageDevice*>(normImg);
 
 	ASSERT_MSG(updateImg_ImageDevice != nullptr,
 	           "updateImg is not ImageDevice");
@@ -306,9 +283,8 @@ void ImageDevice::updateEMThreshold(ImageBase* updateImg,
 	ASSERT_MSG(
 	    updateImg_ImageDevice->getParams().isSameDimensionsAs(getParams()),
 	    "Image dimensions mismatch");
-	ASSERT_MSG(
-	    normImg_ImageDevice->getParams().isSameDimensionsAs(getParams()),
-	    "Image dimensions mismatch");
+	ASSERT_MSG(normImg_ImageDevice->getParams().isSameDimensionsAs(getParams()),
+	           "Image dimensions mismatch");
 	ASSERT_MSG(getDevicePointer() != nullptr, "Device Image not allocated yet");
 
 	if (mp_stream != nullptr)
@@ -336,9 +312,8 @@ void ImageDevice::addFirstImageToSecond(ImageBase* second) const
 	auto* second_ImageDevice = dynamic_cast<ImageDevice*>(second);
 
 	ASSERT_MSG(second_ImageDevice != nullptr, "imgOut is not ImageDevice");
-	ASSERT_MSG(
-	    second_ImageDevice->getParams().isSameDimensionsAs(getParams()),
-	    "Image dimensions mismatch");
+	ASSERT_MSG(second_ImageDevice->getParams().isSameDimensionsAs(getParams()),
+	           "Image dimensions mismatch");
 	ASSERT_MSG(getDevicePointer() != nullptr, "Device Image not allocated yet");
 
 	if (mp_stream != nullptr)
@@ -360,23 +335,23 @@ void ImageDevice::addFirstImageToSecond(ImageBase* second) const
 	cudaCheckError();
 }
 
-void ImageDevice::setValue(double initValue)
+void ImageDevice::setValue(float initValue)
 {
 	ASSERT_MSG(getDevicePointer() != nullptr, "Device Image not allocated yet");
 
 	if (mp_stream != nullptr)
 	{
 		setValue_kernel<<<m_launchParams.gridSize, m_launchParams.blockSize, 0,
-		                  *mp_stream>>>(
-		    getDevicePointer(), static_cast<float>(initValue), getParams().nx,
-		    getParams().ny, getParams().nz);
+		                  *mp_stream>>>(getDevicePointer(), initValue,
+		                                getParams().nx, getParams().ny,
+		                                getParams().nz);
 		cudaStreamSynchronize(*mp_stream);
 	}
 	else
 	{
 		setValue_kernel<<<m_launchParams.gridSize, m_launchParams.blockSize>>>(
-		    getDevicePointer(), static_cast<float>(initValue), getParams().nx,
-		    getParams().ny, getParams().nz);
+		    getDevicePointer(), initValue, getParams().nx, getParams().ny,
+		    getParams().nz);
 		cudaDeviceSynchronize();
 	}
 	cudaCheckError();
@@ -384,23 +359,22 @@ void ImageDevice::setValue(double initValue)
 
 
 ImageDeviceOwned::ImageDeviceOwned(const ImageParams& imgParams,
-                                       const cudaStream_t* stream_ptr)
+                                   const cudaStream_t* stream_ptr)
     : ImageDevice(imgParams, stream_ptr), mpd_devicePointer(nullptr)
 {
 }
 
 ImageDeviceOwned::ImageDeviceOwned(const ImageParams& imgParams,
-                                       const std::string& filename,
-                                       const cudaStream_t* stream_ptr)
+                                   const std::string& filename,
+                                   const cudaStream_t* stream_ptr)
     : ImageDevice(imgParams, stream_ptr), mpd_devicePointer(nullptr)
 {
 	readFromFile(filename);
 }
 
 ImageDeviceOwned::ImageDeviceOwned(const Image* img_ptr,
-                                       const cudaStream_t* stream_ptr)
-    : ImageDevice(img_ptr->getParams(), stream_ptr),
-      mpd_devicePointer(nullptr)
+                                   const cudaStream_t* stream_ptr)
+    : ImageDevice(img_ptr->getParams(), stream_ptr), mpd_devicePointer(nullptr)
 {
 	allocate(false);
 	transferToDeviceMemory(img_ptr);
@@ -448,7 +422,7 @@ const float* ImageDeviceOwned::getDevicePointer() const
 
 
 ImageDeviceAlias::ImageDeviceAlias(const ImageParams& imgParams,
-                                       const cudaStream_t* stream_ptr)
+                                   const cudaStream_t* stream_ptr)
     : ImageDevice(imgParams, stream_ptr), mpd_devicePointer(nullptr)
 {
 }

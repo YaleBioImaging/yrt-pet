@@ -130,7 +130,7 @@ public:
 	/*
 	 * Def.: Reset all the variables of this class.
 	 */
-	virtual void Reset();
+	virtual void reset();
 
 	/*
 	 * Def.: Indicate if the frame is used or not.

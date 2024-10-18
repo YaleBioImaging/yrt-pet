@@ -13,7 +13,7 @@ namespace py = pybind11;
 
 void py_setup_array(py::module&);
 void py_setup_vector3dall(py::module&);
-void py_setup_straightlineparam(py::module&);
+void py_setup_line3dall(py::module&);
 void py_setup_tubeofresponse(py::module& m);
 void py_setup_timeofflight(py::module& m);
 
@@ -47,6 +47,7 @@ void py_setup_utilities(py::module& m);
 
 void py_setup_operator(py::module& m);
 void py_setup_operatorpsf(py::module& m);
+void py_setup_operatorpsfdevice(py::module& m);
 void py_setup_operatorprojectorparams(py::module& m);
 void py_setup_operatorprojectorbase(py::module& m);
 void py_setup_operatorprojector(py::module& m);
@@ -71,7 +72,7 @@ PYBIND11_MODULE(pyyrtpet, m)
 {
 	py_setup_array(m);
 	py_setup_vector3dall(m);
-	py_setup_straightlineparam(m);
+	py_setup_line3dall(m);
 	py_setup_tubeofresponse(m);
 	py_setup_timeofflight(m);
 
@@ -103,6 +104,7 @@ PYBIND11_MODULE(pyyrtpet, m)
 
 	py_setup_operator(m);
 	py_setup_operatorpsf(m);
+	py_setup_operatorpsfdevice(m);
 	py_setup_operatorprojectorbase(m);
 	py_setup_operatorprojector(m);
 	py_setup_operatorprojectorparams(m);

@@ -44,9 +44,10 @@ size_t getDeviceInfo(bool verbose)
 			std::cout << "Number of asynchronous engines: "
 			          << deviceProp.asyncEngineCount << std::endl;
 			std::cout << "Device memory - Total memory: "
-			          << totalMem / (1024 * 1024 * 1024)
-			          << "GiB - Available memory: "
-			          << freeMem / (1024 * 1024 * 1024) << "GiB \n"
+			          << totalMem / static_cast<double>(1024 * 1024 * 1024)
+			          << "GB - Available memory: "
+			          << freeMem / static_cast<double>(1024 * 1024 * 1024)
+			          << "GB \n"
 			          << std::endl;
 		}
 		if (freeMem > maxDeviceMem)

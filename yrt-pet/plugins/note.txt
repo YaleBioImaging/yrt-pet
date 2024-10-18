@@ -1,3 +1,3 @@
-Add or "ln -s" your plugins here.
+Add or "ln -s" the plugins here.
 
-Make sure you have a CMakeLists.txt file inside
+Make sure to add a CMakeLists.txt file inside

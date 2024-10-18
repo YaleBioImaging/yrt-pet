@@ -113,7 +113,6 @@ size_t PageLockedBuffer<T>::getSize() const
 template class PageLockedBuffer<float>;
 template class PageLockedBuffer<float3>;
 template class PageLockedBuffer<float4>;
-template class PageLockedBuffer<double>;
 template class PageLockedBuffer<long>;
 template class PageLockedBuffer<int>;
 template class PageLockedBuffer<uint2>;

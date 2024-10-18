@@ -20,9 +20,9 @@ set(SOURCES
         datastruct/image/ImageBase.cpp
         datastruct/image/Image.cpp
         datastruct/IO.cpp
-        geometry/StraightLineParam.cpp
         geometry/Matrix.cpp
         geometry/Vector3D.cpp
+        geometry/Line3D.cpp
         geometry/MultiRayGenerator.cpp
         geometry/TubeOfResponse.cpp
         geometry/Cylinder.cpp
@@ -48,6 +48,7 @@ set(SOURCES
         utils/Utilities.cpp
         utils/Tools.cpp
         utils/ProgressDisplay.cpp
+        utils/ProgressDisplayMultiThread.cpp
         utils/ReconstructionUtils.cpp
         utils/Array.cpp
         utils/FileReader.cpp
@@ -63,6 +64,8 @@ if (USE_CUDA)
             datastruct/projection/ProjectionDataDevice.cu
             datastruct/projection/ProjectionSpaceKernels.cu
             operators/OperatorDevice.cu
+            operators/OperatorPsfDevice.cu
+            operators/ProjectionPsfManagerDevice.cu
             operators/OperatorProjectorDD_GPUKernels.cu
             operators/OperatorProjectorDD_GPU.cu
             recon/OSEM_GPU.cu

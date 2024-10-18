@@ -7,8 +7,8 @@
 
 #include "datastruct/image/ImageDevice.cuh"
 #include "datastruct/projection/ProjectionDataDevice.cuh"
-#include "datastruct/projection/ProjectionSpaceKernels.cuh"
 #include "operators/OperatorProjectorDD_GPU.cuh"
+#include "operators/OperatorPsfDevice.cuh"
 #include "utils/Assert.hpp"
 
 OSEM_GPU::OSEM_GPU(const Scanner& pr_scanner)
@@ -111,9 +111,9 @@ void OSEM_GPU::setupOperatorsForRecon()
 
 	mp_projector = std::make_unique<OperatorProjectorDD_GPU>(
 	    projParams, getMainStream(), getAuxStream());
-	if (attenuationImage != nullptr)
+	if (attenuationImageForForwardProjection != nullptr)
 	{
-		mp_projector->setAttenuationImage(attenuationImage);
+		mp_projector->setAttenuationImage(attenuationImageForForwardProjection);
 	}
 	if (addHis != nullptr)
 	{
@@ -250,6 +250,14 @@ void OSEM_GPU::loadSubset(int subsetId, bool forRecon)
 		    getSensitivityImage(m_current_OSEM_subset), true);
 		std::cout << "OSEM subset loaded." << std::endl;
 	}
+}
+
+void OSEM_GPU::addImagePSF(const std::string& p_imageSpacePsf_fname)
+{
+	ASSERT_MSG(!p_imageSpacePsf_fname.empty(),
+			   "Empty filename for Image-space PSF");
+	imageSpacePsf = std::make_unique<OperatorPsfDevice>(p_imageSpacePsf_fname);
+	flagImagePSF = true;
 }
 
 void OSEM_GPU::completeMLEMIteration() {}

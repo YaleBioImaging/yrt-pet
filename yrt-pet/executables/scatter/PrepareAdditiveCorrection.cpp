@@ -38,7 +38,6 @@ int main(int argc, char** argv)
 		int numThreads = -1;
 		int num_OSEM_subsets = 1;
 		int num_MLEM_iterations = 3;
-		bool printProgressFlag = false;
 		int maskWidth = -1;
 		float acfThreshold = 0.9523809f;  // 1/1.05
 		bool saveIntermediary = false;
@@ -68,11 +67,10 @@ int main(int argc, char** argv)
 		("out_sens", "Generated sensitivity image output filename", cxxopts::value(outSensImg_fname))
 		("source", "Non scatter-corrected source image (if available)", cxxopts::value(sourceImage_fname))
 		("num_threads", "Number of threads", cxxopts::value(numThreads))
-		("print_progress", "Print progress flag", cxxopts::value(printProgressFlag))
 		("scatter_his", "Previously generated scatter histogram (if available)", cxxopts::value(scatterHistoIn_fname))
 		("save_intermediary", "Enable saving intermediary histograms", cxxopts::value(saveIntermediary))
 		("mask_width", "Tail fitting mask width. By default, uses 1/10th of the \'r\' dimension", cxxopts::value(maskWidth))
-		("acf_threshold", "Tail fitting ACF threshold", cxxopts::value(acfThreshold))
+		("acf_threshold", "Tail fitting ACF threshold (Default: " + std::to_string(acfThreshold) + ")", cxxopts::value(acfThreshold))
 		("num_subsets", "Number of subsets to use for the MLEM part (Default: 1)", cxxopts::value(num_OSEM_subsets))
 		("num_iterations", "Number of MLEM iterations to do to generate source image (if needed) (Default: 3)", cxxopts::value(num_MLEM_iterations))
 		("projector", "Projector to use, choices: Siddon (S), Distance-Driven (DD)"
@@ -246,7 +244,7 @@ int main(int argc, char** argv)
 			osem->generateSensitivityImages(sensImages, outSensImg_fname);
 			osem->setSensitivityImages(sensImages);
 			sourceImg = osem->reconstruct(
-			    saveIntermediary ? "intermediary_sourceImage.img" : "");
+			    saveIntermediary ? "intermediary_sourceImage.nii" : "");
 
 			// Deallocate Sensitivity data histogram to save memory
 			sensDataHis = nullptr;
@@ -277,7 +275,7 @@ int main(int argc, char** argv)
 			sss.setScatterHistogram(scatterHis);
 		}
 
-		sss.computeAdditiveScatterCorrection(nZ, nPhi, nR, printProgressFlag);
+		sss.computeAdditiveScatterCorrection(nZ, nPhi, nR);
 
 		std::cout << "Preparing final additive correction histogram..."
 		          << std::endl;

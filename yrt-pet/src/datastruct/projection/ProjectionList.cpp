@@ -66,7 +66,7 @@ void py_setup_projectionlist(pybind11::module& m)
 #endif  // if BUILD_PYBIND11
 
 ProjectionList::ProjectionList(const ProjectionData* r)
-    : ProjectionData(), mp_reference(r)
+    : ProjectionData(r->getScanner()), mp_reference(r)
 {
 	ASSERT(mp_reference != nullptr);
 }
@@ -151,7 +151,7 @@ bool ProjectionList::hasArbitraryLORs() const
 	return mp_reference->hasArbitraryLORs();
 }
 
-line_t ProjectionList::getArbitraryLOR(bin_t id) const
+Line3D ProjectionList::getArbitraryLOR(bin_t id) const
 {
 	return mp_reference->getArbitraryLOR(id);
 }

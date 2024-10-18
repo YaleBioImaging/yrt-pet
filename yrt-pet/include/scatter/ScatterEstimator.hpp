@@ -27,11 +27,10 @@ namespace Scatter
 		                 bool saveIntermediary);
 
 		void computeAdditiveScatterCorrection(size_t numberZ, size_t numberPhi,
-		                                      size_t numberR,
-		                                      bool printProgress = false);
+		                                      size_t numberR);
 
 		void computeScatterEstimate(size_t numberZ, size_t numberPhi,
-		                            size_t numberR, bool printProgress);
+		                            size_t numberR);
 		void generateScatterTailsMask();
 		float computeTailFittingFactor();
 

@@ -19,7 +19,7 @@
 class ProjectionList : public ProjectionData
 {
 public:
-	ProjectionList(const ProjectionData* r);
+	explicit ProjectionList(const ProjectionData* r);
 	~ProjectionList() override = default;
 
 	size_t count() const override;
@@ -41,7 +41,7 @@ public:
 	bool hasMotion() const override;
 	transform_t getTransformOfFrame(frame_t frame) const override;
 	bool hasArbitraryLORs() const override;
-	line_t getArbitraryLOR(bin_t id) const override;
+	Line3D getArbitraryLOR(bin_t id) const override;
 
 	const ProjectionData* getReference() const { return mp_reference; }
 
@@ -56,7 +56,7 @@ protected:
 class ProjectionListAlias : public ProjectionList
 {
 public:
-	ProjectionListAlias(ProjectionData* p);
+	explicit ProjectionListAlias(ProjectionData* p);
 	~ProjectionListAlias() override = default;
 	void bind(Array1DBase<float>* projs_in);
 };
@@ -64,7 +64,7 @@ public:
 class ProjectionListOwned : public ProjectionList
 {
 public:
-	ProjectionListOwned(ProjectionData* p);
+	explicit ProjectionListOwned(ProjectionData* p);
 	~ProjectionListOwned() override = default;
 	void allocate();
 };

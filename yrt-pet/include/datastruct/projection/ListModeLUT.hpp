@@ -8,7 +8,6 @@
 #include "datastruct/PluginFramework.hpp"
 #include "datastruct/projection/LORMotion.hpp"
 #include "datastruct/projection/ListMode.hpp"
-#include "geometry/StraightLineParam.hpp"
 #include "utils/Array.hpp"
 
 #if BUILD_PYBIND11
@@ -27,7 +26,7 @@ public:
 	timestamp_t getTimestamp(bin_t eventId) const override;
 	det_id_t getDetector1(bin_t eventId) const override;
 	det_id_t getDetector2(bin_t eventId) const override;
-	StraightLineParam getNativeLORFromId(bin_t id) const;
+	Line3D getNativeLORFromId(bin_t id) const;
 	bool hasTOF() const override;
 	float getTOFValue(bin_t id) const override;
 	size_t count() const override;
@@ -40,7 +39,6 @@ public:
 	void setDetectorId1OfEvent(bin_t eventId, det_id_t d1);
 	void setDetectorId2OfEvent(bin_t eventId, det_id_t d2);
 	void setDetectorIdsOfEvent(bin_t eventId, det_id_t d1, det_id_t d2);
-	const Scanner& getScanner() const;
 
 	Array1DBase<timestamp_t>* getTimestampArrayPtr() const;
 	Array1DBase<det_id_t>* getDetector1ArrayPtr() const;
@@ -51,14 +49,10 @@ public:
 	void addLORMotion(const std::string& lorMotion_fname);
 
 protected:
-	ListModeLUT(const Scanner& pr_scanner, bool p_flagTOF = false);
+	explicit ListModeLUT(const Scanner& pr_scanner, bool p_flagTOF = false);
 
 	// Parameters
 	// The detector Id of the events.
-	const Scanner& mr_scanner;
-	// TODO: Replace getTimestamp by getFrame.
-	//  Replace this array by an array of frames
-	//  Repopulate this array with frame ids after lorMotion is added
 	std::unique_ptr<Array1DBase<timestamp_t>> mp_timestamps;
 	std::unique_ptr<Array1DBase<det_id_t>> mp_detectorId1;
 	std::unique_ptr<Array1DBase<det_id_t>> mp_detectorId2;
@@ -73,7 +67,8 @@ protected:
 class ListModeLUTAlias : public ListModeLUT
 {
 public:
-	ListModeLUTAlias(const Scanner& pr_scanner, bool p_flagTOF = false);
+	explicit ListModeLUTAlias(const Scanner& pr_scanner,
+	                          bool p_flagTOF = false);
 	~ListModeLUTAlias() override = default;
 	void bind(ListModeLUT* listMode);
 	void bind(Array1DBase<timestamp_t>* p_timestamps,
@@ -97,9 +92,10 @@ public:
 class ListModeLUTOwned : public ListModeLUT
 {
 public:
-	ListModeLUTOwned(const Scanner& pr_scanner, bool p_flagTOF = false);
-	ListModeLUTOwned(const Scanner& pr_scanner, const std::string& listMode_fname,
-	                   bool p_flagTOF = false);
+	explicit ListModeLUTOwned(const Scanner& pr_scanner,
+	                          bool p_flagTOF = false);
+	ListModeLUTOwned(const Scanner& pr_scanner,
+	                 const std::string& listMode_fname, bool p_flagTOF = false);
 	~ListModeLUTOwned() override = default;
 
 	void readFromFile(const std::string& listMode_fname);

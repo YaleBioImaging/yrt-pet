@@ -75,15 +75,15 @@ public:
 		_data[getFlatIdx(idx)] += val;
 	}
 
-	void increment_flat(size_t idx, T val) { _data[idx] += val; }
+	void incrementFlat(size_t idx, T val) { _data[idx] += val; }
 
 	void scale(const std::array<size_t, ndim>& idx, T val)
 	{
 		_data[getFlatIdx(idx)] *= val;
 	}
 
-	void set_flat(size_t idx, T val) { _data[idx] = val; }
-	T& get_flat(size_t idx) const { return _data[idx]; }
+	void setFlat(size_t idx, T val) { _data[idx] = val; }
+	T& getFlat(size_t idx) const { return _data[idx]; }
 
 	size_t getSize(size_t dim) const
 	{
@@ -348,6 +348,26 @@ public:
 			_data[i] = 1 / _data[i];
 		}
 		return *this;
+	}
+
+	T getMaxValue() const
+	{
+		T maxValue = std::numeric_limits<T>::min();
+
+		const int totalSize = getSizeTotal();
+		const T* arr = getRawPointer();
+
+#pragma omp parallel for reduction(max : maxValue) default(none) \
+    firstprivate(arr, totalSize)
+		for (int i = 0; i < totalSize; i++)
+		{
+			const float val = arr[i];
+			if (val > maxValue)
+			{
+				maxValue = val;
+			}
+		}
+		return maxValue;
 	}
 
 	// Copy from array object (memory must be allocated and appropriately sized)

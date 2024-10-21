@@ -1041,6 +1041,7 @@ void ImageOwned::checkImageParamsWithSitkImage() const
 
 void ImageOwned::writeToFile(const std::string& fname) const
 {
+	updateSitkImageFromParameters(*mp_sitkImage, getParams());
 	sitk::WriteImage(*mp_sitkImage, fname);
 }
 

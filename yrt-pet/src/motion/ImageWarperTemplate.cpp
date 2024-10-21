@@ -73,7 +73,7 @@ void ImageWarperTemplate::setImageHyperParam(const std::vector<int>& imDim,
 	if (m_imHyperInit == true)
 	{
 		std::cerr << "setImageHyperParam() has already been called. Exiting,"
-		     << std::endl;
+		          << std::endl;
 		exit(EXIT_FAILURE);
 	}
 
@@ -99,7 +99,7 @@ void ImageWarperTemplate::setMotionHyperParam(int numberOfFrame)
 	if (m_motionHyperInit == true)
 	{
 		std::cerr << "setMotionHyperParam() has already been called. Exiting,"
-		     << std::endl;
+		          << std::endl;
 		exit(EXIT_FAILURE);
 	}
 
@@ -150,7 +150,7 @@ int ImageWarperTemplate::extractFramesParamFromFile(
 	if (!infile.good())
 	{
 		std::cerr << "The warp parameters file " << paramFileName
-		     << " does not exist." << std::endl;
+		          << " does not exist." << std::endl;
 		exit(EXIT_FAILURE);
 	}
 
@@ -171,8 +171,9 @@ int ImageWarperTemplate::extractFramesParamFromFile(
 			}
 			else
 			{
-				std::cerr << "The reference frame was defined more than one time."
-				     << std::endl;
+				std::cerr
+				    << "The reference frame was defined more than one time."
+				    << std::endl;
 				exit(EXIT_FAILURE);
 			}
 		}
@@ -181,10 +182,11 @@ int ImageWarperTemplate::extractFramesParamFromFile(
 			currLineParam = splitStringIntoVectorOfDouble(line, delimiter);
 			if (currLineParam.size() != 9)
 			{
-				std::cerr << "Invalid number of parameters given for the current "
-				        "line "
-				        "parsed. It shoud have been 9, not "
-				     << currLineParam.size() << std::endl;
+				std::cerr
+				    << "Invalid number of parameters given for the current "
+				       "line "
+				       "parsed. It shoud have been 9, not "
+				    << currLineParam.size() << std::endl;
 				exit(EXIT_FAILURE);
 			}
 			else
@@ -203,14 +205,15 @@ void ImageWarperTemplate::initParamContainer()
 	if (m_warperParamContainerInit == true)
 	{
 		std::cerr << "initParamContainer() has already been called. Exiting,"
-		     << std::endl;
+		          << std::endl;
 		exit(EXIT_FAILURE);
 	}
 
 	if ((m_imHyperInit != true) or (m_motionHyperInit != true))
 	{
-		std::cerr << "Image or motion hyper parameters were not defined. Exiting"
-		     << std::endl;
+		std::cerr
+		    << "Image or motion hyper parameters were not defined. Exiting"
+		    << std::endl;
 		exit(EXIT_FAILURE);
 	}
 
@@ -292,7 +295,8 @@ void ImageWarperTemplate::warpRefImage(Image* image, int frameId) const
 
 void OperatorWarpRefImage::applyA(const Variable* warp, Variable* out)
 {
-	const ImageWarperTemplate* warper = dynamic_cast<const ImageWarperTemplate*>(warp);
+	const ImageWarperTemplate* warper =
+	    dynamic_cast<const ImageWarperTemplate*>(warp);
 	Image* img = dynamic_cast<Image*>(out);
 	ASSERT(img != nullptr);
 	ASSERT(warper != nullptr);
@@ -300,7 +304,8 @@ void OperatorWarpRefImage::applyA(const Variable* warp, Variable* out)
 }
 void OperatorWarpRefImage::applyAH(const Variable* warp, Variable* out)
 {
-	const ImageWarperTemplate* warper = dynamic_cast<const ImageWarperTemplate*>(warp);
+	const ImageWarperTemplate* warper =
+	    dynamic_cast<const ImageWarperTemplate*>(warp);
 	Image* img = dynamic_cast<Image*>(out);
 	ASSERT(img != nullptr);
 	ASSERT(warper != nullptr);
@@ -329,8 +334,7 @@ void ImageWarperTemplate::computeGlobalWarpToRefFrame(Image* image,
 {
 	// Warping methods of this class modify the given image so we need a copy to
 	// warp it multiple time.
-	auto tmpCopyOfGivenImage =
-	    std::make_unique<ImageOwned>(image->getParams());
+	auto tmpCopyOfGivenImage = std::make_unique<ImageOwned>(image->getParams());
 	tmpCopyOfGivenImage->allocate();
 	// Temporary container for the results to which each warp results will be
 	// added.
@@ -353,13 +357,13 @@ void ImageWarperTemplate::computeGlobalWarpToRefFrame(Image* image,
 
 		if (writeFileSteps)
 			tmpCopyOfGivenImage->writeToFile("tmpCopyOfGivenImage_inverse" +
-			                                 std::to_string(m));
+			                                 std::to_string(m) + ".nii");
 
 		inverseWarp(tmpCopyOfGivenImage.get(), m);
 
 		if (writeFileSteps)
 			tmpCopyOfGivenImage->writeToFile("tmpCopyOfGivenImage" +
-			                                 std::to_string(m));
+			                                 std::to_string(m) + ".nii");
 
 		tmpCopyOfGivenImage->addFirstImageToSecond(tmpGlobalWarpResult.get());
 	}
@@ -421,8 +425,8 @@ void ImageWarperTemplate::isFrameIdValidToDefine(int frameId, bool isRef)
 	if ((frameId < 0) || ((frameId >= m_numberOfFrame)))
 	{
 		std::cerr << "A frame Id of " << frameId
-		     << " is invalid. Should be between 0 and " << m_numberOfFrame - 1
-		     << std::endl;
+		          << " is invalid. Should be between 0 and "
+		          << m_numberOfFrame - 1 << std::endl;
 		exit(EXIT_FAILURE);
 	}
 
@@ -437,18 +441,19 @@ void ImageWarperTemplate::isFrameIdValidToDefine(int frameId, bool isRef)
 	if (m_frameWarpParamDefined[frameId] == true)
 	{
 		std::cerr << "The frame Id of " << frameId
-		     << " was already defined previously. "
-		        "Exiting."
-		     << std::endl;
+		          << " was already defined previously. "
+		             "Exiting."
+		          << std::endl;
 		exit(EXIT_FAILURE);
 	}
 
 	// Check if the reference frame Id has already been defined.
 	if ((isRef == true) && (m_refFrameDefined == true))
 	{
-		std::cerr << "Attempt to set the reference frame parameters a second time. "
-		        "Exiting."
-		     << std::endl;
+		std::cerr
+		    << "Attempt to set the reference frame parameters a second time. "
+		       "Exiting."
+		    << std::endl;
 		exit(EXIT_FAILURE);
 	}
 }
@@ -462,8 +467,9 @@ void ImageWarperTemplate::setFrameWeight(float weight, int frameId)
 	}
 	else
 	{
-		std::cerr << "A frame weight of " << weight << " was attributed to frame "
-		     << frameId << "which is invalid. It should be positive." << std::endl;
+		std::cerr << "A frame weight of " << weight
+		          << " was attributed to frame " << frameId
+		          << "which is invalid. It should be positive." << std::endl;
 		exit(EXIT_FAILURE);
 	}
 }
@@ -480,15 +486,16 @@ void ImageWarperTemplate::setFrameTimeBinStart(float timeBinStart, int frameId)
 	else
 	{
 		std::cerr << "A frame time bins starting time of " << timeBinStart
-		     << " was attributed to frame " << frameId
-		     << " which is invalid. It should be positive." << std::endl;
+		          << " was attributed to frame " << frameId
+		          << " which is invalid. It should be positive." << std::endl;
 		exit(EXIT_FAILURE);
 	}
 }
 
 
-std::vector<std::string> ImageWarperTemplate::splitStringIntoVector(std::string stringTpParse,
-                                                          std::string delimiter)
+std::vector<std::string>
+    ImageWarperTemplate::splitStringIntoVector(std::string stringTpParse,
+                                               std::string delimiter)
 {
 	std::vector<std::string> result;
 	while (stringTpParse.size())
@@ -515,9 +522,8 @@ std::vector<std::string> ImageWarperTemplate::splitStringIntoVector(std::string 
 }
 
 
-std::vector<double>
-    ImageWarperTemplate::splitStringIntoVectorOfDouble(std::string stringToParse,
-                                                       std::string delimiter)
+std::vector<double> ImageWarperTemplate::splitStringIntoVectorOfDouble(
+    std::string stringToParse, std::string delimiter)
 {
 	std::vector<double> result;
 	while (stringToParse.size())

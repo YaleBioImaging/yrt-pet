@@ -274,16 +274,16 @@ bool ImageParams::isSameDimensionsAs(const ImageParams& other) const
 
 bool ImageParams::isSameLengthsAs(const ImageParams& other) const
 {
-	return std::abs(length_x - other.length_x) < SMALL_FLT &&
-	       std::abs(length_z - other.length_z) < SMALL_FLT &&
-	       std::abs(length_z - other.length_z) < SMALL_FLT;
+	return APPROX_EQ_THRESH(length_x, other.length_x, 1e-4) &&
+	       APPROX_EQ_THRESH(length_y, other.length_y, 1e-4) &&
+	       APPROX_EQ_THRESH(length_z, other.length_z, 1e-4);
 }
 
 bool ImageParams::isSameOffsetsAs(const ImageParams& other) const
 {
-	return std::abs(off_x - other.off_x) < SMALL_FLT &&
-	       std::abs(off_z - other.off_z) < SMALL_FLT &&
-	       std::abs(off_z - other.off_z) < SMALL_FLT;
+	return APPROX_EQ_THRESH(off_x, other.off_x, 1e-4) &&
+	       APPROX_EQ_THRESH(off_y, other.off_y, 1e-4) &&
+	       APPROX_EQ_THRESH(off_z, other.off_z, 1e-4);
 }
 
 bool ImageParams::isSameAs(const ImageParams& other) const

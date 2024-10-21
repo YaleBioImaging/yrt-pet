@@ -102,7 +102,7 @@ bool Plane::isCoplanar(const Vector3D& pt) const
 
 
 // returns true if "line" is parrallel to the current plan
-bool Plane::isParrallel(const Line3D& l) const
+bool Plane::isParallel(const Line3D& l) const
 {
 	const float la = l.point2.x - l.point1.x;
 	const float lc = l.point2.y - l.point1.y;

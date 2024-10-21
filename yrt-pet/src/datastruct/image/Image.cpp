@@ -765,21 +765,7 @@ void Image::writeToFile(const std::string& fname) const
 	sitk::Image sitkImage{sitkSize[0], sitkSize[1], sitkSize[2],
 	                      sitk::sitkFloat32};
 
-	std::vector<double> sitkSpacing{{params.vx, params.vy, params.vz}};
-	sitkImage.SetSpacing(sitkSpacing);
-
-	std::vector<double> sitkDirection{{1, 0, 0, 0, 1, 0, 0, 0, 1}};
-	sitkImage.SetDirection(sitkDirection);
-
-	std::vector<double> sitkOrigin;
-	sitkOrigin.resize(3);
-	sitkOrigin[0] =
-	    imageParamsOffsetToSitkOrigin(params.off_x, params.vx, params.length_x);
-	sitkOrigin[1] =
-	    imageParamsOffsetToSitkOrigin(params.off_y, params.vy, params.length_y);
-	sitkOrigin[2] =
-	    imageParamsOffsetToSitkOrigin(params.off_z, params.vz, params.length_z);
-	sitkImage.SetOrigin(sitkOrigin);
+	updateSitkImageFromParameters(sitkImage, params);
 
 	const float* rawPtr = getRawPointer();
 	for (unsigned int z = 0; z < static_cast<unsigned int>(params.nz); ++z)
@@ -920,10 +906,7 @@ std::unique_ptr<Image> Image::transformImage(const Vector3D& rotation,
 	return newImg;
 }
 
-ImageOwned::ImageOwned(const ImageParams& imgParams) : Image{imgParams}
-{
-	mp_array = std::make_unique<Array3D<float>>();
-}
+ImageOwned::ImageOwned(const ImageParams& imgParams) : Image{imgParams} {}
 
 ImageOwned::ImageOwned(const ImageParams& imgParams,
                        const std::string& filename)
@@ -944,6 +927,8 @@ void ImageOwned::allocate()
 	const ImageParams& params = getParams();
 	mp_sitkImage = std::make_unique<sitk::Image>(params.nx, params.ny,
 	                                             params.nz, sitk::sitkFloat32);
+
+	updateSitkImageFromParameters(*mp_sitkImage, params);
 
 	auto arrayAlias = std::make_unique<Array3DAlias<float>>();
 	arrayAlias->bind(mp_sitkImage->GetBufferAsFloat(), params.nz, params.ny,
@@ -1057,6 +1042,31 @@ void ImageOwned::checkImageParamsWithSitkImage() const
 void ImageOwned::writeToFile(const std::string& fname) const
 {
 	sitk::WriteImage(*mp_sitkImage, fname);
+}
+
+void Image::updateSitkImageFromParameters(itk::simple::Image& sitkImage,
+                                          const ImageParams& params)
+{
+	const std::vector<unsigned int> sitkSize{
+	    {static_cast<unsigned int>(params.nx),
+	     static_cast<unsigned int>(params.ny),
+	     static_cast<unsigned int>(params.nz)}};
+
+	const std::vector<double> sitkSpacing{{params.vx, params.vy, params.vz}};
+	sitkImage.SetSpacing(sitkSpacing);
+
+	const std::vector<double> sitkDirection{{1, 0, 0, 0, 1, 0, 0, 0, 1}};
+	sitkImage.SetDirection(sitkDirection);
+
+	std::vector<double> sitkOrigin;
+	sitkOrigin.resize(3);
+	sitkOrigin[0] =
+	    imageParamsOffsetToSitkOrigin(params.off_x, params.vx, params.length_x);
+	sitkOrigin[1] =
+	    imageParamsOffsetToSitkOrigin(params.off_y, params.vy, params.length_y);
+	sitkOrigin[2] =
+	    imageParamsOffsetToSitkOrigin(params.off_z, params.vz, params.length_z);
+	sitkImage.SetOrigin(sitkOrigin);
 }
 
 float Image::sitkOriginToImageParamsOffset(double sitkOrigin, float voxelSize,

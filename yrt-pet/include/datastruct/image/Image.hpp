@@ -62,9 +62,13 @@ protected:
 	                                           float voxelSize, float length);
 	static double imageParamsOffsetToSitkOrigin(float off, float voxelSize,
 	                                            float length);
+	static void updateSitkImageFromParameters(itk::simple::Image& sitkImage,
+					  const ImageParams& params);
+
 	Image();
 	explicit Image(const ImageParams& imgParams);
 	std::unique_ptr<Array3DBase<float>> mp_array;
+
 };
 
 class ImageOwned : public Image

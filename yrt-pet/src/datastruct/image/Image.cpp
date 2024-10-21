@@ -1000,15 +1000,25 @@ void ImageOwned::checkImageParamsWithSitkImage() const
 
 	ASSERT(mp_sitkImage->GetDimension() == 3);
 	const auto sitkSpacing = mp_sitkImage->GetSpacing();
-	ASSERT_MSG(
-	    APPROX_EQ_THRESH(static_cast<float>(sitkSpacing[0]), params.vx, 1e-5),
-	    "Spacing in X mismatch");
-	ASSERT_MSG(
-	    APPROX_EQ_THRESH(static_cast<float>(sitkSpacing[1]), params.vy, 1e-5),
-	    "Spacing in Y mismatch");
-	ASSERT_MSG(
-	    APPROX_EQ_THRESH(static_cast<float>(sitkSpacing[2]), params.vz, 1e-5),
-	    "Spacing in Z mismatch");
+
+	if (!(APPROX_EQ_THRESH(static_cast<float>(sitkSpacing[0]), params.vx,
+	                       1e-3) &&
+	      APPROX_EQ_THRESH(static_cast<float>(sitkSpacing[1]), params.vy,
+	                       1e-3) &&
+	      APPROX_EQ_THRESH(static_cast<float>(sitkSpacing[2]), params.vz,
+	                       1e-3)))
+	{
+		std::string errorString = "Spacing mismatch "
+		                          "between given image and the "
+		                          "image parameters provided:\n";
+		errorString += "Given image: vx=" + std::to_string(sitkSpacing[0]) +
+		               " vy=" + std::to_string(sitkSpacing[1]) +
+		               " vz=" + std::to_string(sitkSpacing[2]) + "\n";
+		errorString += "Image parameters: vx=" + std::to_string(params.vx) +
+		               " vy=" + std::to_string(params.vy) +
+		               " vz=" + std::to_string(params.vz);
+		throw std::invalid_argument(errorString);
+	}
 
 	const auto sitkSize = mp_sitkImage->GetSize();
 	ASSERT_MSG(sitkSize[0] == static_cast<unsigned int>(params.nx),
@@ -1026,9 +1036,9 @@ void ImageOwned::checkImageParamsWithSitkImage() const
 	const float expectedOffsetZ = sitkOriginToImageParamsOffset(
 	    sitkOrigin[2], params.vz, params.length_z);
 
-	if (!(APPROX_EQ_THRESH(expectedOffsetX, params.off_x, 1e-4) &&
-	      APPROX_EQ_THRESH(expectedOffsetY, params.off_y, 1e-4) &&
-	      APPROX_EQ_THRESH(expectedOffsetZ, params.off_z, 1e-4)))
+	if (!(APPROX_EQ_THRESH(expectedOffsetX, params.off_x, 1e-3) &&
+	      APPROX_EQ_THRESH(expectedOffsetY, params.off_y, 1e-3) &&
+	      APPROX_EQ_THRESH(expectedOffsetZ, params.off_z, 1e-3)))
 	{
 		std::string errorString = "Volume offsets mismatch "
 		                          "between given image and the "

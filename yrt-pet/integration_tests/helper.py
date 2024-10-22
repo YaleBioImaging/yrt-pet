@@ -55,7 +55,7 @@ def _test_reconstruction(img_params: yrt.ImageParams, scanner: yrt.Scanner, data
     if warper is not None:
         osem.warper = warper
     if attenuationImage is not None:
-        osem.attenuationImage = attenuationImage
+        osem.attenuationImageForForwardProjection = attenuationImage
 
     # Launch Reconstruction
     if warper is None:

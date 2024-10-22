@@ -22,7 +22,7 @@ osem.addTOF("""<TOF width in picoseconds>""", """<Number of STD deviations>""") 
 osem.addProjPSF("<path to the PSF's CSV file>") # To add Projection-space PSF
 osem.addImagePSF(...) # To add Image-space PSF. Takes, as input, a OperatorPsf object
 osem.setListModeEnabled("""<True/False>""") # To enable if the dataset to use for reconstruction will be in ListMode format. This is important as it changes the way sensitivity image(s) are generated.
-osem.attenuationImage = ... # To add an attenuation image (Image object)
+osem.attenuationImageForForwardProjection = ... # To add an attenuation image (Image object) to the forward model
 osem.addHis = ... # To add an additive histogram (Histogram format) for example for Scatter and Randoms corrections.
 
 # --- Generate the sensitivity image(s)

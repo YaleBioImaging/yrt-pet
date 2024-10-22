@@ -732,8 +732,8 @@ std::unique_ptr<ImageOwned>
 
 			warpImg.applyAH(warper, getMLEMImageTmpBuffer());
 
-			mlem_image_update_factor->addFirstImageToSecond(
-			    getMLEMImageTmpBuffer());
+			getMLEMImageTmpBuffer()->addFirstImageToSecond(
+			    mlem_image_update_factor.get());
 		}
 		getMLEMImageBuffer()->updateEMThreshold(mlem_image_update_factor.get(),
 		                                        sens_image, UpdateEMThreshold);

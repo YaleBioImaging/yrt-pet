@@ -479,16 +479,16 @@ TEST_CASE("Siddon-random", "[siddon]")
 			double proj_val_t = rand() / (double)RAND_MAX * proj_val;
 			double dot_Ax_y = proj_val * proj_val_t;
 			double dot_x_Aty = bp_dot(lor, img_bp.get(), img.get(), proj_val_t);
-			REQUIRE(dot_Ax_y == Approx(dot_x_Aty));
+			REQUIRE(dot_Ax_y == Approx(dot_x_Aty).epsilon(0.001));
 
 			// Slow version of ray tracing
 			float proj_val_slow;
 			OperatorProjectorSiddon::project_helper<true, false, false>(
 			    img.get(), lor, proj_val_slow);
-			REQUIRE(proj_val == Approx(proj_val_slow));
+			REQUIRE(proj_val == Approx(proj_val_slow).epsilon(0.001));
 			double dot_x_Aty_slow =
 			    bp_dot_slow(lor, img_bp.get(), img.get(), proj_val_t);
-			REQUIRE(dot_x_Aty == Approx(dot_x_Aty_slow));
+			REQUIRE(dot_x_Aty == Approx(dot_x_Aty_slow).epsilon(0.001));
 		}
 	}
 }

@@ -50,8 +50,7 @@ std::string IO::possibleFormats(Plugin::InputFormatsChoice choice)
 
 bool IO::isFormatListMode(const std::string& format)
 {
-	const std::string format_upper = Util::toUpper(format);
-	return Plugin::PluginRegistry::instance().isFormatListMode(format_upper);
+	return Plugin::PluginRegistry::instance().isFormatListMode(format);
 }
 
 OperatorProjector::ProjectorType

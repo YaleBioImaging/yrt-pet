@@ -36,7 +36,8 @@ def _test_reconstruction(img_params: yrt.ImageParams, scanner: yrt.Scanner, data
                          num_MLEM_iterations=30, num_OSEM_subsets=1,
                          hard_threshold=1.0, num_threads=-1,
                          tof_width_ps=None, tof_n_std=None,
-                         proj_psf_fname=None, num_rays=1):
+                         proj_psf_fname=None, num_rays=1,
+                         rtol=1e-4, nrmse=None):
     osem = yrt.createOSEM(scanner)
     osem.setImageParams(img_params)
     osem.num_MLEM_iterations = num_MLEM_iterations
@@ -66,9 +67,17 @@ def _test_reconstruction(img_params: yrt.ImageParams, scanner: yrt.Scanner, data
     out_img.writeToFile(out_img_file)
 
     ref_img = yrt.ImageOwned(img_params, ref_img_file)
-    rmse = get_rmse(np.array(out_img, copy=False),
-                    np.array(ref_img, copy=False))
-    assert rmse < 10**-4
+
+    np_out_img = np.array(out_img, copy=False)
+    np_ref_img = np.array(ref_img, copy=False)
+
+    if rtol is None:
+        assert nrmse is not None
+        cur_nrmse = get_nrmse(np_out_img, np_ref_img)
+        assert cur_nrmse < nrmse
+    else:
+        np.testing.assert_allclose(np_out_img, np_ref_img,
+                                   atol=0, rtol=rtol)
 
 
 def _test_subsets(scanner: yrt.Scanner, img_params: yrt.ImageParams,
@@ -211,10 +220,12 @@ out_paths = {'test_mlem_simple': 'test_mlem_simple.nii',
              'test_mlem_wobble': 'test_mlem_wobble.nii',
              'test_mlem_yesMan': 'test_mlem_yesMan.nii',
              'test_sens': 'test_sens.nii',
+             'test_sens_exec': 'test_sens_exec.nii',
              'test_bwd': 'test_bwd.nii',
              'test_post_recon_mc_piston': 'test_post_recon_mc_piston.nii',
              'test_post_recon_mc_wobble': 'test_post_recon_mc_wobble.nii',
              'test_psf': 'psf_im_out.nii',
+             'test_psf_gpu': 'psf_im_out_gpu.nii',
              'test_flat_panel_mlem_tof': 'test_flat_img_S.nii',
              'test_flat_panel_mlem_tof_exec': 'test_flat_img_DD_GPU.nii',
              'test_osem_his_2d': ['test_osem_his_2d.nii',

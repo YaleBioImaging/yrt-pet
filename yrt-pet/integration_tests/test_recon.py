@@ -93,11 +93,10 @@ def test_bwd():
 def test_sens():
     img_params = yrt.ImageParams(util_paths['img_params_500'])
     scanner = yrt.Scanner(util_paths['SAVANT_json'])
-    dataset = yrt.UniformHistogram(scanner)
 
     osem = yrt.createOSEM(scanner)
     osem.setImageParams(img_params)
-    osem.setDataInput(dataset)
+
     out_imgs = osem.generateSensitivityImages()
 
     out_img = out_imgs[0]

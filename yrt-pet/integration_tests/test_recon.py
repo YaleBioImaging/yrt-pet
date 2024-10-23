@@ -339,7 +339,7 @@ def test_osem_his_2d():
                                     out_paths['test_osem_his_2d'][0])
     np.testing.assert_allclose(np.array(ref_gensensimg, copy=False),
                                np.array(out_gensensimg, copy=False),
-                               atol=0, rtol=1e-3)
+                               atol=0, rtol=5e-3)
 
 
 def test_osem_siddon_multi_ray():

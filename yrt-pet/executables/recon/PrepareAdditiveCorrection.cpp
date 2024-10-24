@@ -5,14 +5,15 @@
 
 #include "datastruct/IO.hpp"
 #include "datastruct/projection/Histogram3D.hpp"
+#include "datastruct/projection/UniformHistogram.hpp"
 #include "datastruct/scanner/Scanner.hpp"
 #include "geometry/Constants.hpp"
 #include "scatter/ScatterEstimator.hpp"
 #include "utils/Globals.hpp"
 #include "utils/ReconstructionUtils.hpp"
+#include "utils/Tools.hpp"
 
 #include <cxxopts.hpp>
-#include <fstream>
 #include <iostream>
 
 int main(int argc, char** argv)
@@ -31,16 +32,18 @@ int main(int argc, char** argv)
 		std::string crystalMaterial_name = "LYSO";
 		size_t nZ, nPhi, nR;
 		std::string outSensImg_fname;
-		std::string scatterHistoOut_fname;
+		std::string histoOut_fname;
 		std::string projector_name = "S";
 		std::string sourceImage_fname;
 		std::string scatterHistoIn_fname;
+		std::string outAcfHis_fname;
 		int numThreads = -1;
 		int num_OSEM_subsets = 1;
 		int num_MLEM_iterations = 3;
 		int maskWidth = -1;
 		float acfThreshold = 0.9523809f;  // 1/1.05
 		bool saveIntermediary = false;
+		bool noScatter = false;
 
 		// Parse command line arguments
 		cxxopts::Options options(argv[0],
@@ -59,15 +62,17 @@ int main(int argc, char** argv)
 		("p,params", "Source image parameters file", cxxopts::value(imgParams_fname))
 		("att", "Attenuation image file", cxxopts::value(attImg_fname))
 		("att_params", "Attenuation image parameters file", cxxopts::value(attImgParams_fname))
+		("no_scatter", "Skip scatter estimation", cxxopts::value(noScatter))
 		("crystal_mat", "Crystal material name (default: LYSO)", cxxopts::value(crystalMaterial_name))
 		("nZ", "Number of Z planes to consider for SSS", cxxopts::value(nZ))
 		("nPhi", "Number of Phi angles to consider for SSS", cxxopts::value(nPhi))
 		("nR", "Number of R distances to consider for SSS", cxxopts::value(nR))
-		("o,out", "Additive histogram output filename", cxxopts::value(scatterHistoOut_fname))
+		("o,out", "Additive histogram output filename", cxxopts::value(histoOut_fname))
 		("out_sens", "Generated sensitivity image output filename", cxxopts::value(outSensImg_fname))
+		("out_acf", "Output ACF histogram filename (if generated from Attenuation image)", cxxopts::value(outAcfHis_fname))
 		("source", "Non scatter-corrected source image (if available)", cxxopts::value(sourceImage_fname))
 		("num_threads", "Number of threads", cxxopts::value(numThreads))
-		("scatter_his", "Previously generated scatter histogram (if available)", cxxopts::value(scatterHistoIn_fname))
+		("scatter_his", "Previously generated scatter estimate histogram (if available)", cxxopts::value(scatterHistoIn_fname))
 		("save_intermediary", "Enable saving intermediary histograms", cxxopts::value(saveIntermediary))
 		("mask_width", "Tail fitting mask width. By default, uses 1/10th of the \'r\' dimension", cxxopts::value(maskWidth))
 		("acf_threshold", "Tail fitting ACF threshold (Default: " + std::to_string(acfThreshold) + ")", cxxopts::value(acfThreshold))
@@ -89,8 +94,16 @@ int main(int argc, char** argv)
 		}
 
 		std::vector<std::string> required_params = {
-		    "scanner",    "params", "prompts", "acf",  "att",
-		    "att_params", "out",    "nZ",      "nPhi", "nR"};
+		    "scanner", "params", "randoms", "prompts", "att", "out"};
+
+		if (!noScatter)
+		{
+			for (auto& p : {"nZ", "nPhi", "nR"})
+			{
+				required_params.emplace_back(p);
+			}
+		}
+
 		bool missing_args = false;
 		for (auto& p : required_params)
 		{
@@ -108,6 +121,7 @@ int main(int argc, char** argv)
 
 		bool isNorm;
 		const std::string* normOrSensHis_fname;
+		bool uniformNorm = false;
 		if (!normHis_fname.empty())
 		{
 			isNorm = true;
@@ -120,11 +134,11 @@ int main(int argc, char** argv)
 		}
 		else
 		{
-			std::cerr
-			    << "You need to provide either a sensitivity histogram or a "
-			       "normalisation histogram"
-			    << std::endl;
-			return -1;
+			std::cout << "No normalization or sensitivity provided, using "
+			             "uniform histogram as normalization."
+			          << std::endl;
+			isNorm = true;
+			uniformNorm = true;
 		}
 
 		Globals::set_num_threads(numThreads);
@@ -157,11 +171,43 @@ int main(int argc, char** argv)
 		    std::make_unique<Histogram3DOwned>(*scanner, promptsHis_fname);
 		auto randomsHis =
 		    std::make_unique<Histogram3DOwned>(*scanner, randomsHis_fname);
-		auto normOrSensHis =
-		    std::make_unique<Histogram3DOwned>(*scanner, *normOrSensHis_fname);
-		auto acfHis =
-		    std::make_unique<Histogram3DOwned>(*scanner, acfHis_fname);
+
+		std::unique_ptr<Histogram3D> normOrSensHis = nullptr;
+		if (!uniformNorm)
+		{
+			normOrSensHis = std::make_unique<Histogram3DOwned>(
+			    *scanner, *normOrSensHis_fname);
+		}
+		else
+		{
+			normOrSensHis = std::make_unique<UniformHistogram>(*scanner, 1.0f);
+		}
+
 		std::cout << "Done reading histograms." << std::endl;
+		std::unique_ptr<Histogram3DOwned> acfHis = nullptr;
+		if (!acfHis_fname.empty())
+		{
+			acfHis = std::make_unique<Histogram3DOwned>(*scanner, acfHis_fname);
+		}
+		else
+		{
+			std::cout << "ACF histogram not specified, forward-projecting "
+			             "attenuation image..."
+			          << std::endl;
+			acfHis = std::make_unique<Histogram3DOwned>(*scanner);
+			acfHis->allocate();
+			Util::forwProject(*scanner, *attImg, *acfHis);
+			acfHis->operationOnEachBinParallel(
+			    [&acfHis](bin_t bin) -> float
+			    {
+				    return Util::getAttenuationCoefficientFactor(
+				        acfHis->getProjectionValue(bin));
+			    });
+			if (!outAcfHis_fname.empty())
+			{
+				acfHis->writeToFile(outAcfHis_fname);
+			}
+		}
 
 		// Generate additive histogram
 		std::cout << "Preparing additive histogram..." << std::endl;
@@ -193,6 +239,10 @@ int main(int argc, char** argv)
 		{
 			additiveHis->writeToFile(
 			    "intermediary_firstAdditiveCorrection.his");
+		}
+		if (noScatter)
+		{
+			additiveHis->writeToFile(histoOut_fname);
 		}
 
 		std::shared_ptr<Image> sourceImg = nullptr;
@@ -288,7 +338,7 @@ int main(int argc, char** argv)
 		    });
 
 		std::cout << "Saving histogram file..." << std::endl;
-		additiveHis->writeToFile(scatterHistoOut_fname);
+		additiveHis->writeToFile(histoOut_fname);
 
 		std::cout << "Done." << std::endl;
 		return 0;

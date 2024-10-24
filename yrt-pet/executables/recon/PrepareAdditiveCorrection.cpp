@@ -120,7 +120,7 @@ int main(int argc, char** argv)
 		}
 
 		bool isNorm;
-		const std::string* normOrSensHis_fname;
+		const std::string* normOrSensHis_fname = nullptr;
 		bool uniformNorm = false;
 		if (!normHis_fname.empty())
 		{

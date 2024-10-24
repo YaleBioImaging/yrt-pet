@@ -196,7 +196,8 @@ int main(int argc, char** argv)
 			          << std::endl;
 			acfHis = std::make_unique<Histogram3DOwned>(*scanner);
 			acfHis->allocate();
-			Util::forwProject(*scanner, *attImg, *acfHis);
+			Util::forwProject(*scanner, *attImg, *acfHis,
+			                  IO::getProjector(projector_name));
 			acfHis->operationOnEachBinParallel(
 			    [&acfHis](bin_t bin) -> float
 			    {

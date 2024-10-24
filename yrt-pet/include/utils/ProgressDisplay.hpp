@@ -13,7 +13,7 @@ namespace Util
 	{
 	public:
 		explicit ProgressDisplay(int64_t p_total = -1,
-		                         int64_t p_increment = 20);
+		                         int64_t p_increment = 10);
 		void progress(int64_t newProgress);
 		void setTotal(int64_t p_total);
 		void reset();

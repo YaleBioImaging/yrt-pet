@@ -18,7 +18,7 @@ namespace Util
 	public:
 		explicit ProgressDisplayMultiThread(int64_t p_numThreads,
 		                                    int64_t p_totalWork = -1,
-		                                    int64_t p_increment = 20);
+		                                    int64_t p_increment = 10);
 
 		void setTotalWork(int64_t p_totalWork);
 		void setNumThreads(int numThreads);

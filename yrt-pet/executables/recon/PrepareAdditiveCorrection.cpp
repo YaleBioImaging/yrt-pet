@@ -28,7 +28,6 @@ int main(int argc, char** argv)
 		std::string imgParams_fname;
 		std::string acfHis_fname;
 		std::string attImg_fname;
-		std::string attImgParams_fname;
 		std::string crystalMaterial_name = "LYSO";
 		size_t nZ, nPhi, nR;
 		std::string outSensImg_fname;
@@ -61,7 +60,6 @@ int main(int argc, char** argv)
 		("acf", "Attenuation coefficients factor", cxxopts::value(acfHis_fname))
 		("p,params", "Source image parameters file", cxxopts::value(imgParams_fname))
 		("att", "Attenuation image file", cxxopts::value(attImg_fname))
-		("att_params", "Attenuation image parameters file", cxxopts::value(attImgParams_fname))
 		("no_scatter", "Skip scatter estimation", cxxopts::value(noScatter))
 		("crystal_mat", "Crystal material name (default: LYSO)", cxxopts::value(crystalMaterial_name))
 		("nZ", "Number of Z planes to consider for SSS", cxxopts::value(nZ))
@@ -162,9 +160,7 @@ int main(int argc, char** argv)
 		    Scatter::getCrystalMaterialFromName(crystalMaterial_name);
 
 		// Attenuation image
-		ImageParams attImageParams(attImgParams_fname);
-		auto attImg =
-		    std::make_unique<ImageOwned>(attImageParams, attImg_fname);
+		auto attImg = std::make_unique<ImageOwned>(attImg_fname);
 
 		std::cout << "Reading histograms..." << std::endl;
 		auto promptsHis =

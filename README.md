@@ -23,7 +23,6 @@ Usage:
                              (LabPET2) and H (Histogram)
       --sens arg             Sensitivity image files (separated by a comma)
       --att arg              Attenuation image filename
-      --att_params arg       Attenuation image parameters filename
       --motion arg           Motion file for motion correction
       --ev_per_frame arg     Number of Events per frame file for motion
                              correction

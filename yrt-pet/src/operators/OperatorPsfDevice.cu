@@ -252,8 +252,8 @@ void OperatorPsfDevice::convolveDevice(const ImageDevice& inputImage,
 {
 	if constexpr (Flipped)
 	{
-		convolveDevice(inputImage, outputImage, *mpd_kernelZ_flipped,
-		               *mpd_kernelZ_flipped, *mpd_kernelZ_flipped,
+		convolveDevice(inputImage, outputImage, *mpd_kernelX_flipped,
+		               *mpd_kernelY_flipped, *mpd_kernelZ_flipped,
 		               mp_mainStream, m_synchronized);
 	}
 	else

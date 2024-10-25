@@ -148,7 +148,10 @@ void OperatorPsfDevice::apply(const Variable* in, Variable* out) const
 	convolveDevice<Transpose>(*inputImageDevice_ptr, *outputImageDevice_ptr);
 
 	// Transfer to host
-	outputImageDevice->transferToHostMemory(img_out, m_synchronized);
+	if (img_out != nullptr)
+	{
+		outputImageDevice->transferToHostMemory(img_out, m_synchronized);
+	}
 }
 
 void OperatorPsfDevice::applyA(const Variable* in, Variable* out)

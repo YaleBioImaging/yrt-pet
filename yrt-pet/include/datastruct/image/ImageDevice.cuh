@@ -33,7 +33,7 @@ public:
 	                          bool p_synchronize = true) const;
 	GPULaunchParams3D getLaunchParams() const;
 	void setValue(float initValue) override;
-	void copyFromImage(const ImageBase *imSrc) override;
+	void copyFromImage(const ImageBase* imSrc) override;
 	void addFirstImageToSecond(ImageBase* imgOut) const override;
 	void applyThreshold(const ImageBase* maskImg, float threshold,
 	                    float val_le_scale, float val_le_off,
@@ -49,6 +49,7 @@ public:
 	                          float val_gt_scale, float val_gt_off);
 
 protected:
+	explicit ImageDevice(const cudaStream_t* stream_ptr = nullptr);
 	size_t m_imgSize;
 	const cudaStream_t* mp_stream;
 
@@ -63,10 +64,13 @@ public:
 	                          const cudaStream_t* stream_ptr = nullptr);
 	explicit ImageDeviceOwned(const Image* img_ptr,
 	                          const cudaStream_t* stream_ptr = nullptr);
+	explicit ImageDeviceOwned(const std::string& filename,
+	                          const cudaStream_t* stream_ptr = nullptr);
 	ImageDeviceOwned(const ImageParams& imgParams, const std::string& filename,
 	                 const cudaStream_t* stream_ptr = nullptr);
 	~ImageDeviceOwned() override;
 	void allocate(bool synchronize = true);
+	void readFromFile(const ImageParams& params, const std::string& filename);
 	void readFromFile(const std::string& filename);
 	float* getDevicePointer() override;
 	const float* getDevicePointer() const override;

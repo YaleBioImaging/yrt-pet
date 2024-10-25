@@ -95,7 +95,7 @@ int main(int argc, char** argv)
 		}
 
 		std::vector<std::string> required_params = {"scanner", "randoms",
-		                                            "prompts", "att", "out"};
+		                                            "att", "out"};
 
 		if (!noScatter)
 		{
@@ -164,8 +164,6 @@ int main(int argc, char** argv)
 		auto attImg = std::make_unique<ImageOwned>(attImg_fname);
 
 		std::cout << "Reading histograms..." << std::endl;
-		auto promptsHis =
-		    std::make_unique<Histogram3DOwned>(*scanner, promptsHis_fname);
 		auto randomsHis =
 		    std::make_unique<Histogram3DOwned>(*scanner, randomsHis_fname);
 
@@ -244,6 +242,11 @@ int main(int argc, char** argv)
 			std::cout << "Done." << std::endl;
 			return 0;
 		}
+
+		ASSERT_MSG(!promptsHis_fname.empty(),
+				   "Prompts histogram unspecified");
+		auto promptsHis =
+			std::make_unique<Histogram3DOwned>(*scanner, promptsHis_fname);
 
 		std::shared_ptr<Image> sourceImg = nullptr;
 		if (sourceImage_fname.empty())

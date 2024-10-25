@@ -31,6 +31,7 @@ int main(int argc, char** argv)
 		std::string crystalMaterial_name = "LYSO";
 		size_t nZ, nPhi, nR;
 		std::string outSensImg_fname;
+		std::string outSensDataHis_fname;
 		std::string histoOut_fname;
 		std::string projector_name = "S";
 		std::string sourceImage_fname;
@@ -67,6 +68,7 @@ int main(int argc, char** argv)
 		("nR", "Number of R distances to consider for SSS", cxxopts::value(nR))
 		("o,out", "Additive histogram output filename", cxxopts::value(histoOut_fname))
 		("out_sens", "Generated sensitivity image output filename", cxxopts::value(outSensImg_fname))
+		("out_sensdata", "Generated sensitivity data histogram output filename", cxxopts::value(outSensDataHis_fname))
 		("out_acf", "Output ACF histogram filename (if generated from Attenuation image)", cxxopts::value(outAcfHis_fname))
 		("source", "Non scatter-corrected source image (if available)", cxxopts::value(sourceImage_fname))
 		("num_threads", "Number of threads", cxxopts::value(numThreads))
@@ -273,6 +275,10 @@ int main(int argc, char** argv)
 			if (saveIntermediary)
 			{
 				sensDataHis->writeToFile("intermediary_sensData.his");
+			}
+			if (!outSensDataHis_fname.empty())
+			{
+				sensDataHis->writeToFile(outSensDataHis_fname);
 			}
 
 			std::vector<std::unique_ptr<Image>> sensImages;

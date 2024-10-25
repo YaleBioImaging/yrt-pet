@@ -181,41 +181,41 @@ size_t ImageDevice::getImageSize() const
 	return m_imgSize;
 }
 
-void ImageDevice::transferToDeviceMemory(const float* hp_img_ptr,
+void ImageDevice::transferToDeviceMemory(const float* ph_img_ptr,
                                          bool p_synchronize)
 {
 	ASSERT_MSG(getDevicePointer() != nullptr, "Device Image not allocated yet");
-	Util::copyHostToDevice(getDevicePointer(), hp_img_ptr, m_imgSize, mp_stream,
+	Util::copyHostToDevice(getDevicePointer(), ph_img_ptr, m_imgSize, mp_stream,
 	                       p_synchronize);
 }
 
-void ImageDevice::transferToDeviceMemory(const Image* hp_img_ptr,
+void ImageDevice::transferToDeviceMemory(const Image* ph_img_ptr,
                                          bool p_synchronize)
 {
-	ASSERT_MSG(getParams().isSameDimensionsAs(hp_img_ptr->getParams()),
+	ASSERT_MSG(getParams().isSameDimensionsAs(ph_img_ptr->getParams()),
 	           "Image dimensions mismatch");
-	const float* hp_ptr = hp_img_ptr->getRawPointer();
+	const float* ph_ptr = ph_img_ptr->getRawPointer();
 
 	std::cout << "Transferring image from Host to Device..." << std::endl;
-	transferToDeviceMemory(hp_ptr, p_synchronize);
+	transferToDeviceMemory(ph_ptr, p_synchronize);
 	std::cout << "Done transferring image from Host to Device." << std::endl;
 }
 
-void ImageDevice::transferToHostMemory(float* hp_img_ptr,
+void ImageDevice::transferToHostMemory(float* ph_img_ptr,
                                        bool p_synchronize) const
 {
 	ASSERT_MSG(getDevicePointer() != nullptr, "Device Image not allocated yet");
-	Util::copyDeviceToHost(hp_img_ptr, getDevicePointer(), m_imgSize, mp_stream,
+	Util::copyDeviceToHost(ph_img_ptr, getDevicePointer(), m_imgSize, mp_stream,
 	                       p_synchronize);
 }
 
-void ImageDevice::transferToHostMemory(Image* hp_img_ptr,
+void ImageDevice::transferToHostMemory(Image* ph_img_ptr,
                                        bool p_synchronize) const
 {
-	float* hp_ptr = hp_img_ptr->getRawPointer();
+	float* ph_ptr = ph_img_ptr->getRawPointer();
 
 	std::cout << "Transferring image from Device to Host..." << std::endl;
-	transferToHostMemory(hp_ptr, p_synchronize);
+	transferToHostMemory(ph_ptr, p_synchronize);
 	std::cout << "Done transferring image from Device to Host." << std::endl;
 }
 
@@ -269,6 +269,22 @@ void ImageDevice::writeToFile(const std::string& image_fname) const
 	tmpImage->allocate();
 	transferToHostMemory(tmpImage.get(), true);
 	tmpImage->writeToFile(image_fname);
+}
+
+void ImageDevice::copyFromHostImage(const Image* imSrc)
+{
+	ASSERT(imSrc != nullptr);
+	transferToDeviceMemory(imSrc, false);
+}
+
+void ImageDevice::copyFromDeviceImage(const ImageDevice* imSrc)
+{
+	ASSERT(imSrc != nullptr);
+	const float* pd_src = imSrc->getDevicePointer();
+	float* pd_dest = getDevicePointer();
+	const ImageParams& params = getParams();
+	const int numVoxels = params.nx * params.ny * params.nz;
+	Util::copyDeviceToDevice(pd_dest, pd_src, numVoxels, mp_stream, false);
 }
 
 void ImageDevice::updateEMThreshold(ImageBase* updateImg,
@@ -355,6 +371,21 @@ void ImageDevice::setValue(float initValue)
 		cudaDeviceSynchronize();
 	}
 	cudaCheckError();
+}
+
+void ImageDevice::copyFromImage(const ImageBase* imSrc)
+{
+	const auto imSrc_host = dynamic_cast<const Image*>(imSrc);
+	if (imSrc_host != nullptr)
+	{
+		// Input image is in host
+		copyFromHostImage(imSrc_host);
+	}
+	else
+	{
+		const auto imSrc_dev = dynamic_cast<const ImageDevice*>(imSrc);
+		copyFromDeviceImage(imSrc_dev);
+	}
 }
 
 

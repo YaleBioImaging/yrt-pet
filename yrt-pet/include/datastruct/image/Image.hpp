@@ -24,7 +24,7 @@ public:
 	const float* getRawPointer() const;
 	bool isMemoryValid() const;
 
-	void copyFromImage(const Image* imSrc);
+	void copyFromImage(const ImageBase* imSrc) override;
 	void multWithScalar(float scalar);
 	void addFirstImageToSecond(ImageBase* secondImage) const override;
 

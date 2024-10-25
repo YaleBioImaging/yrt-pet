@@ -106,6 +106,32 @@ namespace Util
 	}
 
 	template <typename T>
+	void copyDeviceToDevice(T* ppd_dest, const T* ppd_src, size_t p_numElems,
+	                        const cudaStream_t* pp_stream = nullptr,
+	                        bool p_synchronize = true)
+	{
+		if (pp_stream != nullptr)
+		{
+			cudaMemcpyAsync(ppd_dest, ppd_src, p_numElems * sizeof(T),
+			                cudaMemcpyDeviceToDevice, *pp_stream);
+			if (p_synchronize)
+			{
+				cudaStreamSynchronize(*pp_stream);
+			}
+		}
+		else
+		{
+			cudaMemcpy(ppd_dest, ppd_src, p_numElems * sizeof(T),
+			           cudaMemcpyDeviceToDevice);
+			if (p_synchronize)
+			{
+				cudaDeviceSynchronize();
+			}
+		}
+		ASSERT(cudaCheckError());
+	}
+
+	template <typename T>
 	void memsetDevice(T* ppd_data, int value, size_t p_numElems,
 	                  const cudaStream_t* pp_stream = nullptr,
 	                  bool p_synchronize = true)

@@ -143,11 +143,13 @@ void Image::setValue(float initValue)
 	mp_array->fill(initValue);
 }
 
-void Image::copyFromImage(const Image* imSrc)
+void Image::copyFromImage(const ImageBase* imSrc)
 {
-	ASSERT(mp_array != nullptr);
-	mp_array->copy(imSrc->getData());
-	setParams(imSrc->getParams());
+	const auto imSrc_ptr = dynamic_cast<const Image*>(imSrc);
+	ASSERT_MSG(imSrc_ptr!= nullptr, "Image not in host");
+	ASSERT_MSG(mp_array != nullptr, "Image not allocated");
+	mp_array->copy(imSrc_ptr->getData());
+	setParams(imSrc_ptr->getParams());
 }
 
 Array3DBase<float>& Image::getData()

@@ -66,6 +66,7 @@ public:
     void setParams(const ImageParams& newParams);
 
     virtual void setValue(float initValue) = 0;
+    virtual void copyFromImage(const ImageBase* imSrc) = 0;
     virtual void addFirstImageToSecond(ImageBase* second) const = 0;
     virtual void applyThreshold(const ImageBase* mask_img, float threshold,
                                 float val_le_scale, float val_le_off,

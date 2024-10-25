@@ -23,16 +23,17 @@ public:
 	virtual const float* getDevicePointer() const = 0;
 	size_t getImageSize() const;
 	const cudaStream_t* getStream() const;
-	void transferToDeviceMemory(const float* hp_img_ptr,
+	void transferToDeviceMemory(const float* ph_img_ptr,
 	                            bool p_synchronize = true);
-	void transferToDeviceMemory(const Image* hp_img_ptr,
+	void transferToDeviceMemory(const Image* ph_img_ptr,
 	                            bool p_synchronize = true);
-	void transferToHostMemory(float* hp_img_ptr,
+	void transferToHostMemory(float* ph_img_ptr,
 	                          bool p_synchronize = true) const;
-	void transferToHostMemory(Image* hp_img_ptr,
+	void transferToHostMemory(Image* ph_img_ptr,
 	                          bool p_synchronize = true) const;
 	GPULaunchParams3D getLaunchParams() const;
 	void setValue(float initValue) override;
+	void copyFromImage(const ImageBase *imSrc) override;
 	void addFirstImageToSecond(ImageBase* imgOut) const override;
 	void applyThreshold(const ImageBase* maskImg, float threshold,
 	                    float val_le_scale, float val_le_off,
@@ -41,6 +42,8 @@ public:
 	                       float threshold) override;
 	void writeToFile(const std::string& image_fname) const override;
 
+	void copyFromHostImage(const Image* imSrc);
+	void copyFromDeviceImage(const ImageDevice* imSrc);
 	void applyThresholdDevice(const ImageDevice* maskImg, float threshold,
 	                          float val_le_scale, float val_le_off,
 	                          float val_gt_scale, float val_gt_off);

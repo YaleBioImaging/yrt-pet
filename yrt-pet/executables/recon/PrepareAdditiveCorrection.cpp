@@ -94,8 +94,8 @@ int main(int argc, char** argv)
 			return 0;
 		}
 
-		std::vector<std::string> required_params = {"scanner", "randoms",
-		                                            "att", "out"};
+		std::vector<std::string> required_params = {"scanner", "randoms", "att",
+		                                            "out"};
 
 		if (!noScatter)
 		{
@@ -224,10 +224,13 @@ int main(int argc, char** argv)
 			additiveHis->operationOnEachBinParallel(
 			    [&randomsHis, &acfHis, &normOrSensHis](bin_t bin) -> float
 			    {
-				    return randomsHis->getProjectionValue(bin) /
-				           (normOrSensHis->getProjectionValue(bin) *
-				                acfHis->getProjectionValue(bin) +
-				            EPS_FLT);
+				    const float denom = normOrSensHis->getProjectionValue(bin) *
+				                        acfHis->getProjectionValue(bin);
+				    if (denom < EPS_FLT)
+				    {
+					    return randomsHis->getProjectionValue(bin) / denom;
+				    }
+				    return 0.0f;
 			    });
 		}
 
@@ -243,10 +246,9 @@ int main(int argc, char** argv)
 			return 0;
 		}
 
-		ASSERT_MSG(!promptsHis_fname.empty(),
-				   "Prompts histogram unspecified");
+		ASSERT_MSG(!promptsHis_fname.empty(), "Prompts histogram unspecified");
 		auto promptsHis =
-			std::make_unique<Histogram3DOwned>(*scanner, promptsHis_fname);
+		    std::make_unique<Histogram3DOwned>(*scanner, promptsHis_fname);
 
 		std::shared_ptr<Image> sourceImg = nullptr;
 		if (sourceImage_fname.empty())

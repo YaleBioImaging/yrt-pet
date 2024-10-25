@@ -106,6 +106,7 @@ int main(int argc, char* argv[])
 		}
 
 		postMotionCorrImage->writeToFile(outFile);
+		std::cout << "Done." << std::endl;
 
 		return 0;
 	}

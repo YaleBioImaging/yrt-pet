@@ -113,6 +113,7 @@ int main(int argc, char** argv)
 		k_out.writeToFile(out_fname);
 		k_i_out.writeToFile(out_i_fname);
 		k_j_out.writeToFile(out_j_fname);
+		std::cout << "Done." << std::endl;
 
 		return 0;
 	}

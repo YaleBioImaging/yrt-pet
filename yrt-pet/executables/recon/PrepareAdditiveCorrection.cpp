@@ -9,6 +9,7 @@
 #include "datastruct/scanner/Scanner.hpp"
 #include "geometry/Constants.hpp"
 #include "scatter/ScatterEstimator.hpp"
+#include "utils/Assert.hpp"
 #include "utils/Globals.hpp"
 #include "utils/ReconstructionUtils.hpp"
 #include "utils/Tools.hpp"
@@ -93,8 +94,8 @@ int main(int argc, char** argv)
 			return 0;
 		}
 
-		std::vector<std::string> required_params = {
-		    "scanner", "params", "randoms", "prompts", "att", "out"};
+		std::vector<std::string> required_params = {"scanner", "randoms",
+		                                            "prompts", "att", "out"};
 
 		if (!noScatter)
 		{
@@ -155,8 +156,6 @@ int main(int argc, char** argv)
 			    << std::endl;
 			return -1;
 		}
-
-		ImageParams imageParams(imgParams_fname);
 
 		Scatter::CrystalMaterial crystalMaterial =
 		    Scatter::getCrystalMaterialFromName(crystalMaterial_name);
@@ -283,6 +282,10 @@ int main(int argc, char** argv)
 				sensDataHis->writeToFile(outSensDataHis_fname);
 			}
 
+			ASSERT_MSG(!imgParams_fname.empty(),
+			           "Image parameters file not specified (\'params\')");
+			ImageParams imageParams(imgParams_fname);
+
 			std::vector<std::unique_ptr<Image>> sensImages;
 
 			// Generate source Image
@@ -313,8 +316,7 @@ int main(int argc, char** argv)
 				       "since a source image was already provided"
 				    << std::endl;
 			}
-			sourceImg =
-			    std::make_unique<ImageOwned>(imageParams, sourceImage_fname);
+			sourceImg = std::make_unique<ImageOwned>(sourceImage_fname);
 		}
 
 		Scatter::ScatterEstimator sss(*scanner, *sourceImg, *attImg,

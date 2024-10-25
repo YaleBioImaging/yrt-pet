@@ -226,7 +226,7 @@ int main(int argc, char** argv)
 			    {
 				    const float denom = normOrSensHis->getProjectionValue(bin) *
 				                        acfHis->getProjectionValue(bin);
-				    if (denom < EPS_FLT)
+				    if (denom > EPS_FLT)
 				    {
 					    return randomsHis->getProjectionValue(bin) / denom;
 				    }

@@ -242,6 +242,8 @@ int main(int argc, char** argv)
 		if (noScatter)
 		{
 			additiveHis->writeToFile(histoOut_fname);
+			std::cout << "Done." << std::endl;
+			return 0;
 		}
 
 		std::shared_ptr<Image> sourceImg = nullptr;

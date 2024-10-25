@@ -94,7 +94,7 @@ int main(int argc, char** argv)
 			return 0;
 		}
 
-		std::vector<std::string> required_params = {"scanner", "randoms", "att",
+		std::vector<std::string> required_params = {"scanner", "randoms",
 		                                            "out"};
 
 		if (!noScatter)
@@ -160,9 +160,6 @@ int main(int argc, char** argv)
 		Scatter::CrystalMaterial crystalMaterial =
 		    Scatter::getCrystalMaterialFromName(crystalMaterial_name);
 
-		// Attenuation image
-		auto attImg = std::make_unique<ImageOwned>(attImg_fname);
-
 		std::cout << "Reading histograms..." << std::endl;
 		auto randomsHis =
 		    std::make_unique<Histogram3DOwned>(*scanner, randomsHis_fname);
@@ -177,9 +174,9 @@ int main(int argc, char** argv)
 		{
 			normOrSensHis = std::make_unique<UniformHistogram>(*scanner, 1.0f);
 		}
-
 		std::cout << "Done reading histograms." << std::endl;
 		std::unique_ptr<Histogram3DOwned> acfHis = nullptr;
+		std::unique_ptr<Image> attImg = nullptr;
 		if (!acfHis_fname.empty())
 		{
 			acfHis = std::make_unique<Histogram3DOwned>(*scanner, acfHis_fname);
@@ -189,6 +186,12 @@ int main(int argc, char** argv)
 			std::cout << "ACF histogram not specified, forward-projecting "
 			             "attenuation image..."
 			          << std::endl;
+			// Attenuation image
+			ASSERT_MSG(!attImg_fname.empty(),
+			           "Attenuation image not specified (\'--att\'), cannot "
+			           "generate ACF histogram");
+			attImg = std::make_unique<ImageOwned>(attImg_fname);
+
 			acfHis = std::make_unique<Histogram3DOwned>(*scanner);
 			acfHis->allocate();
 			Util::forwProject(*scanner, *attImg, *acfHis,
@@ -322,6 +325,14 @@ int main(int argc, char** argv)
 				    << std::endl;
 			}
 			sourceImg = std::make_unique<ImageOwned>(sourceImage_fname);
+		}
+
+		if (attImg == nullptr)
+		{
+			ASSERT_MSG(!attImg_fname.empty(),
+			           "Attenuation image not specified (\'--att\'), cannot do "
+			           "scatter estimation");
+			attImg = std::make_unique<ImageOwned>(attImg_fname);
 		}
 
 		Scatter::ScatterEstimator sss(*scanner, *sourceImg, *attImg,

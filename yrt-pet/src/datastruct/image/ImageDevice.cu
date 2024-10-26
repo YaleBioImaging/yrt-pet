@@ -463,6 +463,9 @@ void ImageDeviceOwned::readFromFile(const std::string& filename)
 {
 	// Create temporary Image
 	const auto img = std::make_unique<ImageOwned>(filename);
+	setParams(img->getParams());
+	const ImageParams& params = getParams();
+	m_imgSize = params.nx * params.ny * params.nz;
 	allocate(false);
 	transferToDeviceMemory(img.get(), true);
 }

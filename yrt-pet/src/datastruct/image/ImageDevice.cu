@@ -177,8 +177,13 @@ ImageDevice::ImageDevice(const ImageParams& imgParams,
                          const cudaStream_t* stream_ptr)
     : ImageBase(imgParams), mp_stream(stream_ptr)
 {
-	m_launchParams = Util::initiateDeviceParameters(imgParams);
-	m_imgSize = imgParams.nx * imgParams.ny * imgParams.nz;
+	setDeviceParams(imgParams);
+}
+
+void ImageDevice::setDeviceParams(const ImageParams& params)
+{
+	m_launchParams = Util::initiateDeviceParameters(params);
+	m_imgSize = params.nx * params.ny * params.nz;
 }
 
 const cudaStream_t* ImageDevice::getStream() const
@@ -464,8 +469,7 @@ void ImageDeviceOwned::readFromFile(const std::string& filename)
 	// Create temporary Image
 	const auto img = std::make_unique<ImageOwned>(filename);
 	setParams(img->getParams());
-	const ImageParams& params = getParams();
-	m_imgSize = params.nx * params.ny * params.nz;
+	setDeviceParams(getParams());
 	allocate(false);
 	transferToDeviceMemory(img.get(), true);
 }

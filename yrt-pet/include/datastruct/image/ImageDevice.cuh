@@ -16,9 +16,6 @@ class Image;
 class ImageDevice : public ImageBase
 {
 public:
-	explicit ImageDevice(const ImageParams& imgParams,
-	                     const cudaStream_t* stream_ptr = nullptr);
-
 	virtual float* getDevicePointer() = 0;
 	virtual const float* getDevicePointer() const = 0;
 	size_t getImageSize() const;
@@ -50,6 +47,10 @@ public:
 
 protected:
 	explicit ImageDevice(const cudaStream_t* stream_ptr = nullptr);
+	explicit ImageDevice(const ImageParams& imgParams,
+			     const cudaStream_t* stream_ptr = nullptr);
+	void setDeviceParams(const ImageParams& params);
+
 	size_t m_imgSize;
 	const cudaStream_t* mp_stream;
 

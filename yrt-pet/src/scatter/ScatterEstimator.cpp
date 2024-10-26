@@ -123,33 +123,35 @@ namespace Scatter
 	float ScatterEstimator::computeTailFittingFactor()
 	{
 		std::cout << "Computing Tail-fit factor..." << std::endl;
-		float scat = 0.0f, prompt = 0.0f;
+		float scatterSum = 0.0f;
+		float promptsSum = 0.0f;
+
 		for (bin_t bin = 0; bin < mp_scatterHisto->count(); bin++)
 		{
-			// Only fit outside the image
-			if (!m_scatterTailsMask[bin])
-				continue;
+			// Only fit inside the mask
+			if (m_scatterTailsMask[bin])
+			{
+				scatterSum += mp_scatterHisto->getProjectionValue(bin);
 
-			scat += mp_scatterHisto->getProjectionValue(bin);
-			if (m_isNorm)
-			{
-				prompt += (mp_promptsHis->getProjectionValue(bin) -
-				           mp_randomsHis->getProjectionValue(bin)) *
-				          mp_normOrSensHis->getProjectionValue(bin);
-			}
-			else
-			{
-				const float sensitivity =
+				const float promptVal = mp_promptsHis->getProjectionValue(bin);
+				const float randomsVal = mp_randomsHis->getProjectionValue(bin);
+				const float normOrSensVal =
 				    mp_normOrSensHis->getProjectionValue(bin);
-				if (sensitivity > SMALL_FLT)
+
+				if (m_isNorm)
 				{
-					prompt += (mp_promptsHis->getProjectionValue(bin) -
-					           mp_randomsHis->getProjectionValue(bin)) /
-					          sensitivity;
+					promptsSum += (promptVal - randomsVal) * normOrSensVal;
+				}
+				else
+				{
+					if (normOrSensVal > SMALL_FLT)
+					{
+						promptsSum += (promptVal - randomsVal) / normOrSensVal;
+					}
 				}
 			}
 		}
-		const float fac = prompt / scat;
+		const float fac = promptsSum / scatterSum;
 		std::cout << "Tail-fitting factor: " << fac << std::endl;
 		return fac;
 	}

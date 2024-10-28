@@ -243,12 +243,9 @@ void OSEM_GPU::loadSubset(int subsetId, bool forRecon)
 
 	if (forRecon && !usingListModeInput)
 	{
-		std::cout << "Loading OSEM subset " << subsetId + 1 << "..."
-		          << std::endl;
 		// Loading the right sensitivity image to the device
 		mpd_sensImageBuffer->transferToDeviceMemory(
 		    getSensitivityImage(m_current_OSEM_subset), true);
-		std::cout << "OSEM subset loaded." << std::endl;
 	}
 }
 

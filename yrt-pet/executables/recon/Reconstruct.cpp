@@ -196,11 +196,13 @@ int main(int argc, char** argv)
 		else if (osem->validateSensImagesAmount(
 		             static_cast<int>(sensImg_fnames.size())))
 		{
+			std::cout << "Reading sensitivity images..." << std::endl;
 			for (auto& sensImg_fname : sensImg_fnames)
 			{
 				sensImages.push_back(
 				    std::make_unique<ImageOwned>(sensImg_fname));
 			}
+			std::cout << "Done reading sensitivity images." << std::endl;
 		}
 		else
 		{
@@ -224,9 +226,11 @@ int main(int argc, char** argv)
 		osem->setSensitivityImages(sensImages);
 
 		// Projection Data Input file
+		std::cout << "Reading input data..." << std::endl;
 		std::unique_ptr<ProjectionData> dataInput;
 		dataInput = IO::openProjectionData(input_fname, input_format, *scanner,
 		                                   pluginOptionsResults);
+		std::cout << "Done reading input data." << std::endl;
 		osem->setDataInput(dataInput.get());
 		if (tofWidth_ps > 0.f)
 		{
@@ -234,6 +238,7 @@ int main(int argc, char** argv)
 		}
 
 		// Additive histogram
+		std::cout << "Reading additive histogram..." << std::endl;
 		std::unique_ptr<ProjectionData> addHis;
 		if (!addHis_fname.empty())
 		{
@@ -244,6 +249,7 @@ int main(int argc, char** argv)
 			           "The additive histogram provided does not inherit from "
 			           "Histogram.");
 		}
+		std::cout << "Done reading additive histogram." << std::endl;
 
 		// Save steps
 		osem->setSaveSteps(saveSteps, out_fname);

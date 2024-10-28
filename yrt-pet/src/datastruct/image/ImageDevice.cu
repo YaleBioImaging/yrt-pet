@@ -293,14 +293,16 @@ void ImageDevice::copyFromHostImage(const Image* imSrc)
 	transferToDeviceMemory(imSrc, false);
 }
 
-void ImageDevice::copyFromDeviceImage(const ImageDevice* imSrc)
+void ImageDevice::copyFromDeviceImage(const ImageDevice* imSrc,
+                                      bool p_synchronize)
 {
 	ASSERT(imSrc != nullptr);
 	const float* pd_src = imSrc->getDevicePointer();
 	float* pd_dest = getDevicePointer();
-	const ImageParams& params = getParams();
-	const int numVoxels = params.nx * params.ny * params.nz;
-	Util::copyDeviceToDevice(pd_dest, pd_src, numVoxels, mp_stream, false);
+	ASSERT(pd_src != nullptr);
+	ASSERT(pd_dest != nullptr);
+	Util::copyDeviceToDevice(pd_dest, pd_src, m_imgSize, mp_stream,
+	                         p_synchronize);
 }
 
 void ImageDevice::updateEMThreshold(ImageBase* updateImg,

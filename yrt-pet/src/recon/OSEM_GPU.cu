@@ -161,7 +161,7 @@ void OSEM_GPU::allocateForRecon()
 
 void OSEM_GPU::endRecon()
 {
-	ASSERT(outImage!= nullptr);
+	ASSERT(outImage != nullptr);
 
 	// Transfer MLEM image Device to host
 	mpd_mlemImage->transferToHostMemory(outImage.get(), true);
@@ -255,8 +255,9 @@ void OSEM_GPU::loadSubset(int subsetId, bool forRecon)
 void OSEM_GPU::addImagePSF(const std::string& p_imageSpacePsf_fname)
 {
 	ASSERT_MSG(!p_imageSpacePsf_fname.empty(),
-			   "Empty filename for Image-space PSF");
-	imageSpacePsf = std::make_unique<OperatorPsfDevice>(p_imageSpacePsf_fname);
+	           "Empty filename for Image-space PSF");
+	imageSpacePsf = std::make_unique<OperatorPsfDevice>(p_imageSpacePsf_fname,
+	                                                    getMainStream());
 	flagImagePSF = true;
 }
 

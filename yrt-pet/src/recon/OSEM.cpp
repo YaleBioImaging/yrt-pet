@@ -151,29 +151,15 @@ void OSEM::generateSensitivityImageForSubset(int subsetId)
 	// Backproject everything
 	const int numBatches = getNumBatches(subsetId, false);
 
-	ImageBase* sensImageBufferToUse;
-
-	std::unique_ptr<ImageBase> tmpImage;
-	if(flagImagePSF)
-	{
-		tmpImage = std::make_unique<ImageOwned>(getImageParams());
-		reinterpret_cast<ImageOwned*>(tmpImage.get())->allocate();
-		sensImageBufferToUse = tmpImage.get();
-	}
-	else
-	{
-		sensImageBufferToUse = getSensImageBuffer();
-	}
-
 	for (int batchId = 0; batchId < numBatches; batchId++)
 	{
 		loadBatch(batchId, false);
-		mp_projector->applyAH(getSensDataInputBuffer(), sensImageBufferToUse);
+		mp_projector->applyAH(getSensDataInputBuffer(), getSensImageBuffer());
 	}
 
 	if (flagImagePSF)
 	{
-		imageSpacePsf->applyAH(sensImageBufferToUse, getSensImageBuffer());
+		imageSpacePsf->applyAH(getSensImageBuffer(), getSensImageBuffer());
 	}
 
 	std::cout << "Applying threshold" << std::endl;

@@ -40,7 +40,8 @@ public:
 	void writeToFile(const std::string& image_fname) const override;
 
 	void copyFromHostImage(const Image* imSrc);
-	void copyFromDeviceImage(const ImageDevice* imSrc);
+	void copyFromDeviceImage(const ImageDevice* imSrc,
+	                         bool p_synchronize = true);
 	void applyThresholdDevice(const ImageDevice* maskImg, float threshold,
 	                          float val_le_scale, float val_le_off,
 	                          float val_gt_scale, float val_gt_off);
@@ -48,7 +49,7 @@ public:
 protected:
 	explicit ImageDevice(const cudaStream_t* stream_ptr = nullptr);
 	explicit ImageDevice(const ImageParams& imgParams,
-			     const cudaStream_t* stream_ptr = nullptr);
+	                     const cudaStream_t* stream_ptr = nullptr);
 	void setDeviceParams(const ImageParams& params);
 
 	size_t m_imgSize;

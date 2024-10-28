@@ -47,13 +47,12 @@ protected:
 	void convolveDevice(const ImageDevice& inputImage,
 	                    ImageDevice& outputImage) const;
 
-	static void convolveDevice(const ImageDevice& inputImage,
-	                           ImageDevice& outputImage,
-	                           const DeviceArray<float>& kernelX,
-	                           const DeviceArray<float>& kernelY,
-	                           const DeviceArray<float>& kernelZ,
-	                           const cudaStream_t* stream = nullptr,
-	                           bool synchronize = true);
+	void convolveDevice(const ImageDevice& inputImage, ImageDevice& outputImage,
+	                    const DeviceArray<float>& kernelX,
+	                    const DeviceArray<float>& kernelY,
+	                    const DeviceArray<float>& kernelZ,
+	                    const cudaStream_t* stream = nullptr,
+	                    bool synchronize = true) const;
 
 	std::unique_ptr<DeviceArray<float>> mpd_kernelX;
 	std::unique_ptr<DeviceArray<float>> mpd_kernelY;
@@ -61,6 +60,7 @@ protected:
 	std::unique_ptr<DeviceArray<float>> mpd_kernelX_flipped;
 	std::unique_ptr<DeviceArray<float>> mpd_kernelY_flipped;
 	std::unique_ptr<DeviceArray<float>> mpd_kernelZ_flipped;
+	mutable std::unique_ptr<ImageDeviceOwned> mpd_intermediaryImage;
 
 private:
 	void readFromFileInternal(const std::string& imageSpacePsf_fname,

@@ -53,14 +53,17 @@ void py_setup_operatorpsfdevice(py::module& m)
 }
 #endif
 
-OperatorPsfDevice::OperatorPsfDevice() : OperatorPsf{}
+OperatorPsfDevice::OperatorPsfDevice()
+    : OperatorPsf{}, mpd_intermediaryImage{nullptr}
 {
 	initDeviceArraysIfNeeded();
 }
 
 OperatorPsfDevice::OperatorPsfDevice(const std::string& imageSpacePsf_fname,
                                      const cudaStream_t* pp_stream)
-    : OperatorPsf{}
+    : OperatorDevice{true, pp_stream, pp_stream},
+      OperatorPsf{},
+      mpd_intermediaryImage{nullptr}
 {
 	readFromFileInternal(imageSpacePsf_fname, pp_stream);
 }
@@ -275,7 +278,7 @@ void OperatorPsfDevice::convolveDevice(const ImageDevice& inputImage,
                                        const DeviceArray<float>& kernelY,
                                        const DeviceArray<float>& kernelZ,
                                        const cudaStream_t* stream,
-                                       bool synchronize)
+                                       bool synchronize) const
 {
 	const ImageParams& params = inputImage.getParams();
 	ASSERT_MSG(params.isSameDimensionsAs(outputImage.getParams()),
@@ -288,9 +291,14 @@ void OperatorPsfDevice::convolveDevice(const ImageDevice& inputImage,
 	ASSERT_MSG(pd_outputImage != nullptr,
 	           "Output device Image not allocated yet");
 
-	ImageDeviceOwned indermediaryImage{params};
-	indermediaryImage.allocate(synchronize);
-	float* pd_indermediaryImage = indermediaryImage.getDevicePointer();
+	if (mpd_intermediaryImage == nullptr ||
+	    !(mpd_intermediaryImage->getParams().isSameDimensionsAs(params)))
+	{
+		mpd_intermediaryImage =
+		    std::make_unique<ImageDeviceOwned>(params, stream);
+		mpd_intermediaryImage->allocate(true);
+	}
+	float* pd_intermediaryImage = mpd_intermediaryImage->getDevicePointer();
 
 	const float* pd_kernelX = kernelX.getDevicePointer();
 	const float* pd_kernelY = kernelY.getDevicePointer();
@@ -303,28 +311,36 @@ void OperatorPsfDevice::convolveDevice(const ImageDevice& inputImage,
 	ASSERT_MSG(kerSize[0] % 2 != 0, "Kernel size must be odd");
 	ASSERT_MSG(kerSize[1] % 2 != 0, "Kernel size must be odd");
 	ASSERT_MSG(kerSize[2] % 2 != 0, "Kernel size must be odd");
+	ASSERT_MSG(kerSize[0] <= static_cast<unsigned int>(params.nx),
+	           "Kernel size in X is larger than the image dimensions");
+	ASSERT_MSG(kerSize[1] <= static_cast<unsigned int>(params.ny),
+	           "Kernel size in Y is larger than the image dimensions");
+	ASSERT_MSG(kerSize[2] <= static_cast<unsigned int>(params.nz),
+	           "Kernel size in Z is larger than the image dimensions");
 
-	GPULaunchParams3D launchParams = inputImage.getLaunchParams();
+	const GPULaunchParams3D launchParams = inputImage.getLaunchParams();
 
 	if (stream != nullptr)
 	{
 		// Convolve along X-axis
 		convolve3DSeparable_kernel<0>
 		    <<<launchParams.gridSize, launchParams.blockSize, 0, *stream>>>(
-		        pd_inputImage, pd_outputImage, pd_kernelX, kerSize[0],
+		        pd_inputImage, pd_intermediaryImage, pd_kernelX, kerSize[0],
 		        params.nx, params.ny, params.nz);
 
 		// Convolve along Y-axis
 		convolve3DSeparable_kernel<1>
 		    <<<launchParams.gridSize, launchParams.blockSize, 0, *stream>>>(
-		        pd_outputImage, pd_indermediaryImage, pd_kernelY, kerSize[1],
+		        pd_intermediaryImage, pd_outputImage, pd_kernelY, kerSize[1],
 		        params.nx, params.ny, params.nz);
 
 		// Convolve along Z-axis
 		convolve3DSeparable_kernel<2>
 		    <<<launchParams.gridSize, launchParams.blockSize, 0, *stream>>>(
-		        pd_indermediaryImage, pd_outputImage, pd_kernelZ, kerSize[2],
+		        pd_outputImage, pd_intermediaryImage, pd_kernelZ, kerSize[2],
 		        params.nx, params.ny, params.nz);
+
+		outputImage.copyFromDeviceImage(mpd_intermediaryImage.get(), false);
 
 		if (synchronize)
 		{
@@ -336,20 +352,22 @@ void OperatorPsfDevice::convolveDevice(const ImageDevice& inputImage,
 		// Convolve along X-axis
 		convolve3DSeparable_kernel<0>
 		    <<<launchParams.gridSize, launchParams.blockSize, 0>>>(
-		        pd_inputImage, pd_outputImage, pd_kernelX, kerSize[0],
+		        pd_inputImage, pd_intermediaryImage, pd_kernelX, kerSize[0],
 		        params.nx, params.ny, params.nz);
 
 		// Convolve along Y-axis
 		convolve3DSeparable_kernel<1>
 		    <<<launchParams.gridSize, launchParams.blockSize, 0>>>(
-		        pd_outputImage, pd_indermediaryImage, pd_kernelY, kerSize[1],
+		        pd_intermediaryImage, pd_outputImage, pd_kernelY, kerSize[1],
 		        params.nx, params.ny, params.nz);
 
 		// Convolve along Z-axis
 		convolve3DSeparable_kernel<2>
 		    <<<launchParams.gridSize, launchParams.blockSize, 0>>>(
-		        pd_indermediaryImage, pd_outputImage, pd_kernelZ, kerSize[2],
+		        pd_outputImage, pd_intermediaryImage, pd_kernelZ, kerSize[2],
 		        params.nx, params.ny, params.nz);
+
+		outputImage.copyFromDeviceImage(mpd_intermediaryImage.get(), false);
 
 		if (synchronize)
 		{

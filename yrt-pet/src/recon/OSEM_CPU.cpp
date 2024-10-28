@@ -188,17 +188,15 @@ void OSEM_CPU::allocateForRecon()
 	{
 		std::cout << "Summing sensitivity images to generate mask image..."
 		          << std::endl;
-		auto sensitivityImageSum =
-		    std::make_unique<ImageOwned>(getImageParams());
-		sensitivityImageSum->allocate();
 		for (int i = 0; i < num_OSEM_subsets; ++i)
 		{
 			getSensitivityImage(i)->addFirstImageToSecond(
-			    sensitivityImageSum.get());
+			    mp_mlemImageTmp.get());
 		}
-		applyMask(sensitivityImageSum.get());
+		applyMask(mp_mlemImageTmp.get());
 		std::cout << "Done summing" << std::endl;
 	}
+	mp_mlemImageTmp->setValue(0.0f);
 	std::cout << "Threshold applied" << std::endl;
 }
 

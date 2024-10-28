@@ -137,6 +137,31 @@ void OSEM_GPU::allocateForRecon()
 	// Initialize the MLEM image values to non zero
 	mpd_mlemImage->setValue(INITIAL_VALUE_MLEM);
 
+	// Apply mask image
+	if (maskImage != nullptr)
+	{
+		mpd_mlemImageTmp->copyFromHostImage(maskImage);
+	}
+	else if (num_OSEM_subsets == 1 || usingListModeInput)
+	{
+		// No need to sum all sensitivity images, just use the only one
+		mpd_mlemImageTmp->copyFromHostImage(getSensitivityImage(0));
+	}
+	else
+	{
+		std::cout << "Summing sensitivity images to generate mask image..."
+		          << std::endl;
+		for (int i = 0; i < num_OSEM_subsets; ++i)
+		{
+			mpd_sensImageBuffer->copyFromHostImage(getSensitivityImage(i));
+			mpd_sensImageBuffer->addFirstImageToSecond(mpd_mlemImageTmp.get());
+		}
+		std::cout << "Done summing" << std::endl;
+	}
+	mpd_mlemImage->applyThreshold(mpd_mlemImageTmp.get(), 0.0, 0.0, 0.0, 0.0,
+	                              1.0f);
+	mpd_mlemImageTmp->setValue(0.0f);
+
 	// Initialize device's sensitivity image with the host's
 	if (usingListModeInput)
 	{

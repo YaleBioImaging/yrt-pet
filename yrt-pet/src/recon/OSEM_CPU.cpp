@@ -193,7 +193,7 @@ void OSEM_CPU::allocateForRecon()
 			getSensitivityImage(i)->addFirstImageToSecond(
 			    mp_mlemImageTmp.get());
 		}
-		std::cout << "Done summing" << std::endl;
+		std::cout << "Done summing." << std::endl;
 		applyMask(mp_mlemImageTmp.get());
 	}
 	mp_mlemImageTmp->setValue(0.0f);

@@ -156,7 +156,7 @@ void OSEM_GPU::allocateForRecon()
 			mpd_sensImageBuffer->copyFromHostImage(getSensitivityImage(i));
 			mpd_sensImageBuffer->addFirstImageToSecond(mpd_mlemImageTmp.get());
 		}
-		std::cout << "Done summing" << std::endl;
+		std::cout << "Done summing." << std::endl;
 	}
 	mpd_mlemImage->applyThreshold(mpd_mlemImageTmp.get(), 0.0, 0.0, 0.0, 0.0,
 	                              1.0f);

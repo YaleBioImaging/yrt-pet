@@ -46,9 +46,9 @@ void OperatorPsf::readFromFile(const std::string& imageSpacePsf_fname)
 void OperatorPsf::readFromFileInternal(const std::string& imageSpacePsf_fname)
 {
 	Array2D<float> kernelsArray2D;
-	std::cout << "Reading image space PSF kernel csv file" << std::endl;
+	std::cout << "Reading image space PSF kernel csv file..." << std::endl;
 	Util::readCSV<float>(imageSpacePsf_fname, kernelsArray2D);
-	std::cout << "Done reading image space PSF kernel csv file" << std::endl;
+	std::cout << "Done reading image space PSF kernel csv file." << std::endl;
 
 	std::array<int, 3> kerSize;
 	kerSize[0] = kernelsArray2D[3][0];

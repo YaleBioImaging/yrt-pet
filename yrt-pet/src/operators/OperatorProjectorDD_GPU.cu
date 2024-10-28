@@ -310,7 +310,7 @@ void OperatorProjectorDD_GPU::applyAdditiveOnLoadedBatchIfNeeded(
 		intermediaryBuffer.loadProjValuesFromHost(imgProjData->getReference(),
 		                                          addHisto, getAuxStream());
 		imgProjData->addProjValues(&intermediaryBuffer, getMainStream());
-		std::cout << "Done applying additive corrections on current batch..."
+		std::cout << "Done applying additive corrections on current batch."
 		          << std::endl;
 	}
 }

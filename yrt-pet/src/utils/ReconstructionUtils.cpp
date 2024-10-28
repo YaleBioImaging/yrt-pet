@@ -379,13 +379,13 @@ namespace Util
 		{
 			std::cout << "Forward projecting all LORs ..." << std::endl;
 			oper->applyA(img, projData);
-			std::cout << "Done forward projecting all LORs" << std::endl;
+			std::cout << "Done forward projecting all LORs." << std::endl;
 		}
 		else
 		{
 			std::cout << "Back projecting all LORs ..." << std::endl;
 			oper->applyAH(projData, img);
-			std::cout << "Done back projecting all LORs" << std::endl;
+			std::cout << "Done back projecting all LORs." << std::endl;
 		}
 	}
 

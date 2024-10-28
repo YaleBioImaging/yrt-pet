@@ -219,7 +219,8 @@ void ImageDevice::transferToDeviceMemory(const Image* ph_img_ptr,
 void ImageDevice::transferToHostMemory(float* ph_img_ptr,
                                        bool p_synchronize) const
 {
-	ASSERT_MSG(getDevicePointer() != nullptr, "Device Image not allocated yet");
+	ASSERT_MSG(getDevicePointer() != nullptr, "Device Image not allocated");
+	ASSERT_MSG(ph_img_ptr != nullptr, "Host image not allocated");
 	Util::copyDeviceToHost(ph_img_ptr, getDevicePointer(), m_imgSize, mp_stream,
 	                       p_synchronize);
 }

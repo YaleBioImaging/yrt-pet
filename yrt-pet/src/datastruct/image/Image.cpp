@@ -908,7 +908,10 @@ std::unique_ptr<Image> Image::transformImage(const Vector3D& rotation,
 	return newImg;
 }
 
-ImageOwned::ImageOwned(const ImageParams& imgParams) : Image{imgParams} {}
+ImageOwned::ImageOwned(const ImageParams& imgParams) : Image{imgParams}
+{
+	mp_array = std::make_unique<Array3D<float>>();
+}
 
 ImageOwned::ImageOwned(const ImageParams& imgParams,
                        const std::string& filename)

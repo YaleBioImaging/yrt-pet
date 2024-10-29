@@ -221,16 +221,18 @@ void ProjectionData::clearProjections(float value)
 void ProjectionData::divideMeasurements(const ProjectionData* measurements,
                                         const BinIterator* binIter)
 {
-	int num_threads = Globals::get_num_threads();
-#pragma omp parallel for num_threads(num_threads)
-	for (size_t binIdx = 0; binIdx < binIter->size(); binIdx++)
+	const bin_t numBins = binIter->size();
+#pragma omp parallel for default(none) \
+    firstprivate(numBins, binIter, measurements)
+	for (bin_t binIdx = 0; binIdx < numBins; binIdx++)
 	{
-		const size_t bin = binIter->get(binIdx);
+		const bin_t bin = binIter->get(binIdx);
+		const float projValue = getProjectionValue(bin);
 		// to prevent numerical instability
-		if (getProjectionValue(bin) > 1e-8)
+		if (projValue > 1e-8)
 		{
 			setProjectionValue(bin, measurements->getProjectionValue(bin) /
-			                            getProjectionValue(bin));
+			                            projValue);
 		}
 	}
 }

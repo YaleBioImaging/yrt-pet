@@ -68,17 +68,17 @@ void py_setup_osem(pybind11::module& m)
 
 	c.def("getSensDataInput",
 	      static_cast<ProjectionData* (OSEM::*)()>(&OSEM::getSensDataInput));
-	c.def("setSensDataInput", &OSEM::setSensDataInput);
+	c.def("setSensDataInput", &OSEM::setSensDataInput, py::arg("sens_proj_data"));
 	c.def("getDataInput",
 	      static_cast<ProjectionData* (OSEM::*)()>(&OSEM::getDataInput));
-	c.def("setDataInput", &OSEM::setDataInput);
-	c.def("addTOF", &OSEM::addTOF);
-	c.def("addProjPSF", &OSEM::addProjPSF);
-	c.def("addImagePSF", &OSEM::addImagePSF);
-	c.def("setSaveSteps", &OSEM::setSaveSteps);
-	c.def("setListModeEnabled", &OSEM::setListModeEnabled);
-	c.def("setProjector", &OSEM::setProjector);
-	c.def("setImageParams", &OSEM::setImageParams);
+	c.def("setDataInput", &OSEM::setDataInput, py::arg("proj_data"));
+	c.def("addTOF", &OSEM::addTOF, py::arg("tof_width_ps"), py::arg("tof_num_std"));
+	c.def("addProjPSF", &OSEM::addProjPSF, py::arg("proj_psf_fname"));
+	c.def("addImagePSF", &OSEM::addImagePSF, py::arg("image_psf_fname"));
+	c.def("setSaveSteps", &OSEM::setSaveSteps, py::arg("interval"), py::arg("path"));
+	c.def("setListModeEnabled", &OSEM::setListModeEnabled, py::arg("enabled"));
+	c.def("setProjector", &OSEM::setProjector, py::arg("projector_name"));
+	c.def("setImageParams", &OSEM::setImageParams, py::arg("params"));
 	c.def("isListModeEnabled", &OSEM::isListModeEnabled);
 
 	c.def_readwrite("num_MLEM_iterations", &OSEM::num_MLEM_iterations);

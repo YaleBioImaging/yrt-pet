@@ -6,6 +6,7 @@
 import numpy as np
 import tqdm
 import argparse
+import re
 
 # %% Main function
 
@@ -40,10 +41,10 @@ if __name__ == "__main__":
         description='LUT generation script for YRT-PET')
     parser.add_argument('-i', '--input', dest='input_file', type=str,
                         required=True,
-                        description='Input file (output of ' +
+                        help='Input file (output of ' +
                         'castor-scannerLUTExplorer)')
     parser.add_argument('-o', '--output', dest='output_file', type=str,
-                        required=True, description='Output LUT file')
+                        required=True, help='Output LUT file')
 
     args_p = parser.parse_args()
 

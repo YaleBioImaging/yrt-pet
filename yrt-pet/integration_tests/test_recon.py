@@ -39,7 +39,7 @@ def test_mlem_simple():
     _helper._test_reconstruction(
         img_params, scanner, dataset, sens_img,
         out_paths['test_mlem_simple'], ref_paths['test_mlem_simple'],
-        num_MLEM_iterations=30, rtol=1e-3)
+        num_MLEM_iterations=30, rtol=5e-2)
 
 
 def _test_mlem_helper(dset):

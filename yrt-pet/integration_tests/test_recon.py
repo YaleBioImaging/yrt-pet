@@ -256,7 +256,7 @@ def test_flat_panel_mlem_tof_exec():
     exec_str += ' --format LM-DOI --projector DD_GPU'
     exec_str += ' --sens ' + dataset_paths['test_flat_panel_mlem_tof'][2]
     exec_str += ' --flag_tof --tof_width_ps 70 --tof_n_std 5'
-    exec_str += ' --num_iterations 10 --num_threads 20'
+    exec_str += ' --num_iterations 5 --num_subsets 12 --num_threads 20'
     exec_str += ' --out ' + out_paths['test_flat_panel_mlem_tof_exec']
     ret = os.system(exec_str)
     assert ret == 0

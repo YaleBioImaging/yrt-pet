@@ -308,7 +308,7 @@ void OSEM::setSensitivityImage(Image* sensImage, int subset)
 		ASSERT_MSG(subset == 0, "In List-Mode reconstruction, only one "
 		                        "sensitivity image is needed");
 	}
-	else if (subset < num_OSEM_subsets)
+	else if (subset >= num_OSEM_subsets)
 	{
 		std::string errorMessage = "Subset index too high. The expected number "
 		                           "of sensitivity images is ";

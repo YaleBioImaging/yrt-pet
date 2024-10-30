@@ -127,8 +127,8 @@ void OperatorProjectorDD_GPU::applyA(const Variable* in, Variable* out)
 		std::cout << "Forward projecting current batch..." << std::endl;
 		applyOnLoadedBatch<true>(dat_out, img_in);
 		std::cout << "Done Forward projecting current batch." << std::endl;
-		applyAttenuationOnLoadedBatchIfNeeded(dat_out, dat_out, true);
 		applyAdditiveOnLoadedBatchIfNeeded(dat_out);
+		applyAttenuationOnLoadedBatchIfNeeded(dat_out, dat_out, true);
 	}
 	else
 	{
@@ -146,8 +146,8 @@ void OperatorProjectorDD_GPU::applyA(const Variable* in, Variable* out)
 			std::cout << "Forward projecting batch..." << std::endl;
 			applyOnLoadedBatch<true>(dat_out, img_in);
 			std::cout << "Done forward projecting batch." << std::endl;
-			applyAttenuationOnLoadedBatchIfNeeded(dat_out, dat_out, true);
 			applyAdditiveOnLoadedBatchIfNeeded(dat_out);
+			applyAttenuationOnLoadedBatchIfNeeded(dat_out, dat_out, true);
 			std::cout << "Transferring batch to Host..." << std::endl;
 			dat_out->transferProjValuesToHost(hostDat_out, getAuxStream());
 			std::cout << "Done transferring batch to host." << std::endl;

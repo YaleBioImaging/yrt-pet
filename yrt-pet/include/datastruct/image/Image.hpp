@@ -13,6 +13,8 @@
 
 #include <string>
 
+struct transform_t;
+
 class Image : public ImageBase
 {
 public:
@@ -39,6 +41,7 @@ public:
 	Array3DAlias<float> getArray() const;
 	std::unique_ptr<Image> transformImage(const Vector3D& rotation,
 	                                      const Vector3D& translation) const;
+	std::unique_ptr<Image> transformImage(const transform_t& t) const;
 
 	float dotProduct(const Image& y) const;
 	float nearestNeighbor(const Vector3D& pt) const;
@@ -55,6 +58,9 @@ public:
 	                            bool mult_flag);
 	void assignImageInterpolate(const Vector3D& point, float value);
 
+	template <int Dimension>
+	float indexToPositionInDimension(int index) const;
+
 protected:
 	static ImageParams
 	    createImageParamsFromSitkImage(const itk::simple::Image& sitkImage);
@@ -63,12 +69,11 @@ protected:
 	static double imageParamsOffsetToSitkOrigin(float off, float voxelSize,
 	                                            float length);
 	static void updateSitkImageFromParameters(itk::simple::Image& sitkImage,
-					  const ImageParams& params);
+	                                          const ImageParams& params);
 
 	Image();
 	explicit Image(const ImageParams& imgParams);
 	std::unique_ptr<Array3DBase<float>> mp_array;
-
 };
 
 class ImageOwned : public Image

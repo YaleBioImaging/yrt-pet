@@ -7,6 +7,7 @@
 #include "datastruct/image/ImageBase.hpp"
 #include "geometry/Constants.hpp"
 #include "utils/Assert.hpp"
+#include "utils/Types.hpp"
 
 #include <sitkCastImageFilter.h>
 #include <sitkImageFileReader.h>
@@ -77,8 +78,41 @@ void py_setup_image(py::module& m)
 	    },
 	    py::arg("pt"));
 	c.def("getArray", &Image::getArray);
-	c.def("transformImage", &Image::transformImage, py::arg("rotation"),
-	      py::arg("translation"));
+	c.def("transformImage",
+	      static_cast<std::unique_ptr<Image> (Image::*)(
+	          const Vector3D& rotation, const Vector3D& translation) const>(
+	          &Image::transformImage),
+	      py::arg("rotation"), py::arg("translation"));
+	c.def(
+	    "transformImage",
+	    [](const Image& self, const py::tuple& transformTuple)
+	    {
+		    ASSERT_MSG(transformTuple.size() == 2, "Transform tuple misformed");
+		    const auto rotationTuple = py::cast<py::tuple>(transformTuple[0]);
+		    ASSERT_MSG(rotationTuple.size() == 9,
+		               "Transform tuple misformed in rotation");
+		    const auto translationTuple =
+		        py::cast<py::tuple>(transformTuple[1]);
+		    ASSERT_MSG(translationTuple.size() == 3,
+		               "Transform tuple misformed in translation");
+
+		    transform_t transform{};
+		    transform.r00 = py::cast<float>(rotationTuple[0]);
+		    transform.r01 = py::cast<float>(rotationTuple[1]);
+		    transform.r02 = py::cast<float>(rotationTuple[2]);
+		    transform.r10 = py::cast<float>(rotationTuple[3]);
+		    transform.r11 = py::cast<float>(rotationTuple[4]);
+		    transform.r12 = py::cast<float>(rotationTuple[5]);
+		    transform.r20 = py::cast<float>(rotationTuple[6]);
+		    transform.r21 = py::cast<float>(rotationTuple[7]);
+		    transform.r22 = py::cast<float>(rotationTuple[8]);
+		    transform.tx = py::cast<float>(translationTuple[0]);
+		    transform.ty = py::cast<float>(translationTuple[1]);
+		    transform.tz = py::cast<float>(translationTuple[2]);
+
+		    return self.transformImage(transform);
+	    },
+	    py::arg("transform"));
 	c.def("updateImageNearestNeighbor", &Image::updateImageNearestNeighbor,
 	      py::arg("pt"), py::arg("value"), py::arg("doMultiplication"));
 	c.def("assignImageNearestNeighbor", &Image::assignImageNearestNeighbor,
@@ -146,7 +180,7 @@ void Image::setValue(float initValue)
 void Image::copyFromImage(const ImageBase* imSrc)
 {
 	const auto imSrc_ptr = dynamic_cast<const Image*>(imSrc);
-	ASSERT_MSG(imSrc_ptr!= nullptr, "Image not in host");
+	ASSERT_MSG(imSrc_ptr != nullptr, "Image not in host");
 	ASSERT_MSG(mp_array != nullptr, "Image not allocated");
 	mp_array->copy(imSrc_ptr->getData());
 	setParams(imSrc_ptr->getParams());
@@ -867,20 +901,18 @@ std::unique_ptr<Image> Image::transformImage(const Vector3D& rotation,
 	const float alpha = rotation.z;
 	const float beta = rotation.y;
 	const float gamma = rotation.x;
+
 	for (int i = 0; i < params.nz; i++)
 	{
-		const float z = static_cast<float>(i) * params.vz -
-		                params.length_z / 2.0 + params.off_z + params.vz / 2.0;
+		const float z = indexToPositionInDimension<0>(i);
+
 		for (int j = 0; j < params.ny; j++)
 		{
-			const float y = static_cast<float>(j) * params.vy -
-			                params.length_y / 2.0 + params.off_y +
-			                params.vy / 2.0;
+			const float y = indexToPositionInDimension<1>(j);
+
 			for (int k = 0; k < params.nx; k++)
 			{
-				const float x = static_cast<float>(k) * params.vx -
-				                params.length_x / 2.0 + params.off_x +
-				                params.vx / 2.0;
+				const float x = indexToPositionInDimension<2>(k);
 
 				float newX = x * cos(alpha) * cos(beta) +
 				             y * (-sin(alpha) * cos(gamma) +
@@ -897,6 +929,44 @@ std::unique_ptr<Image> Image::transformImage(const Vector3D& rotation,
 				float newZ = -x * sin(beta) + y * sin(gamma) * cos(beta) +
 				             z * cos(beta) * cos(gamma);
 				newZ += translation.z;
+
+				const float currentValue =
+				    rawPtr[i * num_xy + j * params.nx + k];
+				newImg->updateImageInterpolate({newX, newY, newZ}, currentValue,
+				                               false);
+			}
+		}
+	}
+	return newImg;
+}
+
+std::unique_ptr<Image> Image::transformImage(const transform_t& t) const
+{
+	ImageParams params = getParams();
+	const float* rawPtr = getRawPointer();
+	const int num_xy = params.nx * params.ny;
+	auto newImg = std::make_unique<ImageOwned>(params);
+	newImg->allocate();
+	newImg->setValue(0.0);
+
+	for (int i = 0; i < params.nz; i++)
+	{
+		const float z = indexToPositionInDimension<0>(i);
+
+		for (int j = 0; j < params.ny; j++)
+		{
+			const float y = indexToPositionInDimension<1>(j);
+
+			for (int k = 0; k < params.nx; k++)
+			{
+				const float x = indexToPositionInDimension<2>(k);
+
+				float newX = x * t.r00 + y * t.r01 + z * t.r02;
+				newX += t.tx;
+				float newY = x * t.r10 + y * t.r11 + z * t.r12;
+				newY += t.ty;
+				float newZ = x * t.r20 + y * t.r21 + z * t.r22;
+				newZ += t.tz;
 
 				const float currentValue =
 				    rawPtr[i * num_xy + j * params.nx + k];
@@ -1086,6 +1156,42 @@ double Image::imageParamsOffsetToSitkOrigin(float off, float voxelSize,
 {
 	return off - 0.5 * length + 0.5 * voxelSize;
 }
+
+template <int Dimension>
+float Image::indexToPositionInDimension(int index) const
+{
+	static_assert(Dimension >= 0 && Dimension < 3);
+	const ImageParams& params = getParams();
+	float voxelSize, length, offset;
+	if constexpr (Dimension == 0)
+	{
+		voxelSize = params.vz;
+		length = params.length_z;
+		offset = params.off_z;
+	}
+	else if constexpr (Dimension == 1)
+	{
+		voxelSize = params.vy;
+		length = params.length_y;
+		offset = params.off_y;
+	}
+	else if constexpr (Dimension == 2)
+	{
+		voxelSize = params.vx;
+		length = params.length_x;
+		offset = params.off_x;
+	}
+	else
+	{
+		throw std::runtime_error("Unknown error");
+	}
+	return static_cast<float>(index) * voxelSize - 0.5f * length + offset +
+	       0.5f * voxelSize;
+}
+template float Image::indexToPositionInDimension<0>(int index) const;
+template float Image::indexToPositionInDimension<1>(int index) const;
+template float Image::indexToPositionInDimension<2>(int index) const;
+
 
 ImageParams Image::createImageParamsFromSitkImage(const sitk::Image& sitkImage)
 {

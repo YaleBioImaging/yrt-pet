@@ -301,14 +301,6 @@ bool Image::getNearestNeighborIdx(const Vector3D& pt, int* pi, int* pj,
 	const float y = pt.y - params.off_y;
 	const float z = pt.z - params.off_z;
 
-	// if point is outside of the grid, return false
-	if ((std::abs(x) >= (params.length_x / 2.0)) ||
-	    (std::abs(y) >= (params.length_y / 2.0)) ||
-	    (std::abs(z) >= (params.length_z / 2.0)))
-	{
-		return false;
-	}
-
 	const float dx = (x + params.length_x / 2.0) / params.length_x *
 	                 static_cast<float>(params.nx);
 	const float dy = (y + params.length_y / 2.0) / params.length_y *
@@ -319,6 +311,13 @@ bool Image::getNearestNeighborIdx(const Vector3D& pt, int* pi, int* pj,
 	const int ix = static_cast<int>(dx);
 	const int iy = static_cast<int>(dy);
 	const int iz = static_cast<int>(dz);
+
+	if (ix < 0 || ix >= params.nx || iy < 0 || iy >= params.ny || iz < 0 ||
+	    iz >= params.nz)
+	{
+		// Point outside grid
+		return false;
+	}
 
 	*pi = ix;
 	*pj = iy;
@@ -336,23 +335,23 @@ float Image::interpolateImage(const Vector3D& pt) const
 	const float y = pt.y - params.off_y;
 	const float z = pt.z - params.off_z;
 
-	// if point outside of the image, return 0:
-	if ((std::abs(x) >= (params.length_x / 2)) ||
-	    (std::abs(y) >= (params.length_y / 2)) ||
-	    (std::abs(z) >= (params.length_z / 2)))
-	{
-		return 0.0;
-	}
-	const float dx = (x + params.length_x / 2) / params.length_x *
+	const float dx = (x + params.length_x / 2.0f) / params.length_x *
 	                 static_cast<float>(params.nx);
-	const float dy = (y + params.length_y / 2) / params.length_y *
+	const float dy = (y + params.length_y / 2.0f) / params.length_y *
 	                 static_cast<float>(params.ny);
-	const float dz = (z + params.length_z / 2) / params.length_z *
+	const float dz = (z + params.length_z / 2.0f) / params.length_z *
 	                 static_cast<float>(params.nz);
 
 	const int ix = static_cast<int>(dx);
 	const int iy = static_cast<int>(dy);
 	const int iz = static_cast<int>(dz);
+
+	if (ix < 0 || ix >= params.nx || iy < 0 || iy >= params.ny || iz < 0 ||
+	    iz >= params.nz)
+	{
+		// Point outside grid
+		return 0.0f;
+	}
 
 	const float delta_x = dx - static_cast<float>(ix);
 	const float delta_y = dy - static_cast<float>(iy);
@@ -447,24 +446,23 @@ float Image::interpolateImage(const Vector3D& pt, const Image& sens) const
 	const float y = pt.y - params.off_y;
 	const float z = pt.z - params.off_z;
 
-	// if point outside of the image, return 0:
-	if ((std::abs(x) >= (params.length_x / 2)) ||
-	    (std::abs(y) >= (params.length_y / 2)) ||
-	    (std::abs(z) >= (params.length_z / 2)))
-	{
-		return 0.;
-	}
-
-	const float dx = (x + params.length_x / 2) / params.length_x *
+	const float dx = (x + params.length_x / 2.0f) / params.length_x *
 	                 static_cast<float>(params.nx);
-	const float dy = (y + params.length_y / 2) / params.length_y *
+	const float dy = (y + params.length_y / 2.0f) / params.length_y *
 	                 static_cast<float>(params.ny);
-	const float dz = (z + params.length_z / 2) / params.length_z *
+	const float dz = (z + params.length_z / 2.0f) / params.length_z *
 	                 static_cast<float>(params.nz);
 
 	const int ix = static_cast<int>(dx);
 	const int iy = static_cast<int>(dy);
 	const int iz = static_cast<int>(dz);
+
+	if (ix < 0 || ix >= params.nx || iy < 0 || iy >= params.ny || iz < 0 ||
+	    iz >= params.nz)
+	{
+		// Point outside grid
+		return 0.0f;
+	}
 
 	const float delta_x = dx - static_cast<float>(ix);
 	const float delta_y = dy - static_cast<float>(iy);
@@ -568,14 +566,6 @@ void Image::updateImageInterpolate(const Vector3D& point, float value,
 	const float y = point.y - params.off_y;
 	const float z = point.z - params.off_z;
 
-	// if point is outside of the grid do nothing:
-	if ((std::abs(x) >= (params.length_x / 2)) ||
-	    (std::abs(y) >= (params.length_y / 2)) ||
-	    (std::abs(z) >= (params.length_z / 2)))
-	{
-		return;
-	}
-
 	float dx = (x + params.length_x / 2) / params.length_x * ((float)params.nx);
 	float dy = (y + params.length_y / 2) / params.length_y * ((float)params.ny);
 	float dz = (z + params.length_z / 2) / params.length_z * ((float)params.nz);
@@ -583,6 +573,13 @@ void Image::updateImageInterpolate(const Vector3D& point, float value,
 	int ix = (int)dx;
 	int iy = (int)dy;
 	int iz = (int)dz;
+
+	if (ix < 0 || ix >= params.nx || iy < 0 || iy >= params.ny || iz < 0 ||
+	    iz >= params.nz)
+	{
+		// Point outside grid
+		return;
+	}
 
 	float delta_x = dx - (float)ix;
 	float delta_y = dy - (float)iy;
@@ -690,14 +687,6 @@ void Image::assignImageInterpolate(const Vector3D& point, float value)
 	const float y = point.y - params.off_y;
 	const float z = point.z - params.off_z;
 
-	// if point is outside of the grid do nothing:
-	if ((std::abs(x) >= (params.length_x / 2)) ||
-	    (std::abs(y) >= (params.length_y / 2)) ||
-	    (std::abs(z) >= (params.length_z / 2)))
-	{
-		return;
-	}
-
 	float dx = (x + params.length_x / 2) / params.length_x * ((float)params.nx);
 	float dy = (y + params.length_y / 2) / params.length_y * ((float)params.ny);
 	float dz = (z + params.length_z / 2) / params.length_z * ((float)params.nz);
@@ -705,6 +694,13 @@ void Image::assignImageInterpolate(const Vector3D& point, float value)
 	int ix = (int)dx;
 	int iy = (int)dy;
 	int iz = (int)dz;
+
+	if (ix < 0 || ix >= params.nx || iy < 0 || iy >= params.ny || iz < 0 ||
+	    iz >= params.nz)
+	{
+		// Point outside grid
+		return;
+	}
 
 	float delta_x = dx - (float)ix;
 	float delta_y = dy - (float)iy;

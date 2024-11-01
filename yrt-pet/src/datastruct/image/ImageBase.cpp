@@ -67,6 +67,11 @@ void py_setup_imageparams(py::module& m)
 	c.def("serialize", &ImageParams::serialize);
 	c.def("deserialize", &ImageParams::deserialize);
 
+	c.def("isSameAs", &ImageParams::isSameAs);
+	c.def("isSameOffsetsAs", &ImageParams::isSameOffsetsAs);
+	c.def("isSameLengthsAs", &ImageParams::isSameLengthsAs);
+	c.def("isSameDimensionsAs", &ImageParams::isSameDimensionsAs);
+
 	c.def(py::pickle(
 	    [](const ImageParams& g)
 	    {

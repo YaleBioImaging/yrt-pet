@@ -35,7 +35,8 @@ public:
 	ImageBase* getSensImageBuffer() override;
 	ProjectionData* getSensDataInputBuffer() override;
 	ImageBase* getMLEMImageBuffer() override;
-	ImageBase* getMLEMImageTmpBuffer() override;
+	ImageBase*
+	    getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType type) override;
 	ProjectionData* getMLEMDataBuffer() override;
 	ProjectionData* getMLEMDataTmpBuffer() override;
 	int getNumBatches(int subsetId, bool forRecon) const override;
@@ -52,7 +53,8 @@ private:
 	std::unique_ptr<ImageDeviceOwned> mpd_sensImageBuffer;
 	std::unique_ptr<ProjectionDataDeviceOwned> mpd_tempSensDataInput;
 	std::unique_ptr<ImageDeviceOwned> mpd_mlemImage;
-	std::unique_ptr<ImageDeviceOwned> mpd_mlemImageTmp;
+	std::unique_ptr<ImageDeviceOwned> mpd_mlemImageTmpEMRatio;
+	std::unique_ptr<ImageDeviceOwned> mpd_mlemImageTmpPsf;
 	std::unique_ptr<ProjectionDataDeviceOwned> mpd_dat;
 	std::unique_ptr<ProjectionDataDeviceOwned> mpd_datTmp;
 

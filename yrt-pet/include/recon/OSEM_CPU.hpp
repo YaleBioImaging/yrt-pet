@@ -26,12 +26,14 @@ protected:
 	void allocateForRecon() override;
 	void endRecon() override;
 	void completeMLEMIteration() override;
+	void prepareEMAccumulation() override;
 
 	// Internal getters
 	ImageBase* getSensImageBuffer() override;
 	ProjectionData* getSensDataInputBuffer() override;
 	ImageBase* getMLEMImageBuffer() override;
-	ImageBase* getMLEMImageTmpBuffer() override;
+	ImageBase*
+	    getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType type) override;
 	ProjectionData* getMLEMDataBuffer() override;
 	ProjectionData* getMLEMDataTmpBuffer() override;
 

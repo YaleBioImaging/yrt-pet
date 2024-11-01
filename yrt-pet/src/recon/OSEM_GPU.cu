@@ -16,7 +16,8 @@ OSEM_GPU::OSEM_GPU(const Scanner& pr_scanner)
       mpd_sensImageBuffer(nullptr),
       mpd_tempSensDataInput(nullptr),
       mpd_mlemImage(nullptr),
-      mpd_mlemImageTmp(nullptr),
+      mpd_mlemImageTmpEMRatio(nullptr),
+      mpd_mlemImageTmpPsf(nullptr),
       mpd_dat(nullptr),
       mpd_datTmp(nullptr),
       m_current_OSEM_subset(-1)
@@ -126,26 +127,30 @@ void OSEM_GPU::allocateForRecon()
 	// Allocate image-space buffers
 	mpd_mlemImage =
 	    std::make_unique<ImageDeviceOwned>(getImageParams(), getAuxStream());
-	mpd_mlemImageTmp =
+	mpd_mlemImageTmpEMRatio =
+	    std::make_unique<ImageDeviceOwned>(getImageParams(), getAuxStream());
+	mpd_mlemImageTmpPsf =
 	    std::make_unique<ImageDeviceOwned>(getImageParams(), getAuxStream());
 	mpd_sensImageBuffer =
 	    std::make_unique<ImageDeviceOwned>(getImageParams(), getAuxStream());
 	mpd_mlemImage->allocate(false);
-	mpd_mlemImageTmp->allocate(false);
+	mpd_mlemImageTmpEMRatio->allocate(false);
+	mpd_mlemImageTmpPsf->allocate(false);
 	mpd_sensImageBuffer->allocate(false);
 
 	// Initialize the MLEM image values to non zero
 	mpd_mlemImage->setValue(INITIAL_VALUE_MLEM);
 
-	// Apply mask image
+	// Apply mask image (Use temporary buffer to avoid allocating a new one
+	// unnecessarily)
 	if (maskImage != nullptr)
 	{
-		mpd_mlemImageTmp->copyFromHostImage(maskImage);
+		mpd_mlemImageTmpEMRatio->copyFromHostImage(maskImage);
 	}
 	else if (num_OSEM_subsets == 1 || usingListModeInput)
 	{
 		// No need to sum all sensitivity images, just use the only one
-		mpd_mlemImageTmp->copyFromHostImage(getSensitivityImage(0));
+		mpd_mlemImageTmpEMRatio->copyFromHostImage(getSensitivityImage(0));
 	}
 	else
 	{
@@ -154,13 +159,14 @@ void OSEM_GPU::allocateForRecon()
 		for (int i = 0; i < num_OSEM_subsets; ++i)
 		{
 			mpd_sensImageBuffer->copyFromHostImage(getSensitivityImage(i));
-			mpd_sensImageBuffer->addFirstImageToSecond(mpd_mlemImageTmp.get());
+			mpd_sensImageBuffer->addFirstImageToSecond(
+			    mpd_mlemImageTmpEMRatio.get());
 		}
 		std::cout << "Done summing." << std::endl;
 	}
-	mpd_mlemImage->applyThreshold(mpd_mlemImageTmp.get(), 0.0, 0.0, 0.0, 0.0,
-	                              1.0f);
-	mpd_mlemImageTmp->setValue(0.0f);
+	mpd_mlemImage->applyThreshold(mpd_mlemImageTmpEMRatio.get(), 0.0, 0.0, 0.0,
+	                              0.0, 1.0f);
+	mpd_mlemImageTmpEMRatio->setValue(0.0f);
 
 	// Initialize device's sensitivity image with the host's
 	if (usingListModeInput)
@@ -193,7 +199,8 @@ void OSEM_GPU::endRecon()
 
 	// Clear temporary buffers
 	mpd_mlemImage = nullptr;
-	mpd_mlemImageTmp = nullptr;
+	mpd_mlemImageTmpEMRatio = nullptr;
+	mpd_mlemImageTmpPsf = nullptr;
 	mpd_sensImageBuffer = nullptr;
 	mpd_dat = nullptr;
 	mpd_datTmp = nullptr;
@@ -214,9 +221,17 @@ ImageBase* OSEM_GPU::getMLEMImageBuffer()
 	return mpd_mlemImage.get();
 }
 
-ImageBase* OSEM_GPU::getMLEMImageTmpBuffer()
+ImageBase* OSEM_GPU::getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType type)
 {
-	return mpd_mlemImageTmp.get();
+	if (type == TemporaryImageSpaceBufferType::EM_RATIO)
+	{
+		return mpd_mlemImageTmpEMRatio.get();
+	}
+	else if (type == TemporaryImageSpaceBufferType::PSF)
+	{
+		return mpd_mlemImageTmpPsf.get();
+	}
+	throw std::runtime_error("Unknown Temporary image type");
 }
 
 ProjectionData* OSEM_GPU::getMLEMDataBuffer()

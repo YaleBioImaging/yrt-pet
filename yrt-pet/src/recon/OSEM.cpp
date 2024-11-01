@@ -68,14 +68,17 @@ void py_setup_osem(pybind11::module& m)
 
 	c.def("getSensDataInput",
 	      static_cast<ProjectionData* (OSEM::*)()>(&OSEM::getSensDataInput));
-	c.def("setSensDataInput", &OSEM::setSensDataInput, py::arg("sens_proj_data"));
+	c.def("setSensDataInput", &OSEM::setSensDataInput,
+	      py::arg("sens_proj_data"));
 	c.def("getDataInput",
 	      static_cast<ProjectionData* (OSEM::*)()>(&OSEM::getDataInput));
 	c.def("setDataInput", &OSEM::setDataInput, py::arg("proj_data"));
-	c.def("addTOF", &OSEM::addTOF, py::arg("tof_width_ps"), py::arg("tof_num_std"));
+	c.def("addTOF", &OSEM::addTOF, py::arg("tof_width_ps"),
+	      py::arg("tof_num_std"));
 	c.def("addProjPSF", &OSEM::addProjPSF, py::arg("proj_psf_fname"));
 	c.def("addImagePSF", &OSEM::addImagePSF, py::arg("image_psf_fname"));
-	c.def("setSaveSteps", &OSEM::setSaveSteps, py::arg("interval"), py::arg("path"));
+	c.def("setSaveSteps", &OSEM::setSaveSteps, py::arg("interval"),
+	      py::arg("path"));
 	c.def("setListModeEnabled", &OSEM::setListModeEnabled, py::arg("enabled"));
 	c.def("setProjector", &OSEM::setProjector, py::arg("projector_name"));
 	c.def("setImageParams", &OSEM::setImageParams, py::arg("params"));
@@ -453,6 +456,11 @@ Image* OSEM::getSensitivityImage(int subsetId)
 	return m_sensitivityImages.at(subsetId);
 }
 
+void OSEM::prepareEMAccumulation()
+{
+	// No-op
+}
+
 int OSEM::getNumBatches(int subsetId, bool forRecon) const
 {
 	(void)subsetId;
@@ -524,9 +532,25 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 			loadSubsetInternal(subsetId, true);
 
 			// SET TMP VARIABLES TO 0
-			getMLEMImageTmpBuffer()->setValue(0.0);
+			getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType::EM_RATIO)
+			    ->setValue(0.0);
 
 			const int numBatches = getNumBatches(subsetId, true);
+
+			ImageBase* mlem_image_rp;
+			if (flagImagePSF)
+			{
+				// PSF
+				imageSpacePsf->applyA(
+				    getMLEMImageBuffer(),
+				    getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType::PSF));
+				mlem_image_rp =
+				    getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType::PSF);
+			}
+			else
+			{
+				mlem_image_rp = getMLEMImageBuffer();
+			}
 
 			// Data batches in case it doesn't fit in device memory
 			for (int batchId = 0; batchId < numBatches; batchId++)
@@ -539,18 +563,6 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 					          << numBatches << "..." << std::endl;
 				}
 				getMLEMDataTmpBuffer()->clearProjections(0.0);
-				ImageBase* mlem_image_rp;
-				if (flagImagePSF)
-				{
-					// PSF
-					imageSpacePsf->applyA(getMLEMImageBuffer(),
-					                      getMLEMImageTmpBuffer());
-					mlem_image_rp = getMLEMImageTmpBuffer();
-				}
-				else
-				{
-					mlem_image_rp = getMLEMImageBuffer();
-				}
 
 				// PROJECTION OF IMAGE
 				mp_projector->applyA(mlem_image_rp, getMLEMDataTmpBuffer());
@@ -559,24 +571,28 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 				getMLEMDataTmpBuffer()->divideMeasurements(
 				    getMLEMDataBuffer(), getBinIterators()[subsetId].get());
 
-				if (flagImagePSF)
-				{
-					getMLEMImageTmpBuffer()->setValue(0.0);
-				}
+				prepareEMAccumulation();
+
 				// BACK PROJECTION OF RATIO
-				mp_projector->applyAH(getMLEMDataTmpBuffer(),
-				                      getMLEMImageTmpBuffer());
+				mp_projector->applyAH(
+				    getMLEMDataTmpBuffer(),
+				    getMLEMImageTmpBuffer(
+				        TemporaryImageSpaceBufferType::EM_RATIO));
 			}
 			// PSF
 			if (flagImagePSF)
 			{
-				imageSpacePsf->applyAH(getMLEMImageTmpBuffer(),
-				                       getMLEMImageTmpBuffer());
+				imageSpacePsf->applyAH(
+				    getMLEMImageTmpBuffer(
+				        TemporaryImageSpaceBufferType::EM_RATIO),
+				    getMLEMImageTmpBuffer(
+				        TemporaryImageSpaceBufferType::EM_RATIO));
 			}
 
 			// UPDATE
-			getMLEMImageBuffer()->updateEMThreshold(getMLEMImageTmpBuffer(),
-			                                        getSensImageBuffer(), 0.0);
+			getMLEMImageBuffer()->updateEMThreshold(
+			    getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType::EM_RATIO),
+			    getSensImageBuffer(), 0.0);
 		}
 		if (saveSteps > 0 && ((iter + 1) % saveSteps) == 0)
 		{
@@ -718,7 +734,8 @@ std::unique_ptr<ImageOwned>
 		for (frameId = 0; frameId < numFrames; frameId++)
 		{
 			mp_projector->setBinIter(getBinIterators()[frameId].get());
-			getMLEMImageTmpBuffer()->setValue(0.0);
+			getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType::EM_RATIO)
+			    ->setValue(0.0);
 
 			warpImg.setFrameId(frameId);
 			warpImg.applyA(warper, mlem_image_curr_frame.get());
@@ -728,13 +745,16 @@ std::unique_ptr<ImageOwned>
 			getMLEMDataTmpBuffer()->divideMeasurements(
 			    getMLEMDataBuffer(), getBinIterators()[frameId].get());
 
-			mp_projector->applyAH(getMLEMDataTmpBuffer(),
-			                      getMLEMImageTmpBuffer());
+			mp_projector->applyAH(
+			    getMLEMDataTmpBuffer(),
+			    getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType::EM_RATIO));
 
-			warpImg.applyAH(warper, getMLEMImageTmpBuffer());
+			warpImg.applyAH(
+			    warper,
+			    getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType::EM_RATIO));
 
-			getMLEMImageTmpBuffer()->addFirstImageToSecond(
-			    mlem_image_update_factor.get());
+			getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType::EM_RATIO)
+			    ->addFirstImageToSecond(mlem_image_update_factor.get());
 		}
 		getMLEMImageBuffer()->updateEMThreshold(mlem_image_update_factor.get(),
 		                                        sens_image, UpdateEMThreshold);

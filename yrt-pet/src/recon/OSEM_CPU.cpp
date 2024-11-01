@@ -107,8 +107,11 @@ ImageBase* OSEM_CPU::getMLEMImageBuffer()
 {
 	return outImage.get();
 }
-ImageBase* OSEM_CPU::getMLEMImageTmpBuffer()
+
+ImageBase* OSEM_CPU::getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType type)
 {
+	(void)type;  // IN CPU, use the same buffer for PSF as for EM ratio since we
+	             // only have one batch
 	return mp_mlemImageTmp.get();
 }
 
@@ -221,3 +224,13 @@ void OSEM_CPU::loadSubset(int subsetId, bool forRecon)
 }
 
 void OSEM_CPU::completeMLEMIteration() {}
+
+void OSEM_CPU::prepareEMAccumulation()
+{
+	if (flagImagePSF)
+	{
+		// This is because in CPU, we use the same buffer to backproject the EM
+		// as to store the PSF'd MLEM image
+		mp_mlemImageTmp->setValue(0.0);
+	}
+}

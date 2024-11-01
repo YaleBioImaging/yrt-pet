@@ -84,6 +84,12 @@ public:
 	ImageWarperTemplate* warper;  // For MLEM with Warper only
 
 protected:
+	enum class TemporaryImageSpaceBufferType
+	{
+		EM_RATIO,
+		PSF
+	};
+
 	// ---------- Internal Getters ----------
 	auto& getBinIterators() { return m_binIterators; }
 	const auto& getBinIterators() const { return m_binIterators; }
@@ -125,12 +131,14 @@ protected:
 	virtual void allocateForRecon() = 0;
 	virtual void endRecon() = 0;
 	virtual void completeMLEMIteration() = 0;
+	virtual void prepareEMAccumulation();
 
 	// Abstract Getters
 	virtual ImageBase* getSensImageBuffer() = 0;
 	virtual ProjectionData* getSensDataInputBuffer() = 0;
 	virtual ImageBase* getMLEMImageBuffer() = 0;
-	virtual ImageBase* getMLEMImageTmpBuffer() = 0;
+	virtual ImageBase*
+	    getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType type) = 0;
 	virtual ProjectionData* getMLEMDataBuffer() = 0;
 	virtual ProjectionData* getMLEMDataTmpBuffer() = 0;
 	virtual int getNumBatches(int subsetId, bool forRecon) const;

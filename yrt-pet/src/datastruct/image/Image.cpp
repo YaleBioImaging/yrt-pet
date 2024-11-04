@@ -208,7 +208,7 @@ const float* Image::getRawPointer() const
 
 bool Image::isMemoryValid() const
 {
-	return mp_array->getRawPointer() != nullptr;
+	return mp_array != nullptr && mp_array->getRawPointer() != nullptr;
 }
 
 void Image::addFirstImageToSecond(ImageBase* secondImage) const

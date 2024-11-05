@@ -117,6 +117,7 @@ namespace Scatter
 	void ScatterEstimator::generateScatterTailsMask()
 	{
 		std::cout << "Generating scatter tails mask..." << std::endl;
+		mp_scatterTailsMask->allocate();
 		ScatterEstimator::generateScatterTailsMask(
 		    *mp_acfHis, *mp_scatterTailsMask, m_scatterTailsMaskWidth,
 		    m_maskThreshold);

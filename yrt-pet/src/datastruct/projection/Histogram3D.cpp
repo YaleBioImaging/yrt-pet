@@ -502,6 +502,11 @@ void Histogram3D::getZ1Z2(coord_t z_bin, coord_t& z1, coord_t& z2) const
 	}
 }
 
+bool Histogram3D::isMemoryValid() const
+{
+	return mp_data != nullptr && mp_data->getRawPointer() != nullptr;
+}
+
 void Histogram3D::clearProjections()
 {
 	clearProjections(0.0f);

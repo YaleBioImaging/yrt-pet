@@ -73,6 +73,8 @@ public:
 	    histo_bin_t histoBinId) const override;
 	void getZ1Z2(coord_t z_bin, coord_t& z1, coord_t& z2) const;
 
+	bool isMemoryValid() const;
+
 protected:
 	explicit Histogram3D(const Scanner& pr_scanner);
 	void getDetPairInSameRing(coord_t r_ring, coord_t phi, det_id_t& d1,

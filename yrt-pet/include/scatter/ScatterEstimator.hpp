@@ -40,7 +40,7 @@ namespace Scatter
 
 	protected:
 		static void generateScatterTailsMask(const Histogram3D& acfHis,
-		                                     std::vector<bool>& mask,
+		                                     Histogram3D& mask,
 		                                     size_t maskWidth,
 		                                     float maskThreshold);
 
@@ -54,7 +54,7 @@ namespace Scatter
 		const Histogram3D* mp_normOrSensHis;
 		const Histogram3D* mp_acfHis;
 
-		std::vector<bool> m_scatterTailsMask;
+		std::unique_ptr<Histogram3DOwned> mp_scatterTailsMask;
 		bool m_isNorm;
 		bool m_saveIntermediary;
 		float m_maskThreshold;

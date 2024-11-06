@@ -38,6 +38,10 @@ void py_setup_projectiondatadevice(py::module& m)
 	c.def("loadProjValuesFromHost",
 	      [](ProjectionDataDevice& self, const ProjectionData* src)
 	      { self.loadProjValuesFromHost(src, nullptr); });
+	c.def("loadProjValuesFromHost",
+	      [](ProjectionDataDevice& self, const ProjectionData* src,
+	         const Histogram* histo)
+	      { self.loadProjValuesFromHost(src, histo, nullptr); });
 	c.def("loadProjValuesFromReference", [](ProjectionDataDeviceOwned& self)
 	      { self.loadProjValuesFromReference(); });
 	c.def("getCurrentBatchSize", &ProjectionDataDevice::getCurrentBatchSize);

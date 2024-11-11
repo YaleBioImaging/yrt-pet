@@ -126,8 +126,8 @@ namespace Scatter
 	float ScatterEstimator::computeTailFittingFactor()
 	{
 		std::cout << "Computing Tail-fit factor..." << std::endl;
-		float scatterSum = 0.0f;
-		float promptsSum = 0.0f;
+		double scatterSum = 0.0f;
+		double promptsSum = 0.0f;
 
 		for (bin_t bin = 0; bin < mp_scatterHisto->count(); bin++)
 		{

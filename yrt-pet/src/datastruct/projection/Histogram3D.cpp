@@ -26,21 +26,24 @@ void py_setup_histogram3d(pybind11::module& m)
 		                           py::format_descriptor<float>::format(), 3,
 		                           d.getDims(), d.getStrides());
 	    });
-	c.def("writeToFile", &Histogram3D::writeToFile);
+	c.def("writeToFile", &Histogram3D::writeToFile, py::arg("fname"));
 	c.def("getShape", [](const Histogram3D& self)
 	      { return py::make_tuple(self.numZBin, self.numPhi, self.numR); });
-	c.def("getBinIdFromCoords", &Histogram3D::getBinIdFromCoords);
-	c.def("getCoordsFromBinId",
-	      [](const Histogram3D& self, size_t binId)
-	      {
-		      if (binId >= self.histoSize)
-			      throw std::invalid_argument(
-			          "The binId provided exceeds the size "
-			          "permitted by the histogram");
-		      coord_t r, phi, z_bin;
-		      self.getCoordsFromBinId(binId, r, phi, z_bin);
-		      return py::make_tuple(r, phi, z_bin);
-	      });
+	c.def("getBinIdFromCoords", &Histogram3D::getBinIdFromCoords, py::arg("r"),
+	      py::arg("phi"), py::arg("z_bin"));
+	c.def(
+	    "getCoordsFromBinId",
+	    [](const Histogram3D& self, size_t binId)
+	    {
+		    if (binId >= self.histoSize)
+			    throw std::invalid_argument(
+			        "The binId provided exceeds the size "
+			        "permitted by the histogram");
+		    coord_t r, phi, z_bin;
+		    self.getCoordsFromBinId(binId, r, phi, z_bin);
+		    return py::make_tuple(r, phi, z_bin);
+	    },
+	    py::arg("bin_id"));
 	c.def(
 	    "getDetPairFromCoords",
 	    [](const Histogram3D& self, coord_t r, coord_t phi, coord_t z_bin)
@@ -63,7 +66,8 @@ void py_setup_histogram3d(pybind11::module& m)
 		    det_id_t d1, d2;
 		    self.getDetPairFromCoords(r, phi, z_bin, d1, d2);
 		    return py::make_tuple(d1, d2);
-	    });
+	    },
+	    py::arg("r"), py::arg("phi"), py::arg("z_bin"));
 	c.def("getDetPairFromBinId",
 	      [](const Histogram3D& self, bin_t binId)
 	      {
@@ -73,16 +77,16 @@ void py_setup_histogram3d(pybind11::module& m)
 			          "permitted by the histogram");
 		      auto [d1, d2] = self.getDetPairFromBinId(binId);
 		      return py::make_tuple(d1, d2);
-	      });
+	      }, py::arg("bin_id"));
 	c.def("getCoordsFromDetPair",
 	      [](const Histogram3D& self, det_id_t d1, det_id_t d2)
 	      {
 		      coord_t r, phi, z_bin;
 		      self.getCoordsFromDetPair(d1, d2, r, phi, z_bin);
 		      return py::make_tuple(r, phi, z_bin);
-	      });
-	c.def("getBinIdFromDetPair", &Histogram3D::getBinIdFromDetPair);
-	c.def("incrementProjection", &Histogram3D::incrementProjection);
+	      }, py::arg("d1"), py::arg("d2"));
+	c.def("getBinIdFromDetPair", &Histogram3D::getBinIdFromDetPair, py::arg("d1"), py::arg("d2"));
+	c.def("incrementProjection", &Histogram3D::incrementProjection, py::arg("bin_id"), py::arg("inc_val"));
 	c.def(
 	    "getZ1Z2",
 	    [](const Histogram3D& self, coord_t z_bin)
@@ -99,14 +103,14 @@ void py_setup_histogram3d(pybind11::module& m)
 
 	auto c_owned =
 	    py::class_<Histogram3DOwned, Histogram3D>(m, "Histogram3DOwned");
-	c_owned.def(py::init<const Scanner&>());
-	c_owned.def(py::init<const Scanner&, std::string>());
-	c_owned.def("readFromFile", &Histogram3DOwned::readFromFile);
+	c_owned.def(py::init<const Scanner&>(), py::arg("scanner"));
+	c_owned.def(py::init<const Scanner&, std::string>(), py::arg("scanner"), py::arg("fname"));
+	c_owned.def("readFromFile", &Histogram3DOwned::readFromFile, py::arg("fname"));
 	c_owned.def("allocate", &Histogram3DOwned::allocate);
 
 	auto c_alias =
 	    py::class_<Histogram3DAlias, Histogram3D>(m, "Histogram3DAlias");
-	c_alias.def(py::init<const Scanner&>());
+	c_alias.def(py::init<const Scanner&>(), py::arg("scanner"));
 	c_alias.def("bind", &Histogram3DAlias::bind, py::arg("array3dfloat"));
 	c_alias.def(
 	    "bind",

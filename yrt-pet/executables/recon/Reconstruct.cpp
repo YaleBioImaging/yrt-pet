@@ -52,36 +52,53 @@ int main(int argc, char** argv)
 		options.positional_help("[optional args]").show_positional_help();
 
 		/* clang-format off */
+		auto coreGroup = options.add_options("0. Core");
+		coreGroup("s,scanner", "Scanner parameters file name", cxxopts::value<std::string>(scanner_fname));
+		coreGroup("p,params", "Image parameters file. Note: If sensitivity image(s) are provided,"
+			"the image parameters will be determined from them.", cxxopts::value<std::string>(imgParams_fname));
+		coreGroup("sens_only", "Only generate the sensitivity image(s). Do not launch reconstruction", cxxopts::value<bool>(sensOnly));
+		coreGroup("num_threads", "Number of threads to use", cxxopts::value<int>(numThreads));
+		coreGroup("o,out", "Output image filename", cxxopts::value<std::string>(out_fname));
+		coreGroup("out_sens", "Filename for the generated sensitivity image (if it needed to be computed)."
+			"Leave blank to not save it", cxxopts::value<std::string>(out_sensImg_fname));
+
+		auto sensGroup = options.add_options("1. Sensitivity");
+		sensGroup("sens", "Sensitivity image files (separated by a comma). Note: When the input is a List-mode, one sensitivity image is required."
+			"When the input is a histogram, one sensitivity image *per subset* is required (Ordered by subset id)",
+			cxxopts::value<std::vector<std::string>>(sensImg_fnames));
+		sensGroup("sensdata", "Sensitivity data input file", cxxopts::value<std::string>(sensData_fname));
+		sensGroup("sensdata_format", "Sensitivity data input file format. Possible values: " + IO::possibleFormats(),
+			cxxopts::value<std::string>(sensData_format));
+		sensGroup("att", "Hardware attenuation image filename", cxxopts::value<std::string>(attImg_fname));
+
+		auto inputGroup = options.add_options("2. Input");
+		inputGroup("i,input", "Input file", cxxopts::value<std::string>(input_fname));
+		inputGroup("f,format", "Input file format. Possible values: " + IO::possibleFormats(), cxxopts::value<std::string>(input_format));
+
+		auto reconGroup = options.add_options("3. Reconstruction");
+		reconGroup("num_iterations", "Number of MLEM Iterations", cxxopts::value<int>(numIterations));
+		reconGroup("num_subsets","Number of OSEM subsets (Default: 1)", cxxopts::value<int>(numSubsets));
+		reconGroup("add_his", "Additive corrections histogram", cxxopts::value<std::string>(addHis_fname));
+		reconGroup("add_his_format", "Format of the additive corrections histogram. Default value: H", cxxopts::value<std::string>(addHis_format));
+		reconGroup("psf", "Image-space PSF kernel file", cxxopts::value<std::string>(imageSpacePsf_fname));
+		reconGroup("hard_threshold", "Hard Threshold", cxxopts::value<float>(hardThreshold));
+		reconGroup("save_steps", "Enable saving each MLEM iteration image (step)", cxxopts::value<int>(saveSteps)->implicit_value("1"));
+
+		auto projectorGroup = options.add_options("4. Projector");
+		projectorGroup("projector", "Projector to use, choices: Siddon (S), Distance-Driven (D)"
+		#if BUILD_CUDA
+		", or GPU Distance-Driven (DD_GPU)"
+		#endif
+		". The default projector is Siddon", cxxopts::value<std::string>(projector_name));
+		projectorGroup("num_rays", "Number of rays to use (for Siddon projector only)", cxxopts::value<int>(numRays));
+		projectorGroup("proj_psf", "Projection-space PSF kernel file", cxxopts::value<std::string>(projSpacePsf_fname));
+		projectorGroup("tof_width_ps", "TOF Width in Picoseconds", cxxopts::value<float>(tofWidth_ps));
+		projectorGroup("tof_n_std", "Number of standard deviations to consider for TOF's Gaussian curve", cxxopts::value<int>(tofNumStd));
+
+		auto otherGroup = options.add_options("Other");
+		otherGroup("w,warper", "Path to the warp parameters file (Specify this to use the MLEM with image warper algorithm)", cxxopts::value<std::string>(warpParamFile));
+
 		options.add_options()
-		("s,scanner", "Scanner parameters file name", cxxopts::value<std::string>(scanner_fname))
-		("p,params", "Image parameters file", cxxopts::value<std::string>(imgParams_fname))
-		("i,input", "Input file", cxxopts::value<std::string>(input_fname))
-		("f,format", "Input file format. Possible values: " + IO::possibleFormats(), cxxopts::value<std::string>(input_format))
-		("sens", "Sensitivity image files (separated by a comma)", cxxopts::value<std::vector<std::string>>(sensImg_fnames))
-		("att", "Attenuation image filename", cxxopts::value<std::string>(attImg_fname))
-		("psf", "Image-space PSF kernel file", cxxopts::value<std::string>(imageSpacePsf_fname))
-		("proj_psf", "Projection-space PSF kernel file", cxxopts::value<std::string>(projSpacePsf_fname))
-		("add_his", "Histogram with additive corrections (scatter & randoms)", cxxopts::value<std::string>(addHis_fname))
-		("add_his_format", "Format of the histogram with additive corrections. Default value: H", cxxopts::value<std::string>(addHis_format))
-		("sensdata", "Sensitivity data input file", cxxopts::value<std::string>(sensData_fname))
-		("sensdata_format", "Sensitivity data input file format. Possible values: " + IO::possibleFormats(), cxxopts::value<std::string>(sensData_format))
-		("w,warper", "Path to the warp parameters file (Specify this to use the MLEM with image warper algorithm)", cxxopts::value<std::string>(warpParamFile))
-		("projector", "Projector to use, choices: Siddon (S), Distance-Driven (D)"
-		 #if BUILD_CUDA
-		 ", or GPU Distance-Driven (DD_GPU)"
-		 #endif
-		 ". The default projector is Siddon", cxxopts::value<std::string>(projector_name))
-		("num_rays", "Number of rays to use in the Siddon projector", cxxopts::value<int>(numRays))
-		("tof_width_ps", "TOF Width in Picoseconds", cxxopts::value<float>(tofWidth_ps))
-		("tof_n_std", "Number of standard deviations to consider for TOF's Gaussian curve", cxxopts::value<int>(tofNumStd))
-		("o,out", "Output image filename", cxxopts::value<std::string>(out_fname))
-		("num_iterations", "Number of MLEM Iterations", cxxopts::value<int>(numIterations))
-		("num_threads", "Number of threads to use", cxxopts::value<int>(numThreads))
-		("num_subsets","Number of OSEM subsets (Default: 1)", cxxopts::value<int>(numSubsets))
-		("hard_threshold", "Hard Threshold", cxxopts::value<float>(hardThreshold))
-		("save_steps", "Enable saving each MLEM iteration image (step)", cxxopts::value<int>(saveSteps))
-		("sens_only", "Only generate the sensitivity image(s). Do not launch reconstruction", cxxopts::value<bool>(sensOnly))
-		("out_sens", "Filename for the generated sensitivity image (if it needed to be computed). Leave blank to not save it", cxxopts::value<std::string>(out_sensImg_fname))
 		("h,help", "Print help");
 		/* clang-format on */
 

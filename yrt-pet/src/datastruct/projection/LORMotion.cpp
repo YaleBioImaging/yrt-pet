@@ -23,7 +23,7 @@ float LORMotion::getDuration(frame_t frame) const
 {
 	const size_t numFrames = getNumFrames();
 
-	if (frame < numFrames - 1)
+	if (frame < static_cast<int32_t>(numFrames - 1))
 	{
 		return mp_startingTimestamps[frame + 1] - mp_startingTimestamps[frame];
 	}

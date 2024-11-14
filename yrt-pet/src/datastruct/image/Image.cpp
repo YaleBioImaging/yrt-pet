@@ -885,15 +885,13 @@ Array3DAlias<float> Image::getArray() const
 	return {mp_array.get()};
 }
 
-std::unique_ptr<Image> Image::transformImage(const Vector3D& rotation,
-                                             const Vector3D& translation) const
+void Image::transformImage(const Vector3D& rotation,
+                           const Vector3D& translation, Image& dest,
+                           float weight) const
 {
 	ImageParams params = getParams();
 	const float* rawPtr = getRawPointer();
 	const int num_xy = params.nx * params.ny;
-	auto newImg = std::make_unique<ImageOwned>(params);
-	newImg->allocate();
-	newImg->setValue(0.0);
 	const float alpha = rotation.z;
 	const float beta = rotation.y;
 	const float gamma = rotation.x;
@@ -928,23 +926,29 @@ std::unique_ptr<Image> Image::transformImage(const Vector3D& rotation,
 
 				const float currentValue =
 				    rawPtr[i * num_xy + j * params.nx + k];
-				newImg->updateImageInterpolate({newX, newY, newZ}, currentValue,
-				                               false);
+				dest.updateImageInterpolate({newX, newY, newZ},
+				                            weight * currentValue, false);
 			}
 		}
 	}
+}
+
+std::unique_ptr<Image> Image::transformImage(const Vector3D& rotation,
+                                             const Vector3D& translation) const
+{
+	auto newImg = std::make_unique<ImageOwned>(getParams());
+	newImg->allocate();
+	newImg->setValue(0.0);
+	transformImage(rotation, translation, *newImg, 1.0f);
 	return newImg;
 }
 
-std::unique_ptr<Image> Image::transformImage(const transform_t& t) const
+void Image::transformImage(const transform_t& t, Image& dest,
+                           float weight) const
 {
-	ImageParams params = getParams();
+	const ImageParams params = getParams();
 	const float* rawPtr = getRawPointer();
 	const int num_xy = params.nx * params.ny;
-	auto newImg = std::make_unique<ImageOwned>(params);
-	newImg->allocate();
-	newImg->setValue(0.0);
-
 	for (int i = 0; i < params.nz; i++)
 	{
 		const float z = indexToPositionInDimension<0>(i);
@@ -966,11 +970,19 @@ std::unique_ptr<Image> Image::transformImage(const transform_t& t) const
 
 				const float currentValue =
 				    rawPtr[i * num_xy + j * params.nx + k];
-				newImg->updateImageInterpolate({newX, newY, newZ}, currentValue,
-				                               false);
+				dest.updateImageInterpolate({newX, newY, newZ},
+				                            weight * currentValue, false);
 			}
 		}
 	}
+}
+
+std::unique_ptr<Image> Image::transformImage(const transform_t& t) const
+{
+	auto newImg = std::make_unique<ImageOwned>(getParams());
+	newImg->allocate();
+	newImg->setValue(0.0);
+	transformImage(t, *newImg, 1.0f);
 	return newImg;
 }
 

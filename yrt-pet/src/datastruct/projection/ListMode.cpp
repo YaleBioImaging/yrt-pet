@@ -39,6 +39,12 @@ void ListMode::setProjectionValue(bin_t id, float val)
 	throw std::logic_error("setProjectionValue unimplemented");
 }
 
+timestamp_t ListMode::getScanDuration() const
+{
+	// By default, return the timestamp of the last event
+	return getTimestamp(count()-1);
+}
+
 std::unique_ptr<BinIterator> ListMode::getBinIter(int numSubsets,
                                                   int idxSubset) const
 {

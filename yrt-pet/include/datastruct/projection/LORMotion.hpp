@@ -11,10 +11,11 @@
 class LORMotion
 {
 public:
-	LORMotion(const std::string& filename);
+	explicit LORMotion(const std::string& filename);
 
 	transform_t getTransform(frame_t frame) const;
 	timestamp_t getStartingTimestamp(frame_t frame) const;
+	float getDuration(frame_t frame) const; // In ms
 	size_t getNumFrames() const;
 
 private:

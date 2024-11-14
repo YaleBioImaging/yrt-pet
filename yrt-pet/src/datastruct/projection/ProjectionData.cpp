@@ -111,6 +111,17 @@ transform_t ProjectionData::getTransformOfFrame(frame_t frame) const
 	return {1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0};
 }
 
+float ProjectionData::getDurationOfFrame(frame_t frame) const
+{
+	(void)frame;
+	throw std::logic_error("getDurationOfFrame unimplemented");
+}
+
+timestamp_t ProjectionData::getScanDuration() const
+{
+	throw std::logic_error("getScanDuration unimplemented");
+}
+
 float ProjectionData::getTOFValue(bin_t id) const
 {
 	(void)id;

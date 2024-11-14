@@ -35,6 +35,7 @@ public:
 	frame_t getFrame(bin_t id) const override;
 	size_t getNumFrames() const override;
 	transform_t getTransformOfFrame(frame_t frame) const override;
+	float getDurationOfFrame(frame_t frame) const override;
 
 	void setDetectorId1OfEvent(bin_t eventId, det_id_t d1);
 	void setDetectorId2OfEvent(bin_t eventId, det_id_t d2);

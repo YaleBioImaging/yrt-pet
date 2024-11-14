@@ -52,6 +52,8 @@ public:
 	virtual bool hasMotion() const;
 	virtual size_t getNumFrames() const;
 	virtual transform_t getTransformOfFrame(frame_t frame) const;
+	virtual float getDurationOfFrame(frame_t frame) const;
+	virtual timestamp_t getScanDuration() const;
 	// Special case when the LOR is not defined directly from the scanner's LUT
 	virtual bool hasArbitraryLORs() const;
 	virtual Line3D getArbitraryLOR(bin_t id) const;

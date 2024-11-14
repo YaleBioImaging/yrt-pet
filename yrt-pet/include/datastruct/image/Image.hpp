@@ -39,8 +39,12 @@ public:
 	void writeToFile(const std::string& fname) const override;
 
 	Array3DAlias<float> getArray() const;
+
+	void transformImage(const Vector3D& rotation, const Vector3D& translation,
+	                    Image& dest, float weight) const;
 	std::unique_ptr<Image> transformImage(const Vector3D& rotation,
 	                                      const Vector3D& translation) const;
+	void transformImage(const transform_t& t, Image& dest, float weight) const;
 	std::unique_ptr<Image> transformImage(const transform_t& t) const;
 
 	float dotProduct(const Image& y) const;

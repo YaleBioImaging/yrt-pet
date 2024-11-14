@@ -19,6 +19,20 @@ transform_t LORMotion::getTransform(frame_t frame) const
 	return mp_transforms[frame];
 }
 
+float LORMotion::getDuration(frame_t frame) const
+{
+	const size_t numFrames = getNumFrames();
+
+	if (frame < numFrames - 1)
+	{
+		return mp_startingTimestamps[frame + 1] - mp_startingTimestamps[frame];
+	}
+
+	// Last frame, take duration of second-to-last frame
+	return mp_startingTimestamps[numFrames - 1] -
+	       mp_startingTimestamps[numFrames - 2];
+}
+
 timestamp_t LORMotion::getStartingTimestamp(frame_t frame) const
 {
 	return mp_startingTimestamps[frame];

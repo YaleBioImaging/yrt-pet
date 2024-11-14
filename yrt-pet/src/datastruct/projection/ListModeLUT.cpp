@@ -324,6 +324,17 @@ transform_t ListModeLUT::getTransformOfFrame(frame_t frame) const
 	return ProjectionData::getTransformOfFrame(frame);
 }
 
+float ListModeLUT::getDurationOfFrame(frame_t frame) const
+{
+	ASSERT(mp_lorMotion != nullptr);
+	if (frame >= 0)
+	{
+		return mp_lorMotion->getDuration(frame);
+	}
+	// For the events before the beginning of the frame
+	return ProjectionData::getDurationOfFrame(frame);
+}
+
 void ListModeLUT::setDetectorId1OfEvent(bin_t eventId, det_id_t d1)
 {
 	(*mp_detectorId1)[eventId] = d1;

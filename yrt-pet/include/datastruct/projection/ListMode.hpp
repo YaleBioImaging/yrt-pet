@@ -18,6 +18,8 @@ public:
 	float getProjectionValue(bin_t id) const override;
 	void setProjectionValue(bin_t id, float val) override;
 
+	// Pre-implemented functions
+	timestamp_t getScanDuration() const override;
 	std::unique_ptr<BinIterator> getBinIter(int numSubsets,
 	                                        int idxSubset) const override;
 

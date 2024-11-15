@@ -238,6 +238,7 @@ int main(int argc, char** argv)
 
 		// Sensitivity image(s)
 		std::vector<std::unique_ptr<Image>> sensImages;
+		bool sensImageAlreadyMoved = false;
 		if (sensImg_fnames.empty())
 		{
 			ASSERT_MSG(!imgParams_fname.empty(),
@@ -270,6 +271,7 @@ int main(int argc, char** argv)
 				sensImages.push_back(
 				    std::make_unique<ImageOwned>(sensImg_fname));
 			}
+			sensImageAlreadyMoved = true;
 			std::cout << "Done reading sensitivity images." << std::endl;
 		}
 		else
@@ -301,7 +303,7 @@ int main(int argc, char** argv)
 		osem->setDataInput(dataInput.get());
 
 		std::unique_ptr<ImageOwned> movedSensImage = nullptr;
-		if (dataInput->hasMotion())
+		if (dataInput->hasMotion() && !sensImageAlreadyMoved)
 		{
 			ASSERT_MSG_WARNING(
 			    !invivoAttImg_fname.empty() || sensOnly,
@@ -318,13 +320,13 @@ int main(int argc, char** argv)
 			std::cout << "Moving sensitivity image..." << std::endl;
 			int64_t numFrames = dataInput->getNumFrames();
 			Util::ProgressDisplay progress{numFrames};
-			float scanDuration =
+			const auto scanDuration =
 			    static_cast<float>(dataInput->getScanDuration());
 			for (frame_t frame = 0; frame < numFrames; frame++)
 			{
 				progress.progress(frame);
 				transform_t transform = dataInput->getTransformOfFrame(frame);
-				float weight =
+				const float weight =
 				    dataInput->getDurationOfFrame(frame) / scanDuration;
 				unmovedSensImage->transformImage(transform, *movedSensImage,
 				                                 weight);
@@ -333,6 +335,7 @@ int main(int argc, char** argv)
 			if (!out_sensImg_fname.empty())
 			{
 				// Overwrite sensitivity image
+				std::cout << "Saving sensitivity image..." << std::endl;
 				movedSensImage->writeToFile(out_sensImg_fname);
 			}
 

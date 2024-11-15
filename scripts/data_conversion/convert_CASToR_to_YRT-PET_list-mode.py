@@ -69,8 +69,7 @@ if __name__ == "__main__":
                 raise RuntimeError('Number of events mismatch')
 
             for row in tqdm.tqdm(castor_events, desc='Events', leave=False):
-                tmstp = bytearray(struct.pack("f", row[0]))
-                f.write(tmstp)
+                f.write(row[0])
                 f.write(row[-2])
                 f.write(row[-1])
                 if args.flag_tof_out:

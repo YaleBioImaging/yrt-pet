@@ -1,8 +1,34 @@
 # Histogram3D format
 
-This page will describe how the Histogram3D structure is organised in YRT-PET.
+This page will describe how the *Histogram3D* structure is organised in YRT-PET.
 
-Let's define exactly what a fully3D histogram is. It is a 3D array such that:
+Semantics: The word "Histogram" refers to an array of which the bins are in logical indices.
+The word "Sinogram", which are not supported yet in YRT-PET, refers to an array of which the bins point
+to physical coordinates, regardless of how irregular the scanner is.
+
+## File format
+The histogram file itself is a "RAWD" type. Meaning that it encodes a header describing the array shape and
+the array itself in 'C'-contiguous ordering.
+
+### For Python users
+It is also possible to read and write them using Python. The file in `yrt-pet/python/pyyrtpet/_pyyrtpet.py` contains
+a class named `DataFileRawd`, which allows one to read and write in this filetype.
+
+Moreover, with the Python bindings, it is possible to use the fact that the Histogram3D class respects the Python
+buffer protocol:
+```python
+import pyyrtpet as yrt
+import numpy as np
+scanner = yrt.Scanner("myscanner.json")
+his = yrt.Histogram3DOwned(scanner, "myhistogram.his")
+np_his = np.array(his, copy=False) # np_his is now a 3D numpy array
+```
+
+### For MATLAB users
+One can work with those files in MATLAB using `read_rawd.m` and `write_rawd.m` in the `scripts/matlab` folder.
+
+## Array format
+Let's define what a fully3D histogram is. It is a 3D array such that:
 
 1. Every bin of the histogram, defined by 3 coordinates, stores a particular Line of Response,
    defined by a pair of detectors
@@ -11,6 +37,7 @@ Let's define exactly what a fully3D histogram is. It is a 3D array such that:
 4. Two different lines of responses cannot be represented by the same histogram bin
 
 These rules must apply for a Fully3D scanner with DOI crystals.
+Note that Time-of-flight bins are not encoded by Histogram3D.
 
 ## Crystals in the same ring
 
@@ -20,7 +47,7 @@ Using a certain value of integers `r` and `phi`, we calculate the coordinates of
 in the same ring to respect rules 1 and 2:
 
 ```math
-\rho=\left\{\begin{array}{lr} 0, \text{when } \phi \text{ is even} 1, \text{when } \phi \text{ is odd}\end{array}\right\}
+\rho=\left\{\begin{array}{lr} 0, \text{when } \phi \text{ is even}; 1, \text{when } \phi \text{ is odd}\end{array}\right\}
 ```
 ```math
 d_{r1}=r - \frac{n}{4}+\frac{M_a}{2}
@@ -135,6 +162,9 @@ M_r \text{ is the maximum ring difference in the scanner}
 ## Example:
 
 ![image-20210421010439443](https://i.imgur.com/jCX1Gyr.png)
+
+Left: Image
+Right: Histogram of the forward projection of the image into a scanner.
 
 ## Small asymmetry in the Histogram
 

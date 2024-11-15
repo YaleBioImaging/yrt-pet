@@ -304,7 +304,7 @@ int main(int argc, char** argv)
 		if (dataInput->hasMotion())
 		{
 			ASSERT_MSG_WARNING(
-			    !invivoAttImg_fname.empty(),
+			    !invivoAttImg_fname.empty() && !sensOnly,
 			    "The data input provided has motion information, but no "
 			    "in-vivo attenuation was provided.");
 			ASSERT(sensImages.size() == 1);

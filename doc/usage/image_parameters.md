@@ -24,16 +24,11 @@ Optionally, one can also specify:
 - `length_x`, `length_y`, `length_z` to define the physical size of the image in millimeters.
   - If this is not defined, the length is computed as `nx*vx`, `ny*vy`, `nz*vz`.
 
-The physical position of any voxel is:
+For $`d\in\{x,y,z\}`$, the physical position of any voxel is:
 ```math
-x = x_iv_x-\frac{l_x}{2}+\frac{v_x}{2}+o_x
-```
-```math
-y = y_iv_y-\frac{l_y}{2}+\frac{v_y}{2}+o_y
-```
-```math
-z = z_iv_z-\frac{l_z}{2}+\frac{v_z}{2}+o_z
+d = d_iv_d-\frac{l_d}{2}+\frac{v_d}{2}+o_d
 ```
 
-Where $`o_d`$ is `off_d` and $`l_d`$ is `length_d` for $`d\in\{x,y,z\}`$.
+Where $`o_d`$ is `off_d` and $`l_d`$ is `length_d`. $`d_i`$ is the *logical* index of the voxel
+while $`d`$ is the *physical* position (in millimeters) of the voxel in dimension `d`.
 

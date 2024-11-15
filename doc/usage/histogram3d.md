@@ -5,7 +5,7 @@ This page will describe how the Histogram3D structure is organised in YRT-PET.
 Let's define exactly what a fully3D histogram is. It is a 3D array such that:
 
 1. Every bin of the histogram, defined by 3 coordinates, stores a particular Line of Response,
-defined by a pair of detectors
+   defined by a pair of detectors
 2. Every bin of the histogram must represent a **different** pair of detectors
 3. Every Line of Response allowed by the Scanner geometry must be represented by a bin in the histogram
 4. Two different lines of responses cannot be represented by the same histogram bin
@@ -20,22 +20,31 @@ Using a certain value of integers `r` and `phi`, we calculate the coordinates of
 in the same ring to respect rules 1 and 2:
 
 ```math
-\rho=\left\{\begin{array}{lr}
-0, \text{when } \phi \text{ is even}\\
-1, \text{when } \phi \text{ is odd}
-\end{array}\right\}\\
-d_{r1}=r - \frac{n}{4}+\frac{M_a}{2}\\
-d_{r2}=\frac{n}{2} - (r - \frac{n}{4}+\frac{M_a}{2}) + \rho\\
-d_1=(d_{r1} + \frac{\phi}{2}) \mod n\\
-d_2=(d_{r2} + \frac{\phi}{2}) \mod n\\
+\rho=\left\{\begin{array}{lr} 0, \text{when } \phi \text{ is even} 1, \text{when } \phi \text{ is odd}\end{array}\right\}
+```
+```math
+d_{r1}=r - \frac{n}{4}+\frac{M_a}{2}
+```
+```math
+d_{r2}=\frac{n}{2} - (r - \frac{n}{4}+\frac{M_a}{2}) + \rho
+```
+```math
+d_1=(d_{r1} + \frac{\phi}{2}) \mod n
+```
+```math
+d_2=(d_{r2} + \frac{\phi}{2}) \mod n
 ```
 
 Where:
 
 ```math
-d_1 \text{ and } d_2 \text{ are detectors 1 and 2 of the bin}\\
-n \text{ is the number of detectors in the ring}\\
-M_a \text{is the minimum angular difference of the Scanner Field of view in terms of detector indices}\\
+d_1 \text{ and } d_2 \text{ are detectors 1 and 2 of the bin}
+```
+```math
+n \text{ is the number of detectors in the ring}
+```
+```math
+M_a \text{is the minimum angular difference of the Scanner Field of view in terms of detector indices}
 ```
 
 In order to respect rules 3 and 4, a Look-Up-Table of all the pairs
@@ -54,16 +63,22 @@ position of the LOR in the Michelogram moving diagonally and then from a `delta_
 ![image-20210421004918289](https://i.imgur.com/XNMtT0H.png)
 
 ```math
-\Delta z = |z1-z2|\\
-R_b = \frac{(\Delta z - 1)\Delta z}{2}\\
-z_{bin} = n_a\Delta z + \min(z_1,z_2) + R_b\\
+\Delta z = |z_1-z_2|
+```
+```math
+R_b = \frac{(\Delta z - 1)\Delta z}{2}
+```
+```math
+z_{bin} = n_a\Delta z + \min(z_1,z_2) + R_b
 ```
 
 Where:
 
 ```math
-z_1 \text{ and } z_2 \text{ are the ring index of detector 1 and 2}\\
-n_a \text{ is the total number of rings in the scanner}\\
+z_1 \text{ and } z_2 \text{ are the ring index of detector 1 and 2}
+```
+```math
+n_a \text{ is the total number of rings in the scanner}
 ```
 
 I will spare the inverse function for this document.
@@ -72,7 +87,7 @@ is managed separately afterward.
 
 ## Dealing with multiple DOI layers
 
-A scanner with DOI layers allows for a Line of response to go from a layer to another. 
+A scanner with DOI layers allows for a Line of response to go from a layer to another.
 To solve this issue, the `r` coordinate of the histogram is used to store this information.
 
 | r     | Layers for LOR |
@@ -90,19 +105,31 @@ taking this into account.
 The dimensions of the histogram are as such:
 
 ```math
-N_r = N_D^2*(\frac{N_d}{2}+1-M_a)\\
-N_{\phi} = N_d\\
-N_{z_{bin}} = 2*((M_r+1)*N_r-\frac{(M_r*(M_r+1))}{2})-N_r\\
+N_r = N_D^2*(\frac{N_d}{2}+1-M_a)
+```
+```math
+N_{\phi} = N_d
+```
+```math
+N_{z_{bin}} = 2*((M_r+1)*N_r-\frac{(M_r*(M_r+1))}{2})-N_r
 ```
 
 Where
 
 ```math
-N_D \text{ is the number of DOI layers}\\
-N_d \text{ is the number of detectors per ring in the scanner (not counting for DOI)}\\
-N_r \text{ is the number of rings in the scanner}\\
-M_a \text{ is the minimum angle difference in the ring}\\
-M_r \text{ is the maximum ring difference in the scanner}\\
+N_D \text{ is the number of DOI layers}
+```
+```math
+N_d \text{ is the number of detectors per ring in the scanner (not counting for DOI)}
+```
+```math
+N_r \text{ is the number of rings in the scanner}
+```
+```math
+M_a \text{ is the minimum angle difference in the ring}
+```
+```math
+M_r \text{ is the maximum ring difference in the scanner}
 ```
 
 ## Example:
@@ -111,7 +138,7 @@ M_r \text{ is the maximum ring difference in the scanner}\\
 
 ## Small asymmetry in the Histogram
 
-Due to the $ \rho $ value in the calculation in the same ring, for every odd
+Due to the $\rho$ value in the calculation in the same ring, for every odd
 value of phi, the bin at `r=0` will be an invalid bin for the scanner because
 it will not respect the "minimum angle difference". It is the circled line in
 the image below for example:

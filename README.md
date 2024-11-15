@@ -119,9 +119,9 @@ Here is, as an example, the SAVANT parameters file.
 
 ```JSON
 {
-  "VERSION": 3.0,
-  "scannerName": "SAVANT",
-  "detCoord": "SAVANT.lut",
+  "VERSION": 3.1,
+  "scannerName": "SCANNER",
+  "detCoord": "SCANNER.lut",
   "axialFOV": 235,
   "crystalSize_z": 1.1,
   "crystalSize_trans": 1.1,

@@ -32,6 +32,29 @@ The following properties are used only in scatter estimation:
 The following properties are deprecated:
 - `detsPerBlock` : Number of detectors per block in the transaxial dimension.
 
+### Example:
+
+Here's an example of a Scanner's JSON file
+```json
+{
+  "VERSION": 3.1,
+  "scannerName": "myscanner",
+  "detCoord": "myscanner.lut",
+  "axialFOV": 250.0,
+  "crystalSize_z": 1.0,
+  "crystalSize_trans": 1.0,
+  "crystalDepth": 8.0,
+  "scannerRadius": 200.0,
+  "detsPerRing": 800,
+  "numRings": 150,
+  "numDOI": 2,
+  "maxRingDiff": 50,
+  "minAngDiff": 230,
+  "fwhm": 0.2,
+  "energyLLD": 400,
+  "collimatorRadius": 167.4
+}
+```
 ## Look-Up-Table
 The LUT is a binary file that defines all the *detecting elements*, which can either be
 individual crystals, or, in the case of scanners with Depth-Of-Interation (DOI),

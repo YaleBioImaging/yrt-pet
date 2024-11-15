@@ -86,16 +86,17 @@ The LUT's elements should be ordered in the following way:
 Due to the simplicity of this format, it can be read using the following lines:
 ```python
 import numpy as np
-lut = np.fromfile("myscanner.lut", dtype=np.float32).reshape((-1, 2, 3))
+lut = np.fromfile("myscanner.lut", dtype=np.float32).reshape((-1, 6))
 ```
 Then, one can use matplotlib to display the scanner's detector positions:
 ```python
 import matplotlib.pyplot as plt
-plt.scatter(lut[:N, 0, 0], lut[:N, 0, 1])
+plt.scatter(lut[:N, 0], lut[:N, 1])
 ```
 Or the scanner's detector orientations:
 ```python
-plt.scatter(lut[:N, 1, 0], lut[:N, 1, 1])
+plt.plot(lut[:N, 3]) # X orientation
+plt.plot(lut[:N, 4]) # Y orientation
 ```
 Here, `N` is the number of detectors in a ring.
 

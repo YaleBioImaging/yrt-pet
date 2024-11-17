@@ -152,6 +152,9 @@ bool Line3DBase<TFloat>::isParallel(Line3DBase<TFloat>& line) const
 template class Line3DBase<double>;
 template class Line3DBase<float>;
 
+template std::ostream& operator<<(std::ostream& oss, const Line3DBase<double>& l);
+template std::ostream& operator<<(std::ostream& oss, const Line3DBase<float>& l);
+
 static_assert(std::is_trivially_constructible<Line3DBase<double>>());
 static_assert(std::is_trivially_destructible<Line3DBase<double>>());
 static_assert(std::is_trivially_copyable<Line3DBase<double>>());

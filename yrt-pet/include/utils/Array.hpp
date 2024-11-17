@@ -352,7 +352,7 @@ public:
 
 	T getMaxValue() const
 	{
-		T maxValue = std::numeric_limits<T>::min();
+		T maxValue = std::numeric_limits<T>::lowest();
 
 		const int totalSize = getSizeTotal();
 		const T* arr = getRawPointer();

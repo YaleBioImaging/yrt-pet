@@ -7,6 +7,7 @@
 
 #include "datastruct/projection/ProjectionData.hpp"
 #include "datastruct/scanner/Scanner.hpp"
+#include "utils/Utilities.hpp"
 
 #include <functional>
 #include <memory>
@@ -171,7 +172,8 @@ namespace Plugin
 			className##Register()                                    \
 			{                                                        \
 				Plugin::PluginRegistry::instance().registerFormat(   \
-				    formatName, factoryFunc, optionsAdder,           \
+				    Util::toUpper(formatName),                       \
++                   factoryFunc, optionsAdder,                       \
 				    className::IsListMode());                        \
 			}                                                        \
 		};                                                           \

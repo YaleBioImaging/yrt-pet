@@ -30,8 +30,9 @@ std::unique_ptr<ProjectionData> IO::openProjectionData(
     const std::string& input_fname, const std::string& input_format,
     const Scanner& scanner, const Plugin::OptionsResult& pluginOptions)
 {
+	const std::string format_upper = Util::toUpper(input_format);
 	return Plugin::PluginRegistry::instance().create(
-	    input_format, scanner, input_fname, pluginOptions);
+	    format_upper, scanner, input_fname, pluginOptions);
 }
 
 std::string IO::possibleFormats(Plugin::InputFormatsChoice choice)
@@ -50,7 +51,8 @@ std::string IO::possibleFormats(Plugin::InputFormatsChoice choice)
 
 bool IO::isFormatListMode(const std::string& format)
 {
-	return Plugin::PluginRegistry::instance().isFormatListMode(format);
+	const std::string format_upper = Util::toUpper(format);
+	return Plugin::PluginRegistry::instance().isFormatListMode(format_upper);
 }
 
 OperatorProjector::ProjectorType

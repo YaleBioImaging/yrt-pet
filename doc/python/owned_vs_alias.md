@@ -50,3 +50,6 @@ yrt_img.bind(np_img)
 yrt_img.writeToFile("my_image.nii")
 ```
 
+## Example usage of `Alias` in GPU
+
+TODO NOW

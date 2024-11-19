@@ -52,4 +52,56 @@ yrt_img.writeToFile("my_image.nii")
 
 ## Example usage of `Alias` in GPU
 
-TODO NOW
+```python
+import torch
+import pyyrtpet as yrt
+
+# %% Initialize the scanner
+scanner = yrt.Scanner("./SCANNER.json")
+
+# %% Initialize an empty histogram
+his = yrt.Histogram3DOwned(scanner)
+his.allocate()
+his.clearProjections(1.0)
+
+# %% Initialize the projector
+
+# Create a bin iterator that uses one subset and iterates on subset 0
+binIter = his.getBinIter(1, 0)
+
+# Define the projector parameters
+projParams = yrt.OperatorProjectorParams(binIter, scanner)
+
+# Create the projector
+oper = yrt.OperatorProjectorDD_GPU(projParams)
+
+# %% Use CUDA device 0
+cuda0 = torch.device('cuda:0')
+
+# %% Create Torch array and bind it to an ImageDeviceAlias
+params = yrt.ImageParams(100,100,100, 100,100,100, 0,0,0)
+onesImg = torch.zeros([params.nz*params.ny*params.nx],device=cuda0)
+imgDev = yrt.ImageDeviceAlias(params)
+imgDev.setDevicePointer(onesImg.data_ptr()) # !!!
+
+# %% Create a projection-space device buffer
+# Use 'his' as a reference to comute LORs and use 1 OSEM subset
+hisDev = yrt.ProjectionDataDeviceAlias(scanner, his, 1)
+
+# Important: This is needed to precompute all LORs
+# Load events from the first batch of the first subset
+hisDev.loadEventLORs(0, 0, params)
+
+# Create a torch array with the appropriate size
+onesProj = torch.ones([hisDev.getCurrentBatchSize()],device=cuda0)
+
+# Bind torch array to ProjectionDataAlias
+hisDev.setProjValuesDevicePointer(onesProj.data_ptr()) # !!!
+
+# Do the backprojection
+oper.applyAH(hisDev, imgDev)
+
+# Save image
+imgDev.writeToFile("./tmp.nii") # save img
+
+```

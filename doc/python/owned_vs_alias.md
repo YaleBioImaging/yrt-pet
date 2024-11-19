@@ -80,7 +80,7 @@ cuda0 = torch.device('cuda:0')
 
 # %% Create Torch array and bind it to an ImageDeviceAlias
 params = yrt.ImageParams(100,100,100, 100,100,100, 0,0,0)
-onesImg = torch.zeros([params.nz*params.ny*params.nx],device=cuda0)
+onesImg = torch.zeros([params.nz*params.ny*params.nx], device=cuda0, dtype=torch.float32, layout=torch.strided)
 imgDev = yrt.ImageDeviceAlias(params)
 imgDev.setDevicePointer(onesImg.data_ptr()) # !!!
 
@@ -93,7 +93,7 @@ hisDev = yrt.ProjectionDataDeviceAlias(scanner, his, 1)
 hisDev.loadEventLORs(0, 0, params)
 
 # Create a torch array with the appropriate size
-onesProj = torch.ones([hisDev.getCurrentBatchSize()],device=cuda0)
+onesProj = torch.ones([hisDev.getCurrentBatchSize()], device=cuda0, dtype=torch.float32, layout=torch.strided)
 
 # Bind torch array to ProjectionDataAlias
 hisDev.setProjValuesDevicePointer(onesProj.data_ptr()) # !!!
@@ -102,6 +102,6 @@ hisDev.setProjValuesDevicePointer(onesProj.data_ptr()) # !!!
 oper.applyAH(hisDev, imgDev)
 
 # Save image
-imgDev.writeToFile("./tmp.nii") # save img
+imgDev.writeToFile("./out.nii") # save img
 
 ```

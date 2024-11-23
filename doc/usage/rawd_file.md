@@ -17,3 +17,5 @@ Notes:
   instance, images are stored in `float32`.
 - The dimensions are ordered with the contiguous dimension last (e.g. Z, Y, X
   following usual 'C' conventions).
+- Just like all binary formats in YRT-PET, the numbers are stored in
+  little-endian.

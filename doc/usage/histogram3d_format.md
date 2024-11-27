@@ -207,7 +207,9 @@ the image below for example:
 
 ![image-20210421013435320](https://i.imgur.com/8r7Z9Tk.png)
 
-This is even better explained by "The Theory and Practice of 3D PET":
+This is better drawn in "The Theory and Practice of 3D PET"
+by Bernard Bendriem and David W. Townsend
+(From Chapter 2 by Michel Defrise and Paul Kinahan):
 ![expl](https://i.imgur.com/PA6J2Lq.png)
 
 This does not cause any harm to the reconstruction since these bins will simply

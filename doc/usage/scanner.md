@@ -34,7 +34,7 @@ histogram shapes:
 - `maxRingDiff` : Maximum ring difference two detectors must have to define a
   valid LOR.  **\[Mandatory\]**
 - `minAngDiff` : Minimum difference two detectors must have to define a valid
-  LOR.  **\[Mandatory\]**
+  LOR. Has to be an even number. **\[Mandatory\]**
 
 The following properties are used only in scatter estimation:
 

@@ -47,8 +47,8 @@ endif (USE_CUDA)
 
 # Common variables
 set(YRTPET_COMPILE_FEATURES cxx_std_17)
-set(YRTPET_LINK_LIBRARIES OpenMP::OpenMP_CXX ${SimpleITK_LIBRARIES} ${NIFTI_PACKAGE_PREFIX}nifticdf ${NIFTI_PACKAGE_PREFIX}niftiio)
-set(YRTPET_INCLUDE_DIRECTORIES ${SimpleITK_INCLUDE_DIRS})
+set(YRTPET_LINK_LIBRARIES OpenMP::OpenMP_CXX)
+set(YRTPET_INCLUDE_DIRECTORIES)
 set(YRTPET_LIB_NAME yrtpet)
 
 # Default build type
@@ -217,29 +217,6 @@ define_external_target_header(JSON
         c23a33f04786d85c29fda8d16b5f0efd
         include
         ${DOWNLOAD_JSON})
-
-# NIfTI library dependency
-find_package(NIFTI 3 QUIET) # Try to find a system version of nifti
-if(NOT NIFTI_FOUND)
-    set(DOWNLOAD_TEST_DATA OFF)
-    include(FetchContent)
-    FetchContent_Declare( nifti_clib
-            GIT_REPOSITORY https://github.com/NIFTI-Imaging/nifti_clib.git
-            GIT_TAG        master # or v3.0.0, or <HASH>
-    )
-    if("${CMAKE_VERSION}" VERSION_LESS_EQUAL "3.14")
-        FetchContent_GetProperties(nifti_clib)
-        if(NOT nifti_clib_POPULATED)
-            set(FETCHCONTENT_QUIET OFF)
-            message(STATUS "Downloading nifti_clib from github ... please wait")
-            FetchContent_Populate( nifti_clib )
-            message(STATUS "download complete.")
-            add_subdirectory(${nifti_clib_SOURCE_DIR} ${nifti_clib_BINARY_DIR})
-        endif()
-    else()
-        FetchContent_MakeAvailable(nifti_clib)
-    endif()
-endif()
 
 # pybind11
 if (BUILD_PYBIND11)

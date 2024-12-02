@@ -6,10 +6,10 @@
 #pragma once
 
 #include "datastruct/image/ImageBase.hpp"
+#include "datastruct/image/nifti/nifti1_io.h"
 #include "geometry/Vector3D.hpp"
 #include "utils/Array.hpp"
 
-#include <nifti1_io.h>
 #include <string>
 
 struct transform_t;

@@ -19,6 +19,8 @@ set(SOURCES
         datastruct/scanner/Scanner.cpp
         datastruct/image/ImageBase.cpp
         datastruct/image/Image.cpp
+        datastruct/image/nifti/nifti1_io.cpp
+        datastruct/image/nifti/znzlib.cpp
         datastruct/IO.cpp
         geometry/Matrix.cpp
         geometry/Vector3D.cpp

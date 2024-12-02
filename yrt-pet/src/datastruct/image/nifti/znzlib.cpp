@@ -47,6 +47,7 @@ znzlib.c  (zipped or non-zipped library)
 
 znzFile znzopen(const char *path, const char *mode, int use_compression)
 {
+  (void) use_compression;
   znzFile file;
   file = (znzFile) calloc(1,sizeof(struct znzptr));
   if( file == NULL ){
@@ -132,13 +133,12 @@ int Xznzclose(znzFile * file)
 
 size_t znzread(void* buf, size_t size, size_t nmemb, znzFile file)
 {
+  if (file==NULL) { return 0; }
+#ifdef HAVE_ZLIB
   size_t     remain = size*nmemb;
   char     * cbuf = (char *)buf;
   unsigned   n2read;
   int        nread;
-
-  if (file==NULL) { return 0; }
-#ifdef HAVE_ZLIB
   if (file->zfptr!=NULL) {
     /* gzread/write take unsigned int length, so maybe read in int pieces
        (noted by M Hanke, example given by M Adler)   6 July 2010 [rickr] */
@@ -166,13 +166,12 @@ size_t znzread(void* buf, size_t size, size_t nmemb, znzFile file)
 
 size_t znzwrite(const void* buf, size_t size, size_t nmemb, znzFile file)
 {
+  if (file==NULL) { return 0; }
+#ifdef HAVE_ZLIB
   size_t     remain = size*nmemb;
   const char * cbuf = (const char *)buf;
   unsigned   n2write;
   int        nwritten;
-
-  if (file==NULL) { return 0; }
-#ifdef HAVE_ZLIB
   if (file->zfptr!=NULL) {
     while( remain > 0 ) {
        n2write = (remain < ZNZ_MAX_BLOCK_SIZE) ? (unsigned)remain : ZNZ_MAX_BLOCK_SIZE;

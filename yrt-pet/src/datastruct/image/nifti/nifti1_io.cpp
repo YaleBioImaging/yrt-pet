@@ -2602,7 +2602,9 @@ char * nifti_find_file_extension( const char * name )
    char   exthdr[8] = ".hdr";   /* (leave space for .gz) */
    char   extimg[8] = ".img";
    char   extnia[8] = ".nia";
-   char   extgz[4]  = ".gz";
+#ifdef HAVE_ZLIB
+   char   extgz[4]  = ".gz"; // YN readjusted because of warning
+#endif
    char * elist[4]  = { NULL, NULL, NULL, NULL};
 
    /* stupid compiler... */
@@ -2936,6 +2938,7 @@ char * nifti_findimgname(const char* fname , int nifti_type)
 char * nifti_makehdrname(const char * prefix, int nifti_type, int check,
                          int comp)
 {
+   (void)comp;
    char * iname;
    const char * ext;
    char   extnii[5] = ".nii";   /* modifiable, for possible uppercase */
@@ -3006,6 +3009,7 @@ char * nifti_makehdrname(const char * prefix, int nifti_type, int check,
 char * nifti_makeimgname(const char * prefix, int nifti_type, int check,
                          int comp)
 {
+   (void)comp;
    char * iname;
    const char * ext;
    char   extnii[5] = ".nii";   /* modifiable, for possible uppercase */

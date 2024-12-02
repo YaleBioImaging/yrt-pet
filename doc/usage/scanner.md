@@ -88,8 +88,8 @@ detsPerRing * numRings * numDOI
 For each element, the LUT defines, in 32-bit float:
 
 - X, Y, Z center position of the element
-- X, Y, Z orientation of the element, pointing towards the exterior of the
-  scanner
+- X, Y, Z orientation (unit vector) of the element, pointing towards the
+exterior of the scanner
 
 ```
 X Position of detector 0 (float32)
@@ -149,6 +149,7 @@ One can also generate the LUT using Python and save it using:
 ```python
 my_lut.tofile("mynewscanner.lut")
 ```
+Note: The code above assumes the data type of `my_lut` to be `np.float32`.
 
 ### For plugin developers:
 

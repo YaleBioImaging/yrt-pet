@@ -14,7 +14,7 @@ TOF position of event 1 (ps) (float32) [Optional]
 ...
 ```
 
-The file extension used is `.lmDat`.
+The file extension used is `.lmDat` by convention.
 The detectors specified in the List-Mode correspond to the indices in the
 scanner's LUT.
 
@@ -29,12 +29,13 @@ If using python bindings, here's how to read a ListModeLUT:
 import pyyrtpet as yrt
 
 scanner = yrt.Scanner("myscanner.json")
-lm = yrt.ListModeLUTOwned(scanner, "mylistmode.lmDat", flag_tof=[True / False])
+flag_tof = True  # Indicate whether the list-mode file contains a TOF field
+lm = yrt.ListModeLUTOwned(scanner, "mylistmode.lmDat", flag_tof=flag_tof)
 ```
 
 The `flag_tof` option specifies if the list-mode contains TOF information for
 each event.
 
 # List-Mode-DOI file
-A more advanced List-Mode format is available for scanners with a very high
-amount of DOI layers. Documentation for this format is still in construction
+A more advanced List-Mode format is available for scanners with a very large
+number of DOI layers. Documentation for this format is still in construction.

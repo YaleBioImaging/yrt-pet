@@ -8,18 +8,13 @@
 #include "geometry/Constants.hpp"
 #include "utils/Assert.hpp"
 #include "utils/Types.hpp"
-
-#include <sitkCastImageFilter.h>
-#include <sitkImageFileReader.h>
-#include <sitkImageFileWriter.h>
-#include <sitkImportImageFilter.h>
+#include "utils/Utilities.hpp"
 
 #include <cmath>
 #include <fstream>
 #include <iostream>
+#include <cstring>
 #include <vector>
-
-namespace sitk = itk::simple;
 
 #if BUILD_PYBIND11
 #include <pybind11/numpy.h>
@@ -790,33 +785,47 @@ void Image::assignImageInterpolate(const Vector3D& point, float value)
 void Image::writeToFile(const std::string& fname) const
 {
 	const ImageParams& params = getParams();
+	const int dims[] = {3, params.nx, params.ny, params.nz};
+	nifti_image* nim = nifti_make_new_nim(dims, NIFTI_TYPE_FLOAT32, 0);
+	nim->nx = params.nx;
+	nim->ny = params.ny;
+	nim->nz = params.nz;
+	nim->nbyper = sizeof(float);
+	nim->datatype = NIFTI_TYPE_FLOAT32;
+	nim->pixdim[0] = 0.0f;
+	nim->dx = params.vx;
+	nim->dy = params.vy;
+	nim->dz = params.vz;
+	nim->pixdim[1] = params.vx;
+	nim->pixdim[2] = params.vy;
+	nim->pixdim[3] = params.vz;
+	nim->scl_slope = 1.0f;
+	nim->scl_inter = 0.0f;
+	nim->data =
+	    const_cast<void*>(reinterpret_cast<const void*>(getRawPointer()));
+	nim->qform_code = 0;
+	nim->sform_code = NIFTI_XFORM_SCANNER_ANAT;
+	nim->slice_dim = 3;
+	nim->sto_xyz.m[0][0] = -params.vx;
+	nim->sto_xyz.m[1][1] = -params.vy;
+	nim->sto_xyz.m[2][2] = params.vz;
+	nim->sto_xyz.m[0][3] =
+	    -offsetToOrigin(params.off_x, params.vx, params.length_x);
+	nim->sto_xyz.m[1][3] =
+	    -offsetToOrigin(params.off_y, params.vy, params.length_y);
+	nim->sto_xyz.m[2][3] =
+	    offsetToOrigin(params.off_z, params.vz, params.length_z);
+	nim->xyz_units = NIFTI_UNITS_MM;
+	nim->time_units = NIFTI_UNITS_SEC;
+	nim->nifti_type = NIFTI_FTYPE_NIFTI1_1;
+	// Write something here in nim->descrip;
 
-	std::vector<unsigned int> sitkSize{{static_cast<unsigned int>(params.nx),
-	                                    static_cast<unsigned int>(params.ny),
-	                                    static_cast<unsigned int>(params.nz)}};
-	sitk::Image sitkImage{sitkSize[0], sitkSize[1], sitkSize[2],
-	                      sitk::sitkFloat32};
+	nim->fname = strdup(fname.c_str());
 
-	updateSitkImageFromParameters(sitkImage, params);
+	nifti_image_write(nim);
 
-	const float* rawPtr = getRawPointer();
-	for (unsigned int z = 0; z < static_cast<unsigned int>(params.nz); ++z)
-	{
-		const unsigned int z_offset = z * (params.nx * params.ny);
-		for (unsigned int y = 0; y < static_cast<unsigned int>(params.ny); ++y)
-		{
-			const unsigned int y_offset = y * params.nx;
-			for (unsigned int x = 0; x < static_cast<unsigned int>(params.nx);
-			     ++x)
-			{
-				const unsigned int index = z_offset + y_offset + x;
-				sitkImage.SetPixelAsFloat(std::vector<unsigned int>{x, y, z},
-				                          rawPtr[index]);
-			}
-		}
-	}
-
-	sitk::WriteImage(sitkImage, fname);
+	nim->data = nullptr;
+	nifti_image_free(nim);
 }
 
 void Image::applyThreshold(const ImageBase* maskImg, float threshold,
@@ -993,7 +1002,7 @@ ImageOwned::ImageOwned(const ImageParams& imgParams) : Image{imgParams}
 
 ImageOwned::ImageOwned(const ImageParams& imgParams,
                        const std::string& filename)
-    : Image{imgParams}
+    : ImageOwned{imgParams}
 {
 	// Compare given image parameters against given file
 	readFromFile(filename);
@@ -1001,108 +1010,252 @@ ImageOwned::ImageOwned(const ImageParams& imgParams,
 
 ImageOwned::ImageOwned(const std::string& filename) : Image{}
 {
-	// Deduct image parameters from given file
+	mp_array = std::make_unique<Array3D<float>>();
+
+	// Deduce image parameters from given file
 	readFromFile(filename);
 }
 
 void ImageOwned::allocate()
 {
+	ASSERT(mp_array != nullptr);
 	const ImageParams& params = getParams();
-	mp_sitkImage = std::make_unique<sitk::Image>(params.nx, params.ny,
-	                                             params.nz, sitk::sitkFloat32);
+	reinterpret_cast<Array3D<float>*>(mp_array.get())
+	    ->allocate(params.nz, params.ny, params.nx);
+}
 
-	updateSitkImageFromParameters(*mp_sitkImage, params);
+mat44 ImageOwned::adjustAffineMatrix(mat44 matrix)
+{
+	// Flip X-axis if diagonal element is negative
+	if (matrix.m[0][0] < 0)
+	{
+		matrix.m[0][0] *= -1;
+		matrix.m[0][3] *= -1;  // Adjust translation
+	}
 
-	auto arrayAlias = std::make_unique<Array3DAlias<float>>();
-	arrayAlias->bind(mp_sitkImage->GetBufferAsFloat(), params.nz, params.ny,
-	                 params.nx);
-	mp_array = std::move(arrayAlias);
+	// Flip Y-axis if diagonal element is negative
+	if (matrix.m[1][1] < 0)
+	{
+		matrix.m[1][1] *= -1;
+		matrix.m[1][3] *= -1;  // Adjust translation
+	}
+
+	// Flip Z-axis if diagonal element is negative (optional)
+	if (matrix.m[2][2] < 0)
+	{
+		matrix.m[2][2] *= -1;
+		matrix.m[2][3] *= -1;  // Adjust translation
+	}
+
+	return matrix;
 }
 
 void ImageOwned::readFromFile(const std::string& fname)
 {
-	const ImageParams& params = getParams();
-	if (params.isValid())
+	nifti_image* niftiImage = nifti_image_read(fname.c_str(), 1);
+
+	mat44 transformMatrix;
+	if (niftiImage->sform_code > 0)
 	{
-		mp_sitkImage = std::make_unique<sitk::Image>(sitk::ReadImage(fname));
-		if (mp_sitkImage->GetPixelID() != sitk::sitkFloat32)
-		{
-			*mp_sitkImage = sitk::Cast(*mp_sitkImage, sitk::sitkFloat32);
-		}
-
-		checkImageParamsWithSitkImage();
-
-		// TODO: Check the Image direction matrix and do the resampling if
-		// needed
-
-		auto arrayAlias = std::make_unique<Array3DAlias<float>>();
-		arrayAlias->bind(mp_sitkImage->GetBufferAsFloat(), params.nz, params.ny,
-		                 params.nx);
-		mp_array = std::move(arrayAlias);
+		transformMatrix = niftiImage->sto_xyz;  // Use sform matrix
+	}
+	else if (niftiImage->qform_code > 0)
+	{
+		transformMatrix = niftiImage->qto_xyz;  // Use qform matrix
 	}
 	else
 	{
-		mp_sitkImage = std::make_unique<sitk::Image>(sitk::ReadImage(fname));
-		if (mp_sitkImage->GetPixelID() != sitk::sitkFloat32)
-		{
-			*mp_sitkImage = sitk::Cast(*mp_sitkImage, sitk::sitkFloat32);
-		}
-
-		// TODO: Check the Image direction matrix and do the resampling if
-		// needed
-
-		const ImageParams newParams =
-		    createImageParamsFromSitkImage(*mp_sitkImage);
-		setParams(newParams);
-
-		auto arrayAlias = std::make_unique<Array3DAlias<float>>();
-		arrayAlias->bind(mp_sitkImage->GetBufferAsFloat(), newParams.nz,
-		                 newParams.ny, params.nx);
-		mp_array = std::move(arrayAlias);
+		std::cout << "Warning: The NIfTI image file given does not have a "
+		             "qform or an sform."
+		          << std::endl;
+		std::cout << "This mapping method is not recommended, and is present "
+		             "mainly for compatibility with ANALYZE 7.5 files."
+		          << std::endl;
+		std::memset(transformMatrix.m, 0, 16 * sizeof(float));
+		transformMatrix.m[0][0] = 1.0f;
+		transformMatrix.m[1][1] = 1.0f;
+		transformMatrix.m[2][2] = 1.0f;
+		transformMatrix.m[3][3] = 1.0f;
 	}
+	transformMatrix = adjustAffineMatrix(transformMatrix);
+
+	// TODO: Check Image direction matrix and do the resampling if needed
+
+	float voxelSpacing[3];
+	voxelSpacing[0] = niftiImage->dx;  // Spacing along x
+	voxelSpacing[1] = niftiImage->dy;  // Spacing along y
+	voxelSpacing[2] = niftiImage->dz;  // Spacing along z
+
+	const int spaceUnits = niftiImage->xyz_units;
+	if (spaceUnits == NIFTI_UNITS_METER)
+	{
+		for (int i = 0; i < 3; i++)
+		{
+			voxelSpacing[i] = voxelSpacing[i] / 1000.0f;
+		}
+	}
+	else if (spaceUnits == NIFTI_UNITS_MICRON)
+	{
+		for (int i = 0; i < 3; i++)
+		{
+			voxelSpacing[i] = voxelSpacing[i] * 1000.0f;
+		}
+	}
+
+	float imgOrigin[3];
+	imgOrigin[0] = transformMatrix.m[0][3];  // x-origin
+	imgOrigin[1] = transformMatrix.m[1][3];  // y-origin
+	imgOrigin[2] = transformMatrix.m[2][3];  // z-origin
+
+	const ImageParams& params = getParams();
+
+	if (params.isValid())
+	{
+		checkImageParamsWithGivenImage(voxelSpacing, imgOrigin,
+		                               niftiImage->dim);
+	}
+	else
+	{
+		ImageParams newParams;
+		newParams.vx = voxelSpacing[0];
+		newParams.vy = voxelSpacing[1];
+		newParams.vz = voxelSpacing[2];
+		ASSERT_MSG(niftiImage->dim[0] == 3, "NIfTI Image's dim[0] is not 3");
+		newParams.nx = niftiImage->dim[1];
+		newParams.ny = niftiImage->dim[2];
+		newParams.nz = niftiImage->dim[3];
+		newParams.off_x = originToOffset(imgOrigin[0], newParams.vx,
+		                                 newParams.vx * newParams.nx);
+		newParams.off_y = originToOffset(imgOrigin[1], newParams.vy,
+		                                 newParams.vy * newParams.ny);
+		newParams.off_z = originToOffset(imgOrigin[2], newParams.vz,
+		                                 newParams.vz * newParams.nz);
+		newParams.setup();
+		setParams(newParams);
+	}
+
+	allocate();
+
+	readNIfTIData(niftiImage->datatype, niftiImage->data, niftiImage->scl_slope,
+	              niftiImage->scl_inter);
+
+	nifti_image_free(niftiImage);
 }
 
-void ImageOwned::checkImageParamsWithSitkImage() const
+void ImageOwned::readNIfTIData(int datatype, void* data, float slope,
+                               float intercept)
 {
 	const ImageParams& params = getParams();
 
-	ASSERT(mp_sitkImage->GetDimension() == 3);
-	const auto sitkSpacing = mp_sitkImage->GetSpacing();
+	float* imgData = getRawPointer();
+	const int numVoxels = params.nx * params.ny * params.nz;
 
-	if (!(APPROX_EQ_THRESH(static_cast<float>(sitkSpacing[0]), params.vx,
-	                       1e-3) &&
-	      APPROX_EQ_THRESH(static_cast<float>(sitkSpacing[1]), params.vy,
-	                       1e-3) &&
-	      APPROX_EQ_THRESH(static_cast<float>(sitkSpacing[2]), params.vz,
-	                       1e-3)))
+	if (datatype == NIFTI_TYPE_FLOAT32)
+	{
+		for (int i = 0; i < numVoxels; i++)
+			imgData[i] =
+			    (*(reinterpret_cast<float*>(data) + i) * slope) + intercept;
+	}
+	else if (datatype == NIFTI_TYPE_FLOAT64)
+	{
+		for (int i = 0; i < numVoxels; i++)
+			imgData[i] =
+			    (Util::reinterpretAndCast<double, float>(data, i) * slope) +
+			    intercept;
+	}
+	else if (datatype == NIFTI_TYPE_INT8)
+	{
+		for (int i = 0; i < numVoxels; i++)
+			imgData[i] =
+			    (Util::reinterpretAndCast<int8_t, float>(data, i) * slope) +
+			    intercept;
+	}
+	else if (datatype == NIFTI_TYPE_INT16)
+	{
+		for (int i = 0; i < numVoxels; i++)
+			imgData[i] =
+			    (Util::reinterpretAndCast<int16_t, float>(data, i) * slope) +
+			    intercept;
+	}
+	else if (datatype == NIFTI_TYPE_INT32)
+	{
+		for (int i = 0; i < numVoxels; i++)
+			imgData[i] =
+			    (Util::reinterpretAndCast<int32_t, float>(data, i) * slope) +
+			    intercept;
+	}
+	else if (datatype == NIFTI_TYPE_INT64)
+	{
+		for (int i = 0; i < numVoxels; i++)
+			imgData[i] =
+			    (Util::reinterpretAndCast<int64_t, float>(data, i) * slope) +
+			    intercept;
+	}
+	else if (datatype == NIFTI_TYPE_UINT8)
+	{
+		for (int i = 0; i < numVoxels; i++)
+			imgData[i] =
+			    (Util::reinterpretAndCast<uint8_t, float>(data, i) * slope) +
+			    intercept;
+	}
+	else if (datatype == NIFTI_TYPE_UINT16)
+	{
+		for (int i = 0; i < numVoxels; i++)
+			imgData[i] =
+			    (Util::reinterpretAndCast<uint16_t, float>(data, i) * slope) +
+			    intercept;
+	}
+	else if (datatype == NIFTI_TYPE_UINT32)
+	{
+		for (int i = 0; i < numVoxels; i++)
+			imgData[i] =
+			    (Util::reinterpretAndCast<uint32_t, float>(data, i) * slope) +
+			    intercept;
+	}
+	else if (datatype == NIFTI_TYPE_UINT64)
+	{
+		for (int i = 0; i < numVoxels; i++)
+			imgData[i] =
+			    (Util::reinterpretAndCast<uint64_t, float>(data, i) * slope) +
+			    intercept;
+	}
+}
+
+
+void ImageOwned::checkImageParamsWithGivenImage(float voxelSpacing[3],
+                                                float imgOrigin[3],
+                                                const int dim[8]) const
+{
+	const ImageParams& params = getParams();
+
+	ASSERT(dim[0] == 3);
+
+	if (!(APPROX_EQ_THRESH(voxelSpacing[0], params.vx, 1e-3) &&
+	      APPROX_EQ_THRESH(voxelSpacing[1], params.vy, 1e-3) &&
+	      APPROX_EQ_THRESH(voxelSpacing[2], params.vz, 1e-3)))
 	{
 		std::string errorString = "Spacing mismatch "
 		                          "between given image and the "
 		                          "image parameters provided:\n";
-		errorString += "Given image: vx=" + std::to_string(sitkSpacing[0]) +
-		               " vy=" + std::to_string(sitkSpacing[1]) +
-		               " vz=" + std::to_string(sitkSpacing[2]) + "\n";
+		errorString += "Given image: vx=" + std::to_string(voxelSpacing[0]) +
+		               " vy=" + std::to_string(voxelSpacing[1]) +
+		               " vz=" + std::to_string(voxelSpacing[2]) + "\n";
 		errorString += "Image parameters: vx=" + std::to_string(params.vx) +
 		               " vy=" + std::to_string(params.vy) +
 		               " vz=" + std::to_string(params.vz);
 		throw std::invalid_argument(errorString);
 	}
 
-	const auto sitkSize = mp_sitkImage->GetSize();
-	ASSERT_MSG(sitkSize[0] == static_cast<unsigned int>(params.nx),
-	           "Size mismatch in X dimension");
-	ASSERT_MSG(sitkSize[1] == static_cast<unsigned int>(params.ny),
-	           "Size mismatch in Y dimension");
-	ASSERT_MSG(sitkSize[2] == static_cast<unsigned int>(params.nz),
-	           "Size mismatch in Z dimension");
+	ASSERT_MSG(dim[1] == params.nx, "Size mismatch in X dimension");
+	ASSERT_MSG(dim[2] == params.ny, "Size mismatch in Y dimension");
+	ASSERT_MSG(dim[3] == params.nz, "Size mismatch in Z dimension");
 
-	const auto sitkOrigin = mp_sitkImage->GetOrigin();
-	const float expectedOffsetX = sitkOriginToImageParamsOffset(
-	    sitkOrigin[0], params.vx, params.length_x);
-	const float expectedOffsetY = sitkOriginToImageParamsOffset(
-	    sitkOrigin[1], params.vy, params.length_y);
-	const float expectedOffsetZ = sitkOriginToImageParamsOffset(
-	    sitkOrigin[2], params.vz, params.length_z);
+	const float expectedOffsetX =
+	    originToOffset(imgOrigin[0], params.vx, params.length_x);
+	const float expectedOffsetY =
+	    originToOffset(imgOrigin[1], params.vy, params.length_y);
+	const float expectedOffsetZ =
+	    originToOffset(imgOrigin[2], params.vz, params.length_z);
 
 	if (!(APPROX_EQ_THRESH(expectedOffsetX, params.off_x, 1e-3) &&
 	      APPROX_EQ_THRESH(expectedOffsetY, params.off_y, 1e-3) &&
@@ -1122,47 +1275,14 @@ void ImageOwned::checkImageParamsWithSitkImage() const
 	}
 }
 
-void ImageOwned::writeToFile(const std::string& fname) const
+float Image::originToOffset(float origin, float voxelSize, float length)
 {
-	updateSitkImageFromParameters(*mp_sitkImage, getParams());
-	sitk::WriteImage(*mp_sitkImage, fname);
+	return origin + 0.5f * length - 0.5f * voxelSize;
 }
 
-void Image::updateSitkImageFromParameters(itk::simple::Image& sitkImage,
-                                          const ImageParams& params)
+float Image::offsetToOrigin(float off, float voxelSize, float length)
 {
-	const std::vector<unsigned int> sitkSize{
-	    {static_cast<unsigned int>(params.nx),
-	     static_cast<unsigned int>(params.ny),
-	     static_cast<unsigned int>(params.nz)}};
-
-	const std::vector<double> sitkSpacing{{params.vx, params.vy, params.vz}};
-	sitkImage.SetSpacing(sitkSpacing);
-
-	const std::vector<double> sitkDirection{{1, 0, 0, 0, 1, 0, 0, 0, 1}};
-	sitkImage.SetDirection(sitkDirection);
-
-	std::vector<double> sitkOrigin;
-	sitkOrigin.resize(3);
-	sitkOrigin[0] =
-	    imageParamsOffsetToSitkOrigin(params.off_x, params.vx, params.length_x);
-	sitkOrigin[1] =
-	    imageParamsOffsetToSitkOrigin(params.off_y, params.vy, params.length_y);
-	sitkOrigin[2] =
-	    imageParamsOffsetToSitkOrigin(params.off_z, params.vz, params.length_z);
-	sitkImage.SetOrigin(sitkOrigin);
-}
-
-float Image::sitkOriginToImageParamsOffset(double sitkOrigin, float voxelSize,
-                                           float length)
-{
-	return static_cast<float>(sitkOrigin) + 0.5f * length - 0.5f * voxelSize;
-}
-
-double Image::imageParamsOffsetToSitkOrigin(float off, float voxelSize,
-                                            float length)
-{
-	return off - 0.5 * length + 0.5 * voxelSize;
+	return off - 0.5f * length + 0.5f * voxelSize;
 }
 
 template <int Dimension>
@@ -1199,37 +1319,6 @@ float Image::indexToPositionInDimension(int index) const
 template float Image::indexToPositionInDimension<0>(int index) const;
 template float Image::indexToPositionInDimension<1>(int index) const;
 template float Image::indexToPositionInDimension<2>(int index) const;
-
-
-ImageParams Image::createImageParamsFromSitkImage(const sitk::Image& sitkImage)
-{
-	ImageParams newParams;
-
-	auto sitkSize = sitkImage.GetSize();
-	newParams.nx = sitkSize[0];
-	newParams.ny = sitkSize[1];
-	newParams.nz = sitkSize[2];
-
-	auto sitkSpacing = sitkImage.GetSpacing();
-	newParams.vx = sitkSpacing[0];
-	newParams.vy = sitkSpacing[1];
-	newParams.vz = sitkSpacing[2];
-	newParams.length_x = newParams.nx * newParams.vx;
-	newParams.length_y = newParams.ny * newParams.vy;
-	newParams.length_z = newParams.nz * newParams.vz;
-
-	auto sitkOrigin = sitkImage.GetOrigin();
-	newParams.off_x = sitkOriginToImageParamsOffset(sitkOrigin[0], newParams.vx,
-	                                                newParams.length_x);
-	newParams.off_y = sitkOriginToImageParamsOffset(sitkOrigin[1], newParams.vy,
-	                                                newParams.length_y);
-	newParams.off_z = sitkOriginToImageParamsOffset(sitkOrigin[2], newParams.vz,
-	                                                newParams.length_z);
-
-	newParams.setup();
-
-	return newParams;
-}
 
 ImageAlias::ImageAlias(const ImageParams& imgParams) : Image(imgParams)
 {

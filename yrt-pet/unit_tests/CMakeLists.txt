@@ -10,6 +10,7 @@ set(SOURCES_DATASTRUCT
         recon/test_CSV.cpp
         recon/test_SparseHistogram.cpp
         recon/test_Histogram3D.cpp
+        recon/test_Image.cpp
         recon/test_ListMode.cpp
         recon/test_Scanner.cpp
         recon/test_TimeOfFlight.cpp

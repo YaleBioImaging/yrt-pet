@@ -9,8 +9,7 @@
 #include "geometry/Vector3D.hpp"
 #include "utils/Array.hpp"
 
-#include <sitkImage.h>
-
+#include <nifti1_io.h>
 #include <string>
 
 struct transform_t;
@@ -66,14 +65,8 @@ public:
 	float indexToPositionInDimension(int index) const;
 
 protected:
-	static ImageParams
-	    createImageParamsFromSitkImage(const itk::simple::Image& sitkImage);
-	static float sitkOriginToImageParamsOffset(double sitkOrigin,
-	                                           float voxelSize, float length);
-	static double imageParamsOffsetToSitkOrigin(float off, float voxelSize,
-	                                            float length);
-	static void updateSitkImageFromParameters(itk::simple::Image& sitkImage,
-	                                          const ImageParams& params);
+	static float originToOffset(float origin, float voxelSize, float length);
+	static float offsetToOrigin(float off, float voxelSize, float length);
 
 	Image();
 	explicit Image(const ImageParams& imgParams);
@@ -88,11 +81,13 @@ public:
 	explicit ImageOwned(const std::string& filename);
 	void allocate();
 	void readFromFile(const std::string& fname);
-	void writeToFile(const std::string& fname) const override;
 
 private:
-	void checkImageParamsWithSitkImage() const;
-	std::unique_ptr<itk::simple::Image> mp_sitkImage;
+	void checkImageParamsWithGivenImage(float voxelSpacing[3],
+	                                    float imgOrigin[3],
+	                                    const int dim[8]) const;
+	void readNIfTIData(int datatype, void* data, float slope, float intercept);
+	static mat44 adjustAffineMatrix(mat44 matrix);
 };
 
 class ImageAlias : public Image

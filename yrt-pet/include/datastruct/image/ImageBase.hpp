@@ -15,42 +15,48 @@
 class ImageParams
 {
 public:
-    int nx;
-    int ny;
-    int nz;
-    float length_x;
-    float length_y;
-    float length_z;
-    float off_x;
-    float off_y;
-    float off_z;
+	int nx;
+	int ny;
+	int nz;
+	float length_x;
+	float length_y;
+	float length_z;
+	float vx;
+	float vy;
+	float vz;
+	float off_x;
+	float off_y;
+	float off_z;
 
-    // Automatically populated fields
-    float vx, vy, vz;
-    float fovRadius;
+	// Automatically populated fields
+	float fovRadius;
 
-    ImageParams();
-    ImageParams(int nxi, int nyi, int nzi, float length_xi, float length_yi,
-                float length_zi, float offset_xi = 0.,
-                float offset_yi = 0., float offset_zi = 0.);
-    ImageParams(const ImageParams& in);
-    ImageParams& operator=(const ImageParams& in);
-    explicit ImageParams(const std::string& fname);
-    bool isSameDimensionsAs(const ImageParams& other) const;
-    bool isSameLengthsAs(const ImageParams& other) const;
-    bool isSameOffsetsAs(const ImageParams& other) const;
-    bool isSameAs(const ImageParams& other) const;
+	ImageParams();
+	ImageParams(int nxi, int nyi, int nzi, float length_xi, float length_yi,
+	            float length_zi, float offset_xi = 0., float offset_yi = 0.,
+	            float offset_zi = 0.);
+	ImageParams(const ImageParams& in);
+	ImageParams& operator=(const ImageParams& in);
+	explicit ImageParams(const std::string& fname);
+	bool isSameDimensionsAs(const ImageParams& other) const;
+	bool isSameLengthsAs(const ImageParams& other) const;
+	bool isSameOffsetsAs(const ImageParams& other) const;
+	bool isSameAs(const ImageParams& other) const;
 
-    void copy(const ImageParams& in);
-    void setup();
-    void serialize(const std::string& fname) const;
-    void writeToJSON(nlohmann::json& j) const;
-    void deserialize(const std::string& fname);
-    void readFromJSON(nlohmann::json& j);
-    bool isValid() const;
+	void copy(const ImageParams& in);
+	void setup();
+	void serialize(const std::string& fname) const;
+	void writeToJSON(nlohmann::json& j) const;
+	void deserialize(const std::string& fname);
+	void readFromJSON(nlohmann::json& j);
+	bool isValid() const;
 
 private:
-    static float readLengthFromJSON(nlohmann::json& j, const std::string& length_name, const std::string& v_name, int n);
+	static float readLengthFromJSON(nlohmann::json& j,
+	                                const std::string& length_name,
+	                                const std::string& v_name, int n);
+	template <int Dim>
+	void completeDimInfo();
 };
 
 class ImageBase : public Variable

@@ -57,6 +57,12 @@ namespace Util
 		pCode = pCode | lToInsert_shifted;
 	}
 
+	template <typename TSrc, typename TDst>
+	TDst reinterpretAndCast(void* src, int offset = 0)
+	{
+		return static_cast<TDst>(*(reinterpret_cast<TSrc*>(src) + offset));
+	}
+
 	// ----------------- System -----------------
 	bool compiledWithCuda();
 

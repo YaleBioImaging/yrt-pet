@@ -11,34 +11,37 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 namespace py = pybind11;
+using namespace pybind11::literals;
 
 void py_setup_biniterator(py::module& m)
 {
 	auto c = py::class_<BinIterator>(m, "BinIterator");
-	c.def("get", &BinIterator::get);
+	c.def("get", &BinIterator::get, "idx"_a);
 	c.def("begin", &BinIterator::begin);
 	c.def("end", &BinIterator::end);
 	c.def("size", &BinIterator::size);
 
 	auto c_range =
 	    py::class_<BinIteratorRange, BinIterator>(m, "BinIteratorRange");
-	c_range.def(py::init<bin_t>());
-	c_range.def(py::init<bin_t, bin_t, bin_t>());  // add default argument
-	c_range.def(py::init<std::tuple<bin_t, bin_t, bin_t>>());
+	c_range.def(py::init<bin_t>(), "num"_a);
+	c_range.def(py::init<bin_t, bin_t, bin_t>(), "idxStart"_a, "idxEnd"_a,
+	            "idxStride"_a = 1);
 
 	auto c_vector =
 	    py::class_<BinIteratorVector, BinIterator>(m, "BinIteratorVector");
 	c_vector.def(py::init(
-	    [](const std::vector<bin_t>& vec)
-	    {
-		    auto idxs = std::make_unique<std::vector<bin_t>>(vec);
-		    return BinIteratorVector(idxs);
-	    }));
+	                 [](const std::vector<bin_t>& vec)
+	                 {
+		                 auto idxs = std::make_unique<std::vector<bin_t>>(vec);
+		                 return BinIteratorVector(idxs);
+	                 }),
+	             "indices"_a);
 
 	auto c_chronological =
 	    py::class_<BinIteratorChronological, BinIteratorRange>(
 	        m, "BinIteratorChronological");
-	c_chronological.def(py::init<bin_t, bin_t, bin_t>());
+	c_chronological.def(py::init<bin_t, bin_t, bin_t>(), "numSubsets"_a,
+	                    "numEvents"_a, "idxSubset"_a);
 }
 #endif
 

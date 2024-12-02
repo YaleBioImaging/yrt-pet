@@ -5,6 +5,7 @@
 
 #include "datastruct/image/ImageBase.hpp"
 #include "geometry/Constants.hpp"
+#include "utils/Assert.hpp"
 #include "utils/JSONUtils.hpp"
 
 #include "nlohmann/json.hpp"
@@ -97,15 +98,16 @@ ImageParams::ImageParams()
     : nx(-1),
       ny(-1),
       nz(-1),
-      length_x(-1.0),
-      length_y(-1.0),
-      length_z(-1.0),
-      off_x(0.0),
-      off_y(0.0),
-      off_z(0.0),
-      vx(-1.0),
-      vy(-1.0),
-      vz(-1.0)
+      length_x(-1.0f),
+      length_y(-1.0f),
+      length_z(-1.0f),
+      vx(-1.0f),
+      vy(-1.0f),
+      vz(-1.0f),
+      off_x(0.0f),
+      off_y(0.0f),
+      off_z(0.0f),
+      fovRadius(-1.0f)
 {
 }
 
@@ -118,6 +120,9 @@ ImageParams::ImageParams(int nxi, int nyi, int nzi, float length_xi,
       length_x(length_xi),
       length_y(length_yi),
       length_z(length_zi),
+      vx(-1.0f),
+      vy(-1.0f),
+      vz(-1.0f),
       off_x(offset_xi),
       off_y(offset_yi),
       off_z(offset_zi)
@@ -147,22 +152,91 @@ void ImageParams::copy(const ImageParams& in)
 	off_x = in.off_x;
 	off_y = in.off_y;
 	off_z = in.off_z;
+	vx = in.vx;
+	vy = in.vy;
+	vz = in.vz;
 	setup();
 }
 
-ImageParams::ImageParams(const std::string& fname)
+ImageParams::ImageParams(const std::string& fname) : ImageParams{}
 {
 	deserialize(fname);
 }
 
 void ImageParams::setup()
 {
-	vx = length_x / static_cast<float>(nx);
-	vy = length_y / static_cast<float>(ny);
-	vz = length_z / static_cast<float>(nz);
-	fovRadius = static_cast<float>(std::max(length_x / 2, length_y / 2));
-	fovRadius -= static_cast<float>(std::max(vx, vy) / 1000);
+	ASSERT(nx > 0);
+	ASSERT(ny > 0);
+	ASSERT(nz > 0);
+
+	completeDimInfo<0>();
+	completeDimInfo<1>();
+	completeDimInfo<2>();
+
+	fovRadius = static_cast<float>(std::max(length_x / 2.0f, length_y / 2.0f));
+	fovRadius -= static_cast<float>(std::max(vx, vy) / 1000.0f);
 }
+
+template <int Dim>
+void ImageParams::completeDimInfo()
+{
+	const int* n = nullptr;
+	float* v = nullptr;
+	float* length = nullptr;
+	float* off = nullptr;
+
+	static_assert(Dim >= 0 && Dim < 3);
+	if constexpr (Dim == 0)
+	{
+		v = &vx;
+		n = &nx;
+		length = &length_x;
+		off = &off_x;
+	}
+	if constexpr (Dim == 1)
+	{
+		v = &vy;
+		n = &ny;
+		length = &length_y;
+		off = &off_y;
+	}
+	if constexpr (Dim == 2)
+	{
+		v = &vz;
+		n = &nz;
+		length = &length_z;
+		off = &off_z;
+	}
+
+	ASSERT(v != nullptr);
+	ASSERT(n != nullptr);
+	ASSERT(length != nullptr);
+
+	if (*v > 0.0f && *length > 0.0f)
+	{
+		return;
+	}
+	if (*v < 0.0f && *length > 0.0f)
+	{
+		*v = *length / static_cast<float>(*n);
+	}
+	else if (*v > 0.0f && *length < 0.0f)
+	{
+		*length = *v * static_cast<float>(*n);
+	}
+	else if (*v < 0.0f && *length < 0.0f)
+	{
+		throw std::invalid_argument(
+		    "Image parameters incorrectly defined in X");
+	}
+
+	// Force offset to be zero in case it is lower than 0.1 micrometers
+	if (std::abs(*off) < 1e-4)
+	{
+		*off = 0.0f;
+	}
+}
+
 
 void ImageParams::serialize(const std::string& fname) const
 {

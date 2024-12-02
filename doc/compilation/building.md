@@ -2,11 +2,6 @@
 
 ## Requirements
 
-- SimpleITK
-    - Need to set `SimpleITK_DIR` environment variable
-      to `<SimpleITK build directory>/SimpleITK-build/`
-    - Need to set `ITK_DIR` environment variable
-      to `<SimpleITK build directory>/ITK-build/`
 - `pybind11` if compiling the python bindings (ON by default)
 - CUDA toolkit if compiling using GPU (ON by default)
 - An internet connection to download the `cxxopts`, `nlohmann/json`,

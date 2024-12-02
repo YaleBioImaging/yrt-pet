@@ -44,8 +44,8 @@ Y and Z.
 
 # Image format
 
-Images are stored and read in NIfTI format. This is the main reason SimpleITK is
-a dependency. Since NifTI files include image orientation, origin and pixel
+Images are stored and read in NIfTI format.
+Since NifTI files include image orientation, origin and pixel
 spacing, The following requirements are imposed:
 - Input images (e.g. attenuation map, sensitivity image) must have an identity
   orientation matrix (no rotation)

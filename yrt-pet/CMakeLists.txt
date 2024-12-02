@@ -11,7 +11,6 @@ include(ExternalProject)
 
 # Program requirements
 find_package(OpenMP REQUIRED)
-find_package(SimpleITK REQUIRED)
 
 # User options
 option(BUILD_PYBIND11 "Build python bindings using pybind11" ON)

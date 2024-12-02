@@ -62,26 +62,26 @@ private:
 class ImageBase : public Variable
 {
 public:
-    ImageBase() = default;
-    explicit ImageBase(const ImageParams& imgParams);
-    ~ImageBase() override = default;
+	ImageBase() = default;
+	explicit ImageBase(const ImageParams& imgParams);
+	~ImageBase() override = default;
 
-    // Common functions
-    float getRadius() const;
-    const ImageParams& getParams() const;
-    void setParams(const ImageParams& newParams);
+	// Common functions
+	float getRadius() const;
+	const ImageParams& getParams() const;
+	void setParams(const ImageParams& newParams);
 
-    virtual void setValue(float initValue) = 0;
-    virtual void copyFromImage(const ImageBase* imSrc) = 0;
-    virtual void addFirstImageToSecond(ImageBase* second) const = 0;
-    virtual void applyThreshold(const ImageBase* mask_img, float threshold,
-                                float val_le_scale, float val_le_off,
-                                float val_gt_scale, float val_gt_off) = 0;
-    virtual void writeToFile(const std::string& image_fname) const = 0;
-    virtual void updateEMThreshold(ImageBase* update_img,
-                                   const ImageBase* norm_img,
-                                   float threshold) = 0;
+	virtual void setValue(float initValue) = 0;
+	virtual void copyFromImage(const ImageBase* imSrc) = 0;
+	virtual void addFirstImageToSecond(ImageBase* second) const = 0;
+	virtual void applyThreshold(const ImageBase* mask_img, float threshold,
+	                            float val_le_scale, float val_le_off,
+	                            float val_gt_scale, float val_gt_off) = 0;
+	virtual void writeToFile(const std::string& image_fname) const = 0;
+	virtual void updateEMThreshold(ImageBase* update_img,
+	                               const ImageBase* norm_img,
+	                               float threshold) = 0;
 
 private:
-    ImageParams m_params;
+	ImageParams m_params;
 };

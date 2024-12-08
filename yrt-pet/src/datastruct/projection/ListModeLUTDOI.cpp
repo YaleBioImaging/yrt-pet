@@ -188,11 +188,11 @@ Line3D ListModeLUTDOI::getArbitraryLOR(bin_t id) const
 	const Vector3D n2 = mr_scanner.getDetectorOrient(detId2);
 	const float layerSize = (1 << 8) / static_cast<float>(m_numLayers);
 	const float doi1_t = std::floor((*mp_doi1)[id] / layerSize) *
-	                      mr_scanner.crystalDepth /
-	                      static_cast<float>(m_numLayers);
+	                     mr_scanner.crystalDepth /
+	                     static_cast<float>(m_numLayers);
 	const float doi2_t = std::floor((*mp_doi2)[id] / layerSize) *
-	                      mr_scanner.crystalDepth /
-	                      static_cast<float>(m_numLayers);
+	                     mr_scanner.crystalDepth /
+	                     static_cast<float>(m_numLayers);
 	const Vector3D p1_doi{
 	    p1.x + (doi1_t - 0.5f * mr_scanner.crystalDepth) * n1.x,
 	    p1.y + (doi1_t - 0.5f * mr_scanner.crystalDepth) * n1.y,
@@ -201,7 +201,8 @@ Line3D ListModeLUTDOI::getArbitraryLOR(bin_t id) const
 	    p2.x + (doi2_t - 0.5f * mr_scanner.crystalDepth) * n2.x,
 	    p2.y + (doi2_t - 0.5f * mr_scanner.crystalDepth) * n2.y,
 	    p2.z + (doi2_t - 0.5f * mr_scanner.crystalDepth) * n2.z};
-	return Line3D{p1_doi.x, p1_doi.y, p1_doi.z, p2_doi.x, p2_doi.y, p2_doi.z};
+	return Line3D{{p1_doi.x, p1_doi.y, p1_doi.z},
+	              {p2_doi.x, p2_doi.y, p2_doi.z}};
 }
 
 void ListModeLUTDOI::writeToFile(const std::string& listMode_fname) const

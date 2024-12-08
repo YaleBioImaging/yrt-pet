@@ -43,9 +43,8 @@ namespace Plugin
 	// Map: format name, value
 	using OptionsResult = std::unordered_map<std::string, std::string>;
 
-	using ProjectionDataFactory =
-	    std::function<std::unique_ptr<ProjectionData>(
-	        const Scanner&, const std::string&, const OptionsResult&)>;
+	using ProjectionDataFactory = std::function<std::unique_ptr<ProjectionData>(
+	    const Scanner&, const std::string&, const OptionsResult&)>;
 	using OptionsAdder = std::function<OptionsListPerPlugin()>;
 #if BUILD_PYBIND11
 	using Pybind11ModuleAdder = std::function<void(pybind11::module&)>;
@@ -119,9 +118,9 @@ namespace Plugin
 		}
 
 		std::unique_ptr<ProjectionData> create(const std::string& formatName,
-		                                        const Scanner& scanner,
-		                                        const std::string& filename,
-		                                        const OptionsResult& args) const
+		                                       const Scanner& scanner,
+		                                       const std::string& filename,
+		                                       const OptionsResult& args) const
 		{
 			const auto it = m_factoriesMap.find(formatName);
 			if (it != m_factoriesMap.end())
@@ -163,21 +162,20 @@ namespace Plugin
 }  // namespace Plugin
 
 
-#define REGISTER_PROJDATA_PLUGIN(formatName, className, factoryFunc, \
-                                 optionsAdder)                       \
-	namespace AddedPlugins                                           \
-	{                                                                \
-		struct className##Register                                   \
-		{                                                            \
-			className##Register()                                    \
-			{                                                        \
-				Plugin::PluginRegistry::instance().registerFormat(   \
-				    Util::toUpper(formatName),                       \
-+                   factoryFunc, optionsAdder,                       \
-				    className::IsListMode());                        \
-			}                                                        \
-		};                                                           \
-		static className##Register global_##className##Register;     \
+#define REGISTER_PROJDATA_PLUGIN(formatName, className, factoryFunc,      \
+                                 optionsAdder)                            \
+	namespace AddedPlugins                                                \
+	{                                                                     \
+		struct className##Register                                        \
+		{                                                                 \
+			className##Register()                                         \
+			{                                                             \
+				Plugin::PluginRegistry::instance().registerFormat(        \
+				    Util::toUpper(formatName), factoryFunc, optionsAdder, \
+				    className::IsListMode());                             \
+			}                                                             \
+		};                                                                \
+		static className##Register global_##className##Register;          \
 	}
 
 #if BUILD_PYBIND11

@@ -30,10 +30,10 @@ The following executables might be of interest:
 
 - `yrtpet_reconstruct`: Reconstruction executable for OSEM.
 Includes sensitivity image generation
-- `yrtpet_forward_project`: Forward project an image into a Fully3D histogram
+- `yrtpet_forward_project`: Forward project an image into a fully 3D histogram
 - `yrtpet_convert_to_histogram`: Convert a list-mode (or any other datatype
-  input) into a Fully3D histogram or a sparse histogram
-- (Subject to change) `yrtpet_prepare_additive_correction`: Prepare a Fully3D
+  input) into a fully 3D histogram or a sparse histogram
+- (Subject to change) `yrtpet_prepare_additive_correction`: Prepare a fully 3D
   histogram for usage in OSEM as additive correction. Bins will
   contain `(randoms+scatter)/(acf*sensitivity)`.
 
@@ -85,7 +85,7 @@ See [Documentation on the Motion information file](doc/usage/motion_file.md)
 
 #### Histogram (`Histogram3D`)
 
-Fully3D Histograms are stored in YRT-PET's RAWD format
+Fully 3D Histograms are stored in YRT-PET's RAWD format
 [described earlier](doc/usage/rawd_file.md). Values are encoded in `float32`.
 The histogram's dimensions are defined by the scanner properties, which are
 defined in the `json` file [decribed earlier](doc/usage/scanner.md).

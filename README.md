@@ -1,246 +1,106 @@
-This repository contains reconstruction code developed for high resolution PET.
+# YRT-PET
+The Yale Reconstruction Toolkit for Positron Emission Tomography (YRT-PET)
+is an image reconstruction software for PET imaging.
 
-Setup instructions and general information on the tools used by the project can
-be found in the Wiki.
+YRT-PET is currently focused on OSEM reconstructions in List-Mode and
+Histogram format.
 
-# Use the program
+Current features include:
+- Event-by-event Motion Correction
+- Image-space PSF
+- Time-of-Flight
+- Projection-space PSF
+- Additive corrections (Scatter & Randoms)
+- Normalization correction (Detector sensitivity)
+- Scatter estimation (Limited support, without ToF)
 
-## Command line interface
+Setup instructions and general information can be found in the `doc` folder.
+However, this project's documentation is still a work in progress.
 
-### MLEM
+## Usage
 
-```
-YRT-PET reconstruction driver
-Usage:
-  yrtpet_reconstruct [OPTION...]
+### Command line interface
 
-  -s, --scanner arg          Scanner parameters file name
-  -p, --params arg           Image parameters file
-  -i, --input arg            Input file
-  -f, --format arg           Input file format. Possible values: LM
-                             (Listmode), LMP (ListMode with arbitrary
-                             positions), LM-DOI (ListMode with DOI), LP2
-                             (LabPET2) and H (Histogram)
-      --sens arg             Sensitivity image files (separated by a comma)
-      --att arg              Attenuation image filename
-      --motion arg           Motion file for motion correction
-      --ev_per_frame arg     Number of Events per frame file for motion
-                             correction
-      --psf arg              Image-space PSF kernel file
-      --proj_psf arg         Projection-space PSF kernel file
-      --add_his arg          Histogram with additive corrections (scatter &
-                             randoms)
-      --norm arg             Normalization file
-      --norm_format arg      Normalization file format. Possible values: LM
-                             (Listmode), LMP (ListMode with arbitrary
-                             positions), LM-DOI (ListMode with DOI), LP2
-                             (LabPET2) and H (Histogram)
-      --sensdata arg         Sensitivity data input file
-      --sensdata_format arg  Sensitivity data input file format. Possible
-                             values: LM (Listmode), LMP (ListMode with
-                             arbitrary positions), LM-DOI (ListMode with
-                             DOI), LP2 (LabPET2) and H (Histogram)
-      --acf arg              Attenuation Coefficient Factors (ACF)
-                             histogram file
-  -w, --warper arg           Path to the warp parameters file (Specify this
-                             to use the MLEM with image warper algorithm)
-      --projector arg        Projector to use, choices: Siddon (S),
-                             Distance-Driven (D), or GPU Distance-Driven
-                             (DD_GPU) The default projector is Siddon
-      --num_rays arg         Number of rays to use in the Siddon projector
-      --flag_tof             TOF flag
-      --tof_width_ps arg     TOF Width in Picoseconds
-      --tof_n_std arg        Number of standard deviations to consider for
-                             TOF's Gaussian curve
-      --doi_n_layers arg     Number of layers encoding DOI (LM-DOI)
-  -o, --out arg              Output image filename
-      --num_iterations arg   Number of MLEM Iterations
-      --num_threads arg      Number of threads to use
-      --num_subsets arg      Number of OSEM subsets (Default: 1)
-      --hard_threshold arg   Hard Threshold
-      --save_steps arg       Enable saving each MLEM iteration image (step)
-      --preclinical          Enable Preclinical flag (for preclinical LP2
-                             files only)
-      --out_sens arg         Filename for the generated sensitivity image
-                             (if it needed to be computed). Leave blank to
-                             not save it
-      --out_acf arg          Filename for the ACF histogram (if it needed
-                             to be computed). Leave blank to not save it
-      --out_sens_his arg     Filename for the generated histogram used to
-                             generate the sensitivity image (if it needed
-                             to be computed). Leave blank to not save it
-  -h, --help                 Print help
-```
+The compilation directory should contain a folder named `executables`.
+The following executables might be of interest:
 
-## Python interface
+- `yrtpet_reconstruct`: Reconstruction executable for OSEM.
+Includes sensitivity image generation
+- `yrtpet_forward_project`: Forward project an image into a Fully3D histogram
+- `yrtpet_convert_to_histogram`: Convert a list-mode (or any other datatype
+  input) into a Fully3D histogram or a sparse histogram
+- (Subject to change) `yrtpet_prepare_additive_correction`: Prepare a Fully3D
+  histogram for usage in OSEM as additive correction. Bins will
+  contain `(randoms+scatter)/(acf*sensitivity)`.
 
-Almost all the functions defined in the header files have an equivalent in a Python binding. A more thorough
-documentation is to be written in the future.
-You need to add the compilation folder to you `PYTHONPATH` environment variable:
+### Python interface
+
+If the project is compiled with `BUILD_PYBIND11`, the compilation directory
+should contain a folder named `pyyrtpet`.
+To use the python library, add the compilation folder to your `PYTHONPATH`
+environment variable:
 
 ```
 export PYTHONPATH=${PYTHONPATH}:<compilation folder>
 ```
 
-## Data formats
+Almost all the functions defined in the header files have a Python bindings.
+more thorough documentation on the python library is still to be written.
 
-Note that all binary formats are in little endian.
+### Data formats
 
-### Utilities
+Note that all binary formats encode numerical values in little endian.
 
-Helper functions to read/write data for YRT-PET can be found under the `utils`
-folder (MATLAB and Python versions are available in the `scripts` folder).
-Most binary files are either raw binary files without header (legacy mode)
-or follow the YRT-PET raw data format.
+#### Image format
 
-### YRT-PET raw data format
+Images are read and stored in NIfTI format.
+YRT-PET also uses a JSON file to define the Image parameters
+(size, voxel size, offset).
+See [Documentation on the Image parameters format
+(doc/usage/image_parameters.md).
 
-The YRT-PET format is defined as follows:
-    
-    MAGIC NUMBER (int32): 732174000 in decimal, used to detect YRT-PET file type
-    Number of dimensions D (int32)
-    Dimension 0 (int64)
-    ...
-    Dimension D - 1 (int64)
-    Data 0
-    ...
+#### YRT-PET raw data format
 
-Notes:
+YRT-PET stores its array structures in the RAWD format.
+See [Documentation on the RAWD file structure](doc/usage/rawd_file.md)
 
-- The data format is arbitrary and must be known when reading a data file. For
-  instance, images are stored in `float32`.
-- The dimensions are ordered with the contiguous dimension last (e.g. Z, Y, X
-  following usual conventions).
+#### Scanner parameter file
 
-### Scanner parameter file
+Scanners are decribed using a JSON file and a Look-Up-Table (LUT).
+See [Documentation on Scanner definition](doc/usage/scanner.md)
 
-The Scanner parameters file is a JSON file containing data about the scanner.
-Here is, as an example, the SAVANT parameters file.
+#### Listmode (``ListmodeLUT``)
 
-```JSON
-{
-  "VERSION": 3.1,
-  "scannerName": "SCANNER",
-  "detCoord": "SCANNER.lut",
-  "axialFOV": 235,
-  "crystalSize_z": 1.1,
-  "crystalSize_trans": 1.1,
-  "crystalDepth": 6,
-  "scannerRadius": 197.4,
-  "fwhm": 0.2,
-  "energyLLD": 400,
-  "collimatorRadius": 167.4,
-  "dets_per_ring": 896,
-  "num_rings": 144,
-  "num_doi": 2,
-  "max_ring_diff": 24,
-  "min_ang_diff": 238,
-  "dets_per_block": 8
-}
-```
+YRT-PET defines a generic default List-Mode format.
+See [Documentation on the List-Mode file](doc/usage/list-mode_file.md)
 
-The file specified at the `detCoord` field is the Scanner's Look-Up-Table specified below.
+#### Motion information
 
-### Detector coordinates (`DetCoord`)
+Motion information is encoded in a binary file describing the transformation
+of each frame.
+See [Documentation on the Motion information file](doc/usage/motion_file.md)
 
-The `detCoord` value in the scanner definition allows to provide a Look-Up-Table decribing each detector's coordinates
-and orientation, ordered by ID.
-The detectors order must follow the following rules:
+#### Histogram (`Histogram3D`)
 
-* If a scanner has several layers of crystals, the detectors closest to center must be listed first
-* If the scanner has several rings, the detectors must be sorted by ascending order of z-coordinates
-* Within a ring, the detectors must be sorted counter-clockwise (in a cartesian plane)
-* The scanner definition must match the LUT (num_doi, num_rings, dets_per_ring)
-  The file contains no header and, for each detector, the x, y, z position and x,
-  y, z components of the normal orientation vector, all stored in `float32` format (4 bytes).
-  The total file size is \(N_d \times 6 \times 4\) bytes where \(N_d\) is the total
-  number of detectors. Note that all the values are in mm.
-
-  ```
-  Detector 0 position x (float32)
-  Detector 0 position y (float32)
-  Detector 0 position z (float32)
-  Detector 0 orientation x (float32)
-  Detector 0 orientation y (float32)
-  Detector 0 orientation z (float32)
-  Detector 1 position x (float32)
-  ...
-  ```
-
-  The file extension used is `.lut`.
-
-### Image (`Image`)
-
-Images are stored and read in NIFTI format.
-
-### Listmode (``ListmodeLUT``)
-
-The listmode file is a record of all the events to be considered for the reconstruction. It is similar to the Histogram
-as it has all the same fields, except for the Value (which is considered to be 1.0 in all listmode events)
-    
-    Timestamp for Event 0 (s) (float32)
-    Detector1 of the Event 0 (int)
-    Detector2 of the Event 0 (int)
-    Timestamp for Event 1 (s) (float32)
-    ...
-
-The file extension used is `.lmDat`.
-
-### Histogram (`Histogram3D`)
-
-Histograms are in YRT-PET raw data format (described earlier). They are stored as `float32`. The histogram's dimensions
-are defined by the scanner properties defined in the `json` file decribed earlier.
+Fully3D Histograms are stored in YRT-PET's RAWD format
+[described earlier](doc/usage/rawd_file.md). Values are encoded in `float32`.
+The histogram's dimensions are defined by the scanner properties, which are
+defined in the `json` file [decribed earlier](doc/usage/scanner.md).
 The file extension used is `.his`.
+See [Documentation on the histogram format](doc/usage/histogram3d_format.md)
+for more information.
 
-### Image parameters file
+## Setup
 
-Images require a side configuration file which describes the physical
-coordinates of the volume. The configuration is in `json` format.
-An example is provided here for reference. Note that the values are all in mm.
+### Compilation
 
-```JSON
-{
-  "VERSION": 1.0,
-  "nx": 250,
-  "ny": 250,
-  "nz": 118,
-  "length_x": 250.0,
-  "length_y": 250.0,
-  "length_z": 235.0,
-  "off_x": 0.0,
-  "off_y": 0.0,
-  "off_z": 0.0
-}
-```
+See [Documentation on compilation](doc/compilation/building.md).
 
-Note that the offset entries are currently ignored by the code, this might change in the future.
-
-# Setup
-
-To start working on the code,
-
-- clone this repository,
-- compile the reconstruction engine,
-- start modifying the code,
-- add tests,
-- submit pull requests to merge the modified code to the `main` branch.
-
-## Coding style conventions
-
-This section will contain guidelines for writing code, once agreed upon by the
-members of the team. As a starting point `clang-format` is used with a
-configuration file stored in the repository at `src/.clang-format`
-
-## Testing
+### Testing
 
 There are two types of tests available, unit tests and integration tests.
 
 - Unit tests are short validation programs that check the operation of
   individual modules. To run the unit test suite, simply run `make test` after
   compiling (with `make`).
-- To run the integration tests,
-    - The following environment variables have to be set:
-        - `YRTPET_TEST_DATA` which refers to the path where the test files are located.
-        - `YRTPET_TEST_OUT` which refers to where output files are to be written.
-    - Run `pytest <build folder>/integration_tests/test_recon.py`
-        - Optionally, Use the `-k` option to restrict the tests wanted
+- Integration test data is currently not publicly available.

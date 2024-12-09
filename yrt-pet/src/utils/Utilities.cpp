@@ -5,6 +5,9 @@
 
 #include "utils/Utilities.hpp"
 
+#include "utils/Assert.hpp"
+#include "utils/Types.hpp"
+
 #include <algorithm>
 #include <chrono>
 #include <cstdint>
@@ -15,10 +18,63 @@
 #include <pybind11/pybind11.h>
 
 namespace py = pybind11;
+using namespace py::literals;
 
 void py_setup_utilities(py::module& m)
 {
 	m.def("compiledWithCuda", &Util::compiledWithCuda);
+
+	auto c_transform = py::class_<transform_t>(m, "transform_t");
+	c_transform.def(py::init(
+	                    [](const py::tuple& transformTuple)
+	                    {
+		                    ASSERT_MSG(transformTuple.size() == 2,
+		                               "Transform tuple misformed");
+		                    const auto rotationTuple =
+		                        py::cast<py::tuple>(transformTuple[0]);
+		                    ASSERT_MSG(rotationTuple.size() == 9,
+		                               "Transform tuple misformed in rotation");
+		                    const auto translationTuple =
+		                        py::cast<py::tuple>(transformTuple[1]);
+		                    ASSERT_MSG(
+		                        translationTuple.size() == 3,
+		                        "Transform tuple misformed in translation");
+
+		                    transform_t transform{};
+		                    transform.r00 = py::cast<float>(rotationTuple[0]);
+		                    transform.r01 = py::cast<float>(rotationTuple[1]);
+		                    transform.r02 = py::cast<float>(rotationTuple[2]);
+		                    transform.r10 = py::cast<float>(rotationTuple[3]);
+		                    transform.r11 = py::cast<float>(rotationTuple[4]);
+		                    transform.r12 = py::cast<float>(rotationTuple[5]);
+		                    transform.r20 = py::cast<float>(rotationTuple[6]);
+		                    transform.r21 = py::cast<float>(rotationTuple[7]);
+		                    transform.r22 = py::cast<float>(rotationTuple[8]);
+		                    transform.tx = py::cast<float>(translationTuple[0]);
+		                    transform.ty = py::cast<float>(translationTuple[1]);
+		                    transform.tz = py::cast<float>(translationTuple[2]);
+
+		                    return transform;
+	                    }),
+	                "transformTuple"_a);
+	c_transform.def("toTuple",
+	                [](const transform_t& self)
+	                {
+		                return py::make_tuple(
+		                    py::make_tuple(self.r00, self.r01, self.r02,
+		                                   self.r10, self.r11, self.r12,
+		                                   self.r20, self.r21, self.r22),
+		                    py::make_tuple(self.tx, self.ty, self.tz));
+	                });
+	c_transform.def("getTranslation", [](const transform_t& self)
+	                { return py::make_tuple(self.tx, self.ty, self.tz); });
+	c_transform.def("getRotationMatrix",
+	                [](const transform_t& self)
+	                {
+		                return py::make_tuple(self.r00, self.r01, self.r02,
+		                                      self.r10, self.r11, self.r12,
+		                                      self.r20, self.r21, self.r22);
+	                });
 }
 #endif
 
@@ -36,7 +92,8 @@ namespace Util
 
 		// Convert the time point to a time_t, which represents the calendar
 		// time
-		const std::time_t now_time_t = std::chrono::system_clock::to_time_t(now);
+		const std::time_t now_time_t =
+		    std::chrono::system_clock::to_time_t(now);
 
 		// Convert the time_t to a tm structure, which represents the calendar
 		// time broken down into components

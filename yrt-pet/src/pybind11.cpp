@@ -16,6 +16,7 @@ void py_setup_vector3dall(py::module&);
 void py_setup_line3dall(py::module&);
 void py_setup_tubeofresponse(py::module& m);
 void py_setup_timeofflight(py::module& m);
+void py_setup_utilities(py::module& m);
 
 void py_setup_variable(py::module& m);
 void py_setup_imagebase(py::module&);
@@ -27,6 +28,7 @@ void py_setup_histogram(py::module& m);
 void py_setup_histogram3d(py::module& m);
 void py_setup_uniformhistogram(py::module& m);
 void py_setup_sparsehistogram(py::module& m);
+void py_setup_lormotion(py::module& m);
 void py_setup_listmode(py::module& m);
 void py_setup_listmodelut(py::module& m);
 void py_setup_listmodelutdoi(py::module& m);
@@ -43,7 +45,6 @@ void py_setup_srtm(py::module& m);
 void py_setup_imagewarpertemplate(py::module& m);
 void py_setup_imagewarpermatrix(py::module& m);
 void py_setup_imagewarperfunction(py::module& m);
-void py_setup_utilities(py::module& m);
 
 void py_setup_operator(py::module& m);
 void py_setup_operatorpsf(py::module& m);
@@ -86,6 +87,7 @@ PYBIND11_MODULE(pyyrtpet, m)
 	py_setup_histogram3d(m);
 	py_setup_uniformhistogram(m);
 	py_setup_sparsehistogram(m);
+	py_setup_lormotion(m);
 	py_setup_listmode(m);
 	py_setup_listmodelut(m);
 	py_setup_listmodelutdoi(m);

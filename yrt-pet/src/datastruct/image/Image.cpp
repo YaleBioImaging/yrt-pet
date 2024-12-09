@@ -11,9 +11,9 @@
 #include "utils/Utilities.hpp"
 
 #include <cmath>
+#include <cstring>
 #include <fstream>
 #include <iostream>
-#include <cstring>
 #include <vector>
 
 #if BUILD_PYBIND11
@@ -78,36 +78,10 @@ void py_setup_image(py::module& m)
 	          const Vector3D& rotation, const Vector3D& translation) const>(
 	          &Image::transformImage),
 	      py::arg("rotation"), py::arg("translation"));
-	c.def(
-	    "transformImage",
-	    [](const Image& self, const py::tuple& transformTuple)
-	    {
-		    ASSERT_MSG(transformTuple.size() == 2, "Transform tuple misformed");
-		    const auto rotationTuple = py::cast<py::tuple>(transformTuple[0]);
-		    ASSERT_MSG(rotationTuple.size() == 9,
-		               "Transform tuple misformed in rotation");
-		    const auto translationTuple =
-		        py::cast<py::tuple>(transformTuple[1]);
-		    ASSERT_MSG(translationTuple.size() == 3,
-		               "Transform tuple misformed in translation");
-
-		    transform_t transform{};
-		    transform.r00 = py::cast<float>(rotationTuple[0]);
-		    transform.r01 = py::cast<float>(rotationTuple[1]);
-		    transform.r02 = py::cast<float>(rotationTuple[2]);
-		    transform.r10 = py::cast<float>(rotationTuple[3]);
-		    transform.r11 = py::cast<float>(rotationTuple[4]);
-		    transform.r12 = py::cast<float>(rotationTuple[5]);
-		    transform.r20 = py::cast<float>(rotationTuple[6]);
-		    transform.r21 = py::cast<float>(rotationTuple[7]);
-		    transform.r22 = py::cast<float>(rotationTuple[8]);
-		    transform.tx = py::cast<float>(translationTuple[0]);
-		    transform.ty = py::cast<float>(translationTuple[1]);
-		    transform.tz = py::cast<float>(translationTuple[2]);
-
-		    return self.transformImage(transform);
-	    },
-	    py::arg("transform"));
+	c.def("transformImage",
+	      static_cast<std::unique_ptr<Image> (Image::*)(const transform_t& t)
+	                      const>(&Image::transformImage),
+	      py::arg("transform"));
 	c.def("updateImageNearestNeighbor", &Image::updateImageNearestNeighbor,
 	      py::arg("pt"), py::arg("value"), py::arg("doMultiplication"));
 	c.def("assignImageNearestNeighbor", &Image::assignImageNearestNeighbor,

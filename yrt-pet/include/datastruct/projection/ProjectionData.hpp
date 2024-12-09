@@ -44,6 +44,7 @@ public:
 	virtual timestamp_t getTimestamp(bin_t id) const;
 	virtual frame_t getFrame(bin_t id) const;
 	virtual bool isUniform() const;
+	// TODO: Add usage for this in the reconstruction
 	virtual float getRandomsEstimate(bin_t id) const;
 	// Time-of-flight
 	virtual bool hasTOF() const;

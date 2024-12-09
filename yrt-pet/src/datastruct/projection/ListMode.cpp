@@ -41,8 +41,8 @@ void ListMode::setProjectionValue(bin_t id, float val)
 
 timestamp_t ListMode::getScanDuration() const
 {
-	// By default, return the timestamp of the last event
-	return getTimestamp(count()-1);
+	// By default, return timestamp of the last event - timestamp of first event
+	return getTimestamp(count() - 1) - getTimestamp(0);
 }
 
 std::unique_ptr<BinIterator> ListMode::getBinIter(int numSubsets,

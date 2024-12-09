@@ -6,10 +6,13 @@ YRT-PET is currently focused on OSEM reconstructions in List-Mode and
 Histogram format.
 
 Current features include:
+- GPU acceleration with NVIDIA CUDA
+- Python bindings with pybind11
 - Event-by-event Motion Correction
+- Siddon and Distance-Driven projectors
+  - Time-of-Flight Support
+  - Projection-space PSF support for the Distance-Driven projector
 - Image-space PSF
-- Time-of-Flight
-- Projection-space PSF
 - Additive corrections (Scatter & Randoms)
 - Normalization correction (Detector sensitivity)
 - Scatter estimation (Limited support, without ToF)
@@ -85,7 +88,6 @@ Fully3D Histograms are stored in YRT-PET's RAWD format
 [described earlier](doc/usage/rawd_file.md). Values are encoded in `float32`.
 The histogram's dimensions are defined by the scanner properties, which are
 defined in the `json` file [decribed earlier](doc/usage/scanner.md).
-The file extension used is `.his`.
 See [Documentation on the histogram format](doc/usage/histogram3d_format.md)
 for more information.
 

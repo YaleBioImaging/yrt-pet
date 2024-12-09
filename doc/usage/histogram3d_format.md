@@ -12,8 +12,9 @@ This means that Histograms point to real detector pairs present in the scanner.
 ## File format
 
 The histogram file itself is a "RAWD" type. Meaning that it encodes a header
-describing the array shape and
-the array itself in 'C'-contiguous ordering.
+describing the array shape and the array itself in 'C'-contiguous ordering.
+
+The file extension commonly used for a Histogram3D is `.his`.
 
 ### For Python users
 

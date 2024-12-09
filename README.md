@@ -55,9 +55,8 @@ Note that all binary formats encode numerical values in little endian.
 
 Images are read and stored in NIfTI format.
 YRT-PET also uses a JSON file to define the Image parameters
-(size, voxel size, offset).
-See [Documentation on the Image parameters format
-(doc/usage/image_parameters.md).
+(size, voxel size, offset). See
+[Documentation on the Image parameters format](doc/usage/image_parameters.md).
 
 #### YRT-PET raw data format
 

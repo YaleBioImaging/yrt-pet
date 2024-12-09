@@ -41,7 +41,7 @@ in the `scripts/matlab` folder.
 
 ## Array format
 
-Let's define what a fully3D histogram is. It is a 3D array such that:
+Let's define what a fully 3D histogram is. It is a 3D array such that:
 
 1. Every bin of the histogram, defined by 3 coordinates, stores a particular
    Line of Response, defined by a pair of detectors
@@ -51,7 +51,7 @@ Let's define what a fully3D histogram is. It is a 3D array such that:
 4. Two different lines of responses cannot be represented by the same histogram
    bin
 
-These rules must apply for a Fully3D scanner with DOI crystals.
+These rules must apply for a fully 3D scanner with DOI crystals.
 Note that Time-of-flight bins are not encoded by Histogram3D.
 
 ## Crystals in the same ring
@@ -105,8 +105,8 @@ layers.
 
 ## Binning for different rings
 
-The Fully3D nature of the scanners makes this task more complex as one LOR can
-start from a ring and finish in another. To solve this issue, let's define
+The fully 3D nature of today's scanners makes this task more complex as one LOR
+can start from a ring and finish in another. To solve this issue, let's define
 `z_bin`, which represents the position of the LOR in the Michelogram moving
 diagonally and then from a `delta_z` to another:
 

@@ -78,7 +78,7 @@ class DataFileRawd:
             data.tofile(fid)
 
 
-# Wrapper for Siddon operator
+# Wrapper for Projection operator
 class ProjectionOper:
     def __init__(self, scanner: yrt.Scanner, img_params: yrt.ImageParams,
                  projData: yrt.ProjectionData, projector='Siddon',

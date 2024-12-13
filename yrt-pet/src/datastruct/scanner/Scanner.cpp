@@ -7,6 +7,7 @@
 
 #include "datastruct/scanner/DetRegular.hpp"
 #include "geometry/Constants.hpp"
+#include "utils/Assert.hpp"
 #include "utils/JSONUtils.hpp"
 
 #if BUILD_PYBIND11
@@ -233,6 +234,10 @@ void Scanner::readFromString(const std::string& fileContents)
 		mp_detectors = std::make_shared<DetRegular>(this);
 		reinterpret_cast<DetRegular*>(mp_detectors.get())->generateLUT();
 	}
+
+	ASSERT_MSG(
+	    maxRingDiff < numRings,
+	    "Maximum Ring difference has to be lower than the number of rings");
 }
 
 std::string Scanner::getScannerPath() const

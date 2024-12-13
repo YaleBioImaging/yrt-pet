@@ -12,6 +12,7 @@
 #include "utils/ReconstructionUtils.hpp"
 
 #include <cmath>
+#include <cstring>
 #include <fstream>
 #include <vector>
 

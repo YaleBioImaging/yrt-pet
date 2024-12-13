@@ -335,6 +335,11 @@ float ListModeLUT::getDurationOfFrame(frame_t frame) const
 	return ProjectionData::getDurationOfFrame(frame);
 }
 
+void ListModeLUT::setTimestampOfEvent(bin_t eventId, timestamp_t ts)
+{
+	(*mp_timestamps)[eventId] = ts;
+}
+
 void ListModeLUT::setDetectorId1OfEvent(bin_t eventId, det_id_t d1)
 {
 	(*mp_detectorId1)[eventId] = d1;

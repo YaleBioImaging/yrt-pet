@@ -95,12 +95,12 @@ int main(int argc, char** argv)
 		const ProjectionData* dataInput_ptr = dataInput.get();
 #pragma omp parallel for default(none), \
     firstprivate(lmOut_ptr, dataInput_ptr, numEvents)
-		for (bin_t binId = 0; binId < numEvents; binId++)
+		for (bin_t evId = 0; evId < numEvents; evId++)
 		{
-			det_pair_t detPair = dataInput_ptr->getDetectorPair(binId);
-			lmOut_ptr->setDetectorIdsOfEvent(binId, detPair.d1, detPair.d2);
-			lmOut_ptr->setTimestampOfEvent(binId,
-			                               dataInput_ptr->getTimestamp(binId));
+			lmOut_ptr->setTimestampOfEvent(evId,
+			                               dataInput_ptr->getTimestamp(evId));
+			det_pair_t detPair = dataInput_ptr->getDetectorPair(evId);
+			lmOut_ptr->setDetectorIdsOfEvent(evId, detPair.d1, detPair.d2);
 		}
 
 		std::cout << "Writing file..." << std::endl;

@@ -93,14 +93,20 @@ int main(int argc, char** argv)
 
 		ListModeLUTOwned* lmOut_ptr = lmOut.get();
 		const ProjectionData* dataInput_ptr = dataInput.get();
+		const bool hasTOF = dataInput->hasTOF();
 #pragma omp parallel for default(none), \
-    firstprivate(lmOut_ptr, dataInput_ptr, numEvents)
+    firstprivate(lmOut_ptr, dataInput_ptr, numEvents, hasTOF)
 		for (bin_t evId = 0; evId < numEvents; evId++)
 		{
 			lmOut_ptr->setTimestampOfEvent(evId,
 			                               dataInput_ptr->getTimestamp(evId));
 			det_pair_t detPair = dataInput_ptr->getDetectorPair(evId);
 			lmOut_ptr->setDetectorIdsOfEvent(evId, detPair.d1, detPair.d2);
+			if (hasTOF)
+			{
+				lmOut_ptr->setTOFValueOfEvent(evId,
+				                              dataInput_ptr->getTOFValue(evId));
+			}
 		}
 
 		std::cout << "Writing file..." << std::endl;

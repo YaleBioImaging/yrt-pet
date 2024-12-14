@@ -42,6 +42,9 @@ void py_setup_projectiondata(py::module& m)
 	c.def("getNumFrames", &ProjectionData::getNumFrames);
 	c.def("getTransformOfFrame", &ProjectionData::getTransformOfFrame,
 	      py::arg("frame"));
+	c.def("getDurationOfFrame", &ProjectionData::getDurationOfFrame,
+	      py::arg("frame"));
+	c.def("getScanDuration", &ProjectionData::getScanDuration);
 	c.def("hasTOF", &ProjectionData::hasTOF);
 	c.def("getTOFValue", &ProjectionData::getTOFValue, py::arg("id"));
 	c.def("getRandomsEstimate", &ProjectionData::getRandomsEstimate,

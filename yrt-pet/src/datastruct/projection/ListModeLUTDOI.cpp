@@ -116,8 +116,7 @@ void ListModeLUTDOIOwned::readFromFile(const std::string& listMode_fname)
 	std::ifstream fin(listMode_fname, std::ios::in | std::ios::binary);
 	if (!fin.good())
 	{
-		throw std::runtime_error("Error reading input file " + listMode_fname +
-		                         "ListModeLUTDOIOwned::readFromFile.");
+		throw std::runtime_error("Error reading input file " + listMode_fname);
 	}
 
 	// first check that file has the right size:

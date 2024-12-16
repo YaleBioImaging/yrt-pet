@@ -149,8 +149,7 @@ void ListModeLUTOwned::readFromFile(const std::string& listMode_fname)
 
 	if (!fin.good())
 	{
-		throw std::runtime_error("Error reading input file " + listMode_fname +
-		                         "ListModeLUTOwned::readFromFile.");
+		throw std::runtime_error("Error reading input file " + listMode_fname);
 	}
 
 	// first check that file has the right size:

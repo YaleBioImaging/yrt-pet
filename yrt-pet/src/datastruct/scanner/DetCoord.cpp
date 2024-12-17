@@ -236,7 +236,8 @@ void DetCoordOwned::readFromFile(const std::string& filename)
 	std::ifstream fin(filename.c_str(), std::ios::in | std::ios::binary);
 	if (!fin.good())
 	{
-		throw std::runtime_error("Error reading input file " + filename);
+		throw std::runtime_error("Error reading input file " + filename +
+		                         " DetCoord::readDetCoords.");
 	}
 
 	// first check that file has the right size:

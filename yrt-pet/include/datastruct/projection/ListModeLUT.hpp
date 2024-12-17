@@ -37,11 +37,9 @@ public:
 	transform_t getTransformOfFrame(frame_t frame) const override;
 	float getDurationOfFrame(frame_t frame) const override;
 
-	void setTimestampOfEvent(bin_t eventId, timestamp_t ts);
 	void setDetectorId1OfEvent(bin_t eventId, det_id_t d1);
 	void setDetectorId2OfEvent(bin_t eventId, det_id_t d2);
 	void setDetectorIdsOfEvent(bin_t eventId, det_id_t d1, det_id_t d2);
-	void setTOFValueOfEvent(bin_t eventId, float tofValue);
 
 	Array1DBase<timestamp_t>* getTimestampArrayPtr() const;
 	Array1DBase<det_id_t>* getDetector1ArrayPtr() const;

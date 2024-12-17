@@ -24,7 +24,6 @@ void py_setup_projectiondata(py::module& m)
 	      py::arg("id"));
 	c.def("setProjectionValue", &ProjectionData::setProjectionValue,
 	      py::arg("id"), py::arg("value"));
-	c.def("getTimestamp", &ProjectionData::getTimestamp, py::arg("id"));
 	c.def("getFrame", &ProjectionData::getFrame, py::arg("id"));
 	c.def("getDetector1", &ProjectionData::getDetector1, py::arg("id"));
 	c.def("getDetector2", &ProjectionData::getDetector2, py::arg("id"));
@@ -42,9 +41,6 @@ void py_setup_projectiondata(py::module& m)
 	c.def("getNumFrames", &ProjectionData::getNumFrames);
 	c.def("getTransformOfFrame", &ProjectionData::getTransformOfFrame,
 	      py::arg("frame"));
-	c.def("getDurationOfFrame", &ProjectionData::getDurationOfFrame,
-	      py::arg("frame"));
-	c.def("getScanDuration", &ProjectionData::getScanDuration);
 	c.def("hasTOF", &ProjectionData::hasTOF);
 	c.def("getTOFValue", &ProjectionData::getTOFValue, py::arg("id"));
 	c.def("getRandomsEstimate", &ProjectionData::getRandomsEstimate,

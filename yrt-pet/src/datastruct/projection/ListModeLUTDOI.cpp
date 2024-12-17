@@ -116,7 +116,8 @@ void ListModeLUTDOIOwned::readFromFile(const std::string& listMode_fname)
 	std::ifstream fin(listMode_fname, std::ios::in | std::ios::binary);
 	if (!fin.good())
 	{
-		throw std::runtime_error("Error reading input file " + listMode_fname);
+		throw std::runtime_error("Error reading input file " + listMode_fname +
+		                         "ListModeLUTDOIOwned::readFromFile.");
 	}
 
 	// first check that file has the right size:
@@ -155,7 +156,7 @@ void ListModeLUTDOIOwned::readFromFile(const std::string& listMode_fname)
 		for (size_t i = 0; i < numEventsBatchCurr; i++)
 		{
 			(*mp_timestamps)[eventStart + i] =
-			    *(reinterpret_cast<timestamp_t*>(&(buff[sizeOfAnEvent * i])));
+			    *(reinterpret_cast<float*>(&(buff[sizeOfAnEvent * i])));
 			(*mp_detectorId1)[eventStart + i] =
 			    *(reinterpret_cast<det_id_t*>(&(buff[sizeOfAnEvent * i + 4])));
 			(*mp_doi1)[eventStart + i] = buff[sizeOfAnEvent * i + 8];
@@ -224,18 +225,22 @@ void ListModeLUTDOI::writeToFile(const std::string& listMode_fname) const
 		size_t writeSize = numEventsBatchCurr * sizeOfAnEvent;
 		for (size_t i = 0; i < numEventsBatchCurr; i++)
 		{
-			memcpy(&buff[sizeOfAnEvent * i], &(*mp_timestamps)[eventStart + i],
-			       sizeof(timestamp_t));
+			memcpy(&buff[sizeOfAnEvent * i],
+			       reinterpret_cast<char*>(&(*mp_timestamps)[eventStart + i]),
+			       sizeof(float));
 			memcpy(&buff[sizeOfAnEvent * i + 4],
-			       &(*mp_detectorId1)[eventStart + i], sizeof(det_id_t));
+			       reinterpret_cast<char*>(&(*mp_detectorId1)[eventStart + i]),
+			       sizeof(det_id_t));
 			buff[sizeOfAnEvent * i + 8] = (*mp_doi1)[eventStart + i];
 			memcpy(&buff[sizeOfAnEvent * i + 9],
-			       &(*mp_detectorId2)[eventStart + i], sizeof(det_id_t));
+			       reinterpret_cast<char*>(&(*mp_detectorId2)[eventStart + i]),
+			       sizeof(det_id_t));
 			buff[sizeOfAnEvent * i + 13] = (*mp_doi2)[eventStart + i];
 			if (m_flagTOF)
 			{
 				memcpy(&buff[sizeOfAnEvent * i + 14],
-				       &(*mp_tof_ps)[eventStart + i], sizeof(float));
+				       reinterpret_cast<char*>(&(*mp_tof_ps)[eventStart + i]),
+				       sizeof(float));
 			}
 		}
 		file.write((char*)buff.get(), writeSize);

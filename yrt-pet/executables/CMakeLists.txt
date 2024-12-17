@@ -7,7 +7,6 @@ define_target_exe(yrtpet_forward_project recon/ForwardProject.cpp)
 define_target_exe(yrtpet_prepare_additive_correction recon/PrepareAdditiveCorrection.cpp)
 
 define_target_exe(yrtpet_convert_to_histogram conversion/ConvertToHistogram.cpp PluginOptionsHelper.cpp)
-define_target_exe(yrtpet_convert_to_listmodelut conversion/ConvertToListModeLUT.cpp PluginOptionsHelper.cpp)
 define_target_exe(yrtpet_cumulate_histograms conversion/CumulateHistograms.cpp PluginOptionsHelper.cpp)
 define_target_exe(yrtpet_histogram_to_listmode conversion/Histogram3DToListMode.cpp)
 

@@ -261,7 +261,8 @@ void SparseHistogram::readFromFile(const std::string& filename)
 
 	if (!ifs.good())
 	{
-		throw std::runtime_error("Error reading input file " + filename);
+		throw std::runtime_error("Error reading input file " + filename +
+		                         "ListModeLUTOwned::readFromFile.");
 	}
 
 	constexpr std::streamsize sizeOfAnEvent_bytes =

@@ -152,6 +152,8 @@ void ListModeLUTOwned::readFromFile(const std::string& listMode_fname)
 		throw std::runtime_error("Error reading input file " + listMode_fname);
 	}
 
+	const det_id_t numDets = mr_scanner.getNumDets();
+
 	// first check that file has the right size:
 	fin.seekg(0, std::ios::end);
 	size_t end = fin.tellg();
@@ -183,15 +185,27 @@ void ListModeLUTOwned::readFromFile(const std::string& listMode_fname)
 
 #pragma omp parallel for default(none),                                     \
     shared(mp_timestamps, mp_detectorId1, mp_detectorId2, buff, mp_tof_ps), \
-    firstprivate(readSize, numFields, posStart)
+    firstprivate(readSize, numFields, posStart, numDets)
 		for (size_t i = 0; i < readSize / numFields; i++)
 		{
-			(*mp_timestamps)[posStart + i] = buff[numFields * i];
-			(*mp_detectorId1)[posStart + i] = buff[numFields * i + 1];
-			(*mp_detectorId2)[posStart + i] = buff[numFields * i + 2];
+			const size_t eventPos = posStart + i;
+
+			const det_id_t d1 = buff[numFields * i + 1];
+			const det_id_t d2 = buff[numFields * i + 2];
+
+			if (CHECK_LIKELY(d1 >= numDets || d2 >= numDets))
+			{
+				throw std::invalid_argument(
+				    "Detectors invalid in list-mode event " +
+				    std::to_string(eventPos));
+			}
+
+			(*mp_timestamps)[eventPos] = buff[numFields * i];
+			(*mp_detectorId1)[eventPos] = d1;
+			(*mp_detectorId2)[eventPos] = d2;
 			if (m_flagTOF)
 			{
-				std::memcpy(&mp_tof_ps->getRawPointer()[posStart + i],
+				std::memcpy(&mp_tof_ps->getRawPointer()[eventPos],
 				            &buff[numFields * i + 3], sizeof(float));
 			}
 		}

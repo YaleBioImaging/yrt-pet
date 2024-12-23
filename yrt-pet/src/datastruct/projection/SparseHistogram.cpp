@@ -9,8 +9,8 @@
 #include <cstring>
 
 #if BUILD_PYBIND11
-#include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
+#include <pybind11/pybind11.h>
 
 using namespace pybind11::literals;
 namespace py = pybind11;
@@ -21,20 +21,29 @@ void py_setup_sparsehistogram(py::module& m)
 	c.def(py::init<const Scanner&>(), "scanner"_a);
 	c.def(py::init<const Scanner&, const std::string&>(), "scanner"_a,
 	      "filename"_a);
-	c.def(py::init<const Scanner&, const ProjectionData&,
-	               const BinIterator*>(),
+	c.def(py::init<const Scanner&, const ProjectionData&, const BinIterator*>(),
 	      "scanner"_a, "projectionData"_a, "binIterator"_a = nullptr);
 	c.def("allocate", &SparseHistogram::allocate, "numBins"_a);
-	c.def("accumulate",
-	      static_cast<void (SparseHistogram::*)(det_pair_t detPair,
-	                                              float projValue)>(
-	          &SparseHistogram::accumulate),
-	      "detPair"_a, "projValue"_a);
-	c.def("accumulate",
-	      static_cast<void (SparseHistogram::*)(
-	          const ProjectionData& projData, const BinIterator* binIter)>(
-	          &SparseHistogram::accumulate),
-	      "projData"_a, "binIter"_a = nullptr);
+	c.def(
+	    "accumulate",
+	    static_cast<void (SparseHistogram::*)(
+	        det_pair_t detPair, float projValue)>(&SparseHistogram::accumulate),
+	    "detPair"_a, "projValue"_a);
+	c.def(
+	    "accumulate",
+	    [](SparseHistogram& self, const ProjectionData& projData,
+	       bool ignoreZeros, const BinIterator* binIter)
+	    {
+		    if (ignoreZeros)
+		    {
+			    self.accumulate<true>(projData, binIter);
+		    }
+		    else
+		    {
+			    self.accumulate<false>(projData, binIter);
+		    }
+	    },
+	    "projData"_a, "ignoreZeros"_a = false, "binIter"_a = nullptr);
 	c.def("getProjectionValueFromDetPair",
 	      &SparseHistogram::getProjectionValueFromDetPair, "detPair"_a);
 	c.def("readFromFile", &SparseHistogram::readFromFile, "filename"_a);
@@ -42,10 +51,10 @@ void py_setup_sparsehistogram(py::module& m)
 	c.def("getProjValuesArray",
 	      [](SparseHistogram& self) -> pybind11::array_t<float>
 	      {
-		      const auto buf_info =
-		          py::buffer_info(self.getProjectionValuesBuffer(), sizeof(float),
-		                          py::format_descriptor<float>::format(), 1,
-		                          {self.count()}, {sizeof(float)});
+		      const auto buf_info = py::buffer_info(
+		          self.getProjectionValuesBuffer(), sizeof(float),
+		          py::format_descriptor<float>::format(), 1, {self.count()},
+		          {sizeof(float)});
 		      return py::array_t<float>(buf_info);
 	      });
 }
@@ -57,15 +66,15 @@ SparseHistogram::SparseHistogram(const Scanner& pr_scanner)
 }
 
 SparseHistogram::SparseHistogram(const Scanner& pr_scanner,
-                                     const std::string& filename)
+                                 const std::string& filename)
     : SparseHistogram(pr_scanner)
 {
 	readFromFile(filename);
 }
 
 SparseHistogram::SparseHistogram(const Scanner& pr_scanner,
-                                     const ProjectionData& pr_projData,
-                                     const BinIterator* pp_binIter)
+                                 const ProjectionData& pr_projData,
+                                 const BinIterator* pp_binIter)
     : SparseHistogram(pr_scanner)
 {
 	accumulate(pr_projData, pp_binIter);
@@ -80,7 +89,7 @@ void SparseHistogram::allocate(size_t numBins)
 
 template <bool IgnoreZeros>
 void SparseHistogram::accumulate(const ProjectionData& projData,
-                                   const BinIterator* binIter)
+                                 const BinIterator* binIter)
 {
 	size_t numBins;
 	if (binIter == nullptr)
@@ -114,12 +123,10 @@ void SparseHistogram::accumulate(const ProjectionData& projData,
 		accumulate(detPair, projValue);
 	}
 }
-template void
-    SparseHistogram::accumulate<true>(const ProjectionData& projData,
-                                        const BinIterator* binIter);
-template void
-    SparseHistogram::accumulate<false>(const ProjectionData& projData,
-                                         const BinIterator* binIter);
+template void SparseHistogram::accumulate<true>(const ProjectionData& projData,
+                                                const BinIterator* binIter);
+template void SparseHistogram::accumulate<false>(const ProjectionData& projData,
+                                                 const BinIterator* binIter);
 
 void SparseHistogram::accumulate(det_pair_t detPair, float projValue)
 {
@@ -179,8 +186,8 @@ det_pair_t SparseHistogram::getDetectorPair(bin_t id) const
 	return m_detPairs[id];
 }
 
-std::unique_ptr<BinIterator>
-    SparseHistogram::getBinIter(int numSubsets, int idxSubset) const
+std::unique_ptr<BinIterator> SparseHistogram::getBinIter(int numSubsets,
+                                                         int idxSubset) const
 {
 	ASSERT_MSG(idxSubset < numSubsets,
 	           "The subset index has to be smaller than the number of subsets");
@@ -188,7 +195,7 @@ std::unique_ptr<BinIterator>
 	           "Multiple subsets are not supported in sparse histograms");
 
 	return std::make_unique<BinIteratorChronological>(numSubsets, count(),
-	                                                    idxSubset);
+	                                                  idxSubset);
 }
 
 float SparseHistogram::getProjectionValue(bin_t id) const
@@ -344,9 +351,8 @@ det_pair_t SparseHistogram::SwapDetectorPairIfNeeded(det_pair_t detPair)
 }
 
 std::unique_ptr<ProjectionData>
-    SparseHistogram::create(const Scanner& scanner,
-                              const std::string& filename,
-                              const Plugin::OptionsResult& pluginOptions)
+    SparseHistogram::create(const Scanner& scanner, const std::string& filename,
+                            const Plugin::OptionsResult& pluginOptions)
 {
 	(void)pluginOptions;
 	return std::make_unique<SparseHistogram>(scanner, filename);

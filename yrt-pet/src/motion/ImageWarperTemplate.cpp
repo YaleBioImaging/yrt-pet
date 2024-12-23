@@ -481,7 +481,7 @@ void ImageWarperTemplate::setFrameTimeBinStart(float timeBinStart, int frameId)
 	// order.
 	if (timeBinStart >= 0.0)
 	{
-		m_frameTimeBinStart[frameId] = timeBinStart;
+		m_frameTimeBinStart[frameId] = 1000 * timeBinStart;  // Times are in ms
 	}
 	else
 	{

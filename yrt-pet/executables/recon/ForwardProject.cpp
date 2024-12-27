@@ -51,7 +51,7 @@ int main(int argc, char** argv)
 		", or GPU Distance-Driven (DD_GPU)"
 		#endif
 		". The default projector is Siddon", cxxopts::value<std::string>(projector_name))
-		("acf", "Generate ACF histogram", cxxopts::value<bool>(convertToAcf))
+		("to_acf", "Generate ACF histogram", cxxopts::value<bool>(convertToAcf))
 		("tof_width_ps", "TOF Width in Picoseconds", cxxopts::value<float>(tofWidth_ps))
 		("tof_n_std", "Number of standard deviations to consider for TOF's Gaussian curve", cxxopts::value<int>(tofNumStd))
 		("num_rays", "Number of rays to use in the Siddon projector", cxxopts::value<int>(numRays))

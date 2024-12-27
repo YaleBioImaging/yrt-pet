@@ -43,6 +43,7 @@ namespace Util
 
 	std::string addBeforeExtension(const std::string& fname,
 	                               const std::string& addition);
+	bool endsWith(const std::string& str, const std::string& suffix);
 
 	/**
 	 * Fills a given box by trilinear interpolation. It fills from the values at

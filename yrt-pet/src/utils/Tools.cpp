@@ -163,6 +163,13 @@ namespace Util
 		return fnameInserted;
 	}
 
+	bool endsWith(const std::string& str, const std::string& suffix)
+	{
+		return str.size() >= suffix.size() &&
+		       str.compare(str.size() - suffix.size(), suffix.size(), suffix) ==
+		           0;
+	}
+
 	template <typename T>
 	void conv3D_separable(const Array3DBase<T>& src,
 	                      const Array1DBase<T>& kernelX,

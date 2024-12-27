@@ -4,9 +4,11 @@
  */
 
 #include "datastruct/image/Image.hpp"
+
 #include "datastruct/image/ImageBase.hpp"
 #include "geometry/Constants.hpp"
 #include "utils/Assert.hpp"
+#include "utils/Tools.hpp"
 #include "utils/Types.hpp"
 #include "utils/Utilities.hpp"
 
@@ -758,6 +760,11 @@ void Image::assignImageInterpolate(const Vector3D& point, float value)
 // this function writes "image" on disk @ "image_fname"
 void Image::writeToFile(const std::string& fname) const
 {
+	ASSERT(!fname.empty());
+	ASSERT_MSG_WARNING(
+	    Util::endsWith(fname, ".nii") || Util::endsWith(fname, ".nii.gz"),
+	    "The NIfTI image file extension should be either .nii or .nii.gz");
+
 	const ImageParams& params = getParams();
 	const int dims[] = {3, params.nx, params.ny, params.nz};
 	nifti_image* nim = nifti_make_new_nim(dims, NIFTI_TYPE_FLOAT32, 0);
@@ -1027,6 +1034,12 @@ mat44 ImageOwned::adjustAffineMatrix(mat44 matrix)
 void ImageOwned::readFromFile(const std::string& fname)
 {
 	nifti_image* niftiImage = nifti_image_read(fname.c_str(), 1);
+
+	if (niftiImage == nullptr)
+	{
+		throw std::invalid_argument("An error occured while reading file" +
+		                            fname);
+	}
 
 	mat44 transformMatrix;
 	if (niftiImage->sform_code > 0)

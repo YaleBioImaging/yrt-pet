@@ -371,14 +371,18 @@ namespace Util
 	template void fillBox(Array3DBase<double>& arr, size_t z1, size_t z2,
 	                      size_t y1, size_t y2, size_t x1, size_t x2);
 
-	int maxNumberOfDigits(int n)
+	int numberOfDigits(int n)
 	{
+		if (n == 0)
+		{
+			return 1;
+		}
 		return static_cast<int>(std::ceil(std::log10(n + 1)));
 	}
 
-	std::string padZeros(int number, int num_digits)
+	std::string padZeros(int number, int numDigits)
 	{
-		const int numberOfZerosToPad = num_digits - maxNumberOfDigits(number);
+		const int numberOfZerosToPad = numDigits - numberOfDigits(number);
 		if (numberOfZerosToPad < 0)
 		{
 			throw std::invalid_argument("The number given in padZeros "

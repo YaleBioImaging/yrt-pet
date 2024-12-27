@@ -78,8 +78,8 @@ namespace Util
 		return s;
 	}
 
-	int maxNumberOfDigits(int n);
-	std::string padZeros(int number, int num_digits);
+	int numberOfDigits(int n);
+	std::string padZeros(int number, int numDigits);
 
 	template <typename T>
 	T getAttenuationCoefficientFactor(T proj, T unitFactor = 0.1)

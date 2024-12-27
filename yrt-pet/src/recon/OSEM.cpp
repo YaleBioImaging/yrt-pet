@@ -200,7 +200,7 @@ void OSEM::generateSensitivityImagesCore(
 	sensImages.clear();
 
 	const int numDigitsInFilename =
-	    num_OSEM_subsets > 1 ? Util::maxNumberOfDigits(num_OSEM_subsets - 1) :
+	    num_OSEM_subsets > 1 ? Util::numberOfDigits(num_OSEM_subsets - 1) :
 	                           1;
 
 	for (int subsetId = 0; subsetId < num_OSEM_subsets; subsetId++)
@@ -521,7 +521,7 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 	initializeForRecon();
 
 	const int numDigitsInFilename =
-	    Util::maxNumberOfDigits(num_MLEM_iterations);
+	    Util::numberOfDigits(num_MLEM_iterations);
 
 	// MLEM iterations
 	for (int iter = 0; iter < num_MLEM_iterations; iter++)
@@ -726,7 +726,7 @@ std::unique_ptr<ImageOwned>
 	}
 
 	const int num_digits_in_fname =
-	    Util::maxNumberOfDigits(num_MLEM_iterations);
+	    Util::numberOfDigits(num_MLEM_iterations);
 
 	/* MLEM iterations */
 	for (int iter = 0; iter < num_MLEM_iterations; iter++)

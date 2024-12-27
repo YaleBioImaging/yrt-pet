@@ -25,6 +25,7 @@
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 namespace py = pybind11;
+
 void py_setup_osem(pybind11::module& m)
 {
 	auto c = py::class_<OSEM>(m, "OSEM");
@@ -198,6 +199,10 @@ void OSEM::generateSensitivityImagesCore(
 
 	sensImages.clear();
 
+	const int numDigitsInFilename =
+	    num_OSEM_subsets > 1 ? Util::maxNumberOfDigits(num_OSEM_subsets - 1) :
+	                           1;
+
 	for (int subsetId = 0; subsetId < num_OSEM_subsets; subsetId++)
 	{
 		std::cout << "OSEM subset " << subsetId + 1 << "/" << num_OSEM_subsets
@@ -218,7 +223,8 @@ void OSEM::generateSensitivityImagesCore(
 			{
 				outFileName = Util::addBeforeExtension(
 				    out_fname,
-				    std::string("_subset") + std::to_string(subsetId));
+				    std::string("_subset") +
+				        Util::padZeros(subsetId, numDigitsInFilename));
 			}
 			generatedImage->writeToFile(outFileName);
 			std::cout << "Image saved." << std::endl;

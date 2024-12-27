@@ -3,7 +3,7 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "recon/Variable.hpp"
+#include "operators/Variable.hpp"
 
 #if BUILD_PYBIND11
 

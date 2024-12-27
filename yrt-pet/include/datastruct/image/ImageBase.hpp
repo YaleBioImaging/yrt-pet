@@ -5,7 +5,7 @@
 
 #pragma once
 
-#include "recon/Variable.hpp"
+#include "operators/Variable.hpp"
 
 #include "nlohmann/json_fwd.hpp"
 #include <string>

@@ -7,7 +7,7 @@
 
 #include "datastruct/scanner/Scanner.hpp"
 #include "datastruct/projection/BinIterator.hpp"
-#include "recon/Variable.hpp"
+#include "operators/Variable.hpp"
 #include "utils/Types.hpp"
 #include "geometry/Line3D.hpp"
 

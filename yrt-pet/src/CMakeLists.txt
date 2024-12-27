@@ -42,7 +42,7 @@ set(SOURCES
         operators/TimeOfFlight.cpp
         recon/OSEM.cpp
         recon/OSEM_CPU.cpp
-        recon/Variable.cpp
+        operators/Variable.cpp
         scatter/ScatterEstimator.cpp
         scatter/SingleScatterSimulator.cpp
         scatter/Crystal.cpp

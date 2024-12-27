@@ -34,8 +34,11 @@ TEST_CASE("image-readwrite", "[image]")
 	std::uniform_int_distribution<int> imageSizeDistribution(25, 75);
 	std::uniform_real_distribution<float> imageLengthDistribution(25.0f, 75.0f);
 	std::uniform_real_distribution<float> imageDataDistribution(0.0f, 1.0f);
+	std::uniform_real_distribution<float> imageOffsetDistribution(-10.0f,
+	                                                              10.0f);
 
 	std::string tmpImage_fname = "tmp.nii";
+	std::string tmpCompressedImage_fname = "tmp.nii.gz";
 	std::string tmpParams_fname = "tmp_params.json";
 
 	int nx = imageSizeDistribution(engine);
@@ -44,20 +47,25 @@ TEST_CASE("image-readwrite", "[image]")
 	float length_x = imageLengthDistribution(engine);
 	float length_y = imageLengthDistribution(engine);
 	float length_z = imageLengthDistribution(engine);
+	float off_x = imageOffsetDistribution(engine);
+	float off_y = imageOffsetDistribution(engine);
+	float off_z = imageOffsetDistribution(engine);
 
-	ImageParams params1{nx, ny, nz, length_x, length_y, length_z};
+	ImageParams params1{nx,       ny,    nz,    length_x, length_y,
+	                    length_z, off_x, off_y, off_z};
 	ImageOwned img1{params1};
 	img1.allocate();
 
 	// Fill the image with random values
 	float* imgData_ptr = img1.getRawPointer();
-	int numVoxels = nx*ny*nz;
-	for(int i=0;i<numVoxels;i++)
+	int numVoxels = nx * ny * nz;
+	for (int i = 0; i < numVoxels; i++)
 	{
 		imgData_ptr[i] = imageDataDistribution(engine);
 	}
 
 	img1.writeToFile(tmpImage_fname);
+	img1.writeToFile(tmpCompressedImage_fname);
 
 	ImageOwned img2{tmpImage_fname};
 	ImageParams params2 = img2.getParams();
@@ -71,10 +79,16 @@ TEST_CASE("image-readwrite", "[image]")
 
 	ImageOwned img3{params3, tmpImage_fname};
 	REQUIRE(params1.isSameAs(img3.getParams()));
-
 	checkTwoImages(img1, img3);
+
+	ImageOwned img4{tmpCompressedImage_fname};
+	REQUIRE(params1.isSameAs(img4.getParams()));
+	checkTwoImages(img1, img4);
+	REQUIRE(std::filesystem::file_size(tmpCompressedImage_fname) <
+	        std::filesystem::file_size(tmpImage_fname));
 
 	// Clear temporary files from disk
 	std::remove(tmpImage_fname.c_str());
 	std::remove(tmpParams_fname.c_str());
+	std::remove(tmpCompressedImage_fname.c_str());
 }

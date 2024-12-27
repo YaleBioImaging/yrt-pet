@@ -5,6 +5,7 @@ project(yrt-pet VERSION 0.0.1 LANGUAGES CXX)
 
 
 # # Dependencies
+find_package(ZLIB REQUIRED)
 
 # CMake tools
 include(ExternalProject)
@@ -46,7 +47,7 @@ endif (USE_CUDA)
 
 # Common variables
 set(YRTPET_COMPILE_FEATURES cxx_std_17)
-set(YRTPET_LINK_LIBRARIES OpenMP::OpenMP_CXX)
+set(YRTPET_LINK_LIBRARIES OpenMP::OpenMP_CXX ZLIB::ZLIB)
 set(YRTPET_INCLUDE_DIRECTORIES)
 set(YRTPET_LIB_NAME yrtpet)
 
@@ -87,6 +88,7 @@ function(setup_target TARGET JSON CXXOPTS PYBIND11)
         target_link_libraries(${TARGET} PUBLIC ${Python_LIBRARIES})
         target_compile_definitions(${TARGET} PUBLIC BUILD_PYBIND11)
     endif ()
+    add_compile_definitions(HAVE_ZLIB)
 endfunction()
 
 # Wrapper for library target

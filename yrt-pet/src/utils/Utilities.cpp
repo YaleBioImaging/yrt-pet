@@ -10,9 +10,12 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <ctime>
 #include <iomanip>
+#include <iostream>
+#include <regex>
 
 #if BUILD_PYBIND11
 #include <pybind11/pybind11.h>
@@ -75,6 +78,28 @@ void py_setup_utilities(py::module& m)
 		                                      self.r10, self.r11, self.r12,
 		                                      self.r20, self.r21, self.r22);
 	                });
+
+	auto m_utils = m.def_submodule("Utilities");
+	auto c_range = py::class_<Util::RangeList>(m_utils, "RangeList");
+	c_range.def(py::init<>());
+	c_range.def(py::init<const std::string&>());
+	c_range.def("isIn", &Util::RangeList::isIn, py::arg("idx"));
+	c_range.def("empty", &Util::RangeList::empty);
+	c_range.def("insertSorted", [](Util::RangeList & self, int begin, int end)
+	{ self.insertSorted(begin, end); }, py::arg("begin"), py::arg("end"));
+	c_range.def("__repr__",
+	            [](const Util::RangeList& self)
+	            {
+		            std::stringstream ss;
+		            ss << self;
+		            return ss.str();
+	            });
+	c_range.def("__getitem__",
+	            [](const Util::RangeList& self, const int idx)
+	            {
+		            const std::pair<int, int>& range = self.get().at(idx);
+		            return py::make_tuple(range.first, range.second);
+	            });
 }
 #endif
 
@@ -179,6 +204,124 @@ namespace Util
 		std::string newString = s;
 		std::transform(s.begin(), s.end(), newString.begin(), ::toupper);
 		return newString;
+	}
+
+	std::vector<std::string> split(const std::string str,
+	                               const std::string regex_str)
+	{
+		std::regex regexz(regex_str);
+		return {std::sregex_token_iterator(str.begin(), str.end(), regexz, -1),
+		        std::sregex_token_iterator()};
+	}
+
+	RangeList::RangeList(const std::string& p_Ranges)
+	{
+		readFromString(p_Ranges);
+	}
+	void RangeList::readFromString(const std::string& p_Ranges)
+	{
+		std::vector<std::string> ranges = split(p_Ranges, ",");
+		for (std::string range : ranges)
+		{
+			std::vector<std::string> limits = split(range, "-");
+			int begin, end;
+			switch (limits.size())
+			{
+			case 1: begin = end = std::stoi(limits[0]); break;
+			case 2:
+				begin = std::stoi(limits[0]);
+				end = std::stoi(limits[1]);
+				break;
+			default: std::cerr << "Could not parse range" << std::endl; return;
+			}
+			insertSorted(begin, end);
+		}
+	}
+	void RangeList::sort()
+	{
+		std::vector<std::pair<int, int>> newRanges;
+		for (auto range : m_Ranges)
+		{
+			RangeList::insertSorted(newRanges, range.first, range.second);
+		}
+		m_Ranges = newRanges;
+	}
+	void RangeList::insertSorted(const int begin, const int end)
+	{
+		insertSorted(m_Ranges, begin, end);
+	}
+	void RangeList::insertSorted(std::vector<std::pair<int, int>>& ranges,
+	                             const int begin, const int end)
+	{
+		// Case 1: If the vector is empty, just insert the new range
+		if (ranges.empty())
+		{
+			ranges.push_back({begin, end});
+			return;
+		}
+
+		// Step 1: Insert the new range in sorted order
+		auto it = ranges.begin();
+		while (it != ranges.end() && it->first < begin)
+		{
+			++it;
+		}
+		ranges.insert(it, {begin, end});
+
+		// Step 2: Merge overlapping or adjacent ranges
+		std::vector<std::pair<int, int>> mergedRanges;
+		mergedRanges.push_back(ranges[0]);
+
+		for (size_t i = 1; i < ranges.size(); ++i)
+		{
+			auto& last = mergedRanges.back();
+			auto& current = ranges[i];
+
+			// If the current range overlaps with or is adjacent to the last
+			// range, merge them
+			if (current.first <= last.second + 1)
+			{
+				last.second = std::max(last.second, current.second);
+			}
+			else
+			{
+				mergedRanges.push_back(current);
+			}
+		}
+
+		// Replace the original vector with the merged ranges
+		ranges = mergedRanges;
+	}
+
+	const std::vector<std::pair<int, int>>& RangeList::get() const
+	{
+		return m_Ranges;
+	}
+
+	size_t RangeList::getSizeTotal() const
+	{
+		size_t size = 0;
+		for (auto range : m_Ranges)
+		{
+			size += range.second - range.first + 1;
+		}
+		return size;
+	}
+
+	bool RangeList::isIn(int idx) const
+	{
+		for (auto range : m_Ranges)
+		{
+			if (idx >= range.first and idx <= range.second)
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+	bool RangeList::empty() const
+	{
+		return m_Ranges.size() == 0;
 	}
 
 	bool compiledWithCuda()

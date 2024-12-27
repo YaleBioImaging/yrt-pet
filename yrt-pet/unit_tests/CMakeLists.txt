@@ -41,3 +41,14 @@ endif ()
 target_include_directories(test_runner_datastruct PUBLIC ${PROJECT_SOURCE_DIR})
 target_link_libraries(test_runner_algorithms PUBLIC Catch)
 add_test(test_runner_algorithms test_runner_algorithms)
+
+set(SOURCES_MISC
+        ${SOURCES_COMMON}
+        utils/test_Utilities.cpp)
+define_target_exe(test_runner_misc "${SOURCES_MISC}")
+if (${USE_CUDA})
+    set_property(TARGET test_runner_misc PROPERTY CUDA_ARCHITECTURES ${YRTPET_CUDA_ARCHITECTURES})
+endif ()
+target_include_directories(test_runner_datastruct PUBLIC ${PROJECT_SOURCE_DIR})
+target_link_libraries(test_runner_misc PUBLIC Catch)
+add_test(test_runner_misc test_runner_misc)

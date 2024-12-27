@@ -352,7 +352,7 @@ void ImageWarperTemplate::computeGlobalWarpToRefFrame(Image* image,
 	}
 	for (int m = 0; m < m_numberOfFrame; m++)
 	{
-		// Will doing the copy, we also apply the weight of the current frame.
+		// While copying, we also apply the weight of the current frame.
 		tmpCopyOfGivenImage->copyFromImage(image);
 
 		if (writeFileSteps)

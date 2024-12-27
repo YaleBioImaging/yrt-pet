@@ -8,6 +8,7 @@
 #include "datastruct/image/Image.hpp"
 #include "operators/OperatorProjector.hpp"
 #include "operators/OperatorPsf.hpp"
+#include "utils/Utilities.hpp"
 
 #if BUILD_PYBIND11
 #include <pybind11/pybind11.h>
@@ -62,7 +63,8 @@ public:
 	void addTOF(float p_tofWidth_ps, int p_tofNumStd);
 	void addProjPSF(const std::string& p_projSpacePsf_fname);
 	virtual void addImagePSF(const std::string& p_imageSpacePsf_fname);
-	void setSaveSteps(int p_saveSteps, const std::string& p_saveStepsPath);
+	void setSaveIterList(Util::RangeList p_saveIterList,
+	                     const std::string& p_saveIterPath);
 	void setListModeEnabled(bool enabled);
 	void setProjector(const std::string& projectorName);  // Helper
 	bool isListModeEnabled() const;
@@ -109,8 +111,8 @@ protected:
 	bool flagProjTOF;
 	float tofWidth_ps;
 	int tofNumStd;
-	int saveSteps;
-	std::string saveStepsPath;
+	Util::RangeList saveIterList;
+	std::string saveIterPath;
 	bool usingListModeInput;  // true => ListMode, false => Histogram
 	std::unique_ptr<OperatorProjectorBase> mp_projector;
 	bool needToMakeCopyOfSensImage;

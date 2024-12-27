@@ -12,6 +12,7 @@
 #include "utils/Globals.hpp"
 #include "utils/ProgressDisplay.hpp"
 #include "utils/ReconstructionUtils.hpp"
+#include "utils/Utilities.hpp"
 
 #include <cxxopts.hpp>
 #include <iostream>
@@ -45,6 +46,7 @@ int main(int argc, char** argv)
 		float tofWidth_ps = 0.0f;
 		int tofNumStd = 0;
 		int saveSteps = 0;
+		std::string saveIterList;
 		bool sensOnly = false;
 
 		Plugin::OptionsResult pluginOptionsResults;  // For plugins' options
@@ -119,6 +121,9 @@ int main(int argc, char** argv)
 		reconGroup("save_steps",
 		           "Increment into which to save MLEM iteration images",
 		           cxxopts::value<int>(saveSteps));
+		reconGroup("save_iter_list",
+		           "List of iteration ranges to save MLEM iteration images",
+		           cxxopts::value<std::string>(saveIterList));
 		reconGroup("att_invivo",
 		           "In case of motion correction only, in-vivo attenuation "
 		           "image filename",
@@ -384,7 +389,22 @@ int main(int argc, char** argv)
 		osem->attenuationImageForForwardProjection = invivoAttImg.get();
 
 		// Save steps
-		osem->setSaveSteps(saveSteps, out_fname);
+		Util::RangeList ranges;
+		if (saveSteps > 0)
+		{
+			for (int it = 0; it < numIterations; it += saveSteps)
+			{
+				ranges.insertSorted(it, it);
+			}
+		}
+		else if (!saveIterList.empty())
+		{
+			ranges.readFromString(saveIterList);
+		}
+		if (!ranges.empty())
+		{
+			osem->setSaveIterList(ranges, out_fname);
+		}
 
 		// Image Warper
 		std::unique_ptr<ImageWarperTemplate> warper = nullptr;

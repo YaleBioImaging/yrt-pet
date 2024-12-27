@@ -5,7 +5,6 @@
 
 #include "catch.hpp"
 #include <cmath>
-#include <iostream>
 #include <vector>
 
 #include "datastruct/projection/BinIterator.hpp"

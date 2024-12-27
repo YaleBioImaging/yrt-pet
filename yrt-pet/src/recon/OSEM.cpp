@@ -78,7 +78,7 @@ void py_setup_osem(pybind11::module& m)
 	      py::arg("tof_num_std"));
 	c.def("addProjPSF", &OSEM::addProjPSF, py::arg("proj_psf_fname"));
 	c.def("addImagePSF", &OSEM::addImagePSF, py::arg("image_psf_fname"));
-	c.def("setSaveIter", &OSEM::setSaveIterList, py::arg("range_list"),
+	c.def("setSaveIter", &OSEM::setSaveIterRanges, py::arg("range_list"),
 	      py::arg("path"));
 	c.def("setListModeEnabled", &OSEM::setListModeEnabled, py::arg("enabled"));
 	c.def("setProjector", &OSEM::setProjector, py::arg("projector_name"));
@@ -118,7 +118,7 @@ OSEM::OSEM(const Scanner& pr_scanner)
       flagProjTOF(false),
       tofWidth_ps(0.0f),
       tofNumStd(0),
-      saveIterList(),
+      saveIterRanges(),
       usingListModeInput(false),
       needToMakeCopyOfSensImage(false),
       outImage(nullptr),
@@ -200,8 +200,7 @@ void OSEM::generateSensitivityImagesCore(
 	sensImages.clear();
 
 	const int numDigitsInFilename =
-	    num_OSEM_subsets > 1 ? Util::numberOfDigits(num_OSEM_subsets - 1) :
-	                           1;
+	    num_OSEM_subsets > 1 ? Util::numberOfDigits(num_OSEM_subsets - 1) : 1;
 
 	for (int subsetId = 0; subsetId < num_OSEM_subsets; subsetId++)
 	{
@@ -405,10 +404,10 @@ void OSEM::addImagePSF(const std::string& p_imageSpacePsf_fname)
 	flagImagePSF = true;
 }
 
-void OSEM::setSaveIterList(Util::RangeList p_saveIterList,
-                           const std::string& p_saveIterPath)
+void OSEM::setSaveIterRanges(Util::RangeList p_saveIterList,
+                             const std::string& p_saveIterPath)
 {
-	saveIterList = p_saveIterList;
+	saveIterRanges = p_saveIterList;
 	saveIterPath = p_saveIterPath;
 }
 
@@ -518,8 +517,7 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 
 	initializeForRecon();
 
-	const int numDigitsInFilename =
-	    Util::numberOfDigits(num_MLEM_iterations);
+	const int numDigitsInFilename = Util::numberOfDigits(num_MLEM_iterations);
 
 	// MLEM iterations
 	for (int iter = 0; iter < num_MLEM_iterations; iter++)
@@ -598,7 +596,7 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 			    getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType::EM_RATIO),
 			    getSensImageBuffer(), 0.0);
 		}
-		if (saveIterList.isIn(iter + 1))
+		if (saveIterRanges.isIn(iter + 1))
 		{
 			std::string iteration_name =
 			    Util::padZeros(iter + 1, numDigitsInFilename);
@@ -651,7 +649,7 @@ std::unique_ptr<ImageOwned>
 
 	Image* sens_image = m_sensitivityImages.at(0);
 	std::cout << "Computing global Warp-to-ref frame" << std::endl;
-	warper->computeGlobalWarpToRefFrame(sens_image, !saveIterList.empty());
+	warper->computeGlobalWarpToRefFrame(sens_image, !saveIterRanges.empty());
 	std::cout << "Applying threshold" << std::endl;
 	sens_image->applyThreshold(sens_image, hardThreshold, 0.0, 0.0, 1.0, 0.0);
 	getMLEMImageBuffer()->applyThreshold(sens_image, 0.0, 0.0, 0.0, 0.0, 1.0);
@@ -723,8 +721,7 @@ std::unique_ptr<ImageOwned>
 		mp_projector->setAttenuationImage(attenuationImageForForwardProjection);
 	}
 
-	const int num_digits_in_fname =
-	    Util::numberOfDigits(num_MLEM_iterations);
+	const int num_digits_in_fname = Util::numberOfDigits(num_MLEM_iterations);
 
 	/* MLEM iterations */
 	for (int iter = 0; iter < num_MLEM_iterations; iter++)
@@ -763,7 +760,7 @@ std::unique_ptr<ImageOwned>
 		getMLEMImageBuffer()->updateEMThreshold(mlem_image_update_factor.get(),
 		                                        sens_image, UpdateEMThreshold);
 
-		if (saveIterList.isIn(iter + 1))
+		if (saveIterRanges.isIn(iter + 1))
 		{
 			std::string iteration_name =
 			    Util::padZeros(iter + 1, num_digits_in_fname);
@@ -840,8 +837,8 @@ void OSEM::summary() const
 		std::cout << "Uses Time-of-flight with " << std::endl;
 	}
 
-	std::cout << "Saved iterations list: " << saveIterList << std::endl;
-	if (!saveIterList.empty())
+	std::cout << "Saved iterations list: " << saveIterRanges << std::endl;
+	if (!saveIterRanges.empty())
 	{
 		std::cout << "Saved image files prefix name: " << saveIterPath
 		          << std::endl;

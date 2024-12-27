@@ -63,8 +63,8 @@ public:
 	void addTOF(float p_tofWidth_ps, int p_tofNumStd);
 	void addProjPSF(const std::string& p_projSpacePsf_fname);
 	virtual void addImagePSF(const std::string& p_imageSpacePsf_fname);
-	void setSaveIterList(Util::RangeList p_saveIterList,
-	                     const std::string& p_saveIterPath);
+	void setSaveIterRanges(Util::RangeList p_saveIterList,
+	                       const std::string& p_saveIterPath);
 	void setListModeEnabled(bool enabled);
 	void setProjector(const std::string& projectorName);  // Helper
 	bool isListModeEnabled() const;
@@ -111,7 +111,7 @@ protected:
 	bool flagProjTOF;
 	float tofWidth_ps;
 	int tofNumStd;
-	Util::RangeList saveIterList;
+	Util::RangeList saveIterRanges;
 	std::string saveIterPath;
 	bool usingListModeInput;  // true => ListMode, false => Histogram
 	std::unique_ptr<OperatorProjectorBase> mp_projector;

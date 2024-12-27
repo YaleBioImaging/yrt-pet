@@ -45,8 +45,8 @@ int main(int argc, char** argv)
 		float hardThreshold = 1.0f;
 		float tofWidth_ps = 0.0f;
 		int tofNumStd = 0;
-		int saveSteps = 0;
-		std::string saveIterList;
+		int saveIterStep = 0;
+		std::string saveIterRanges;
 		bool sensOnly = false;
 
 		Plugin::OptionsResult pluginOptionsResults;  // For plugins' options
@@ -118,12 +118,12 @@ int main(int argc, char** argv)
 		           cxxopts::value<std::string>(imageSpacePsf_fname));
 		reconGroup("hard_threshold", "Hard Threshold",
 		           cxxopts::value<float>(hardThreshold));
-		reconGroup("save_steps",
+		reconGroup("save_iter_step",
 		           "Increment into which to save MLEM iteration images",
-		           cxxopts::value<int>(saveSteps));
-		reconGroup("save_iter_list",
+		           cxxopts::value<int>(saveIterStep));
+		reconGroup("save_iter_ranges",
 		           "List of iteration ranges to save MLEM iteration images",
-		           cxxopts::value<std::string>(saveIterList));
+		           cxxopts::value<std::string>(saveIterRanges));
 		reconGroup("att_invivo",
 		           "In case of motion correction only, in-vivo attenuation "
 		           "image filename",
@@ -390,20 +390,20 @@ int main(int argc, char** argv)
 
 		// Save steps
 		Util::RangeList ranges;
-		if (saveSteps > 0)
+		if (saveIterStep > 0)
 		{
-			for (int it = 0; it < numIterations; it += saveSteps)
+			for (int it = 0; it < numIterations; it += saveIterStep)
 			{
 				ranges.insertSorted(it, it);
 			}
 		}
-		else if (!saveIterList.empty())
+		else if (!saveIterRanges.empty())
 		{
-			ranges.readFromString(saveIterList);
+			ranges.readFromString(saveIterRanges);
 		}
 		if (!ranges.empty())
 		{
-			osem->setSaveIterList(ranges, out_fname);
+			osem->setSaveIterRanges(ranges, out_fname);
 		}
 
 		// Image Warper

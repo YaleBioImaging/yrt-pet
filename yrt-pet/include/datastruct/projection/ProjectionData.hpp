@@ -61,6 +61,7 @@ public:
 
 	// Helper functions
 	virtual ProjectionProperties getProjectionProperties(bin_t bin) const;
+	Line3D getLOR(bin_t bin) const;
 	virtual void clearProjections(float value);
 	virtual void divideMeasurements(const ProjectionData* measurements,
 	                                const BinIterator* binIter);

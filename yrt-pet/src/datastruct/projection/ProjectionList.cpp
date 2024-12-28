@@ -156,6 +156,16 @@ Line3D ProjectionList::getArbitraryLOR(bin_t id) const
 	return mp_reference->getArbitraryLOR(id);
 }
 
+const ProjectionData* ProjectionList::getReference() const
+{
+	return mp_reference;
+}
+
+float* ProjectionList::getRawPointer() const
+{
+	return mp_projs->getRawPointer();
+}
+
 Array1DBase<float>* ProjectionList::getProjectionsArrayRef() const
 {
 	return (mp_projs.get());
@@ -171,7 +181,7 @@ histo_bin_t ProjectionList::getHistogramBin(bin_t id) const
 	return mp_reference->getHistogramBin(id);
 }
 
-ProjectionListOwned::ProjectionListOwned(ProjectionData* r)
+ProjectionListOwned::ProjectionListOwned(const ProjectionData* r)
     : ProjectionList(r)
 {
 	mp_projs = std::make_unique<Array1D<float>>();
@@ -187,7 +197,7 @@ void ProjectionListOwned::allocate()
 	          << mp_projs->getSize(0) << std::endl;
 }
 
-ProjectionListAlias::ProjectionListAlias(ProjectionData* p)
+ProjectionListAlias::ProjectionListAlias(const ProjectionData* p)
     : ProjectionList(p)
 {
 	mp_projs = std::make_unique<Array1DAlias<float>>();
@@ -204,7 +214,7 @@ void ProjectionListAlias::bind(Array1DBase<float>* projs_in)
 }
 
 std::unique_ptr<BinIterator> ProjectionList::getBinIter(int numSubsets,
-                                                            int idxSubset) const
+                                                        int idxSubset) const
 {
 	return mp_reference->getBinIter(numSubsets, idxSubset);
 }

@@ -40,6 +40,7 @@ set(SOURCES
         operators/OperatorPsf.cpp
         operators/ProjectionPsfManager.cpp
         operators/TimeOfFlight.cpp
+        recon/Corrector.cpp
         recon/OSEM.cpp
         recon/OSEM_CPU.cpp
         operators/Variable.cpp

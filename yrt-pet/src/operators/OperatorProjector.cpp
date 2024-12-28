@@ -214,7 +214,7 @@ void OperatorProjector::applyA(const Variable* in, Variable* out)
 			imProj *= attProj_coeff;
 		}
 
-		dat->setProjectionValue(bin, static_cast<float>(imProj));
+		dat->setProjectionValue(bin, imProj);
 	}
 }
 

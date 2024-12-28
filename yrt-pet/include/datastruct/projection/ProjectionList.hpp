@@ -43,7 +43,8 @@ public:
 	bool hasArbitraryLORs() const override;
 	Line3D getArbitraryLOR(bin_t id) const override;
 
-	const ProjectionData* getReference() const { return mp_reference; }
+	const ProjectionData* getReference() const;
+	float* getRawPointer() const;
 
 	void clearProjections(float value) override;
 	Array1DBase<float>* getProjectionsArrayRef() const;
@@ -56,7 +57,7 @@ protected:
 class ProjectionListAlias : public ProjectionList
 {
 public:
-	explicit ProjectionListAlias(ProjectionData* p);
+	explicit ProjectionListAlias(const ProjectionData* p);
 	~ProjectionListAlias() override = default;
 	void bind(Array1DBase<float>* projs_in);
 };
@@ -64,7 +65,7 @@ public:
 class ProjectionListOwned : public ProjectionList
 {
 public:
-	explicit ProjectionListOwned(ProjectionData* p);
+	explicit ProjectionListOwned(const ProjectionData* p);
 	~ProjectionListOwned() override = default;
 	void allocate();
 };

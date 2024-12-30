@@ -389,12 +389,20 @@ int main(int argc, char** argv)
 		osem->attenuationImageForForwardProjection = invivoAttImg.get();
 
 		// Save steps
+		ASSERT_MSG(saveIterStep >= 0, "save_iter_step must be positive.");
 		Util::RangeList ranges;
 		if (saveIterStep > 0)
 		{
-			for (int it = 0; it < numIterations; it += saveIterStep)
+			if (saveIterStep == 1)
 			{
-				ranges.insertSorted(it, it);
+				ranges.insertSorted(0, numIterations - 1);
+			}
+			else
+			{
+				for (int it = 0; it < numIterations; it += saveIterStep)
+				{
+					ranges.insertSorted(it, it);
+				}
 			}
 		}
 		else if (!saveIterRanges.empty())

@@ -48,6 +48,7 @@ set(SOURCES
         scatter/Crystal.cpp
         utils/Assert.cpp
         utils/Utilities.cpp
+        utils/RangeList.cpp
         utils/Tools.cpp
         utils/ProgressDisplay.cpp
         utils/ProgressDisplayMultiThread.cpp

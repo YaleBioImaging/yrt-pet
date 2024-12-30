@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "utils/Utilities.hpp"
+#include "utils/RangeList.hpp"
 
 TEST_CASE("String", "[string]")
 {
@@ -28,6 +29,8 @@ TEST_CASE("String", "[string]")
 	{
 		REQUIRE(Util::split("ab/cd", "/") ==
 		        std::vector<std::string>{"ab", "cd"});
+		REQUIRE(Util::split("ab", "/") ==
+		        std::vector<std::string>{"ab"});
 	}
 	SECTION("ranges-insert")
 	{
@@ -63,5 +66,11 @@ TEST_CASE("String", "[string]")
 		Util::RangeList ranges("1-3, 5-10, 15-15, 17-20");
 		REQUIRE(ranges.get().size() == 4);
 		REQUIRE(ranges.getSizeTotal() == 14);
+	}
+	SECTION("ranges-parse-red")
+	{
+		Util::RangeList ranges("1-3, 5-16, 15-15, 17-20");
+		REQUIRE(ranges.get().size() == 2);
+		REQUIRE(ranges.getSizeTotal() == 19);
 	}
 }

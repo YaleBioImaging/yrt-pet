@@ -6,7 +6,6 @@
 #pragma once
 
 #include <vector>
-#include <iostream>
 #include <string>
 
 namespace Util
@@ -24,38 +23,6 @@ namespace Util
 
 	std::vector<std::string> split(const std::string str,
 	                               const std::string regex_str);
-
-	class RangeList
-	{
-	protected:
-		std::vector<std::pair<int, int>> m_Ranges;
-
-	public:
-		RangeList() {}
-		RangeList(const std::string& p_Ranges);
-		void readFromString(const std::string& p_Ranges);
-		static void insertSorted(std::vector<std::pair<int, int>>& ranges,
-		                         const int begin, const int end);
-		void insertSorted(const int begin, const int end);
-		void sort();
-		const std::vector<std::pair<int, int>>& get() const;
-		size_t getSizeTotal() const;
-		bool isIn(int idx) const;
-		bool empty() const;
-		friend std::ostream& operator<<(std::ostream& os,
-		                                const RangeList& ranges)
-		{
-			for (auto& range : ranges.get())
-			{
-				if (&range != &ranges.get().front())
-				{
-					os << ", ";
-				}
-				os << "[" << range.first << "," << range.second << "]";
-			}
-			return os;
-		}
-	};
 
 	// ----------------- Bit manipulation -----------------
 

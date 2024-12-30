@@ -17,6 +17,7 @@ void py_setup_line3dall(py::module&);
 void py_setup_tubeofresponse(py::module& m);
 void py_setup_timeofflight(py::module& m);
 void py_setup_utilities(py::module& m);
+void py_setup_utilities_rangelist(py::module& m);
 
 void py_setup_variable(py::module& m);
 void py_setup_imagebase(py::module&);
@@ -103,6 +104,7 @@ PYBIND11_MODULE(pyyrtpet, m)
 	py_setup_imagewarpermatrix(m);
 	py_setup_imagewarperfunction(m);
 	py_setup_utilities(m);
+	py_setup_utilities_rangelist(m);
 
 	py_setup_operator(m);
 	py_setup_operatorpsf(m);

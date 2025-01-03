@@ -67,15 +67,15 @@ function(setup_target TARGET JSON CXXOPTS PYBIND11)
     target_compile_features(${TARGET} PUBLIC ${YRTPET_COMPILE_FEATURES})
     # Workaround for filesystem feature with gcc-8
     string(CONCAT LINK_EXTRA "$<$<AND:$<CXX_COMPILER_ID:GNU>,"
-            "$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:stdc++fs>")
+        "$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:stdc++fs>")
     target_link_libraries(${TARGET} PRIVATE ${LINK_EXTRA})
     target_include_directories(${TARGET} PUBLIC ${YRTPET_INCLUDE_DIRECTORIES}
-            $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include/>
-            $<INSTALL_INTERFACE:include/${CMAKE_PROJECT_NAME}>)
+        $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include/>
+        $<INSTALL_INTERFACE:include/${CMAKE_PROJECT_NAME}>)
     target_link_libraries(${TARGET} PUBLIC ${YRTPET_LINK_LIBRARIES})
     target_compile_options(${TARGET} PRIVATE
-            $<$<COMPILE_LANGUAGE:CXX>:-pedantic -Wall -Wextra>
-            "$<$<COMPILE_LANGUAGE:CUDA>:--compiler-options=-Wall -Wextra -fopenmp>")
+        $<$<COMPILE_LANGUAGE:CXX>:-pedantic -Wall -Wextra>
+        "$<$<COMPILE_LANGUAGE:CUDA>:--compiler-options=-Wall -Wextra -fopenmp>")
     if (${JSON})
         target_link_libraries(${TARGET} PUBLIC JSON)
     endif ()
@@ -84,7 +84,7 @@ function(setup_target TARGET JSON CXXOPTS PYBIND11)
     endif ()
     if (${PYBIND11} AND BUILD_PYBIND11)
         target_include_directories(${TARGET}
-                PUBLIC ${pybind11_INCLUDE_DIR} ${Python_INCLUDE_DIRS})
+            PUBLIC ${pybind11_INCLUDE_DIR} ${Python_INCLUDE_DIRS})
         target_link_libraries(${TARGET} PUBLIC ${Python_LIBRARIES})
         target_compile_definitions(${TARGET} PUBLIC BUILD_PYBIND11)
     endif ()
@@ -99,8 +99,8 @@ function(define_yrtpet_lib SOURCES)
     set(CXXOPTS OFF)
     setup_target(${YRTPET_LIB_NAME} ${JSON} ${CXXOPTS} ${BUILD_PYBIND11})
     target_compile_options(${YRTPET_LIB_NAME} PRIVATE
-            $<$<COMPILE_LANGUAGE:CXX>:-fPIC>
-            "$<$<COMPILE_LANGUAGE:CUDA>:--compiler-options=-fPIC>")
+        $<$<COMPILE_LANGUAGE:CXX>:-fPIC>
+        "$<$<COMPILE_LANGUAGE:CUDA>:--compiler-options=-fPIC>")
 endfunction()
 
 # Add plugin sources to library
@@ -116,7 +116,7 @@ function(define_target_exe TARGET)
     setup_target(${TARGET} ${JSON} ${CXXOPTS} ${BUILD_PYBIND11})
 
     target_link_options(${TARGET} PUBLIC
-            -Wl,--whole-archive $<TARGET_FILE:${YRTPET_LIB_NAME}> -Wl,--no-whole-archive
+        -Wl,--whole-archive $<TARGET_FILE:${YRTPET_LIB_NAME}> -Wl,--no-whole-archive
     )
     target_link_libraries(${TARGET} PUBLIC ${YRTPET_LIB_NAME})
 endfunction()
@@ -130,23 +130,23 @@ if (BUILD_PYBIND11)
         setup_target(${TARGET} ${JSON} ${CXXOPTS} ON)
         target_link_libraries(${TARGET} PUBLIC ${YRTPET_LIB_NAME})
         set_target_properties(${TARGET} PROPERTIES
-                LIBRARY_OUTPUT_NAME ${TARGET}
-                LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/pyyrtpet/${TARGET}_wrapper/")
+            LIBRARY_OUTPUT_NAME ${TARGET}
+            LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/pyyrtpet/${TARGET}_wrapper/")
         add_custom_target(copy_py_${TARGET} ALL)
         if (EXISTS ${PYFOLD}/python/${TARGET})
             add_custom_command(TARGET copy_py_${TARGET}
-                    COMMAND
-                    ${CMAKE_COMMAND} -E copy_directory
-                    ${PYFOLD}/python/${TARGET}
-                    ${CMAKE_BINARY_DIR}/pyyrtpet/${TARGET}_wrapper)
+                COMMAND
+                ${CMAKE_COMMAND} -E copy_directory
+                ${PYFOLD}/python/${TARGET}
+                ${CMAKE_BINARY_DIR}/pyyrtpet/${TARGET}_wrapper)
         endif ()
         add_custom_target(copy_py_init_${TARGET} ALL)
         if (EXISTS ${PYFOLD}/python/__init__.py)
             add_custom_command(TARGET copy_py_init_${TARGET}
-                    COMMAND
-                    ${CMAKE_COMMAND} -E copy
-                    ${PYFOLD}/python/__init__.py
-                    ${CMAKE_BINARY_DIR}/pyyrtpet/__init__.py)
+                COMMAND
+                ${CMAKE_COMMAND} -E copy
+                ${PYFOLD}/python/__init__.py
+                ${CMAKE_BINARY_DIR}/pyyrtpet/__init__.py)
         endif ()
     endfunction()
 
@@ -156,14 +156,14 @@ if (BUILD_PYBIND11)
     endfunction()
 
     # Add integration test
-    function(add_pytest_integration NAME SOURCES INPUT_DIR OUTPUT_DIR)
+    function(add_pytest NAME SOURCES INPUT_DIR OUTPUT_DIR)
         add_custom_target(copy_pytest_${NAME} ALL)
         foreach (FILE ${SOURCES})
             add_custom_command(TARGET copy_pytest_${NAME}
-                    COMMAND
-                    ${CMAKE_COMMAND} -E copy
-                    ${INPUT_DIR}/${FILE}
-                    ${OUTPUT_DIR}/${FILE})
+                COMMAND
+                ${CMAKE_COMMAND} -E copy
+                ${INPUT_DIR}/${FILE}
+                ${OUTPUT_DIR}/${FILE})
         endforeach ()
     endfunction()
 endif ()
@@ -173,22 +173,22 @@ function(define_external_target_header TARGET
         URL MD5SUM INCLUDE_PATH FLAG_DOWNLOAD)
     if (${FLAG_DOWNLOAD})
         ExternalProject_Add(${TARGET}-External
-                URL ${URL}
-                URL_MD5 ${MD5SUM}
-                PREFIX "${CMAKE_BINARY_DIR}/external/${TARGET}-External"
-                CONFIGURE_COMMAND ""
-                BUILD_COMMAND ""
-                INSTALL_COMMAND ${CMAKE_COMMAND} -E copy_directory
-                ${CMAKE_BINARY_DIR}/external/${TARGET}-External/src/${TARGET}-External/
-                ${CMAKE_BINARY_DIR}/external/${TARGET}/
-                TEST_COMMAND "")
+            URL ${URL}
+            URL_MD5 ${MD5SUM}
+            PREFIX "${CMAKE_BINARY_DIR}/external/${TARGET}-External"
+            CONFIGURE_COMMAND ""
+            BUILD_COMMAND ""
+            INSTALL_COMMAND ${CMAKE_COMMAND} -E copy_directory
+            ${CMAKE_BINARY_DIR}/external/${TARGET}-External/src/${TARGET}-External/
+            ${CMAKE_BINARY_DIR}/external/${TARGET}/
+            TEST_COMMAND "")
     endif ()
     add_library(${TARGET} INTERFACE)
     if (${FLAG_DOWNLOAD})
         add_dependencies(${TARGET} ${TARGET}-External)
     endif ()
     target_include_directories(${TARGET}
-            INTERFACE ${CMAKE_BINARY_DIR}/external/${TARGET}/${INCLUDE_PATH})
+        INTERFACE ${CMAKE_BINARY_DIR}/external/${TARGET}/${INCLUDE_PATH})
 endfunction()
 
 # Function to check if a directory contains a CMakeLists.txt
@@ -207,17 +207,17 @@ endfunction()
 
 # CxxOpts dependency
 define_external_target_header(CxxOpts
-        https://github.com/jarro2783/cxxopts/archive/v3.1.1.tar.gz
-        61b8bf0d8ab97fd55d67c7c25687b26d
-        include
-        ${DOWNLOAD_CXXOPTS})
+    https://github.com/jarro2783/cxxopts/archive/v3.1.1.tar.gz
+    61b8bf0d8ab97fd55d67c7c25687b26d
+    include
+    ${DOWNLOAD_CXXOPTS})
 
 # JSON dependency
 define_external_target_header(JSON
-        https://github.com/nlohmann/json/releases/download/v3.11.3/json.tar.xz
-        c23a33f04786d85c29fda8d16b5f0efd
-        include
-        ${DOWNLOAD_JSON})
+    https://github.com/nlohmann/json/releases/download/v3.11.3/json.tar.xz
+    c23a33f04786d85c29fda8d16b5f0efd
+    include
+    ${DOWNLOAD_JSON})
 
 # pybind11
 if (BUILD_PYBIND11)
@@ -261,10 +261,10 @@ if (BUILD_TESTS)
 
     # Add Catch2 dependency
     define_external_target_header(Catch
-            https://github.com/catchorg/Catch2/archive/v2.13.10.tar.gz
-            7a4dd2fd14fb9f46198eb670ac7834b7
-            single_include/catch2
-            ${DOWNLOAD_CATCH2})
+        https://github.com/catchorg/Catch2/archive/v2.13.10.tar.gz
+        7a4dd2fd14fb9f46198eb670ac7834b7
+        single_include/catch2
+        ${DOWNLOAD_CATCH2})
 
     # Test target
     add_subdirectory(unit_tests)

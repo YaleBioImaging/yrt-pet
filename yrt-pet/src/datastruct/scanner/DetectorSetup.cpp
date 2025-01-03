@@ -10,7 +10,7 @@
 namespace py = pybind11;
 void py_setup_detectorsetup(pybind11::module& m)
 {
-	auto c = py::class_<DetectorSetup>(m, "DetectorSetup");
+	auto c = py::class_<DetectorSetup, std::shared_ptr<DetectorSetup>>(m, "DetectorSetup");
 	c.def("getNumDets", &DetectorSetup::getNumDets);
 	c.def("getXpos", &DetectorSetup::getXpos);
 	c.def("getYpos", &DetectorSetup::getYpos);

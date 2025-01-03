@@ -46,6 +46,7 @@ public:
 	Array1DBase<timestamp_t>* getTimestampArrayPtr() const;
 	Array1DBase<det_id_t>* getDetector1ArrayPtr() const;
 	Array1DBase<det_id_t>* getDetector2ArrayPtr() const;
+	Array1DBase<float>* getTOFArrayPtr() const;
 
 	virtual void writeToFile(const std::string& listMode_fname) const;
 
@@ -60,6 +61,7 @@ protected:
 	std::unique_ptr<Array1DBase<det_id_t>> mp_detectorId1;
 	std::unique_ptr<Array1DBase<det_id_t>> mp_detectorId2;
 	bool m_flagTOF;
+	// Time-of-flight: difference of arrival time t2 - t1 in picoseconds
 	std::unique_ptr<Array1DBase<float>> mp_tof_ps;
 
 	std::unique_ptr<LORMotion> mp_lorMotion;

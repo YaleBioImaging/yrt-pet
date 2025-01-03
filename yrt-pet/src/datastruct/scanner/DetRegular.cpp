@@ -188,7 +188,8 @@ size_t DetRegular::getNumDets() const
 #if BUILD_PYBIND11
 void py_setup_detregular(py::module& m)
 {
-	auto c = pybind11::class_<DetRegular, DetectorSetup>(m, "DetRegular");
+	auto c = pybind11::class_<DetRegular, DetectorSetup,
+	                          std::shared_ptr<DetRegular>>(m, "DetRegular");
 	c.def(py::init<Scanner*>());
 
 	c.def("generateLUT", &DetRegular::generateLUT);

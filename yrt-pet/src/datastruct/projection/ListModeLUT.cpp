@@ -14,6 +14,7 @@
 #include <cmath>
 #include <cstring>
 #include <fstream>
+#include <pybind11/pytypes.h>
 #include <vector>
 
 #if BUILD_PYBIND11
@@ -58,6 +59,17 @@ void py_setup_listmodelut(py::module& m)
 		                          py::format_descriptor<det_id_t>::format(), 1,
 		                          {arr->getSizeTotal()}, {sizeof(det_id_t)});
 		      return py::array_t<det_id_t>(buf_info);
+	      });
+	c.def("getTOFArray",
+	      [](const ListModeLUT& self) -> py::array_t<float>
+	      {
+		      ASSERT_MSG(self.hasTOF(), "ListModeLUT object does not hold TOF information");
+		      Array1DBase<float>* arr = self.getTOFArrayPtr();
+		      auto buf_info =
+			      py::buffer_info(arr->getRawPointer(), sizeof(float),
+			                      py::format_descriptor<float>::format(), 1,
+			                      {arr->getSizeTotal()}, {sizeof(float)});
+		      return py::array_t<float>(buf_info);
 	      });
 	c.def("addLORMotion", &ListModeLUT::addLORMotion);
 
@@ -388,6 +400,11 @@ Array1DBase<det_id_t>* ListModeLUT::getDetector1ArrayPtr() const
 Array1DBase<det_id_t>* ListModeLUT::getDetector2ArrayPtr() const
 {
 	return (mp_detectorId2.get());
+}
+
+Array1DBase<float>* ListModeLUT::getTOFArrayPtr() const
+{
+	return (mp_tof_ps.get());
 }
 
 Line3D ListModeLUT::getNativeLORFromId(bin_t id) const

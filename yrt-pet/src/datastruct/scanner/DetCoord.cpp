@@ -6,6 +6,7 @@
 #include "datastruct/scanner/DetCoord.hpp"
 
 #include "utils/Array.hpp"
+#include <memory>
 
 #if BUILD_PYBIND11
 #include <pybind11/numpy.h>
@@ -18,7 +19,10 @@ namespace py = pybind11;
 #if BUILD_PYBIND11
 void py_setup_detcoord(py::module& m)
 {
-	auto c = pybind11::class_<DetCoord, DetectorSetup>(m, "DetCoord");
+	auto c =
+	    pybind11::class_<DetCoord, DetectorSetup, std::shared_ptr<DetCoord>>(
+	        m, "DetCoord");
+
 	c.def("setXpos", &DetCoord::setXpos);
 	c.def("setYpos", &DetCoord::setYpos);
 	c.def("setZpos", &DetCoord::setZpos);
@@ -89,14 +93,16 @@ void py_setup_detcoord(py::module& m)
 
 
 	auto c_owned =
-	    pybind11::class_<DetCoordOwned, DetCoord>(m, "DetCoordOwned");
+	    pybind11::class_<DetCoordOwned, DetCoord,
+	                     std::shared_ptr<DetCoordOwned>>(m, "DetCoordOwned");
 	c_owned.def(py::init<>());
 	c_owned.def(py::init<const std::string&>());
 	c_owned.def("readFromFile", &DetCoordOwned::readFromFile);
 	c_owned.def("allocate", &DetCoordOwned::allocate);
 
 	auto c_alias =
-	    pybind11::class_<DetCoordAlias, DetCoord>(m, "DetCoordAlias");
+	    pybind11::class_<DetCoordAlias, DetCoord,
+	                     std::shared_ptr<DetCoordAlias>>(m, "DetCoordAlias");
 	c_alias.def(py::init<>());
 	c_alias.def(
 	    "bind",

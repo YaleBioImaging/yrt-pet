@@ -6,6 +6,7 @@
 #include "datastruct/scanner/Scanner.hpp"
 
 #include "datastruct/scanner/DetRegular.hpp"
+#include "datastruct/scanner/DetectorSetup.hpp"
 #include "geometry/Constants.hpp"
 #include "utils/Assert.hpp"
 #include "utils/JSONUtils.hpp"
@@ -22,6 +23,8 @@ using namespace py::literals;
 void py_setup_scanner(pybind11::module& m)
 {
 	auto c = py::class_<Scanner>(m, "Scanner");
+	c.def_property_readonly_static("SCANNER_FILE_VERSION", [](py::object)
+	                               { return SCANNER_FILE_VERSION; });
 
 	c.def(py::init<std::string, float, float, float, float, float, size_t,
 	               size_t, size_t, size_t, size_t, size_t>(),
@@ -69,6 +72,11 @@ void py_setup_scanner(pybind11::module& m)
 		                           std::make_unique<Scanner>(fname);
 		                       return s;
 	                       }));
+	c.def("setDetectorSetup",
+	      [](Scanner& s, const std::shared_ptr<DetectorSetup>& detCoords)
+	      {
+		      s.setDetectorSetup(detCoords);
+	      });
 }
 #endif
 

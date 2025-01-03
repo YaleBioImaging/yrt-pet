@@ -13,7 +13,7 @@ Current features include:
   - Time-of-Flight Support
   - Projection-space PSF support for the Distance-Driven projector
 - Image-space PSF
-- Image-space warper
+- Image-space Motion Correction
 - Additive corrections (Scatter & Randoms)
 - Normalization correction (Detector sensitivity)
 - Attenuation correction

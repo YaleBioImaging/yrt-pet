@@ -4,6 +4,7 @@
  */
 
 #include "utils/RangeList.hpp"
+#include "utils/Assert.hpp"
 #include <sstream>
 #include <algorithm>
 
@@ -104,7 +105,7 @@ namespace Util
 			auto it = events.begin();
 			auto itNext = it;
 			itNext++;
-			assert(it->second);
+			ASSERT_MSG(it->second, "Problem building RangeList object");
 			int begin = it->first;
 			int end = -1;
 			int count = 1;

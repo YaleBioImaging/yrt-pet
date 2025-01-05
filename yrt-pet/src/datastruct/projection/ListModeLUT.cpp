@@ -14,7 +14,6 @@
 #include <cmath>
 #include <cstring>
 #include <fstream>
-#include <pybind11/pytypes.h>
 #include <vector>
 
 #if BUILD_PYBIND11

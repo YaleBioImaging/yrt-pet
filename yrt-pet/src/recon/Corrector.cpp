@@ -6,6 +6,7 @@
 #include "recon/Corrector.hpp"
 
 #include "operators/OperatorProjectorSiddon.hpp"
+#include "utils/Assert.hpp"
 
 #include <utils/Tools.hpp>
 
@@ -16,6 +17,7 @@ Corrector::Corrector()
       mp_attenuationImage(nullptr),
       mp_sensitivity(nullptr),
       m_invertSensitivity(false),
+      m_globalScalingFactor(1.0f),
       mp_tofHelper(nullptr)
 {
 }
@@ -33,6 +35,11 @@ void Corrector::setRandomsHistogram(const Histogram* pp_randoms)
 void Corrector::setScatterHistogram(const Histogram* pp_scatter)
 {
 	mp_scatter = pp_scatter;
+}
+
+void Corrector::setGlobalScalingFactor(float globalScalingFactor)
+{
+	m_globalScalingFactor = globalScalingFactor;
 }
 
 void Corrector::setAttenuationImage(const Image* pp_attenuationImage)
@@ -56,25 +63,23 @@ void Corrector::addTOF(float p_tofWidth_ps, int p_tofNumStd)
 	    std::make_unique<TimeOfFlightHelper>(p_tofWidth_ps, p_tofNumStd);
 }
 
-std::unique_ptr<ProjectionList> Corrector::getAdditiveCorrectionFactorsHelper(
-    const ProjectionData* measurements, const BinIterator* binIter,
-    bool useBinIterator, bool useRandomsHistogram, bool useScatter,
-    bool useAttenuationImage, bool usePrecomputedACF, bool useSensitivity,
-    bool invertSensitivity, bool hasTOF) const
+std::unique_ptr<ProjectionList>
+    Corrector::getAdditiveCorrectionFactors(const ProjectionData* measurements,
+                                            const BinIterator* binIter) const
 {
+	ASSERT(measurements != nullptr);
+	const bool useBinIterator = binIter != nullptr;
 	auto additiveCorrections =
 	    std::make_unique<ProjectionListOwned>(measurements);
 	additiveCorrections->allocate();
 	float* additiveCorrectionsPtr = additiveCorrections->getRawPointer();
 
 	const size_t numBins =
-	    useBinIterator ? measurements->count() : binIter->size();
+	    useBinIterator ? binIter->size() : measurements->count();
 
-#pragma omp parallel for default(none)                                       \
-    firstprivate(numBins, measurements, additiveCorrectionsPtr, binIter,     \
-                     useBinIterator, useRandomsHistogram, useScatter,        \
-                     useAttenuationImage, usePrecomputedACF, useSensitivity, \
-                     invertSensitivity, hasTOF)
+#pragma omp parallel for default(none)                                   \
+    firstprivate(numBins, measurements, additiveCorrectionsPtr, binIter, \
+                     useBinIterator)
 	for (bin_t bin = 0; bin < numBins; bin++)
 	{
 		bin_t binId;
@@ -87,84 +92,71 @@ std::unique_ptr<ProjectionList> Corrector::getAdditiveCorrectionFactorsHelper(
 			binId = bin;
 		}
 
-		const histo_bin_t histoBin = measurements->getHistogramBin(binId);
-
-		float randomsEstimate;
-		if (useRandomsHistogram)
-		{
-			randomsEstimate =
-			    mp_randoms->getProjectionValueFromHistogramBin(histoBin);
-		}
-		else
-		{
-			randomsEstimate = measurements->getRandomsEstimate(binId);
-		}
-
-		float scatterEstimate = 0.0f;
-		if (useScatter)
-		{
-			// TODO: Support exception in case of a contiguous sinogram
-			scatterEstimate =
-			    mp_scatter->getProjectionValueFromHistogramBin(binId);
-		}
-
-		float sensitivity;
-		if (useSensitivity)
-		{
-			sensitivity =
-			    mp_sensitivity->getProjectionValueFromHistogramBin(binId);
-			if (invertSensitivity)
-			{
-				sensitivity = 1.0f / sensitivity;
-			}
-		}
-		else
-		{
-			sensitivity = 1.0f;
-		}
-
-		float acf;
-		if (usePrecomputedACF)
-		{
-			acf = mp_acf->getProjectionValueFromHistogramBin(binId);
-		}
-		else if (useAttenuationImage)
-		{
-			Line3D lor = measurements->getLOR(binId);
-
-			const float tofValue =
-			    hasTOF ? measurements->getTOFValue(binId) : 0.0f;
-
-			const float att = OperatorProjectorSiddon::singleForwardProjection(
-			    mp_attenuationImage, lor, mp_tofHelper.get(), tofValue);
-			acf = Util::getAttenuationCoefficientFactor(att);
-		}
-		else
-		{
-			acf = 1.0f;
-		}
-
 		additiveCorrectionsPtr[binId] =
-		    (randomsEstimate + scatterEstimate) / (acf * sensitivity);
+		    getAdditiveCorrectionFactor(measurements, binId);
 	}
 
 	return additiveCorrections;
 }
 
-std::unique_ptr<ProjectionList>
-    Corrector::getAdditiveCorrectionFactors(const ProjectionData* measurements,
-                                            const BinIterator* binIter) const
+float Corrector::getAdditiveCorrectionFactor(const ProjectionData* measurements,
+                                             bin_t binId) const
 {
-	const bool useBinIterator = binIter != nullptr;
-	const bool useRandomsHistogram = mp_randoms != nullptr;
-	const bool useScatter = mp_scatter != nullptr;
-	const bool useAttenuationImage = mp_attenuationImage != nullptr;
-	const bool usePrecomputedACF = mp_acf != nullptr;
-	const bool useSensitivity = mp_sensitivity != nullptr;
-	const bool invertSensitivity = m_invertSensitivity;
-	const bool hasTOF = measurements->hasTOF();
-	return getAdditiveCorrectionFactorsHelper(
-	    measurements, binIter, useBinIterator, useRandomsHistogram, useScatter,
-	    useAttenuationImage, usePrecomputedACF, useSensitivity,
-	    invertSensitivity, hasTOF);
+	const histo_bin_t histoBin = measurements->getHistogramBin(binId);
+
+	float randomsEstimate;
+	if (mp_randoms != nullptr)
+	{
+		randomsEstimate =
+		    mp_randoms->getProjectionValueFromHistogramBin(histoBin);
+	}
+	else
+	{
+		randomsEstimate = measurements->getRandomsEstimate(binId);
+	}
+
+	float scatterEstimate = 0.0f;
+	if (mp_scatter != nullptr)
+	{
+		// TODO: Support exception in case of a contiguous sinogram (future)
+		scatterEstimate = mp_scatter->getProjectionValueFromHistogramBin(binId);
+	}
+
+	float sensitivity;
+	if (mp_sensitivity != nullptr)
+	{
+		sensitivity = m_globalScalingFactor *
+		              mp_sensitivity->getProjectionValueFromHistogramBin(binId);
+		if (m_invertSensitivity)
+		{
+			sensitivity = 1.0f / sensitivity;
+		}
+	}
+	else
+	{
+		sensitivity = m_globalScalingFactor;
+	}
+
+	float acf;
+	if (mp_acf != nullptr)
+	{
+		acf = mp_acf->getProjectionValueFromHistogramBin(binId);
+	}
+	else if (mp_attenuationImage != nullptr)
+	{
+		const Line3D lor = measurements->getLOR(binId);
+
+		const float tofValue =
+		    measurements->hasTOF() ? measurements->getTOFValue(binId) : 0.0f;
+
+		const float att = OperatorProjectorSiddon::singleForwardProjection(
+		    mp_attenuationImage, lor, mp_tofHelper.get(), tofValue);
+		acf = Util::getAttenuationCoefficientFactor(att);
+	}
+	else
+	{
+		acf = 1.0f;
+	}
+
+	return (randomsEstimate + scatterEstimate) / (acf * sensitivity);
 }

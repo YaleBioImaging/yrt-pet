@@ -23,6 +23,7 @@ public:
 	void setSensitivityHistogram(const Histogram* pp_sensitivity);
 	void setRandomsHistogram(const Histogram* pp_randoms);
 	void setScatterHistogram(const Histogram* pp_scatter);
+	void setGlobalScalingFactor(float globalScalingFactor);
 
 	void setAttenuationImage(const Image* pp_attenuationImage);
 	void setACFHistogram(const Histogram* pp_acf);
@@ -36,6 +37,15 @@ public:
 	std::unique_ptr<ProjectionList> getAdditiveCorrectionFactors(
 	    const ProjectionData* measurements,
 	    const BinIterator* binIter = nullptr) const;
+
+	float getAdditiveCorrectionFactor(const ProjectionData* measurements,
+	                                  bin_t binId) const;
+
+	// TODO NOW: Add function to get individual correction factors
+	// TODO NOW: Add function to get the individual correction factor for
+	//  sensitivity image generation
+	// TODO NOW: Add function to get the correction factor for in-vivo
+	// attenuation image (for motion)
 
 private:
 	std::unique_ptr<ProjectionList> getAdditiveCorrectionFactorsHelper(
@@ -57,8 +67,8 @@ private:
 	// LOR sensitivity, can be nullptr, in which case all LORs are equally
 	// sensitive
 	const Histogram* mp_sensitivity;
-
 	bool m_invertSensitivity;
+	float m_globalScalingFactor;
 
 	// Time of flight
 	std::unique_ptr<TimeOfFlightHelper> mp_tofHelper;

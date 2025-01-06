@@ -42,7 +42,7 @@ void OSEM_GPU::setupOperatorsForSensImgGen()
 	{
 		// Create and add Bin Iterator
 		getBinIterators().push_back(
-		    getSensDataInput()->getBinIter(num_OSEM_subsets, subsetId));
+		    getSensitivityHistogram()->getBinIter(num_OSEM_subsets, subsetId));
 
 		// Create ProjectorParams object
 	}
@@ -69,7 +69,7 @@ void OSEM_GPU::allocateForSensImgGen()
 
 	// Allocate for projection space
 	auto tempSensDataInput = std::make_unique<ProjectionDataDeviceOwned>(
-	    scanner, getSensDataInput(), num_OSEM_subsets);
+	    scanner, getSensitivityHistogram(), num_OSEM_subsets);
 	mpd_tempSensDataInput = std::move(tempSensDataInput);
 }
 
@@ -117,10 +117,7 @@ void OSEM_GPU::setupOperatorsForRecon()
 		mp_projector->setAttImageForForwardProjection(
 		    attenuationImageForForwardProjection);
 	}
-	if (addHis != nullptr)
-	{
-		mp_projector->setAddHisto(addHis);
-	}
+	// TODO NOW: Support additive corrections in GPU
 }
 
 void OSEM_GPU::allocateForRecon()
@@ -212,7 +209,7 @@ ImageBase* OSEM_GPU::getSensImageBuffer()
 	return mpd_sensImageBuffer.get();
 }
 
-ProjectionData* OSEM_GPU::getSensDataInputBuffer()
+const ProjectionData* OSEM_GPU::getSensitivityBuffer()
 {
 	return mpd_tempSensDataInput.get();
 }
@@ -235,7 +232,7 @@ ImageBase* OSEM_GPU::getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType type)
 	throw std::runtime_error("Unknown Temporary image type");
 }
 
-ProjectionData* OSEM_GPU::getMLEMDataBuffer()
+const ProjectionData* OSEM_GPU::getMLEMDataBuffer()
 {
 	return mpd_dat.get();
 }

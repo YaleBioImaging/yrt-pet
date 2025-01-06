@@ -189,12 +189,8 @@ ProjectionListOwned::ProjectionListOwned(const ProjectionData* r)
 
 void ProjectionListOwned::allocate()
 {
-	size_t num_events = mp_reference->count();
-	std::cout << "Allocating projection list memory"
-	          << " for " << num_events << " events" << std::endl;
-	static_cast<Array1D<float>*>(mp_projs.get())->allocate(num_events);
-	std::cout << "Memory successfully allocated: " << std::flush
-	          << mp_projs->getSize(0) << std::endl;
+	const size_t numBins = mp_reference->count();
+	static_cast<Array1D<float>*>(mp_projs.get())->allocate(numBins);
 }
 
 ProjectionListAlias::ProjectionListAlias(const ProjectionData* p)

@@ -41,24 +41,22 @@ double get_rmse(const Image* img_ref, const Image* img)
 	return rmse;
 }
 
-void dd(const Scanner& scanner, ListMode* proj, std::shared_ptr<Image>& out,
-        const bool flag_cuda)
+void dd(const Scanner& scanner, const ListMode* proj,
+        const std::shared_ptr<Image>& out, const bool flag_cuda)
 {
-	const auto osem = Util::createOSEM(scanner, flag_cuda);
-	osem->setImageParams(out->getParams());
-	osem->num_OSEM_subsets = 1;
-	osem->setSensDataInput(proj);
+	OperatorProjector::ProjectorType projectorType;
 	if (flag_cuda)
 	{
-		osem->projectorType = OperatorProjector::DD_GPU;
+		projectorType = OperatorProjector::DD_GPU;
 	}
 	else
 	{
-		osem->projectorType = OperatorProjector::DD;
+		projectorType = OperatorProjector::DD;
 	}
-	std::vector<std::unique_ptr<Image>> sensImages;
-	osem->generateSensitivityImages(sensImages, "");
-	out = std::move(sensImages[0]);
+
+	ASSERT(proj != nullptr);
+
+	Util::backProject(scanner, *out, *proj, projectorType);
 }
 
 TEST_CASE("DD-simple", "[dd]")

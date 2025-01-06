@@ -4,7 +4,6 @@ define_target_exe(yrtpet_post_recon_motion_correction motion/PostReconMotionCorr
 
 define_target_exe(yrtpet_reconstruct recon/Reconstruct.cpp PluginOptionsHelper.cpp)
 define_target_exe(yrtpet_forward_project recon/ForwardProject.cpp)
-define_target_exe(yrtpet_prepare_additive_correction recon/PrepareAdditiveCorrection.cpp)
 
 define_target_exe(yrtpet_convert_to_histogram conversion/ConvertToHistogram.cpp PluginOptionsHelper.cpp)
 define_target_exe(yrtpet_convert_to_listmodelut conversion/ConvertToListModeLUT.cpp PluginOptionsHelper.cpp)

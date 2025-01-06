@@ -42,7 +42,7 @@ void OSEM_CPU::setupOperatorsForSensImgGen()
 	{
 		// Create and add Bin Iterator
 		getBinIterators().push_back(
-		    getSensDataInput()->getBinIter(num_OSEM_subsets, subsetId));
+		    getSensitivityHistogram()->getBinIter(num_OSEM_subsets, subsetId));
 	}
 
 	// Create ProjectorParams object
@@ -96,11 +96,11 @@ ImageBase* OSEM_CPU::getSensImageBuffer()
 	return getSensitivityImage(usingListModeInput ? 0 : m_current_OSEM_subset);
 }
 
-ProjectionData* OSEM_CPU::getSensDataInputBuffer()
+const ProjectionData* OSEM_CPU::getSensitivityBuffer()
 {
 	// Since in the CPU version, the projection data is unchanged from the
 	// original and stays in the Host.
-	return getSensDataInput();
+	return getSensitivityHistogram();
 }
 
 ImageBase* OSEM_CPU::getMLEMImageBuffer()
@@ -115,7 +115,7 @@ ImageBase* OSEM_CPU::getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType type)
 	return mp_mlemImageTmp.get();
 }
 
-ProjectionData* OSEM_CPU::getMLEMDataBuffer()
+const ProjectionData* OSEM_CPU::getMLEMDataBuffer()
 {
 	return getDataInput();
 }
@@ -156,10 +156,8 @@ void OSEM_CPU::setupOperatorsForRecon()
 		mp_projector->setAttImageForForwardProjection(
 		    attenuationImageForForwardProjection);
 	}
-	if (addHis != nullptr)
-	{
-		mp_projector->setAddHisto(addHis);
-	}
+
+	// TODO NOW: Support additive corrections
 }
 
 void OSEM_CPU::allocateForRecon()

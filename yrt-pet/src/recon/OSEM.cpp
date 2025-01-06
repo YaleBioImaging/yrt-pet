@@ -67,12 +67,10 @@ void py_setup_osem(pybind11::module& m)
 	      py::arg("out_fname") = "");
 	c.def("summary", &OSEM::summary);
 
-	c.def("getSensDataInput",
-	      static_cast<ProjectionData* (OSEM::*)()>(&OSEM::getSensDataInput));
-	c.def("setSensDataInput", &OSEM::setSensDataInput,
-	      py::arg("sens_proj_data"));
-	c.def("getDataInput",
-	      static_cast<ProjectionData* (OSEM::*)()>(&OSEM::getDataInput));
+	c.def("getSensitivityHistogram",&OSEM::getSensitivityHistogram);
+	c.def("setSensitivityHistogram", &OSEM::setSensitivityHistogram,
+	      py::arg("sens_his"));
+	c.def("getDataInput",&OSEM::getDataInput);
 	c.def("setDataInput", &OSEM::setDataInput, py::arg("proj_data"));
 	c.def("addTOF", &OSEM::addTOF, py::arg("tof_width_ps"),
 	      py::arg("tof_num_std"));
@@ -95,7 +93,6 @@ void py_setup_osem(pybind11::module& m)
 	                &OSEM::attenuationImageForForwardProjection);
 	c.def_readwrite("attenuationImageForBackprojection",
 	                &OSEM::attenuationImageForBackprojection);
-	c.def_readwrite("addHis", &OSEM::addHis);
 	c.def_readwrite("warper", &OSEM::warper);
 }
 #endif
@@ -110,7 +107,6 @@ OSEM::OSEM(const Scanner& pr_scanner)
       maskImage(nullptr),
       attenuationImageForForwardProjection(nullptr),
       attenuationImageForBackprojection(nullptr),
-      addHis(nullptr),
       warper(nullptr),
       flagImagePSF(false),
       imageSpacePsf(nullptr),
@@ -122,7 +118,7 @@ OSEM::OSEM(const Scanner& pr_scanner)
       usingListModeInput(false),
       needToMakeCopyOfSensImage(false),
       outImage(nullptr),
-      mp_sensDataInput(nullptr),
+      mp_sensitivityHis(nullptr),
       mp_dataInput(nullptr),
       mp_copiedSensitivityImage(nullptr)
 {
@@ -158,7 +154,7 @@ void OSEM::generateSensitivityImageForSubset(int subsetId)
 	for (int batchId = 0; batchId < numBatches; batchId++)
 	{
 		loadBatch(batchId, false);
-		mp_projector->applyAH(getSensDataInputBuffer(), getSensImageBuffer());
+		mp_projector->applyAH(getSensitivityBuffer(), getSensImageBuffer());
 	}
 
 	if (flagImagePSF)
@@ -180,11 +176,11 @@ void OSEM::generateSensitivityImagesCore(
 
 	// In case the user didn't specify a sensitivity data input
 	std::unique_ptr<UniformHistogram> uniformHis = nullptr;
-	const bool sensDataInputUnspecified = getSensDataInput() == nullptr;
+	const bool sensDataInputUnspecified = getSensitivityHistogram() == nullptr;
 	if (sensDataInputUnspecified)
 	{
 		uniformHis = std::make_unique<UniformHistogram>(scanner);
-		setSensDataInput(uniformHis.get());
+		setSensitivityHistogram(uniformHis.get());
 	}
 
 	// This is done to make sure we only make one sensitivity image if we're on
@@ -240,7 +236,7 @@ void OSEM::generateSensitivityImagesCore(
 	if (sensDataInputUnspecified)
 	{
 		// To prevent a pointer to a deleted object
-		setSensDataInput(nullptr);
+		setSensitivityHistogram(nullptr);
 	}
 
 	// Restore original value
@@ -365,14 +361,25 @@ void OSEM::initializeForRecon()
 	allocateForRecon();
 }
 
-void OSEM::setSensDataInput(ProjectionData* p_sensDataInput)
+void OSEM::setSensitivityHistogram(const Histogram* pp_sensitivityData)
 {
-	mp_sensDataInput = p_sensDataInput;
+	mp_sensitivityHis = pp_sensitivityData;
+	m_corrector.setSensitivityHistogram(pp_sensitivityData);
 }
 
-void OSEM::setDataInput(ProjectionData* p_dataInput)
+const Histogram* OSEM::getSensitivityHistogram() const
 {
-	mp_dataInput = p_dataInput;
+	return mp_sensitivityHis;
+}
+
+const ProjectionData* OSEM::getDataInput() const
+{
+	return mp_dataInput;
+}
+
+void OSEM::setDataInput(const ProjectionData* pp_dataInput)
+{
+	mp_dataInput = pp_dataInput;
 	if (dynamic_cast<const ListMode*>(mp_dataInput))
 	{
 		usingListModeInput = true;
@@ -439,6 +446,36 @@ ImageParams OSEM::getImageParams() const
 void OSEM::setImageParams(const ImageParams& params)
 {
 	imageParams = params;
+}
+
+void OSEM::setRandomsHistogram(const Histogram* pp_randoms)
+{
+	m_corrector.setRandomsHistogram(pp_randoms);
+}
+
+void OSEM::setScatterHistogram(const Histogram* pp_scatter)
+{
+	m_corrector.setScatterHistogram(pp_scatter);
+}
+
+void OSEM::setGlobalScalingFactor(float globalScalingFactor)
+{
+	m_corrector.setGlobalScalingFactor(globalScalingFactor);
+}
+
+void OSEM::setAttenuationImage(const Image* pp_attenuationImage)
+{
+	m_corrector.setAttenuationImage(pp_attenuationImage);
+}
+
+void OSEM::setACFHistogram(const Histogram* pp_acf)
+{
+	m_corrector.setACFHistogram(pp_acf);
+}
+
+void OSEM::setInvertSensitivity(bool invert)
+{
+	m_corrector.setInvertSensitivity(invert);
 }
 
 const Image* OSEM::getSensitivityImage(int subsetId) const

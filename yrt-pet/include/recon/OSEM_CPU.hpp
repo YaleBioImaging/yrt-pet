@@ -30,11 +30,11 @@ protected:
 
 	// Internal getters
 	ImageBase* getSensImageBuffer() override;
-	ProjectionData* getSensDataInputBuffer() override;
+	const ProjectionData* getSensitivityBuffer() override;
 	ImageBase* getMLEMImageBuffer() override;
 	ImageBase*
 	    getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType type) override;
-	ProjectionData* getMLEMDataBuffer() override;
+	const ProjectionData* getMLEMDataBuffer() override;
 	ProjectionData* getMLEMDataTmpBuffer() override;
 
 	// Common methods

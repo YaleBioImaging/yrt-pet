@@ -6,8 +6,10 @@
 #pragma once
 
 #include "datastruct/image/Image.hpp"
+#include "datastruct/projection/ProjectionList.hpp"
 #include "operators/OperatorProjector.hpp"
 #include "operators/OperatorPsf.hpp"
+#include "recon/Corrector.hpp"
 #include "utils/RangeList.hpp"
 
 #if BUILD_PYBIND11
@@ -54,12 +56,12 @@ public:
 	void summary() const;
 
 	// ---------- Getters and setters ----------
-	ProjectionData* getSensDataInput() { return mp_sensDataInput; }
-	const ProjectionData* getSensDataInput() const { return mp_sensDataInput; }
-	void setSensDataInput(ProjectionData* p_sensDataInput);
-	ProjectionData* getDataInput() { return mp_dataInput; }
-	const ProjectionData* getDataInput() const { return mp_dataInput; }
-	void setDataInput(ProjectionData* p_dataInput);
+	void setSensitivityHistogram(const Histogram* pp_sensitivity);
+	void setGlobalScalingFactor(float globalScalingFactor);
+	void setInvertSensitivity(bool invert = true);
+	const Histogram* getSensitivityHistogram() const;
+	const ProjectionData* getDataInput() const;
+	void setDataInput(const ProjectionData* pp_dataInput);
 	void addTOF(float p_tofWidth_ps, int p_tofNumStd);
 	void addProjPSF(const std::string& p_projSpacePsf_fname);
 	virtual void addImagePSF(const std::string& p_imageSpacePsf_fname);
@@ -71,6 +73,12 @@ public:
 	void enableNeedToMakeCopyOfSensImage();
 	ImageParams getImageParams() const;
 	void setImageParams(const ImageParams& params);
+
+	void setRandomsHistogram(const Histogram* pp_randoms);
+	void setScatterHistogram(const Histogram* pp_scatter);
+
+	void setAttenuationImage(const Image* pp_attenuationImage);
+	void setACFHistogram(const Histogram* pp_acf);
 
 	// ---------- Public members ----------
 	int num_MLEM_iterations;
@@ -84,7 +92,6 @@ public:
 	const Image* attenuationImageForForwardProjection;
 	// Typically the hardware attenuation image
 	const Image* attenuationImageForBackprojection;
-	const Histogram* addHis;
 	ImageWarperTemplate* warper;  // For MLEM with Warper only
 
 protected:
@@ -121,6 +128,9 @@ protected:
 	ImageParams imageParams;
 	std::unique_ptr<ImageOwned> outImage;  // Note: This is a host image
 
+	Corrector m_corrector;
+	std::unique_ptr<ProjectionListOwned> additiveFactors;
+
 	// ---------- Virtual pure functions ----------
 
 	// Sens Image generator driver
@@ -139,11 +149,11 @@ protected:
 
 	// Abstract Getters
 	virtual ImageBase* getSensImageBuffer() = 0;
-	virtual ProjectionData* getSensDataInputBuffer() = 0;
+	virtual const ProjectionData* getSensitivityBuffer() = 0;
 	virtual ImageBase* getMLEMImageBuffer() = 0;
 	virtual ImageBase*
 	    getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType type) = 0;
-	virtual ProjectionData* getMLEMDataBuffer() = 0;
+	virtual const ProjectionData* getMLEMDataBuffer() = 0;
 	virtual ProjectionData* getMLEMDataTmpBuffer() = 0;
 	virtual int getNumBatches(int subsetId, bool forRecon) const;
 
@@ -162,8 +172,8 @@ private:
 
 	std::vector<std::unique_ptr<BinIterator>> m_binIterators;
 
-	ProjectionData* mp_sensDataInput;
-	ProjectionData* mp_dataInput;
+	const Histogram* mp_sensitivityHis;
+	const ProjectionData* mp_dataInput;
 
 	std::vector<Image*> m_sensitivityImages;
 	// In the specific case of ListMode reconstructions launched from Python

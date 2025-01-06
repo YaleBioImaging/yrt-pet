@@ -28,6 +28,7 @@ def make_scanner():
     scanner.setDetectorSetup(det_coords)
     return scanner
 
+
 # %% List-mode
 
 

@@ -48,8 +48,8 @@ void py_setup_operatorprojectorbase(py::module& m)
 	auto c =
 	    py::class_<OperatorProjectorBase, Operator>(m, "OperatorProjectorBase");
 	c.def("setAddHisto", &OperatorProjectorBase::setAddHisto);
-	c.def("setAttenuationImage", &OperatorProjectorBase::setAttenuationImage);
-	c.def("setAttImage", &OperatorProjectorBase::setAttenuationImage);
+	c.def("setAttImageForForwardProjection",
+	      &OperatorProjectorBase::setAttImageForForwardProjection);
 	c.def("setAttImageForBackprojection",
 	      &OperatorProjectorBase::setAttImageForBackprojection);
 	c.def("getBinIter", &OperatorProjectorBase::getBinIter);
@@ -121,20 +121,16 @@ void OperatorProjectorBase::setBinIter(const BinIterator* p_binIter)
 	binIter = p_binIter;
 }
 
-void OperatorProjectorBase::setAttenuationImage(const Image* p_attImage)
-{
-	setAttImage(p_attImage);
-}
-
 void OperatorProjectorBase::setAttImageForBackprojection(
     const Image* p_attImage)
 {
 	ASSERT_MSG(p_attImage != nullptr,
-			   "The attenuation image given is a null pointer");
+	           "The attenuation image given is a null pointer");
 	attImageForBackprojection = p_attImage;
 }
 
-void OperatorProjectorBase::setAttImage(const Image* p_attImage)
+void OperatorProjectorBase::setAttImageForForwardProjection(
+    const Image* p_attImage)
 {
 	ASSERT_MSG(p_attImage != nullptr,
 	           "The attenuation image given is a null pointer");

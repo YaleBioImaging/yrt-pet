@@ -718,7 +718,8 @@ std::unique_ptr<ImageOwned>
 	}
 	if (attenuationImageForForwardProjection != nullptr)
 	{
-		mp_projector->setAttenuationImage(attenuationImageForForwardProjection);
+		mp_projector->setAttImageForForwardProjection(
+		    attenuationImageForForwardProjection);
 	}
 
 	const int num_digits_in_fname = Util::numberOfDigits(num_MLEM_iterations);

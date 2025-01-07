@@ -49,9 +49,8 @@ public:
 	const Scanner& getScanner() const;
 	const BinIterator* getBinIter() const;
 
-	virtual void setAttImage(const Image* p_attImage);  // alias
+	virtual void setAttImageForForwardProjection(const Image* p_attImage);  // alias
 	virtual void setAttImageForBackprojection(const Image* p_attImage);
-	void setAttenuationImage(const Image* p_attImage);
 	virtual void setAddHisto(const Histogram* p_addHisto);
 	void setBinIter(const BinIterator* p_binIter);
 

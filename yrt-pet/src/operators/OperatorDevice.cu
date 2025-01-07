@@ -205,9 +205,9 @@ void OperatorProjectorDevice::setupProjPsfManager(
 	           "Error occured during the setup of ProjectionPsfManagerDevice");
 }
 
-void OperatorProjectorDevice::setAttImage(const Image* attImage)
+void OperatorProjectorDevice::setAttImageForForwardProjection(const Image* attImage)
 {
-	OperatorProjectorBase::setAttImage(attImage);
+	OperatorProjectorBase::setAttImageForForwardProjection(attImage);
 
 	mp_attImageDevice = std::make_unique<ImageDeviceOwned>(
 	    attImage->getParams(), getAuxStream());

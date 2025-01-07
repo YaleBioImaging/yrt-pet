@@ -153,7 +153,8 @@ void OSEM_CPU::setupOperatorsForRecon()
 
 	if (attenuationImageForForwardProjection != nullptr)
 	{
-		mp_projector->setAttenuationImage(attenuationImageForForwardProjection);
+		mp_projector->setAttImageForForwardProjection(
+		    attenuationImageForForwardProjection);
 	}
 	if (addHis != nullptr)
 	{

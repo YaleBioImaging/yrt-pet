@@ -61,7 +61,7 @@ public:
 
 	bool requiresIntermediaryProjData() const;
 
-	void setAttImage(const Image* attImage) override;
+	void setAttImageForForwardProjection(const Image* attImage) override;
 	void setAttImageForBackprojection(const Image* attImage) override;
 	void setAddHisto(const Histogram* p_addHisto) override;
 	void setupTOFHelper(float tofWidth_ps, int tofNumStd = -1);

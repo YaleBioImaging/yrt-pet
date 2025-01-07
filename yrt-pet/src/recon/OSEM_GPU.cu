@@ -114,7 +114,8 @@ void OSEM_GPU::setupOperatorsForRecon()
 	    projParams, getMainStream(), getAuxStream());
 	if (attenuationImageForForwardProjection != nullptr)
 	{
-		mp_projector->setAttenuationImage(attenuationImageForForwardProjection);
+		mp_projector->setAttImageForForwardProjection(
+		    attenuationImageForForwardProjection);
 	}
 	if (addHis != nullptr)
 	{

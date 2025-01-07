@@ -238,7 +238,7 @@ namespace Util
 
 		const Histogram3D* histoOut_constptr = &histoOut;
 		const ProjectionData* dat_constptr = &dat;
-#pragma omp parallel for default(none)                                         \
+#pragma omp parallel for default(none)                            \
     firstprivate(histoDataPointer, numDatBins, histoOut_constptr, \
                      dat_constptr) shared(progressBar)
 		for (bin_t datBin = 0; datBin < numDatBins; ++datBin)
@@ -363,7 +363,7 @@ namespace Util
 		{
 			if constexpr (IS_FWD)
 			{
-				oper->setAttenuationImage(attImage);
+				oper->setAttImageForForwardProjection(attImage);
 			}
 			else
 			{

@@ -80,7 +80,9 @@ public:
 	OperatorProjector::ProjectorType projectorType;
 	const Scanner& scanner;
 	const Image* maskImage;
+	// Typically the in-vivo attenuation image
 	const Image* attenuationImageForForwardProjection;
+	// Typically the hardware attenuation image
 	const Image* attenuationImageForBackprojection;
 	const Histogram* addHis;
 	ImageWarperTemplate* warper;  // For MLEM with Warper only

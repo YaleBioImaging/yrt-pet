@@ -7,6 +7,7 @@
 - An internet connection to download the `cxxopts`, `nlohmann/json`,
   and `catch2` libraries
 - OpenMP, but this is baked into most compilers
+- zlib, to read NIfTI images in `.nii.gz` format.
 
 ## Configuration and Compilation
 

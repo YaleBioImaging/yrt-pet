@@ -127,7 +127,7 @@ Then, one can use matplotlib to display the scanner's detector positions:
 
 ```python
 import matplotlib.pyplot as plt
-
+N = 800 # Example: The number of crystals per ring is 800
 plt.scatter(lut[:N, 0], lut[:N, 1])
 ```
 

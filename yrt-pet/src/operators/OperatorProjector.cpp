@@ -129,14 +129,15 @@ void OperatorProjectorBase::setAttenuationImage(const Image* p_attImage)
 void OperatorProjectorBase::setAttImageForBackprojection(
     const Image* p_attImage)
 {
+	ASSERT_MSG(p_attImage != nullptr,
+			   "The attenuation image given is a null pointer");
 	attImageForBackprojection = p_attImage;
 }
 
 void OperatorProjectorBase::setAttImage(const Image* p_attImage)
 {
 	ASSERT_MSG(p_attImage != nullptr,
-	           "The attenuation image given in "
-	           "OperatorProjector::setAttenuationImage is a null pointer");
+	           "The attenuation image given is a null pointer");
 	attImageForForwardProjection = p_attImage;
 }
 

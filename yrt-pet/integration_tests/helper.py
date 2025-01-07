@@ -209,7 +209,7 @@ dataset_paths = {'test_mlem_simple': 'offset_UMHotSpot_noMotion.lmDat',
                  'test_flat_panel_mlem_tof': [
                      'out_Large_panels_4min_singTres49ps_0_gc_R30_r0.lmDat',
                      'images/test_flat_sens_S.nii', 'images/test_flat_sens_DD_GPU.nii'],
-                 'test_subsets_savant': 'offset_UMHotSpot_noMotion.lmDat',
+                 'test_subsets_savant_sim': 'offset_UMHotSpot_noMotion.lmDat',
                  'test_adjoint_uhr2d': 'shepp_logan_2d.lmDat',
                  'test_osem_his_2d': 'shepp_logan_2d.his',
                  'test_osem_siddon_multi_ray':
@@ -261,7 +261,7 @@ util_paths = {'img_params_500': 'config/img_params_500.json',
               'img_params_192': 'config/img_params_192.json',
               'img_params_2mm': 'config/img_params_2mm.json',
               'img_params_2d': 'config/img_params_2d.json',
-              'SAVANT_json': 'config/SAVANT.json',
+              'SAVANT_sim_json': 'config/SAVANT_sim.json',
               'UHR2D_json': 'config/UHR2D.json',
               'Geometry_2panels_large_3x3x20mm_rot_gc_json':
                   'config/Geometry_2panels_large_3x3x20mm_rot_gc.json',

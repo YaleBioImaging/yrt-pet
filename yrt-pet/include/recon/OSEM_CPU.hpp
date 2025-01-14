@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include "Corrector_CPU.hpp"
 #include "recon/OSEM.hpp"
 
 class OSEM_CPU : public OSEM
@@ -12,6 +13,16 @@ class OSEM_CPU : public OSEM
 public:
 	explicit OSEM_CPU(const Scanner& pr_scanner);
 	~OSEM_CPU() override;
+
+	// Getters for internal objects
+	const Image* getOutputImage() const;
+	const Corrector& getCorrector() const override;
+	Corrector& getCorrector() override;
+	const Corrector_CPU& getCorrector_CPU() const;
+
+	// Getters for operators
+	const OperatorProjector* getProjector() const;
+	OperatorPsf* getOperatorPsf() const; // Image-space PSF
 
 protected:
 	// Sens Image generator driver
@@ -45,8 +56,10 @@ private:
 	// For sensitivity image generation
 	std::unique_ptr<Image> mp_tempSensImageBuffer;
 	// For reconstruction
-	std::unique_ptr<Image> mp_mlemImageTmp;
+	std::unique_ptr<Image> mp_mlemImageTmp; // TODO NOW Kill this
 	std::unique_ptr<ProjectionData> mp_datTmp;
+
+	std::unique_ptr<Corrector_CPU> mp_corrector;
 
 	int m_current_OSEM_subset;
 };

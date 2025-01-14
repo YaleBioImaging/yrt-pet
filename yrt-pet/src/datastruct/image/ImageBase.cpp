@@ -383,6 +383,11 @@ void ImageBase::setParams(const ImageParams& newParams)
 	m_params = newParams;
 }
 
+size_t ImageBase::unravel(int iz, int iy, int ix) const
+{
+	return ix + (iy + iz*m_params.ny)*m_params.nx;
+}
+
 float ImageBase::getRadius() const
 {
 	return m_params.fovRadius;

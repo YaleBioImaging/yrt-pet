@@ -112,11 +112,7 @@ void OSEM_GPU::setupOperatorsForRecon()
 
 	mp_projector = std::make_unique<OperatorProjectorDD_GPU>(
 	    projParams, getMainStream(), getAuxStream());
-	if (attenuationImageForForwardProjection != nullptr)
-	{
-		mp_projector->setAttImageForForwardProjection(
-		    attenuationImageForForwardProjection);
-	}
+
 	// TODO NOW: Support additive corrections in GPU
 }
 

@@ -34,6 +34,8 @@ set(SOURCES
         motion/ImageWarperMatrix.cpp
         motion/ImageWarperTemplate.cpp
         motion/ImageWarperFunction.cpp
+        operators/Operator.cpp
+        operators/OperatorProjectorBase.cpp
         operators/OperatorProjector.cpp
         operators/OperatorProjectorSiddon.cpp
         operators/OperatorProjectorDD.cpp
@@ -41,6 +43,8 @@ set(SOURCES
         operators/ProjectionPsfManager.cpp
         operators/TimeOfFlight.cpp
         recon/Corrector.cpp
+        recon/Corrector_CPU.cpp
+        recon/OSEMUpdater_CPU.cpp
         recon/OSEM.cpp
         recon/OSEM_CPU.cpp
         operators/Variable.cpp

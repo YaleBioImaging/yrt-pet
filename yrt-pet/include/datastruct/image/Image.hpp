@@ -64,6 +64,14 @@ public:
 	template <int Dimension>
 	float indexToPositionInDimension(int index) const;
 
+	void operationOnEachVoxel(const std::function<float(size_t)>& func);
+	// Note: The function given as argument should be able to be called in
+	// parallel without race conditions for different bins.
+	// In other words, two different bins shouldn't point
+	// to the same memory location.
+	void
+	    operationOnEachVoxelParallel(const std::function<float(size_t)>& func);
+
 protected:
 	static float originToOffset(float origin, float voxelSize, float length);
 	static float offsetToOrigin(float off, float voxelSize, float length);

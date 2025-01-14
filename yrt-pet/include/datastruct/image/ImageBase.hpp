@@ -70,6 +70,7 @@ public:
 	float getRadius() const;
 	const ImageParams& getParams() const;
 	void setParams(const ImageParams& newParams);
+	size_t unravel(int iz, int iy, int ix) const;
 
 	virtual void setValue(float initValue) = 0;
 	virtual void copyFromImage(const ImageBase* imSrc) = 0;

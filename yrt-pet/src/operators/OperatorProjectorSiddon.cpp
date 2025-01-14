@@ -26,7 +26,7 @@ void py_setup_operatorprojectorsiddon(py::module& m)
 	c.def_property("num_rays", &OperatorProjectorSiddon::getNumRays,
 	               &OperatorProjectorSiddon::setNumRays);
 	c.def(
-	    "forward_projection",
+	    "forwardProjection",
 	    [](const OperatorProjectorSiddon& self, const Image* in_image,
 	       const Line3D& lor, const Vector3D& n1, const Vector3D& n2,
 	       const TimeOfFlightHelper* tofHelper, float tofValue) -> float {
@@ -36,7 +36,7 @@ void py_setup_operatorprojectorsiddon(py::module& m)
 	    py::arg("in_image"), py::arg("lor"), py::arg("n1"), py::arg("n2"),
 	    py::arg("tofHelper") = nullptr, py::arg("tofValue") = 0.0f);
 	c.def(
-	    "back_projection",
+	    "backProjection",
 	    [](const OperatorProjectorSiddon& self, Image* in_image,
 	       const Line3D& lor, const Vector3D& n1, const Vector3D& n2,
 	       float proj_value, const TimeOfFlightHelper* tofHelper,
@@ -49,7 +49,7 @@ void py_setup_operatorprojectorsiddon(py::module& m)
 	    py::arg("proj_value"), py::arg("tofHelper") = nullptr,
 	    py::arg("tofValue") = 0.0f);
 	c.def_static(
-	    "single_back_projection",
+	    "singleBackProjection",
 	    [](Image* in_image, const Line3D& lor, float proj_value,
 	       const TimeOfFlightHelper* tofHelper, float tofValue) -> void
 	    {
@@ -59,7 +59,7 @@ void py_setup_operatorprojectorsiddon(py::module& m)
 	    py::arg("in_image"), py::arg("lor"), py::arg("proj_value"),
 	    py::arg("tofHelper") = nullptr, py::arg("tofValue") = 0.0f);
 	c.def_static(
-	    "single_forward_projection",
+	    "singleForwardProjection",
 	    [](const Image* in_image, const Line3D& lor,
 	       const TimeOfFlightHelper* tofHelper, float tofValue) -> float
 	    {

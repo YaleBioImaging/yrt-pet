@@ -23,7 +23,7 @@ void py_setup_operatorprojectordd(py::module& m)
 	    m, "OperatorProjectorDD");
 	c.def(py::init<const OperatorProjectorParams&>(), py::arg("projParams"));
 	c.def(
-	    "forward_projection",
+	    "forwardProjection",
 	    [](const OperatorProjectorDD& self, const Image* in_image,
 	       const Line3D& lor, const Vector3D& n1, const Vector3D& n2,
 	       const TimeOfFlightHelper* tofHelper, float tofValue) -> float
@@ -34,7 +34,7 @@ void py_setup_operatorprojectordd(py::module& m)
 	    py::arg("in_image"), py::arg("lor"), py::arg("n1"), py::arg("n2"),
 	    py::arg("tofHelper") = nullptr, py::arg("tofValue") = 0.0f);
 	c.def(
-	    "back_projection",
+	    "backProjection",
 	    [](const OperatorProjectorDD& self, Image* in_image, const Line3D& lor,
 	       const Vector3D& n1, const Vector3D& n2, float proj_value,
 	       const TimeOfFlightHelper* tofHelper, float tofValue)

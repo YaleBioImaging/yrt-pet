@@ -20,49 +20,51 @@ class Corrector
 public:
 	Corrector();
 
+	void setInvertSensitivity(bool invert);
+	void setGlobalScalingFactor(float globalScalingFactor);
 	void setSensitivityHistogram(const Histogram* pp_sensitivity);
 	void setRandomsHistogram(const Histogram* pp_randoms);
 	void setScatterHistogram(const Histogram* pp_scatter);
-	void setGlobalScalingFactor(float globalScalingFactor);
 
 	void setAttenuationImage(const Image* pp_attenuationImage);
 	void setACFHistogram(const Histogram* pp_acf);
-
-	void setInvertSensitivity(bool invert);
+	void setHardwareAttenuationImage(const Image* pp_hardwareAttenuationImage);
+	void setHardwareACFHistogram(const Histogram* pp_hardwareAcf);
+	void setInVivoAttenuationImage(const Image* pp_inVivoAttenuationImage);
+	void setInVivoACFHistogram(const Histogram* pp_inVivoAcf);
 
 	void addTOF(float p_tofWidth_ps, int p_tofNumStd);
 
-	// Returns a ProjectionList of (randoms+scatter)/(acf*sensitivity) for each
-	// LOR in 'measurements'
-	std::unique_ptr<ProjectionList> getAdditiveCorrectionFactors(
-	    const ProjectionData* measurements,
-	    const BinIterator* binIter = nullptr) const;
+	// Simplify user input
+	void setup();
 
-	float getAdditiveCorrectionFactor(const ProjectionData* measurements,
-	                                  bin_t binId) const;
+	// For sensitivity image generation
+	bool hasMultiplicativeCorrection() const;
 
-	// TODO NOW: Add function to get individual correction factors
-	// TODO NOW: Add function to get the individual correction factor for
-	//  sensitivity image generation
-	// TODO NOW: Add function to get the correction factor for in-vivo
-	// attenuation image (for motion)
+	// For reconstruction
+	bool hasAdditiveCorrection() const;
+	bool hasInVivoAttenuation() const;
 
-private:
-	std::unique_ptr<ProjectionList> getAdditiveCorrectionFactorsHelper(
-	    const ProjectionData* measurements, const BinIterator* binIter,
-	    bool useBinIterator, bool useRandomsHistogram, bool useScatter,
-	    bool useAttenuationImage, bool usePrecomputedACF, bool useSensitivity,
-	    bool invertSensitivity, bool hasTOF) const;
+protected:
 
 	// if nullptr, use getRandomsEstimate()
 	const Histogram* mp_randoms;
 
-	// Can also be a sinogram
+	// Can also be a sinogram (once the format exists)
 	const Histogram* mp_scatter;
 
-	// In case ACFs were already calculated
-	const Histogram* mp_acf;
-	const Image* mp_attenuationImage;
+	// Histogram of ACFs in case ACFs were already calculated
+	const Histogram* mp_acf;           // total ACF
+	const Image* mp_attenuationImage;  // total attenuation image
+
+	// Distinction for motion correction
+	const Histogram* mp_inVivoAcf;
+	const Image* mp_inVivoAttenuationImage;
+	const Histogram* mp_hardwareAcf;
+	const Image* mp_hardwareAttenuationImage;
+
+	// In case it is not specified and must be computed
+	std::unique_ptr<ImageOwned> mp_impliedTotalAttenuationImage;
 
 	// LOR sensitivity, can be nullptr, in which case all LORs are equally
 	// sensitive
@@ -70,6 +72,11 @@ private:
 	bool m_invertSensitivity;
 	float m_globalScalingFactor;
 
-	// Time of flight
+	// Time of flight (For computing attenuation factors from attenuation image)
 	std::unique_ptr<TimeOfFlightHelper> mp_tofHelper;
+
+private:
+	float getAttenuationFactorFromAttenuationImage(
+	    const ProjectionData* measurements, bin_t binId,
+	    const Image* attenuationImage) const;
 };

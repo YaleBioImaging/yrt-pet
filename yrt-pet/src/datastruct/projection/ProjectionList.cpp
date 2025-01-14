@@ -166,6 +166,11 @@ float* ProjectionList::getRawPointer() const
 	return mp_projs->getRawPointer();
 }
 
+bool ProjectionList::isMemoryValid() const
+{
+	return mp_projs != nullptr && getRawPointer() != nullptr;
+}
+
 Array1DBase<float>* ProjectionList::getProjectionsArrayRef() const
 {
 	return (mp_projs.get());

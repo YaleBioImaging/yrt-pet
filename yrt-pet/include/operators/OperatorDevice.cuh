@@ -9,8 +9,9 @@
 #include "datastruct/image/ImageDevice.cuh"
 #include "datastruct/projection/ProjectionDataDevice.cuh"
 #include "operators/Operator.hpp"
-#include "operators/OperatorProjector.hpp"
+#include "operators/OperatorProjectorBase.hpp"
 #include "operators/ProjectionPsfManagerDevice.cuh"
+#include "operators/TimeOfFlight.hpp"
 #include "recon/CUParameters.hpp"
 #include "utils/DeviceObject.cuh"
 #include "utils/GPUTypes.cuh"
@@ -60,10 +61,6 @@ public:
 	bool isSynchronized() const;
 
 	bool requiresIntermediaryProjData() const;
-
-	void setAttImageForForwardProjection(const Image* attImage) override;
-	void setAttImageForBackprojection(const Image* attImage) override;
-	void setAddHisto(const Histogram* p_addHisto) override;
 	void setupTOFHelper(float tofWidth_ps, int tofNumStd = -1);
 
 protected:

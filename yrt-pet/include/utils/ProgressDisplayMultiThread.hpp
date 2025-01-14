@@ -29,6 +29,7 @@ namespace Util
 		int64_t getWorkPerThread() const;
 
 	private:
+		// TODO: Make this display compatible with log files
 		void displayPercentage(int threadId, int8_t percentage) const;
 		static int getCurrentCursorRow();
 		static std::string moveCursor(int row);

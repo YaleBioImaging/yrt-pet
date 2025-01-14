@@ -67,10 +67,10 @@ void py_setup_osem(pybind11::module& m)
 	      py::arg("out_fname") = "");
 	c.def("summary", &OSEM::summary);
 
-	c.def("getSensitivityHistogram",&OSEM::getSensitivityHistogram);
+	c.def("getSensitivityHistogram", &OSEM::getSensitivityHistogram);
 	c.def("setSensitivityHistogram", &OSEM::setSensitivityHistogram,
 	      py::arg("sens_his"));
-	c.def("getDataInput",&OSEM::getDataInput);
+	c.def("getDataInput", &OSEM::getDataInput);
 	c.def("setDataInput", &OSEM::setDataInput, py::arg("proj_data"));
 	c.def("addTOF", &OSEM::addTOF, py::arg("tof_width_ps"),
 	      py::arg("tof_num_std"));
@@ -89,10 +89,6 @@ void py_setup_osem(pybind11::module& m)
 	c.def_readwrite("numRays", &OSEM::numRays);
 	c.def_readwrite("projectorType", &OSEM::projectorType);
 	c.def_readwrite("maskImage", &OSEM::maskImage);
-	c.def_readwrite("attenuationImageForForwardProjection",
-	                &OSEM::attenuationImageForForwardProjection);
-	c.def_readwrite("attenuationImageForBackprojection",
-	                &OSEM::attenuationImageForBackprojection);
 	c.def_readwrite("warper", &OSEM::warper);
 }
 #endif
@@ -105,8 +101,6 @@ OSEM::OSEM(const Scanner& pr_scanner)
       projectorType(OperatorProjector::SIDDON),
       scanner(pr_scanner),
       maskImage(nullptr),
-      attenuationImageForForwardProjection(nullptr),
-      attenuationImageForBackprojection(nullptr),
       warper(nullptr),
       flagImagePSF(false),
       imageSpacePsf(nullptr),
@@ -364,7 +358,7 @@ void OSEM::initializeForRecon()
 void OSEM::setSensitivityHistogram(const Histogram* pp_sensitivityData)
 {
 	mp_sensitivityHis = pp_sensitivityData;
-	m_corrector.setSensitivityHistogram(pp_sensitivityData);
+	getCorrector().setSensitivityHistogram(pp_sensitivityData);
 }
 
 const Histogram* OSEM::getSensitivityHistogram() const
@@ -450,32 +444,52 @@ void OSEM::setImageParams(const ImageParams& params)
 
 void OSEM::setRandomsHistogram(const Histogram* pp_randoms)
 {
-	m_corrector.setRandomsHistogram(pp_randoms);
+	getCorrector().setRandomsHistogram(pp_randoms);
 }
 
 void OSEM::setScatterHistogram(const Histogram* pp_scatter)
 {
-	m_corrector.setScatterHistogram(pp_scatter);
+	getCorrector().setScatterHistogram(pp_scatter);
 }
 
 void OSEM::setGlobalScalingFactor(float globalScalingFactor)
 {
-	m_corrector.setGlobalScalingFactor(globalScalingFactor);
+	getCorrector().setGlobalScalingFactor(globalScalingFactor);
 }
 
 void OSEM::setAttenuationImage(const Image* pp_attenuationImage)
 {
-	m_corrector.setAttenuationImage(pp_attenuationImage);
+	getCorrector().setAttenuationImage(pp_attenuationImage);
 }
 
 void OSEM::setACFHistogram(const Histogram* pp_acf)
 {
-	m_corrector.setACFHistogram(pp_acf);
+	getCorrector().setACFHistogram(pp_acf);
+}
+
+void OSEM::setHardwareAttenuationImage(const Image* pp_hardwareAttenuationImage)
+{
+	getCorrector().setHardwareAttenuationImage(pp_hardwareAttenuationImage);
+}
+
+void OSEM::setHardwareACFHistogram(const Histogram* pp_hardwareAcf)
+{
+	getCorrector().setHardwareACFHistogram(pp_hardwareAcf);
+}
+
+void OSEM::setInVivoAttenuationImage(const Image* pp_inVivoAttenuationImage)
+{
+	getCorrector().setInVivoAttenuationImage(pp_inVivoAttenuationImage);
+}
+
+void OSEM::setInVivoACFHistogram(const Histogram* pp_inVivoAcf)
+{
+	getCorrector().setInVivoACFHistogram(pp_inVivoAcf);
 }
 
 void OSEM::setInvertSensitivity(bool invert)
 {
-	m_corrector.setInvertSensitivity(invert);
+	getCorrector().setInvertSensitivity(invert);
 }
 
 const Image* OSEM::getSensitivityImage(int subsetId) const
@@ -752,11 +766,6 @@ std::unique_ptr<ImageOwned>
 	{
 		throw std::logic_error(
 		    "Error during reconstruction: Unknown projector type");
-	}
-	if (attenuationImageForForwardProjection != nullptr)
-	{
-		mp_projector->setAttImageForForwardProjection(
-		    attenuationImageForForwardProjection);
 	}
 
 	const int num_digits_in_fname = Util::numberOfDigits(num_MLEM_iterations);

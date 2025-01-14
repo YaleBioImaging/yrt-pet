@@ -49,6 +49,7 @@ public:
 
 	// OSEM Reconstruction
 	std::unique_ptr<ImageOwned> reconstruct(const std::string& out_fname);
+	// OSEM Reconstruction using warper (Legacy)
 	std::unique_ptr<ImageOwned>
 	    reconstructWithWarperMotion(const std::string& out_fname);
 
@@ -73,12 +74,15 @@ public:
 	void enableNeedToMakeCopyOfSensImage();
 	ImageParams getImageParams() const;
 	void setImageParams(const ImageParams& params);
-
 	void setRandomsHistogram(const Histogram* pp_randoms);
 	void setScatterHistogram(const Histogram* pp_scatter);
-
 	void setAttenuationImage(const Image* pp_attenuationImage);
 	void setACFHistogram(const Histogram* pp_acf);
+	void setHardwareAttenuationImage(const Image* pp_hardwareAttenuationImage);
+	void setHardwareACFHistogram(const Histogram* pp_hardwareAcf);
+	void setInVivoAttenuationImage(const Image* pp_inVivoAttenuationImage);
+	void setInVivoACFHistogram(const Histogram* pp_inVivoAcf);
+	virtual const Corrector& getCorrector() const = 0;
 
 	// ---------- Public members ----------
 	int num_MLEM_iterations;
@@ -88,10 +92,6 @@ public:
 	OperatorProjector::ProjectorType projectorType;
 	const Scanner& scanner;
 	const Image* maskImage;
-	// Typically the in-vivo attenuation image
-	const Image* attenuationImageForForwardProjection;
-	// Typically the hardware attenuation image
-	const Image* attenuationImageForBackprojection;
 	ImageWarperTemplate* warper;  // For MLEM with Warper only
 
 protected:
@@ -104,9 +104,6 @@ protected:
 	// ---------- Internal Getters ----------
 	auto& getBinIterators() { return m_binIterators; }
 	const auto& getBinIterators() const { return m_binIterators; }
-
-	auto& getProjector() { return mp_projector; }
-	const auto& getProjector() const { return mp_projector; }
 
 	const Image* getSensitivityImage(int subsetId) const;
 	Image* getSensitivityImage(int subsetId);
@@ -127,9 +124,6 @@ protected:
 	bool needToMakeCopyOfSensImage;
 	ImageParams imageParams;
 	std::unique_ptr<ImageOwned> outImage;  // Note: This is a host image
-
-	Corrector m_corrector;
-	std::unique_ptr<ProjectionListOwned> additiveFactors;
 
 	// ---------- Virtual pure functions ----------
 
@@ -156,6 +150,7 @@ protected:
 	virtual const ProjectionData* getMLEMDataBuffer() = 0;
 	virtual ProjectionData* getMLEMDataTmpBuffer() = 0;
 	virtual int getNumBatches(int subsetId, bool forRecon) const;
+	virtual Corrector& getCorrector() = 0;
 
 	// Common methods
 	virtual void loadBatch(int p_batchId, bool p_forRecon) = 0;

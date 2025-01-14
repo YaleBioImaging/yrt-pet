@@ -23,39 +23,6 @@
 #include <utility>
 namespace py = pybind11;
 
-void py_setup_operator(py::module& m)
-{
-	auto c = py::class_<Operator>(m, "Operator");
-}
-
-void py_setup_operatorprojectorparams(py::module& m)
-{
-	auto c = py::class_<OperatorProjectorParams>(m, "OperatorProjectorParams");
-	c.def(
-	    py::init<BinIterator*, Scanner&, float, int, const std::string&, int>(),
-	    py::arg("binIter"), py::arg("scanner"), py::arg("tofWidth_ps") = 0.f,
-	    py::arg("tofNumStd") = 0, py::arg("psfProjFilename") = "",
-	    py::arg("num_rays") = 1);
-	c.def_readwrite("tofWidth_ps", &OperatorProjectorParams::tofWidth_ps);
-	c.def_readwrite("tofNumStd", &OperatorProjectorParams::tofNumStd);
-	c.def_readwrite("psfProjFilename",
-	                &OperatorProjectorParams::psfProjFilename);
-	c.def_readwrite("num_rays", &OperatorProjectorParams::numRays);
-}
-
-void py_setup_operatorprojectorbase(py::module& m)
-{
-	auto c =
-	    py::class_<OperatorProjectorBase, Operator>(m, "OperatorProjectorBase");
-	c.def("setAddHisto", &OperatorProjectorBase::setAddHisto);
-	c.def("setAttImageForForwardProjection",
-	      &OperatorProjectorBase::setAttImageForForwardProjection);
-	c.def("setAttImageForBackprojection",
-	      &OperatorProjectorBase::setAttImageForBackprojection);
-	c.def("getBinIter", &OperatorProjectorBase::getBinIter);
-	c.def("getScanner", &OperatorProjectorBase::getScanner);
-	c.def("getAttImage", &OperatorProjectorBase::getAttImage);
-}
 
 void py_setup_operatorprojector(py::module& m)
 {
@@ -82,85 +49,6 @@ void py_setup_operatorprojector(py::module& m)
 }
 
 #endif
-
-OperatorProjectorParams::OperatorProjectorParams(const BinIterator* pp_binIter,
-                                                 const Scanner& pr_scanner,
-                                                 float p_tofWidth_ps,
-                                                 int p_tofNumStd,
-                                                 std::string p_psfProjFilename,
-                                                 int p_num_rays)
-    : binIter(pp_binIter),
-      scanner(pr_scanner),
-      tofWidth_ps(p_tofWidth_ps),
-      tofNumStd(p_tofNumStd),
-      psfProjFilename(std::move(p_psfProjFilename)),
-      numRays(p_num_rays)
-{
-}
-
-OperatorProjectorBase::OperatorProjectorBase(
-    const OperatorProjectorParams& p_projParams)
-    : scanner(p_projParams.scanner),
-      binIter(p_projParams.binIter),
-      attImageForForwardProjection(nullptr),
-      attImageForBackprojection(nullptr),
-      addHisto(nullptr)
-{
-}
-
-void OperatorProjectorBase::setAddHisto(const Histogram* p_addHisto)
-{
-	ASSERT_MSG(p_addHisto != nullptr,
-	           "The additive histogram given in "
-	           "OperatorProjector::setAddHisto is a null pointer");
-	addHisto = p_addHisto;
-}
-
-void OperatorProjectorBase::setBinIter(const BinIterator* p_binIter)
-{
-	binIter = p_binIter;
-}
-
-void OperatorProjectorBase::setAttImageForBackprojection(
-    const Image* p_attImage)
-{
-	ASSERT_MSG(p_attImage != nullptr,
-	           "The attenuation image given is a null pointer");
-	attImageForBackprojection = p_attImage;
-}
-
-void OperatorProjectorBase::setAttImageForForwardProjection(
-    const Image* p_attImage)
-{
-	ASSERT_MSG(p_attImage != nullptr,
-	           "The attenuation image given is a null pointer");
-	attImageForForwardProjection = p_attImage;
-}
-
-const BinIterator* OperatorProjectorBase::getBinIter() const
-{
-	return binIter;
-}
-
-const Scanner& OperatorProjectorBase::getScanner() const
-{
-	return scanner;
-}
-
-const Image* OperatorProjectorBase::getAttImage() const
-{
-	return attImageForForwardProjection;
-}
-
-const Image* OperatorProjectorBase::getAttImageForBackprojection() const
-{
-	return attImageForBackprojection;
-}
-
-const Histogram* OperatorProjectorBase::getAddHisto() const
-{
-	return addHisto;
-}
 
 OperatorProjector::OperatorProjector(
     const OperatorProjectorParams& p_projParams)
@@ -195,24 +83,7 @@ void OperatorProjector::applyA(const Variable* in, Variable* out)
 		ProjectionProperties projectionProperties =
 		    dat->getProjectionProperties(bin);
 
-		float imProj = forwardProjection(img, projectionProperties);
-
-		if (addHisto != nullptr)
-		{
-			// Additive correction(s)
-			const histo_bin_t histoBin = dat->getHistogramBin(bin);
-			imProj += addHisto->getProjectionValueFromHistogramBin(histoBin);
-		}
-
-		if (attImageForForwardProjection != nullptr)
-		{
-			// Multiplicative attenuation correction (for motion)
-			const float attProj = forwardProjection(
-			    attImageForForwardProjection, projectionProperties);
-			const float attProj_coeff =
-			    Util::getAttenuationCoefficientFactor(attProj);
-			imProj *= attProj_coeff;
-		}
+		const float imProj = forwardProjection(img, projectionProperties);
 
 		dat->setProjectionValue(bin, imProj);
 	}
@@ -235,22 +106,10 @@ void OperatorProjector::applyAH(const Variable* in, Variable* out)
 		ProjectionProperties projectionProperties =
 		    dat->getProjectionProperties(bin);
 
-		// TODO: What to do with randomsEstimate ?
-
 		float projValue = dat->getProjectionValue(bin);
 		if (std::abs(projValue) < SMALL)
 		{
 			continue;
-		}
-
-		if (attImageForBackprojection != nullptr)
-		{
-			// Multiplicative attenuation correction
-			const float attProj = forwardProjection(attImageForBackprojection,
-			                                        projectionProperties);
-			const float attProj_coeff =
-			    Util::getAttenuationCoefficientFactor(attProj);
-			projValue *= attProj_coeff;
 		}
 
 		backProjection(img, projectionProperties, projValue);

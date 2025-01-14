@@ -757,6 +757,31 @@ void Image::assignImageInterpolate(const Vector3D& point, float value)
 	ptr_22[ix2] = value * dz1 * dy1 * dx1;
 }
 
+void Image::operationOnEachVoxel(const std::function<float(size_t)>& func)
+{
+	const ImageParams& params = getParams();
+	float* flatPtr = mp_array->getRawPointer();
+	const size_t numVoxels = params.nx * params.ny * params.nz;
+	for (size_t i = 0; i < numVoxels; i++)
+	{
+		flatPtr[i] = func(i);
+	}
+}
+
+void Image::operationOnEachVoxelParallel(
+    const std::function<float(size_t)>& func)
+{
+	const ImageParams& params = getParams();
+	float* flatPtr = mp_array->getRawPointer();
+	const size_t numVoxels = params.nx * params.ny * params.nz;
+
+#pragma omp parallel for default(none) firstprivate(func, numVoxels, flatPtr)
+	for (size_t i = 0; i < numVoxels; i++)
+	{
+		flatPtr[i] = func(i);
+	}
+}
+
 // this function writes "image" on disk @ "image_fname"
 void Image::writeToFile(const std::string& fname) const
 {

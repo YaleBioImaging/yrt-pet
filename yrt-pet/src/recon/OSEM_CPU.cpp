@@ -8,6 +8,7 @@
 #include "datastruct/projection/ProjectionList.hpp"
 #include "operators/OperatorProjectorDD.hpp"
 #include "operators/OperatorProjectorSiddon.hpp"
+#include "recon/Corrector_CPU.hpp"
 #include "utils/Assert.hpp"
 
 #include <utility>
@@ -19,11 +20,31 @@ OSEM_CPU::OSEM_CPU(const Scanner& pr_scanner)
       mp_datTmp{nullptr},
       m_current_OSEM_subset{-1}
 {
+	mp_corrector = std::make_unique<Corrector_CPU>();
 	std::cout << "Creating an instance of OSEM CPU" << std::endl;
 }
 
 OSEM_CPU::~OSEM_CPU() = default;
 
+const Image* OSEM_CPU::getOutputImage() const
+{
+	return outImage.get();
+}
+
+const Corrector& OSEM_CPU::getCorrector() const
+{
+	return *mp_corrector;
+}
+
+Corrector& OSEM_CPU::getCorrector()
+{
+	return *mp_corrector;
+}
+
+const Corrector_CPU& OSEM_CPU::getCorrector_CPU() const
+{
+	return *mp_corrector;
+}
 
 void OSEM_CPU::allocateForSensImgGen()
 {
@@ -57,12 +78,6 @@ void OSEM_CPU::setupOperatorsForSensImgGen()
 	else if (projectorType == OperatorProjector::ProjectorType::DD)
 	{
 		mp_projector = std::make_unique<OperatorProjectorDD>(projParams);
-	}
-
-	if (attenuationImageForBackprojection != nullptr)
-	{
-		mp_projector->setAttImageForBackprojection(
-		    attenuationImageForBackprojection);
 	}
 }
 
@@ -125,6 +140,19 @@ ProjectionData* OSEM_CPU::getMLEMDataTmpBuffer()
 	return mp_datTmp.get();
 }
 
+const OperatorProjector* OSEM_CPU::getProjector() const
+{
+	const auto* hostProjector =
+	    dynamic_cast<const OperatorProjector*>(mp_projector.get());
+	ASSERT(hostProjector != nullptr);
+	return hostProjector;
+}
+
+OperatorPsf* OSEM_CPU::getOperatorPsf() const
+{
+	return imageSpacePsf.get();
+}
+
 void OSEM_CPU::setupOperatorsForRecon()
 {
 	getBinIterators().clear();
@@ -149,12 +177,6 @@ void OSEM_CPU::setupOperatorsForRecon()
 	else if (projectorType == OperatorProjector::DD)
 	{
 		mp_projector = std::make_unique<OperatorProjectorDD>(projParams);
-	}
-
-	if (attenuationImageForForwardProjection != nullptr)
-	{
-		mp_projector->setAttImageForForwardProjection(
-		    attenuationImageForForwardProjection);
 	}
 
 	// TODO NOW: Support additive corrections

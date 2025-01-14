@@ -32,6 +32,9 @@ int main(int argc, char** argv)
 		std::string invivoAttImg_fname;
 		std::string invivoAcf_fname;
 		std::string invivoAcf_format;
+		std::string hardwareAttImg_fname;
+		std::string hardwareAcf_fname;
+		std::string hardwareAcf_format;
 		std::string imageSpacePsf_fname;
 		std::string projSpacePsf_fname;
 		std::string randoms_fname;
@@ -99,21 +102,17 @@ int main(int argc, char** argv)
 		    "Sensitivity histogram format. Possible values: " +
 		        IO::possibleFormats(Plugin::InputFormatsChoice::ONLYHISTOGRAMS),
 		    cxxopts::value<std::string>(sensitivityData_format));
-		sensGroup("att",
-		          "Attenuation image filename (In case of motion correction, "
-		          "Hardware attenuation image filename)",
-		          cxxopts::value<std::string>(attImg_fname));
+		sensGroup("att_hard", "Hardware attenuation image filename",
+		          cxxopts::value<std::string>(hardwareAttImg_fname));
+		sensGroup("acf_hard", "Hardware attenuation correction factors",
+		          cxxopts::value<std::string>(hardwareAcf_fname));
 		sensGroup(
-		    "acf",
-		    "Attenuation correction factors histogram filename (In case "
-		    "of motion correction, Hardware attenuation correction factors)",
-		    cxxopts::value<std::string>(acf_fname));
-		sensGroup(
-		    "acf_format",
-		    "Attenuation correction factors histogram format. Possible "
+		    "acf_hard_format",
+		    "Hardware attenuation correction factors histogram format. "
+		    "Possible "
 		    "values: " +
 		        IO::possibleFormats(Plugin::InputFormatsChoice::ONLYHISTOGRAMS),
-		    cxxopts::value<std::string>(acf_format));
+		    cxxopts::value<std::string>(hardwareAcf_format));
 
 		auto inputGroup = options.add_options("2. Input");
 		inputGroup("i,input", "Input file",
@@ -128,6 +127,18 @@ int main(int argc, char** argv)
 		           cxxopts::value<int>(numIterations));
 		reconGroup("num_subsets", "Number of OSEM subsets (Default: 1)",
 		           cxxopts::value<int>(numSubsets));
+
+		reconGroup("att", "Total attenuation image filename",
+		           cxxopts::value<std::string>(attImg_fname));
+		reconGroup("acf",
+		           "Total attenuation correction factors histogram filename",
+		           cxxopts::value<std::string>(acf_fname));
+		reconGroup(
+		    "acf_format",
+		    "Total attenuation correction factors histogram format. Possible "
+		    "values: " +
+		        IO::possibleFormats(Plugin::InputFormatsChoice::ONLYHISTOGRAMS),
+		    cxxopts::value<std::string>(acf_format));
 
 		reconGroup("randoms", "Randoms estimate histogram filename",
 		           cxxopts::value<std::string>(randoms_fname));
@@ -245,6 +256,7 @@ int main(int argc, char** argv)
 			    "pre-existing sensitivity images were provided");
 		}
 
+
 		auto scanner = std::make_unique<Scanner>(scanner_fname);
 		auto projectorType = IO::getProjector(projector_name);
 		std::unique_ptr<OSEM> osem =
@@ -262,11 +274,51 @@ int main(int argc, char** argv)
 		    !input_format.empty() && IO::isFormatListMode(input_format);
 		osem->setListModeEnabled(useListMode);
 
-		// Attenuation image
+		// Total attenuation image
 		std::unique_ptr<ImageOwned> attImg = nullptr;
-		if (!attImg_fname.empty())
+		std::unique_ptr<ProjectionData> acfHisProjData = nullptr;
+		if (!acf_fname.empty())
+		{
+			ASSERT_MSG(!IO::isFormatListMode(acf_format),
+			           "ACF has to be in a histogram format");
+
+			acfHisProjData = IO::openProjectionData(
+			    acf_fname, acf_format, *scanner, pluginOptionsResults);
+
+			const auto* acfHis =
+			    dynamic_cast<const Histogram*>(acfHisProjData.get());
+			ASSERT(acfHis != nullptr);
+
+			osem->setACFHistogram(acfHis);
+		}
+		else if (!attImg_fname.empty())
 		{
 			attImg = std::make_unique<ImageOwned>(attImg_fname);
+			osem->setAttenuationImage(attImg.get());
+		}
+
+		// Hardware attenuation image
+		std::unique_ptr<ImageOwned> hardwareAttImg = nullptr;
+		std::unique_ptr<ProjectionData> hardwareAcfHisProjData = nullptr;
+		if (!hardwareAcf_fname.empty())
+		{
+			ASSERT_MSG(!IO::isFormatListMode(hardwareAcf_format),
+			           "Hardware ACF has to be in a histogram format");
+
+			hardwareAcfHisProjData =
+			    IO::openProjectionData(hardwareAcf_fname, hardwareAcf_format,
+			                           *scanner, pluginOptionsResults);
+
+			const auto* hardwareAcfHis =
+			    dynamic_cast<const Histogram*>(hardwareAcfHisProjData.get());
+			ASSERT(hardwareAcfHis != nullptr);
+
+			osem->setACFHistogram(hardwareAcfHis);
+		}
+		else if (!hardwareAttImg_fname.empty())
+		{
+			hardwareAttImg = std::make_unique<ImageOwned>(hardwareAttImg_fname);
+			osem->setHardwareAttenuationImage(hardwareAttImg.get());
 		}
 
 		// Image-space PSF
@@ -293,11 +345,11 @@ int main(int argc, char** argv)
 			    sensitivityData_fname, sensitivityData_format, *scanner,
 			    pluginOptionsResults);
 
-			const auto* sensitivityData =
+			const auto* sensitivityHis =
 			    dynamic_cast<const Histogram*>(sensitivityProjData.get());
-			ASSERT(sensitivityData != nullptr);
+			ASSERT(sensitivityHis != nullptr);
 
-			osem->setSensitivityHistogram(sensitivityData);
+			osem->setSensitivityHistogram(sensitivityHis);
 		}
 
 		std::vector<std::unique_ptr<Image>> sensImages;
@@ -309,12 +361,9 @@ int main(int argc, char** argv)
 			ImageParams imgParams{imgParams_fname};
 			osem->setImageParams(imgParams);
 
-			osem->attenuationImageForBackprojection = attImg.get();
-
+			// TODO NOW: OSEM must include hardware attenuation into the
+			//  sensitivity image
 			osem->generateSensitivityImages(sensImages, out_sensImg_fname);
-
-			// Do not use this attenuation image for the reconstruction
-			osem->attenuationImageForBackprojection = nullptr;
 		}
 		else if (osem->validateSensImagesAmount(
 		             static_cast<int>(sensImg_fnames.size())))
@@ -353,7 +402,6 @@ int main(int argc, char** argv)
 		std::unique_ptr<ProjectionData> dataInput;
 		dataInput = IO::openProjectionData(input_fname, input_format, *scanner,
 		                                   pluginOptionsResults);
-		std::cout << "Done reading input data." << std::endl;
 		osem->setDataInput(dataInput.get());
 
 		std::unique_ptr<ImageOwned> movedSensImage = nullptr;
@@ -418,9 +466,10 @@ int main(int argc, char** argv)
 		std::unique_ptr<ProjectionData> randomsProjData = nullptr;
 		if (!randoms_fname.empty())
 		{
-			randomsProjData = IO::openProjectionData(randoms_fname, randoms_format,
-			                                *scanner, pluginOptionsResults);
-			const auto* randomsHis = dynamic_cast<const Histogram*>(randomsProjData.get());
+			randomsProjData = IO::openProjectionData(
+			    randoms_fname, randoms_format, *scanner, pluginOptionsResults);
+			const auto* randomsHis =
+			    dynamic_cast<const Histogram*>(randomsProjData.get());
 			ASSERT_MSG(randomsHis != nullptr,
 			           "The randoms histogram provided does not inherit from "
 			           "Histogram.");
@@ -430,12 +479,13 @@ int main(int argc, char** argv)
 		std::unique_ptr<ProjectionData> scatterProjData = nullptr;
 		if (!scatter_fname.empty())
 		{
-			scatterProjData = IO::openProjectionData(scatter_fname, scatter_format,
-											*scanner, pluginOptionsResults);
-			const auto* scatterHis = dynamic_cast<const Histogram*>(scatterProjData.get());
+			scatterProjData = IO::openProjectionData(
+			    scatter_fname, scatter_format, *scanner, pluginOptionsResults);
+			const auto* scatterHis =
+			    dynamic_cast<const Histogram*>(scatterProjData.get());
 			ASSERT_MSG(scatterHis != nullptr,
-					   "The scatter histogram provided does not inherit from "
-					   "Histogram.");
+			           "The scatter histogram provided does not inherit from "
+			           "Histogram.");
 			osem->setScatterHistogram(scatterHis);
 		}
 
@@ -447,7 +497,6 @@ int main(int argc, char** argv)
 			                   "the data input has no motion");
 			invivoAttImg = std::make_unique<ImageOwned>(invivoAttImg_fname);
 		}
-		osem->attenuationImageForForwardProjection = invivoAttImg.get();
 
 		// Save steps
 		ASSERT_MSG(saveIterStep >= 0, "save_iter_step must be positive.");

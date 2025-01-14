@@ -45,6 +45,7 @@ public:
 
 	const ProjectionData* getReference() const;
 	float* getRawPointer() const;
+	bool isMemoryValid() const;
 
 	void clearProjections(float value) override;
 	Array1DBase<float>* getProjectionsArrayRef() const;

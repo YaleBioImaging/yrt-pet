@@ -205,44 +205,10 @@ void OperatorProjectorDevice::setupProjPsfManager(
 	           "Error occured during the setup of ProjectionPsfManagerDevice");
 }
 
-void OperatorProjectorDevice::setAttImageForForwardProjection(const Image* attImage)
-{
-	OperatorProjectorBase::setAttImageForForwardProjection(attImage);
-
-	mp_attImageDevice = std::make_unique<ImageDeviceOwned>(
-	    attImage->getParams(), getAuxStream());
-	mp_attImageDevice->allocate(getAuxStream());
-	mp_attImageDevice->transferToDeviceMemory(attImage, false);
-}
-
-void OperatorProjectorDevice::setAttImageForBackprojection(
-    const Image* attImage)
-{
-	OperatorProjectorBase::setAttImageForBackprojection(attImage);
-
-	mp_attImageForBackprojectionDevice = std::make_unique<ImageDeviceOwned>(
-	    attImage->getParams(), getAuxStream());
-	mp_attImageForBackprojectionDevice->allocate(getAuxStream());
-	mp_attImageForBackprojectionDevice->transferToDeviceMemory(attImage, false);
-}
-
-void OperatorProjectorDevice::setAddHisto(const Histogram* p_addHisto)
-{
-	OperatorProjectorBase::setAddHisto(p_addHisto);
-}
-
 void OperatorProjectorDevice::setupTOFHelper(float tofWidth_ps, int tofNumStd)
 {
 	mp_tofHelper = std::make_unique<DeviceObject<TimeOfFlightHelper>>(
 	    tofWidth_ps, tofNumStd);
-}
-
-bool OperatorProjectorDevice::requiresIntermediaryProjData() const
-{
-	// We need an intermediary projectorParam if we'll need to do attenuation
-	// correction or additive correction (scatter/randoms)
-	return attImageForForwardProjection != nullptr ||
-	       attImageForBackprojection != nullptr || addHisto != nullptr;
 }
 
 void OperatorProjectorDevice::prepareIntermediaryBufferIfNeeded(

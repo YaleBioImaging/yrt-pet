@@ -6,6 +6,7 @@
 #pragma once
 
 #include "datastruct/projection/ProjectionData.hpp"
+#include "operators/OperatorProjectorBase.hpp"
 #include "operators/Operator.hpp"
 #include "operators/ProjectionPsfManager.hpp"
 #include "operators/TimeOfFlight.hpp"
@@ -17,61 +18,6 @@ class Scanner;
 class ProjectionData;
 class Histogram;
 
-class OperatorProjectorParams
-{
-public:
-	OperatorProjectorParams(const BinIterator* pp_binIter,
-	                        const Scanner& pr_scanner,
-	                        float p_tofWidth_ps = 0.f, int p_tofNumStd = 0,
-	                        std::string p_psfProjFilename = "",
-	                        int p_num_rays = 1);
-
-	const BinIterator* binIter;
-	const Scanner& scanner;
-
-	// Time of Flight
-	float tofWidth_ps;
-	int tofNumStd;
-
-	// Projection-domain PSF
-	std::string psfProjFilename;
-
-	// Multi-ray siddon only
-	int numRays;
-};
-
-// Device-agnostic virtual class
-class OperatorProjectorBase : public Operator
-{
-public:
-	explicit OperatorProjectorBase(const OperatorProjectorParams& p_projParams);
-
-	const Scanner& getScanner() const;
-	const BinIterator* getBinIter() const;
-
-	virtual void setAttImageForForwardProjection(const Image* p_attImage);  // alias
-	virtual void setAttImageForBackprojection(const Image* p_attImage);
-	virtual void setAddHisto(const Histogram* p_addHisto);
-	void setBinIter(const BinIterator* p_binIter);
-
-	const Image* getAttImage() const;
-	const Image* getAttImageForBackprojection() const;
-	const Histogram* getAddHisto() const;
-
-protected:
-	// To take scanner properties into account
-	const Scanner& scanner;
-
-	// Bin iterator
-	const BinIterator* binIter;
-
-	// Attenuation image for forward projection (when there is motion)
-	const Image* attImageForForwardProjection;
-	// For generating a sensitivity image with attenuation correction
-	const Image* attImageForBackprojection;
-	// Additive histogram
-	const Histogram* addHisto;
-};
 
 class OperatorProjector : public OperatorProjectorBase
 {

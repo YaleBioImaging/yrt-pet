@@ -75,7 +75,7 @@ void OperatorProjector::applyA(const Variable* in, Variable* out)
 	ASSERT_MSG(img != nullptr, "Input variable has to be an Image");
 
 #pragma omp parallel for default(none) \
-    firstprivate(binIter, img, attImageForForwardProjection, addHisto, dat)
+    firstprivate(binIter, img, dat)
 	for (bin_t binIdx = 0; binIdx < binIter->size(); binIdx++)
 	{
 		const bin_t bin = binIter->get(binIdx);
@@ -98,7 +98,7 @@ void OperatorProjector::applyAH(const Variable* in, Variable* out)
 	ASSERT_MSG(img != nullptr, "Output variable has to be an Image");
 
 #pragma omp parallel for default(none) \
-    firstprivate(binIter, img, attImageForBackprojection, dat)
+    firstprivate(binIter, img, dat)
 	for (bin_t binIdx = 0; binIdx < binIter->size(); binIdx++)
 	{
 		const bin_t bin = binIter->get(binIdx);

@@ -74,9 +74,4 @@ protected:
 
 	// Time of flight (For computing attenuation factors from attenuation image)
 	std::unique_ptr<TimeOfFlightHelper> mp_tofHelper;
-
-private:
-	float getAttenuationFactorFromAttenuationImage(
-	    const ProjectionData* measurements, bin_t binId,
-	    const Image* attenuationImage) const;
 };

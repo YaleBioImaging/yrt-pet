@@ -125,21 +125,15 @@ float OperatorProjectorSiddon::forwardProjection(
 
 	float imProj = 0.;
 
-	// Avoid multi-ray siddon on attenuation image
-	const int numRaysToCast = (img == attImageForForwardProjection ||
-	                           img == attImageForBackprojection) ?
-	                              1 :
-	                              m_numRays;
-
 	int currThread = 0;
-	if (numRaysToCast > 1)
+	if (m_numRays > 1)
 	{
 		currThread = omp_get_thread_num();
 		ASSERT(mp_lineGen != nullptr);
 		mp_lineGen->at(currThread).setupGenerator(lor, n1, n2);
 	}
 
-	for (int i_line = 0; i_line < numRaysToCast; i_line++)
+	for (int i_line = 0; i_line < m_numRays; i_line++)
 	{
 		unsigned int seed = 13;
 		Line3D randLine = (i_line == 0) ?
@@ -163,9 +157,9 @@ float OperatorProjectorSiddon::forwardProjection(
 		imProj += currentProjValue;
 	}
 
-	if (numRaysToCast > 1)
+	if (m_numRays > 1)
 	{
-		imProj = imProj / static_cast<float>(numRaysToCast);
+		imProj = imProj / static_cast<float>(m_numRays);
 	}
 
 	return imProj;

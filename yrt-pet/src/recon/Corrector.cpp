@@ -5,7 +5,6 @@
 
 #include "recon/Corrector.hpp"
 
-#include "operators/OperatorProjectorSiddon.hpp"
 #include "utils/Assert.hpp"
 #include "utils/Tools.hpp"
 
@@ -181,53 +180,6 @@ void Corrector::setup()
 	}
 }
 
-float Corrector::getMultiplicativeCorrectionFactor(
-    const ProjectionData* measurements, bin_t binId) const
-{
-	ASSERT(measurements != nullptr);
-
-	const histo_bin_t histoBin = measurements->getHistogramBin(binId);
-
-	float sensitivity;
-	if (mp_sensitivity != nullptr)
-	{
-		sensitivity =
-		    m_globalScalingFactor *
-		    mp_sensitivity->getProjectionValueFromHistogramBin(histoBin);
-		if (m_invertSensitivity)
-		{
-			sensitivity = 1.0f / sensitivity;
-		}
-	}
-	else
-	{
-		sensitivity = m_globalScalingFactor;
-	}
-
-	float acf;
-	if (mp_hardwareAcf != nullptr)
-	{
-		// Hardware ACF
-		acf = mp_hardwareAcf->getProjectionValueFromHistogramBin(histoBin);
-	}
-	else if (mp_acf != nullptr && mp_inVivoAcf == nullptr)
-	{
-		// All ACF is Hardware ACF (no motion)
-		acf = mp_acf->getProjectionValueFromHistogramBin(histoBin);
-	}
-	else if (mp_hardwareAttenuationImage != nullptr)
-	{
-		acf = getAttenuationFactorFromAttenuationImage(
-		    measurements, binId, mp_hardwareAttenuationImage);
-	}
-	else
-	{
-		acf = 1.0f;
-	}
-
-	return acf * sensitivity;
-}
-
 bool Corrector::hasMultiplicativeCorrection() const
 {
 	// Has either hardware attenuation or sensitivity
@@ -236,108 +188,12 @@ bool Corrector::hasMultiplicativeCorrection() const
 	       mp_hardwareAttenuationImage != nullptr || mp_sensitivity != nullptr;
 }
 
-float Corrector::getAdditiveCorrectionFactor(const ProjectionData* measurements,
-                                             bin_t binId) const
-{
-	const histo_bin_t histoBin = measurements->getHistogramBin(binId);
-
-	float randomsEstimate;
-	if (mp_randoms != nullptr)
-	{
-		randomsEstimate =
-		    mp_randoms->getProjectionValueFromHistogramBin(histoBin);
-	}
-	else
-	{
-		randomsEstimate = measurements->getRandomsEstimate(binId);
-	}
-
-	float scatterEstimate = 0.0f;
-	if (mp_scatter != nullptr)
-	{
-		// TODO: Support exception in case of a contiguous sinogram (future)
-		scatterEstimate =
-		    mp_scatter->getProjectionValueFromHistogramBin(histoBin);
-	}
-
-	float sensitivity;
-	if (mp_sensitivity != nullptr)
-	{
-		sensitivity =
-		    m_globalScalingFactor *
-		    mp_sensitivity->getProjectionValueFromHistogramBin(histoBin);
-		if (m_invertSensitivity)
-		{
-			sensitivity = 1.0f / sensitivity;
-		}
-	}
-	else
-	{
-		sensitivity = m_globalScalingFactor;
-	}
-
-	float acf;
-	if (mp_acf != nullptr)
-	{
-		acf = mp_acf->getProjectionValueFromHistogramBin(histoBin);
-	}
-	else if (mp_inVivoAcf != nullptr && mp_hardwareAcf != nullptr)
-	{
-		acf = mp_inVivoAcf->getProjectionValueFromHistogramBin(histoBin) *
-		      mp_hardwareAcf->getProjectionValueFromHistogramBin(histoBin);
-	}
-	else if (mp_attenuationImage != nullptr)
-	{
-		acf = getAttenuationFactorFromAttenuationImage(measurements, binId,
-		                                               mp_attenuationImage);
-	}
-	else
-	{
-		acf = 1.0f;
-	}
-
-	return (randomsEstimate + scatterEstimate) / (acf * sensitivity);
-}
-
 bool Corrector::hasAdditiveCorrection() const
 {
 	return mp_randoms != nullptr || mp_scatter != nullptr;
 }
 
-float Corrector::getInVivoAttenuationFactor(const ProjectionData* measurements,
-                                            bin_t binId) const
-{
-	const histo_bin_t histoBin = measurements->getHistogramBin(binId);
-
-	if (mp_inVivoAcf != nullptr)
-	{
-		return mp_inVivoAcf->getProjectionValueFromHistogramBin(histoBin);
-	}
-	if (mp_inVivoAttenuationImage != nullptr)
-	{
-		return getAttenuationFactorFromAttenuationImage(
-		    measurements, binId, mp_inVivoAttenuationImage);
-	}
-
-	return 1.0f;
-}
-
 bool Corrector::hasInVivoAttenuation() const
 {
 	return mp_inVivoAcf != nullptr || mp_inVivoAttenuationImage != nullptr;
-}
-
-float Corrector::getAttenuationFactorFromAttenuationImage(
-    const ProjectionData* measurements, bin_t binId,
-    const Image* attenuationImage) const
-{
-	const Line3D lor = measurements->getLOR(binId);
-
-	const float tofValue =
-	    measurements->hasTOF() ? measurements->getTOFValue(binId) : 0.0f;
-
-	const float att = OperatorProjectorSiddon::singleForwardProjection(
-	    attenuationImage, lor, mp_tofHelper.get(), tofValue);
-
-	return Util::getAttenuationCoefficientFactor(att);
 }

@@ -11,6 +11,7 @@
 #include "utils/Array.hpp"
 
 #include <string>
+#include <functional>
 
 struct transform_t;
 

@@ -55,6 +55,12 @@ void OSEMUpdater_GPU::computeSensitivityImage(ImageDevice& destImage) const
 				sensDataBuffer->multiplyProjValues(
 				    corrector.getGlobalScalingFactor(), auxStream);
 			}
+
+			// Invert sensitivity if needed
+			if (corrector.mustInvertSensitivity())
+			{
+				sensDataBuffer->invertProjValuesDevice(auxStream);
+			}
 		}
 		if (corrector.hasHardwareAttenuation())
 		{

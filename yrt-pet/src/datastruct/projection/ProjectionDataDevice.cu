@@ -459,6 +459,30 @@ void ProjectionDataDevice::divideMeasurementsDevice(
 	cudaCheckError();
 }
 
+void ProjectionDataDevice::invertProjValuesDevice(const cudaStream_t* stream)
+{
+	const size_t batchSize = getCurrentBatchSize();
+	const auto launchParams = Util::initiateDeviceParameters(batchSize);
+
+	if (stream != nullptr)
+	{
+		invertProjValues_kernel<<<launchParams.gridSize, launchParams.blockSize,
+		                          0, *stream>>>(getProjValuesDevicePointer(),
+		                                        getProjValuesDevicePointer(),
+		                                        static_cast<int>(batchSize));
+		cudaStreamSynchronize(*stream);
+	}
+	else
+	{
+		invertProjValues_kernel<<<launchParams.gridSize,
+		                          launchParams.blockSize>>>(
+		    getProjValuesDevicePointer(), getProjValuesDevicePointer(),
+		    static_cast<int>(batchSize));
+		cudaDeviceSynchronize();
+	}
+	cudaCheckError();
+}
+
 void ProjectionDataDevice::addProjValues(const ProjectionDataDevice* projValues,
                                          const cudaStream_t* stream)
 {

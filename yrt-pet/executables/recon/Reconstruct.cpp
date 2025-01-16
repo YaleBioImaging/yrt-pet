@@ -58,6 +58,7 @@ int main(int argc, char** argv)
 		int saveIterStep = 0;
 		std::string saveIterRanges;
 		bool sensOnly = false;
+		bool invertSensitivity = false;
 
 		Plugin::OptionsResult pluginOptionsResults;  // For plugins' options
 
@@ -101,6 +102,10 @@ int main(int argc, char** argv)
 		    "Sensitivity histogram format. Possible values: " +
 		        IO::possibleFormats(Plugin::InputFormatsChoice::ONLYHISTOGRAMS),
 		    cxxopts::value<std::string>(sensitivityData_format));
+		sensGroup("invert_sensitivity",
+		          "Invert the sensitivity histogram values (sensitivity -> "
+		          "1/sensitivity)",
+		          cxxopts::value<bool>(invertSensitivity));
 
 		auto inputGroup = options.add_options("2. Input");
 		inputGroup("i,input", "Input file",
@@ -353,6 +358,7 @@ int main(int argc, char** argv)
 			ASSERT(sensitivityHis != nullptr);
 
 			osem->setSensitivityHistogram(sensitivityHis);
+			osem->setInvertSensitivity(invertSensitivity);
 		}
 
 		std::vector<std::unique_ptr<Image>> sensImages;

@@ -236,6 +236,11 @@ bool Corrector::hasAdditiveCorrection() const
 	return mp_randoms != nullptr || mp_scatter != nullptr;
 }
 
+bool Corrector::mustInvertSensitivity() const
+{
+	return m_invertSensitivity;
+}
+
 bool Corrector::hasInVivoAttenuation() const
 {
 	return mp_inVivoAcf != nullptr || mp_inVivoAttenuationImage != nullptr;

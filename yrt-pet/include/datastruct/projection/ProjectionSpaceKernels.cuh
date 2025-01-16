@@ -11,6 +11,8 @@ __global__ void divideMeasurements_kernel(const float* d_dataIn,
                                           int maxNumberOfEvents);
 __global__ void addProjValues_kernel(const float* d_dataIn, float* d_dataOut,
                                      int maxNumberOfEvents);
+__global__ void invertProjValues_kernel(const float* d_dataIn, float* d_dataOut,
+                                        int maxNumberOfEvents);
 __global__ void convertToACFs_kernel(const float* d_dataIn, float* d_dataOut,
                                      float unitFactor, int maxNumberOfEvents);
 __global__ void multiplyProjValues_kernel(const float* d_dataIn,

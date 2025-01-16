@@ -31,6 +31,16 @@ __global__ void addProjValues_kernel(const float* d_dataIn, float* d_dataOut,
 	}
 }
 
+__global__ void invertProjValues_kernel(const float* d_dataIn, float* d_dataOut,
+                                        const int maxNumberOfEvents)
+{
+	const long eventId = blockIdx.x * blockDim.x + threadIdx.x;
+	if (eventId < maxNumberOfEvents)
+	{
+		d_dataOut[eventId] = 1.0f / d_dataIn[eventId];
+	}
+}
+
 __global__ void convertToACFs_kernel(const float* d_dataIn, float* d_dataOut,
                                      const float unitFactor,
                                      const int maxNumberOfEvents)
@@ -38,7 +48,7 @@ __global__ void convertToACFs_kernel(const float* d_dataIn, float* d_dataOut,
 	const long eventId = blockIdx.x * blockDim.x + threadIdx.x;
 	if (eventId < maxNumberOfEvents)
 	{
-		d_dataOut[eventId] = exp(-d_dataIn[eventId]*unitFactor);
+		d_dataOut[eventId] = exp(-d_dataIn[eventId] * unitFactor);
 	}
 }
 

@@ -93,6 +93,7 @@ public:
 	                        const BinIterator* binIter) override;
 	void divideMeasurementsDevice(const ProjectionData* measurements,
 	                              const cudaStream_t* stream);
+	void invertProjValuesDevice(const cudaStream_t* stream);
 	void addProjValues(const ProjectionDataDevice* projValues,
 	                   const cudaStream_t* stream);
 	void convertToACFsDevice(const cudaStream_t* stream);

@@ -46,6 +46,7 @@ public:
 	bool hasSensitivityHistogram() const;
 	bool hasHardwareAttenuation() const;
 	bool hasMultiplicativeCorrection() const;
+	bool mustInvertSensitivity() const;
 
 	// For reconstruction
 	bool hasAdditiveCorrection() const;
@@ -87,6 +88,8 @@ protected:
 	// sensitive
 	const Histogram* mp_sensitivity;
 	bool m_invertSensitivity;
+
+	// Global scaling on the sensitivity
 	float m_globalScalingFactor;
 
 	// Time of flight (For computing attenuation factors from attenuation image)

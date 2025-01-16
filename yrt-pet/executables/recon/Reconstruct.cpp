@@ -289,6 +289,8 @@ int main(int argc, char** argv)
 		std::unique_ptr<ProjectionData> acfHisProjData = nullptr;
 		if (!acf_fname.empty())
 		{
+			std::cout << "Reading ACF histogram..." << std::endl;
+			ASSERT_MSG(!acf_format.empty(), "Unspecified format for ACF histogram");
 			ASSERT_MSG(!IO::isFormatListMode(acf_format),
 			           "ACF has to be in a histogram format");
 
@@ -312,6 +314,7 @@ int main(int argc, char** argv)
 		std::unique_ptr<ProjectionData> hardwareAcfHisProjData = nullptr;
 		if (!hardwareAcf_fname.empty())
 		{
+			std::cout << "Reading hardware ACF histogram..." << std::endl;
 			ASSERT_MSG(!hardwareAcf_format.empty(),
 			           "No format specified for hardware ACF histogram");
 			ASSERT_MSG(!IO::isFormatListMode(hardwareAcf_format),
@@ -350,6 +353,7 @@ int main(int argc, char** argv)
 		std::unique_ptr<ProjectionData> sensitivityProjData = nullptr;
 		if (!sensitivityData_fname.empty())
 		{
+			std::cout << "Reading sensitivity histogram..." << std::endl;
 			ASSERT_MSG(!sensitivityData_format.empty(),
 			           "No format specified for sensitivity histogram");
 			ASSERT_MSG(!IO::isFormatListMode(sensitivityData_format),

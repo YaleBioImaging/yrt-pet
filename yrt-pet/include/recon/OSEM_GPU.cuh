@@ -35,6 +35,7 @@ public:
 	void allocateForSensImgGen() override;
 	std::unique_ptr<Image>
 	    getLatestSensitivityImage(bool isLastSubset) override;
+	void computeSensitivityImage(ImageBase& destImage) override;
 	void endSensImgGen() override;
 
 	// Reconstruction driver
@@ -47,7 +48,6 @@ public:
 
 	// Internal getters
 	ImageBase* getSensImageBuffer() override;
-	const ProjectionData* getSensitivityBuffer() override;
 	ImageBase* getMLEMImageBuffer() override;
 	ImageBase*
 	    getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType type) override;
@@ -55,6 +55,8 @@ public:
 	ProjectionData* getMLEMDataTmpBuffer() override;
 	int getNumBatches(int subsetId, bool forRecon) const;
 	int getCurrentOSEMSubset() const;
+	const ProjectionDataDeviceOwned* getSensitivityDataDeviceBuffer() const;
+	ProjectionDataDeviceOwned* getSensitivityDataDeviceBuffer();
 	const ProjectionDataDeviceOwned* getMLEMDataDeviceBuffer() const;
 	ProjectionDataDeviceOwned* getMLEMDataDeviceBuffer();
 	const ProjectionDataDeviceOwned* getMLEMDataTmpDeviceBuffer() const;
@@ -68,10 +70,13 @@ public:
 private:
 
 	std::unique_ptr<ImageDeviceOwned> mpd_sensImageBuffer;
-	std::unique_ptr<ProjectionDataDeviceOwned> mpd_tempSensDataInput;
 	std::unique_ptr<ImageDeviceOwned> mpd_mlemImage;
 	std::unique_ptr<ImageDeviceOwned> mpd_mlemImageTmpEMRatio;
 	std::unique_ptr<ImageDeviceOwned> mpd_mlemImageTmpPsf;
+
+	// Buffer used for sensitivity image generation
+	std::unique_ptr<ProjectionDataDeviceOwned> mpd_tempSensDataInput;
+	// Buffers used for reconstruction
 	std::unique_ptr<ProjectionDataDeviceOwned> mpd_dat;
 	std::unique_ptr<ProjectionDataDeviceOwned> mpd_datTmp;
 

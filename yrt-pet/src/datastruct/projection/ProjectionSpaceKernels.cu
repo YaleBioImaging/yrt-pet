@@ -5,6 +5,8 @@
 
 #include "datastruct/projection/ProjectionSpaceKernels.cuh"
 
+#include <complex>
+
 __global__ void divideMeasurements_kernel(const float* d_dataIn,
                                           float* d_dataOut,
                                           const int maxNumberOfEvents)
@@ -29,6 +31,17 @@ __global__ void addProjValues_kernel(const float* d_dataIn, float* d_dataOut,
 	}
 }
 
+__global__ void convertToACFs_kernel(const float* d_dataIn, float* d_dataOut,
+                                     const float unitFactor,
+                                     const int maxNumberOfEvents)
+{
+	const long eventId = blockIdx.x * blockDim.x + threadIdx.x;
+	if (eventId < maxNumberOfEvents)
+	{
+		d_dataOut[eventId] = exp(-d_dataIn[eventId]*unitFactor);
+	}
+}
+
 __global__ void multiplyProjValues_kernel(const float* d_dataIn,
                                           float* d_dataOut,
                                           const int maxNumberOfEvents)
@@ -37,6 +50,16 @@ __global__ void multiplyProjValues_kernel(const float* d_dataIn,
 	if (eventId < maxNumberOfEvents)
 	{
 		d_dataOut[eventId] *= d_dataIn[eventId];
+	}
+}
+
+__global__ void multiplyProjValues_kernel(float scalar, float* d_dataOut,
+                                          const int maxNumberOfEvents)
+{
+	const long eventId = blockIdx.x * blockDim.x + threadIdx.x;
+	if (eventId < maxNumberOfEvents)
+	{
+		d_dataOut[eventId] *= scalar;
 	}
 }
 

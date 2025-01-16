@@ -39,6 +39,8 @@ void Corrector_CPU::precomputeInVivoAttenuationFactors(
     const ProjectionData* measurements)
 {
 	ASSERT(measurements != nullptr);
+	ASSERT_MSG(hasInVivoAttenuation(),
+	           "No in-vivo attenuation corrections needed");
 
 	auto inVivoAttenuationFactors =
 	    std::make_unique<ProjectionListOwned>(measurements);
@@ -64,27 +66,31 @@ float Corrector_CPU::getMultiplicativeCorrectionFactor(
 {
 	ASSERT(measurements != nullptr);
 
-	const histo_bin_t histoBin = measurements->getHistogramBin(binId);
-
-	const float sensitivity = getSensitivity(histoBin);
-
-	float acf;
-	if (mp_hardwareAcf != nullptr)
+	if (hasMultiplicativeCorrection())
 	{
-		// Hardware ACF
-		acf = mp_hardwareAcf->getProjectionValueFromHistogramBin(histoBin);
-	}
-	else if (mp_hardwareAttenuationImage != nullptr)
-	{
-		acf = getAttenuationFactorFromAttenuationImage(
-		    measurements, binId, mp_hardwareAttenuationImage);
-	}
-	else
-	{
-		acf = 1.0f;
-	}
+		const histo_bin_t histoBin = measurements->getHistogramBin(binId);
 
-	return acf * sensitivity;
+		const float sensitivity = getSensitivity(histoBin);
+
+		float acf;
+		if (mp_hardwareAcf != nullptr)
+		{
+			// Hardware ACF
+			acf = mp_hardwareAcf->getProjectionValueFromHistogramBin(histoBin);
+		}
+		else if (mp_hardwareAttenuationImage != nullptr)
+		{
+			acf = getAttenuationFactorFromAttenuationImage(
+				measurements, binId, mp_hardwareAttenuationImage);
+		}
+		else
+		{
+			acf = 1.0f;
+		}
+
+		return acf * sensitivity;
+	}
+	return m_globalScalingFactor;
 }
 
 float Corrector_CPU::getAdditiveCorrectionFactor(

@@ -113,7 +113,6 @@ OSEM::OSEM(const Scanner& pr_scanner)
       usingListModeInput(false),
       needToMakeCopyOfSensImage(false),
       outImage(nullptr),
-      mp_sensitivityHis(nullptr),
       mp_dataInput(nullptr),
       mp_copiedSensitivityImage(nullptr)
 {
@@ -139,22 +138,11 @@ void OSEM::generateSensitivityImages(
 	}
 }
 
-void OSEM::generateSensitivityImageForSubset(int subsetId)
+void OSEM::generateSensitivityImageForLoadedSubset()
 {
 	getSensImageBuffer()->setValue(0.0);
 
-	// TODO: Generate sensitivity image using OSEMUpdater
-
-	/*
-	// Backproject everything
-	const int numBatches = getNumBatches(subsetId, false);
-
-	for (int batchId = 0; batchId < numBatches; batchId++)
-	{
-		loadBatch(batchId, false);
-		mp_projector->applyAH(getSensitivityBuffer(), getSensImageBuffer());
-	}
-	*/
+	computeSensitivityImage(*getSensImageBuffer());
 
 	if (flagImagePSF)
 	{
@@ -173,18 +161,20 @@ void OSEM::generateSensitivityImagesCore(
 {
 	ASSERT_MSG(imageParams.isValid(), "Image parameters not valid/set");
 
-	// In case the user didn't specify a sensitivity data input
-	std::unique_ptr<UniformHistogram> uniformHis = nullptr;
-	const bool sensDataInputUnspecified = getSensitivityHistogram() == nullptr;
-	if (sensDataInputUnspecified)
+	Corrector& corrector = getCorrector();
+
+	// In case the user didn't specify a sensitivity histogram, use a uniform one
+	bool usedUniformHistogramForSensitivityImageGeneration = false;
+	if (corrector.getSensitivityHistogram() == nullptr)
 	{
-		uniformHis = std::make_unique<UniformHistogram>(scanner);
-		setSensitivityHistogram(uniformHis.get());
+		mp_uniformHistogram = std::make_unique<UniformHistogram>(scanner);
+		corrector.setSensitivityHistogram(mp_uniformHistogram.get());
+		usedUniformHistogramForSensitivityImageGeneration = true;
 	}
 
 	// This is done to make sure we only make one sensitivity image if we're on
 	// ListMode
-	const int realNumOSEMSubsets = num_OSEM_subsets;
+	const int originalNumOSEMSubsets = num_OSEM_subsets;
 	if (usingListModeInput)
 	{
 		num_OSEM_subsets = 1;
@@ -202,10 +192,13 @@ void OSEM::generateSensitivityImagesCore(
 		std::cout << "OSEM subset " << subsetId + 1 << "/" << num_OSEM_subsets
 		          << "..." << std::endl;
 
+		// Load subset
 		loadSubsetInternal(subsetId, false);
 
-		generateSensitivityImageForSubset(subsetId);
+		// Generate sensitivity image for loaded subset
+		generateSensitivityImageForLoadedSubset();
 
+		// Save sensitivity image
 		auto generatedImage =
 		    getLatestSensitivityImage(subsetId == num_OSEM_subsets - 1);
 
@@ -232,17 +225,13 @@ void OSEM::generateSensitivityImagesCore(
 
 	endSensImgGen();
 
-	if (sensDataInputUnspecified)
+	if (usedUniformHistogramForSensitivityImageGeneration)
 	{
-		// To prevent a pointer to a deleted object
-		setSensitivityHistogram(nullptr);
+		corrector.setSensitivityHistogram(nullptr);
 	}
 
 	// Restore original value
-	if (usingListModeInput)
-	{
-		num_OSEM_subsets = realNumOSEMSubsets;
-	}
+	num_OSEM_subsets = originalNumOSEMSubsets;
 }
 
 bool OSEM::validateSensImagesAmount(int size) const
@@ -362,13 +351,12 @@ void OSEM::initializeForRecon()
 
 void OSEM::setSensitivityHistogram(const Histogram* pp_sensitivityData)
 {
-	mp_sensitivityHis = pp_sensitivityData;
 	getCorrector().setSensitivityHistogram(pp_sensitivityData);
 }
 
 const Histogram* OSEM::getSensitivityHistogram() const
 {
-	return mp_sensitivityHis;
+	return getCorrector().getSensitivityHistogram();
 }
 
 const ProjectionData* OSEM::getDataInput() const

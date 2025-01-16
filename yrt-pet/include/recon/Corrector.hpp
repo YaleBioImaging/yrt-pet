@@ -36,11 +36,15 @@ public:
 	void addTOF(float p_tofWidth_ps, int p_tofNumStd);
 
 	const Histogram* getSensitivityHistogram() const;
+	float getGlobalScalingFactor() const;
+	bool hasGlobalScalingFactor() const;
 
 	// Simplify user input
 	void setup();
 
 	// For sensitivity image generation
+	bool hasSensitivityHistogram() const;
+	bool hasHardwareAttenuation() const;
 	bool hasMultiplicativeCorrection() const;
 
 	// For reconstruction

@@ -5,7 +5,6 @@
 
 #include "../PluginOptionsHelper.hpp"
 #include "datastruct/IO.hpp"
-#include "datastruct/projection/UniformHistogram.hpp"
 #include "datastruct/scanner/Scanner.hpp"
 #include "motion/ImageWarperMatrix.hpp"
 #include "utils/Assert.hpp"
@@ -375,7 +374,6 @@ int main(int argc, char** argv)
 				    std::make_unique<ImageOwned>(sensImg_fname));
 			}
 			sensImageAlreadyMoved = true;
-			std::cout << "Done reading sensitivity images." << std::endl;
 		}
 		else
 		{
@@ -462,10 +460,10 @@ int main(int argc, char** argv)
 		}
 
 		// Additive histograms
-		std::cout << "Reading randoms histogram..." << std::endl;
 		std::unique_ptr<ProjectionData> randomsProjData = nullptr;
 		if (!randoms_fname.empty())
 		{
+			std::cout << "Reading randoms histogram..." << std::endl;
 			randomsProjData = IO::openProjectionData(
 			    randoms_fname, randoms_format, *scanner, pluginOptionsResults);
 			const auto* randomsHis =
@@ -475,10 +473,10 @@ int main(int argc, char** argv)
 			           "Histogram.");
 			osem->setRandomsHistogram(randomsHis);
 		}
-		std::cout << "Reading scatter histogram..." << std::endl;
 		std::unique_ptr<ProjectionData> scatterProjData = nullptr;
 		if (!scatter_fname.empty())
 		{
+			std::cout << "Reading scatter histogram..." << std::endl;
 			scatterProjData = IO::openProjectionData(
 			    scatter_fname, scatter_format, *scanner, pluginOptionsResults);
 			const auto* scatterHis =

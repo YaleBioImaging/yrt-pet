@@ -94,6 +94,16 @@ const Histogram* Corrector::getSensitivityHistogram() const
 	return mp_sensitivity;
 }
 
+float Corrector::getGlobalScalingFactor() const
+{
+	return m_globalScalingFactor;
+}
+
+bool Corrector::hasGlobalScalingFactor() const
+{
+	return std::abs(1.0f - m_globalScalingFactor) < 1e-8;
+}
+
 void Corrector::setup()
 {
 	if (mp_acf != nullptr && mp_inVivoAcf != nullptr &&
@@ -205,12 +215,20 @@ void Corrector::setup()
 	}
 }
 
+bool Corrector::hasSensitivityHistogram() const
+{
+	return mp_sensitivity != nullptr;
+}
+
+bool Corrector::hasHardwareAttenuation() const
+{
+	return mp_hardwareAcf != nullptr || mp_hardwareAttenuationImage != nullptr;
+}
+
 bool Corrector::hasMultiplicativeCorrection() const
 {
 	// Has either hardware attenuation or sensitivity
-	return mp_hardwareAcf != nullptr ||
-	       (mp_acf != nullptr && mp_inVivoAcf == nullptr) ||
-	       mp_hardwareAttenuationImage != nullptr || mp_sensitivity != nullptr;
+	return hasHardwareAttenuation() || hasSensitivityHistogram();
 }
 
 bool Corrector::hasAdditiveCorrection() const

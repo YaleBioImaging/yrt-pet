@@ -31,6 +31,7 @@ protected:
 	void allocateForSensImgGen() override;
 	std::unique_ptr<Image>
 	    getLatestSensitivityImage(bool isLastSubset) override;
+	void computeSensitivityImage(ImageBase& destImage) override;
 	void endSensImgGen() override;
 
 	// Reconstruction driver
@@ -41,7 +42,7 @@ protected:
 
 	// Internal getters
 	ImageBase* getSensImageBuffer() override;
-	const ProjectionData* getSensitivityBuffer() override;
+	const ProjectionData* getSensitivityBuffer() const;
 	ImageBase* getMLEMImageBuffer() override;
 	ImageBase*
 	    getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType type) override;

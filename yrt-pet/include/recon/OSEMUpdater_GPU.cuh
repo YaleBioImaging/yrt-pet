@@ -14,11 +14,13 @@ class OSEMUpdater_GPU
 public:
 	explicit OSEMUpdater_GPU(OSEM_GPU* pp_osem);
 
+	// Iterates over all batches to compute the sensitivity image
+	void computeSensitivityImage(ImageDevice& destImage) const;
+
 	// Iterates over all batches to do the updates
 	void computeEMUpdateImage(const ImageDevice& inputImage,
 	                          ImageDevice& destImage) const;
 
-	// TODO NOW: Sensitivity image generation
 private:
 	OSEM_GPU* mp_osem;
 };

@@ -10,6 +10,10 @@
 class Corrector_CPU : public Corrector
 {
 public:
+	// Return sensitivity*attenuation
+	float getMultiplicativeCorrectionFactor(const ProjectionData* measurements,
+						bin_t binId) const;
+
 	// Pre-computes a ProjectionList of (randoms+scatter)/(acf*sensitivity) for
 	//  each LOR in 'measurements'
 	void
@@ -26,9 +30,6 @@ public:
 	//  measurements
 private:
 	// Functions used for precomputation only:
-	// Return sensitivity*attenuation
-	float getMultiplicativeCorrectionFactor(const ProjectionData* measurements,
-	                                        bin_t binId) const;
 	// Return (randoms+scatter)/(sensitivity*attenuation)
 	float getAdditiveCorrectionFactor(const ProjectionData* measurements,
 	                                  bin_t binId) const;

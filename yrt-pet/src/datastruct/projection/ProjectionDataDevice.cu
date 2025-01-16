@@ -39,9 +39,8 @@ void py_setup_projectiondatadevice(py::module& m)
 	      [](ProjectionDataDevice& self, const ProjectionData* src)
 	      { self.loadProjValuesFromHost(src, nullptr); });
 	c.def("loadProjValuesFromHost",
-	      [](ProjectionDataDevice& self, const ProjectionData* src,
-	         const Histogram* histo)
-	      { self.loadProjValuesFromHost(src, histo, nullptr); });
+	      [](ProjectionDataDevice& self, const Histogram* histo)
+	      { self.loadProjValuesFromHostHistogram(histo, nullptr); });
 	c.def("loadProjValuesFromReference", [](ProjectionDataDeviceOwned& self)
 	      { self.loadProjValuesFromReference(); });
 	c.def("getCurrentBatchSize", &ProjectionDataDevice::getCurrentBatchSize);
@@ -223,11 +222,10 @@ void ProjectionDataDevice::loadProjValuesFromHost(const ProjectionData* src,
 	loadProjValuesFromHostInternal(src, nullptr, stream);
 }
 
-void ProjectionDataDevice::loadProjValuesFromHost(const ProjectionData* src,
-                                                  const Histogram* histo,
-                                                  const cudaStream_t* stream)
+void ProjectionDataDevice::loadProjValuesFromHostHistogram(
+    const Histogram* histo, const cudaStream_t* stream)
 {
-	loadProjValuesFromHostInternal(src, histo, stream);
+	loadProjValuesFromHostInternal(getReference(), histo, stream);
 }
 
 void ProjectionDataDevice::loadProjValuesFromHostInternal(
@@ -485,6 +483,29 @@ void ProjectionDataDevice::addProjValues(const ProjectionDataDevice* projValues,
 	cudaCheckError();
 }
 
+void ProjectionDataDevice::convertToACFsDevice(const cudaStream_t* stream)
+{
+	const size_t batchSize = getCurrentBatchSize();
+	const auto launchParams = Util::initiateDeviceParameters(batchSize);
+
+	if (stream != nullptr)
+	{
+		convertToACFs_kernel<<<launchParams.gridSize, launchParams.blockSize, 0,
+		                       *stream>>>(getProjValuesDevicePointer(),
+		                                  getProjValuesDevicePointer(), 0.1f,
+		                                  static_cast<int>(batchSize));
+		cudaStreamSynchronize(*stream);
+	}
+	else
+	{
+		convertToACFs_kernel<<<launchParams.gridSize, launchParams.blockSize>>>(
+		    getProjValuesDevicePointer(), getProjValuesDevicePointer(), 0.1f,
+		    static_cast<int>(batchSize));
+		cudaDeviceSynchronize();
+	}
+	cudaCheckError();
+}
+
 void ProjectionDataDevice::multiplyProjValues(
     const ProjectionDataDevice* projValues, const cudaStream_t* stream)
 {
@@ -505,6 +526,29 @@ void ProjectionDataDevice::multiplyProjValues(
 		                            launchParams.blockSize>>>(
 		    projValues->getProjValuesDevicePointer(),
 		    getProjValuesDevicePointer(), static_cast<int>(batchSize));
+		cudaDeviceSynchronize();
+	}
+	cudaCheckError();
+}
+
+void ProjectionDataDevice::multiplyProjValues(float scalar,
+                                              const cudaStream_t* stream)
+{
+	const size_t batchSize = getCurrentBatchSize();
+	const auto launchParams = Util::initiateDeviceParameters(batchSize);
+
+	if (stream != nullptr)
+	{
+		multiplyProjValues_kernel<<<launchParams.gridSize,
+		                            launchParams.blockSize, 0, *stream>>>(
+		    scalar, getProjValuesDevicePointer(), static_cast<int>(batchSize));
+		cudaStreamSynchronize(*stream);
+	}
+	else
+	{
+		multiplyProjValues_kernel<<<launchParams.gridSize,
+		                            launchParams.blockSize>>>(
+		    scalar, getProjValuesDevicePointer(), static_cast<int>(batchSize));
 		cudaDeviceSynchronize();
 	}
 	cudaCheckError();
@@ -590,10 +634,10 @@ const float* ProjectionDataDeviceOwned::getProjValuesDevicePointer() const
 	return mp_projValues->getDevicePointer();
 }
 
-void ProjectionDataDeviceOwned::allocateForProjValues(
+bool ProjectionDataDeviceOwned::allocateForProjValues(
     const cudaStream_t* stream)
 {
-	mp_projValues->allocate(getCurrentBatchSize(), stream);
+	return mp_projValues->allocate(getCurrentBatchSize(), stream);
 }
 
 void ProjectionDataDeviceOwned::loadProjValuesFromHostInternal(

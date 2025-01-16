@@ -10,7 +10,33 @@
 #include "recon/OSEM_CPU.hpp"
 #include "utils/Assert.hpp"
 
-OSEMUpdater_CPU::OSEMUpdater_CPU(OSEM_CPU* pp_osem) : mp_osem(pp_osem) {}
+OSEMUpdater_CPU::OSEMUpdater_CPU(OSEM_CPU* pp_osem) : mp_osem(pp_osem)
+{
+	ASSERT(mp_osem != nullptr);
+}
+
+void OSEMUpdater_CPU::computeSensitivityImage(Image& destImage) const
+{
+	const OperatorProjector* projector = mp_osem->getProjector();
+	const BinIterator* binIter = projector->getBinIter();
+	const bin_t numBins = binIter->size();
+	const Histogram* sensitivityHistogram = mp_osem->getSensitivityHistogram();
+	const Corrector_CPU& corrector = mp_osem->getCorrector_CPU();
+
+	// TODO NOW: Add parallel
+	for (bin_t binIdx = 0; binIdx < numBins; binIdx++)
+	{
+		const bin_t bin = binIter->get(binIdx);
+
+		const ProjectionProperties projectionProperties =
+		    sensitivityHistogram->getProjectionProperties(bin);
+
+		const float projValue = corrector.getMultiplicativeCorrectionFactor(
+		    sensitivityHistogram, bin);
+
+		projector->backProjection(&destImage, projectionProperties, projValue);
+	}
+}
 
 void OSEMUpdater_CPU::computeEMUpdateImage(const Image& inputImage,
                                            Image& destImage) const

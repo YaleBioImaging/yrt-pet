@@ -1,5 +1,5 @@
 /*
-* This file is subject to the terms and conditions defined in
+ * This file is subject to the terms and conditions defined in
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
@@ -51,8 +51,7 @@ public:
 	float* getLorTOFValueDevicePointer();
 	bool areLORsGathered() const;
 
-	static constexpr size_t MemoryUsagePerLOR =
-	    sizeof(float4) * 4;
+	static constexpr size_t MemoryUsagePerLOR = sizeof(float4) * 4;
 
 	static constexpr size_t MemoryUsagePerLORWithTOF =
 	    MemoryUsagePerLOR + sizeof(float);
@@ -61,6 +60,10 @@ private:
 	void initializeDeviceArrays();
 	void allocateForLORs(bool hasTOF, const cudaStream_t* stream = nullptr);
 
+	// Note: This is currently unused. Could only be useful in the future if
+	//  YRT-PET has several ways to load LORs and treat them in the kernels. It
+	//  wouldn't allow for the possibility to keep the "getArbitraryLOR(...)"
+	//  function, but would be useful for lots of other cases.
 	std::shared_ptr<ScannerDevice> mp_scannerDevice;
 
 	std::unique_ptr<DeviceArray<float4>> mp_lorDet1Pos;
@@ -77,4 +80,3 @@ private:
 	size_t m_loadedBatchId;
 	size_t m_loadedSubsetId;
 };
-

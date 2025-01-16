@@ -81,6 +81,7 @@ void OSEM_CPU::setupOperatorsForSensImgGen()
 		mp_projector = std::make_unique<OperatorProjectorDD>(projParams);
 	}
 
+	mp_updater = std::make_unique<OSEMUpdater_CPU>(this);
 }
 
 std::unique_ptr<Image> OSEM_CPU::getLatestSensitivityImage(bool isLastSubset)
@@ -95,6 +96,12 @@ std::unique_ptr<Image> OSEM_CPU::getLatestSensitivityImage(bool isLastSubset)
 	}
 
 	return img;
+}
+
+void OSEM_CPU::computeSensitivityImage(ImageBase& destImage)
+{
+	auto& destImageHost = dynamic_cast<Image&>(destImage);
+	mp_updater->computeSensitivityImage(destImageHost);
 }
 
 void OSEM_CPU::endSensImgGen()
@@ -113,7 +120,7 @@ ImageBase* OSEM_CPU::getSensImageBuffer()
 	return getSensitivityImage(usingListModeInput ? 0 : m_current_OSEM_subset);
 }
 
-const ProjectionData* OSEM_CPU::getSensitivityBuffer()
+const ProjectionData* OSEM_CPU::getSensitivityBuffer() const
 {
 	// Since in the CPU version, the projection data is unchanged from the
 	// original and stays in the Host.
@@ -205,7 +212,7 @@ void OSEM_CPU::allocateForRecon()
 	getMLEMImageBuffer()->setValue(INITIAL_VALUE_MLEM);
 
 	// Apply mask image
-	std::cout << "Applying threshold" << std::endl;
+	std::cout << "Applying threshold..." << std::endl;
 	auto applyMask = [this](const Image* maskImage) -> void
 	{ getMLEMImageBuffer()->applyThreshold(maskImage, 0.0, 0.0, 0.0, 0.0, 1); };
 	if (maskImage != nullptr)
@@ -226,11 +233,18 @@ void OSEM_CPU::allocateForRecon()
 			getSensitivityImage(i)->addFirstImageToSecond(
 			    mp_mlemImageTmp.get());
 		}
-		std::cout << "Done summing." << std::endl;
 		applyMask(mp_mlemImageTmp.get());
 	}
 	mp_mlemImageTmp->setValue(0.0f);
-	std::cout << "Threshold applied" << std::endl;
+
+	if (mp_corrector->hasAdditiveCorrection())
+	{
+		mp_corrector->precomputeAdditiveCorrectionFactors(getDataInput());
+	}
+	if (mp_corrector->hasInVivoAttenuation())
+	{
+		mp_corrector->precomputeInVivoAttenuationFactors(getDataInput());
+	}
 }
 
 void OSEM_CPU::endRecon()

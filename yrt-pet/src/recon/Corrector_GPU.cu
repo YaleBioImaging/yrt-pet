@@ -36,8 +36,11 @@ void Corrector_GPU::precomputeAdditiveCorrectionFactors(
 		// TODO: Once GPU Siddon is implemented, use it here instead of DD_GPU
 		Util::forwProject(measurements->getScanner(), *mp_attenuationImage,
 		                  *mph_additiveCorrections, OperatorProjector::DD_GPU);
+
 		// TODO: This part would be faster if done on GPU (inside the projection
 		//  kernel)
+		std::cout << "Computing attenuation coefficient factors..."
+		          << std::endl;
 		Util::convertProjectionValuesToACF(*mph_inVivoAttenuationFactors);
 	}
 
@@ -116,8 +119,11 @@ void Corrector_GPU::precomputeInVivoAttenuationFactors(
 		Util::forwProject(
 		    measurements->getScanner(), *mp_inVivoAttenuationImage,
 		    *mph_inVivoAttenuationFactors, OperatorProjector::DD_GPU);
+
 		// TODO: This part would be faster if done on GPU (inside the projection
 		//  kernel)
+		std::cout << "Computing attenuation coefficient factors..."
+		          << std::endl;
 		Util::convertProjectionValuesToACF(*mph_inVivoAttenuationFactors);
 	}
 
@@ -155,15 +161,14 @@ void Corrector_GPU::applyHardwareAttenuationFactorsToGivenDeviceBuffer(
 {
 	ASSERT_MSG(mpd_temporaryCorrectionFactors != nullptr,
 	           "Need to initialize temporary correction factors first");
-	ASSERT(mp_attenuationImage != nullptr);
+	ASSERT(hasHardwareAttenuation());
 
 	mpd_temporaryCorrectionFactors->allocateForProjValues(stream);
 
 	if (mp_hardwareAcf != nullptr)
 	{
-		mpd_temporaryCorrectionFactors->loadProjValuesFromHost(
-		    mpd_temporaryCorrectionFactors->getReference(), mp_hardwareAcf,
-		    stream);
+		mpd_temporaryCorrectionFactors->loadProjValuesFromHostHistogram(
+		    mp_hardwareAcf, stream);
 		destProjData->multiplyProjValues(mpd_temporaryCorrectionFactors.get(),
 		                                 stream);
 	}
@@ -176,11 +181,11 @@ void Corrector_GPU::applyHardwareAttenuationFactorsToGivenDeviceBuffer(
 		//  instead of relying on a projector given as argument
 		projector->applyA(mpd_temporaryImage.get(),
 		                  mpd_temporaryCorrectionFactors.get());
+		mpd_temporaryCorrectionFactors->convertToACFsDevice(stream);
 		destProjData->multiplyProjValues(mpd_temporaryCorrectionFactors.get(),
 		                                 stream);
 	}
 }
-
 
 void Corrector_GPU::loadPrecomputedCorrectionFactorsToTemporaryDeviceBuffer(
     const ProjectionList* factors, const cudaStream_t* stream)

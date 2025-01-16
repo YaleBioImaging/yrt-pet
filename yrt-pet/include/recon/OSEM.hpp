@@ -10,6 +10,7 @@
 #include "operators/OperatorPsf.hpp"
 #include "recon/Corrector.hpp"
 #include "utils/RangeList.hpp"
+#include "datastruct/projection/UniformHistogram.hpp"
 
 #if BUILD_PYBIND11
 #include <pybind11/pybind11.h>
@@ -133,19 +134,19 @@ protected:
 	virtual void allocateForSensImgGen() = 0;
 	virtual std::unique_ptr<Image>
 	    getLatestSensitivityImage(bool isLastSubset) = 0;
+	virtual void computeSensitivityImage(ImageBase& destImage) = 0;
 	virtual void endSensImgGen() = 0;
 
 	// Reconstruction driver
 	virtual void setupOperatorsForRecon() = 0;
 	virtual void allocateForRecon() = 0;
-	virtual void endRecon() = 0;
-	virtual void completeMLEMIteration() = 0;
 	virtual void computeEMUpdateImage(const ImageBase& inputImage,
 	                                  ImageBase& destImage) = 0;
+	virtual void endRecon() = 0;
+	virtual void completeMLEMIteration() = 0;
 
 	// Abstract Getters
 	virtual ImageBase* getSensImageBuffer() = 0;
-	virtual const ProjectionData* getSensitivityBuffer() = 0;
 	virtual ImageBase* getMLEMImageBuffer() = 0;
 	virtual ImageBase*
 	    getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType type) = 0;
@@ -160,7 +161,7 @@ protected:
 private:
 	void loadSubsetInternal(int p_subsetId, bool p_forRecon);
 	void initializeForSensImgGen();
-	void generateSensitivityImageForSubset(int subsetId);
+	void generateSensitivityImageForLoadedSubset();
 	void generateSensitivityImagesCore(
 	    bool saveOnDisk, const std::string& out_fname, bool saveOnMemory,
 	    std::vector<std::unique_ptr<Image>>& sensImages);
@@ -168,8 +169,11 @@ private:
 
 	std::vector<std::unique_ptr<BinIterator>> m_binIterators;
 
-	const Histogram* mp_sensitivityHis;
 	const ProjectionData* mp_dataInput;
+
+	// Histogram used to iterate on all bins for sensitivity image generation,
+	//  in case it's needed
+	std::unique_ptr<UniformHistogram> mp_uniformHistogram;
 
 	std::vector<Image*> m_sensitivityImages;
 	// In the specific case of ListMode reconstructions launched from Python

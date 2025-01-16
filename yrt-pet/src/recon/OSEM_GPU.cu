@@ -65,9 +65,8 @@ void OSEM_GPU::setupOperatorsForSensImgGen()
 		// Create and add Bin Iterator
 		getBinIterators().push_back(
 		    getSensitivityHistogram()->getBinIter(num_OSEM_subsets, subsetId));
-
-		// Create ProjectorParams object
 	}
+	// Create ProjectorParams object
 	OperatorProjectorParams projParams(
 	    nullptr /* Will be set later at each subset loading */, scanner, 0.f, 0,
 	    flagProjPSF ? projSpacePsf_fname : "", numRays);
@@ -75,6 +74,7 @@ void OSEM_GPU::setupOperatorsForSensImgGen()
 	mp_projector = std::make_unique<OperatorProjectorDD_GPU>(
 	    projParams, getMainStream(), getAuxStream());
 
+	mp_updater = std::make_unique<OSEMUpdater_GPU>(this);
 }
 
 void OSEM_GPU::allocateForSensImgGen()
@@ -88,6 +88,9 @@ void OSEM_GPU::allocateForSensImgGen()
 	auto tempSensDataInput = std::make_unique<ProjectionDataDeviceOwned>(
 	    scanner, getSensitivityHistogram(), num_OSEM_subsets);
 	mpd_tempSensDataInput = std::move(tempSensDataInput);
+
+	// Make sure the corrector buffer is properly defined
+	mp_corrector->initializeTemporaryDeviceBuffer(mpd_tempSensDataInput.get());
 }
 
 std::unique_ptr<Image> OSEM_GPU::getLatestSensitivityImage(bool isLastSubset)
@@ -98,6 +101,12 @@ std::unique_ptr<Image> OSEM_GPU::getLatestSensitivityImage(bool isLastSubset)
 	img->allocate();
 	mpd_sensImageBuffer->transferToHostMemory(img.get(), true);
 	return img;
+}
+
+void OSEM_GPU::computeSensitivityImage(ImageBase& destImage)
+{
+	auto& destImageDevice = dynamic_cast<ImageDevice&>(destImage);
+	mp_updater->computeSensitivityImage(destImageDevice);
 }
 
 void OSEM_GPU::endSensImgGen()
@@ -173,7 +182,6 @@ void OSEM_GPU::allocateForRecon()
 			mpd_sensImageBuffer->addFirstImageToSecond(
 			    mpd_mlemImageTmpEMRatio.get());
 		}
-		std::cout << "Done summing." << std::endl;
 	}
 	mpd_mlemImage->applyThreshold(mpd_mlemImageTmpEMRatio.get(), 0.0, 0.0, 0.0,
 	                              0.0, 1.0f);
@@ -202,6 +210,15 @@ void OSEM_GPU::allocateForRecon()
 
 	// Make sure the corrector buffer is properly defined
 	mp_corrector->initializeTemporaryDeviceBuffer(mpd_dat.get());
+
+	if (mp_corrector->hasAdditiveCorrection())
+	{
+		mp_corrector->precomputeAdditiveCorrectionFactors(getDataInput());
+	}
+	if (mp_corrector->hasInVivoAttenuation())
+	{
+		mp_corrector->precomputeInVivoAttenuationFactors(getDataInput());
+	}
 }
 
 void OSEM_GPU::endRecon()
@@ -225,7 +242,13 @@ ImageBase* OSEM_GPU::getSensImageBuffer()
 	return mpd_sensImageBuffer.get();
 }
 
-const ProjectionData* OSEM_GPU::getSensitivityBuffer()
+const ProjectionDataDeviceOwned*
+    OSEM_GPU::getSensitivityDataDeviceBuffer() const
+{
+	return mpd_tempSensDataInput.get();
+}
+
+ProjectionDataDeviceOwned* OSEM_GPU::getSensitivityDataDeviceBuffer()
 {
 	return mpd_tempSensDataInput.get();
 }

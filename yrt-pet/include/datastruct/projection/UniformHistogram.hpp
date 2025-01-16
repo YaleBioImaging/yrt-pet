@@ -14,6 +14,8 @@ public:
 
 	void writeToFile(const std::string& filename) const override;
 	float getProjectionValue(bin_t binId) const override;
+	float getProjectionValueFromHistogramBin(
+	    histo_bin_t histoBinId) const override;
 	void setProjectionValue(bin_t binId, float val) override;
 	void incrementProjection(bin_t binId, float val) override;
 	void clearProjections(float p_value) override;

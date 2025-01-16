@@ -5,12 +5,75 @@
 
 #include "datastruct/projection/ProjectionDataDevice.cuh"
 #include "operators/OperatorProjectorDevice.cuh"
-#include "recon/OSEM_GPU.cuh"
 #include "recon/OSEMUpdater_GPU.cuh"
+#include "recon/OSEM_GPU.cuh"
 
 OSEMUpdater_GPU::OSEMUpdater_GPU(OSEM_GPU* pp_osem) : mp_osem(pp_osem)
 {
 	ASSERT(mp_osem != nullptr);
+}
+
+void OSEMUpdater_GPU::computeSensitivityImage(ImageDevice& destImage) const
+{
+	OperatorProjectorDevice* projector = mp_osem->getProjector();
+	const int currentSubset = mp_osem->getCurrentOSEMSubset();
+	const ImageParams& imageParams = mp_osem->getImageParams();
+	Corrector_GPU& corrector = mp_osem->getCorrector_GPU();
+
+	const cudaStream_t* mainStream = mp_osem->getMainStream();
+	const cudaStream_t* auxStream = mp_osem->getMainStream();
+
+	ProjectionDataDeviceOwned* sensDataBuffer =
+	    mp_osem->getSensitivityDataDeviceBuffer();
+	const int numBatchesInCurrentSubset =
+	    sensDataBuffer->getNumBatches(currentSubset);
+
+	bool loadGlobalScalingFactor = !corrector.hasMultiplicativeCorrection();
+
+	// TODO: do parallel batch loading here
+
+	for (int batch = 0; batch < numBatchesInCurrentSubset; batch++)
+	{
+		// Load LORs into device buffers
+		sensDataBuffer->loadEventLORs(currentSubset, batch, imageParams,
+		                              auxStream);
+		// Allocate for the projection values
+		const bool hasReallocated =
+		    sensDataBuffer->allocateForProjValues(auxStream);
+
+		// Load the projection values to the device buffer depending on the
+		//  situation
+		if (corrector.hasSensitivityHistogram())
+		{
+			// Load the projection values from the sensitivity
+			//  histogram (its reference)
+			sensDataBuffer->loadProjValuesFromReference(auxStream);
+
+			// Apply global scaling factor if it's not 1.0
+			if (corrector.hasGlobalScalingFactor())
+			{
+				sensDataBuffer->multiplyProjValues(
+				    corrector.getGlobalScalingFactor(), auxStream);
+			}
+		}
+		if (corrector.hasHardwareAttenuation())
+		{
+			corrector.applyHardwareAttenuationFactorsToGivenDeviceBuffer(
+			    sensDataBuffer, projector, auxStream);
+		}
+		if (!corrector.hasMultiplicativeCorrection() &&
+		    (loadGlobalScalingFactor || hasReallocated))
+		{
+			// Need to set all bins to the global scaling factor value, but only
+			//  do it the first time (unless a reallocation has occured)
+			sensDataBuffer->clearProjections(
+			    corrector.getGlobalScalingFactor());
+			loadGlobalScalingFactor = false;
+		}
+
+		// Backproject values
+		projector->applyAH(sensDataBuffer, &destImage);
+	}
 }
 
 void OSEMUpdater_GPU::computeEMUpdateImage(const ImageDevice& inputImage,
@@ -68,7 +131,8 @@ void OSEMUpdater_GPU::computeEMUpdateImage(const ImageDevice& inputImage,
 			                                    mainStream);
 		}
 
-		tmpBufferDevice->divideMeasurementsDevice(measurementsDevice, mainStream);
+		tmpBufferDevice->divideMeasurementsDevice(measurementsDevice,
+		                                          mainStream);
 
 		projector->applyAH(tmpBufferDevice, &destImage);
 	}

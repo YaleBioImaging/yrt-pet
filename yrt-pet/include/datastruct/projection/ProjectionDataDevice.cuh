@@ -62,9 +62,8 @@ public:
 	void loadProjValuesFromReference(const cudaStream_t* stream = nullptr);
 	void loadProjValuesFromHost(const ProjectionData* src,
 	                            const cudaStream_t* stream);
-	void loadProjValuesFromHost(const ProjectionData* src,
-	                            const Histogram* histo,
-	                            const cudaStream_t* stream);
+	void loadProjValuesFromHostHistogram(const Histogram* histo,
+	                                     const cudaStream_t* stream);
 	void transferProjValuesToHost(ProjectionData* projDataDest,
 	                              const cudaStream_t* stream = nullptr) const;
 
@@ -96,8 +95,10 @@ public:
 	                              const cudaStream_t* stream);
 	void addProjValues(const ProjectionDataDevice* projValues,
 	                   const cudaStream_t* stream);
+	void convertToACFsDevice(const cudaStream_t* stream);
 	void multiplyProjValues(const ProjectionDataDevice* projValues,
 	                        const cudaStream_t* stream);
+	void multiplyProjValues(float scalar, const cudaStream_t* stream);
 	const GPUBatchSetup& getBatchSetup(size_t subsetId) const;
 	size_t getNumBatches(size_t subsetId) const;
 	bool areLORsGathered() const;
@@ -156,7 +157,7 @@ public:
 
 	~ProjectionDataDeviceOwned() override = default;
 
-	void allocateForProjValues(const cudaStream_t* stream = nullptr);
+	bool allocateForProjValues(const cudaStream_t* stream = nullptr);
 
 	float* getProjValuesDevicePointer() override;
 	const float* getProjValuesDevicePointer() const override;

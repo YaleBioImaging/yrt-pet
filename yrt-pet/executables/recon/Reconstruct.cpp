@@ -172,13 +172,15 @@ int main(int argc, char** argv)
 		    "histogram format. Possible values: " +
 		        IO::possibleFormats(Plugin::InputFormatsChoice::ONLYHISTOGRAMS),
 		    cxxopts::value<std::string>(invivoAcf_fname));
-		sensGroup("att_hardware",
-		          "(Motion correction) Hardware attenuation image filename",
-		          cxxopts::value<std::string>(hardwareAttImg_fname));
-		sensGroup("acf_hardware",
-		          "(Motion correction) Hardware attenuation correction factors",
-		          cxxopts::value<std::string>(hardwareAcf_fname));
-		sensGroup(
+		attenuationGroup(
+		    "att_hardware",
+		    "(Motion correction) Hardware attenuation image filename",
+		    cxxopts::value<std::string>(hardwareAttImg_fname));
+		attenuationGroup(
+		    "acf_hardware",
+		    "(Motion correction) Hardware attenuation correction factors",
+		    cxxopts::value<std::string>(hardwareAcf_fname));
+		attenuationGroup(
 		    "acf_hardware_format",
 		    "(Motion correction) Hardware attenuation correction factors "
 		    "histogram format. Possible values: " +

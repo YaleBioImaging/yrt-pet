@@ -54,6 +54,7 @@ int main(int argc, char** argv)
 		int numRays = 1;
 		float hardThreshold = 1.0f;
 		float tofWidth_ps = 0.0f;
+		float globalScalingFactor = 1.0f;
 		int tofNumStd = 0;
 		int saveIterStep = 0;
 		std::string saveIterRanges;
@@ -106,6 +107,9 @@ int main(int argc, char** argv)
 		          "Invert the sensitivity histogram values (sensitivity -> "
 		          "1/sensitivity)",
 		          cxxopts::value<bool>(invertSensitivity));
+		sensGroup("global_scale",
+		          "Global scaling factor to apply on the sensitivity",
+		          cxxopts::value<float>(globalScalingFactor));
 
 		auto inputGroup = options.add_options("2. Input");
 		inputGroup("i,input", "Input file",
@@ -362,6 +366,7 @@ int main(int argc, char** argv)
 			osem->setSensitivityHistogram(sensitivityHis);
 			osem->setInvertSensitivity(invertSensitivity);
 		}
+		osem->setGlobalScalingFactor(globalScalingFactor);
 
 		std::vector<std::unique_ptr<Image>> sensImages;
 		bool sensImageAlreadyMoved = false;

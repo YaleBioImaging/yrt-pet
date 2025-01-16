@@ -9,9 +9,9 @@
 #include "datastruct/image/Image.hpp"
 #include "datastruct/projection/ListMode.hpp"
 #include "datastruct/projection/ListModeLUT.hpp"
-#include "datastruct/scanner/DetRegular.hpp"
 #include "operators/OperatorProjectorDD.hpp"
 #include "operators/OperatorProjectorSiddon.hpp"
+#include "utils/Assert.hpp"
 #include "utils/ReconstructionUtils.hpp"
 
 #include <algorithm>

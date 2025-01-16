@@ -6,8 +6,8 @@
 #include "datastruct/IO.hpp"
 
 #include "datastruct/projection/ProjectionData.hpp"
+#include "utils/Assert.hpp"
 #include "utils/Utilities.hpp"
-
 
 #if BUILD_PYBIND11
 #include <pybind11/pybind11.h>
@@ -51,6 +51,7 @@ std::string IO::possibleFormats(Plugin::InputFormatsChoice choice)
 
 bool IO::isFormatListMode(const std::string& format)
 {
+	ASSERT_MSG(!format.empty(), "No format specified");
 	const std::string format_upper = Util::toUpper(format);
 	return Plugin::PluginRegistry::instance().isFormatListMode(format_upper);
 }

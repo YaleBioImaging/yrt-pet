@@ -180,6 +180,8 @@ void OSEM::generateSensitivityImagesCore(
 		num_OSEM_subsets = 1;
 	}
 
+	corrector.setup();
+
 	initializeForSensImgGen();
 
 	sensImages.clear();
@@ -546,6 +548,8 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 			    1.0f / (static_cast<float>(num_OSEM_subsets)));
 		}
 	}
+
+	getCorrector().setup();
 
 	initializeForRecon();
 

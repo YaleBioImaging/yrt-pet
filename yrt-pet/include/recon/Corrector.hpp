@@ -35,6 +35,8 @@ public:
 
 	void addTOF(float p_tofWidth_ps, int p_tofNumStd);
 
+	const Histogram* getSensitivityHistogram() const;
+
 	// Simplify user input
 	void setup();
 
@@ -46,6 +48,17 @@ public:
 	bool hasInVivoAttenuation() const;
 
 protected:
+
+	// Helper functions
+	float getRandomsEstimate(const ProjectionData* measurements, bin_t binId,
+	                         histo_bin_t histoBin) const;
+	float getScatterEstimate(histo_bin_t histoBin) const;
+	float getSensitivity(histo_bin_t histoBin) const;
+	float getTotalACFFromHistogram(histo_bin_t histoBin) const;
+
+	bool doesTotalACFComeFromHistogram() const;
+	bool doesInVivoACFComeFromHistogram() const;
+	bool doesHardwareACFComeFromHistogram() const;
 
 	// if nullptr, use getRandomsEstimate()
 	const Histogram* mp_randoms;
@@ -74,4 +87,5 @@ protected:
 
 	// Time of flight (For computing attenuation factors from attenuation image)
 	std::unique_ptr<TimeOfFlightHelper> mp_tofHelper;
+
 };

@@ -21,6 +21,7 @@ OSEM_CPU::OSEM_CPU(const Scanner& pr_scanner)
       m_current_OSEM_subset{-1}
 {
 	mp_corrector = std::make_unique<Corrector_CPU>();
+
 	std::cout << "Creating an instance of OSEM CPU" << std::endl;
 }
 

@@ -10,7 +10,7 @@
 class GPUStream
 {
 public:
-	GPUStream(unsigned int flags=cudaStreamNonBlocking);
+	explicit GPUStream(unsigned int flags=cudaStreamNonBlocking);
 	~GPUStream();
 	const cudaStream_t& getStream() const;
 private:

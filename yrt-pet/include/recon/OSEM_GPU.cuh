@@ -10,13 +10,24 @@
 #include "datastruct/projection/ProjectionData.hpp"
 #include "datastruct/projection/ProjectionDataDevice.cuh"
 #include "recon/OSEM.hpp"
+#include "recon/Corrector_GPU.cuh"
 #include "utils/GPUStream.cuh"
+
 
 class OSEM_GPU : public OSEM
 {
 public:
 	explicit OSEM_GPU(const Scanner& pr_scanner);
 	~OSEM_GPU() override;
+
+	// Getters for internal objects
+	const Corrector& getCorrector() const override;
+	Corrector& getCorrector() override;
+	const Corrector_GPU& getCorrector_GPU() const;
+	Corrector_GPU& getCorrector_GPU();
+	OperatorProjectorDevice* getProjector();
+	const cudaStream_t* getAuxStream() const;
+	const cudaStream_t* getMainStream() const;
 
 	// Sens Image generator driver
 	void setupOperatorsForSensImgGen() override;
@@ -40,6 +51,11 @@ public:
 	const ProjectionData* getMLEMDataBuffer() override;
 	ProjectionData* getMLEMDataTmpBuffer() override;
 	int getNumBatches(int subsetId, bool forRecon) const override;
+	int getCurrentOSEMSubset() const;
+	const ProjectionDataDeviceOwned* getMLEMDataDeviceBuffer() const;
+	ProjectionDataDeviceOwned* getMLEMDataDeviceBuffer();
+	const ProjectionDataDeviceOwned* getMLEMDataTmpDeviceBuffer() const;
+	ProjectionDataDeviceOwned* getMLEMDataTmpDeviceBuffer();
 
 	// Common methods
 	void loadBatch(int batchId, bool forRecon) override;
@@ -47,8 +63,6 @@ public:
 	void addImagePSF(const std::string& p_imageSpacePsf_fname) override;
 
 private:
-	const cudaStream_t* getAuxStream() const;
-	const cudaStream_t* getMainStream() const;
 
 	std::unique_ptr<ImageDeviceOwned> mpd_sensImageBuffer;
 	std::unique_ptr<ProjectionDataDeviceOwned> mpd_tempSensDataInput;
@@ -57,6 +71,8 @@ private:
 	std::unique_ptr<ImageDeviceOwned> mpd_mlemImageTmpPsf;
 	std::unique_ptr<ProjectionDataDeviceOwned> mpd_dat;
 	std::unique_ptr<ProjectionDataDeviceOwned> mpd_datTmp;
+
+	std::unique_ptr<Corrector_GPU> mp_corrector;
 
 	int m_current_OSEM_subset;
 

@@ -56,8 +56,8 @@ private:
 	// For sensitivity image generation
 	std::unique_ptr<Image> mp_tempSensImageBuffer;
 	// For reconstruction
-	std::unique_ptr<Image> mp_mlemImageTmp; // TODO NOW Kill this
-	std::unique_ptr<ProjectionData> mp_datTmp;
+	std::unique_ptr<Image> mp_mlemImageTmp; // TODO NOW Kill this ?
+	std::unique_ptr<ProjectionData> mp_datTmp; // TODO NOW: Will need to be removed
 
 	std::unique_ptr<Corrector_CPU> mp_corrector;
 

@@ -126,9 +126,6 @@ void OperatorProjectorDD_GPU::applyA(const Variable* in, Variable* out)
 	{
 		std::cout << "Forward projecting current batch..." << std::endl;
 		applyOnLoadedBatch<true>(dat_out, img_in);
-		std::cout << "Done Forward projecting current batch." << std::endl;
-		applyAdditiveOnLoadedBatchIfNeeded(dat_out);
-		applyAttenuationOnLoadedBatchIfNeeded(dat_out, dat_out, true);
 	}
 	else
 	{
@@ -141,16 +138,11 @@ void OperatorProjectorDD_GPU::applyA(const Variable* in, Variable* out)
 			          << "..." << std::endl;
 			dat_out->loadEventLORs(0, batchId, imgParams, getAuxStream());
 			deviceDat_out->allocateForProjValues(getAuxStream());
-			dat_out->clearProjections(getMainStream());
-			std::cout << "Batch " << batchId + 1 << " loaded." << std::endl;
+			dat_out->clearProjectionsDevice(getMainStream());
 			std::cout << "Forward projecting batch..." << std::endl;
 			applyOnLoadedBatch<true>(dat_out, img_in);
-			std::cout << "Done forward projecting batch." << std::endl;
-			applyAdditiveOnLoadedBatchIfNeeded(dat_out);
-			applyAttenuationOnLoadedBatchIfNeeded(dat_out, dat_out, true);
 			std::cout << "Transferring batch to Host..." << std::endl;
 			dat_out->transferProjValuesToHost(hostDat_out, getAuxStream());
-			std::cout << "Done transferring batch to host." << std::endl;
 		}
 	}
 }
@@ -210,20 +202,10 @@ void OperatorProjectorDD_GPU::applyAH(const Variable* in, Variable* out)
 		           "ProjectionDataDevice is null. Cast failed");
 	}
 
-
 	if (!isProjDataDeviceOwned)
 	{
-		// To avoid altering the originally provided projection data, write in
-		// the intermediary buffer instead of the ProjData buffer provided
-		applyAttenuationOnLoadedBatchIfNeeded(dat_in, false);
-
-		ProjectionDataDevice* dataToProject =
-		    attImageForBackprojection != nullptr ? &getIntermediaryProjData() :
-		                                           dat_in;
-
 		std::cout << "Backprojecting current batch..." << std::endl;
-		applyOnLoadedBatch<false>(dataToProject, img_out);
-		std::cout << "Done backprojecting current batch." << std::endl;
+		applyOnLoadedBatch<false>(dat_in, img_out);
 	}
 	else
 	{
@@ -236,11 +218,8 @@ void OperatorProjectorDD_GPU::applyAH(const Variable* in, Variable* out)
 			dat_in->loadEventLORs(0, batchId, imgParams, getAuxStream());
 			deviceDat_in->allocateForProjValues(getAuxStream());
 			deviceDat_in->loadProjValuesFromReference(getAuxStream());
-			std::cout << "Batch " << batchId + 1 << " loaded." << std::endl;
-			applyAttenuationOnLoadedBatchIfNeeded(dat_in, dat_in, false);
 			std::cout << "Backprojecting batch..." << std::endl;
 			applyOnLoadedBatch<false>(dat_in, img_out);
-			std::cout << "Done backprojecting batch." << std::endl;
 		}
 	}
 
@@ -248,70 +227,6 @@ void OperatorProjectorDD_GPU::applyAH(const Variable* in, Variable* out)
 	{
 		// Need to transfer the generated image back to the host
 		deviceImg_out->transferToHostMemory(hostImg_out, false);
-	}
-}
-
-void OperatorProjectorDD_GPU::applyAttenuationOnLoadedBatchIfNeeded(
-    const ProjectionDataDevice* imgProjData, bool duringForward)
-{
-	if (requiresIntermediaryProjData())
-	{
-		prepareIntermediaryBuffer(imgProjData);
-		// Use Intermediary buffer as destination
-		applyAttenuationOnLoadedBatchIfNeeded(
-		    imgProjData, &getIntermediaryProjData(), duringForward);
-	}
-}
-
-void OperatorProjectorDD_GPU::applyAttenuationOnLoadedBatchIfNeeded(
-    const ProjectionDataDevice* imgProjData, ProjectionDataDevice* destProjData,
-    bool duringForward)
-{
-	ImageDevice* attImageToUse;
-	if (attImageForForwardProjection != nullptr && duringForward)
-	{
-		attImageToUse = const_cast<ImageDevice*>(&getAttImageDevice());
-	}
-	else if (attImageForBackprojection != nullptr && !duringForward)
-	{
-		attImageToUse =
-		    const_cast<ImageDevice*>(&getAttImageForBackprojectionDevice());
-	}
-	else
-	{
-		// Nothing to do
-		return;
-	}
-
-	prepareIntermediaryBufferIfNeeded(imgProjData);
-	std::cout << "Forward projecting current batch on attenuation image..."
-	          << std::endl;
-
-	applyOnLoadedBatch<true>(&getIntermediaryProjData(), attImageToUse);
-
-	std::cout << "Done Forward projecting current batch on attenuation image."
-	          << std::endl;
-
-	applyAttenuationFactors(&getIntermediaryProjData(), imgProjData,
-	                        destProjData, 0.1f);
-
-	std::cout << "Done applying attenuation on current batch." << std::endl;
-}
-
-void OperatorProjectorDD_GPU::applyAdditiveOnLoadedBatchIfNeeded(
-    ProjectionDataDevice* imgProjData)
-{
-	if (addHisto != nullptr)
-	{
-		prepareIntermediaryBufferIfNeeded(imgProjData);
-		std::cout << "Applying additive corrections on current batch..."
-		          << std::endl;
-		ProjectionDataDevice& intermediaryBuffer = getIntermediaryProjData();
-		intermediaryBuffer.loadProjValuesFromHost(imgProjData->getReference(),
-		                                          addHisto, getAuxStream());
-		imgProjData->addProjValues(&intermediaryBuffer, getMainStream());
-		std::cout << "Done applying additive corrections on current batch."
-		          << std::endl;
 	}
 }
 
@@ -387,41 +302,6 @@ void OperatorProjectorDD_GPU::applyOnLoadedBatch(ProjectionDataDevice* dat,
 			    getMainStream(), isSynchronized());
 		}
 	}
-}
-
-void OperatorProjectorDD_GPU::applyAttenuationFactors(
-    const ProjectionDataDevice* attImgProj, const ProjectionDataDevice* imgProj,
-    ProjectionDataDevice* destProj, float unitFactor)
-{
-	setBatchSize(destProj->getCurrentBatchSize());
-	const cudaStream_t* stream = getAuxStream();
-	const unsigned int gridSize = getGridSize();
-	const unsigned int blockSize = getBlockSize();
-	const bool synchronize = isSynchronized();
-	const size_t batchSize = getBatchSize();
-	if (stream != nullptr)
-	{
-		applyAttenuationFactors_kernel<<<gridSize, blockSize, 0, *stream>>>(
-		    attImgProj->getProjValuesDevicePointer(),
-		    imgProj->getProjValuesDevicePointer(),
-		    destProj->getProjValuesDevicePointer(), unitFactor, batchSize);
-		if (synchronize)
-		{
-			cudaStreamSynchronize(*stream);
-		}
-	}
-	else
-	{
-		applyAttenuationFactors_kernel<<<gridSize, blockSize>>>(
-		    attImgProj->getProjValuesDevicePointer(),
-		    imgProj->getProjValuesDevicePointer(),
-		    destProj->getProjValuesDevicePointer(), unitFactor, batchSize);
-		if (synchronize)
-		{
-			cudaDeviceSynchronize();
-		}
-	}
-	cudaCheckError();
 }
 
 template <bool IsForward, bool HasTOF, bool HasProjPsf>

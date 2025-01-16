@@ -12,8 +12,8 @@
 
 OSEMUpdater_CPU::OSEMUpdater_CPU(OSEM_CPU* pp_osem) : mp_osem(pp_osem) {}
 
-void OSEMUpdater_CPU::accumulateEMUpdateImage(const Image& inputImage,
-                                              Image& destImage) const
+void OSEMUpdater_CPU::computeEMUpdateImage(const Image& inputImage,
+                                           Image& destImage) const
 {
 	const OperatorProjector* projector = mp_osem->getProjector();
 	const BinIterator* binIter = projector->getBinIter();

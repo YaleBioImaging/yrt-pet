@@ -231,7 +231,7 @@ void ImageParams::completeDimInfo()
 	}
 
 	// Force offset to be zero in case it is lower than 0.1 micrometers
-	if (std::abs(*off) < 1e-4)
+	if (std::abs(*off) < PositioningPrecision)
 	{
 		*off = 0.0f;
 	}
@@ -353,16 +353,16 @@ bool ImageParams::isSameDimensionsAs(const ImageParams& other) const
 
 bool ImageParams::isSameLengthsAs(const ImageParams& other) const
 {
-	return APPROX_EQ_THRESH(length_x, other.length_x, 1e-4) &&
-	       APPROX_EQ_THRESH(length_y, other.length_y, 1e-4) &&
-	       APPROX_EQ_THRESH(length_z, other.length_z, 1e-4);
+	return APPROX_EQ_THRESH(length_x, other.length_x, PositioningPrecision) &&
+	       APPROX_EQ_THRESH(length_y, other.length_y, PositioningPrecision) &&
+	       APPROX_EQ_THRESH(length_z, other.length_z, PositioningPrecision);
 }
 
 bool ImageParams::isSameOffsetsAs(const ImageParams& other) const
 {
-	return APPROX_EQ_THRESH(off_x, other.off_x, 1e-4) &&
-	       APPROX_EQ_THRESH(off_y, other.off_y, 1e-4) &&
-	       APPROX_EQ_THRESH(off_z, other.off_z, 1e-4);
+	return APPROX_EQ_THRESH(off_x, other.off_x, PositioningPrecision) &&
+	       APPROX_EQ_THRESH(off_y, other.off_y, PositioningPrecision) &&
+	       APPROX_EQ_THRESH(off_z, other.off_z, PositioningPrecision);
 }
 
 bool ImageParams::isSameAs(const ImageParams& other) const
@@ -385,7 +385,7 @@ void ImageBase::setParams(const ImageParams& newParams)
 
 size_t ImageBase::unravel(int iz, int iy, int ix) const
 {
-	return ix + (iy + iz*m_params.ny)*m_params.nx;
+	return ix + (iy + iz * m_params.ny) * m_params.nx;
 }
 
 float ImageBase::getRadius() const

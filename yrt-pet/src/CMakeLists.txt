@@ -71,11 +71,14 @@ if (USE_CUDA)
             datastruct/projection/LORsDevice.cu
             datastruct/projection/ProjectionDataDevice.cu
             datastruct/projection/ProjectionSpaceKernels.cu
-            operators/OperatorDevice.cu
+            operators/DeviceSynchronized.cu
+            operators/OperatorProjectorDevice.cu
             operators/OperatorPsfDevice.cu
             operators/ProjectionPsfManagerDevice.cu
             operators/OperatorProjectorDD_GPUKernels.cu
             operators/OperatorProjectorDD_GPU.cu
+            recon/Corrector_GPU.cu
+            recon/OSEMUpdater_GPU.cu
             recon/OSEM_GPU.cu
             utils/PageLockedBuffer.cu
             utils/GPUStream.cu

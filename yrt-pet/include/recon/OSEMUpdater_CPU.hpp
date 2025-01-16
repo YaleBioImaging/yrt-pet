@@ -17,9 +17,10 @@ public:
 
 	/*
 	 * This function computes the image that will be used in the EM update
+	 * (after the PSF forward has been applied and before the PSF backwards is
+	 * to be applied)
 	 */
-	void accumulateEMUpdateImage(const Image& inputImage,
-	                             Image& destImage) const;
+	void computeEMUpdateImage(const Image& inputImage, Image& destImage) const;
 
 	// TODO NOW: Sensitivity image generation
 private:

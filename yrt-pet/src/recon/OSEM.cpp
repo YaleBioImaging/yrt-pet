@@ -605,6 +605,11 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 				mlem_image_rp = getMLEMImageBuffer();
 			}
 
+			// TODO NOW: All this will be replaced by a single call using
+			//  the OSEMUpdater (which will be managed internally by either
+			//  OSEM_CPU or OSEM_GPU). loadBatch will no longer exist and the
+			//  same for getNumBatches
+
 			// Data batches in case it doesn't fit in device memory
 			for (int batchId = 0; batchId < numBatches; batchId++)
 			{

@@ -26,6 +26,9 @@ namespace Util
 	Line3D getNativeLOR(const Scanner& scanner, const ProjectionData& dat,
 	                    bin_t binId);
 
+	void convertProjectionValuesToACF(ProjectionData& dat,
+	                                  float unitFactor = 0.1f);
+
 	std::unique_ptr<OSEM> createOSEM(const Scanner& scanner,
 	                                 bool useGPU = false);
 

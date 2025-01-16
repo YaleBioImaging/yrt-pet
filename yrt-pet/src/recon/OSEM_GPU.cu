@@ -22,6 +22,8 @@ OSEM_GPU::OSEM_GPU(const Scanner& pr_scanner)
       mpd_datTmp(nullptr),
       m_current_OSEM_subset(-1)
 {
+	mp_corrector = std::make_unique<Corrector_GPU>();
+
 	std::cout << "Creating an instance of OSEM GPU" << std::endl;
 
 	// Since the only available projector in GPU right now is DD_GPU:
@@ -29,6 +31,26 @@ OSEM_GPU::OSEM_GPU(const Scanner& pr_scanner)
 }
 
 OSEM_GPU::~OSEM_GPU() = default;
+
+const Corrector& OSEM_GPU::getCorrector() const
+{
+	return *mp_corrector;
+}
+
+Corrector& OSEM_GPU::getCorrector()
+{
+	return *mp_corrector;
+}
+
+const Corrector_GPU& OSEM_GPU::getCorrector_GPU() const
+{
+	return *mp_corrector;
+}
+
+Corrector_GPU& OSEM_GPU::getCorrector_GPU()
+{
+	return *mp_corrector;
+}
 
 void OSEM_GPU::setupOperatorsForSensImgGen()
 {
@@ -52,12 +74,6 @@ void OSEM_GPU::setupOperatorsForSensImgGen()
 
 	mp_projector = std::make_unique<OperatorProjectorDD_GPU>(
 	    projParams, getMainStream(), getAuxStream());
-
-	if (attenuationImageForBackprojection != nullptr)
-	{
-		mp_projector->setAttImageForBackprojection(
-		    attenuationImageForBackprojection);
-	}
 }
 
 void OSEM_GPU::allocateForSensImgGen()
@@ -132,7 +148,7 @@ void OSEM_GPU::allocateForRecon()
 	mpd_mlemImageTmpPsf->allocate(false);
 	mpd_sensImageBuffer->allocate(false);
 
-	// Initialize the MLEM image values to non zero
+	// Initialize the MLEM image values to non-zero
 	mpd_mlemImage->setValue(INITIAL_VALUE_MLEM);
 
 	// Apply mask image (Use temporary buffer to avoid allocating a new one
@@ -182,6 +198,9 @@ void OSEM_GPU::allocateForRecon()
 
 	mpd_dat = std::move(dat);
 	mpd_datTmp = std::move(datTmp);
+
+	// Make sure the corrector buffer is properly defined
+	mp_corrector->initializeTemporaryDeviceBuffer(mpd_dat.get());
 }
 
 void OSEM_GPU::endRecon()
@@ -238,6 +257,14 @@ ProjectionData* OSEM_GPU::getMLEMDataTmpBuffer()
 	return mpd_datTmp.get();
 }
 
+OperatorProjectorDevice* OSEM_GPU::getProjector()
+{
+	auto* deviceProjector =
+	    dynamic_cast<OperatorProjectorDevice*>(mp_projector.get());
+	ASSERT(deviceProjector != nullptr);
+	return deviceProjector;
+}
+
 int OSEM_GPU::getNumBatches(int subsetId, bool forRecon) const
 {
 	if (forRecon)
@@ -245,6 +272,31 @@ int OSEM_GPU::getNumBatches(int subsetId, bool forRecon) const
 		return mpd_dat->getNumBatches(subsetId);
 	}
 	return mpd_tempSensDataInput->getNumBatches(subsetId);
+}
+
+int OSEM_GPU::getCurrentOSEMSubset() const
+{
+	return m_current_OSEM_subset;
+}
+
+ProjectionDataDeviceOwned* OSEM_GPU::getMLEMDataTmpDeviceBuffer()
+{
+	return mpd_datTmp.get();
+}
+
+const ProjectionDataDeviceOwned* OSEM_GPU::getMLEMDataTmpDeviceBuffer() const
+{
+	return mpd_datTmp.get();
+}
+
+ProjectionDataDeviceOwned* OSEM_GPU::getMLEMDataDeviceBuffer()
+{
+	return mpd_dat.get();
+}
+
+const ProjectionDataDeviceOwned* OSEM_GPU::getMLEMDataDeviceBuffer() const
+{
+	return mpd_dat.get();
 }
 
 void OSEM_GPU::loadBatch(int batchId, bool forRecon)

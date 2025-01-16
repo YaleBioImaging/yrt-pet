@@ -5,8 +5,7 @@
 
 #pragma once
 
-#include "operators/OperatorDevice.cuh"
-#include "operators/OperatorProjector.hpp"
+#include "operators/OperatorProjectorDevice.cuh"
 
 
 class ProjectionDataDevice;
@@ -24,17 +23,6 @@ public:
 	void applyAH(const Variable* in, Variable* out) override;
 
 private:
-	void applyAttenuationOnLoadedBatchIfNeeded(
-	    const ProjectionDataDevice* imgProjData, bool duringForward);
-	void applyAttenuationOnLoadedBatchIfNeeded(
-	    const ProjectionDataDevice* imgProjData,
-	    ProjectionDataDevice* destProjData, bool duringForward);
-	void applyAdditiveOnLoadedBatchIfNeeded(ProjectionDataDevice* imgProjData);
-
-	void applyAttenuationFactors(const ProjectionDataDevice* attImgProj,
-	                             const ProjectionDataDevice* imgProj,
-	                             ProjectionDataDevice* destProj,
-	                             float unitFactor);
 
 	template <bool IsForward>
 	void applyOnLoadedBatch(ProjectionDataDevice* dat, ImageDevice* img);

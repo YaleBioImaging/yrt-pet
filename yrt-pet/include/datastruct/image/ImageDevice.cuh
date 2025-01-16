@@ -18,6 +18,7 @@ class ImageDevice : public ImageBase
 public:
 	virtual float* getDevicePointer() = 0;
 	virtual const float* getDevicePointer() const = 0;
+	bool isMemoryValid() const;
 	size_t getImageSize() const;
 	const cudaStream_t* getStream() const;
 	void transferToDeviceMemory(const float* ph_img_ptr,

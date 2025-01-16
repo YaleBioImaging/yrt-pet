@@ -22,9 +22,10 @@ public:
 	    getCachedMeasurementsForAdditiveCorrectionFactors() const;
 	const ProjectionData*
 	    getCachedMeasurementsForInVivoAttenuationFactors() const;
-
+	// TODO NOW: use const reference instead of pointers to ProjectionData
+	//  measurements
 private:
-	// Function used for precomputation only
+	// Functions used for precomputation only:
 	// Return sensitivity*attenuation
 	float getMultiplicativeCorrectionFactor(const ProjectionData* measurements,
 	                                        bin_t binId) const;
@@ -34,7 +35,7 @@ private:
 	// Return a^(i)_i
 	float getInVivoAttenuationFactor(const ProjectionData* measurements,
 	                                 bin_t binId) const;
-
+	// Helper functions:
 	// Given measurements, a bin, and an attenuation image, compute the
 	//  appropriate attenuation factor
 	float getAttenuationFactorFromAttenuationImage(

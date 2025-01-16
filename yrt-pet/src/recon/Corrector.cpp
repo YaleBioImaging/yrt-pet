@@ -89,22 +89,47 @@ void Corrector::addTOF(float p_tofWidth_ps, int p_tofNumStd)
 	    std::make_unique<TimeOfFlightHelper>(p_tofWidth_ps, p_tofNumStd);
 }
 
+const Histogram* Corrector::getSensitivityHistogram() const
+{
+	return mp_sensitivity;
+}
+
 void Corrector::setup()
 {
-	// Send warnings if needed
 	if (mp_acf != nullptr && mp_inVivoAcf != nullptr &&
 	    mp_hardwareAcf == nullptr)
 	{
-		std::cout << "Warning: Total ACF and in-vivo ACF specified, but no "
-		             "hardware ACF specified."
-		          << std::endl;
+		std::cout
+		    << "Warning: Total ACF and in-vivo ACF specified, but no "
+		       "hardware ACF specified. Assuming no hardware attenuation..."
+		    << std::endl;
 	}
 	else if (mp_acf != nullptr && mp_inVivoAcf == nullptr &&
 	         mp_hardwareAcf != nullptr)
 	{
 		std::cout << "Warning: Total ACF and hardware ACF specified, but no "
-		             "in-vivo ACF specified."
+		             "in-vivo ACF specified. Assuming no in-vivo attenuation..."
 		          << std::endl;
+	}
+	if (mp_acf == nullptr && mp_inVivoAcf == nullptr &&
+	    mp_hardwareAcf != nullptr)
+	{
+		// All ACF is Hardware ACF
+		mp_acf = mp_hardwareAcf;
+	}
+	else if (mp_acf == nullptr && mp_inVivoAcf != nullptr &&
+	         mp_hardwareAcf == nullptr)
+	{
+		// All ACF is in-vivo ACF
+		mp_acf = mp_inVivoAcf;
+	}
+	else if (mp_acf != nullptr && mp_inVivoAcf == nullptr &&
+	         mp_hardwareAcf == nullptr)
+	{
+		// User only specified total ACF, but not how it is distributed.
+		// We assume that all ACFs come from hardware, which is
+		// the case when there is no motion
+		mp_hardwareAcf = mp_acf;
 	}
 
 	// Adjust attenuation image logic
@@ -196,4 +221,72 @@ bool Corrector::hasAdditiveCorrection() const
 bool Corrector::hasInVivoAttenuation() const
 {
 	return mp_inVivoAcf != nullptr || mp_inVivoAttenuationImage != nullptr;
+}
+
+float Corrector::getRandomsEstimate(const ProjectionData* measurements,
+                                    bin_t binId, histo_bin_t histoBin) const
+{
+	if (mp_randoms != nullptr)
+	{
+		return mp_randoms->getProjectionValueFromHistogramBin(histoBin);
+	}
+	return measurements->getRandomsEstimate(binId);
+}
+
+float Corrector::getScatterEstimate(histo_bin_t histoBin) const
+{
+	if (mp_scatter != nullptr)
+	{
+		// TODO: Support exception in case of a contiguous sinogram (future)
+		return mp_scatter->getProjectionValueFromHistogramBin(histoBin);
+	}
+	return 0.0f;
+}
+
+float Corrector::getSensitivity(histo_bin_t histoBin) const
+{
+	if (mp_sensitivity != nullptr)
+	{
+		float sensitivity =
+		    m_globalScalingFactor *
+		    mp_sensitivity->getProjectionValueFromHistogramBin(histoBin);
+		if (m_invertSensitivity)
+		{
+			sensitivity = 1.0f / sensitivity;
+		}
+		return sensitivity;
+	}
+	return m_globalScalingFactor;
+}
+
+float Corrector::getTotalACFFromHistogram(histo_bin_t histoBin) const
+{
+	if (mp_acf != nullptr)
+	{
+		return mp_acf->getProjectionValueFromHistogramBin(histoBin);
+	}
+	if (mp_inVivoAcf != nullptr && mp_hardwareAcf != nullptr)
+	{
+		// Total ACF has to be computed from both components
+		return mp_inVivoAcf->getProjectionValueFromHistogramBin(histoBin) *
+		       mp_hardwareAcf->getProjectionValueFromHistogramBin(histoBin);
+	}
+	ASSERT_MSG(false, "Unexpected error");
+	return 0.0f;
+}
+
+bool Corrector::doesTotalACFComeFromHistogram() const
+{
+	return mp_acf != nullptr ||
+	       (mp_hardwareAcf != nullptr && mp_inVivoAcf != nullptr);
+}
+
+bool Corrector::doesInVivoACFComeFromHistogram() const
+{
+	return mp_inVivoAcf != nullptr;
+}
+
+bool Corrector::doesHardwareACFComeFromHistogram() const
+{
+	return mp_hardwareAcf != nullptr;
 }

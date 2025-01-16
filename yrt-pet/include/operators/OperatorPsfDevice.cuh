@@ -5,11 +5,13 @@
 
 #pragma once
 
-#include "operators/OperatorDevice.cuh"
+#include "datastruct/image/ImageDevice.cuh"
+#include "operators/DeviceSynchronized.cuh"
 #include "operators/OperatorPsf.hpp"
 #include "utils/DeviceArray.cuh"
 
-class OperatorPsfDevice : public OperatorDevice, public OperatorPsf
+
+class OperatorPsfDevice : public DeviceSynchronized, public OperatorPsf
 {
 public:
 	OperatorPsfDevice();

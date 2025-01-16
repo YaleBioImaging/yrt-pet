@@ -7,7 +7,7 @@
 
 #include "datastruct/image/Image.hpp"
 #include "datastruct/image/ImageSpaceKernels.cuh"
-#include "operators/OperatorDevice.cuh"
+#include "operators/OperatorProjectorDevice.cuh"
 #include "utils/Assert.hpp"
 #include "utils/GPUMemory.cuh"
 #include "utils/GPUTypes.cuh"
@@ -189,6 +189,11 @@ void ImageDevice::setDeviceParams(const ImageParams& params)
 const cudaStream_t* ImageDevice::getStream() const
 {
 	return mp_stream;
+}
+
+bool ImageDevice::isMemoryValid() const
+{
+	return getDevicePointer() != nullptr;
 }
 
 size_t ImageDevice::getImageSize() const

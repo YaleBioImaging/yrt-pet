@@ -61,7 +61,7 @@ OperatorPsfDevice::OperatorPsfDevice()
 
 OperatorPsfDevice::OperatorPsfDevice(const std::string& imageSpacePsf_fname,
                                      const cudaStream_t* pp_stream)
-    : OperatorDevice{true, pp_stream, pp_stream},
+    : DeviceSynchronized{true, pp_stream, pp_stream},
       OperatorPsf{},
       mpd_intermediaryImage{nullptr}
 {

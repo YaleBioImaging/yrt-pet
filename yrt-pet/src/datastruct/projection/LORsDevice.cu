@@ -6,7 +6,7 @@
 #include "datastruct/projection/LORsDevice.cuh"
 
 #include "datastruct/projection/ProjectionData.hpp"
-#include "operators/OperatorDevice.cuh"
+#include "operators/OperatorProjectorDevice.cuh"
 #include "utils/PageLockedBuffer.cuh"
 #include "utils/ReconstructionUtils.hpp"
 
@@ -63,20 +63,19 @@ void LORsDevice::loadEventLORs(const BinIterator& binIter,
 	const size_t offset = batchId * batchSetup.getBatchSize(0);
 	auto* binIter_ptr = &binIter;
 	const Vector3D offsetVec{imgParams.off_x, imgParams.off_y, imgParams.off_z};
-	const Scanner* scanner = &getScanner();
 	const ProjectionData* reference_ptr = &reference;
 
 	bin_t binId;
 	size_t binIdx;
 #pragma omp parallel for default(none) private(binIdx, binId)                  \
-    firstprivate(offset, batchSize, binIter_ptr, offsetVec, scanner,           \
+    firstprivate(offset, batchSize, binIter_ptr, offsetVec,                    \
                      tempBufferLorDet1Pos_ptr, tempBufferLorDet2Pos_ptr,       \
                      tempBufferLorDet1Orient_ptr, tempBufferLorDet2Orient_ptr, \
                      tempBufferLorTOFValue_ptr, reference_ptr, hasTOF)
 	for (binIdx = 0; binIdx < batchSize; binIdx++)
 	{
 		binId = binIter_ptr->get(binIdx + offset);
-		auto [lor, tofValue, randomsEstimate, det1Orient, det2Orient] =
+		auto [lor, tofValue, det1Orient, det2Orient] =
 		    reference_ptr->getProjectionProperties(binId);
 
 		// TODO: What to do with randoms estimate?

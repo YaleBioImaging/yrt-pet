@@ -31,6 +31,8 @@ public:
 	// Automatically populated fields
 	float fovRadius;
 
+	static constexpr float PositioningPrecision = 1e-4f;
+
 	ImageParams();
 	ImageParams(int nxi, int nyi, int nzi, float length_xi, float length_yi,
 	            float length_zi, float offset_xi = 0., float offset_yi = 0.,

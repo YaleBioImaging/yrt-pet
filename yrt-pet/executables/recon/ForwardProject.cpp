@@ -21,7 +21,6 @@ int main(int argc, char** argv)
 	{
 		std::string scanner_fname;
 		std::string inputImage_fname;
-		std::string attImg_fname;
 		std::string imageSpacePsf_fname;
 		std::string projSpacePsf_fname;
 		std::string outHis_fname;
@@ -33,6 +32,8 @@ int main(int argc, char** argv)
 		bool convertToAcf = false;
 		float tofWidth_ps = 0.0;
 		int tofNumStd = 0;
+		// TODO: Support Attenuation image and Additive correction from
+		//  histogram (to use this executable to compute the forward model)
 
 		// Parse command line arguments
 		cxxopts::Options options(argv[0],
@@ -43,7 +44,6 @@ int main(int argc, char** argv)
 		options.add_options()
 		("s,scanner", "Scanner parameters file name", cxxopts::value<std::string>(scanner_fname))
 		("i,input", "Input image file", cxxopts::value<std::string>(inputImage_fname))
-		("att", "Attenuation image filename", cxxopts::value<std::string>(attImg_fname))
 		("psf", "Image-space PSF kernel file", cxxopts::value<std::string>(imageSpacePsf_fname))
 		("proj_psf", "Projection-space PSF kernel file", cxxopts::value<std::string>(projSpacePsf_fname))
 		("projector", "Projector to use, choices: Siddon (S), Distance-Driven (D)"
@@ -91,14 +91,6 @@ int main(int argc, char** argv)
 		// Input file
 		auto inputImage = std::make_unique<ImageOwned>(inputImage_fname);
 
-		// Attenuation image
-		std::unique_ptr<ImageParams> attImgParams = nullptr;
-		std::unique_ptr<ImageOwned> attImg = nullptr;
-		if (!attImg_fname.empty())
-		{
-			attImg = std::make_unique<ImageOwned>(attImg_fname);
-		}
-
 		// Image-space PSF
 		if (!imageSpacePsf_fname.empty())
 		{
@@ -106,15 +98,13 @@ int main(int argc, char** argv)
 			    std::make_unique<OperatorPsf>(imageSpacePsf_fname);
 			std::cout << "Applying Image-space PSF..." << std::endl;
 			imageSpacePsf->applyA(inputImage.get(), inputImage.get());
-			std::cout << "Done applying Image-space PSF" << std::endl;
 		}
 
 		// Create histo here
 		auto his = std::make_unique<Histogram3DOwned>(*scanner);
 		his->allocate();
 
-
-		// Start forward projection
+		// Setup forward projection
 		auto binIter = his->getBinIter(numSubsets, subsetId);
 		OperatorProjectorParams projParams(binIter.get(), *scanner, tofWidth_ps,
 		                                   tofNumStd, projSpacePsf_fname,
@@ -122,17 +112,13 @@ int main(int argc, char** argv)
 
 		auto projectorType = IO::getProjector(projector_name);
 
-		Util::forwProject(*inputImage, *his, projParams, projectorType,
-		                  attImg.get(), nullptr);
+		Util::forwProject(*inputImage, *his, projParams, projectorType);
 
 		if (convertToAcf)
 		{
-			his->operationOnEachBinParallel(
-			    [&his](bin_t bin) -> float
-			    {
-				    return Util::getAttenuationCoefficientFactor(
-				        his->getProjectionValue(bin));
-			    });
+			std::cout << "Computing attenuation coefficient factors..."
+			          << std::endl;
+			Util::convertProjectionValuesToACF(*his);
 		}
 
 		std::cout << "Writing histogram to file..." << std::endl;

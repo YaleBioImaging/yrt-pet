@@ -7,7 +7,7 @@
 #include "datastruct/projection/ProjectionDataDevice.cuh"
 #include "datastruct/projection/ProjectionSpaceKernels.cuh"
 #include "datastruct/projection/UniformHistogram.hpp"
-#include "operators/OperatorDevice.cuh"
+#include "operators/OperatorProjectorDevice.cuh"
 #include "utils/Assert.hpp"
 #include "utils/Globals.hpp"
 
@@ -238,7 +238,7 @@ void ProjectionDataDevice::loadProjValuesFromHostInternal(
 	{
 		// No need to "getProjectionValue" everywhere, just fill the buffer with
 		// the same value
-		clearProjections(getReference()->getProjectionValue(0), stream);
+		clearProjectionsDevice(getReference()->getProjectionValue(0), stream);
 	}
 	else
 	{
@@ -259,6 +259,9 @@ void ProjectionDataDevice::loadProjValuesFromHostInternal(
 		bin_t binId;
 		if (histo == nullptr)
 		{
+			// TODO: Add optimization if loading from ProjectionList (since its
+			//  memory is contiguous)
+
 			// Fill the buffer using the source directly
 #pragma omp parallel for default(none) private(binIdx, binId) \
     firstprivate(offset, binIter, projValuesBuffer, src, batchSize)
@@ -376,15 +379,15 @@ void ProjectionDataDevice::setProjectionValue(bin_t id, float val)
 
 void ProjectionDataDevice::clearProjections(float value)
 {
-	clearProjections(value, nullptr);
+	clearProjectionsDevice(value, nullptr);
 }
 
-void ProjectionDataDevice::clearProjections(float value,
-                                            const cudaStream_t* stream)
+void ProjectionDataDevice::clearProjectionsDevice(float value,
+                                                  const cudaStream_t* stream)
 {
 	if (value == 0.0f)
 	{
-		clearProjections(stream);
+		clearProjectionsDevice(stream);
 		return;
 	}
 	const size_t batchSize = getCurrentBatchSize();
@@ -407,7 +410,7 @@ void ProjectionDataDevice::clearProjections(float value,
 	cudaCheckError();
 }
 
-void ProjectionDataDevice::clearProjections(const cudaStream_t* stream)
+void ProjectionDataDevice::clearProjectionsDevice(const cudaStream_t* stream)
 {
 	if (stream != nullptr)
 	{
@@ -427,14 +430,13 @@ void ProjectionDataDevice::clearProjections(const cudaStream_t* stream)
 void ProjectionDataDevice::divideMeasurements(
     const ProjectionData* measurements, const BinIterator* binIter)
 {
-	divideMeasurements(measurements, binIter, nullptr);
+	(void)binIter;  // Not needed as this class has its own BinIterators
+	divideMeasurementsDevice(measurements, nullptr);
 }
 
-void ProjectionDataDevice::divideMeasurements(
-    const ProjectionData* measurements, const BinIterator* binIter,
-    const cudaStream_t* stream)
+void ProjectionDataDevice::divideMeasurementsDevice(
+    const ProjectionData* measurements, const cudaStream_t* stream)
 {
-	(void)binIter;  // Not needed as this class has its own BinIterators
 	const auto* measurements_device =
 	    dynamic_cast<const ProjectionDataDevice*>(measurements);
 	const size_t batchSize = getCurrentBatchSize();
@@ -476,6 +478,31 @@ void ProjectionDataDevice::addProjValues(const ProjectionDataDevice* projValues,
 	else
 	{
 		addProjValues_kernel<<<launchParams.gridSize, launchParams.blockSize>>>(
+		    projValues->getProjValuesDevicePointer(),
+		    getProjValuesDevicePointer(), static_cast<int>(batchSize));
+		cudaDeviceSynchronize();
+	}
+	cudaCheckError();
+}
+
+void ProjectionDataDevice::multiplyProjValues(
+    const ProjectionDataDevice* projValues, const cudaStream_t* stream)
+{
+	const size_t batchSize = getCurrentBatchSize();
+	const auto launchParams = Util::initiateDeviceParameters(batchSize);
+
+	if (stream != nullptr)
+	{
+		multiplyProjValues_kernel<<<launchParams.gridSize,
+		                            launchParams.blockSize, 0, *stream>>>(
+		    projValues->getProjValuesDevicePointer(),
+		    getProjValuesDevicePointer(), static_cast<int>(batchSize));
+		cudaStreamSynchronize(*stream);
+	}
+	else
+	{
+		multiplyProjValues_kernel<<<launchParams.gridSize,
+		                            launchParams.blockSize>>>(
 		    projValues->getProjValuesDevicePointer(),
 		    getProjValuesDevicePointer(), static_cast<int>(batchSize));
 		cudaDeviceSynchronize();

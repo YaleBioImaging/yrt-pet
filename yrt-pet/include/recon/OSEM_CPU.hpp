@@ -5,8 +5,9 @@
 
 #pragma once
 
-#include "Corrector_CPU.hpp"
+#include "recon/Corrector_CPU.hpp"
 #include "recon/OSEM.hpp"
+#include "recon/OSEMUpdater_CPU.hpp"
 
 class OSEM_CPU : public OSEM
 {
@@ -22,7 +23,7 @@ public:
 
 	// Getters for operators
 	const OperatorProjector* getProjector() const;
-	OperatorPsf* getOperatorPsf() const; // Image-space PSF
+	OperatorPsf* getOperatorPsf() const;  // Image-space PSF
 
 protected:
 	// Sens Image generator driver
@@ -37,7 +38,6 @@ protected:
 	void allocateForRecon() override;
 	void endRecon() override;
 	void completeMLEMIteration() override;
-	void prepareEMAccumulation() override;
 
 	// Internal getters
 	ImageBase* getSensImageBuffer() override;
@@ -51,15 +51,20 @@ protected:
 	// Common methods
 	void loadBatch(int batchId, bool forRecon) override;
 	void loadSubset(int subsetId, bool forRecon) override;
+	void computeEMUpdateImage(const ImageBase& inputImage,
+	                          ImageBase& destImage) override;
 
 private:
 	// For sensitivity image generation
 	std::unique_ptr<Image> mp_tempSensImageBuffer;
 	// For reconstruction
-	std::unique_ptr<Image> mp_mlemImageTmp; // TODO NOW Kill this ?
-	std::unique_ptr<ProjectionData> mp_datTmp; // TODO NOW: Will need to be removed
+	std::unique_ptr<Image> mp_mlemImageTmp;
+	std::unique_ptr<Image> mp_mlemImageTmpPsf;
+	std::unique_ptr<ProjectionData>
+	    mp_datTmp;  // TODO NOW: Will need to be removed
 
 	std::unique_ptr<Corrector_CPU> mp_corrector;
+	std::unique_ptr<OSEMUpdater_CPU> mp_updater;
 
 	int m_current_OSEM_subset;
 };

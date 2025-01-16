@@ -40,12 +40,6 @@ protected:
 
 	void setBatchSize(size_t newBatchSize);
 
-	ProjectionDataDeviceOwned& getIntermediaryProjData();
-	const ImageDevice& getAttImageDevice() const;
-	const ImageDevice& getAttImageForBackprojectionDevice() const;
-	void prepareIntermediaryBuffer(const ProjectionDataDevice* orig);
-	void prepareIntermediaryBufferIfNeeded(const ProjectionDataDevice* orig);
-
 	const TimeOfFlightHelper* getTOFHelperDevicePointer() const;
 	const float* getProjPsfKernelsDevicePointer(bool flipped) const;
 

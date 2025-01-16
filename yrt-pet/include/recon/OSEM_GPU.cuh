@@ -9,8 +9,9 @@
 #include "datastruct/image/ImageDevice.cuh"
 #include "datastruct/projection/ProjectionData.hpp"
 #include "datastruct/projection/ProjectionDataDevice.cuh"
-#include "recon/OSEM.hpp"
 #include "recon/Corrector_GPU.cuh"
+#include "recon/OSEM.hpp"
+#include "recon/OSEMUpdater_GPU.cuh"
 #include "utils/GPUStream.cuh"
 
 
@@ -41,6 +42,8 @@ public:
 	void allocateForRecon() override;
 	void endRecon() override;
 	void completeMLEMIteration() override;
+	void computeEMUpdateImage(const ImageBase& inputImage,
+	                          ImageBase& destImage) override;
 
 	// Internal getters
 	ImageBase* getSensImageBuffer() override;
@@ -50,7 +53,7 @@ public:
 	    getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType type) override;
 	const ProjectionData* getMLEMDataBuffer() override;
 	ProjectionData* getMLEMDataTmpBuffer() override;
-	int getNumBatches(int subsetId, bool forRecon) const override;
+	int getNumBatches(int subsetId, bool forRecon) const;
 	int getCurrentOSEMSubset() const;
 	const ProjectionDataDeviceOwned* getMLEMDataDeviceBuffer() const;
 	ProjectionDataDeviceOwned* getMLEMDataDeviceBuffer();
@@ -73,12 +76,11 @@ private:
 	std::unique_ptr<ProjectionDataDeviceOwned> mpd_datTmp;
 
 	std::unique_ptr<Corrector_GPU> mp_corrector;
+	std::unique_ptr<OSEMUpdater_GPU> mp_updater;
 
 	int m_current_OSEM_subset;
 
 	GPUStream m_mainStream;
+	// TODO: Add parallel batch loading
 	// GPUStream m_auxStream;
-
-	// TODO: Potential optimisation: Avoid transferring the Scanner LUT twice
-	//  (once for gensensimg and another for recon)
 };

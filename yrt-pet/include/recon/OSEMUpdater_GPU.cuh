@@ -6,8 +6,8 @@
 #pragma once
 
 #include "datastruct/image/ImageDevice.cuh"
-#include "recon/OSEM_GPU.cuh"
 
+class OSEM_GPU;
 
 class OSEMUpdater_GPU
 {
@@ -18,6 +18,7 @@ public:
 	void computeEMUpdateImage(const ImageDevice& inputImage,
 	                          ImageDevice& destImage) const;
 
+	// TODO NOW: Sensitivity image generation
 private:
 	OSEM_GPU* mp_osem;
 };

@@ -6,9 +6,9 @@
 #pragma once
 
 #include "operators/OperatorProjector.hpp"
-#include "recon/OSEM_CPU.hpp"
 
 class ProjectionData;
+class OSEM_CPU;
 
 class OSEMUpdater_CPU
 {

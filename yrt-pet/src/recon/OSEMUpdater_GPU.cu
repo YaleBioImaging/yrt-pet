@@ -5,6 +5,7 @@
 
 #include "datastruct/projection/ProjectionDataDevice.cuh"
 #include "operators/OperatorProjectorDevice.cuh"
+#include "recon/OSEM_GPU.cuh"
 #include "recon/OSEMUpdater_GPU.cuh"
 
 OSEMUpdater_GPU::OSEMUpdater_GPU(OSEM_GPU* pp_osem) : mp_osem(pp_osem)
@@ -38,7 +39,7 @@ void OSEMUpdater_GPU::computeEMUpdateImage(const ImageDevice& inputImage,
 	const int numBatchesInCurrentSubset =
 	    measurementsDevice->getNumBatches(currentSubset);
 
-	// TODO: Add parallel CUDA streams here (They are currently all
+	// TODO: Use parallel CUDA streams here (They are currently all
 	//  synchronized)
 
 	for (int batch = 0; batch < numBatchesInCurrentSubset; batch++)

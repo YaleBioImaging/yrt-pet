@@ -80,6 +80,7 @@ void OSEM_CPU::setupOperatorsForSensImgGen()
 	{
 		mp_projector = std::make_unique<OperatorProjectorDD>(projParams);
 	}
+
 }
 
 std::unique_ptr<Image> OSEM_CPU::getLatestSensitivityImage(bool isLastSubset)
@@ -126,9 +127,16 @@ ImageBase* OSEM_CPU::getMLEMImageBuffer()
 
 ImageBase* OSEM_CPU::getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType type)
 {
-	(void)type;  // IN CPU, use the same buffer for PSF as for EM ratio since we
-	             // only have one batch
-	return mp_mlemImageTmp.get();
+	if (type == TemporaryImageSpaceBufferType::EM_RATIO)
+	{
+		return mp_mlemImageTmp.get();
+	}
+	if (type == TemporaryImageSpaceBufferType::PSF)
+	{
+		return mp_mlemImageTmpPsf.get();
+	}
+	throw std::runtime_error("Unknown Temporary image type");
+
 }
 
 const ProjectionData* OSEM_CPU::getMLEMDataBuffer()
@@ -180,7 +188,7 @@ void OSEM_CPU::setupOperatorsForRecon()
 		mp_projector = std::make_unique<OperatorProjectorDD>(projParams);
 	}
 
-	// TODO NOW: Support additive corrections
+	mp_updater = std::make_unique<OSEMUpdater_CPU>(this);
 }
 
 void OSEM_CPU::allocateForRecon()
@@ -245,14 +253,12 @@ void OSEM_CPU::loadSubset(int subsetId, bool forRecon)
 	m_current_OSEM_subset = subsetId;
 }
 
-void OSEM_CPU::completeMLEMIteration() {}
-
-void OSEM_CPU::prepareEMAccumulation()
+void OSEM_CPU::computeEMUpdateImage(const ImageBase& inputImage,
+                                    ImageBase& destImage)
 {
-	if (flagImagePSF)
-	{
-		// This is because in CPU, we use the same buffer to backproject the EM
-		// as to store the PSF'd MLEM image
-		mp_mlemImageTmp->setValue(0.0);
-	}
+	auto& inputImageHost = dynamic_cast<const Image&>(inputImage);
+	auto& destImageHost = dynamic_cast<Image&>(destImage);
+	mp_updater->computeEMUpdateImage(inputImageHost, destImageHost);
 }
+
+void OSEM_CPU::completeMLEMIteration() {}

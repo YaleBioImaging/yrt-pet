@@ -7,8 +7,8 @@
 
 #include "datastruct/projection/ProjectionData.hpp"
 #include "recon/Corrector_CPU.hpp"
+#include "recon/OSEM_CPU.hpp"
 #include "utils/Assert.hpp"
-
 
 OSEMUpdater_CPU::OSEMUpdater_CPU(OSEM_CPU* pp_osem) : mp_osem(pp_osem) {}
 

@@ -59,28 +59,6 @@ void OperatorProjectorDevice::setBatchSize(size_t newBatchSize)
 	m_launchParams = Util::initiateDeviceParameters(m_batchSize);
 }
 
-ProjectionDataDeviceOwned& OperatorProjectorDevice::getIntermediaryProjData()
-{
-	ASSERT_MSG(mp_intermediaryProjData != nullptr,
-	           "Projection-space GPU Intermediary buffer not initialized");
-	return *mp_intermediaryProjData;
-}
-
-const ImageDevice& OperatorProjectorDevice::getAttImageDevice() const
-{
-	ASSERT_MSG(mp_attImageDevice != nullptr,
-	           "Device attenuation image not initialized");
-	return *mp_attImageDevice;
-}
-
-const ImageDevice&
-    OperatorProjectorDevice::getAttImageForBackprojectionDevice() const
-{
-	ASSERT_MSG(mp_attImageForBackprojectionDevice != nullptr,
-	           "Device attenuation image for backprojection not initialized");
-	return *mp_attImageForBackprojectionDevice;
-}
-
 size_t OperatorProjectorDevice::getBatchSize() const
 {
 	return m_batchSize;
@@ -99,26 +77,6 @@ void OperatorProjectorDevice::setupTOFHelper(float tofWidth_ps, int tofNumStd)
 {
 	mp_tofHelper = std::make_unique<DeviceObject<TimeOfFlightHelper>>(
 	    tofWidth_ps, tofNumStd);
-}
-
-void OperatorProjectorDevice::prepareIntermediaryBufferIfNeeded(
-    const ProjectionDataDevice* orig)
-{
-	if (requiresIntermediaryProjData())
-	{
-		prepareIntermediaryBuffer(orig);
-	}
-}
-
-void OperatorProjectorDevice::prepareIntermediaryBuffer(
-    const ProjectionDataDevice* orig)
-{
-	if (mp_intermediaryProjData == nullptr)
-	{
-		mp_intermediaryProjData =
-		    std::make_unique<ProjectionDataDeviceOwned>(orig);
-	}
-	mp_intermediaryProjData->allocateForProjValues(getAuxStream());
 }
 
 const TimeOfFlightHelper*

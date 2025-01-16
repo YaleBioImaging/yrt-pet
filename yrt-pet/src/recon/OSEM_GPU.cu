@@ -74,6 +74,7 @@ void OSEM_GPU::setupOperatorsForSensImgGen()
 
 	mp_projector = std::make_unique<OperatorProjectorDD_GPU>(
 	    projParams, getMainStream(), getAuxStream());
+
 }
 
 void OSEM_GPU::allocateForSensImgGen()
@@ -129,7 +130,7 @@ void OSEM_GPU::setupOperatorsForRecon()
 	mp_projector = std::make_unique<OperatorProjectorDD_GPU>(
 	    projParams, getMainStream(), getAuxStream());
 
-	// TODO NOW: Support additive corrections in GPU
+	mp_updater = std::make_unique<OSEMUpdater_GPU>(this);
 }
 
 void OSEM_GPU::allocateForRecon()
@@ -240,7 +241,7 @@ ImageBase* OSEM_GPU::getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType type)
 	{
 		return mpd_mlemImageTmpEMRatio.get();
 	}
-	else if (type == TemporaryImageSpaceBufferType::PSF)
+	if (type == TemporaryImageSpaceBufferType::PSF)
 	{
 		return mpd_mlemImageTmpPsf.get();
 	}
@@ -345,6 +346,14 @@ void OSEM_GPU::addImagePSF(const std::string& p_imageSpacePsf_fname)
 }
 
 void OSEM_GPU::completeMLEMIteration() {}
+
+void OSEM_GPU::computeEMUpdateImage(const ImageBase& inputImage,
+                                    ImageBase& destImage)
+{
+	auto& inputImageHost = dynamic_cast<const ImageDevice&>(inputImage);
+	auto& destImageHost = dynamic_cast<ImageDevice&>(destImage);
+	mp_updater->computeEMUpdateImage(inputImageHost, destImageHost);
+}
 
 const cudaStream_t* OSEM_GPU::getAuxStream() const
 {

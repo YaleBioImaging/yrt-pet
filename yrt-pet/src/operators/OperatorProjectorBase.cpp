@@ -52,10 +52,19 @@ OperatorProjectorParams::OperatorProjectorParams(const BinIterator* pp_binIter,
 }
 
 OperatorProjectorBase::OperatorProjectorBase(
-	const OperatorProjectorParams& p_projParams)
-	: scanner(p_projParams.scanner),
-	  binIter(p_projParams.binIter)
+    const OperatorProjectorParams& p_projParams)
+    : scanner(p_projParams.scanner), binIter(p_projParams.binIter)
 {
+}
+
+const BinIterator* OperatorProjectorBase::getBinIter() const
+{
+	return binIter;
+}
+
+const Scanner& OperatorProjectorBase::getScanner() const
+{
+	return scanner;
 }
 
 void OperatorProjectorBase::setBinIter(const BinIterator* p_binIter)

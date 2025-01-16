@@ -6,7 +6,6 @@
 #pragma once
 
 #include "datastruct/image/Image.hpp"
-#include "datastruct/projection/ProjectionList.hpp"
 #include "operators/OperatorProjector.hpp"
 #include "operators/OperatorPsf.hpp"
 #include "recon/Corrector.hpp"
@@ -141,7 +140,8 @@ protected:
 	virtual void allocateForRecon() = 0;
 	virtual void endRecon() = 0;
 	virtual void completeMLEMIteration() = 0;
-	virtual void prepareEMAccumulation();
+	virtual void computeEMUpdateImage(const ImageBase& inputImage,
+	                                  ImageBase& destImage) = 0;
 
 	// Abstract Getters
 	virtual ImageBase* getSensImageBuffer() = 0;
@@ -151,7 +151,6 @@ protected:
 	    getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType type) = 0;
 	virtual const ProjectionData* getMLEMDataBuffer() = 0;
 	virtual ProjectionData* getMLEMDataTmpBuffer() = 0;
-	virtual int getNumBatches(int subsetId, bool forRecon) const;
 	virtual Corrector& getCorrector() = 0;
 
 	// Common methods

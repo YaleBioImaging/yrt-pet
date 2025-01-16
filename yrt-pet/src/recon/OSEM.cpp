@@ -10,6 +10,7 @@
 #include "datastruct/projection/Histogram3D.hpp"
 #include "datastruct/projection/ListMode.hpp"
 #include "datastruct/projection/ProjectionData.hpp"
+#include "datastruct/projection/ProjectionList.hpp"
 #include "datastruct/projection/UniformHistogram.hpp"
 #include "datastruct/scanner/Scanner.hpp"
 #include "motion/ImageWarperMatrix.hpp"
@@ -142,6 +143,9 @@ void OSEM::generateSensitivityImageForSubset(int subsetId)
 {
 	getSensImageBuffer()->setValue(0.0);
 
+	// TODO: Generate sensitivity image using OSEMUpdater
+
+	/*
 	// Backproject everything
 	const int numBatches = getNumBatches(subsetId, false);
 
@@ -150,6 +154,7 @@ void OSEM::generateSensitivityImageForSubset(int subsetId)
 		loadBatch(batchId, false);
 		mp_projector->applyAH(getSensitivityBuffer(), getSensImageBuffer());
 	}
+	*/
 
 	if (flagImagePSF)
 	{
@@ -510,18 +515,6 @@ Image* OSEM::getSensitivityImage(int subsetId)
 	return m_sensitivityImages.at(subsetId);
 }
 
-void OSEM::prepareEMAccumulation()
-{
-	// No-op
-}
-
-int OSEM::getNumBatches(int subsetId, bool forRecon) const
-{
-	(void)subsetId;
-	(void)forRecon;
-	return 1;
-}
-
 std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 {
 	ASSERT_MSG(mp_dataInput != nullptr, "Data input unspecified");
@@ -588,55 +581,25 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 			getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType::EM_RATIO)
 			    ->setValue(0.0);
 
-			const int numBatches = getNumBatches(subsetId, true);
-
-			ImageBase* mlem_image_rp;
+			ImageBase* mlemImage_rp;
 			if (flagImagePSF)
 			{
 				// PSF
 				imageSpacePsf->applyA(
 				    getMLEMImageBuffer(),
 				    getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType::PSF));
-				mlem_image_rp =
+				mlemImage_rp =
 				    getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType::PSF);
 			}
 			else
 			{
-				mlem_image_rp = getMLEMImageBuffer();
+				mlemImage_rp = getMLEMImageBuffer();
 			}
 
-			// TODO NOW: All this will be replaced by a single call using
-			//  the OSEMUpdater (which will be managed internally by either
-			//  OSEM_CPU or OSEM_GPU). loadBatch will no longer exist and the
-			//  same for getNumBatches
+			computeEMUpdateImage(*mlemImage_rp,
+			                     *getMLEMImageTmpBuffer(
+			                         TemporaryImageSpaceBufferType::EM_RATIO));
 
-			// Data batches in case it doesn't fit in device memory
-			for (int batchId = 0; batchId < numBatches; batchId++)
-			{
-				loadBatch(batchId, true);
-
-				if (numBatches > 1)
-				{
-					std::cout << "Processing batch " << batchId + 1 << "/"
-					          << numBatches << "..." << std::endl;
-				}
-				getMLEMDataTmpBuffer()->clearProjections(0.0);
-
-				// PROJECTION OF IMAGE
-				mp_projector->applyA(mlem_image_rp, getMLEMDataTmpBuffer());
-
-				// DATA RATIO
-				getMLEMDataTmpBuffer()->divideMeasurements(
-				    getMLEMDataBuffer(), getBinIterators()[subsetId].get());
-
-				prepareEMAccumulation();
-
-				// BACK PROJECTION OF RATIO
-				mp_projector->applyAH(
-				    getMLEMDataTmpBuffer(),
-				    getMLEMImageTmpBuffer(
-				        TemporaryImageSpaceBufferType::EM_RATIO));
-			}
 			// PSF
 			if (flagImagePSF)
 			{

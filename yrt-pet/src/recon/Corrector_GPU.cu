@@ -9,7 +9,10 @@
 #include "operators/OperatorProjectorDD_GPU.cuh"
 #include "utils/ReconstructionUtils.hpp"
 
-Corrector_GPU::Corrector_GPU() : mph_lastCopiedHostImage{nullptr} {}
+Corrector_GPU::Corrector_GPU(const Scanner& pr_scanner)
+    : Corrector{pr_scanner}, mph_lastCopiedHostImage{nullptr}
+{
+}
 
 
 void Corrector_GPU::precomputeAdditiveCorrectionFactors(

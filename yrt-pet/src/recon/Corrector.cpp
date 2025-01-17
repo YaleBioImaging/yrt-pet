@@ -9,8 +9,9 @@
 #include "utils/Tools.hpp"
 
 
-Corrector::Corrector()
-    : mp_randoms(nullptr),
+Corrector::Corrector(const Scanner& pr_scanner)
+    : mr_scanner(pr_scanner),
+      mp_randoms(nullptr),
       mp_scatter(nullptr),
       mp_acf(nullptr),
       mp_attenuationImage(nullptr),
@@ -142,6 +143,12 @@ void Corrector::setup()
 		mp_hardwareAcf = mp_acf;
 	}
 
+	// In case we need to backproject a uniform histogram:
+	if (mp_hardwareAcf == nullptr && mp_sensitivity == nullptr)
+	{
+		mp_uniformHistogram = std::make_unique<UniformHistogram>(mr_scanner);
+	}
+
 	// Adjust attenuation image logic
 
 	if (mp_inVivoAttenuationImage != nullptr &&
@@ -213,6 +220,22 @@ void Corrector::setup()
 		             "It will be assumed that there is no in-vivo attenuation."
 		          << std::endl;
 	}
+}
+
+const ProjectionData* Corrector::getSensImgGenBuffer() const
+{
+	// Returns the buffer that should be used to iterate over bins and compute
+	//  LORs
+	if (mp_sensitivity != nullptr)
+	{
+		return mp_sensitivity;
+	}
+	if (mp_hardwareAcf != nullptr)
+	{
+		return mp_hardwareAcf;
+	}
+	ASSERT(mp_uniformHistogram != nullptr);
+	return mp_uniformHistogram.get();
 }
 
 bool Corrector::hasSensitivityHistogram() const

@@ -20,8 +20,8 @@ void OSEMUpdater_CPU::computeSensitivityImage(Image& destImage) const
 	const OperatorProjector* projector = mp_osem->getProjector();
 	const BinIterator* binIter = projector->getBinIter();
 	const bin_t numBins = binIter->size();
-	const Histogram* sensitivityHistogram = mp_osem->getSensitivityHistogram();
 	const Corrector_CPU& corrector = mp_osem->getCorrector_CPU();
+	const ProjectionData* sensImgGenProjData = corrector.getSensImgGenBuffer();
 
 	// TODO NOW: Add parallel
 	for (bin_t binIdx = 0; binIdx < numBins; binIdx++)
@@ -29,10 +29,10 @@ void OSEMUpdater_CPU::computeSensitivityImage(Image& destImage) const
 		const bin_t bin = binIter->get(binIdx);
 
 		const ProjectionProperties projectionProperties =
-		    sensitivityHistogram->getProjectionProperties(bin);
+		    sensImgGenProjData->getProjectionProperties(bin);
 
 		const float projValue = corrector.getMultiplicativeCorrectionFactor(
-		    sensitivityHistogram, bin);
+		    sensImgGenProjData, bin);
 
 		projector->backProjection(&destImage, projectionProperties, projValue);
 	}

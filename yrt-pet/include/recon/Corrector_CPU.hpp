@@ -10,6 +10,8 @@
 class Corrector_CPU : public Corrector
 {
 public:
+	explicit Corrector_CPU(const Scanner& pr_scanner);
+
 	// Return sensitivity*attenuation
 	float getMultiplicativeCorrectionFactor(const ProjectionData* measurements,
 						bin_t binId) const;

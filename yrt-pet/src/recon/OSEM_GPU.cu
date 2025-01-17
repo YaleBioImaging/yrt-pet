@@ -22,7 +22,7 @@ OSEM_GPU::OSEM_GPU(const Scanner& pr_scanner)
       mpd_datTmp(nullptr),
       m_current_OSEM_subset(-1)
 {
-	mp_corrector = std::make_unique<Corrector_GPU>();
+	mp_corrector = std::make_unique<Corrector_GPU>(pr_scanner);
 
 	std::cout << "Creating an instance of OSEM GPU" << std::endl;
 
@@ -86,7 +86,7 @@ void OSEM_GPU::allocateForSensImgGen()
 
 	// Allocate for projection space
 	auto tempSensDataInput = std::make_unique<ProjectionDataDeviceOwned>(
-	    scanner, getSensitivityHistogram(), num_OSEM_subsets);
+	    scanner, mp_corrector->getSensImgGenBuffer(), num_OSEM_subsets);
 	mpd_tempSensDataInput = std::move(tempSensDataInput);
 
 	// Make sure the corrector buffer is properly defined

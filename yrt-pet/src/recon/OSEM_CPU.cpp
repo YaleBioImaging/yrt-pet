@@ -20,7 +20,7 @@ OSEM_CPU::OSEM_CPU(const Scanner& pr_scanner)
       mp_datTmp{nullptr},
       m_current_OSEM_subset{-1}
 {
-	mp_corrector = std::make_unique<Corrector_CPU>();
+	mp_corrector = std::make_unique<Corrector_CPU>(pr_scanner);
 
 	std::cout << "Creating an instance of OSEM CPU" << std::endl;
 }
@@ -64,7 +64,7 @@ void OSEM_CPU::setupOperatorsForSensImgGen()
 	{
 		// Create and add Bin Iterator
 		getBinIterators().push_back(
-		    getSensitivityHistogram()->getBinIter(num_OSEM_subsets, subsetId));
+		    mp_corrector->getSensImgGenBuffer()->getBinIter(num_OSEM_subsets, subsetId));
 	}
 
 	// Create ProjectorParams object

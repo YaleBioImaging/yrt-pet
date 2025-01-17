@@ -14,7 +14,7 @@
 class Corrector_GPU : public Corrector
 {
 public:
-	Corrector_GPU();
+	explicit Corrector_GPU(const Scanner& pr_scanner);
 
 	// Set the reference to use for the temporary device buffer
 	void initializeTemporaryDeviceBuffer(const ProjectionDataDevice* master);

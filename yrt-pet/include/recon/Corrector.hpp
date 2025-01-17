@@ -8,6 +8,7 @@
 #include "datastruct/image/Image.hpp"
 #include "datastruct/projection/Histogram.hpp"
 #include "datastruct/projection/ProjectionList.hpp"
+#include "datastruct/projection/UniformHistogram.hpp"
 #include "operators/TimeOfFlight.hpp"
 
 /*
@@ -16,9 +17,8 @@
  */
 class Corrector
 {
-
 public:
-	Corrector();
+	explicit Corrector(const Scanner& pr_scanner);
 
 	void setInvertSensitivity(bool invert);
 	void setGlobalScalingFactor(float globalScalingFactor);
@@ -43,6 +43,7 @@ public:
 	void setup();
 
 	// For sensitivity image generation
+	const ProjectionData* getSensImgGenBuffer() const;
 	bool hasSensitivityHistogram() const;
 	bool hasHardwareAttenuation() const;
 	bool hasMultiplicativeCorrection() const;
@@ -65,6 +66,8 @@ protected:
 	bool doesInVivoACFComeFromHistogram() const;
 	bool doesHardwareACFComeFromHistogram() const;
 
+	const Scanner& mr_scanner;
+
 	// if nullptr, use getRandomsEstimate()
 	const Histogram* mp_randoms;
 
@@ -83,6 +86,9 @@ protected:
 
 	// In case it is not specified and must be computed
 	std::unique_ptr<ImageOwned> mp_impliedTotalAttenuationImage;
+
+	// In case no sensitivity histogram or ACF histogram was given
+	std::unique_ptr<UniformHistogram> mp_uniformHistogram;
 
 	// LOR sensitivity, can be nullptr, in which case all LORs are equally
 	// sensitive

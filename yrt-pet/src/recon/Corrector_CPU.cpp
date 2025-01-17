@@ -9,6 +9,9 @@
 #include "utils/Assert.hpp"
 #include "utils/Tools.hpp"
 
+Corrector_CPU::Corrector_CPU(const Scanner& pr_scanner) : Corrector(pr_scanner)
+{
+}
 
 void Corrector_CPU::precomputeAdditiveCorrectionFactors(
     const ProjectionData* measurements)
@@ -81,7 +84,7 @@ float Corrector_CPU::getMultiplicativeCorrectionFactor(
 		else if (mp_hardwareAttenuationImage != nullptr)
 		{
 			acf = getAttenuationFactorFromAttenuationImage(
-				measurements, binId, mp_hardwareAttenuationImage);
+			    measurements, binId, mp_hardwareAttenuationImage);
 		}
 		else
 		{

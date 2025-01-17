@@ -102,8 +102,6 @@ int main(int argc, char** argv)
 			std::unique_ptr<ProjectionData> dataInput = IO::openProjectionData(
 			    input_fname, input_format, *scanner, pluginOptionsResults);
 
-			std::cout << "Done reading input data." << std::endl;
-
 			if (toSparseHistogram)
 			{
 				auto* sparseHisto =

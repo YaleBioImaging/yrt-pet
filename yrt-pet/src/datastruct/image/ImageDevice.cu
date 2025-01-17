@@ -218,7 +218,6 @@ void ImageDevice::transferToDeviceMemory(const Image* ph_img_ptr,
 
 	std::cout << "Transferring image from Host to Device..." << std::endl;
 	transferToDeviceMemory(ph_ptr, p_synchronize);
-	std::cout << "Done transferring image from Host to Device." << std::endl;
 }
 
 void ImageDevice::transferToHostMemory(float* ph_img_ptr,
@@ -237,7 +236,6 @@ void ImageDevice::transferToHostMemory(Image* ph_img_ptr,
 
 	std::cout << "Transferring image from Device to Host..." << std::endl;
 	transferToHostMemory(ph_ptr, p_synchronize);
-	std::cout << "Done transferring image from Device to Host." << std::endl;
 }
 
 GPULaunchParams3D ImageDevice::getLaunchParams() const
@@ -459,8 +457,6 @@ void ImageDeviceOwned::allocate(bool synchronize)
 
 	Util::allocateDevice(&mpd_devicePointer, m_imgSize, mp_stream, false);
 	Util::memsetDevice(mpd_devicePointer, 0, m_imgSize, mp_stream, synchronize);
-
-	std::cout << "Done allocating device memory." << std::endl;
 }
 
 void ImageDeviceOwned::readFromFile(const ImageParams& params,

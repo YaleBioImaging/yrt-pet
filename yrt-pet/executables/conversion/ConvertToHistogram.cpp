@@ -85,8 +85,6 @@ int main(int argc, char** argv)
 		std::unique_ptr<ProjectionData> dataInput = IO::openProjectionData(
 		    input_fname, input_format, *scanner, pluginOptionsResults);
 
-		std::cout << "Done reading input data." << std::endl;
-
 		if (toSparseHistogram)
 		{
 			std::cout << "Accumulating into sparse histogram..." << std::endl;
@@ -101,7 +99,6 @@ int main(int argc, char** argv)
 			auto histoOut = std::make_unique<Histogram3DOwned>(*scanner);
 			histoOut->allocate();
 			histoOut->clearProjections(0.0f);
-			std::cout << "Done preparing output Histogram3D." << std::endl;
 
 			std::cout << "Accumulating into Histogram3D..." << std::endl;
 			if (IO::isFormatListMode(input_format))

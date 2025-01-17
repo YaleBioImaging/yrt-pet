@@ -162,15 +162,6 @@ void OSEM::generateSensitivityImagesCore(
 
 	Corrector& corrector = getCorrector();
 
-	// In case the user didn't specify a sensitivity histogram, use a uniform one
-	bool usedUniformHistogramForSensitivityImageGeneration = false;
-	if (corrector.getSensitivityHistogram() == nullptr)
-	{
-		mp_uniformHistogram = std::make_unique<UniformHistogram>(scanner);
-		corrector.setSensitivityHistogram(mp_uniformHistogram.get());
-		usedUniformHistogramForSensitivityImageGeneration = true;
-	}
-
 	// This is done to make sure we only make one sensitivity image if we're on
 	// ListMode
 	const int originalNumOSEMSubsets = num_OSEM_subsets;
@@ -225,11 +216,6 @@ void OSEM::generateSensitivityImagesCore(
 	}
 
 	endSensImgGen();
-
-	if (usedUniformHistogramForSensitivityImageGeneration)
-	{
-		corrector.setSensitivityHistogram(nullptr);
-	}
 
 	// Restore original value
 	num_OSEM_subsets = originalNumOSEMSubsets;

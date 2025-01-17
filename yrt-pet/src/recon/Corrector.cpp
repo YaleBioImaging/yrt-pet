@@ -273,7 +273,7 @@ float Corrector::getSensitivity(histo_bin_t histoBin) const
 		float sensitivity =
 		    m_globalScalingFactor *
 		    mp_sensitivity->getProjectionValueFromHistogramBin(histoBin);
-		if (m_invertSensitivity)
+		if (m_invertSensitivity && sensitivity != 0.0f)
 		{
 			sensitivity = 1.0f / sensitivity;
 		}

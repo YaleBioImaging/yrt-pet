@@ -149,10 +149,9 @@ void OSEM::generateSensitivityImageForLoadedSubset()
 		imageSpacePsf->applyAH(getSensImageBuffer(), getSensImageBuffer());
 	}
 
-	std::cout << "Applying threshold" << std::endl;
+	std::cout << "Applying threshold..." << std::endl;
 	getSensImageBuffer()->applyThreshold(getSensImageBuffer(), hardThreshold,
 	                                     0.0, 0.0, 1.0, 0.0);
-	std::cout << "Threshold applied" << std::endl;
 }
 
 void OSEM::generateSensitivityImagesCore(
@@ -659,12 +658,11 @@ std::unique_ptr<ImageOwned>
 	mlem_image_curr_frame->allocate();
 
 	Image* sens_image = m_sensitivityImages.at(0);
-	std::cout << "Computing global Warp-to-ref frame" << std::endl;
+	std::cout << "Computing global Warp-to-ref frame..." << std::endl;
 	warper->computeGlobalWarpToRefFrame(sens_image, !saveIterRanges.empty());
-	std::cout << "Applying threshold" << std::endl;
+	std::cout << "Applying threshold..." << std::endl;
 	sens_image->applyThreshold(sens_image, hardThreshold, 0.0, 0.0, 1.0, 0.0);
 	getMLEMImageBuffer()->applyThreshold(sens_image, 0.0, 0.0, 0.0, 0.0, 1.0);
-	std::cout << "Threshold applied" << std::endl;
 
 	std::vector<size_t> eventsPartitionOverMotionFrame(
 	    warper->getNumberOfFrame() + 1);

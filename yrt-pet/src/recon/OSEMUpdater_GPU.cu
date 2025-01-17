@@ -34,6 +34,8 @@ void OSEMUpdater_GPU::computeSensitivityImage(ImageDevice& destImage) const
 
 	for (int batch = 0; batch < numBatchesInCurrentSubset; batch++)
 	{
+		std::cout << "Batch " << batch + 1 << "/" << numBatchesInCurrentSubset
+		          << "..." << std::endl;
 		// Load LORs into device buffers
 		sensDataBuffer->loadEventLORs(currentSubset, batch, imageParams,
 		                              auxStream);

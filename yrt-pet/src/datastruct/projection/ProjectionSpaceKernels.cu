@@ -37,7 +37,14 @@ __global__ void invertProjValues_kernel(const float* d_dataIn, float* d_dataOut,
 	const long eventId = blockIdx.x * blockDim.x + threadIdx.x;
 	if (eventId < maxNumberOfEvents)
 	{
-		d_dataOut[eventId] = 1.0f / d_dataIn[eventId];
+		if (d_dataIn[eventId] != 0.0f)
+		{
+			d_dataOut[eventId] = 1.0f / d_dataIn[eventId];
+		}
+		else
+		{
+			d_dataOut[eventId] = 0.0f;
+		}
 	}
 }
 

@@ -123,6 +123,11 @@ float Corrector_CPU::getAdditiveCorrectionFactor(
 		acf = 1.0f;
 	}
 
+	if (acf < StabilityEpsilon || sensitivity < StabilityEpsilon) {
+		// To avoid numerical instability
+		return 0.0f;
+	}
+
 	return (randomsEstimate + scatterEstimate) / (acf * sensitivity);
 }
 

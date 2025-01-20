@@ -23,7 +23,8 @@ Corrector::Corrector(const Scanner& pr_scanner)
       mp_sensitivity(nullptr),
       m_invertSensitivity(false),
       m_globalScalingFactor(1.0f),
-      mp_tofHelper(nullptr)
+      mp_tofHelper(nullptr),
+      m_attenuationSetupComplete{false}
 {
 }
 
@@ -50,33 +51,39 @@ void Corrector::setGlobalScalingFactor(float globalScalingFactor)
 void Corrector::setAttenuationImage(const Image* pp_attenuationImage)
 {
 	mp_attenuationImage = pp_attenuationImage;
+	m_attenuationSetupComplete = false;
 }
 
 void Corrector::setACFHistogram(const Histogram* pp_acf)
 {
 	mp_acf = pp_acf;
+	m_attenuationSetupComplete = false;
 }
 
 void Corrector::setHardwareAttenuationImage(
     const Image* pp_hardwareAttenuationImage)
 {
 	mp_hardwareAttenuationImage = pp_hardwareAttenuationImage;
+	m_attenuationSetupComplete = false;
 }
 
 void Corrector::setHardwareACFHistogram(const Histogram* pp_hardwareAcf)
 {
 	mp_hardwareAcf = pp_hardwareAcf;
+	m_attenuationSetupComplete = false;
 }
 
 void Corrector::setInVivoAttenuationImage(
     const Image* pp_inVivoAttenuationImage)
 {
 	mp_inVivoAttenuationImage = pp_inVivoAttenuationImage;
+	m_attenuationSetupComplete = false;
 }
 
 void Corrector::setInVivoACFHistogram(const Histogram* pp_inVivoAcf)
 {
 	mp_hardwareAcf = pp_inVivoAcf;
+	m_attenuationSetupComplete = false;
 }
 
 void Corrector::setInvertSensitivity(bool invert)
@@ -107,118 +114,128 @@ bool Corrector::hasGlobalScalingFactor() const
 
 void Corrector::setup()
 {
-	if (mp_acf != nullptr && mp_inVivoAcf != nullptr &&
-	    mp_hardwareAcf == nullptr)
+	if (!m_attenuationSetupComplete)
 	{
-		std::cout
-		    << "Warning: Total ACF and in-vivo ACF specified, but no "
-		       "hardware ACF specified. Assuming no hardware attenuation..."
-		    << std::endl;
-	}
-	else if (mp_acf != nullptr && mp_inVivoAcf == nullptr &&
-	         mp_hardwareAcf != nullptr)
-	{
-		std::cout << "Warning: Total ACF and hardware ACF specified, but no "
-		             "in-vivo ACF specified. Assuming no in-vivo attenuation..."
-		          << std::endl;
-	}
-	if (mp_acf == nullptr && mp_inVivoAcf == nullptr &&
-	    mp_hardwareAcf != nullptr)
-	{
-		// All ACF is Hardware ACF
-		mp_acf = mp_hardwareAcf;
-	}
-	else if (mp_acf == nullptr && mp_inVivoAcf != nullptr &&
-	         mp_hardwareAcf == nullptr)
-	{
-		// All ACF is in-vivo ACF
-		mp_acf = mp_inVivoAcf;
-	}
-	else if (mp_acf != nullptr && mp_inVivoAcf == nullptr &&
-	         mp_hardwareAcf == nullptr)
-	{
-		// User only specified total ACF, but not how it is distributed.
-		// We assume that all ACFs come from hardware, which is
-		// the case when there is no motion
-		mp_hardwareAcf = mp_acf;
+		if (mp_acf != nullptr && mp_inVivoAcf != nullptr &&
+		    mp_hardwareAcf == nullptr)
+		{
+			std::cout
+			    << "Warning: Total ACF and in-vivo ACF specified, but no "
+			       "hardware ACF specified. Assuming no hardware attenuation..."
+			    << std::endl;
+		}
+		else if (mp_acf != nullptr && mp_inVivoAcf == nullptr &&
+		         mp_hardwareAcf != nullptr)
+		{
+			std::cout
+			    << "Warning: Total ACF and hardware ACF specified, but no "
+			       "in-vivo ACF specified. Assuming no in-vivo attenuation..."
+			    << std::endl;
+		}
+		if (mp_acf == nullptr && mp_inVivoAcf == nullptr &&
+		    mp_hardwareAcf != nullptr)
+		{
+			// All ACF is Hardware ACF
+			mp_acf = mp_hardwareAcf;
+		}
+		else if (mp_acf == nullptr && mp_inVivoAcf != nullptr &&
+		         mp_hardwareAcf == nullptr)
+		{
+			// All ACF is in-vivo ACF
+			mp_acf = mp_inVivoAcf;
+		}
+		else if (mp_acf != nullptr && mp_inVivoAcf == nullptr &&
+		         mp_hardwareAcf == nullptr)
+		{
+			// User only specified total ACF, but not how it is distributed.
+			// We assume that all ACFs come from hardware, which is
+			// the case when there is no motion
+			mp_hardwareAcf = mp_acf;
+		}
+
+		// Adjust attenuation image logic
+
+		if (mp_inVivoAttenuationImage != nullptr &&
+		    mp_hardwareAttenuationImage != nullptr &&
+		    mp_attenuationImage == nullptr)
+		{
+			// Here, the hardware and in-vivo attenuation images were specified,
+			// but the total attenuation image wasn't. The total attenuation
+			// image should be the sum of the in-vivo and the hardware
+			const ImageParams attParams =
+			    mp_hardwareAttenuationImage->getParams();
+			ASSERT_MSG(
+			    attParams.isSameAs(mp_inVivoAttenuationImage->getParams()),
+			    "Parameters mismatch between attenuation images");
+			mp_impliedTotalAttenuationImage =
+			    std::make_unique<ImageOwned>(attParams);
+			mp_impliedTotalAttenuationImage->allocate();
+			mp_impliedTotalAttenuationImage->copyFromImage(
+			    mp_hardwareAttenuationImage);
+			const float* hardwareAttenuationImage_ptr =
+			    mp_hardwareAttenuationImage->getRawPointer();
+			const float* inVivoAttenuationImage_ptr =
+			    mp_inVivoAttenuationImage->getRawPointer();
+			mp_impliedTotalAttenuationImage->operationOnEachVoxelParallel(
+			    [hardwareAttenuationImage_ptr,
+			     inVivoAttenuationImage_ptr](size_t voxelIndex)
+			    {
+				    return hardwareAttenuationImage_ptr[voxelIndex] +
+				           inVivoAttenuationImage_ptr[voxelIndex];
+			    });
+			mp_attenuationImage = mp_impliedTotalAttenuationImage.get();
+		}
+		else if (mp_inVivoAttenuationImage == nullptr &&
+		         mp_hardwareAttenuationImage != nullptr &&
+		         mp_attenuationImage == nullptr)
+		{
+			// All attenuation is hardware attenuation
+			mp_attenuationImage = mp_hardwareAttenuationImage;
+		}
+		else if (mp_inVivoAttenuationImage != nullptr &&
+		         mp_hardwareAttenuationImage == nullptr &&
+		         mp_attenuationImage == nullptr)
+		{
+			// All attenuation is in-vivo attenuation
+			mp_attenuationImage = mp_inVivoAttenuationImage;
+		}
+		else if (mp_inVivoAttenuationImage == nullptr &&
+		         mp_hardwareAttenuationImage == nullptr &&
+		         mp_attenuationImage != nullptr)
+		{
+			// User only specified total attenuation, but not how it is
+			// distributed. We assume that all the attenuation comes from
+			// hardware, which is the case when there is no motion
+			mp_hardwareAttenuationImage = mp_attenuationImage;
+		}
+		else if (mp_inVivoAttenuationImage != nullptr &&
+		         mp_hardwareAttenuationImage == nullptr &&
+		         mp_attenuationImage != nullptr)
+		{
+			std::cout
+			    << "Warning: Hardware attenuation image not specified while "
+			       "full attenuation and in-vivo attenuation is specified. "
+			       "It will be assumed that there is no hardware attenuation."
+			    << std::endl;
+		}
+		else if (mp_inVivoAttenuationImage == nullptr &&
+		         mp_hardwareAttenuationImage != nullptr &&
+		         mp_attenuationImage != nullptr)
+		{
+			std::cout
+			    << "Warning: In-vivo attenuation image not specified while "
+			       "full attenuation and hardware attenuation is specified. "
+			       "It will be assumed that there is no in-vivo attenuation."
+			    << std::endl;
+		}
+		m_attenuationSetupComplete = true;
 	}
 
 	// In case we need to backproject a uniform histogram:
-	if (mp_hardwareAcf == nullptr && mp_sensitivity == nullptr)
+	if (mp_hardwareAcf == nullptr && mp_sensitivity == nullptr &&
+	    mp_uniformHistogram == nullptr)
 	{
 		mp_uniformHistogram = std::make_unique<UniformHistogram>(mr_scanner);
-	}
-
-	// Adjust attenuation image logic
-
-	if (mp_inVivoAttenuationImage != nullptr &&
-	    mp_hardwareAttenuationImage != nullptr &&
-	    mp_attenuationImage == nullptr)
-	{
-		// Here, the hardware and in-vivo attenuation images were specified,
-		// but the total attenuation image wasn't. The total attenuation image
-		// should be the sum of the in-vivo and the hardware
-		const ImageParams attParams = mp_hardwareAttenuationImage->getParams();
-		ASSERT_MSG(attParams.isSameAs(mp_inVivoAttenuationImage->getParams()),
-		           "Parameters mismatch between attenuation images");
-		mp_impliedTotalAttenuationImage =
-		    std::make_unique<ImageOwned>(attParams);
-		mp_impliedTotalAttenuationImage->allocate();
-		mp_impliedTotalAttenuationImage->copyFromImage(
-		    mp_hardwareAttenuationImage);
-		const float* hardwareAttenuationImage_ptr =
-		    mp_hardwareAttenuationImage->getRawPointer();
-		const float* inVivoAttenuationImage_ptr =
-		    mp_inVivoAttenuationImage->getRawPointer();
-		mp_impliedTotalAttenuationImage->operationOnEachVoxelParallel(
-		    [hardwareAttenuationImage_ptr,
-		     inVivoAttenuationImage_ptr](size_t voxelIndex)
-		    {
-			    return hardwareAttenuationImage_ptr[voxelIndex] +
-			           inVivoAttenuationImage_ptr[voxelIndex];
-		    });
-		mp_attenuationImage = mp_impliedTotalAttenuationImage.get();
-	}
-	else if (mp_inVivoAttenuationImage == nullptr &&
-	         mp_hardwareAttenuationImage != nullptr &&
-	         mp_attenuationImage == nullptr)
-	{
-		// All attenuation is hardware attenuation
-		mp_attenuationImage = mp_hardwareAttenuationImage;
-	}
-	else if (mp_inVivoAttenuationImage != nullptr &&
-	         mp_hardwareAttenuationImage == nullptr &&
-	         mp_attenuationImage == nullptr)
-	{
-		// All attenuation is in-vivo attenuation
-		mp_attenuationImage = mp_inVivoAttenuationImage;
-	}
-	else if (mp_inVivoAttenuationImage == nullptr &&
-	         mp_hardwareAttenuationImage == nullptr &&
-	         mp_attenuationImage != nullptr)
-	{
-		// User only specified total attenuation, but not how it is distributed.
-		// We assume that all the attenuation comes from hardware, which is
-		// the case when there is no motion
-		mp_hardwareAttenuationImage = mp_attenuationImage;
-	}
-	else if (mp_inVivoAttenuationImage != nullptr &&
-	         mp_hardwareAttenuationImage == nullptr &&
-	         mp_attenuationImage != nullptr)
-	{
-		std::cout << "Warning: Hardware attenuation image not specified while "
-		             "full attenuation and in-vivo attenuation is specified. "
-		             "It will be assumed that there is no hardware attenuation."
-		          << std::endl;
-	}
-	else if (mp_inVivoAttenuationImage == nullptr &&
-	         mp_hardwareAttenuationImage != nullptr &&
-	         mp_attenuationImage != nullptr)
-	{
-		std::cout << "Warning: In-vivo attenuation image not specified while "
-		             "full attenuation and hardware attenuation is specified. "
-		             "It will be assumed that there is no in-vivo attenuation."
-		          << std::endl;
 	}
 }
 

@@ -64,25 +64,27 @@ void Corrector_GPU::precomputeAdditiveCorrectionFactors(
 
 		const float sensitivity = getSensitivity(histoBin);
 
+		float acf = 1.0f;
+
 		if (histogrammedACFs)
 		{
 			// ACF was not precomputed in the additive corrections buffer
-			const float acf = getTotalACFFromHistogram(histoBin);
-			additiveCorrectionsPtr[bin] =
-			    (randomsEstimate + scatterEstimate) / (sensitivity * acf);
+			acf = getTotalACFFromHistogram(histoBin);
 		}
 		else if (mp_attenuationImage != nullptr)
 		{
 			// ACFs were precomputed in the additive corrections buffer
-			const float acf = additiveCorrectionsPtr[bin];
+			acf = additiveCorrectionsPtr[bin];
+		}
+
+		if (acf > StabilityEpsilon && sensitivity > StabilityEpsilon)
+		{
 			additiveCorrectionsPtr[bin] =
 			    (randomsEstimate + scatterEstimate) / (sensitivity * acf);
 		}
 		else
 		{
-			// There is no attenuation
-			additiveCorrectionsPtr[bin] =
-			    (randomsEstimate + scatterEstimate) / (sensitivity);
+			additiveCorrectionsPtr[bin] = 0.0f;
 		}
 	}
 }

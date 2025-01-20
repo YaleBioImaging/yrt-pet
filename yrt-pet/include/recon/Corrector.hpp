@@ -55,6 +55,8 @@ public:
 
 protected:
 
+	static constexpr float StabilityEpsilon = 1e-8f;
+
 	// Helper functions
 	float getRandomsEstimate(const ProjectionData* measurements, bin_t binId,
 	                         histo_bin_t histoBin) const;
@@ -100,5 +102,7 @@ protected:
 
 	// Time of flight (For computing attenuation factors from attenuation image)
 	std::unique_ptr<TimeOfFlightHelper> mp_tofHelper;
+
+	bool m_attenuationSetupComplete;
 
 };

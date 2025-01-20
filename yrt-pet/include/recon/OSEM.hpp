@@ -120,8 +120,6 @@ protected:
 	Util::RangeList saveIterRanges;
 	std::string saveIterPath;
 	bool usingListModeInput;  // true => ListMode, false => Histogram
-	// TODO NOW: Design imperfection. Projectors should perhaps be owned by
-	//  OSEM_GPU and OSEM_CPU
 	std::unique_ptr<OperatorProjectorBase> mp_projector;
 	bool needToMakeCopyOfSensImage;
 	ImageParams imageParams;

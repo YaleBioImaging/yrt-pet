@@ -201,7 +201,8 @@ void OSEM_CPU::setupOperatorsForRecon()
 void OSEM_CPU::allocateForRecon()
 {
 	// Allocate for projection-space buffers
-	mp_datTmp = std::make_unique<ProjectionListOwned>(getDataInput());
+	const ProjectionData* dataInput = getDataInput();
+	mp_datTmp = std::make_unique<ProjectionListOwned>(dataInput);
 	reinterpret_cast<ProjectionListOwned*>(mp_datTmp.get())->allocate();
 
 	// Allocate for image-space buffers
@@ -239,11 +240,11 @@ void OSEM_CPU::allocateForRecon()
 
 	if (mp_corrector->hasAdditiveCorrection())
 	{
-		mp_corrector->precomputeAdditiveCorrectionFactors(getDataInput());
+		mp_corrector->precomputeAdditiveCorrectionFactors(*dataInput);
 	}
 	if (mp_corrector->hasInVivoAttenuation())
 	{
-		mp_corrector->precomputeInVivoAttenuationFactors(getDataInput());
+		mp_corrector->precomputeInVivoAttenuationFactors(*dataInput);
 	}
 }
 

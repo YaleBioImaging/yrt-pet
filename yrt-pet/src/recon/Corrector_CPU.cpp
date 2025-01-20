@@ -14,19 +14,18 @@ Corrector_CPU::Corrector_CPU(const Scanner& pr_scanner) : Corrector(pr_scanner)
 }
 
 void Corrector_CPU::precomputeAdditiveCorrectionFactors(
-    const ProjectionData* measurements)
+    const ProjectionData& measurements)
 {
-	ASSERT(measurements != nullptr);
 	ASSERT_MSG(hasAdditiveCorrection(), "No additive corrections needed");
 
 	auto additiveCorrections =
-	    std::make_unique<ProjectionListOwned>(measurements);
+	    std::make_unique<ProjectionListOwned>(&measurements);
 	additiveCorrections->allocate();
 
 	mp_additiveCorrections = std::move(additiveCorrections);
 	float* additiveCorrectionsPtr = mp_additiveCorrections->getRawPointer();
 
-	const bin_t numBins = measurements->count();
+	const bin_t numBins = measurements.count();
 	std::cout << "Precomputing additive corrections..." << std::endl;
 
 #pragma omp parallel for default(none) \
@@ -39,21 +38,20 @@ void Corrector_CPU::precomputeAdditiveCorrectionFactors(
 }
 
 void Corrector_CPU::precomputeInVivoAttenuationFactors(
-    const ProjectionData* measurements)
+    const ProjectionData& measurements)
 {
-	ASSERT(measurements != nullptr);
 	ASSERT_MSG(hasInVivoAttenuation(),
 	           "No in-vivo attenuation corrections needed");
 
 	auto inVivoAttenuationFactors =
-	    std::make_unique<ProjectionListOwned>(measurements);
+	    std::make_unique<ProjectionListOwned>(&measurements);
 	inVivoAttenuationFactors->allocate();
 
 	mp_inVivoAttenuationFactors = std::move(inVivoAttenuationFactors);
 	float* inVivoAttenuationFactorsPtr =
 	    mp_inVivoAttenuationFactors->getRawPointer();
 
-	const size_t numBins = measurements->count();
+	const size_t numBins = measurements.count();
 
 #pragma omp parallel for default(none) \
     firstprivate(numBins, measurements, inVivoAttenuationFactorsPtr)
@@ -65,13 +63,12 @@ void Corrector_CPU::precomputeInVivoAttenuationFactors(
 }
 
 float Corrector_CPU::getMultiplicativeCorrectionFactor(
-    const ProjectionData* measurements, bin_t binId) const
+    const ProjectionData& measurements, bin_t binId) const
 {
-	ASSERT(measurements != nullptr);
 
 	if (hasMultiplicativeCorrection())
 	{
-		const histo_bin_t histoBin = measurements->getHistogramBin(binId);
+		const histo_bin_t histoBin = measurements.getHistogramBin(binId);
 
 		const float sensitivity = getSensitivity(histoBin);
 
@@ -84,7 +81,7 @@ float Corrector_CPU::getMultiplicativeCorrectionFactor(
 		else if (mp_hardwareAttenuationImage != nullptr)
 		{
 			acf = getAttenuationFactorFromAttenuationImage(
-			    measurements, binId, mp_hardwareAttenuationImage);
+			    measurements, binId, *mp_hardwareAttenuationImage);
 		}
 		else
 		{
@@ -97,9 +94,9 @@ float Corrector_CPU::getMultiplicativeCorrectionFactor(
 }
 
 float Corrector_CPU::getAdditiveCorrectionFactor(
-    const ProjectionData* measurements, bin_t binId) const
+    const ProjectionData& measurements, bin_t binId) const
 {
-	const histo_bin_t histoBin = measurements->getHistogramBin(binId);
+	const histo_bin_t histoBin = measurements.getHistogramBin(binId);
 
 	const float randomsEstimate =
 	    getRandomsEstimate(measurements, binId, histoBin);
@@ -116,7 +113,7 @@ float Corrector_CPU::getAdditiveCorrectionFactor(
 	else if (mp_attenuationImage != nullptr)
 	{
 		acf = getAttenuationFactorFromAttenuationImage(measurements, binId,
-		                                               mp_attenuationImage);
+		                                               *mp_attenuationImage);
 	}
 	else
 	{
@@ -132,9 +129,9 @@ float Corrector_CPU::getAdditiveCorrectionFactor(
 }
 
 float Corrector_CPU::getInVivoAttenuationFactor(
-    const ProjectionData* measurements, bin_t binId) const
+    const ProjectionData& measurements, bin_t binId) const
 {
-	const histo_bin_t histoBin = measurements->getHistogramBin(binId);
+	const histo_bin_t histoBin = measurements.getHistogramBin(binId);
 
 	if (mp_inVivoAcf != nullptr)
 	{
@@ -143,7 +140,7 @@ float Corrector_CPU::getInVivoAttenuationFactor(
 	if (mp_inVivoAttenuationImage != nullptr)
 	{
 		return getAttenuationFactorFromAttenuationImage(
-		    measurements, binId, mp_inVivoAttenuationImage);
+		    measurements, binId, *mp_inVivoAttenuationImage);
 	}
 
 	return 1.0f;
@@ -186,16 +183,16 @@ const ProjectionData*
 }
 
 float Corrector_CPU::getAttenuationFactorFromAttenuationImage(
-    const ProjectionData* measurements, bin_t binId,
-    const Image* attenuationImage) const
+    const ProjectionData& measurements, bin_t binId,
+    const Image& attenuationImage) const
 {
-	const Line3D lor = measurements->getLOR(binId);
+	const Line3D lor = measurements.getLOR(binId);
 
 	const float tofValue =
-	    measurements->hasTOF() ? measurements->getTOFValue(binId) : 0.0f;
+	    measurements.hasTOF() ? measurements.getTOFValue(binId) : 0.0f;
 
 	const float att = OperatorProjectorSiddon::singleForwardProjection(
-	    attenuationImage, lor, mp_tofHelper.get(), tofValue);
+	    &attenuationImage, lor, mp_tofHelper.get(), tofValue);
 
 	return Util::getAttenuationCoefficientFactor(att);
 }

@@ -286,14 +286,14 @@ bool Corrector::hasInVivoAttenuation() const
 	return mp_inVivoAcf != nullptr || mp_inVivoAttenuationImage != nullptr;
 }
 
-float Corrector::getRandomsEstimate(const ProjectionData* measurements,
+float Corrector::getRandomsEstimate(const ProjectionData& measurements,
                                     bin_t binId, histo_bin_t histoBin) const
 {
 	if (mp_randoms != nullptr)
 	{
 		return mp_randoms->getProjectionValueFromHistogramBin(histoBin);
 	}
-	return measurements->getRandomsEstimate(binId);
+	return measurements.getRandomsEstimate(binId);
 }
 
 float Corrector::getScatterEstimate(histo_bin_t histoBin) const

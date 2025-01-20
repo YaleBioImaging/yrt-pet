@@ -21,9 +21,13 @@ void OSEMUpdater_CPU::computeSensitivityImage(Image& destImage) const
 	const BinIterator* binIter = projector->getBinIter();
 	const bin_t numBins = binIter->size();
 	const Corrector_CPU& corrector = mp_osem->getCorrector_CPU();
+	const Corrector_CPU* correctorPtr = &corrector;
 	const ProjectionData* sensImgGenProjData = corrector.getSensImgGenBuffer();
+	Image* destImagePtr = &destImage;
 
-	// TODO NOW: Add parallel
+#pragma omp parallel for default(none)                                      \
+    firstprivate(sensImgGenProjData, correctorPtr, projector, destImagePtr, \
+                     binIter, numBins)
 	for (bin_t binIdx = 0; binIdx < numBins; binIdx++)
 	{
 		const bin_t bin = binIter->get(binIdx);
@@ -31,10 +35,11 @@ void OSEMUpdater_CPU::computeSensitivityImage(Image& destImage) const
 		const ProjectionProperties projectionProperties =
 		    sensImgGenProjData->getProjectionProperties(bin);
 
-		const float projValue = corrector.getMultiplicativeCorrectionFactor(
-		    sensImgGenProjData, bin);
+		const float projValue = correctorPtr->getMultiplicativeCorrectionFactor(
+		    *sensImgGenProjData, bin);
 
-		projector->backProjection(&destImage, projectionProperties, projValue);
+		projector->backProjection(destImagePtr, projectionProperties,
+		                          projValue);
 	}
 }
 
@@ -46,6 +51,9 @@ void OSEMUpdater_CPU::computeEMUpdateImage(const Image& inputImage,
 	const bin_t numBins = binIter->size();
 	const ProjectionData* measurements = mp_osem->getDataInput();
 	const Corrector_CPU& corrector = mp_osem->getCorrector_CPU();
+	const Corrector_CPU* correctorPtr = &corrector;
+	const Image* inputImagePtr = &inputImage;
+	Image* destImagePtr = &destImage;
 
 	const bool hasAdditiveCorrection = corrector.hasAdditiveCorrection();
 	const bool hasInVivoAttenuation = corrector.hasInVivoAttenuation();
@@ -71,7 +79,9 @@ void OSEMUpdater_CPU::computeEMUpdateImage(const Image& inputImage,
 		    "measurements");
 	}
 
-	// TODO NOW: ADD Parallel
+#pragma omp parallel for default(none) firstprivate(                        \
+        hasAdditiveCorrection, hasInVivoAttenuation, binIter, measurements, \
+            projector, correctorPtr, destImagePtr, inputImagePtr, numBins)
 	for (bin_t binIdx = 0; binIdx < numBins; binIdx++)
 	{
 		const bin_t bin = binIter->get(binIdx);
@@ -80,22 +90,22 @@ void OSEMUpdater_CPU::computeEMUpdateImage(const Image& inputImage,
 		    measurements->getProjectionProperties(bin);
 
 		float update =
-		    projector->forwardProjection(&inputImage, projectionProperties);
+		    projector->forwardProjection(inputImagePtr, projectionProperties);
 
 		if (hasAdditiveCorrection)
 		{
-			update += corrector.getAdditiveCorrectionFactor(bin);
+			update += correctorPtr->getAdditiveCorrectionFactor(bin);
 		}
 
 		if (hasInVivoAttenuation)
 		{
-			update *= corrector.getInVivoAttenuationFactor(bin);
+			update *= correctorPtr->getInVivoAttenuationFactor(bin);
 		}
 
 		const float measurement = measurements->getProjectionValue(bin);
 
 		update = measurement / update;
 
-		projector->backProjection(&destImage, projectionProperties, update);
+		projector->backProjection(destImagePtr, projectionProperties, update);
 	}
 }

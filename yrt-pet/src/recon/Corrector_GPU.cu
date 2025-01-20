@@ -16,18 +16,17 @@ Corrector_GPU::Corrector_GPU(const Scanner& pr_scanner)
 
 
 void Corrector_GPU::precomputeAdditiveCorrectionFactors(
-    const ProjectionData* measurements)
+    const ProjectionData& measurements)
 {
-	ASSERT(measurements != nullptr);
 	ASSERT_MSG(hasAdditiveCorrection(), "No additive corrections needed");
 
 	auto additiveCorrections =
-	    std::make_unique<ProjectionListOwned>(measurements);
+	    std::make_unique<ProjectionListOwned>(&measurements);
 	additiveCorrections->allocate();
 
 	mph_additiveCorrections = std::move(additiveCorrections);
 
-	const bin_t numBins = measurements->count();
+	const bin_t numBins = measurements.count();
 	const bool histogrammedACFs = doesTotalACFComeFromHistogram();
 
 	if (!histogrammedACFs && mp_attenuationImage != nullptr)
@@ -37,7 +36,7 @@ void Corrector_GPU::precomputeAdditiveCorrectionFactors(
 		          << std::endl;
 
 		// TODO: Once GPU Siddon is implemented, use it here instead of DD_GPU
-		Util::forwProject(measurements->getScanner(), *mp_attenuationImage,
+		Util::forwProject(measurements.getScanner(), *mp_attenuationImage,
 		                  *mph_additiveCorrections, OperatorProjector::DD_GPU);
 
 		// TODO: This part would be faster if done on GPU (inside the projection
@@ -52,13 +51,17 @@ void Corrector_GPU::precomputeAdditiveCorrectionFactors(
 	std::cout << "Precomputing additive factors using provided histograms..."
 	          << std::endl;
 
-	// TODO NOW: Add parallel
+	const ProjectionData* measurementsPtr = &measurements;
+
+#pragma omp parallel for default(none)                                         \
+    firstprivate(additiveCorrectionsPtr, mp_attenuationImage, measurementsPtr, \
+                     histogrammedACFs, numBins)
 	for (bin_t bin = 0; bin < numBins; bin++)
 	{
-		const histo_bin_t histoBin = measurements->getHistogramBin(bin);
+		const histo_bin_t histoBin = measurementsPtr->getHistogramBin(bin);
 
 		const float randomsEstimate =
-		    getRandomsEstimate(measurements, bin, histoBin);
+		    getRandomsEstimate(*measurementsPtr, bin, histoBin);
 
 		const float scatterEstimate = getScatterEstimate(histoBin);
 
@@ -90,13 +93,12 @@ void Corrector_GPU::precomputeAdditiveCorrectionFactors(
 }
 
 void Corrector_GPU::precomputeInVivoAttenuationFactors(
-    const ProjectionData* measurements)
+    const ProjectionData& measurements)
 {
-	ASSERT(measurements != nullptr);
 	ASSERT(hasInVivoAttenuation());
 
 	auto inVivoAttenuationFactors =
-	    std::make_unique<ProjectionListOwned>(measurements);
+	    std::make_unique<ProjectionListOwned>(&measurements);
 	inVivoAttenuationFactors->allocate();
 
 	mph_inVivoAttenuationFactors = std::move(inVivoAttenuationFactors);
@@ -105,7 +107,7 @@ void Corrector_GPU::precomputeInVivoAttenuationFactors(
 	{
 		ASSERT(mp_inVivoAcf != nullptr);
 
-		const bin_t numBins = measurements->count();
+		const bin_t numBins = measurements.count();
 		float* inVivoAttenuationFactorsPtr =
 		    mph_inVivoAttenuationFactors->getRawPointer();
 
@@ -113,7 +115,7 @@ void Corrector_GPU::precomputeInVivoAttenuationFactors(
     firstprivate(numBins, measurements, inVivoAttenuationFactorsPtr)
 		for (bin_t bin = 0; bin < numBins; bin++)
 		{
-			const histo_bin_t histoBin = measurements->getHistogramBin(bin);
+			const histo_bin_t histoBin = measurements.getHistogramBin(bin);
 			inVivoAttenuationFactorsPtr[bin] =
 			    mp_inVivoAcf->getProjectionValueFromHistogramBin(histoBin);
 		}
@@ -121,9 +123,9 @@ void Corrector_GPU::precomputeInVivoAttenuationFactors(
 	else if (mp_inVivoAttenuationImage != nullptr)
 	{
 		// TODO: Use GPU Siddon once available
-		Util::forwProject(
-		    measurements->getScanner(), *mp_inVivoAttenuationImage,
-		    *mph_inVivoAttenuationFactors, OperatorProjector::DD_GPU);
+		Util::forwProject(measurements.getScanner(), *mp_inVivoAttenuationImage,
+		                  *mph_inVivoAttenuationFactors,
+		                  OperatorProjector::DD_GPU);
 
 		// TODO: This part would be faster if done on GPU (inside the projection
 		//  kernel)
@@ -230,6 +232,7 @@ void Corrector_GPU::initializeTemporaryDeviceImageIfNeeded(
 void Corrector_GPU::initializeTemporaryDeviceBuffer(
     const ProjectionDataDevice* master)
 {
+	ASSERT(master != nullptr);
 	mpd_temporaryCorrectionFactors =
 	    std::make_unique<ProjectionDataDeviceOwned>(master);
 }

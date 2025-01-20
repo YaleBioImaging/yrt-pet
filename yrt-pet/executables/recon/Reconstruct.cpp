@@ -381,8 +381,6 @@ int main(int argc, char** argv)
 			ImageParams imgParams{imgParams_fname};
 			osem->setImageParams(imgParams);
 
-			// TODO NOW: OSEM must include hardware attenuation into the
-			//  sensitivity image
 			osem->generateSensitivityImages(sensImages, out_sensImg_fname);
 		}
 		else if (osem->validateSensImagesAmount(

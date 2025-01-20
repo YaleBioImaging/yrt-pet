@@ -201,8 +201,9 @@ void OSEM_GPU::allocateForRecon()
 	for (const auto& subsetBinIter : getBinIterators())
 		binIteratorPtrList.push_back(subsetBinIter.get());
 
+	const ProjectionData* dataInput = getDataInput();
 	auto dat = std::make_unique<ProjectionDataDeviceOwned>(
-	    scanner, getDataInput(), binIteratorPtrList, 0.4f);
+	    scanner, dataInput, binIteratorPtrList, 0.4f);
 	auto datTmp = std::make_unique<ProjectionDataDeviceOwned>(dat.get());
 
 	mpd_dat = std::move(dat);
@@ -213,11 +214,11 @@ void OSEM_GPU::allocateForRecon()
 
 	if (mp_corrector->hasAdditiveCorrection())
 	{
-		mp_corrector->precomputeAdditiveCorrectionFactors(getDataInput());
+		mp_corrector->precomputeAdditiveCorrectionFactors(*dataInput);
 	}
 	if (mp_corrector->hasInVivoAttenuation())
 	{
-		mp_corrector->precomputeInVivoAttenuationFactors(getDataInput());
+		mp_corrector->precomputeInVivoAttenuationFactors(*dataInput);
 	}
 }
 

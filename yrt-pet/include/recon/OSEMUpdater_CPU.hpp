@@ -32,7 +32,6 @@ public:
 	 */
 	void computeEMUpdateImage(const Image& inputImage, Image& destImage) const;
 
-	// TODO NOW: Sensitivity image generation
 private:
 	OSEM_CPU* mp_osem;
 };

@@ -62,7 +62,7 @@ private:
 	std::unique_ptr<Image> mp_mlemImageTmp;
 	std::unique_ptr<Image> mp_mlemImageTmpPsf;
 	std::unique_ptr<ProjectionData>
-	    mp_datTmp;  // TODO NOW: Will need to be removed
+	    mp_datTmp;
 
 	std::unique_ptr<Corrector_CPU> mp_corrector;
 	std::unique_ptr<OSEMUpdater_CPU> mp_updater;

@@ -58,7 +58,7 @@ protected:
 	static constexpr float StabilityEpsilon = 1e-8f;
 
 	// Helper functions
-	float getRandomsEstimate(const ProjectionData* measurements, bin_t binId,
+	float getRandomsEstimate(const ProjectionData& measurements, bin_t binId,
 	                         histo_bin_t histoBin) const;
 	float getScatterEstimate(histo_bin_t histoBin) const;
 	float getSensitivity(histo_bin_t histoBin) const;

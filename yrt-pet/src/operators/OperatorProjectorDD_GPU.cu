@@ -204,6 +204,7 @@ void OperatorProjectorDD_GPU::applyAH(const Variable* in, Variable* out)
 
 	if (!isProjDataDeviceOwned)
 	{
+		std::cout << "Backprojecting current batch..." << std::endl;
 		applyOnLoadedBatch<false>(dat_in, img_out);
 	}
 	else

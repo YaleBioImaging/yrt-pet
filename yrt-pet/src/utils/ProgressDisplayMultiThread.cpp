@@ -39,6 +39,7 @@ namespace Util
 	void ProgressDisplayMultiThread::reset()
 	{
 		std::fill(m_progressPerThread.begin(), m_progressPerThread.end(), 0);
+		m_lastDisplayedPercentage = -1;
 	}
 
 	void ProgressDisplayMultiThread::progress(int threadId,
@@ -59,7 +60,7 @@ namespace Util
 			const int8_t newPercentage = ProgressDisplay::getNewPercentage(
 			    currentWork, m_totalWork, m_lastDisplayedPercentage,
 			    m_increment);
-			if (newPercentage > 0)
+			if (newPercentage >= 0)
 			{
 				m_lastDisplayedPercentage = newPercentage;
 				std::cout << "Progress: " << static_cast<int>(newPercentage)

@@ -24,7 +24,7 @@ namespace Util
 		{
 			const int8_t newPercentage = getNewPercentage(
 			    newProgress, m_total, m_lastDisplayedPercentage, m_increment);
-			if (newPercentage > 0)
+			if (newPercentage >= 0)
 			{
 				m_lastDisplayedPercentage = newPercentage;
 				std::cout << "Progress: " << static_cast<int>(newPercentage)

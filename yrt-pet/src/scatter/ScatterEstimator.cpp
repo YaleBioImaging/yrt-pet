@@ -75,7 +75,7 @@ namespace Scatter
 		m_saveIntermediary_dir = saveIntermediary_dir;
 	}
 
-	std::shared_ptr<Histogram3DOwned>
+	std::unique_ptr<Histogram3DOwned>
 	    ScatterEstimator::computeTailFittedScatterEstimate(size_t numberZ,
 	                                                       size_t numberPhi,
 	                                                       size_t numberR)
@@ -114,10 +114,10 @@ namespace Scatter
 		return scatterEstimate;
 	}
 
-	std::shared_ptr<Histogram3DOwned> ScatterEstimator::computeScatterEstimate(
+	std::unique_ptr<Histogram3DOwned> ScatterEstimator::computeScatterEstimate(
 	    size_t numberZ, size_t numberPhi, size_t numberR)
 	{
-		auto scatterHisto = std::make_shared<Histogram3DOwned>(mr_scanner);
+		auto scatterHisto = std::make_unique<Histogram3DOwned>(mr_scanner);
 		scatterHisto->allocate();
 		scatterHisto->clearProjections();
 
@@ -126,11 +126,11 @@ namespace Scatter
 		return scatterHisto;
 	}
 
-	std::shared_ptr<Histogram3DOwned>
+	std::unique_ptr<Histogram3DOwned>
 	    ScatterEstimator::generateScatterTailsMask() const
 	{
 		std::cout << "Generating scatter tails mask..." << std::endl;
-		auto scatterTailsMask = std::make_shared<Histogram3DOwned>(mr_scanner);
+		auto scatterTailsMask = std::make_unique<Histogram3DOwned>(mr_scanner);
 		scatterTailsMask->allocate();
 
 		fillScatterTailsMask(*mp_acfHis, *scatterTailsMask,

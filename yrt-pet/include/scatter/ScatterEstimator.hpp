@@ -31,15 +31,15 @@ namespace Scatter
 		                 float maskThreshold = DefaultACFThreshold,
 		                 const std::string& saveIntermediary_dir = "");
 
-		std::shared_ptr<Histogram3DOwned>
+		std::unique_ptr<Histogram3DOwned>
 		    computeTailFittedScatterEstimate(size_t numberZ, size_t numberPhi,
 		                                     size_t numberR);
 
-		std::shared_ptr<Histogram3DOwned>
+		std::unique_ptr<Histogram3DOwned>
 		    computeScatterEstimate(size_t numberZ, size_t numberPhi,
 		                           size_t numberR);
 
-		std::shared_ptr<Histogram3DOwned> generateScatterTailsMask() const;
+		std::unique_ptr<Histogram3DOwned> generateScatterTailsMask() const;
 
 		float
 		    computeTailFittingFactor(const Histogram3D* scatterHistogram,

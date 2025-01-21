@@ -265,8 +265,8 @@ namespace Scatter
 
 					const Line3D lor{p1, p2};
 
-					const float scatterResult = static_cast<float>(
-					    computeSingleScatterInLOR(lor, n1, n2));
+					const float scatterResult =
+					    computeSingleScatterInLOR(lor, n1, n2);
 					if (scatterResult <= 0.0)
 						continue;  // Ignore irrelevant lines?
 					scatterHisto.setProjectionValue(scatterHistoBinId,

@@ -92,6 +92,8 @@ namespace Scatter
 
 		const float fac = computeTailFittingFactor(scatterEstimate.get(),
 		                                           scatterTailsMask.get());
+
+		std::cout << "Applying tail-fit factor..." << std::endl;
 		scatterEstimate->getData() *= fac;
 
 		if (mp_sensitivityHis != nullptr)
@@ -100,8 +102,9 @@ namespace Scatter
 			//  as a denominator to prompts and randoms, it is necessary to
 			//  multiply it with the sensitivity again before using it in the
 			//  reconstruction
+			std::cout << "Denormalize scatter histogram..." << std::endl;
 			scatterEstimate->operationOnEachBinParallel(
-			    [this, scatterEstimate](bin_t bin) -> float
+			    [this, &scatterEstimate](bin_t bin) -> float
 			    {
 				    return mp_sensitivityHis->getProjectionValue(bin) *
 				           scatterEstimate->getProjectionValue(bin);

@@ -127,8 +127,12 @@ int main(int argc, char** argv)
 
 		if (useGPU)
 		{
-			ASSERT_MSG(BUILD_CUDA, "Program needs to be build with CUDA "
-			                       "support in order to use GPU acceleration");
+#if not BUILD_CUDA
+			std::cerr << "YRT-PET needs to be built with CUDA "
+			             "support in order to use GPU acceleration"
+			          << std::endl;
+			return -1;
+#endif
 		}
 
 		Globals::set_num_threads(numThreads);

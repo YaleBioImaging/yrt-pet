@@ -18,8 +18,10 @@ void Corrector_CPU::precomputeAdditiveCorrectionFactors(
 {
 	ASSERT_MSG(hasAdditiveCorrection(), "No additive corrections needed");
 
+	const ProjectionData* measurementsPtr = &measurements;
+
 	auto additiveCorrections =
-	    std::make_unique<ProjectionListOwned>(&measurements);
+	    std::make_unique<ProjectionListOwned>(measurementsPtr);
 	additiveCorrections->allocate();
 
 	mp_additiveCorrections = std::move(additiveCorrections);
@@ -29,11 +31,11 @@ void Corrector_CPU::precomputeAdditiveCorrectionFactors(
 	std::cout << "Precomputing additive corrections..." << std::endl;
 
 #pragma omp parallel for default(none) \
-    firstprivate(numBins, measurements, additiveCorrectionsPtr)
+    firstprivate(numBins, measurementsPtr, additiveCorrectionsPtr)
 	for (bin_t bin = 0; bin < numBins; bin++)
 	{
 		additiveCorrectionsPtr[bin] =
-		    getAdditiveCorrectionFactor(measurements, bin);
+		    getAdditiveCorrectionFactor(*measurementsPtr, bin);
 	}
 }
 
@@ -43,8 +45,10 @@ void Corrector_CPU::precomputeInVivoAttenuationFactors(
 	ASSERT_MSG(hasInVivoAttenuation(),
 	           "No in-vivo attenuation corrections needed");
 
+	const ProjectionData* measurementsPtr = &measurements;
+
 	auto inVivoAttenuationFactors =
-	    std::make_unique<ProjectionListOwned>(&measurements);
+	    std::make_unique<ProjectionListOwned>(measurementsPtr);
 	inVivoAttenuationFactors->allocate();
 
 	mp_inVivoAttenuationFactors = std::move(inVivoAttenuationFactors);
@@ -54,18 +58,17 @@ void Corrector_CPU::precomputeInVivoAttenuationFactors(
 	const size_t numBins = measurements.count();
 
 #pragma omp parallel for default(none) \
-    firstprivate(numBins, measurements, inVivoAttenuationFactorsPtr)
+    firstprivate(numBins, measurementsPtr, inVivoAttenuationFactorsPtr)
 	for (bin_t bin = 0; bin < numBins; bin++)
 	{
 		inVivoAttenuationFactorsPtr[bin] =
-		    getInVivoAttenuationFactor(measurements, bin);
+		    getInVivoAttenuationFactor(*measurementsPtr, bin);
 	}
 }
 
 float Corrector_CPU::getMultiplicativeCorrectionFactor(
     const ProjectionData& measurements, bin_t binId) const
 {
-
 	if (hasMultiplicativeCorrection())
 	{
 		const histo_bin_t histoBin = measurements.getHistogramBin(binId);

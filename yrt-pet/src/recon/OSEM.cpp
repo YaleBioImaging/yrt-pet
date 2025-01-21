@@ -206,7 +206,6 @@ void OSEM::generateSensitivityImagesCore(
 				        Util::padZeros(subsetId, numDigitsInFilename));
 			}
 			generatedImage->writeToFile(outFileName);
-			std::cout << "Image saved." << std::endl;
 		}
 
 		if (saveOnMemory)

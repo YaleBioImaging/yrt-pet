@@ -16,29 +16,26 @@ namespace Util
 	class ProgressDisplayMultiThread
 	{
 	public:
-		explicit ProgressDisplayMultiThread(int64_t p_numThreads,
+		explicit ProgressDisplayMultiThread(int p_numThreads,
 		                                    int64_t p_totalWork = -1,
 		                                    int64_t p_increment = 10);
 
+		void reset();
 		void setTotalWork(int64_t p_totalWork);
 		void setNumThreads(int numThreads);
 		int getNumThreads() const;
-		void start() const;
-		void finish() const;
 		void progress(int threadId, int64_t progressStep);
-		int64_t getWorkPerThread() const;
 
 	private:
-		// TODO: Make this display compatible with log files
-		void displayPercentage(int threadId, int8_t percentage) const;
-		static int getCurrentCursorRow();
-		static std::string moveCursor(int row);
+		void displayPercentageIfNeeded() const;
 
 		// In percentages, so never higher than 100
-		std::vector<int8_t> m_lastDisplayedPercentages;
+		int8_t m_lastDisplayedPercentage;
 
 		// In the same units as m_totalWork
 		std::vector<int64_t> m_progressPerThread;
+
+		// Total work to do
 		int64_t m_totalWork;
 
 		// Increment in percentage

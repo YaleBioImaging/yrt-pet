@@ -215,7 +215,6 @@ namespace Util
 
 		ProgressDisplayMultiThread progressBar(Globals::get_num_threads(),
 		                                       numDatBins, 5);
-		progressBar.start();
 
 		const Histogram3D* histoOut_constptr = &histoOut;
 		const ProjectionData* dat_constptr = &dat;
@@ -248,7 +247,6 @@ namespace Util
 				}
 			}
 		}
-		progressBar.finish();
 	}
 
 	template void convertToHistogram3D<true>(const ProjectionData&,

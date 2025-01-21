@@ -9,6 +9,9 @@
 #include "recon/Corrector_CPU.hpp"
 #include "recon/OSEM_CPU.hpp"
 #include "utils/Assert.hpp"
+#include "utils/Globals.hpp"
+#include "utils/ProgressDisplayMultiThread.hpp"
+
 
 OSEMUpdater_CPU::OSEMUpdater_CPU(OSEM_CPU* pp_osem) : mp_osem(pp_osem)
 {
@@ -24,12 +27,16 @@ void OSEMUpdater_CPU::computeSensitivityImage(Image& destImage) const
 	const Corrector_CPU* correctorPtr = &corrector;
 	const ProjectionData* sensImgGenProjData = corrector.getSensImgGenBuffer();
 	Image* destImagePtr = &destImage;
+	Util::ProgressDisplayMultiThread progressDisplay(Globals::get_num_threads(),
+	                                                 numBins);
 
 #pragma omp parallel for default(none)                                      \
     firstprivate(sensImgGenProjData, correctorPtr, projector, destImagePtr, \
-                     binIter, numBins)
+                     binIter, numBins) shared(progressDisplay)
 	for (bin_t binIdx = 0; binIdx < numBins; binIdx++)
 	{
+		progressDisplay.progress(omp_get_thread_num(), 1);
+
 		const bin_t bin = binIter->get(binIdx);
 
 		const ProjectionProperties projectionProperties =

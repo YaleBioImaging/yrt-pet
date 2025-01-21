@@ -5,8 +5,8 @@
 
 #include "utils/RangeList.hpp"
 #include "utils/Assert.hpp"
-#include <sstream>
 #include <algorithm>
+#include <sstream>
 
 #if BUILD_PYBIND11
 #include <pybind11/pybind11.h>
@@ -22,8 +22,9 @@ void py_setup_utilities_rangelist(py::module& m)
 	c_range.def(py::init<const std::string&>());
 	c_range.def("isIn", &Util::RangeList::isIn, py::arg("idx"));
 	c_range.def("empty", &Util::RangeList::empty);
-	c_range.def("insertSorted", [](Util::RangeList & self, int begin, int end)
-	{ self.insertSorted(begin, end); }, py::arg("begin"), py::arg("end"));
+	c_range.def(
+	    "insertSorted", [](Util::RangeList& self, int begin, int end)
+	    { self.insertSorted(begin, end); }, py::arg("begin"), py::arg("end"));
 	c_range.def("__repr__",
 	            [](const Util::RangeList& self)
 	            {
@@ -114,14 +115,14 @@ namespace Util
 			while (it != events.end())
 			{
 				itNext++;
-				count += it->second? 1: -1;
+				count += it->second ? 1 : -1;
 				if (newInterval)
 				{
 					begin = it->first;
 					newInterval = false;
 				}
-				if (count == 0 && (itNext == events.end() ||
-				                   itNext->first > it->first + 1))
+				if (count == 0 &&
+				    (itNext == events.end() || itNext->first > it->first + 1))
 				{
 					end = it->first;
 					ranges.push_back({begin, end});
@@ -162,4 +163,4 @@ namespace Util
 	{
 		return m_Ranges.size() == 0;
 	}
-}
+}  // namespace Util

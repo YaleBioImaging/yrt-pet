@@ -6,8 +6,8 @@
 #pragma once
 
 #include "utils/Utilities.hpp"
-#include <vector>
 #include <iostream>
+#include <vector>
 
 namespace Util
 {
@@ -18,7 +18,7 @@ namespace Util
 
 	public:
 		RangeList() {}
-		RangeList(const std::string& p_Ranges);
+		explicit RangeList(const std::string& p_Ranges);
 		void readFromString(const std::string& p_Ranges);
 		static void insertSorted(std::vector<std::pair<int, int>>& ranges,
 		                         const int begin, const int end);
@@ -42,4 +42,4 @@ namespace Util
 			return os;
 		}
 	};
-}
+}  // namespace Util

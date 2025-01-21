@@ -27,6 +27,8 @@
 #include <pybind11/pybind11.h>
 namespace py = pybind11;
 
+using namespace pybind11::literals;
+
 void py_setup_osem(pybind11::module& m)
 {
 	auto c = py::class_<OSEM>(m, "OSEM");
@@ -52,37 +54,53 @@ void py_setup_osem(pybind11::module& m)
 		    }
 		    return pySensImagesList;
 	    },
-	    py::arg("out_fname") = "", py::arg("saveToMemory") = true);
+	    "out_fname"_a = "", "saveToMemory"_a = true);
 
 	c.def("validateSensImagesAmount", &OSEM::validateSensImagesAmount,
-	      py::arg("amount"));
+	      "amount"_a);
 
-	c.def("setSensitivityImage", &OSEM::setSensitivityImage,
-	      py::arg("sens_image"), py::arg("subset") = 0);
+	c.def("setSensitivityImage", &OSEM::setSensitivityImage, "sens_image"_a,
+	      "subset"_a = 0);
 	c.def("setSensitivityImages",
 	      static_cast<void (OSEM::*)(const pybind11::list& pySensImgList)>(
 	          &OSEM::setSensitivityImages));
 
-	c.def("reconstruct", &OSEM::reconstruct, py::arg("out_fname") = "");
+	c.def("reconstruct", &OSEM::reconstruct, "out_fname"_a = "");
 	c.def("reconstructWithWarperMotion", &OSEM::reconstructWithWarperMotion,
-	      py::arg("out_fname") = "");
+	      "out_fname"_a = "");
 	c.def("summary", &OSEM::summary);
 
-	c.def("getSensitivityHistogram", &OSEM::getSensitivityHistogram);
 	c.def("setSensitivityHistogram", &OSEM::setSensitivityHistogram,
-	      py::arg("sens_his"));
+	      "sens_his"_a);
+	c.def("getSensitivityHistogram", &OSEM::getSensitivityHistogram);
+	c.def("setGlobalScalingFactor", &OSEM::setGlobalScalingFactor,
+	      "global_scale"_a);
+	c.def("setInvertSensitivity", &OSEM::setInvertSensitivity,
+	      "invert"_a = true);
 	c.def("getDataInput", &OSEM::getDataInput);
-	c.def("setDataInput", &OSEM::setDataInput, py::arg("proj_data"));
-	c.def("addTOF", &OSEM::addTOF, py::arg("tof_width_ps"),
-	      py::arg("tof_num_std"));
-	c.def("addProjPSF", &OSEM::addProjPSF, py::arg("proj_psf_fname"));
-	c.def("addImagePSF", &OSEM::addImagePSF, py::arg("image_psf_fname"));
-	c.def("setSaveIter", &OSEM::setSaveIterRanges, py::arg("range_list"),
-	      py::arg("path"));
-	c.def("setListModeEnabled", &OSEM::setListModeEnabled, py::arg("enabled"));
-	c.def("setProjector", &OSEM::setProjector, py::arg("projector_name"));
-	c.def("setImageParams", &OSEM::setImageParams, py::arg("params"));
+	c.def("setDataInput", &OSEM::setDataInput, "proj_data"_a);
+	c.def("addTOF", &OSEM::addTOF, "tof_width_ps"_a, "tof_num_std"_a);
+	c.def("addProjPSF", &OSEM::addProjPSF, "proj_psf_fname"_a);
+	c.def("addImagePSF", &OSEM::addImagePSF, "image_psf_fname"_a);
+	c.def("setSaveIterRanges", &OSEM::setSaveIterRanges, "range_list"_a,
+	      "path"_a);
+	c.def("setListModeEnabled", &OSEM::setListModeEnabled, "enabled"_a);
+	c.def("setProjector", &OSEM::setProjector, "projector_name"_a);
+	c.def("setImageParams", &OSEM::setImageParams, "params"_a);
+	c.def("getImageParams", &OSEM::getImageParams);
 	c.def("isListModeEnabled", &OSEM::isListModeEnabled);
+	c.def("setRandomsHistogram", &OSEM::setRandomsHistogram, "randoms_his"_a);
+	c.def("setScatterHistogram", &OSEM::setScatterHistogram, "scatter_his"_a);
+	c.def("setAttenuationImage", &OSEM::setAttenuationImage, "att_image"_a);
+	c.def("setACFHistogram", &OSEM::setACFHistogram, "acf_his"_a);
+	c.def("setHardwareAttenuationImage", &OSEM::setHardwareAttenuationImage,
+	      "att_hardware"_a);
+	c.def("setHardwareACFHistogram", &OSEM::setHardwareACFHistogram,
+	      "acf_hardware_his"_a);
+	c.def("setInVivoAttenuationImage", &OSEM::setInVivoAttenuationImage,
+	      "att_invivo"_a);
+	c.def("setInVivoACFHistogram", &OSEM::setInVivoACFHistogram,
+	      "acf_invivo_his"_a);
 
 	c.def_readwrite("num_MLEM_iterations", &OSEM::num_MLEM_iterations);
 	c.def_readwrite("num_OSEM_subsets", &OSEM::num_OSEM_subsets);

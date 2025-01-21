@@ -41,7 +41,6 @@ int main(int argc, char** argv)
 		std::string scatter_fname;
 		std::string scatter_format;
 		std::string projector_name = "S";
-		// TODO NOW: Restore scatter estimation executable
 		std::string sensitivityData_fname;
 		std::string sensitivityData_format;
 		std::string warpParamFile;  // For Warper

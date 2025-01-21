@@ -72,7 +72,8 @@ namespace Scatter
 		m_cyl2 = Cylinder{c, m_axialFOV, m_scannerRadius + m_crystalDepth};
 		// YP 3 points located in the last ring of the scanner
 		Vector3D p1{1.0f, 0.0f, -m_axialFOV / 2.0f},
-		    p2{0.0f, 1.0f, -m_axialFOV / 2.0f}, p3{0.0f, 0.0f, -m_axialFOV / 2.0f};
+		    p2{0.0f, 1.0f, -m_axialFOV / 2.0f},
+		    p3{0.0f, 0.0f, -m_axialFOV / 2.0f};
 		// YP defines a plane according to these 3 points
 		m_endPlate1 = Plane{p1, p2, p3};
 
@@ -103,12 +104,9 @@ namespace Scatter
 		m_ySamples.reserve(nzsamp * nysamp * nxsamp);
 		m_zSamples.reserve(nzsamp * nysamp * nxsamp);
 		// YP spacing between scatter points
-		const float dxsamp =
-		    mu_params.length_x / (static_cast<float>(nxsamp));
-		const float dysamp =
-		    mu_params.length_y / (static_cast<float>(nysamp));
-		const float dzsamp =
-		    mu_params.length_z / (static_cast<float>(nzsamp));
+		const float dxsamp = mu_params.length_x / (static_cast<float>(nxsamp));
+		const float dysamp = mu_params.length_y / (static_cast<float>(nysamp));
+		const float dzsamp = mu_params.length_z / (static_cast<float>(nzsamp));
 		Vector3D p;
 		m_xSamples.clear();
 		m_ySamples.clear();
@@ -176,6 +174,8 @@ namespace Scatter
 		ASSERT_MSG(
 		    &scatterHisto.getScanner() == &mr_scanner,
 		    "The histogram's scanner is not the same as the SSS's scanner");
+		ASSERT_MSG(scatterHisto.isMemoryValid(),
+		           "Destination histogram is unallocated or unbound");
 
 		constexpr size_t min_z = 0;
 		constexpr size_t min_phi = 0;
@@ -258,14 +258,10 @@ namespace Scatter
 
 					const auto [d1, d2] =
 					    scatterHisto.getDetectorPair(scatterHistoBinId);
-					const Vector3D p1 =
-					    mr_scanner.getDetectorPos(d1);
-					const Vector3D p2 =
-					    mr_scanner.getDetectorPos(d2);
-					const Vector3D n1 =
-					    mr_scanner.getDetectorOrient(d1);
-					const Vector3D n2 =
-					    mr_scanner.getDetectorOrient(d2);
+					const Vector3D p1 = mr_scanner.getDetectorPos(d1);
+					const Vector3D p2 = mr_scanner.getDetectorPos(d2);
+					const Vector3D n1 = mr_scanner.getDetectorOrient(d1);
+					const Vector3D n2 = mr_scanner.getDetectorOrient(d2);
 
 					const Line3D lor{p1, p2};
 
@@ -331,7 +327,6 @@ namespace Scatter
 				scatterHistoData[z_bin_i] *= 0.5;  // average
 			}
 		}
-		std::cout << "Done Filling oblique bins." << std::endl;
 	}
 
 	// YP LOR in which to compute the scatter contribution

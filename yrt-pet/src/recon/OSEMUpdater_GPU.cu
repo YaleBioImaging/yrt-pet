@@ -115,6 +115,8 @@ void OSEMUpdater_GPU::computeEMUpdateImage(const ImageDevice& inputImage,
 
 	for (int batch = 0; batch < numBatchesInCurrentSubset; batch++)
 	{
+		std::cout << "Batch " << batch + 1 << "/" << numBatchesInCurrentSubset
+		          << "..." << std::endl;
 		measurementsDevice->loadEventLORs(currentSubset, batch, imageParams,
 		                                  auxStream);
 

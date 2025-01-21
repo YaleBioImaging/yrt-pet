@@ -353,7 +353,7 @@ namespace Util
 		}
 		else
 		{
-			std::cout << "Back projecting all LORs ..." << std::endl;
+			std::cout << "Backprojecting all LORs ..." << std::endl;
 			oper->applyAH(projData, img);
 		}
 	}

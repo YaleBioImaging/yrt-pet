@@ -24,6 +24,7 @@ int main(int argc, char** argv)
 		std::string scanner_fname;
 		std::string promptsHis_fname;
 		std::string randomsHis_fname;
+		std::string sensitivityHis_fname;
 		std::string acfHis_fname;
 		std::string sourceImage_fname;
 		std::string attImage_fname;
@@ -32,6 +33,7 @@ int main(int argc, char** argv)
 		std::string scatterOut_fname;
 		std::string acfOutHis_fname;  // In case ACF needs to be calculated
 		std::string saveIntermediary_dir;
+		bool invertSensitivity = false;
 		int numThreads = -1;
 		int maskWidth = -1;
 		float acfThreshold = Scatter::ScatterEstimator::DefaultACFThreshold;
@@ -75,6 +77,13 @@ int main(int argc, char** argv)
 		                 cxxopts::value(promptsHis_fname));
 		tailFittingGroup("randoms", "Randoms histogram file (optional)",
 		                 cxxopts::value(randomsHis_fname));
+		tailFittingGroup("sensitivity", "Sensitivity histogram file (optional)",
+		                 cxxopts::value(sensitivityHis_fname));
+		tailFittingGroup(
+		    "invert_sensitivity",
+		    "Invert the sensitivity histogram values (sensitivity -> "
+		    "1/sensitivity)",
+		    cxxopts::value(invertSensitivity));
 		tailFittingGroup("acf",
 		                 "ACF histogram file (optional). Will be computed from "
 		                 "attenuation image if not provided",
@@ -101,14 +110,8 @@ int main(int argc, char** argv)
 			return 0;
 		}
 
-		std::vector<std::string> required_params = {"scanner",
-		                                            "prompts",
-		                                            "source",
-		                                            "att"
-		                                            "out",
-		                                            "nZ",
-		                                            "nPhi",
-		                                            "nR"};
+		std::vector<std::string> required_params = {
+		    "scanner", "prompts", "source", "att", "out", "nZ", "nPhi", "nR"};
 
 		bool missing_args = false;
 		for (auto& p : required_params)
@@ -163,6 +166,27 @@ int main(int argc, char** argv)
 			randomsHis =
 			    std::make_unique<Histogram3DOwned>(*scanner, randomsHis_fname);
 		}
+		std::unique_ptr<Histogram3DOwned> sensitivityHis = nullptr;
+		if (!sensitivityHis_fname.empty())
+		{
+			std::cout << "Reading sensitivity histogram..." << std::endl;
+			sensitivityHis = std::make_unique<Histogram3DOwned>(
+			    *scanner, sensitivityHis_fname);
+			if (invertSensitivity)
+			{
+				sensitivityHis->operationOnEachBinParallel(
+				    [&sensitivityHis](bin_t bin)
+				    {
+					    const float sensitivity =
+					        sensitivityHis->getProjectionValue(bin);
+					    if (sensitivity > 1e-8)
+					    {
+						    return 1.0f / sensitivity;
+					    }
+					    return 0.0f;
+				    });
+			}
+		}
 
 		auto attImage = std::make_unique<ImageOwned>(attImage_fname);
 
@@ -194,6 +218,7 @@ int main(int argc, char** argv)
 		                                           promptsHis.get(),
 		                                           randomsHis.get(),
 		                                           acfHis.get(),
+		                                           sensitivityHis.get(),
 		                                           crystalMaterial,
 		                                           seed,
 		                                           maskWidth,

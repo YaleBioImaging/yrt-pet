@@ -25,6 +25,7 @@ namespace Scatter
 		                 const Image& pr_mu, const Histogram3D* pp_promptsHis,
 		                 const Histogram3D* pp_randomsHis,
 		                 const Histogram3D* pp_acfHis,
+		                 const Histogram3D* pp_sensitivityHis,
 		                 CrystalMaterial p_crystalMaterial = DefaultCrystal,
 		                 int seedi = DefaultSeed, int maskWidth = -1,
 		                 float maskThreshold = DefaultACFThreshold,
@@ -59,9 +60,11 @@ namespace Scatter
 		const Histogram3D* mp_promptsHis;
 		const Histogram3D* mp_randomsHis;
 		const Histogram3D* mp_acfHis;
+		const Histogram3D* mp_sensitivityHis;
 
 		// For the scatter tails mask
-		std::filesystem::path m_saveIntermediary_dir;  // save the scatter tails mask used
+		std::filesystem::path
+		    m_saveIntermediary_dir;  // save the scatter tails mask used
 		float m_maskThreshold;
 		size_t m_scatterTailsMaskWidth;
 	};

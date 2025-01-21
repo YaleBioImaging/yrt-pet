@@ -23,9 +23,10 @@ void py_setup_scatterestimator(py::module& m)
 	auto c = py::class_<Scatter::ScatterEstimator>(m, "ScatterEstimator");
 	c.def(py::init<const Scanner&, const Image&, const Image&,
 	               const Histogram3D*, const Histogram3D*, const Histogram3D*,
-	               Scatter::CrystalMaterial, int, int, float, const std::string&>(),
+	               const Histogram3D*, Scatter::CrystalMaterial, int, int,
+	               float, const std::string&>(),
 	      "scanner"_a, "source_image"_a, "attenuation_image"_a, "prompts_his"_a,
-	      "randoms_his"_a, "acf_his"_a,
+	      "randoms_his"_a, "acf_his"_a, "sensitivity_his"_a,
 	      "crystal_material"_a = Scatter::ScatterEstimator::DefaultCrystal,
 	      "seed"_a = Scatter::ScatterEstimator::DefaultSeed,
 	      "mask_width"_a = -1,
@@ -51,15 +52,16 @@ namespace Scatter
 	ScatterEstimator::ScatterEstimator(
 	    const Scanner& pr_scanner, const Image& pr_lambda, const Image& pr_mu,
 	    const Histogram3D* pp_promptsHis, const Histogram3D* pp_randomsHis,
-	    const Histogram3D* pp_acfHis, CrystalMaterial p_crystalMaterial,
-	    int seedi, int maskWidth, float maskThreshold,
-	    const std::string& saveIntermediary_dir)
+	    const Histogram3D* pp_acfHis, const Histogram3D* pp_sensitivityHis,
+	    CrystalMaterial p_crystalMaterial, int seedi, int maskWidth,
+	    float maskThreshold, const std::string& saveIntermediary_dir)
 	    : mr_scanner(pr_scanner),
 	      m_sss(pr_scanner, pr_mu, pr_lambda, p_crystalMaterial, seedi)
 	{
 		mp_promptsHis = pp_promptsHis;
 		mp_randomsHis = pp_randomsHis;
 		mp_acfHis = pp_acfHis;
+		mp_sensitivityHis = pp_sensitivityHis;
 		if (maskWidth > 0)
 		{
 			m_scatterTailsMaskWidth = maskWidth;
@@ -91,6 +93,21 @@ namespace Scatter
 		const float fac = computeTailFittingFactor(scatterEstimate.get(),
 		                                           scatterTailsMask.get());
 		scatterEstimate->getData() *= fac;
+
+		if (mp_sensitivityHis != nullptr)
+		{
+			// Since the scatter estimate was tail-fitted using the sensitivity
+			//  as a denominator to prompts and randoms, it is necessary to
+			//  multiply it with the sensitivity again before using it in the
+			//  reconstruction
+			scatterEstimate->operationOnEachBinParallel(
+			    [this, scatterEstimate](bin_t bin) -> float
+			    {
+				    return mp_sensitivityHis->getProjectionValue(bin) *
+				           scatterEstimate->getProjectionValue(bin);
+			    });
+		}
+
 		return scatterEstimate;
 	}
 
@@ -134,14 +151,29 @@ namespace Scatter
 			// Only fit inside the mask
 			if (scatterTailsMask->getProjectionValue(bin) > 0.0f)
 			{
-				scatterSum += scatterHistogram->getProjectionValue(bin);
+				float binValue = mp_promptsHis->getProjectionValue(bin);
+				if (mp_randomsHis != nullptr)
+				{
+					binValue -= mp_randomsHis->getProjectionValue(bin);
+				}
+				if (mp_sensitivityHis != nullptr)
+				{
+					const float sensitivityVal =
+					    mp_sensitivityHis->getProjectionValue(bin);
+					if (sensitivityVal > 1e-8)
+					{
+						binValue /= sensitivityVal;
+					}
+					else
+					{
+						// Ignore zero bins altogether to avoid numerical
+						// instability
+						continue;
+					}
+				}
 
-				const float promptVal = mp_promptsHis->getProjectionValue(bin);
-				const float randomsVal =
-				    (mp_randomsHis != nullptr) ?
-				        mp_randomsHis->getProjectionValue(bin) :
-				        0.0f;
-				promptsSum += promptVal - randomsVal;
+				promptsSum += binValue;
+				scatterSum += scatterHistogram->getProjectionValue(bin);
 			}
 		}
 		const float fac = promptsSum / scatterSum;

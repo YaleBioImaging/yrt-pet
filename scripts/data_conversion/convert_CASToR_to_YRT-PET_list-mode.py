@@ -37,10 +37,10 @@ if __name__ == "__main__":
         'to a YRT-PET ListMode file (float32-uint32-uint32)')
     parser.add_argument('-i', '--input', dest='input_file', type=str,
                         required=True, nargs='+',
-                        help='Input list-mode file name for Castor (.Cdh)')
+                        help='Input list-mode filename for Castor (.Cdh)')
     parser.add_argument('-o', '--output', dest='output_file', type=str,
                         required=True,
-                        help='Output list-mode file name (.lmDat)')
+                        help='Output list-mode filename (.lmDat)')
     parser.add_argument('--flag_tof_out', dest='flag_tof_out',
                         action='store_true',
                         help='When set, the output list-mode includes ' +

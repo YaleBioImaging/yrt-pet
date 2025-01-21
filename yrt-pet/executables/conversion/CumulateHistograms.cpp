@@ -35,7 +35,7 @@ int main(int argc, char** argv)
 		options.positional_help("[optional args]").show_positional_help();
 		/* clang-format off */
 		options.add_options()
-		("s,scanner", "Scanner parameters file name", cxxopts::value<std::string>(scanner_fname))
+		("s,scanner", "Scanner parameters file", cxxopts::value<std::string>(scanner_fname))
 		("i,input", "Input histogram files (separated by commas)", cxxopts::value<std::vector<std::string>>(input_fnames))
 		("f,format", "Input files format. Possible values: " + IO::possibleFormats(Plugin::InputFormatsChoice::ONLYHISTOGRAMS), cxxopts::value<std::string>(input_format))
 		("o,out", "Output histogram filename", cxxopts::value<std::string>(out_fname))

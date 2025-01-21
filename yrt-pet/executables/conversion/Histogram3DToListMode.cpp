@@ -30,7 +30,7 @@ int main(int argc, char** argv)
 
 		/* clang-format off */
 		options.add_options()
-		("s,scanner", "Scanner parameters file name", cxxopts::value<std::string>(scanner_fname))
+		("s,scanner", "Scanner parameters file", cxxopts::value<std::string>(scanner_fname))
 		("i,input", "Input histogram file", cxxopts::value<std::string>(input_fname))
 		("o,out", "Output list-mode filename", cxxopts::value<std::string>(out_fname))
 		("n,num", "Number of list-mode events", cxxopts::value<size_t>(numEvents))

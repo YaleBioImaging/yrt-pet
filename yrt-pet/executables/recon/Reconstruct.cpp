@@ -67,7 +67,7 @@ int main(int argc, char** argv)
 		options.positional_help("[optional args]").show_positional_help();
 
 		auto coreGroup = options.add_options("0. Core");
-		coreGroup("s,scanner", "Scanner parameters file name",
+		coreGroup("s,scanner", "Scanner parameters file",
 		          cxxopts::value<std::string>(scanner_fname));
 		coreGroup("p,params",
 		          "Image parameters file."

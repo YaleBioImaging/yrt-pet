@@ -28,7 +28,7 @@ namespace Scatter
 		                 CrystalMaterial p_crystalMaterial = DefaultCrystal,
 		                 int seedi = DefaultSeed, int maskWidth = -1,
 		                 float maskThreshold = DefaultACFThreshold,
-		                 bool saveIntermediary = false);
+		                 const std::string& saveIntermediary_dir = "");
 
 		std::shared_ptr<Histogram3DOwned>
 		    computeTailFittedScatterEstimate(size_t numberZ, size_t numberPhi,
@@ -50,6 +50,10 @@ namespace Scatter
 		                                 float maskThreshold);
 
 	private:
+		// TODO: Eventually, this class should not depend on the fully-sampled
+		//  histograms. It should instead use the List-Mode instead of the
+		//  prompts and return an under-sampled sinogram instead of a
+		//  fully-sampled histogram.
 		const Scanner& mr_scanner;
 		SingleScatterSimulator m_sss;
 		const Histogram3D* mp_promptsHis;
@@ -57,7 +61,7 @@ namespace Scatter
 		const Histogram3D* mp_acfHis;
 
 		// For the scatter tails mask
-		bool m_saveIntermediary;  // save the scatter tails mask used
+		std::filesystem::path m_saveIntermediary_dir;  // save the scatter tails mask used
 		float m_maskThreshold;
 		size_t m_scatterTailsMaskWidth;
 	};

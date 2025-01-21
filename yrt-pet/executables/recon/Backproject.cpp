@@ -42,7 +42,7 @@ int main(int argc, char** argv)
 		options.positional_help("[optional args]").show_positional_help();
 		/* clang-format off */
 		options.add_options()
-		("s,scanner", "Scanner parameters file name", cxxopts::value<std::string>(scanner_fname))
+		("s,scanner", "Scanner parameters file", cxxopts::value<std::string>(scanner_fname))
 		("i,input", "Input data file", cxxopts::value<std::string>(input_fname))
 		("f,format", "Input data format", cxxopts::value<std::string>(input_format))
 		("o,out", "Output image filename", cxxopts::value<std::string>(outputImage_fname))

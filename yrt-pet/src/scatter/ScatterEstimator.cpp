@@ -23,14 +23,14 @@ void py_setup_scatterestimator(py::module& m)
 	auto c = py::class_<Scatter::ScatterEstimator>(m, "ScatterEstimator");
 	c.def(py::init<const Scanner&, const Image&, const Image&,
 	               const Histogram3D*, const Histogram3D*, const Histogram3D*,
-	               Scatter::CrystalMaterial, int, int, float, bool>(),
+	               Scatter::CrystalMaterial, int, int, float, const std::string&>(),
 	      "scanner"_a, "source_image"_a, "attenuation_image"_a, "prompts_his"_a,
 	      "randoms_his"_a, "acf_his"_a,
 	      "crystal_material"_a = Scatter::ScatterEstimator::DefaultCrystal,
 	      "seed"_a = Scatter::ScatterEstimator::DefaultSeed,
 	      "mask_width"_a = -1,
 	      "mask_threshold"_a = Scatter::ScatterEstimator::DefaultACFThreshold,
-	      "save_intermediary"_a = false);
+	      "save_intermediary"_a = "");
 
 	c.def("computeTailFittedScatterEstimate",
 	      &Scatter::ScatterEstimator::computeTailFittedScatterEstimate,
@@ -52,7 +52,8 @@ namespace Scatter
 	    const Scanner& pr_scanner, const Image& pr_lambda, const Image& pr_mu,
 	    const Histogram3D* pp_promptsHis, const Histogram3D* pp_randomsHis,
 	    const Histogram3D* pp_acfHis, CrystalMaterial p_crystalMaterial,
-	    int seedi, int maskWidth, float maskThreshold, bool saveIntermediary)
+	    int seedi, int maskWidth, float maskThreshold,
+	    const std::string& saveIntermediary_dir)
 	    : mr_scanner(pr_scanner),
 	      m_sss(pr_scanner, pr_mu, pr_lambda, p_crystalMaterial, seedi)
 	{
@@ -69,7 +70,7 @@ namespace Scatter
 			m_scatterTailsMaskWidth = mp_promptsHis->numR / 10;
 		}
 		m_maskThreshold = maskThreshold;
-		m_saveIntermediary = saveIntermediary;
+		m_saveIntermediary_dir = saveIntermediary_dir;
 	}
 
 	std::shared_ptr<Histogram3DOwned>
@@ -80,10 +81,11 @@ namespace Scatter
 		auto scatterEstimate =
 		    computeScatterEstimate(numberZ, numberPhi, numberR);
 
-		auto scatterTailsMask = generateScatterTailsMask();
-		if (m_saveIntermediary)
+		const auto scatterTailsMask = generateScatterTailsMask();
+		if (!m_saveIntermediary_dir.empty())
 		{
-			scatterTailsMask->writeToFile("intermediary_scatterTailsMask.his");
+			scatterTailsMask->writeToFile(m_saveIntermediary_dir /
+			                              "intermediary_scatterTailsMask.his");
 		}
 
 		const float fac = computeTailFittingFactor(scatterEstimate.get(),

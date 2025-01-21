@@ -36,7 +36,7 @@ int main(int argc, char** argv)
 
 		/* clang-format off */
 		options.add_options()
-		("s,scanner", "Scanner parameters file name", cxxopts::value<std::string>(scanner_fname))
+		("s,scanner", "Scanner parameters file", cxxopts::value<std::string>(scanner_fname))
 		("i,input", "Input file", cxxopts::value<std::string>(input_fname))
 		("f,format", "Input file format. Possible values: " + IO::possibleFormats(), cxxopts::value<std::string>(input_format))
 		("o,out", "Output histogram filename", cxxopts::value<std::string>(out_fname))

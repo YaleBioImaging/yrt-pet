@@ -38,7 +38,7 @@ int main(int argc, char** argv)
 		options.positional_help("[optional args]").show_positional_help();
 		/* clang-format off */
 		options.add_options()
-		("s,scanner", "Scanner parameters file name", cxxopts::value<std::string>(scanner_fname))
+		("s,scanner", "Scanner parameters file", cxxopts::value<std::string>(scanner_fname))
 		("i,input", "Input image file", cxxopts::value<std::string>(inputImage_fname))
 		("psf", "Image-space PSF kernel file", cxxopts::value<std::string>(imageSpacePsf_fname))
 		("proj_psf", "Projection-space PSF kernel file", cxxopts::value<std::string>(projSpacePsf_fname))

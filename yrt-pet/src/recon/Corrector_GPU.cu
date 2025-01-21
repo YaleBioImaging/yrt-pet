@@ -43,7 +43,7 @@ void Corrector_GPU::precomputeAdditiveCorrectionFactors(
 		//  kernel)
 		std::cout << "Computing attenuation coefficient factors..."
 		          << std::endl;
-		Util::convertProjectionValuesToACF(*mph_inVivoAttenuationFactors);
+		Util::convertProjectionValuesToACF(*mph_additiveCorrections);
 	}
 
 	float* additiveCorrectionsPtr = mph_additiveCorrections->getRawPointer();

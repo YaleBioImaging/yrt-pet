@@ -38,7 +38,7 @@ namespace Util
 
 	void ProgressDisplayMultiThread::reset()
 	{
-		std::fill(m_progressPerThread.begin(), m_progressPerThread.end(), 0);
+		m_progressPerThread.assign(m_progressPerThread.size(), 0);
 		m_lastDisplayedPercentage = -1;
 	}
 

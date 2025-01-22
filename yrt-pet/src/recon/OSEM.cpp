@@ -108,6 +108,7 @@ void py_setup_osem(pybind11::module& m)
 	c.def_readwrite("numRays", &OSEM::numRays);
 	c.def_readwrite("projectorType", &OSEM::projectorType);
 	c.def_readwrite("maskImage", &OSEM::maskImage);
+	c.def_readwrite("initialEstimate", &OSEM::initialEstimate);
 	c.def_readwrite("warper", &OSEM::warper);
 }
 #endif
@@ -120,6 +121,7 @@ OSEM::OSEM(const Scanner& pr_scanner)
       projectorType(OperatorProjector::SIDDON),
       scanner(pr_scanner),
       maskImage(nullptr),
+      initialEstimate(nullptr),
       warper(nullptr),
       flagImagePSF(false),
       imageSpacePsf(nullptr),

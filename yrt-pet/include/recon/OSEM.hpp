@@ -92,6 +92,7 @@ public:
 	OperatorProjector::ProjectorType projectorType;
 	const Scanner& scanner;
 	const Image* maskImage;
+	const Image* initialEstimate;
 	ImageWarperTemplate* warper;  // For MLEM with Warper only
 
 protected:

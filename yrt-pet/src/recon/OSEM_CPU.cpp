@@ -210,7 +210,14 @@ void OSEM_CPU::allocateForRecon()
 	reinterpret_cast<ImageOwned*>(mp_mlemImageTmp.get())->allocate();
 
 	// Initialize output image
-	getMLEMImageBuffer()->setValue(INITIAL_VALUE_MLEM);
+	if (initialEstimate != nullptr)
+	{
+		getMLEMImageBuffer()->copyFromImage(initialEstimate);
+	}
+	else
+	{
+		getMLEMImageBuffer()->setValue(INITIAL_VALUE_MLEM);
+	}
 
 	// Apply mask image
 	std::cout << "Applying threshold..." << std::endl;

@@ -159,7 +159,14 @@ void OSEM_GPU::allocateForRecon()
 	mpd_sensImageBuffer->allocate(false);
 
 	// Initialize the MLEM image values to non-zero
-	mpd_mlemImage->setValue(INITIAL_VALUE_MLEM);
+	if (initialEstimate != nullptr)
+	{
+		mpd_mlemImage->copyFromImage(initialEstimate);
+	}
+	else
+	{
+		mpd_mlemImage->setValue(INITIAL_VALUE_MLEM);
+	}
 
 	// Apply mask image (Use temporary buffer to avoid allocating a new one
 	// unnecessarily)

@@ -25,6 +25,7 @@ int main(int argc, char** argv)
 		std::string input_fname;
 		std::string input_format;
 		std::vector<std::string> sensImg_fnames;
+		std::string initialEstimate_fname;
 		std::string attImg_fname;
 		std::string acf_fname;
 		std::string acf_format;
@@ -122,6 +123,8 @@ int main(int argc, char** argv)
 		           cxxopts::value<int>(numIterations));
 		reconGroup("num_subsets", "Number of OSEM subsets (Default: 1)",
 		           cxxopts::value<int>(numSubsets));
+		reconGroup("initial_estimate", "Initial image estimate for the MLEM",
+		           cxxopts::value<std::string>(initialEstimate_fname));
 		reconGroup("randoms", "Randoms estimate histogram filename",
 		           cxxopts::value<std::string>(randoms_fname));
 		reconGroup(
@@ -288,7 +291,8 @@ int main(int argc, char** argv)
 		if (!acf_fname.empty())
 		{
 			std::cout << "Reading ACF histogram..." << std::endl;
-			ASSERT_MSG(!acf_format.empty(), "Unspecified format for ACF histogram");
+			ASSERT_MSG(!acf_format.empty(),
+			           "Unspecified format for ACF histogram");
 			ASSERT_MSG(!IO::isFormatListMode(acf_format),
 			           "ACF has to be in a histogram format");
 
@@ -571,7 +575,15 @@ int main(int argc, char** argv)
 			osem->setSaveIterRanges(ranges, out_fname);
 		}
 
-		// Image Warper
+		// Initial image estimate
+		std::unique_ptr<ImageOwned> initialEstimate = nullptr;
+		if (!initialEstimate_fname.empty())
+		{
+			initialEstimate = std::make_unique<ImageOwned>(initialEstimate_fname);
+			osem->initialEstimate = initialEstimate.get();
+		}
+
+		// Image Warper (Legacy)
 		std::unique_ptr<ImageWarperTemplate> warper = nullptr;
 		if (!warpParamFile.empty())
 		{

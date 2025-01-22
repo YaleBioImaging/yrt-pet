@@ -64,7 +64,7 @@ void OSEM_GPU::setupOperatorsForSensImgGen()
 	{
 		// Create and add Bin Iterator
 		getBinIterators().push_back(
-		    getSensitivityHistogram()->getBinIter(num_OSEM_subsets, subsetId));
+		    mp_corrector->getSensImgGenBuffer()->getBinIter(num_OSEM_subsets, subsetId));
 	}
 	// Create ProjectorParams object
 	OperatorProjectorParams projParams(

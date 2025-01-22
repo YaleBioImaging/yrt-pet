@@ -17,6 +17,8 @@
 
 #include "omp.h"
 
+#include <utils/ProgressDisplayMultiThread.hpp>
+
 #if BUILD_PYBIND11
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
@@ -217,36 +219,20 @@ namespace Scatter
 		}
 
 		// Only used for printing purposes
-		const size_t progress_max = num_i_z * num_i_phi * num_i_r;
-		size_t last_progress_print = 0;
+		const int64_t progressMax = num_i_z * num_i_phi * num_i_r;
+		const int numThreads = Globals::get_num_threads();
+		Util::ProgressDisplayMultiThread progressBar{numThreads, progressMax, 5};
 
-		int num_threads = Globals::get_num_threads();
 #pragma omp parallel for schedule(static, 1) collapse(3) \
-    num_threads(num_threads)
+    shared(progressBar)
 		for (size_t z_i = 0; z_i < num_i_z; z_i++)
 		{
 			for (size_t phi_i = 0; phi_i < num_i_phi; phi_i++)
 			{
 				for (size_t r_i = 0; r_i < num_i_r; r_i++)
 				{
-					const int thread_num = omp_get_thread_num();
-					if (thread_num == 0)
-					{
-						constexpr size_t percentageInterval = 5;
-						// Print progress
-						size_t progress =
-						    (z_i * num_i_phi * num_i_r + phi_i * num_i_r + r_i);
-						progress = progress * 100 / progress_max;
-						if (progress - last_progress_print >=
-						    percentageInterval)
-						{
-							last_progress_print = progress;
-							std::cout
-							    << "Progress: " +
-							           std::to_string(last_progress_print) + "%"
-							    << std::endl;
-						}
-					}
+					const int threadNum = omp_get_thread_num();
+					progressBar.progress(threadNum, 1);
 
 					const size_t z = m_zBinSamples[z_i];
 					const size_t phi = m_phiSamples[phi_i];

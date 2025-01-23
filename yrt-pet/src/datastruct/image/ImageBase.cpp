@@ -165,16 +165,16 @@ ImageParams::ImageParams(const std::string& fname) : ImageParams{}
 
 void ImageParams::setup()
 {
-	ASSERT(nx > 0);
-	ASSERT(ny > 0);
-	ASSERT(nz > 0);
+	ASSERT_MSG(nx > 0, "ImageParams object incomplete in X dimension");
+	ASSERT_MSG(ny > 0, "ImageParams object incomplete in Y dimension");
+	ASSERT_MSG(nz > 0, "ImageParams object incomplete in Z dimension");
 
 	completeDimInfo<0>();
 	completeDimInfo<1>();
 	completeDimInfo<2>();
 
-	fovRadius = static_cast<float>(std::max(length_x / 2.0f, length_y / 2.0f));
-	fovRadius -= static_cast<float>(std::max(vx, vy) / 1000.0f);
+	fovRadius = std::max(length_x / 2.0f, length_y / 2.0f);
+	fovRadius -= std::max(vx, vy) / 1000.0f;
 }
 
 template <int Dim>

@@ -323,10 +323,9 @@ void OSEM::setSensitivityImage(Image* sensImage, int subset)
 	ASSERT(sensImage != nullptr);
 	ASSERT_MSG(sensImage->getParams().isValid(), "Invalid image parameters");
 
-	const ImageParams currentImageParams = getImageParams();
-	if (currentImageParams.isValid())
+	if (imageParams.isValid())
 	{
-		ASSERT_MSG(sensImage->getParams().isSameAs(currentImageParams),
+		ASSERT_MSG(sensImage->getParams().isSameAs(imageParams),
 		           "Image parameters mismatch");
 	}
 	else

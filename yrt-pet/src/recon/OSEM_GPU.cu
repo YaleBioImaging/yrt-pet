@@ -64,7 +64,8 @@ void OSEM_GPU::setupOperatorsForSensImgGen()
 	{
 		// Create and add Bin Iterator
 		getBinIterators().push_back(
-		    mp_corrector->getSensImgGenBuffer()->getBinIter(num_OSEM_subsets, subsetId));
+		    mp_corrector->getSensImgGenBuffer()->getBinIter(num_OSEM_subsets,
+		                                                    subsetId));
 	}
 	// Create ProjectorParams object
 	OperatorProjectorParams projParams(
@@ -190,8 +191,8 @@ void OSEM_GPU::allocateForRecon()
 			    mpd_mlemImageTmpEMRatio.get());
 		}
 	}
-	mpd_mlemImage->applyThreshold(mpd_mlemImageTmpEMRatio.get(), 0.0, 0.0, 0.0,
-	                              0.0, 1.0f);
+	mpd_mlemImage->applyThreshold(mpd_mlemImageTmpEMRatio.get(), 0.0f, 0.0f,
+	                              0.0f, 1.0f, 0.0f);
 	mpd_mlemImageTmpEMRatio->setValue(0.0f);
 
 	// Initialize device's sensitivity image with the host's

@@ -222,7 +222,7 @@ void OSEM_CPU::allocateForRecon()
 	// Apply mask image
 	std::cout << "Applying threshold..." << std::endl;
 	auto applyMask = [this](const Image* maskImage) -> void
-	{ getMLEMImageBuffer()->applyThreshold(maskImage, 0.0, 0.0, 0.0, 0.0, 1); };
+	{ getMLEMImageBuffer()->applyThreshold(maskImage, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f); };
 	if (maskImage != nullptr)
 	{
 		applyMask(maskImage);

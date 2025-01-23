@@ -24,7 +24,7 @@ public:
 	// ---------- Constants ----------
 	static constexpr int DEFAULT_NUM_ITERATIONS = 10;
 	static constexpr float DEFAULT_HARD_THRESHOLD = 1.0f;
-	static constexpr float INITIAL_VALUE_MLEM = 0.1f;
+	static constexpr float INITIAL_VALUE_MLEM = 0.125f;
 	// ---------- Public methods ----------
 	explicit OSEM(const Scanner& pr_scanner);
 	virtual ~OSEM() = default;

@@ -319,51 +319,64 @@ def test_savant_sim_ultra_micro_hotspot_nomotion_osem_6rays():
                                atol=0, rtol=1e-3)
 
 
-# ----------
-
-def test_subsets_savant_sim_siddon():
-    scanner = yrt.Scanner(util_paths["SAVANT_sim_json"])
-    img_params = yrt.ImageParams(util_paths["img_params_500"])
-    lm = yrt.ListModeLUTOwned(scanner, dataset_paths["test_subsets_savant_sim"])
-    _helper._test_subsets(scanner, img_params, lm, projector='Siddon')
-
-
-def test_subsets_savant_sim_dd():
-    scanner = yrt.Scanner(util_paths["SAVANT_sim_json"])
-    img_params = yrt.ImageParams(util_paths["img_params_500"])
-    lm = yrt.ListModeLUTOwned(scanner, dataset_paths["test_subsets_savant_sim"])
-    _helper._test_subsets(scanner, img_params, lm, projector='DD')
+def _test_savant_sim_ultra_micro_hotpot_nomotion_subsets(projector:str):
+    fold_savant_sim = os.path.join(fold_data, "savant_sim")
+    scanner = yrt.Scanner(os.path.join(fold_savant_sim, "SAVANT_sim.json"))
+    img_params = yrt.ImageParams(os.path.join(fold_savant_sim, "img_params_500.json"))
+    lm = yrt.ListModeLUTOwned(scanner, os.path.join(fold_savant_sim,
+                                                    "ultra_micro_hotspot", "nomotion.lmDat"))
+    _helper._test_subsets(scanner, img_params, lm, projector=projector)
 
 
-def test_adjoint_uhr2d_siddon():
-    scanner = yrt.Scanner(util_paths["UHR2D_json"])
-    img_params = yrt.ImageParams(util_paths["img_params_2d"])
-    his = yrt.ListModeLUTOwned(scanner, dataset_paths["test_adjoint_uhr2d"])
-    _helper._test_adjoint(scanner, img_params, his, projector='Siddon')
+def test_savant_sim_ultra_micro_hotpot_nomotion_subsets_siddon():
+    _test_savant_sim_ultra_micro_hotpot_nomotion_subsets("Siddon")
 
 
-def test_adjoint_uhr2d_multi_ray_siddon():
-    scanner = yrt.Scanner(util_paths["UHR2D_json"])
-    img_params = yrt.ImageParams(util_paths["img_params_2d"])
-    his = yrt.ListModeLUTOwned(scanner, dataset_paths["test_adjoint_uhr2d"])
-    _helper._test_adjoint(scanner, img_params, his, projector='Siddon',
-                          num_rays=4)
+def test_savant_sim_ultra_micro_hotpot_nomotion_subsets_dd():
+    _test_savant_sim_ultra_micro_hotpot_nomotion_subsets("DD")
 
 
-def test_adjoint_uhr2d_dd():
-    scanner = yrt.Scanner(util_paths["UHR2D_json"])
-    img_params = yrt.ImageParams(util_paths["img_params_2d"])
-    his = yrt.ListModeLUTOwned(scanner, dataset_paths["test_adjoint_uhr2d"])
-    _helper._test_adjoint(scanner, img_params, his, projector='DD')
+def test_savant_sim_ultra_micro_hotpot_nomotion_subsets_dd_gpu():
+    _test_savant_sim_ultra_micro_hotpot_nomotion_subsets("DD_GPU")
 
 
-def test_osem_his_2d():
+def _test_uhr2d_shepp_logan_adjoint(projector:str, num_rays:int=1):
+    fold_uhr2d = os.path.join(fold_data, "uhr2d")
+    scanner = yrt.Scanner(os.path.join(fold_uhr2d, "UHR2D.json"))
+    img_params = yrt.ImageParams(os.path.join(fold_uhr2d, "img_params_2d.json"))
+    his = yrt.ListModeLUTOwned(scanner, os.path.join(fold_uhr2d, "shepp_logan.lmDat"))
+    _helper._test_adjoint(scanner, img_params, his, projector=projector, num_rays=num_rays)
+
+
+def test_uhr2d_shepp_logan_adjoint_siddon():
+    _test_uhr2d_shepp_logan_adjoint("Siddon")
+
+
+def test_uhr2d_shepp_logan_adjoint_siddon_4rays():
+    _test_uhr2d_shepp_logan_adjoint("Siddon", 4)
+
+
+def test_uhr2d_shepp_logan_adjoint_dd():
+    _test_uhr2d_shepp_logan_adjoint("DD")
+
+
+def test_uhr2d_shepp_logan_adjoint_dd_gpu():
+    _test_uhr2d_shepp_logan_adjoint("DD_GPU")
+
+
+def test_uhr2d_shepp_logan_osem_his_exec():
+    fold_uhr2d = os.path.join(fold_data, "uhr2d")
+
+    out_recon_path = os.path.join(fold_out, "test_uhr2d_shepp_logan_osem_his_exec_recon_image.nii")
+    out_sens_path_prefix = os.path.join(fold_out, "test_uhr2d_shepp_logan_osem_his_exec_sens_image")
+    out_sens_path = out_sens_path_prefix + ".nii"
+
     recon_exec_str = os.path.join(fold_bin, 'yrtpet_reconstruct')
-    recon_exec_str += " --scanner " + util_paths['UHR2D_json']
-    recon_exec_str += " --params " + util_paths["img_params_2d"]
-    recon_exec_str += " --out " + out_paths['test_osem_his_2d'][0]
-    recon_exec_str += " --out_sens " + out_paths['test_osem_his_2d'][1]
-    recon_exec_str += " --input " + dataset_paths['test_osem_his_2d']
+    recon_exec_str += " --scanner " + os.path.join(fold_uhr2d, "UHR2D.json")
+    recon_exec_str += " --params " + os.path.join(fold_uhr2d, "img_params_2d.json")
+    recon_exec_str += " --out " + out_recon_path
+    recon_exec_str += " --out_sens " + out_sens_path
+    recon_exec_str += " --input " + os.path.join(fold_uhr2d, "shepp_logan.his")
     recon_exec_str += " --format H"
     recon_exec_str += " --num_subsets 5"
     recon_exec_str += " --num_iterations 100"
@@ -371,24 +384,29 @@ def test_osem_his_2d():
     ret = os.system(recon_exec_str)
     assert ret == 0
 
-    img_params = yrt.ImageParams(util_paths['img_params_2d'])
+    img_params = yrt.ImageParams(os.path.join(fold_uhr2d, "img_params_2d.json"))
     for i in range(5):
-        ref_gensensimg = yrt.ImageOwned(img_params,
-                                        ref_paths['test_osem_his_2d'][1][i])
-        out_gensensimg = yrt.ImageOwned(img_params,
-                                        out_paths['test_osem_his_2d'][2][i])
-        np.testing.assert_allclose(np.array(ref_gensensimg, copy=False),
-                                   np.array(out_gensensimg, copy=False),
+        ref_sens = yrt.ImageOwned(img_params,
+                                        os.path.join(fold_uhr2d,
+                                                     "ref",
+                                                     "sens_image_siddon_subset{idx}.nii".format(idx=i)))
+        out_sens = yrt.ImageOwned(img_params,
+                                        out_sens_path_prefix + "_subset{idx}.nii".format(idx=i))
+
+        np.testing.assert_allclose(np.array(ref_sens, copy=False),
+                                   np.array(out_sens, copy=False),
                                    atol=0, rtol=1e-5)
 
-    ref_gensensimg = yrt.ImageOwned(img_params,
-                                    ref_paths['test_osem_his_2d'][0])
-    out_gensensimg = yrt.ImageOwned(img_params,
-                                    out_paths['test_osem_his_2d'][0])
-    np.testing.assert_allclose(np.array(ref_gensensimg, copy=False),
-                               np.array(out_gensensimg, copy=False),
+    ref_recon = yrt.ImageOwned(img_params,
+                               os.path.join(fold_uhr2d,
+                                            "ref",
+                                            "shepp_logan_osem_his.nii"))
+    out_recon = yrt.ImageOwned(img_params, out_recon_path)
+    np.testing.assert_allclose(np.array(ref_recon, copy=False),
+                               np.array(out_recon, copy=False),
                                atol=0, rtol=5e-3)
 
+# ------
 
 def test_flat_panel_mlem_tof():
     img_params = yrt.ImageParams(util_paths['img_params_3.0'])

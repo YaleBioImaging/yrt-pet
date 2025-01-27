@@ -1062,7 +1062,7 @@ void ImageOwned::readFromFile(const std::string& fname)
 
 	if (niftiImage == nullptr)
 	{
-		throw std::invalid_argument("An error occured while reading file" +
+		throw std::invalid_argument("An error occured while reading file " +
 		                            fname);
 	}
 

@@ -249,7 +249,7 @@ def test_psf_gpu():
         pytest.skip("Code not compiled with cuda. Skipping...")
 
 
-def test_psf_adjoint():
+def _test_psf_adjoint(use_gpu: bool):
     rng = np.random.default_rng(13)
 
     nx = rng.integers(1, 30)
@@ -271,7 +271,11 @@ def test_psf_adjoint():
     img_x.bind(img_x_a)
     img_y.bind(img_y_a)
 
-    oper_psf = yrt.OperatorPsf(dataset_paths['test_psf'][1])
+    psf_file = os.path.join(fold_data, "other", "psf", "kernel.csv")
+    if use_gpu:
+        oper_psf = yrt.OperatorPsfDevice(psf_file)
+    else:
+        oper_psf = yrt.OperatorPsf(psf_file)
 
     Ax = yrt.ImageOwned(img_params)
     Aty = yrt.ImageOwned(img_params)
@@ -286,7 +290,18 @@ def test_psf_adjoint():
     dot_Ax_y = Ax.dotProduct(img_y)
     dot_x_Aty = img_x.dotProduct(Aty)
 
-    assert abs(dot_Ax_y - dot_x_Aty) < 10 ** -4
+    assert np.abs(dot_Ax_y - dot_x_Aty) < 10 ** -4
+
+
+def test_psf_adjoint_cpu():
+    _test_psf_adjoint(False)
+
+
+def test_psf_adjoint_gpu():
+    if yrt.compiledWithCuda():
+        _test_psf_adjoint(True)
+    else:
+        pytest.skip("Code not compiled with cuda. Skipping...")
 
 
 def test_savant_sim_ultra_micro_hotspot_nomotion_osem_6rays():
@@ -374,7 +389,6 @@ def test_uhr2d_shepp_logan_adjoint_dd_gpu():
         pytest.skip("Code not compiled with cuda. Skipping...")
 
 
-
 def test_uhr2d_shepp_logan_osem_his_exec():
     fold_uhr2d = os.path.join(fold_data, "uhr2d")
 
@@ -422,7 +436,7 @@ def test_large_flat_panel_xcat_osem_tof_siddon():
     fold_large_flat_panel = os.path.join(fold_data, "large_flat_panel")
     scanner = yrt.Scanner(os.path.join(fold_large_flat_panel, "large_flat_panel.json"))
     fold_xcat = os.path.join(fold_large_flat_panel, "xcat")
-    img_params = yrt.ImageParams(fold_xcat, "img_params_3mm.json")
+    img_params = yrt.ImageParams(os.path.join(fold_xcat, "img_params_3mm.json"))
     dataset = yrt.ListModeLUTDOIOwned(
         scanner, os.path.join(fold_xcat, "sim_4min_49ps.lmDoiDat"), flag_tof=True)
     sens_img = yrt.ImageOwned(img_params, os.path.join(fold_xcat, "sens_image_siddon.nii"))
@@ -471,7 +485,7 @@ def test_large_flat_panel_xcat_osem_tof_dd_gpu_exec():
 
     img_params = yrt.ImageParams(os.path.join(fold_xcat, "img_params_3mm.json"))
     ref_img = yrt.ImageOwned(img_params,
-                             os.path.join(fold_xcat, "xcat_osem_dd.nii"))
+                             os.path.join(fold_large_flat_panel, "ref", "xcat_osem_dd.nii"))
     out_img = yrt.ImageOwned(img_params, out_path)
 
     out_img_np = np.array(out_img, copy=False)

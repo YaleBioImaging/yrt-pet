@@ -52,7 +52,7 @@ def test_savant_sim_ultra_micro_hotspot_nomotion_mlem():
     osem.num_OSEM_subsets = 1
     recon_image = osem.reconstruct()
 
-    recon_image.writeToFile(fold_out, "test_savant_sim_ultra_micro_hotspot_nomotion_mlem.nii.gz")
+    recon_image.writeToFile(os.path.join(fold_out, "test_savant_sim_ultra_micro_hotspot_nomotion_mlem.nii.gz"))
 
     recon_image_np = np.array(recon_image, copy=False)
     ref_image = yrt.ImageOwned(image_params, os.path.join(fold_savant_sim,
@@ -64,7 +64,7 @@ def test_savant_sim_ultra_micro_hotspot_nomotion_mlem():
                                atol=0, rtol=5e-2)
 
 
-def _test_savant_sim_ultra_micro_hotspot_motion_mlem(keyword: str):
+def _test_savant_sim_ultra_micro_hotspot_mlem(keyword: str):
     pytest.skip("TODO NOW: Fix this so it works")
     fold_savant_sim = os.path.join(fold_data, "savant_sim")
     scanner = yrt.Scanner(os.path.join(fold_savant_sim, "SAVANT_sim.json"))

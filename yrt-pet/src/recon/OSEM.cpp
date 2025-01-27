@@ -639,6 +639,7 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 std::unique_ptr<ImageOwned>
     OSEM::reconstructWithWarperMotion(const std::string& out_fname)
 {
+	// TODO NOW: Debug this
 	ASSERT_MSG(
 	    !IO::requiresGPU(projectorType),
 	    "Error: The Reconstruction with an image warper only works on CPU");

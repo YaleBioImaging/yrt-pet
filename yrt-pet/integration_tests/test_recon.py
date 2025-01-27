@@ -319,7 +319,7 @@ def test_savant_sim_ultra_micro_hotspot_nomotion_osem_6rays():
                                atol=0, rtol=1e-3)
 
 
-def _test_savant_sim_ultra_micro_hotpot_nomotion_subsets(projector:str):
+def _test_savant_sim_ultra_micro_hotpot_nomotion_subsets(projector: str):
     fold_savant_sim = os.path.join(fold_data, "savant_sim")
     scanner = yrt.Scanner(os.path.join(fold_savant_sim, "SAVANT_sim.json"))
     img_params = yrt.ImageParams(os.path.join(fold_savant_sim, "img_params_500.json"))
@@ -340,7 +340,7 @@ def test_savant_sim_ultra_micro_hotpot_nomotion_subsets_dd_gpu():
     _test_savant_sim_ultra_micro_hotpot_nomotion_subsets("DD_GPU")
 
 
-def _test_uhr2d_shepp_logan_adjoint(projector:str, num_rays:int=1):
+def _test_uhr2d_shepp_logan_adjoint(projector: str, num_rays: int = 1):
     fold_uhr2d = os.path.join(fold_data, "uhr2d")
     scanner = yrt.Scanner(os.path.join(fold_uhr2d, "UHR2D.json"))
     img_params = yrt.ImageParams(os.path.join(fold_uhr2d, "img_params_2d.json"))
@@ -387,11 +387,11 @@ def test_uhr2d_shepp_logan_osem_his_exec():
     img_params = yrt.ImageParams(os.path.join(fold_uhr2d, "img_params_2d.json"))
     for i in range(5):
         ref_sens = yrt.ImageOwned(img_params,
-                                        os.path.join(fold_uhr2d,
-                                                     "ref",
-                                                     "sens_image_siddon_subset{idx}.nii".format(idx=i)))
+                                  os.path.join(fold_uhr2d,
+                                               "ref",
+                                               "sens_image_siddon_subset{idx}.nii".format(idx=i)))
         out_sens = yrt.ImageOwned(img_params,
-                                        out_sens_path_prefix + "_subset{idx}.nii".format(idx=i))
+                                  out_sens_path_prefix + "_subset{idx}.nii".format(idx=i))
 
         np.testing.assert_allclose(np.array(ref_sens, copy=False),
                                    np.array(out_sens, copy=False),
@@ -406,48 +406,64 @@ def test_uhr2d_shepp_logan_osem_his_exec():
                                np.array(out_recon, copy=False),
                                atol=0, rtol=5e-3)
 
-# ------
 
-def test_flat_panel_mlem_tof():
-    img_params = yrt.ImageParams(util_paths['img_params_3.0'])
-    scanner = yrt.Scanner(
-        util_paths['Geometry_2panels_large_3x3x20mm_rot_gc_json'])
+def test_large_flat_panel_xcat_osem_tof_siddon():
+    fold_large_flat_panel = os.path.join(fold_data, "large_flat_panel")
+    scanner = yrt.Scanner(os.path.join(fold_large_flat_panel, "large_flat_panel.json"))
+    fold_xcat = os.path.join(fold_large_flat_panel, "xcat")
+    img_params = yrt.ImageParams(fold_xcat, "img_params_3mm.json")
     dataset = yrt.ListModeLUTDOIOwned(
-        scanner, dataset_paths['test_flat_panel_mlem_tof'][0], True)
-    sens_img = yrt.ImageOwned(img_params,
-                              dataset_paths['test_flat_panel_mlem_tof'][1])
+        scanner, os.path.join(fold_xcat, "sim_4min_49ps.lmDoiDat"), flag_tof=True)
+    sens_img = yrt.ImageOwned(img_params, os.path.join(fold_xcat, "sens_image_siddon.nii"))
 
-    _helper._test_reconstruction(
-        img_params, scanner, dataset, sens_img,
-        out_paths['test_flat_panel_mlem_tof'],
-        ref_paths['test_flat_panel_mlem_tof'][0],
-        num_MLEM_iterations=5, num_OSEM_subsets=12, num_threads=20,
-        tof_width_ps=70, tof_n_std=5, rtol=None, nrmse=1e-6)
+    osem = yrt.createOSEM(scanner)
+    osem.setImageParams(img_params)
+    osem.num_MLEM_iterations = 5
+    osem.num_OSEM_subsets = 12
+    osem.setDataInput(dataset)
+    osem.addTOF(70, 5)
+    osem.setSensitivityImage(sens_img)
+    out_img = osem.reconstruct()
 
+    out_img.writeToFile(os.path.join(fold_out, "test_large_flat_panel_xcat_osem_tof_siddon.nii"))
 
-def test_flat_panel_mlem_tof_exec():
-    exec_str = os.path.join(fold_bin, 'yrtpet_reconstruct')
-    exec_str += ' --scanner ' + \
-                util_paths['Geometry_2panels_large_3x3x20mm_rot_gc_json']
-    exec_str += ' --params ' + util_paths['img_params_3.0']
-    exec_str += ' --input ' + dataset_paths['test_flat_panel_mlem_tof'][0]
-    exec_str += ' --format LM-DOI --projector DD_GPU'
-    exec_str += ' --sens ' + dataset_paths['test_flat_panel_mlem_tof'][2]
-    exec_str += ' --flag_tof --tof_width_ps 70 --tof_n_std 5'
-    exec_str += ' --num_iterations 5 --num_subsets 12 --num_threads 20'
-    exec_str += ' --out ' + out_paths['test_flat_panel_mlem_tof_exec']
-    ret = os.system(exec_str)
-    assert ret == 0
-
-    img_params = yrt.ImageParams(util_paths['img_params_3.0'])
-    ref_img = yrt.ImageOwned(img_params,
-                             ref_paths['test_flat_panel_mlem_tof'][1])
-    out_img = yrt.ImageOwned(img_params,
-                             out_paths['test_flat_panel_mlem_tof_exec'])
+    ref_img = yrt.ImageOwned(img_params, os.path.join(fold_data, "ref", "xcat_osem_siddon.nii"))
 
     np_out_img = np.array(out_img, copy=False)
     np_ref_img = np.array(ref_img, copy=False)
-    cur_nrmse = _helper.get_nrmse(np_out_img, np_ref_img)
+
+    nrmse = _helper.get_nrmse(np_out_img, np_ref_img)
+    assert nrmse < 1e-6
+
+
+def test_large_flat_panel_xcat_osem_tof_dd_gpu_exec():
+    fold_large_flat_panel = os.path.join(fold_data, "large_flat_panel")
+    fold_xcat = os.path.join(fold_large_flat_panel, "xcat")
+
+    out_path = os.path.join(fold_out,
+                            "test_large_flat_panel_xcat_osem_tof_dd_gpu_exec.nii")
+
+    exec_str = os.path.join(fold_bin, 'yrtpet_reconstruct')
+    exec_str += ' --scanner ' + os.path.join(fold_large_flat_panel,
+                                             "large_flat_panel.json")
+    exec_str += ' --params ' + os.path.join(fold_xcat, "img_params_3mm.json")
+    exec_str += ' --input ' + os.path.join(fold_xcat, "sim_4min_49ps.lmDoiDat")
+    exec_str += ' --format LM-DOI --projector DD_GPU'
+    exec_str += ' --sens ' + os.path.join(fold_xcat, "sens_image_dd.nii")
+    exec_str += ' --flag_tof --tof_width_ps 70 --tof_n_std 5'
+    exec_str += ' --num_iterations 5 --num_subsets 12'
+    exec_str += ' --out ' + out_path
+    ret = os.system(exec_str)
+    assert ret == 0
+
+    img_params = yrt.ImageParams(os.path.join(fold_xcat, "img_params_3mm.json"))
+    ref_img = yrt.ImageOwned(img_params,
+                             os.path.join(fold_xcat, "xcat_osem_dd.nii"))
+    out_img = yrt.ImageOwned(img_params, out_path)
+
+    out_img_np = np.array(out_img, copy=False)
+    ref_img_np = np.array(ref_img, copy=False)
+    cur_nrmse = _helper.get_nrmse(out_img_np, ref_img_np)
     assert cur_nrmse < 1e-6
 
 

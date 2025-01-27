@@ -533,10 +533,11 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 
 	if (usingListModeInput)
 	{
-		std::cout << "Arranging sensitivity image scaling for ListMode"
-		          << std::endl;
 		if (needToMakeCopyOfSensImage)
 		{
+			std::cout << "Arranging sensitivity image scaling for ListMode in "
+			             "separate copy..."
+			          << std::endl;
 			// This is for the specific case of doing a list-mode reconstruction
 			// from Python
 			mp_copiedSensitivityImage =
@@ -546,8 +547,10 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 			mp_copiedSensitivityImage->multWithScalar(
 			    1.0f / (static_cast<float>(num_OSEM_subsets)));
 		}
-		else
+		else if (num_OSEM_subsets != 1)
 		{
+			std::cout << "Arranging sensitivity image scaling for ListMode..."
+			          << std::endl;
 			m_sensitivityImages[0]->multWithScalar(
 			    1.0f / (static_cast<float>(num_OSEM_subsets)));
 		}

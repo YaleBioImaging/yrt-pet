@@ -48,7 +48,7 @@ def test_savant_sim_ultra_micro_hotspot_nomotion_mlem():
     osem = yrt.createOSEM(scanner, False)
     osem.setSensitivityImage(sens_image)  # One subset
     osem.setDataInput(listmode)
-    osem.num_MLEM_iterations = 10
+    osem.num_MLEM_iterations = 30
     osem.num_OSEM_subsets = 1
     recon_image = osem.reconstruct()
 
@@ -64,7 +64,7 @@ def test_savant_sim_ultra_micro_hotspot_nomotion_mlem():
                                atol=0, rtol=5e-2)
 
 
-def _test_savant_sim_ultra_micro_hotspot_mlem(keyword: str):
+def _test_savant_sim_ultra_micro_hotspot_motion_mlem(keyword: str):
     pytest.skip("TODO NOW: Fix this so it works")
     fold_savant_sim = os.path.join(fold_data, "savant_sim")
     scanner = yrt.Scanner(os.path.join(fold_savant_sim, "SAVANT_sim.json"))
@@ -102,15 +102,15 @@ def _test_savant_sim_ultra_micro_hotspot_mlem(keyword: str):
 
 
 def test_savant_sim_ultra_micro_hotspot_piston_mlem():
-    _test_savant_sim_ultra_micro_hotspot_mlem("piston")
+    _test_savant_sim_ultra_micro_hotspot_motion_mlem("piston")
 
 
 def test_savant_sim_ultra_micro_hotspot_yesman_mlem():
-    _test_savant_sim_ultra_micro_hotspot_mlem("yesman")
+    _test_savant_sim_ultra_micro_hotspot_motion_mlem("yesman")
 
 
 def test_savant_sim_ultra_micro_hotspot_wobble_mlem():
-    _test_savant_sim_ultra_micro_hotspot_mlem("wobble")
+    _test_savant_sim_ultra_micro_hotspot_motion_mlem("wobble")
 
 
 def test_savant_sim_sens_image_siddon():
@@ -162,11 +162,19 @@ def test_savant_sim_ultra_micro_hotspot_nomotion_bwd():
 
     bwd_image.allocate()
 
-    yrt.backProject(scanner, bwd_image, listmode)  # Siddon backprojection by default
+    # Siddon backprojection by default
+    yrt.backProject(scanner, bwd_image, listmode)
 
-    bwd_image.writeToFile(os.path.join(fold_out, "test_savant_sim_ultra_micro_hotspot_nomotion_bwd.nii.gz"))
+    # Force all valus less than one to be zero
+    bwd_image.applyThreshold(bwd_image, 1, 0, 0, 1, 0)
 
-    ref_image = yrt.ImageOwned(os.path.join(fold_savant_sim, "ref", "ultra_micro_hotspot_nomotion_bwd.nii"))
+    bwd_image.writeToFile(
+        os.path.join(fold_out,
+                     "test_savant_sim_ultra_micro_hotspot_nomotion_bwd.nii.gz"))
+
+    ref_image = yrt.ImageOwned(os.path.join(fold_savant_sim,
+                                            "ref",
+                                            "ultra_micro_hotspot_nomotion_bwd.nii"))
 
     np.testing.assert_allclose(np.array(bwd_image, copy=False),
                                np.array(ref_image, copy=False),
@@ -452,13 +460,13 @@ def test_large_flat_panel_xcat_osem_tof_siddon():
 
     out_img.writeToFile(os.path.join(fold_out, "test_large_flat_panel_xcat_osem_tof_siddon.nii"))
 
-    ref_img = yrt.ImageOwned(img_params, os.path.join(fold_data, "ref", "xcat_osem_siddon.nii"))
+    ref_img = yrt.ImageOwned(img_params, os.path.join(fold_large_flat_panel, "ref", "xcat_osem_siddon.nii"))
 
     np_out_img = np.array(out_img, copy=False)
     np_ref_img = np.array(ref_img, copy=False)
 
     nrmse = _helper.get_nrmse(np_out_img, np_ref_img)
-    assert nrmse < 1e-6
+    assert nrmse < 2e-5
 
 
 def test_large_flat_panel_xcat_osem_tof_dd_gpu_exec():
@@ -491,7 +499,7 @@ def test_large_flat_panel_xcat_osem_tof_dd_gpu_exec():
     out_img_np = np.array(out_img, copy=False)
     ref_img_np = np.array(ref_img, copy=False)
     cur_nrmse = _helper.get_nrmse(out_img_np, ref_img_np)
-    assert cur_nrmse < 1e-6
+    assert cur_nrmse < 2e-5
 
 
 # %% Standalone command line

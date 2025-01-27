@@ -15,9 +15,12 @@ def get_test_folders():
 
     fold_data_from_env = os.getenv(env_data)
     fold_out_from_env = os.getenv(env_out)
-    if fold_data_from_env is None or fold_out_from_env is None:
-        raise RuntimeError("Environment variables " + env_data
-                           + " and " + env_out + " need to be set")
+    if fold_data_from_env is None:
+        raise RuntimeError("Environment variable " + env_data
+                           + " need to be set")
+    if fold_out_from_env is None:
+        raise RuntimeError("Environment variable " + env_out
+                           + " need to be set")
     if not os.path.exists(fold_data_from_env):
         raise RuntimeError("Path specified by " + env_data + " does not exist.")
     if not os.path.exists(fold_out_from_env):
@@ -29,6 +32,7 @@ def get_test_folders():
 
 # %% Helper test functions
 # Note: this works only for ListModes
+# TODO NOW: Check if this stays useful
 def _test_reconstruction(img_params: yrt.ImageParams, scanner: yrt.Scanner, dataset: yrt.ProjectionData,
                          sens_img: yrt.Image,
                          out_img_file: str, ref_img_file: str,
@@ -269,7 +273,9 @@ util_paths = {'img_params_500': 'config/img_params_500.json',
               'sens_SAVANT_multi_ray_500':
                   'images/sens_SAVANT_multi_ray_500.nii'}
 
-# Preend data path
+# Prepend data path
 fold_data, fold_out, fold_bin = get_test_folders()
+
+# TODO NOW: Check if this stays useful
 join_file_paths(dataset_paths, out_paths, ref_paths, util_paths,
                 fold_data, fold_out)

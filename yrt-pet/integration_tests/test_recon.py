@@ -11,6 +11,7 @@ import numpy as np
 fold_py = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.append(os.path.join(fold_py))
 import pyyrtpet as yrt
+
 yrt.Globals.set_num_threads(-1)
 
 import helper as _helper
@@ -23,117 +24,168 @@ fold_data = _helper.fold_data
 fold_out = _helper.fold_out
 fold_bin = _helper.fold_bin
 
+
 # %% Tests
 
 def test_omp_multithreading():
     yrt.Globals.set_num_threads(8)
     num_threads = yrt.Globals.get_num_threads()
-    assert(num_threads == 8)
+    assert (num_threads == 8)
     yrt.Globals.set_num_threads(-1)
 
-def test_mlem_simple():
-    img_params = yrt.ImageParams(util_paths['img_params_500'])
-    scanner = yrt.Scanner(util_paths['SAVANT_sim_json'])
-    dataset = yrt.ListModeLUTOwned(scanner, dataset_paths['test_mlem_simple'])
-    sens_img = yrt.ImageOwned(img_params, util_paths['SensImageSAVANT500'])
-    _helper._test_reconstruction(
-        img_params, scanner, dataset, sens_img,
-        out_paths['test_mlem_simple'], ref_paths['test_mlem_simple'],
-        num_MLEM_iterations=30, rtol=5e-2)
+
+def test_savant_sim_ultra_micro_hotspot_nomotion_mlem():
+    fold_savant_sim = os.path.join(fold_data, "savant_sim")
+    scanner = yrt.Scanner(os.path.join(fold_savant_sim, "SAVANT_sim.json"))
+    listmode = yrt.ListModeLUTOwned(scanner, os.path.join(fold_savant_sim,
+                                                          "ultra_micro_hotspot",
+                                                          "nomotion.lmDat"))
+    image_params = yrt.ImageParams(os.path.join(fold_savant_sim, "img_params_500.json"))
+    sens_image = yrt.ImageOwned(image_params, os.path.join(fold_savant_sim,
+                                                           "images",
+                                                           "sens_image_siddon.nii"))
+
+    osem = yrt.createOSEM(scanner, False)
+    osem.setSensitivityImage(sens_image)  # One subset
+    osem.setDataInput(listmode)
+    osem.num_MLEM_iterations = 10
+    osem.num_OSEM_subsets = 1
+    recon_image = osem.reconstruct()
+
+    recon_image.writeToFile(fold_out, "test_savant_sim_ultra_micro_hotspot_nomotion_mlem.nii.gz")
+
+    recon_image_np = np.array(recon_image, copy=False)
+    ref_image = yrt.ImageOwned(image_params, os.path.join(fold_savant_sim,
+                                                          "ref",
+                                                          "ultra_micro_hotspot_nomotion_mlem.nii"))
+    ref_image_np = np.array(ref_image, copy=False)
+
+    np.testing.assert_allclose(recon_image_np, ref_image_np,
+                               atol=0, rtol=5e-2)
 
 
-def _test_mlem_helper(dset):
-    """Helper function for motion MLEM tests"""
-    test_name = 'test_mlem_{}'.format(dset)
-    img_params = yrt.ImageParams(util_paths['img_params_500'])
-    scanner = yrt.Scanner(util_paths['SAVANT_sim_json'])
-    dataset = yrt.ListModeLUTOwned(scanner, dataset_paths[test_name][0])
-    sens_img = yrt.ImageOwned(img_params, util_paths['SensImageSAVANT500'])
+def _test_savant_sim_ultra_micro_hotspot_motion_mlem(keyword: str):
+    fold_savant_sim = os.path.join(fold_data, "savant_sim")
+    scanner = yrt.Scanner(os.path.join(fold_savant_sim, "SAVANT_sim.json"))
+    listmode = yrt.ListModeLUTOwned(scanner, os.path.join(fold_savant_sim,
+                                                          "ultra_micro_hotspot",
+                                                          keyword + ".lmDat"))
+    image_params = yrt.ImageParams(os.path.join(fold_savant_sim, "img_params_500.json"))
+    sens_image = yrt.ImageOwned(image_params, os.path.join(fold_savant_sim,
+                                                           "images",
+                                                           "sens_image_siddon.nii"))
 
     warper = yrt.ImageWarperMatrix()
-    warper.setImageHyperParam(img_params)
-    warper.setFramesParamFromFile(dataset_paths[test_name][1])
-    _helper._test_reconstruction(
-        img_params, scanner, dataset, sens_img,
-        out_paths[test_name], ref_paths[test_name],
-        warper=warper, num_MLEM_iterations=10, hard_threshold=100.0)
+    warper.setImageHyperParam(image_params)
+    warper.setFramesParamFromFile(os.path.join(fold_savant_sim,
+                                               "ultra_micro_hotspot",
+                                               keyword + ".twp"))
 
+    osem = yrt.createOSEM(scanner, False)
+    osem.setSensitivityImage(sens_image)  # One subset
+    osem.setDataInput(listmode)
+    osem.num_MLEM_iterations = 10
+    osem.num_OSEM_subsets = 1
+    osem.warper = warper
+    recon_image = osem.reconstructWithWarperMotion()
+    recon_image.writeToFile(fold_out, "test_savant_sim_ultra_micro_hotspot_" + keyword + "_mlem.nii.gz")
 
-def test_mlem_piston():
-    _test_mlem_helper('piston')
+    recon_image_np = np.array(recon_image, copy=False)
+    ref_image = yrt.ImageOwned(image_params, os.path.join(fold_savant_sim,
+                                                          "ref",
+                                                          "ultra_micro_hotspot_" + keyword + "_mlem.nii"))
+    ref_image_np = np.array(ref_image, copy=False)
 
-
-def test_mlem_wobble():
-    _test_mlem_helper('wobble')
-
-
-def test_mlem_yesMan():
-    _test_mlem_helper('yesMan')
-
-
-def test_bwd():
-    img_params = yrt.ImageParams(util_paths['img_params_500'])
-    scanner = yrt.Scanner(util_paths['SAVANT_sim_json'])
-    dataset = yrt.ListModeLUTOwned(scanner, dataset_paths['test_bwd'])
-
-    out_img = yrt.ImageOwned(img_params)
-    out_img.allocate()
-    out_img.setValue(0.0)
-
-    yrt.backProject(scanner, out_img, dataset)
-    out_img.applyThreshold(out_img, 1, 0, 0, 1, 0)
-
-    out_img.writeToFile(out_paths['test_bwd'])
-
-    ref_img = yrt.ImageOwned(img_params, ref_paths['test_bwd'])
-    np.testing.assert_allclose(np.array(out_img, copy=False),
-                               np.array(ref_img, copy=False),
-                               atol=0, rtol=1e-5)
-
-def test_sens():
-    img_params = yrt.ImageParams(util_paths['img_params_500'])
-    scanner = yrt.Scanner(util_paths['SAVANT_sim_json'])
-
-    osem = yrt.createOSEM(scanner)
-    osem.setImageParams(img_params)
-
-    out_imgs = osem.generateSensitivityImages()
-
-    out_img = out_imgs[0]
-    out_img.writeToFile(out_paths['test_sens'])
-
-    ref_img = yrt.ImageOwned(img_params, ref_paths['test_sens'])
-    np.testing.assert_allclose(np.array(out_img, copy=False),
-                               np.array(ref_img, copy=False),
+    np.testing.assert_allclose(recon_image_np, ref_image_np,
                                atol=0, rtol=1e-4)
 
-def test_sens_exec():
-    exec_str = os.path.join(fold_bin, 'yrtpet_reconstruct --sens_only')
-    exec_str += ' --scanner ' + util_paths['SAVANT_sim_json']
-    exec_str += ' --params ' + util_paths['img_params_500']
-    exec_str += ' --out_sens ' + out_paths['test_sens_exec']
+
+def test_savant_sim_ultra_micro_hotspot_piston_mlem():
+    _test_savant_sim_ultra_micro_hotspot_motion_mlem("piston")
+
+
+def test_savant_sim_ultra_micro_hotspot_yesman_mlem():
+    _test_savant_sim_ultra_micro_hotspot_motion_mlem("yesman")
+
+
+def test_savant_sim_ultra_micro_hotspot_wobble_mlem():
+    _test_savant_sim_ultra_micro_hotspot_motion_mlem("wobble")
+
+
+def test_savant_sim_sens_image_siddon():
+    fold_savant_sim = os.path.join(fold_data, "savant_sim")
+    scanner = yrt.Scanner(os.path.join(fold_savant_sim, "SAVANT_sim.json"))
+    image_params = yrt.ImageParams(os.path.join(fold_savant_sim, "img_params_500.json"))
+    osem = yrt.createOSEM(scanner, False)
+    osem.setImageParams(image_params)
+    [sens_image] = osem.generateSensitivityImages()
+    sens_image.writeToFile(os.path.join(fold_out, "test_savant_sim_sens_image_siddon.nii.gz"))
+
+    ref_image = yrt.ImageOwned(os.path.join(fold_savant_sim, "images", "sens_image_siddon.nii"))
+
+    np.testing.assert_allclose(np.array(sens_image, copy=False),
+                               np.array(ref_image, copy=False),
+                               atol=0, rtol=1e-4)
+
+
+def test_savant_sim_sens_image_siddon_exec():
+    fold_savant_sim = os.path.join(fold_data, "savant_sim")
+
+    img_params_path = os.path.join(fold_savant_sim, "img_params_500.json")
+    out_image_path = os.path.join(fold_out, "test_savant_sim_sens_image_siddon_exec.nii.gz")
+    ref_image_path = os.path.join(fold_savant_sim, "images", "sens_image_siddon.nii")
+
+    exec_str = os.path.join(fold_bin, 'yrtpet_reconstruct') + " --sens_only"
+    exec_str += ' --scanner ' + os.path.join(fold_savant_sim, "SAVANT_sim.json")
+    exec_str += ' --params ' + img_params_path
+    exec_str += ' --out_sens ' + out_image_path
     ret = os.system(exec_str)
     assert ret == 0
 
-    img_params = yrt.ImageParams(util_paths['img_params_500'])
-    out_img = yrt.ImageOwned(img_params, out_paths['test_sens_exec'])
-    ref_img = yrt.ImageOwned(img_params, ref_paths['test_sens'])
+    img_params = yrt.ImageParams(img_params_path)
+    out_img = yrt.ImageOwned(img_params, out_image_path)
+    ref_img = yrt.ImageOwned(img_params, ref_image_path)
     np.testing.assert_allclose(np.array(out_img, copy=False),
                                np.array(ref_img, copy=False),
                                atol=0, rtol=1e-4)
 
-def _test_savant_sim_motion_post_mc(test_name: str):
-    img_params = yrt.ImageParams(util_paths['img_params_500'])
-    file_list = dataset_paths[test_name]
+
+def test_savant_sim_ultra_micro_hotspot_nomotion_bwd():
+    fold_savant_sim = os.path.join(fold_data, "savant_sim")
+    scanner = yrt.Scanner(os.path.join(fold_savant_sim, "SAVANT_sim.json"))
+    listmode = yrt.ListModeLUTOwned(scanner, os.path.join(fold_savant_sim,
+                                                          "ultra_micro_hotspot",
+                                                          "nomotion.lmDat"))
+    image_params = yrt.ImageParams(os.path.join(fold_savant_sim, "img_params_500.json"))
+    bwd_image = yrt.ImageOwned(image_params)
+
+    bwd_image.allocate()
+
+    yrt.backProject(scanner, bwd_image, listmode)  # Siddon backprojection by default
+
+    bwd_image.writeToFile(os.path.join(fold_out, "test_savant_sim_ultra_micro_hotspot_nomotion_bwd.nii.gz"))
+
+    ref_image = yrt.ImageOwned(os.path.join(fold_savant_sim, "ref", "ultra_micro_hotspot_nomotion_bwd.nii"))
+
+    np.testing.assert_allclose(np.array(bwd_image, copy=False),
+                               np.array(ref_image, copy=False),
+                               atol=0, rtol=1e-5)
+
+
+def _test_savant_sim_ultra_micro_hotspot_motion_post_recon_mc(keyword: str):
+    fold_savant_sim = os.path.join(fold_data, "savant_sim")
+    img_params = yrt.ImageParams(os.path.join(fold_savant_sim, "img_params_500.json"))
+
+    file_format = os.path.join(fold_savant_sim, "images", keyword + "_ground_truth_part_{idx}_of_5.nii")
     image_list = []
-    for fname in file_list[:-1]:
-        image_list.append(yrt.ImageOwned(img_params, fname))
+    for i in range(5):
+        image_list.append(yrt.ImageOwned(file_format.format(idx=(i + 1))))
 
     warper = yrt.ImageWarperFunction()
     warper.setImageHyperParam([img_params.nx, img_params.ny, img_params.nz],
                               [img_params.length_x, img_params.length_y,
                                img_params.length_z])
-    warper.setFramesParamFromFile(dataset_paths[test_name][len(file_list) - 1])
+    warper.setFramesParamFromFile(os.path.join(fold_savant_sim, "ultra_micro_hotspot", keyword + ".twp"))
 
     out_img = yrt.ImageOwned(img_params)
     out_img.allocate()
@@ -142,53 +194,56 @@ def _test_savant_sim_motion_post_mc(test_name: str):
         warper.warpImageToRefFrame(image, i)
         image.addFirstImageToSecond(out_img)
 
-    out_img.writeToFile(out_paths[test_name])
+    out_img.writeToFile(os.path.join(fold_out,
+                                     "test_savant_sim_ultra_micro_hotspot_" + keyword + "_post_recon_mc.nii"))
+    ref_img = yrt.ImageOwned(img_params, os.path.join(fold_savant_sim,
+                                                      "ref",
+                                                      "ultra_micro_hotspot_" + keyword + "_post_recon_mc.nii"))
 
-    ref_img = yrt.ImageOwned(img_params, ref_paths[test_name])
     nrmse = _helper.get_nrmse(np.array(out_img, copy=False),
                               np.array(ref_img, copy=False))
-    assert nrmse < 10**-6
+    assert nrmse < 10e-6
 
 
-def test_post_recon_mc_piston():
-    _test_savant_sim_motion_post_mc('test_post_recon_mc_piston')
+def _test_savant_sim_ultra_micro_hotspot_piston_post_recon_mc():
+    _test_savant_sim_ultra_micro_hotspot_motion_post_recon_mc('piston')
 
 
-def test_post_recon_mc_wobble():
-    _test_savant_sim_motion_post_mc('test_post_recon_mc_wobble')
+def _test_savant_sim_ultra_micro_hotspot_wobble_post_recon_mc():
+    _test_savant_sim_ultra_micro_hotspot_motion_post_recon_mc('wobble')
 
 
-def test_psf():
+def _test_psf(use_gpu: bool):
     img_params = yrt.ImageParams(50, 50, 25, 50, 50, 25, 0.0, 0.0, 0.0)
-    image_in = yrt.ImageOwned(img_params, dataset_paths['test_psf'][0])
-    oper_psf = yrt.OperatorPsf(dataset_paths['test_psf'][1])
+    image_in = yrt.ImageOwned(img_params, os.path.join(fold_data, "other", "psf", "image_in.nii"))
+
+    psf_file = os.path.join(fold_data, "other", "psf", "kernel.csv")
+    if use_gpu:
+        psf_oper = yrt.OperatorPsfDevice(psf_file)
+    else:
+        psf_oper = yrt.OperatorPsf(psf_file)
     image_out = yrt.ImageOwned(img_params)
     image_out.allocate()
-    image_out.setValue(0.0)
 
-    oper_psf.applyA(image_in, image_out)
+    psf_oper.applyA(image_in, image_out)
 
-    image_out.writeToFile(out_paths['test_psf'])
-    image_ref = yrt.ImageOwned(img_params, ref_paths['test_psf'])
+    device = 'gpu' if use_gpu else 'cpu'
+
+    image_out.writeToFile(os.path.join(fold_out, "test_psf_" + device + ".nii.gz"))
+    image_ref = yrt.ImageOwned(img_params,
+                               os.path.join(fold_data, "other", "ref", "psf_image_out.nii"))
     np.testing.assert_allclose(np.array(image_out, copy=False),
                                np.array(image_ref, copy=False),
                                atol=0, rtol=1e-5)
+
+
+def test_psf_cpu():
+    _test_psf(False)
+
 
 def test_psf_gpu():
-    img_params = yrt.ImageParams(50, 50, 25, 50, 50, 25, 0.0, 0.0, 0.0)
-    image_in = yrt.ImageOwned(img_params, dataset_paths['test_psf'][0])
-    oper_psf = yrt.OperatorPsfDevice(dataset_paths['test_psf'][1])
-    image_out = yrt.ImageOwned(img_params)
-    image_out.allocate()
-    image_out.setValue(0.0)
+    _test_psf(True)
 
-    oper_psf.applyA(image_in, image_out)
-
-    image_out.writeToFile(out_paths['test_psf_gpu'])
-    image_ref = yrt.ImageOwned(img_params, ref_paths['test_psf'])
-    np.testing.assert_allclose(np.array(image_out, copy=False),
-                               np.array(image_ref, copy=False),
-                               atol=0, rtol=1e-5)
 
 def test_psf_adjoint():
     rng = np.random.default_rng(13)
@@ -204,15 +259,15 @@ def test_psf_adjoint():
     oz = 0.0
     img_params = yrt.ImageParams(nx, ny, nz, sx, sy, sz, ox, oy, oz)
 
-    img_X = yrt.ImageAlias(img_params)
-    img_Y = yrt.ImageAlias(img_params)
+    img_x = yrt.ImageAlias(img_params)
+    img_y = yrt.ImageAlias(img_params)
 
-    img_X_a = (rng.random([nz, ny, nx]) * 10 - 5).astype(np.float32)
-    img_Y_a = (rng.random([nz, ny, nx]) * 10 - 5).astype(np.float32)
-    img_X.bind(img_X_a)
-    img_Y.bind(img_Y_a)
+    img_x_a = (rng.random([nz, ny, nx]) * 10 - 5).astype(np.float32)
+    img_y_a = (rng.random([nz, ny, nx]) * 10 - 5).astype(np.float32)
+    img_x.bind(img_x_a)
+    img_y.bind(img_y_a)
 
-    oper_psf = yrt.OperatorPsf( dataset_paths['test_psf'][1])
+    oper_psf = yrt.OperatorPsf(dataset_paths['test_psf'][1])
 
     Ax = yrt.ImageOwned(img_params)
     Aty = yrt.ImageOwned(img_params)
@@ -221,57 +276,50 @@ def test_psf_adjoint():
     Aty.allocate()
     Aty.setValue(0.0)
 
-    oper_psf.applyA(img_X, Ax)
-    oper_psf.applyAH(img_Y, Aty)
+    oper_psf.applyA(img_x, Ax)
+    oper_psf.applyAH(img_y, Aty)
 
-    dot_Ax_y = Ax.dotProduct(img_Y)
-    dot_x_Aty = img_X.dotProduct(Aty)
+    dot_Ax_y = Ax.dotProduct(img_y)
+    dot_x_Aty = img_x.dotProduct(Aty)
 
-    assert abs(dot_Ax_y - dot_x_Aty) < 10**-4
-
-
-def test_flat_panel_mlem_tof():
-    img_params = yrt.ImageParams(util_paths['img_params_3.0'])
-    scanner = yrt.Scanner(
-        util_paths['Geometry_2panels_large_3x3x20mm_rot_gc_json'])
-    dataset = yrt.ListModeLUTDOIOwned(
-        scanner, dataset_paths['test_flat_panel_mlem_tof'][0], True)
-    sens_img = yrt.ImageOwned(img_params,
-                              dataset_paths['test_flat_panel_mlem_tof'][1])
-
-    _helper._test_reconstruction(
-        img_params, scanner, dataset, sens_img,
-        out_paths['test_flat_panel_mlem_tof'],
-        ref_paths['test_flat_panel_mlem_tof'][0],
-        num_MLEM_iterations=5, num_OSEM_subsets=12, num_threads=20,
-        tof_width_ps=70, tof_n_std=5, rtol=None, nrmse=1e-6)
+    assert abs(dot_Ax_y - dot_x_Aty) < 10 ** -4
 
 
-def test_flat_panel_mlem_tof_exec():
-    exec_str = os.path.join(fold_bin, 'yrtpet_reconstruct')
-    exec_str += ' --scanner ' + \
-        util_paths['Geometry_2panels_large_3x3x20mm_rot_gc_json']
-    exec_str += ' --params ' + util_paths['img_params_3.0']
-    exec_str += ' --input ' + dataset_paths['test_flat_panel_mlem_tof'][0]
-    exec_str += ' --format LM-DOI --projector DD_GPU'
-    exec_str += ' --sens ' + dataset_paths['test_flat_panel_mlem_tof'][2]
-    exec_str += ' --flag_tof --tof_width_ps 70 --tof_n_std 5'
-    exec_str += ' --num_iterations 5 --num_subsets 12 --num_threads 20'
-    exec_str += ' --out ' + out_paths['test_flat_panel_mlem_tof_exec']
-    ret = os.system(exec_str)
-    assert ret == 0
+def test_savant_sim_ultra_micro_hotspot_nomotion_osem_6rays():
+    fold_savant_sim = os.path.join(fold_data, "savant_sim")
+    num_siddon_rays = 6
+    img_params = yrt.ImageParams(os.path.join(fold_savant_sim, "img_params_500.json"))
+    scanner = yrt.Scanner(os.path.join(fold_savant_sim, "SAVANT_sim.json"))
+    dataset = yrt.ListModeLUTOwned(
+        scanner, os.path.join(fold_savant_sim, "ultra_micro_hotspot", "nomotion.lmDat"))
+    sens_img = yrt.ImageOwned(
+        img_params, os.path.join(fold_savant_sim, "images", "sens_image_siddon_6rays.nii"))
 
-    img_params = yrt.ImageParams(util_paths['img_params_3.0'])
+    osem = yrt.createOSEM(scanner)
+    osem.setImageParams(img_params)
+    osem.num_MLEM_iterations = 3
+    osem.num_OSEM_subsets = 12
+    osem.numRays = num_siddon_rays
+    osem.setDataInput(dataset)
+    osem.setSensitivityImage(sens_img)
+
+    out_img = osem.reconstruct()
+
+    out_img.writeToFile(os.path.join(fold_out,
+                                     "test_savant_sim_ultra_micro_hotspot_nomotion_osem_6rays.nii.gz"))
+
     ref_img = yrt.ImageOwned(img_params,
-                             ref_paths['test_flat_panel_mlem_tof'][1])
-    out_img = yrt.ImageOwned(img_params,
-                             out_paths['test_flat_panel_mlem_tof_exec'])
+                             os.path.join(fold_savant_sim,
+                                          "ref",
+                                          "ultra_micro_hotspot_nomotion_osem_6rays.nii"))
 
     np_out_img = np.array(out_img, copy=False)
     np_ref_img = np.array(ref_img, copy=False)
-    cur_nrmse = _helper.get_nrmse(np_out_img, np_ref_img)
-    assert cur_nrmse < 1e-6
+    np.testing.assert_allclose(np_out_img, np_ref_img,
+                               atol=0, rtol=1e-3)
 
+
+# ----------
 
 def test_subsets_savant_sim_siddon():
     scanner = yrt.Scanner(util_paths["SAVANT_sim_json"])
@@ -342,21 +390,47 @@ def test_osem_his_2d():
                                atol=0, rtol=5e-3)
 
 
-def test_osem_siddon_multi_ray():
-    num_siddon_rays = 6
-    img_params = yrt.ImageParams(util_paths['img_params_500'])
-    scanner = yrt.Scanner(util_paths['SAVANT_sim_json'])
-    dataset = yrt.ListModeLUTOwned(
-        scanner, dataset_paths['test_osem_siddon_multi_ray'])
-    sens_img = yrt.ImageOwned(
-        img_params, util_paths['sens_SAVANT_multi_ray_500'])
+def test_flat_panel_mlem_tof():
+    img_params = yrt.ImageParams(util_paths['img_params_3.0'])
+    scanner = yrt.Scanner(
+        util_paths['Geometry_2panels_large_3x3x20mm_rot_gc_json'])
+    dataset = yrt.ListModeLUTDOIOwned(
+        scanner, dataset_paths['test_flat_panel_mlem_tof'][0], True)
+    sens_img = yrt.ImageOwned(img_params,
+                              dataset_paths['test_flat_panel_mlem_tof'][1])
 
     _helper._test_reconstruction(
         img_params, scanner, dataset, sens_img,
-        out_paths['test_osem_siddon_multi_ray'],
-        ref_paths['test_osem_siddon_multi_ray'],
-        num_MLEM_iterations=3, num_OSEM_subsets=12,
-        num_rays=num_siddon_rays, rtol=1e-3)
+        out_paths['test_flat_panel_mlem_tof'],
+        ref_paths['test_flat_panel_mlem_tof'][0],
+        num_MLEM_iterations=5, num_OSEM_subsets=12, num_threads=20,
+        tof_width_ps=70, tof_n_std=5, rtol=None, nrmse=1e-6)
+
+
+def test_flat_panel_mlem_tof_exec():
+    exec_str = os.path.join(fold_bin, 'yrtpet_reconstruct')
+    exec_str += ' --scanner ' + \
+                util_paths['Geometry_2panels_large_3x3x20mm_rot_gc_json']
+    exec_str += ' --params ' + util_paths['img_params_3.0']
+    exec_str += ' --input ' + dataset_paths['test_flat_panel_mlem_tof'][0]
+    exec_str += ' --format LM-DOI --projector DD_GPU'
+    exec_str += ' --sens ' + dataset_paths['test_flat_panel_mlem_tof'][2]
+    exec_str += ' --flag_tof --tof_width_ps 70 --tof_n_std 5'
+    exec_str += ' --num_iterations 5 --num_subsets 12 --num_threads 20'
+    exec_str += ' --out ' + out_paths['test_flat_panel_mlem_tof_exec']
+    ret = os.system(exec_str)
+    assert ret == 0
+
+    img_params = yrt.ImageParams(util_paths['img_params_3.0'])
+    ref_img = yrt.ImageOwned(img_params,
+                             ref_paths['test_flat_panel_mlem_tof'][1])
+    out_img = yrt.ImageOwned(img_params,
+                             out_paths['test_flat_panel_mlem_tof_exec'])
+
+    np_out_img = np.array(out_img, copy=False)
+    np_ref_img = np.array(ref_img, copy=False)
+    cur_nrmse = _helper.get_nrmse(np_out_img, np_ref_img)
+    assert cur_nrmse < 1e-6
 
 
 # %% Standalone command line

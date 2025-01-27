@@ -179,6 +179,7 @@ void OSEM::generateSensitivityImagesCore(
     std::vector<std::unique_ptr<Image>>& sensImages)
 {
 	ASSERT_MSG(imageParams.isValid(), "Image parameters not valid/set");
+	ASSERT_MSG(num_OSEM_subsets > 0, "Not enough OSEM subsets");
 
 	Corrector& corrector = getCorrector();
 

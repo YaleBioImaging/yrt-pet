@@ -64,7 +64,8 @@ void OSEM_CPU::setupOperatorsForSensImgGen()
 	{
 		// Create and add Bin Iterator
 		getBinIterators().push_back(
-		    mp_corrector->getSensImgGenBuffer()->getBinIter(num_OSEM_subsets, subsetId));
+		    mp_corrector->getSensImgGenBuffer()->getBinIter(num_OSEM_subsets,
+		                                                    subsetId));
 	}
 
 	// Create ProjectorParams object
@@ -143,7 +144,6 @@ ImageBase* OSEM_CPU::getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType type)
 		return mp_mlemImageTmpPsf.get();
 	}
 	throw std::runtime_error("Unknown Temporary image type");
-
 }
 
 const ProjectionData* OSEM_CPU::getMLEMDataBuffer()
@@ -222,7 +222,10 @@ void OSEM_CPU::allocateForRecon()
 	// Apply mask image
 	std::cout << "Applying threshold..." << std::endl;
 	auto applyMask = [this](const Image* maskImage) -> void
-	{ getMLEMImageBuffer()->applyThreshold(maskImage, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f); };
+	{
+		getMLEMImageBuffer()->applyThreshold(maskImage, 0.0f, 0.0f, 0.0f, 1.0f,
+		                                     0.0f);
+	};
 	if (maskImage != nullptr)
 	{
 		applyMask(maskImage);

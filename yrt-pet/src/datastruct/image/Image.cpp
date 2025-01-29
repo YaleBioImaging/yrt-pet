@@ -193,6 +193,24 @@ void Image::addFirstImageToSecond(ImageBase* secondImage) const
 	second_Image->getData() += *mp_array;
 }
 
+float Image::voxelSum() const
+{
+	// Use double to avoid precision loss
+	double sum = 0.0;
+
+	const ImageParams& params = getParams();
+	const size_t numVoxels = params.nx * params.ny * params.nz;
+	const float* rawPtr = mp_array->getRawPointer();
+
+#pragma omp parallel for reduction(+ : sum)
+	for (size_t i = 0; i < numVoxels; i++)
+	{
+		sum += rawPtr[i];
+	}
+
+	return static_cast<float>(sum);
+}
+
 void Image::multWithScalar(float scalar)
 {
 	*mp_array *= scalar;
@@ -272,11 +290,11 @@ bool Image::getNearestNeighborIdx(const Vector3D& pt, int* pi, int* pj,
 	const float y = pt.y - params.off_y;
 	const float z = pt.z - params.off_z;
 
-	const float dx = (x + params.length_x / 2.0) / params.length_x *
+	const float dx = (x + params.length_x / 2.0f) / params.length_x *
 	                 static_cast<float>(params.nx);
-	const float dy = (y + params.length_y / 2.0) / params.length_y *
+	const float dy = (y + params.length_y / 2.0f) / params.length_y *
 	                 static_cast<float>(params.ny);
-	const float dz = (z + params.length_z / 2.0) / params.length_z *
+	const float dz = (z + params.length_z / 2.0f) / params.length_z *
 	                 static_cast<float>(params.nz);
 
 	const int ix = static_cast<int>(dx);

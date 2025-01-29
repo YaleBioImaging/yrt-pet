@@ -30,6 +30,7 @@ public:
 	void multWithScalar(float scalar);
 	void addFirstImageToSecond(ImageBase* secondImage) const override;
 
+	float voxelSum() const;
 	void setValue(float initValue) override;
 	void applyThreshold(const ImageBase* maskImg, float threshold,
 	                    float val_le_scale, float val_le_off,

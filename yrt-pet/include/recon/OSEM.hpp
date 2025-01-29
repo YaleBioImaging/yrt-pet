@@ -36,7 +36,7 @@ public:
 	void generateSensitivityImages(
 	    std::vector<std::unique_ptr<Image>>& sensImages,
 	    const std::string& out_fname);
-	bool validateSensImagesAmount(int size) const;
+	int getExpectedSensImagesAmount() const;
 
 	// In case the sensitivity images were already generated
 	void setSensitivityImages(const std::vector<Image*>& sensImages);

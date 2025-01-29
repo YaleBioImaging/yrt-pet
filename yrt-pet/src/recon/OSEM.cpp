@@ -241,13 +241,13 @@ void OSEM::generateSensitivityImagesCore(
 	num_OSEM_subsets = originalNumOSEMSubsets;
 }
 
-bool OSEM::validateSensImagesAmount(int size) const
+int OSEM::getExpectedSensImagesAmount() const
 {
 	if (usingListModeInput)
 	{
-		return size == 1;
+		return 1;
 	}
-	return size == num_OSEM_subsets;
+	return num_OSEM_subsets;
 }
 
 void OSEM::setSensitivityImages(const std::vector<Image*>& sensImages)
@@ -521,11 +521,15 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 		imageParams = m_sensitivityImages[0]->getParams();
 	}
 
-	if (!validateSensImagesAmount(static_cast<int>(m_sensitivityImages.size())))
+	const int expectedNumberOfSensImages = getExpectedSensImagesAmount();
+	if (expectedNumberOfSensImages !=
+	    static_cast<int>(m_sensitivityImages.size()))
 	{
-		throw std::logic_error(
-		    "The number of sensitivity image objects provided does "
-		    "not match the number of subsets");
+		throw std::logic_error("The number of sensitivity images provided does "
+		                       "not match the number of subsets. Expected " +
+		                       std::to_string(expectedNumberOfSensImages) +
+		                       " but received " +
+		                       std::to_string(m_sensitivityImages.size()));
 	}
 
 	outImage = std::make_unique<ImageOwned>(imageParams);

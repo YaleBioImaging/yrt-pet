@@ -24,6 +24,10 @@ fold_data = _helper.fold_data
 fold_out = _helper.fold_out
 fold_bin = _helper.fold_bin
 
+# Nomenclature of the tests:
+#  test_<scanner>_<dataset>_<algorithms tested>_<running conditions>
+#  Examples of "algorithms tested": osem, dd (distance-driven), bwd
+#  Examples of running conditions: gpu/cpu, exec
 
 # %% Tests
 
@@ -102,11 +106,11 @@ def test_savant_sim_ultra_micro_hotspot_piston_mlem_dd_gpu_exec():
     _test_savant_sim_ultra_micro_hotspot_motion_mlem_dd_gpu_exec("piston")
 
 
-def test_savant_sim_ultra_micro_hotspot_yesman_mlem_exec():
+def test_savant_sim_ultra_micro_hotspot_yesman_mlem_dd_gpu_exec():
     _test_savant_sim_ultra_micro_hotspot_motion_mlem_dd_gpu_exec("yesman")
 
 
-def test_savant_sim_ultra_micro_hotspot_wobble_mlem_exec():
+def test_savant_sim_ultra_micro_hotspot_wobble_mlem_dd_gpu_exec():
     _test_savant_sim_ultra_micro_hotspot_motion_mlem_dd_gpu_exec("wobble")
 
 

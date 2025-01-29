@@ -385,7 +385,7 @@ int main(int argc, char** argv)
 
 			osem->generateSensitivityImages(sensImages, out_sensImg_fname);
 		}
-		else if (osem->getExpectedSensImagesAmount() !=
+		else if (osem->getExpectedSensImagesAmount() ==
 		         static_cast<int>(sensImg_fnames.size()))
 		{
 			std::cout << "Reading sensitivity images..." << std::endl;
@@ -401,7 +401,7 @@ int main(int argc, char** argv)
 			std::cerr << "The number of sensitivity images given is "
 			          << sensImg_fnames.size() << std::endl;
 			std::cerr << "The expected number of sensitivity images is "
-			          << (useListMode ? 1 : numSubsets) << std::endl;
+			          << osem->getExpectedSensImagesAmount() << std::endl;
 			throw std::invalid_argument(
 			    "The number of sensitivity images given "
 			    "doesn't match the number of "

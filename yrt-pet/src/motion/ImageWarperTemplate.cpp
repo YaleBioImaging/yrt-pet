@@ -23,6 +23,7 @@ void py_setup_imagewarpertemplate(py::module& m)
 	                                const ImageParams& img_params)>(
 	                                &ImageWarperTemplate::setImageHyperParam));
 	c.def("setImageParams", &ImageWarperTemplate::setImageParams);
+	c.def("readFromFile", &ImageWarperTemplate::readFromFile);
 	c.def("setMotionHyperParam", &ImageWarperTemplate::setMotionHyperParam);
 	c.def("setFramesParamFromFile",
 	      &ImageWarperTemplate::setFramesParamFromFile);

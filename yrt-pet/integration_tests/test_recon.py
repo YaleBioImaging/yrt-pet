@@ -65,6 +65,8 @@ def test_savant_sim_ultra_micro_hotspot_nomotion_mlem():
 
 
 def _test_savant_sim_ultra_micro_hotspot_motion_mlem_dd_gpu_exec(keyword: str):
+    if not yrt.compiledWithCuda():
+        pytest.skip("Code not compiled with cuda. Skipping...")
     fold_savant_sim = os.path.join(fold_data, "savant_sim")
     out_path = os.path.join(fold_out, "test_savant_sim_ultra_micro_hotspot_" + keyword + "_mlem_dd_gpu_exec.nii.gz")
 

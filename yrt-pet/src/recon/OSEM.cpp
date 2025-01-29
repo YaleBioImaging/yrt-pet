@@ -56,8 +56,7 @@ void py_setup_osem(pybind11::module& m)
 	    },
 	    "out_fname"_a = "", "saveToMemory"_a = true);
 
-	c.def("validateSensImagesAmount", &OSEM::validateSensImagesAmount,
-	      "amount"_a);
+	c.def("getExpectedSensImagesAmount", &OSEM::getExpectedSensImagesAmount);
 
 	c.def("setSensitivityImage", &OSEM::setSensitivityImage, "sens_image"_a,
 	      "subset"_a = 0);

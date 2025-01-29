@@ -385,8 +385,8 @@ int main(int argc, char** argv)
 
 			osem->generateSensitivityImages(sensImages, out_sensImg_fname);
 		}
-		else if (osem->validateSensImagesAmount(
-		             static_cast<int>(sensImg_fnames.size())))
+		else if (osem->getExpectedSensImagesAmount() !=
+		         static_cast<int>(sensImg_fnames.size()))
 		{
 			std::cout << "Reading sensitivity images..." << std::endl;
 			for (auto& sensImg_fname : sensImg_fnames)
@@ -579,7 +579,8 @@ int main(int argc, char** argv)
 		std::unique_ptr<ImageOwned> initialEstimate = nullptr;
 		if (!initialEstimate_fname.empty())
 		{
-			initialEstimate = std::make_unique<ImageOwned>(initialEstimate_fname);
+			initialEstimate =
+			    std::make_unique<ImageOwned>(initialEstimate_fname);
 			osem->initialEstimate = initialEstimate.get();
 		}
 

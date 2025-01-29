@@ -56,6 +56,7 @@ void Corrector_CPU::precomputeInVivoAttenuationFactors(
 	    mp_inVivoAttenuationFactors->getRawPointer();
 
 	const size_t numBins = measurements.count();
+	std::cout << "Precomputing in-vivo attenuation corrections..." << std::endl;
 
 #pragma omp parallel for default(none) \
     firstprivate(numBins, measurementsPtr, inVivoAttenuationFactorsPtr)
@@ -123,7 +124,8 @@ float Corrector_CPU::getAdditiveCorrectionFactor(
 		acf = 1.0f;
 	}
 
-	if (acf < StabilityEpsilon || sensitivity < StabilityEpsilon) {
+	if (acf < StabilityEpsilon || sensitivity < StabilityEpsilon)
+	{
 		// To avoid numerical instability
 		return 0.0f;
 	}

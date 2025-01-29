@@ -109,10 +109,14 @@ void OSEMUpdater_CPU::computeEMUpdateImage(const Image& inputImage,
 			update *= correctorPtr->getInVivoAttenuationFactor(bin);
 		}
 
-		const float measurement = measurements->getProjectionValue(bin);
+		if (update > 1e-8)  // to prevent numerical instability
+		{
+			const float measurement = measurements->getProjectionValue(bin);
 
-		update = measurement / update;
+			update = measurement / update;
 
-		projector->backProjection(destImagePtr, projectionProperties, update);
+			projector->backProjection(destImagePtr, projectionProperties,
+			                          update);
+		}
 	}
 }

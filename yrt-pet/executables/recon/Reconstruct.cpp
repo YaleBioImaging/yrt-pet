@@ -6,7 +6,6 @@
 #include "../PluginOptionsHelper.hpp"
 #include "datastruct/IO.hpp"
 #include "datastruct/scanner/Scanner.hpp"
-#include "motion/ImageWarperMatrix.hpp"
 #include "utils/Assert.hpp"
 #include "utils/Globals.hpp"
 #include "utils/ProgressDisplay.hpp"
@@ -44,7 +43,6 @@ int main(int argc, char** argv)
 		std::string projector_name = "S";
 		std::string sensitivityData_fname;
 		std::string sensitivityData_format;
-		std::string warpParamFile;  // For Warper
 		std::string out_fname;
 		std::string out_sensImg_fname;
 		int numIterations = 10;
@@ -216,12 +214,6 @@ int main(int argc, char** argv)
 		               "Number of standard deviations to consider for TOF's "
 		               "Gaussian curve",
 		               cxxopts::value<int>(tofNumStd));
-
-		auto otherGroup = options.add_options("Other");
-		otherGroup("w,warper",
-		           "Path to the warp parameters file (Specify this to use the "
-		           "MLEM with image warper algorithm)",
-		           cxxopts::value<std::string>(warpParamFile));
 
 		options.add_options()("h,help", "Print help");
 
@@ -588,27 +580,8 @@ int main(int argc, char** argv)
 			osem->initialEstimate = initialEstimate.get();
 		}
 
-		// Image Warper (Legacy)
-		std::unique_ptr<ImageWarperTemplate> warper = nullptr;
-		if (!warpParamFile.empty())
-		{
-			warper = std::make_unique<ImageWarperMatrix>();
-			warper->setImageHyperParam(osem->getImageParams());
-			warper->setFramesParamFromFile(warpParamFile);
-			osem->warper = warper.get();
-		}
-
-		if (warper == nullptr)
-		{
-			std::cout << "Launching reconstruction..." << std::endl;
-			osem->reconstruct(out_fname);
-		}
-		else
-		{
-			std::cout << "Launching reconstruction with image warper..."
-			          << std::endl;
-			osem->reconstructWithWarperMotion(out_fname);
-		}
+		std::cout << "Launching reconstruction..." << std::endl;
+		osem->reconstruct(out_fname);
 
 		std::cout << "Done." << std::endl;
 		return 0;

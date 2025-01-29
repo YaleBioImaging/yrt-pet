@@ -6,17 +6,16 @@
 #pragma once
 
 #include "datastruct/image/Image.hpp"
+#include "datastruct/projection/UniformHistogram.hpp"
 #include "operators/OperatorProjector.hpp"
 #include "operators/OperatorPsf.hpp"
 #include "recon/Corrector.hpp"
 #include "utils/RangeList.hpp"
-#include "datastruct/projection/UniformHistogram.hpp"
 
 #if BUILD_PYBIND11
 #include <pybind11/pybind11.h>
 #endif
 
-class ImageWarperTemplate;
 
 class OSEM
 {
@@ -49,9 +48,6 @@ public:
 
 	// OSEM Reconstruction
 	std::unique_ptr<ImageOwned> reconstruct(const std::string& out_fname);
-	// OSEM Reconstruction using warper (Legacy)
-	std::unique_ptr<ImageOwned>
-	    reconstructWithWarperMotion(const std::string& out_fname);
 
 	// Prints a summary of the parameters
 	void summary() const;
@@ -93,7 +89,6 @@ public:
 	const Scanner& scanner;
 	const Image* maskImage;
 	const Image* initialEstimate;
-	ImageWarperTemplate* warper;  // For MLEM with Warper only
 
 protected:
 	enum class TemporaryImageSpaceBufferType

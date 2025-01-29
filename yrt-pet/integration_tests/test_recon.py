@@ -85,6 +85,7 @@ def _test_savant_sim_ultra_micro_hotspot_motion_mlem_dd_gpu_exec(keyword: str):
                                                 "ultra_micro_hotspot",
                                                 keyword + ".mot")
     exec_str += " -o " + out_path
+    exec_str += " --projector DD_GPU"
 
     ret = os.system(exec_str)
     assert ret == 0

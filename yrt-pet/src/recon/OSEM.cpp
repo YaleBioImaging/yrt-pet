@@ -13,7 +13,6 @@
 #include "datastruct/projection/ProjectionList.hpp"
 #include "datastruct/projection/UniformHistogram.hpp"
 #include "datastruct/scanner/Scanner.hpp"
-#include "motion/ImageWarperMatrix.hpp"
 #include "operators/OperatorProjector.hpp"
 #include "operators/OperatorProjectorDD.hpp"
 #include "operators/OperatorProjectorSiddon.hpp"
@@ -65,8 +64,6 @@ void py_setup_osem(pybind11::module& m)
 	          &OSEM::setSensitivityImages));
 
 	c.def("reconstruct", &OSEM::reconstruct, "out_fname"_a = "");
-	c.def("reconstructWithWarperMotion", &OSEM::reconstructWithWarperMotion,
-	      "out_fname"_a = "");
 	c.def("summary", &OSEM::summary);
 
 	c.def("setSensitivityHistogram", &OSEM::setSensitivityHistogram,
@@ -108,7 +105,6 @@ void py_setup_osem(pybind11::module& m)
 	c.def_readwrite("projectorType", &OSEM::projectorType);
 	c.def_readwrite("maskImage", &OSEM::maskImage);
 	c.def_readwrite("initialEstimate", &OSEM::initialEstimate);
-	c.def_readwrite("warper", &OSEM::warper);
 }
 #endif
 
@@ -121,7 +117,6 @@ OSEM::OSEM(const Scanner& pr_scanner)
       scanner(pr_scanner),
       maskImage(nullptr),
       initialEstimate(nullptr),
-      warper(nullptr),
       flagImagePSF(false),
       imageSpacePsf(nullptr),
       flagProjPSF(false),
@@ -649,169 +644,8 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 	return std::move(outImage);
 }
 
-std::unique_ptr<ImageOwned>
-    OSEM::reconstructWithWarperMotion(const std::string& out_fname)
-{
-	// TODO NOW: Debug this
-	ASSERT_MSG(
-	    !IO::requiresGPU(projectorType),
-	    "Error: The Reconstruction with an image warper only works on CPU");
-	ASSERT_MSG(warper != nullptr, "Warper not defined");
-	ASSERT_MSG(m_sensitivityImages.size() == 1,
-	           "Exactly one sensitivity image is needed for MLEM "
-	           "reconstruction with image warper");
-	ASSERT_MSG(mp_dataInput != nullptr, "Data input unspecified");
-
-	if (!imageParams.isValid())
-	{
-		imageParams = m_sensitivityImages.at(0)->getParams();
-	}
-
-	outImage = std::make_unique<ImageOwned>(imageParams);
-	outImage->allocate();
-
-	allocateForRecon();
-	auto mlem_image_update_factor = std::make_unique<ImageOwned>(imageParams);
-	mlem_image_update_factor->allocate();
-	auto mlem_image_curr_frame = std::make_unique<ImageOwned>(imageParams);
-	mlem_image_curr_frame->allocate();
-
-	Image* sens_image = m_sensitivityImages.at(0);
-	std::cout << "Computing global Warp-to-ref frame..." << std::endl;
-	warper->computeGlobalWarpToRefFrame(sens_image, !saveIterRanges.empty());
-	std::cout << "Applying threshold..." << std::endl;
-	sens_image->applyThreshold(sens_image, hardThreshold, 0.0, 0.0, 1.0, 0.0);
-	getMLEMImageBuffer()->applyThreshold(sens_image, 0.0, 0.0, 0.0, 0.0, 1.0);
-
-	std::vector<size_t> eventsPartitionOverMotionFrame(
-	    warper->getNumberOfFrame() + 1);
-	size_t currEventId = 0;
-	int frameId = 0;
-	float currFrameEndTime = warper->getFrameStartTime(frameId + 1);
-	eventsPartitionOverMotionFrame[0] = 0;
-	while (frameId < warper->getNumberOfFrame())
-	{
-		if (currEventId + 1 == getMLEMDataBuffer()->count())
-		{
-			eventsPartitionOverMotionFrame[frameId + 1] =
-			    getMLEMDataBuffer()->count();
-			break;
-		}
-
-		if (getMLEMDataBuffer()->getTimestamp(currEventId) >= currFrameEndTime)
-		{
-			eventsPartitionOverMotionFrame[frameId + 1] = currEventId - 1;
-			frameId++;
-			currFrameEndTime = warper->getFrameStartTime(frameId + 1);
-		}
-		else
-		{
-			currEventId++;
-		}
-	}
-	warper->setRefImage(outImage.get());
-	OperatorWarpRefImage warpImg(0);
-	constexpr float UpdateEMThreshold = 1e-8f;
-
-	const int numFrames = warper->getNumberOfFrame();
-
-	getBinIterators().reserve(numFrames);
-
-	// Subset operators
-	for (frameId = 0; frameId < numFrames; frameId++)
-	{
-		getBinIterators().push_back(std::make_unique<BinIteratorRange>(
-		    eventsPartitionOverMotionFrame[frameId],
-		    eventsPartitionOverMotionFrame[frameId + 1] - 1));
-	}
-
-	// Create ProjectorParams object
-	OperatorProjectorParams projParams(
-	    nullptr /* Will be set later at each subset loading */, scanner,
-	    flagProjTOF ? tofWidth_ps : 0.f, flagProjTOF ? tofNumStd : 0,
-	    flagProjPSF ? projSpacePsf_fname : "", numRays);
-
-	if (projectorType == OperatorProjector::SIDDON)
-	{
-		mp_projector = std::make_unique<OperatorProjectorSiddon>(projParams);
-	}
-	else if (projectorType == OperatorProjector::DD)
-	{
-		mp_projector = std::make_unique<OperatorProjectorDD>(projParams);
-	}
-	else
-	{
-		throw std::logic_error(
-		    "Error during reconstruction: Unknown projector type");
-	}
-
-	const int num_digits_in_fname = Util::numberOfDigits(num_MLEM_iterations);
-
-	/* MLEM iterations */
-	for (int iter = 0; iter < num_MLEM_iterations; iter++)
-	{
-		std::cout << "\n"
-		          << "MLEM iteration " << iter + 1 << "/" << num_MLEM_iterations
-		          << "..." << std::endl;
-		mlem_image_update_factor->setValue(0.0);
-		warper->setRefImage(outImage.get());
-
-		for (frameId = 0; frameId < numFrames; frameId++)
-		{
-			mp_projector->setBinIter(getBinIterators()[frameId].get());
-			getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType::EM_RATIO)
-			    ->setValue(0.0);
-
-			warpImg.setFrameId(frameId);
-			warpImg.applyA(warper, mlem_image_curr_frame.get());
-
-			mp_projector->applyA(mlem_image_curr_frame.get(),
-			                     getMLEMDataTmpBuffer());
-			getMLEMDataTmpBuffer()->divideMeasurements(
-			    getMLEMDataBuffer(), getBinIterators()[frameId].get());
-
-			mp_projector->applyAH(
-			    getMLEMDataTmpBuffer(),
-			    getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType::EM_RATIO));
-
-			warpImg.applyAH(
-			    warper,
-			    getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType::EM_RATIO));
-
-			getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType::EM_RATIO)
-			    ->addFirstImageToSecond(mlem_image_update_factor.get());
-		}
-		getMLEMImageBuffer()->updateEMThreshold(mlem_image_update_factor.get(),
-		                                        sens_image, UpdateEMThreshold);
-
-		if (saveIterRanges.isIn(iter + 1))
-		{
-			std::string iteration_name =
-			    Util::padZeros(iter + 1, num_digits_in_fname);
-			std::string out_fname = Util::addBeforeExtension(
-			    saveIterPath, std::string("_iteration") + iteration_name);
-			getMLEMImageBuffer()->writeToFile(out_fname);
-		}
-	}
-
-	if (!out_fname.empty())
-	{
-		std::cout << "Saving image..." << std::endl;
-		outImage->writeToFile(out_fname);
-	}
-
-	return std::move(outImage);
-}
-
 void OSEM::summary() const
 {
-	if (warper != nullptr)
-	{
-		std::cout << "Warning: This reconstruction uses deprecated "
-		             "Warper-based MLEM. Not "
-		             "all features will be enabled."
-		          << std::endl;
-	}
 	std::cout << "Number of iterations: " << num_MLEM_iterations << std::endl;
 	std::cout << "Number of subsets: " << num_OSEM_subsets << std::endl;
 	if (usingListModeInput)

@@ -315,9 +315,16 @@ void OSEM::setSensitivityImage(Image* sensImage, int subset)
 		ASSERT_MSG(false, errorMessage.c_str());
 	}
 	const size_t expectedSize = usingListModeInput ? 1 : num_OSEM_subsets;
-	if (m_sensitivityImages.size() != expectedSize && subset != 0)
+	if (m_sensitivityImages.size() != expectedSize)
 	{
-		m_sensitivityImages.resize(expectedSize);
+		if (subset != 0)
+		{
+			m_sensitivityImages.resize(expectedSize);
+		}
+		else
+		{
+			m_sensitivityImages.resize(1);
+		}
 	}
 
 	ASSERT(sensImage != nullptr);

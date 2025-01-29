@@ -99,8 +99,9 @@ int main(int argc, char** argv)
 
 		// Output image
 		std::cout << "Preparing output image..." << std::endl;
+		ImageParams outputImageParams{outputImageParams_fname};
 		auto outputImage =
-		    std::make_unique<ImageOwned>(outputImageParams_fname);
+		    std::make_unique<ImageOwned>(outputImageParams);
 		outputImage->allocate();
 
 		// Input data

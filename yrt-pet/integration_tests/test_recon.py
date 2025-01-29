@@ -64,53 +64,48 @@ def test_savant_sim_ultra_micro_hotspot_nomotion_mlem():
                                atol=0, rtol=5e-2)
 
 
-def _test_savant_sim_ultra_micro_hotspot_motion_mlem(keyword: str):
-    pytest.skip("TODO NOW: Fix this so it works")
+def _test_savant_sim_ultra_micro_hotspot_motion_mlem_dd_gpu_exec(keyword: str):
     fold_savant_sim = os.path.join(fold_data, "savant_sim")
-    scanner = yrt.Scanner(os.path.join(fold_savant_sim, "SAVANT_sim.json"))
-    listmode = yrt.ListModeLUTOwned(scanner, os.path.join(fold_savant_sim,
-                                                          "ultra_micro_hotspot",
-                                                          keyword + ".lmDat"))
-    image_params = yrt.ImageParams(os.path.join(fold_savant_sim, "img_params_500.json"))
-    sens_image = yrt.ImageOwned(image_params, os.path.join(fold_savant_sim,
-                                                           "images",
-                                                           "sens_image_siddon.nii"))
+    out_path = os.path.join(fold_out, "test_savant_sim_ultra_micro_hotspot_" + keyword + "_mlem_dd_gpu_exec.nii.gz")
 
-    warper = yrt.ImageWarperMatrix()
-    warper.setImageHyperParam(image_params)
-    warper.setFramesParamFromFile(os.path.join(fold_savant_sim,
-                                               "ultra_micro_hotspot",
-                                               keyword + ".twp"))
+    exec_str = os.path.join(fold_bin, "yrtpet_reconstruct")
+    exec_str += " -s " + os.path.join(fold_savant_sim, "SAVANT_sim.json")
+    exec_str += " -i " + os.path.join(fold_savant_sim,
+                                      "ultra_micro_hotspot",
+                                      keyword + ".lmDat")
+    exec_str += " -f LM"
+    exec_str += " -p " + os.path.join(fold_savant_sim, "img_params_500.json")
+    exec_str += " --lor_motion " + os.path.join(fold_savant_sim,
+                                                "ultra_micro_hotspot",
+                                                keyword + ".mot")
+    exec_str += " -o " + out_path
 
-    osem = yrt.createOSEM(scanner, False)
-    osem.setSensitivityImage(sens_image)  # One subset
-    osem.setDataInput(listmode)
-    osem.num_MLEM_iterations = 10
-    osem.num_OSEM_subsets = 1
-    osem.warper = warper
-    recon_image = osem.reconstructWithWarperMotion()
-    recon_image.writeToFile(fold_out, "test_savant_sim_ultra_micro_hotspot_" + keyword + "_mlem.nii.gz")
+    ret = os.system(exec_str)
+    assert ret == 0
 
-    recon_image_np = np.array(recon_image, copy=False)
-    ref_image = yrt.ImageOwned(image_params, os.path.join(fold_savant_sim,
-                                                          "ref",
-                                                          "ultra_micro_hotspot_" + keyword + "_mlem.nii"))
+    out_image = yrt.ImageOwned(out_path)
+    out_image_np = np.array(out_image, copy=False)
+
+    ref_image = yrt.ImageOwned(
+        os.path.join(fold_savant_sim,
+                     "ref",
+                     "ultra_micro_hotspot_" + keyword + "_mlem_dd_gpu.nii.gz"))
     ref_image_np = np.array(ref_image, copy=False)
 
-    np.testing.assert_allclose(recon_image_np, ref_image_np,
+    np.testing.assert_allclose(out_image_np, ref_image_np,
                                atol=0, rtol=1e-4)
 
 
-def test_savant_sim_ultra_micro_hotspot_piston_mlem():
-    _test_savant_sim_ultra_micro_hotspot_motion_mlem("piston")
+def test_savant_sim_ultra_micro_hotspot_piston_mlem_dd_gpu_exec():
+    _test_savant_sim_ultra_micro_hotspot_motion_mlem_dd_gpu_exec("piston")
 
 
-def test_savant_sim_ultra_micro_hotspot_yesman_mlem():
-    _test_savant_sim_ultra_micro_hotspot_motion_mlem("yesman")
+def test_savant_sim_ultra_micro_hotspot_yesman_mlem_exec():
+    _test_savant_sim_ultra_micro_hotspot_motion_mlem_dd_gpu_exec("yesman")
 
 
-def test_savant_sim_ultra_micro_hotspot_wobble_mlem():
-    _test_savant_sim_ultra_micro_hotspot_motion_mlem("wobble")
+def test_savant_sim_ultra_micro_hotspot_wobble_mlem_exec():
+    _test_savant_sim_ultra_micro_hotspot_motion_mlem_dd_gpu_exec("wobble")
 
 
 def test_savant_sim_sens_image_siddon():

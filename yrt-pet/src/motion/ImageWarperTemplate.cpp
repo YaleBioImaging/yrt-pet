@@ -22,6 +22,7 @@ void py_setup_imagewarpertemplate(py::module& m)
 	c.def("setImageHyperParam", static_cast<void (ImageWarperTemplate::*)(
 	                                const ImageParams& img_params)>(
 	                                &ImageWarperTemplate::setImageHyperParam));
+	c.def("setImageParams", &ImageWarperTemplate::setImageParams);
 	c.def("setMotionHyperParam", &ImageWarperTemplate::setMotionHyperParam);
 	c.def("setFramesParamFromFile",
 	      &ImageWarperTemplate::setFramesParamFromFile);
@@ -93,6 +94,11 @@ void ImageWarperTemplate::setImageHyperParam(const ImageParams& img_params)
 	setImageHyperParam(imDim, imSize);
 }
 
+void ImageWarperTemplate::setImageParams(const ImageParams& img_params)
+{
+	setImageHyperParam(img_params);
+}
+
 
 void ImageWarperTemplate::setMotionHyperParam(int numberOfFrame)
 {
@@ -140,6 +146,12 @@ void ImageWarperTemplate::setFramesParamFromFile(std::string paramFileName)
 			              (float)extractedFrameParam[m][1]);
 		}
 	}
+}
+
+
+void ImageWarperTemplate::readFromFile(std::string paramFileName)
+{
+	setFramesParamFromFile(paramFileName);
 }
 
 

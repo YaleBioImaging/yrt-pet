@@ -4,6 +4,7 @@
  */
 
 #include "motion/ImageWarperMatrix.hpp"
+#include "utils/Types.hpp"
 
 #if BUILD_PYBIND11
 #include <pybind11/pybind11.h>
@@ -13,8 +14,10 @@ namespace py = pybind11;
 void py_setup_imagewarpermatrix(py::module& m)
 {
 	auto c = py::class_<ImageWarperMatrix, ImageWarperTemplate>(
-		m, "ImageWarperMatrix");
+	    m, "ImageWarperMatrix");
 	c.def(py::init<>());
+
+	c.def("getTransformation", &ImageWarperMatrix::getTransformation);
 }
 #endif
 
@@ -48,9 +51,8 @@ void ImageWarperMatrix::reset()
  * @warpParam: Parameters of the transformation. The parameters expected are a
  *		quaternion [qw, qx, qy, qz] followed by a translation [tx, ty, tz].
  * *************************************************************************************/
-void ImageWarperMatrix::setFrameWarpParameters(int frameId,
-                                               const std::vector<double>&
-                                               warpParam)
+void ImageWarperMatrix::setFrameWarpParameters(
+    int frameId, const std::vector<double>& warpParam)
 {
 	// Invert the rotation.
 	std::vector<double> invQuaternion;
@@ -68,6 +70,7 @@ void ImageWarperMatrix::setFrameWarpParameters(int frameId,
 	// Invert the translation.
 	for (int i = 0; i < 3; i++)
 	{
+		// YN: Why is this inverted ???
 		m_translation[frameId][i] = -warpParam[i + 4];
 	}
 }
@@ -167,8 +170,8 @@ void ImageWarperMatrix::inverseWarp(Image* _image, int _frameId) const
 					for (size_t l = 0; l < voxCompIndex.size(); l++)
 					{
 						float* cur_img_ptr =
-							raw_img_ptr + voxCompIndex[l][2] * num_xy +
-							voxCompIndex[l][1] * num_x + voxCompIndex[l][0];
+						    raw_img_ptr + voxCompIndex[l][2] * num_xy +
+						    voxCompIndex[l][1] * num_x + voxCompIndex[l][0];
 						*cur_img_ptr += currVoxelVal * voxCompInterpWeight[l];
 					}
 				}
@@ -203,8 +206,8 @@ void ImageWarperMatrix::initWarpModeSpecificParameters()
  * Def.:  Evaluate the physical position of a voxel in the three dimensions.
  * @voxelId: The voxel Id in each dimension.
  * *************************************************************************************/
-std::vector<double> ImageWarperMatrix::getVoxelPhysPos(
-	const std::vector<int>& voxelId)
+std::vector<double>
+    ImageWarperMatrix::getVoxelPhysPos(const std::vector<int>& voxelId)
 {
 	std::vector<double> voxPos;
 	voxPos.resize(3);
@@ -226,7 +229,7 @@ std::vector<double> ImageWarperMatrix::getVoxelPhysPos(
 double ImageWarperMatrix::getVoxelPhysPos(int voxelId, int voxelDim) const
 {
 	return ((double)voxelId + 0.5) *
-	       (m_imSize[voxelDim] / (double)m_imNbVoxel[voxelDim]) -
+	           (m_imSize[voxelDim] / (double)m_imNbVoxel[voxelDim]) -
 	       0.5 * m_imSize[voxelDim];
 }
 
@@ -302,18 +305,17 @@ void ImageWarperMatrix::applyInvTransformation(const std::vector<double>& pos,
  * Note:
  *		- voxIndex and voxValue are filled with the same order.
  * *************************************************************************************/
-bool ImageWarperMatrix::invInterpolComponent(const Vector3D& pt,
-                                             std::vector<std::vector<int>>&
-                                             voxIndex,
-                                             std::vector<double>& voxValue)
-const
+bool ImageWarperMatrix::invInterpolComponent(
+    const Vector3D& pt, std::vector<std::vector<int>>& voxIndex,
+    std::vector<double>& voxValue) const
 {
 	int ix, iy, iz, ix1, ix2, iy1, iy2, iz1, iz2;
 	double dx, dy, dz, dx1, dy1, dz1, delta_x, delta_y, delta_z;
 
 	// if point outside of the image, return 0:
 	if ((std::abs(pt.x) >= (m_imSize[0] / 2)) ||
-	    (std::abs(pt.y) >= (m_imSize[1] / 2)) || (std::abs(pt.z) >= (m_imSize[2] / 2)))
+	    (std::abs(pt.y) >= (m_imSize[1] / 2)) ||
+	    (std::abs(pt.z) >= (m_imSize[2] / 2)))
 	{
 		return false;
 	}
@@ -407,4 +409,20 @@ const
 	voxValue[7] = dz1 * dy1 * dx1;
 
 	return true;
+}
+
+transform_t ImageWarperMatrix::getTransformation(int frameId) const
+{
+	return transform_t{static_cast<float>(m_rotMatrix[frameId][0]),
+	                   static_cast<float>(m_rotMatrix[frameId][1]),
+	                   static_cast<float>(m_rotMatrix[frameId][2]),
+	                   static_cast<float>(m_rotMatrix[frameId][3]),
+	                   static_cast<float>(m_rotMatrix[frameId][4]),
+	                   static_cast<float>(m_rotMatrix[frameId][5]),
+	                   static_cast<float>(m_rotMatrix[frameId][6]),
+	                   static_cast<float>(m_rotMatrix[frameId][7]),
+	                   static_cast<float>(m_rotMatrix[frameId][8]),
+	                   static_cast<float>(m_translation[frameId][0]),
+	                   static_cast<float>(m_translation[frameId][1]),
+	                   static_cast<float>(m_translation[frameId][2])};
 }

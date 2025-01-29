@@ -49,6 +49,7 @@ public:
 	void setImageHyperParam(const std::vector<int>& imDim,
 	                        const std::vector<float>& imSize);
 	void setImageHyperParam(const ImageParams& img_params);
+	void setImageParams(const ImageParams& img_params);
 	/*
 	 * Def.: Instantiate the object with the basic information of the motion.
 	 * @numberOfFrame: Number of frame.
@@ -59,6 +60,7 @@ public:
 	 * @paramFileName: Path to the file with the parameters.
 	 */
 	void setFramesParamFromFile(std::string paramFileName);
+	void readFromFile(std::string paramFileName);
 	/*
 	 * Def.: Instantiate the object by using previously defined basic
 	 * information of
@@ -227,8 +229,9 @@ protected:
 	 * @frameParam: Structure where the extracted frames parameters will be
 	 * stored.
 	 */
-	int extractFramesParamFromFile(std::string paramFileName,
-	                               std::vector<std::vector<double>>& frameParam);
+	int extractFramesParamFromFile(
+	    std::string paramFileName,
+	    std::vector<std::vector<double>>& frameParam);
 	/*
 	 * Def.: Split a string following the delimiter given.
 	 * @stringTpParse: String to split.
@@ -236,9 +239,9 @@ protected:
 	 * TODO: Merge the two with template?
 	 */
 	std::vector<std::string> splitStringIntoVector(std::string stringToParse,
-	                                     std::string delimiter);
+	                                               std::string delimiter);
 	std::vector<double> splitStringIntoVectorOfDouble(std::string stringToParse,
-	                                             std::string delimiter);
+	                                                  std::string delimiter);
 	/*
 	 * Def.: Create the rotation matrix corresponding to the angle and rotation
 	 * axis
@@ -246,7 +249,8 @@ protected:
 	 * @_angle: The rotation angle in degree.
 	 * @rotationAxis: The rotation axis.
 	 */
-	std::vector<float> createRotationMatrix(float angle, std::vector<float> rotationAxis);
+	std::vector<float> createRotationMatrix(float angle,
+	                                        std::vector<float> rotationAxis);
 	/*
 	 * Def.: Convert a quaternion, in format [qw, qx, qy, qz], into its
 	 *       corresponding rotation matrix. The matrix is flatten row-wise and
@@ -254,7 +258,8 @@ protected:
 	 *       column-wise.
 	 * @quaternion: The quaternion to convert into a matrix.
 	 */
-	std::vector<double> convertQuaternionToRotationMatrix(std::vector<double> quaternion);
+	std::vector<double>
+	    convertQuaternionToRotationMatrix(std::vector<double> quaternion);
 
 	// The methods to be defined in the child class.
 	virtual void initWarpModeSpecificParameters() = 0;

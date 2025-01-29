@@ -426,3 +426,19 @@ transform_t ImageWarperMatrix::getTransformation(int frameId) const
 	                   static_cast<float>(m_translation[frameId][1]),
 	                   static_cast<float>(m_translation[frameId][2])};
 }
+
+transform_t ImageWarperMatrix::getInvTransformation(int frameId) const
+{
+	return transform_t{static_cast<float>(m_rotMatrix[frameId][0]),
+	                   static_cast<float>(m_rotMatrix[frameId][3]),
+	                   static_cast<float>(m_rotMatrix[frameId][6]),
+	                   static_cast<float>(m_rotMatrix[frameId][1]),
+	                   static_cast<float>(m_rotMatrix[frameId][4]),
+	                   static_cast<float>(m_rotMatrix[frameId][7]),
+	                   static_cast<float>(m_rotMatrix[frameId][2]),
+	                   static_cast<float>(m_rotMatrix[frameId][5]),
+	                   static_cast<float>(m_rotMatrix[frameId][8]),
+	                   static_cast<float>(-m_translation[frameId][0]),
+	                   static_cast<float>(-m_translation[frameId][1]),
+	                   static_cast<float>(-m_translation[frameId][2])};
+}

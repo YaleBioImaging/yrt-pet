@@ -24,6 +24,7 @@ public:
     ~ImageWarperMatrix() override;
 
     transform_t getTransformation(int frameId) const;
+    transform_t getInvTransformation(int frameId) const;
 private:
     // List of private parameters
     // The rotation matrix of each frame.

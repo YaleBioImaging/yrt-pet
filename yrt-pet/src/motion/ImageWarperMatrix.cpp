@@ -18,6 +18,7 @@ void py_setup_imagewarpermatrix(py::module& m)
 	c.def(py::init<>());
 
 	c.def("getTransformation", &ImageWarperMatrix::getTransformation);
+	c.def("getInvTransformation", &ImageWarperMatrix::getInvTransformation);
 }
 #endif
 

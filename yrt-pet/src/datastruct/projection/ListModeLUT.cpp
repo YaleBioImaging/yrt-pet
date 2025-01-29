@@ -62,12 +62,13 @@ void py_setup_listmodelut(py::module& m)
 	c.def("getTOFArray",
 	      [](const ListModeLUT& self) -> py::array_t<float>
 	      {
-		      ASSERT_MSG(self.hasTOF(), "ListModeLUT object does not hold TOF information");
+		      ASSERT_MSG(self.hasTOF(),
+		                 "ListModeLUT object does not hold TOF information");
 		      Array1DBase<float>* arr = self.getTOFArrayPtr();
 		      auto buf_info =
-			      py::buffer_info(arr->getRawPointer(), sizeof(float),
-			                      py::format_descriptor<float>::format(), 1,
-			                      {arr->getSizeTotal()}, {sizeof(float)});
+		          py::buffer_info(arr->getRawPointer(), sizeof(float),
+		                          py::format_descriptor<float>::format(), 1,
+		                          {arr->getSizeTotal()}, {sizeof(float)});
 		      return py::array_t<float>(buf_info);
 	      });
 	c.def("addLORMotion", &ListModeLUT::addLORMotion);
@@ -546,6 +547,7 @@ std::unique_ptr<ProjectionData>
 
 	if (pluginOptions.count("lor_motion"))
 	{
+		std::cout << "Reading LOR motion file" << std::endl;
 		lm->addLORMotion(pluginOptions.at("lor_motion"));
 	}
 	return lm;

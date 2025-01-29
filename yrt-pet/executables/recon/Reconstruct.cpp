@@ -58,6 +58,7 @@ int main(int argc, char** argv)
 		int saveIterStep = 0;
 		std::string saveIterRanges;
 		bool sensOnly = false;
+		bool mustMoveSens = false;
 		bool invertSensitivity = false;
 
 		Plugin::OptionsResult pluginOptionsResults;  // For plugins' options
@@ -109,6 +110,9 @@ int main(int argc, char** argv)
 		sensGroup("global_scale",
 		          "Global scaling factor to apply on the sensitivity",
 		          cxxopts::value<float>(globalScalingFactor));
+		sensGroup("move_sens",
+		          "Move the provided sensitivity image based on motion",
+		          cxxopts::value<bool>(mustMoveSens));
 
 		auto inputGroup = options.add_options("2. Input");
 		inputGroup("i,input", "Input file",
@@ -259,7 +263,7 @@ int main(int argc, char** argv)
 		pluginOptionsResults =
 		    PluginOptionsHelper::convertPluginResultsToMap(result);
 
-		if (sensOnly)
+		if (sensOnly && !mustMoveSens)
 		{
 			ASSERT_MSG(
 			    sensImg_fnames.empty(),
@@ -394,7 +398,7 @@ int main(int argc, char** argv)
 				sensImages.push_back(
 				    std::make_unique<ImageOwned>(sensImg_fname));
 			}
-			sensImageAlreadyMoved = true;
+			sensImageAlreadyMoved = !mustMoveSens;
 		}
 		else
 		{

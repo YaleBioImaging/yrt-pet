@@ -74,9 +74,7 @@ void py_setup_scanner(pybind11::module& m)
 	                       }));
 	c.def("setDetectorSetup",
 	      [](Scanner& s, const std::shared_ptr<DetectorSetup>& detCoords)
-	      {
-		      s.setDetectorSetup(detCoords);
-	      });
+	      { s.setDetectorSetup(detCoords); });
 }
 #endif
 

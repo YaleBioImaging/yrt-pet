@@ -13,3 +13,5 @@ define_target_exe(yrtpet_cumulate_histograms conversion/CumulateHistograms.cpp P
 define_target_exe(yrtpet_histogram_to_listmode conversion/Histogram3DToListMode.cpp)
 
 define_target_exe(yrtpet_build_k kernel/BuildK.cpp)
+
+define_target_exe(yrtpet_accumulate_to_detectors utils/AccumulateToDetectors.cpp PluginOptionsHelper.cpp)

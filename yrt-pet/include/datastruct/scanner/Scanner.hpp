@@ -18,8 +18,8 @@ namespace fs = std::filesystem;
 class Scanner
 {
 public:
-	Scanner(std::string pr_scannerName, float p_axialFOV,
-	        float p_crystalSize_z, float p_crystalSize_trans, float p_crystalDepth,
+	Scanner(std::string pr_scannerName, float p_axialFOV, float p_crystalSize_z,
+	        float p_crystalSize_trans, float p_crystalDepth,
 	        float p_scannerRadius, size_t p_detsPerRing, size_t p_numRings,
 	        size_t p_numDOI, size_t p_maxRingDiff, size_t p_minAngDiff,
 	        size_t p_detsPerBlock);

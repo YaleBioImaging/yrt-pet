@@ -27,18 +27,28 @@ int main(int argc, char** argv)
 		Plugin::OptionsResult pluginOptionsResults;  // For plugins' options
 
 		// Parse command line arguments
-		cxxopts::Options options(argv[0],
-		                         "Accumulate a projection-space input into a map of each detector used. Each value in the map will represent a detector and the amount of times it was used in the projection data. The output file will be a RAWD file");
+		cxxopts::Options options(
+		    argv[0], "Accumulate a projection-space input into a "
+		             "map of each detector used. Each value in the"
+		             "map will represent a detector and the amount of"
+		             "times it was used in the projection data. The"
+		             "output file will be a RAWD file");
 		options.positional_help("[optional args]").show_positional_help();
 
 		/* clang-format off */
 		options.add_options()
-		("s,scanner", "Scanner parameters file", cxxopts::value<std::string>(scanner_fname))
-		("i,input", "Input file", cxxopts::value<std::string>(input_fname))
-		("f,format", "Input file format. Possible values: " + IO::possibleFormats(), cxxopts::value<std::string>(input_format))
-		("o,out", "Output map filename", cxxopts::value<std::string>(out_fname))
-		("num_threads", "Number of threads to use", cxxopts::value<int>(numThreads))
-		("h,help", "Print help");
+			("s,scanner", "Scanner parameters file",
+		    cxxopts::value<std::string>(scanner_fname))
+			("i,input", "Input file",
+			cxxopts::value<std::string>(input_fname))
+			("f,format", "Input file format. Possible values: " +
+			IO::possibleFormats(),
+		    cxxopts::value<std::string>(input_format))
+			("o,out", "Output map filename",
+		    cxxopts::value<std::string>(out_fname))
+			("num_threads", "Number of threads to use",
+		    cxxopts::value<int>(numThreads))
+			("h,help", "Print help");
 		/* clang-format on */
 
 		// Add plugin options
@@ -90,15 +100,17 @@ int main(int argc, char** argv)
 		float* mapPtr = map->getRawPointer();
 		ProjectionData* dataInputPtr = dataInput.get();
 
-		#pragma omp parallel for default(none) firstprivate(numBins, mapPtr, dataInputPtr, numDets)
+#pragma omp parallel for default(none) \
+    firstprivate(numBins, mapPtr, dataInputPtr, numDets)
 		for (bin_t bin = 0; bin < numBins; ++bin)
 		{
 			const det_pair_t detPair = dataInputPtr->getDetectorPair(bin);
-			ASSERT_MSG(detPair.d1 < numDets && detPair.d2 < numDets, "Invalid Detector Id");
-			#pragma omp atomic
-				mapPtr[detPair.d1]++;
-			#pragma omp atomic
-				mapPtr[detPair.d2]++;
+			ASSERT_MSG(detPair.d1 < numDets && detPair.d2 < numDets,
+			           "Invalid Detector Id");
+#pragma omp atomic
+			mapPtr[detPair.d1]++;
+#pragma omp atomic
+			mapPtr[detPair.d2]++;
 		}
 
 		map->writeToFile(out_fname);

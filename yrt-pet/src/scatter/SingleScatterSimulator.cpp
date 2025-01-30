@@ -12,12 +12,12 @@
 #include "operators/OperatorProjectorSiddon.hpp"
 #include "utils/Assert.hpp"
 #include "utils/Globals.hpp"
+#include "utils/ProgressDisplayMultiThread.hpp"
 #include "utils/ReconstructionUtils.hpp"
 #include "utils/Tools.hpp"
 
 #include "omp.h"
 
-#include <utils/ProgressDisplayMultiThread.hpp>
 
 #if BUILD_PYBIND11
 #include <pybind11/pybind11.h>

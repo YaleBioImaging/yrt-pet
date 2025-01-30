@@ -16,10 +16,6 @@ yrt.Globals.set_num_threads(-1)
 
 import helper as _helper
 
-dataset_paths = _helper.dataset_paths
-out_paths = _helper.out_paths
-ref_paths = _helper.ref_paths
-util_paths = _helper.util_paths
 fold_data = _helper.fold_data
 fold_out = _helper.fold_out
 fold_bin = _helper.fold_bin

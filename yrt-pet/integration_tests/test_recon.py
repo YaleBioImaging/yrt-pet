@@ -24,6 +24,7 @@ fold_data = _helper.fold_data
 fold_out = _helper.fold_out
 fold_bin = _helper.fold_bin
 
+
 # Nomenclature of the tests:
 #  test_<scanner>_<dataset>_<algorithms tested>_<running conditions>
 #  Examples of "algorithms tested": osem, dd (distance-driven), bwd

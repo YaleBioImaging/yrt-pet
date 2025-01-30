@@ -14,6 +14,7 @@ fold_py = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.append(os.path.join(fold_py))
 import pyyrtpet as yrt
 
+
 # %% Helper functions
 
 def make_scanner():
@@ -47,7 +48,7 @@ def test_list_mode():
         lm_np = np.zeros(ts.size, dtype=dtype)
         for dt in dtype_list:
             lm_np[dt[0]] = np.require(data[dt[0]], dtype=dt[1],
-                                   requirements=['C_CONTIGUOUS'])
+                                      requirements=['C_CONTIGUOUS'])
         with tempfile.TemporaryDirectory() as tmp_dir:
             lm_fname = os.path.join(tmp_dir, 'lm.dat')
             lm_np.tofile(lm_fname)
@@ -69,8 +70,8 @@ def test_list_mode():
 
 
 def test_image_transform():
-
     min_val, max_val = 1, 10
+
     def rescale(sample): return (max_val - min_val) * sample + min_val
 
     # Simple translation

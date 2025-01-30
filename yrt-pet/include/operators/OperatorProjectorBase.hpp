@@ -19,10 +19,10 @@ class OperatorProjectorParams
 {
 public:
 	OperatorProjectorParams(const BinIterator* pp_binIter,
-							const Scanner& pr_scanner,
-							float p_tofWidth_ps = 0.f, int p_tofNumStd = 0,
-							std::string p_psfProjFilename = "",
-							int p_num_rays = 1);
+	                        const Scanner& pr_scanner,
+	                        float p_tofWidth_ps = 0.f, int p_tofNumStd = 0,
+	                        std::string p_psfProjFilename = "",
+	                        int p_num_rays = 1);
 
 	const BinIterator* binIter;
 	const Scanner& scanner;
@@ -58,4 +58,3 @@ protected:
 	// Note: In the future, maybe bin iterators should not be a member of the
 	//  projector object.
 };
-

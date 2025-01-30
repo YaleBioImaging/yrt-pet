@@ -136,4 +136,3 @@ def get_nrmse(x0, x1):
 
 # Prepend data path
 fold_data, fold_out, fold_bin = get_test_folders()
-

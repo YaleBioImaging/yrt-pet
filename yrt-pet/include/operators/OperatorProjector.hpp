@@ -6,8 +6,8 @@
 #pragma once
 
 #include "datastruct/projection/ProjectionData.hpp"
-#include "operators/OperatorProjectorBase.hpp"
 #include "operators/Operator.hpp"
+#include "operators/OperatorProjectorBase.hpp"
 #include "operators/ProjectionPsfManager.hpp"
 #include "operators/TimeOfFlight.hpp"
 #include "utils/Types.hpp"

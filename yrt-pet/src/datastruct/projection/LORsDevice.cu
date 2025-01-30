@@ -78,8 +78,6 @@ void LORsDevice::loadEventLORs(const BinIterator& binIter,
 		auto [lor, tofValue, det1Orient, det2Orient] =
 		    reference_ptr->getProjectionProperties(binId);
 
-		// TODO: What to do with randoms estimate?
-
 		lor.point1 = lor.point1 - offsetVec;
 		lor.point2 = lor.point2 - offsetVec;
 

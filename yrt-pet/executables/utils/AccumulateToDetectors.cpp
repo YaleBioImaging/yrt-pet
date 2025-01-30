@@ -95,8 +95,10 @@ int main(int argc, char** argv)
 		{
 			const det_pair_t detPair = dataInputPtr->getDetectorPair(bin);
 			ASSERT_MSG(detPair.d1 < numDets && detPair.d2 < numDets, "Invalid Detector Id");
-			mapPtr[detPair.d1] += 1;
-			mapPtr[detPair.d2] += 1;
+			#pragma omp atomic
+				mapPtr[detPair.d1]++;
+			#pragma omp atomic
+				mapPtr[detPair.d2]++;
 		}
 
 		map->writeToFile(out_fname);

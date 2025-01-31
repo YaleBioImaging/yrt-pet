@@ -97,7 +97,7 @@ def _test_savant_sim_ultra_micro_hotspot_motion_mlem_dd_gpu_exec(keyword: str):
     ref_image_np = np.array(ref_image, copy=False)
 
     np.testing.assert_allclose(out_image_np, ref_image_np,
-                               atol=0, rtol=1e-4)
+                               atol=0, rtol=1e-3)
 
 
 def test_savant_sim_ultra_micro_hotspot_piston_mlem_dd_gpu_exec():

@@ -21,7 +21,8 @@ int main(int argc, char** argv)
 		int num_threads = omp_get_max_threads();
 
 		// Parse command line arguments
-		cxxopts::Options options(argv[0], "Kernel matrix generation executable");
+		cxxopts::Options options(argv[0],
+		                         "Kernel matrix generation executable");
 		options.positional_help("[optional args]").show_positional_help();
 
 		/* clang-format off */

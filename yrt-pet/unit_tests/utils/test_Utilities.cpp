@@ -6,8 +6,8 @@
 #include "catch.hpp"
 #include <vector>
 
-#include "utils/Utilities.hpp"
 #include "utils/RangeList.hpp"
+#include "utils/Utilities.hpp"
 
 TEST_CASE("String", "[string]")
 {
@@ -29,8 +29,7 @@ TEST_CASE("String", "[string]")
 	{
 		REQUIRE(Util::split("ab/cd", "/") ==
 		        std::vector<std::string>{"ab", "cd"});
-		REQUIRE(Util::split("ab", "/") ==
-		        std::vector<std::string>{"ab"});
+		REQUIRE(Util::split("ab", "/") == std::vector<std::string>{"ab"});
 	}
 	SECTION("ranges-insert")
 	{

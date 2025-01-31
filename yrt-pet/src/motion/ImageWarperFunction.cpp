@@ -167,7 +167,8 @@ void ImageWarperFunction::initWarpModeSpecificParameters()
  * Def.:  Evaluate the physical position of a voxel in the three dimensions.
  * @voxelId: The voxel Id in each dimension.
  * *************************************************************************************/
-std::vector<double> ImageWarperFunction::getVoxelPhysPos(std::vector<int> voxelId)
+std::vector<double>
+    ImageWarperFunction::getVoxelPhysPos(std::vector<int> voxelId)
 {
 	std::vector<double> voxPos;
 	voxPos.resize(3);

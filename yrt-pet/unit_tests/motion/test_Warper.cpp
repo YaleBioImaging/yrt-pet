@@ -44,7 +44,7 @@ TEST_CASE("Warper-basic_iso_unWeighted", "[warper]")
 	std::vector<float> imSize{10, 10, 10};
 
 	ImageParams img_params(imDim[0], imDim[1], imDim[2], imSize[0], imSize[1],
-	                         imSize[2], 0.0, 0.0, 0.0);
+	                       imSize[2], 0.0, 0.0, 0.0);
 	auto refImage = std::make_unique<ImageOwned>(img_params);
 	refImage->allocate();
 	refImage->setValue(0.0);

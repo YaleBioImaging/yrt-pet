@@ -25,13 +25,12 @@ double bp_dot(const Line3D& lor, Image* img_bp, const Image* img,
 	return img->dotProduct(*img_bp);
 }
 
-double bp_dot_slow(const Line3D& lor, Image* img_bp,
-                   const Image* img,
+double bp_dot_slow(const Line3D& lor, Image* img_bp, const Image* img,
                    float proj_val)
 {
 	img_bp->setValue(0.0);
 	OperatorProjectorSiddon::project_helper<false, false, false>(img_bp, lor,
-	                                                               proj_val);
+	                                                             proj_val);
 	return img->dotProduct(*img_bp);
 }
 
@@ -71,9 +70,8 @@ TEST_CASE("Siddon-simple", "[siddon]")
 			Vector3D p2{sx * cosf(beta), sx * sinf(beta), oz};
 			Line3D lor{p1, p2};
 			INFO(rseed_str + " i=" + std::to_string(i));
-			double proj_val =
-			    OperatorProjectorSiddon::singleForwardProjection(img.get(),
-			                                                       lor);
+			double proj_val = OperatorProjectorSiddon::singleForwardProjection(
+			    img.get(), lor);
 			REQUIRE(proj_val == Approx(2 * fov_radius));
 
 			// Adjoint
@@ -107,9 +105,8 @@ TEST_CASE("Siddon-simple", "[siddon]")
 			Vector3D p2{rad_2 * cosf(beta_2), rad_2 * sinf(beta_2), oz};
 			Line3D lor{p1, p2};
 			INFO(rseed_str + " i=" + std::to_string(i));
-			double proj_val =
-			    OperatorProjectorSiddon::singleForwardProjection(img.get(),
-			                                                       lor);
+			double proj_val = OperatorProjectorSiddon::singleForwardProjection(
+			    img.get(), lor);
 			REQUIRE(proj_val == Approx((p1 - p2).getNorm()));
 
 			// Adjoint
@@ -142,9 +139,8 @@ TEST_CASE("Siddon-simple", "[siddon]")
 			float integral_ref =
 			    2 * sqrtf(std::max(0.0f, fov_radius * fov_radius - y0 * y0));
 			INFO(rseed_str + " i=" + std::to_string(i));
-			float proj_val =
-			    OperatorProjectorSiddon::singleForwardProjection(img.get(),
-			                                                       lor);
+			float proj_val = OperatorProjectorSiddon::singleForwardProjection(
+			    img.get(), lor);
 			REQUIRE(proj_val == Approx(integral_ref));
 			// Adjoint
 			double proj_val_t = rand() / (double)RAND_MAX * proj_val;
@@ -170,9 +166,8 @@ TEST_CASE("Siddon-simple", "[siddon]")
 			Vector3D p1{sx, oy, oz};
 			Vector3D p2{2 * sx, p1.y, p1.z};
 			Line3D lor{p1, p2};
-			double proj_val =
-			    OperatorProjectorSiddon::singleForwardProjection(img.get(),
-			                                                       lor);
+			double proj_val = OperatorProjectorSiddon::singleForwardProjection(
+			    img.get(), lor);
 			REQUIRE(proj_val == Approx(0.f));
 			// Adjoint
 			double proj_val_t = rand() / (double)RAND_MAX * proj_val;
@@ -193,9 +188,8 @@ TEST_CASE("Siddon-simple", "[siddon]")
 			Vector3D p1{2 * sx, oy, oz};
 			Vector3D p2{2 * sx, sy, p1.z};
 			Line3D lor{p1, p2};
-			double proj_val =
-			    OperatorProjectorSiddon::singleForwardProjection(img.get(),
-			                                                       lor);
+			double proj_val = OperatorProjectorSiddon::singleForwardProjection(
+			    img.get(), lor);
 			REQUIRE(proj_val == Approx(0.f));
 			// Adjoint
 			double proj_val_t = rand() / (double)RAND_MAX * proj_val;
@@ -218,9 +212,8 @@ TEST_CASE("Siddon-simple", "[siddon]")
 			Vector3D p1{-sx, 0.0f, 1.0001f * sz / 2.0f};
 			Vector3D p2{sx, 0.0f, p1.z + delta_z};
 			Line3D lor{p1, p2};
-			float proj_val =
-			    OperatorProjectorSiddon::singleForwardProjection(img.get(),
-			                                                       lor);
+			float proj_val = OperatorProjectorSiddon::singleForwardProjection(
+			    img.get(), lor);
 			REQUIRE(proj_val == Approx(0.f));
 			// Adjoint
 			double proj_val_t = rand() / (double)RAND_MAX * proj_val;
@@ -253,9 +246,8 @@ TEST_CASE("Siddon-simple", "[siddon]")
 			double integral_ref =
 			    sqrtf(4.f * fov_radius * fov_radius + (z2 - z1) * (z2 - z1));
 			INFO(rseed_str + " i=" + std::to_string(i));
-			double proj_val =
-			    OperatorProjectorSiddon::singleForwardProjection(img.get(),
-			                                                       lor);
+			double proj_val = OperatorProjectorSiddon::singleForwardProjection(
+			    img.get(), lor);
 			REQUIRE(proj_val == Approx(integral_ref));
 			// Adjoint
 			double proj_val_t = rand() / (double)RAND_MAX * proj_val;
@@ -318,9 +310,8 @@ TEST_CASE("Siddon-simple", "[siddon]")
 			}
 			Line3D lor{p1, p2};
 			INFO("axis i=" + std::to_string(i));
-			double proj_val =
-			    OperatorProjectorSiddon::singleForwardProjection(img.get(),
-			                                                       lor);
+			double proj_val = OperatorProjectorSiddon::singleForwardProjection(
+			    img.get(), lor);
 			REQUIRE(proj_val == Approx(l_ref));
 			// Adjoint
 			double proj_val_t = rand() / (double)RAND_MAX * proj_val;
@@ -368,7 +359,8 @@ TEST_CASE("Siddon-random", "[siddon]")
 		{
 			for (size_t i = 0; i < nx; i++)
 			{
-				img_arr[k][j][i] = rand() / static_cast<float>(RAND_MAX) * 10.0f - 5.0f;
+				img_arr[k][j][i] =
+				    rand() / static_cast<float>(RAND_MAX) * 10.0f - 5.0f;
 			}
 		}
 	}
@@ -398,9 +390,8 @@ TEST_CASE("Siddon-random", "[siddon]")
 			Line3D lor{p1, p2};
 
 			// Use Siddon implementation to compute projection
-			double proj_val =
-			    OperatorProjectorSiddon::singleForwardProjection(img.get(),
-			                                                       lor);
+			double proj_val = OperatorProjectorSiddon::singleForwardProjection(
+			    img.get(), lor);
 			// Compute reference
 			double proj_ref = 0.0;
 			double t1;
@@ -585,9 +576,8 @@ TEST_CASE("Siddon-bugs", "[siddon]")
 			Vector3D p1{-2.0, -1.0, 0.0};
 			Vector3D p2{2.0, 1.0, 0.0};
 			Line3D lor{p1, p2};
-			double proj_val =
-			    OperatorProjectorSiddon::singleForwardProjection(img.get(),
-			                                                       lor);
+			double proj_val = OperatorProjectorSiddon::singleForwardProjection(
+			    img.get(), lor);
 			float proj_val_slow;
 			OperatorProjectorSiddon::project_helper<true, false, false>(
 			    img.get(), lor, proj_val_slow);
@@ -599,9 +589,8 @@ TEST_CASE("Siddon-bugs", "[siddon]")
 			Vector3D p1{-2.0, 0.0, -1.0};
 			Vector3D p2{2.0, 0.0, 1.0};
 			Line3D lor{p1, p2};
-			double proj_val =
-			    OperatorProjectorSiddon::singleForwardProjection(img.get(),
-			                                                       lor);
+			double proj_val = OperatorProjectorSiddon::singleForwardProjection(
+			    img.get(), lor);
 			float proj_val_slow;
 			OperatorProjectorSiddon::project_helper<true, false, false>(
 			    img.get(), lor, proj_val_slow);
@@ -613,9 +602,8 @@ TEST_CASE("Siddon-bugs", "[siddon]")
 			Vector3D p1{0.0, -2.0, -1.0};
 			Vector3D p2{0.0, 2.0, 1.0};
 			Line3D lor{p1, p2};
-			double proj_val =
-			    OperatorProjectorSiddon::singleForwardProjection(img.get(),
-			                                                       lor);
+			double proj_val = OperatorProjectorSiddon::singleForwardProjection(
+			    img.get(), lor);
 			float proj_val_slow;
 			OperatorProjectorSiddon::project_helper<true, false, false>(
 			    img.get(), lor, proj_val_slow);
@@ -627,9 +615,8 @@ TEST_CASE("Siddon-bugs", "[siddon]")
 			Vector3D p1{-2.0, -2.0, -2.0};
 			Vector3D p2{2.0, 2.0, 2.0};
 			Line3D lor{p1, p2};
-			double proj_val =
-			    OperatorProjectorSiddon::singleForwardProjection(img.get(),
-			                                                       lor);
+			double proj_val = OperatorProjectorSiddon::singleForwardProjection(
+			    img.get(), lor);
 			float proj_val_slow;
 			OperatorProjectorSiddon::project_helper<true, false, false>(
 			    img.get(), lor, proj_val_slow);

@@ -22,7 +22,7 @@ void py_setup_crystal(py::module& m)
 	    .export_values();
 	m.def("getMuDet", &Scatter::getMuDet);
 	m.def("getCrystalMaterialFromName", &Scatter::getCrystalMaterialFromName);
-	m.def("getCrystal", &Scatter::getCrystalMaterialFromName); // alias
+	m.def("getCrystal", &Scatter::getCrystalMaterialFromName);  // alias
 }
 #endif
 

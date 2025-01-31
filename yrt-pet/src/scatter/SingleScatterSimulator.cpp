@@ -221,10 +221,10 @@ namespace Scatter
 		// Only used for printing purposes
 		const int64_t progressMax = num_i_z * num_i_phi * num_i_r;
 		const int numThreads = Globals::get_num_threads();
-		Util::ProgressDisplayMultiThread progressBar{numThreads, progressMax, 5};
+		Util::ProgressDisplayMultiThread progressBar{numThreads, progressMax,
+		                                             5};
 
-#pragma omp parallel for schedule(static, 1) collapse(3) \
-    shared(progressBar)
+#pragma omp parallel for schedule(static, 1) collapse(3) shared(progressBar)
 		for (size_t z_i = 0; z_i < num_i_z; z_i++)
 		{
 			for (size_t phi_i = 0; phi_i < num_i_phi; phi_i++)

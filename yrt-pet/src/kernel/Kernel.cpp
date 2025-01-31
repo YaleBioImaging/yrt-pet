@@ -12,12 +12,12 @@
 
 #include "kernel/Kernel.hpp"
 #include "utils/Array.hpp"
-#include "utils/Tools.hpp"
 #include "utils/Assert.hpp"
+#include "utils/Tools.hpp"
 
 void Kernel::build_K_neighbors(float* x, float* k, int* k_i, int* k_j,
-                                 size_t nz, size_t ny, size_t nx, int W,
-                                 float sigma2, int numThreads)
+                               size_t nz, size_t ny, size_t nx, int W,
+                               float sigma2, int numThreads)
 {
 
 	size_t numPixels = nx * ny * nz;
@@ -53,9 +53,9 @@ void Kernel::build_K_neighbors(float* x, float* k, int* k_i, int* k_j,
 }
 
 void Kernel::build_K_knn_neighbors(float* x, float* k, int* k_i, int* k_j,
-                                     size_t nz, size_t ny, size_t nx, int W,
-                                     int P, int num_k, float sigma2,
-                                     int numThreads)
+                                   size_t nz, size_t ny, size_t nx, int W,
+                                   int P, int num_k, float sigma2,
+                                   int numThreads)
 {
 	size_t numPixels = nx * ny * nz;
 	float sc = -1.0f / sigma2;
@@ -152,8 +152,8 @@ void Kernel::build_K_knn_neighbors(float* x, float* k, int* k_i, int* k_j,
 
 
 void Kernel::build_K_full(float* x, float* k, int* k_i, int* k_j, size_t nz,
-                            size_t ny, size_t nx, int num_k, float sigma2,
-                            int numThreads)
+                          size_t ny, size_t nx, int num_k, float sigma2,
+                          int numThreads)
 {
 	size_t numPixels = nx * ny * nz;
 	float sc = -1.0f / (2.0f * sigma2);

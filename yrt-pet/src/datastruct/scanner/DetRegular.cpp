@@ -33,8 +33,7 @@ void DetRegular::generateLUT()
 	float block_length;
 	if (num_blocks == 2)
 	{
-		block_length =
-		    mp_scanner->crystalSize_trans * mp_scanner->detsPerBlock;
+		block_length = mp_scanner->crystalSize_trans * mp_scanner->detsPerBlock;
 	}
 	else
 	{
@@ -75,10 +74,10 @@ void DetRegular::generateLUT()
 					    block_length *
 					    (relative_det_pos)*std::sin(block_angle + PI / 2.0);
 
-					size_t idx = det + block * mp_scanner->detsPerBlock +
-					             ring * (mp_scanner->detsPerRing) +
-					             doi * (mp_scanner->numRings *
-					                    mp_scanner->detsPerRing);
+					size_t idx =
+					    det + block * mp_scanner->detsPerBlock +
+					    ring * (mp_scanner->detsPerRing) +
+					    doi * (mp_scanner->numRings * mp_scanner->detsPerRing);
 
 					setXpos(idx, x_block + relative_x_det);
 					setYpos(idx, y_block + relative_y_det);

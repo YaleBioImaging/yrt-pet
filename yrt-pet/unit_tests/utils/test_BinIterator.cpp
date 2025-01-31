@@ -82,16 +82,14 @@ TEST_CASE("biniterator_chronological", "[iterator]")
 	SECTION("chronological-indxsubset = 0")
 	{
 		size_t idxSubset = 0;
-		auto iter =
-		    BinIteratorChronological(numSubsets, numEvents, idxSubset);
+		auto iter = BinIteratorChronological(numSubsets, numEvents, idxSubset);
 		REQUIRE(test_iter(&iter, 0, 1, 3));
 		REQUIRE(iter.size() == 4);
 	}
 	SECTION("chronological-indxsubset = numsubset-1")
 	{
 		size_t idxSubset = numSubsets - 1;
-		auto iter =
-		    BinIteratorChronological(numSubsets, numEvents, idxSubset);
+		auto iter = BinIteratorChronological(numSubsets, numEvents, idxSubset);
 		REQUIRE(test_iter(&iter, 8, 9, 12));
 		REQUIRE(iter.size() == 5);
 	}
@@ -100,8 +98,7 @@ TEST_CASE("biniterator_chronological", "[iterator]")
 		size_t numSubsets = 3;
 		size_t numEvents = 12;
 		size_t idxSubset = numSubsets - 1;
-		auto iter =
-		    BinIteratorChronological(numSubsets, numEvents, idxSubset);
+		auto iter = BinIteratorChronological(numSubsets, numEvents, idxSubset);
 		REQUIRE(test_iter(&iter, 8, 9, 11));
 		REQUIRE(iter.size() == 4);
 	}

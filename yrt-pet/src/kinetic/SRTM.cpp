@@ -47,24 +47,24 @@ pybind11::array_t<double> fit_srtm_basis(
 	    buf_A_all.shape[2] != 2)
 	{
 		std::stringstream err;
-		err << "A matrix should have shape [K, T, 2] "
-		    << "([" << num_kappa << ", " << num_frames << ", 2])";
+		err << "A matrix should have shape [K, T, 2] " << "([" << num_kappa
+		    << ", " << num_frames << ", 2])";
 		throw std::runtime_error(err.str());
 	}
 	if (buf_B_all.shape[0] != num_kappa || buf_B_all.shape[1] != num_k ||
 	    buf_B_all.shape[2] != 2)
 	{
 		std::stringstream err;
-		err << "B matrix should have shape [K, P, 2] "
-		    << "([" << num_kappa << ", " << num_k << ", 2])";
+		err << "B matrix should have shape [K, P, 2] " << "([" << num_kappa
+		    << ", " << num_k << ", 2])";
 		throw std::runtime_error(err.str());
 	}
 	if (buf_Rinv_Qt_all.shape[0] != num_kappa ||
 	    buf_Rinv_Qt_all.shape[1] != 2 || buf_Rinv_Qt_all.shape[2] != 2)
 	{
 		std::stringstream err;
-		err << "Rinv_Qt matrix should have shape [K, 2, 2] "
-		    << "([" << num_kappa << ", 2, 2])";
+		err << "Rinv_Qt matrix should have shape [K, 2, 2] " << "(["
+		    << num_kappa << ", 2, 2])";
 		throw std::runtime_error(err.str());
 	}
 	if (buf_W.size != num_frames)
@@ -97,8 +97,8 @@ pybind11::array_t<double> fit_srtm_basis(
 	}
 
 	solveSRTMBasis(ptr_tac_all, ptr_kin_out, ptr_kin_p, ptr_A_all, ptr_B_all,
-	                 ptr_Rinv_Qt_all, ptr_W, ptr_Lambda, alpha, ptr_kappa_list,
-	                 num_kappa, num_pix, num_frames, num_threads);
+	               ptr_Rinv_Qt_all, ptr_W, ptr_Lambda, alpha, ptr_kappa_list,
+	               num_kappa, num_pix, num_frames, num_threads);
 
 	return kin_out;
 }
@@ -134,24 +134,24 @@ pybind11::array_t<double> fit_srtm_basis_joint(
 	    buf_A_all.shape[1] != 2 * num_frames || buf_A_all.shape[2] != 4)
 	{
 		std::stringstream err;
-		err << "A matrix should have shape [K, 2T, 4] "
-		    << "([" << num_kappa << ", " << 2 * num_frames << ", 4])";
+		err << "A matrix should have shape [K, 2T, 4] " << "([" << num_kappa
+		    << ", " << 2 * num_frames << ", 4])";
 		throw std::runtime_error(err.str());
 	}
 	if (buf_B_all.shape[0] != num_kappa || buf_B_all.shape[1] != num_k ||
 	    buf_B_all.shape[2] != 4)
 	{
 		std::stringstream err;
-		err << "B matrix should have shape [K, P, 4] "
-		    << "([" << num_kappa << ", " << num_k << ", 4])";
+		err << "B matrix should have shape [K, P, 4] " << "([" << num_kappa
+		    << ", " << num_k << ", 4])";
 		throw std::runtime_error(err.str());
 	}
 	if (buf_Rinv_Qt_all.shape[0] != num_kappa ||
 	    buf_Rinv_Qt_all.shape[1] != 4 || buf_Rinv_Qt_all.shape[2] != 4)
 	{
 		std::stringstream err;
-		err << "Rinv_Qt matrix should have shape [K, 4, 4] "
-		    << "([" << num_kappa << ", 4, 4])";
+		err << "Rinv_Qt matrix should have shape [K, 4, 4] " << "(["
+		    << num_kappa << ", 4, 4])";
 		throw std::runtime_error(err.str());
 	}
 	if (buf_W.size != 2 * num_frames)
@@ -184,9 +184,9 @@ pybind11::array_t<double> fit_srtm_basis_joint(
 	}
 
 	solveSRTMBasisJoint(ptr_tac_all, ptr_kin_out, ptr_kin_p, ptr_A_all,
-	                       ptr_B_all, ptr_Rinv_Qt_all, ptr_W, ptr_Lambda, alpha,
-	                       ptr_kappa_list, num_kappa, num_pix, num_frames,
-	                       num_threads);
+	                    ptr_B_all, ptr_Rinv_Qt_all, ptr_W, ptr_Lambda, alpha,
+	                    ptr_kappa_list, num_kappa, num_pix, num_frames,
+	                    num_threads);
 
 	return kin_out;
 }
@@ -202,11 +202,11 @@ void py_setup_srtm(pybind11::module& m)
 
 template <typename T>
 void solveSRTMBasis(const T* tac_all, T* kin_out, const T* kin_p,
-                      const T* A_all, const T* B_all, const T* Rinv_Qt_all,
-                      const T* W, const T* Lambda, const T alpha,
-                      const T* kappa_list, const int num_kappa,
-                      const size_t num_pix, const int num_frames,
-                      const int num_threads)
+                    const T* A_all, const T* B_all, const T* Rinv_Qt_all,
+                    const T* W, const T* Lambda, const T alpha,
+                    const T* kappa_list, const int num_kappa,
+                    const size_t num_pix, const int num_frames,
+                    const int num_threads)
 {
 	auto tac_buff = std::make_unique<T[]>(num_frames * num_threads);
 
@@ -295,27 +295,27 @@ void solveSRTMBasis(const T* tac_all, T* kin_out, const T* kin_p,
 }
 
 template void solveSRTMBasis(const float* tac_all, float* kin_out,
-                               const float* kin_p, const float* A_all,
-                               const float* B_all, const float* Rinv_Qt_all,
-                               const float* W, const float* Lambda,
-                               const float alpha, const float* kappa_list,
-                               const int num_kappa, const size_t num_pix,
-                               const int num_frames, const int num_threads);
+                             const float* kin_p, const float* A_all,
+                             const float* B_all, const float* Rinv_Qt_all,
+                             const float* W, const float* Lambda,
+                             const float alpha, const float* kappa_list,
+                             const int num_kappa, const size_t num_pix,
+                             const int num_frames, const int num_threads);
 template void solveSRTMBasis(const double* tac_all, double* kin_out,
-                               const double* kin_p, const double* A_all,
-                               const double* B_all, const double* Rinv_Qt_all,
-                               const double* W, const double* Lambda,
-                               const double alpha, const double* kappa_list,
-                               const int num_kappa, const size_t num_pix,
-                               const int num_frames, const int num_threads);
+                             const double* kin_p, const double* A_all,
+                             const double* B_all, const double* Rinv_Qt_all,
+                             const double* W, const double* Lambda,
+                             const double alpha, const double* kappa_list,
+                             const int num_kappa, const size_t num_pix,
+                             const int num_frames, const int num_threads);
 
 template <typename T>
 void solveSRTMBasisJoint(const T* tac_all, T* kin_out, const T* kin_p,
-                            const T* A_all, const T* B_all,
-                            const T* Rinv_Qt_all, const T* W, const T* Lambda,
-                            const T alpha, const T* kappa_list,
-                            const int num_kappa, const size_t num_pix,
-                            const int num_frames, const int num_threads)
+                         const T* A_all, const T* B_all, const T* Rinv_Qt_all,
+                         const T* W, const T* Lambda, const T alpha,
+                         const T* kappa_list, const int num_kappa,
+                         const size_t num_pix, const int num_frames,
+                         const int num_threads)
 {
 	auto tac_buff = std::make_unique<T[]>(2 * num_frames * num_threads);
 
@@ -461,15 +461,18 @@ void solveSRTMBasisJoint(const T* tac_all, T* kin_out, const T* kin_p,
 	}
 }
 
-template void solveSRTMBasisJoint(
-    const float* tac_all, float* kin_out, const float* kin_p,
-    const float* A_all, const float* B_all, const float* Rinv_Qt_all,
-    const float* W, const float* Lambda, const float alpha,
-    const float* kappa_list, const int num_kappa, const size_t num_pix,
-    const int num_frames, const int num_threads);
-template void solveSRTMBasisJoint(
-    const double* tac_all, double* kin_out, const double* kin_p,
-    const double* A_all, const double* B_all, const double* Rinv_Qt_all,
-    const double* W, const double* Lambda, const double alpha,
-    const double* kappa_list, const int num_kappa, const size_t num_pix,
-    const int num_frames, const int num_threads);
+template void solveSRTMBasisJoint(const float* tac_all, float* kin_out,
+                                  const float* kin_p, const float* A_all,
+                                  const float* B_all, const float* Rinv_Qt_all,
+                                  const float* W, const float* Lambda,
+                                  const float alpha, const float* kappa_list,
+                                  const int num_kappa, const size_t num_pix,
+                                  const int num_frames, const int num_threads);
+template void solveSRTMBasisJoint(const double* tac_all, double* kin_out,
+                                  const double* kin_p, const double* A_all,
+                                  const double* B_all,
+                                  const double* Rinv_Qt_all, const double* W,
+                                  const double* Lambda, const double alpha,
+                                  const double* kappa_list, const int num_kappa,
+                                  const size_t num_pix, const int num_frames,
+                                  const int num_threads);

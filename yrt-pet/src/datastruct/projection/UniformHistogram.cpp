@@ -56,7 +56,7 @@ float UniformHistogram::getProjectionValue(bin_t binId) const
 float UniformHistogram::getProjectionValueFromHistogramBin(
     histo_bin_t histoBinId) const
 {
-	(void) histoBinId;
+	(void)histoBinId;
 	return m_value;
 }
 

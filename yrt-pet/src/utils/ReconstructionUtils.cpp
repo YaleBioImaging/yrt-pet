@@ -266,11 +266,11 @@ namespace Util
 	void convertProjectionValuesToACF(ProjectionData& dat, float unitFactor)
 	{
 		dat.operationOnEachBinParallel(
-			[&dat, unitFactor](bin_t bin) -> float
-			{
-				return Util::getAttenuationCoefficientFactor(
-					dat.getProjectionValue(bin), unitFactor);
-			});
+		    [&dat, unitFactor](bin_t bin) -> float
+		    {
+			    return Util::getAttenuationCoefficientFactor(
+			        dat.getProjectionValue(bin), unitFactor);
+		    });
 	}
 
 	std::tuple<Line3D, Vector3D, Vector3D>

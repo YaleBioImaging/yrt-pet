@@ -181,8 +181,7 @@ DetCoordOwned::DetCoordOwned() : DetCoord()
 	mp_Yorient = std::make_unique<Array1D<float>>();
 	mp_Zorient = std::make_unique<Array1D<float>>();
 }
-DetCoordOwned::DetCoordOwned(const std::string& filename)
-    : DetCoordOwned()
+DetCoordOwned::DetCoordOwned(const std::string& filename) : DetCoordOwned()
 {
 	readFromFile(filename);
 }
@@ -286,12 +285,11 @@ void DetCoordAlias::bind(DetCoord* p_detCoord)
 	     p_detCoord->getYorientArrayRef(), p_detCoord->getZorientArrayRef());
 }
 
-void DetCoordAlias::bind(Array1DBase<float>* p_Xpos,
-                           Array1DBase<float>* p_Ypos,
-                           Array1DBase<float>* p_Zpos,
-                           Array1DBase<float>* p_Xorient,
-                           Array1DBase<float>* p_Yorient,
-                           Array1DBase<float>* p_Zorient)
+void DetCoordAlias::bind(Array1DBase<float>* p_Xpos, Array1DBase<float>* p_Ypos,
+                         Array1DBase<float>* p_Zpos,
+                         Array1DBase<float>* p_Xorient,
+                         Array1DBase<float>* p_Yorient,
+                         Array1DBase<float>* p_Zorient)
 {
 	bool isNotNull = true;
 

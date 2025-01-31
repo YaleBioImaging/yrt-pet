@@ -10,7 +10,7 @@ std::unique_ptr<Scanner> TestUtils::makeScanner()
 	scanner->setDetectorSetup(detRegular);
 
 	// Sanity check
-	if(!scanner->isValid())
+	if (!scanner->isValid())
 	{
 		throw std::runtime_error("Unknown error in TestUtils::makeScanner");
 	}

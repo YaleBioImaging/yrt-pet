@@ -24,8 +24,9 @@ int main(int argc, char** argv)
 		int numThreads = -1;
 
 		// Parse command line arguments
-		cxxopts::Options options(argv[0],
-		                         "Convert a fully 3D dense histogram into list-mode (ListModeLUT)");
+		cxxopts::Options options(
+		    argv[0],
+		    "Convert a fully 3D dense histogram into list-mode (ListModeLUT)");
 		options.positional_help("[optional args]").show_positional_help();
 
 		/* clang-format off */
@@ -64,7 +65,8 @@ int main(int argc, char** argv)
 		Globals::set_num_threads(numThreads);
 
 		const auto scanner = std::make_unique<Scanner>(scanner_fname);
-		const auto histo = std::make_unique<Histogram3DOwned>(*scanner, input_fname);
+		const auto histo =
+		    std::make_unique<Histogram3DOwned>(*scanner, input_fname);
 		const auto lm = std::make_unique<ListModeLUTOwned>(*scanner);
 
 		Util::histogram3DToListModeLUT(histo.get(), lm.get(), numEvents);

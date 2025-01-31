@@ -11,8 +11,8 @@
 #include <iostream>
 
 
-Matrix::Matrix(float a00, float a01, float a02, float a10, float a11,
-               float a12, float a20, float a21, float a22)
+Matrix::Matrix(float a00, float a01, float a02, float a10, float a11, float a12,
+               float a20, float a21, float a22)
     : m_a00(a00),
       m_a01(a01),
       m_a02(a02),
@@ -236,22 +236,21 @@ Matrix Matrix::operator/(float scal) const
 bool Matrix::operator==(Matrix matrix) const
 {
 	float sqr_norm = (m_a00 - matrix.m_a00) * (m_a00 - matrix.m_a00) +
-	                  (m_a01 - matrix.m_a01) * (m_a01 - matrix.m_a01) +
-	                  (m_a02 - matrix.m_a02) * (m_a02 - matrix.m_a02) +
-	                  (m_a10 - matrix.m_a10) * (m_a10 - matrix.m_a10) +
-	                  (m_a11 - matrix.m_a11) * (m_a11 - matrix.m_a11) +
-	                  (m_a12 - matrix.m_a12) * (m_a12 - matrix.m_a12) +
-	                  (m_a20 - matrix.m_a20) * (m_a20 - matrix.m_a20) +
-	                  (m_a21 - matrix.m_a21) * (m_a21 - matrix.m_a21) +
-	                  (m_a22 - matrix.m_a22) * (m_a22 - matrix.m_a22);
+	                 (m_a01 - matrix.m_a01) * (m_a01 - matrix.m_a01) +
+	                 (m_a02 - matrix.m_a02) * (m_a02 - matrix.m_a02) +
+	                 (m_a10 - matrix.m_a10) * (m_a10 - matrix.m_a10) +
+	                 (m_a11 - matrix.m_a11) * (m_a11 - matrix.m_a11) +
+	                 (m_a12 - matrix.m_a12) * (m_a12 - matrix.m_a12) +
+	                 (m_a20 - matrix.m_a20) * (m_a20 - matrix.m_a20) +
+	                 (m_a21 - matrix.m_a21) * (m_a21 - matrix.m_a21) +
+	                 (m_a22 - matrix.m_a22) * (m_a22 - matrix.m_a22);
 
 	return sqrt(sqr_norm) < SMALL_FLT;
 }
 
 std::ostream& operator<<(std::ostream& oss, const Matrix& v)
 {
-	oss << "("
-	    << "(" << v.m_a00 << ", " << v.m_a01 << ", " << v.m_a02 << "), ("
+	oss << "(" << "(" << v.m_a00 << ", " << v.m_a01 << ", " << v.m_a02 << "), ("
 	    << v.m_a10 << ", " << v.m_a11 << ", " << v.m_a12 << "), (" << v.m_a20
 	    << ", " << v.m_a21 << ", " << v.m_a22 << ")";
 	return oss;

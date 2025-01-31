@@ -37,9 +37,10 @@ int main(int argc, char** argv)
 		Plugin::OptionsResult pluginOptionsResults;  // For plugins' options
 
 		// Parse command line arguments
-		cxxopts::Options options(argv[0], "Backprojection driver. Backproject "
+		cxxopts::Options options(argv[0], "Backproject "
 		                                  "projection data into an image.");
 		options.positional_help("[optional args]").show_positional_help();
+
 		/* clang-format off */
 		options.add_options()
 		("s,scanner", "Scanner parameters file", cxxopts::value<std::string>(scanner_fname))
@@ -100,8 +101,7 @@ int main(int argc, char** argv)
 		// Output image
 		std::cout << "Preparing output image..." << std::endl;
 		ImageParams outputImageParams{outputImageParams_fname};
-		auto outputImage =
-		    std::make_unique<ImageOwned>(outputImageParams);
+		auto outputImage = std::make_unique<ImageOwned>(outputImageParams);
 		outputImage->allocate();
 
 		// Input data

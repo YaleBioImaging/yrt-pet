@@ -29,8 +29,9 @@ int main(int argc, char** argv)
 		Plugin::OptionsResult pluginOptionsResults;  // For plugins' options
 
 		// Parse command line arguments
-		cxxopts::Options options(argv[0],
-		                         "Convert any input format to a histogram");
+		cxxopts::Options options(
+		    argv[0], "Convert a list-mode input (of any format, including "
+		             "plugin formats) to a ListModeLUT format");
 		options.positional_help("[optional args]").show_positional_help();
 
 		/* clang-format off */

@@ -43,7 +43,7 @@ void py_setup_sparsehistogram(py::module& m)
 			    self.accumulate<false>(projData, binIter);
 		    }
 	    },
-	    "projData"_a, "ignoreZeros"_a = false, "binIter"_a = nullptr);
+	    "projData"_a, "ignoreZeros"_a = true, "binIter"_a = nullptr);
 	c.def("getProjectionValueFromDetPair",
 	      &SparseHistogram::getProjectionValueFromDetPair, "detPair"_a);
 	c.def("readFromFile", &SparseHistogram::readFromFile, "filename"_a);

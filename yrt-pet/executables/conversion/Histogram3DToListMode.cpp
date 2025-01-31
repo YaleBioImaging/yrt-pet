@@ -25,7 +25,7 @@ int main(int argc, char** argv)
 
 		// Parse command line arguments
 		cxxopts::Options options(argv[0],
-		                         "Histogram3D to ListMode conversion driver");
+		                         "Convert a fully 3D dense histogram into list-mode (ListModeLUT)");
 		options.positional_help("[optional args]").show_positional_help();
 
 		/* clang-format off */
@@ -65,9 +65,10 @@ int main(int argc, char** argv)
 
 		const auto scanner = std::make_unique<Scanner>(scanner_fname);
 		const auto histo = std::make_unique<Histogram3DOwned>(*scanner, input_fname);
-
 		const auto lm = std::make_unique<ListModeLUTOwned>(*scanner);
+
 		Util::histogram3DToListModeLUT(histo.get(), lm.get(), numEvents);
+
 		lm->writeToFile(out_fname);
 
 		std::cout << "Done." << std::endl;

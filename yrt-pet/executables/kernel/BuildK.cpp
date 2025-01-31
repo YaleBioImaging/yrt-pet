@@ -21,12 +21,12 @@ int main(int argc, char** argv)
 		int num_threads = omp_get_max_threads();
 
 		// Parse command line arguments
-		cxxopts::Options options(argv[0], "Savant MLEM driver");
+		cxxopts::Options options(argv[0], "Kernel matrix generation executable");
 		options.positional_help("[optional args]").show_positional_help();
 
 		/* clang-format off */
 		options.add_options()
-		("i,in", "MRI image", cxxopts::value<std::string>(img_in_fname))
+		("i,in", "MRI image (in RAWD format)", cxxopts::value<std::string>(img_in_fname))
 		("o,out", "Image output file", cxxopts::value<std::string>(out_fname))
 		("r,row", "Row index output file", cxxopts::value<std::string>(out_i_fname))
 		("c,col", "Column index output file", cxxopts::value<std::string>(out_j_fname))

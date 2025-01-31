@@ -30,8 +30,9 @@ int main(int argc, char** argv)
 		Plugin::OptionsResult pluginOptionsResults;  // For plugins' options
 
 		// Parse command line arguments
-		cxxopts::Options options(argv[0],
-		                         "Convert any input format to a histogram");
+		cxxopts::Options options(
+		    argv[0], "Convert any input format to a histogram (either fully 3D "
+		             "dense histogram or sparse histogram)");
 		options.positional_help("[optional args]").show_positional_help();
 
 		/* clang-format off */

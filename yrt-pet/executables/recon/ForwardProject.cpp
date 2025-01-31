@@ -33,7 +33,7 @@ int main(int argc, char** argv)
 
 		// Parse command line arguments
 		cxxopts::Options options(argv[0],
-		                         "Forward projection driver. Forward "
+		                         "Forward "
 		                         "project an image into a Histogram3D");
 		options.positional_help("[optional args]").show_positional_help();
 		/* clang-format off */

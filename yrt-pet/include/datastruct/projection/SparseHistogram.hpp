@@ -23,7 +23,7 @@ public:
 	void allocate(size_t numBins);
 
 	// Insertion
-	template <bool IgnoreZeros = false>
+	template <bool IgnoreZeros = true>
 	void accumulate(const ProjectionData& projData,
 	                const BinIterator* binIter = nullptr);
 	void accumulate(det_pair_t detPair, float projValue);

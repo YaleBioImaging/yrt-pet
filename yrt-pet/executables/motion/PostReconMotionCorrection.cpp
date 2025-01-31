@@ -37,7 +37,7 @@ int main(int argc, char* argv[])
 		// Parse command line arguments
 		cxxopts::Options options(argv[0],
 		                         "Post-reconstruction motion correction "
-		                         "driver");
+		                         "executable");
 		options.positional_help("[optional args]").show_positional_help();
 
 		/* clang-format off */

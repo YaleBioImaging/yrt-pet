@@ -67,7 +67,8 @@ TEST_CASE("sparsehisto", "[sparsehisto]")
 		for (bin_t bin = 0; bin < binIter->size(); bin++)
 		{
 			bin_t binId = binIter->get(bin);
-			histo->setProjectionValue(binId, static_cast<float>(rand() % 100));
+			histo->setProjectionValue(binId,
+			                          static_cast<float>(1 + rand() % 100));
 		}
 
 		auto sparseHisto =

@@ -4,6 +4,7 @@
  */
 
 #include "datastruct/projection/SparseHistogram.hpp"
+#include "operators/OperatorProjectorDD.hpp"
 #include "operators/OperatorProjectorSiddon.hpp"
 #include "operators/SparseProjection.hpp"
 #include "utils/ReconstructionUtils.hpp"
@@ -24,7 +25,7 @@ TEST_CASE("sparse-projection", "[SparseProjection]")
 		constexpr float MaxPrismValue = 10.0f;
 
 		// Initialize image with prism inside
-		ImageParams params{32, 32, 16, 280.0f, 280.0f, 200.0f};
+		ImageParams params{64, 64, 16, 280.0f, 280.0f, 200.0f};
 		REQUIRE(params.nx == params.ny);
 
 		std::uniform_int_distribution<int> prismPositionDistributionXY(
@@ -32,7 +33,7 @@ TEST_CASE("sparse-projection", "[SparseProjection]")
 		std::uniform_int_distribution<int> prismPositionDistributionZ(
 		    0, params.nz);
 		std::uniform_real_distribution<float> prismValueDistribution(
-		    0.0f, MaxPrismValue);
+		    0.1f, MaxPrismValue);
 
 		auto image = std::make_unique<ImageOwned>(params);
 		image->allocate();
@@ -83,7 +84,7 @@ TEST_CASE("sparse-projection", "[SparseProjection]")
 				for (int i_z = prismBeginZ; i_z < prismEndZ; i_z++)
 				{
 					const size_t flatIdx = image->unravel(i_z, i_y, i_x);
-					image_ptr[flatIdx] = 1.0f;
+					image_ptr[flatIdx] = prismValueDistribution(engine);
 				}
 			}
 		}
@@ -98,13 +99,14 @@ TEST_CASE("sparse-projection", "[SparseProjection]")
 		// Forward project into histogram using default settings (siddon, no
 		//  subsets)
 		std::cout << "Forward projecting into dense histogram..." << std::endl;
-		Util::forwProject(*scanner, *image, *histogram3D);
+		Util::forwProject(*scanner, *image, *histogram3D,
+		                  OperatorProjector::ProjectorType::DD);
 
 		// Initialize sparse histogram
 		auto sparseHistogram = std::make_unique<SparseHistogram>(*scanner);
 
-		// Create Siddon projector with default settings (1 ray, no TOF)
-		auto projector = std::make_unique<OperatorProjectorSiddon>(*scanner);
+		// Create DD projector with default settings (no PSF, no TOF)
+		auto projector = std::make_unique<OperatorProjectorDD>(*scanner);
 
 		// Forward project into sparse histogram
 		std::cout << "Forward projecting into sparse histogram..." << std::endl;
@@ -114,7 +116,8 @@ TEST_CASE("sparse-projection", "[SparseProjection]")
 		// Compare both histograms
 		size_t numBins = histogram3D->count();
 
-		std::cout << "Comparing histograms..." << std::endl;
+		std::cout << "Comparing sparse histogram with dense histogram..."
+		          << std::endl;
 		for (bin_t bin = 0; bin < numBins; bin++)
 		{
 			const float histogram3DProjValue =
@@ -147,6 +150,50 @@ TEST_CASE("sparse-projection", "[SparseProjection]")
 
 			CHECK(sparseHistogramProjValue ==
 			      Approx(sparseHistogram2ProjValue));
+		}
+
+
+		// Accumulating sparse histogram into another sparse histogram
+		auto sparseHistogram3 = std::make_unique<SparseHistogram>(*scanner);
+		sparseHistogram3->accumulate(*sparseHistogram);
+
+		// Comparing both sparse histograms
+		REQUIRE(sparseHistogram3->count() == sparseHistogram->count());
+		numBins = sparseHistogram->count();
+
+		std::cout << "Comparing sparse histograms..." << std::endl;
+		for (bin_t bin = 0; bin < numBins; bin++)
+		{
+			const det_pair_t detPair = sparseHistogram->getDetectorPair(bin);
+
+			const float sparseHistogramProjValue =
+			    sparseHistogram->getProjectionValueFromDetPair(detPair);
+			const float sparseHistogram3ProjValue =
+			    sparseHistogram3->getProjectionValueFromDetPair(detPair);
+
+			CHECK(sparseHistogramProjValue ==
+			      Approx(sparseHistogram3ProjValue));
+		}
+
+		// Accumulating sparse histogram into dense histogram
+		auto histogram3D2 = std::make_unique<Histogram3DOwned>(*scanner);
+		histogram3D2->allocate();
+		Util::convertToHistogram3D<false>(*sparseHistogram, *histogram3D2);
+
+		// Comparing both dense histograms
+		numBins = histogram3D2->count();
+
+		std::cout << "Comparing dense histograms..." << std::endl;
+		for (bin_t bin = 0; bin < numBins; bin++)
+		{
+			const float histogram3DProjValue =
+			    histogram3D2->getProjectionValue(bin);
+
+			const det_pair_t detPair = histogram3D2->getDetectorPair(bin);
+			const float sparseHistogramProjValue =
+			    sparseHistogram->getProjectionValueFromDetPair(detPair);
+
+			CHECK(sparseHistogramProjValue == Approx(histogram3DProjValue));
 		}
 	}
 }

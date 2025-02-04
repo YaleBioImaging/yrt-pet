@@ -16,7 +16,7 @@ TEST_CASE("sparsehisto", "[sparsehisto]")
 {
 	auto scanner = TestUtils::makeScanner();
 
-	SECTION("from-listmode")
+	SECTION("from-listmodes")
 	{
 		auto listMode = std::make_unique<ListModeLUTOwned>(*scanner);
 		listMode->allocate(10);
@@ -38,49 +38,72 @@ TEST_CASE("sparsehisto", "[sparsehisto]")
 		CHECK(sparseHisto->getProjectionValueFromDetPair({48, 21}) == 1.0f);
 		CHECK(sparseHisto->getProjectionValueFromDetPair({10, 15}) == 2.0f);
 		CHECK(sparseHisto->getProjectionValueFromDetPair({78, 12}) == 1.0f);
+
+		listMode = std::make_unique<ListModeLUTOwned>(*scanner);
+		listMode->allocate(3);
+		listMode->setDetectorIdsOfEvent(0, 0, 15);   // 4th
+		listMode->setDetectorIdsOfEvent(1, 10, 15);  // 3rd
+		listMode->setDetectorIdsOfEvent(2, 0, 15);   // 5th
+
+		sparseHisto->accumulate(*listMode);
+		CHECK(sparseHisto->getProjectionValueFromDetPair({0, 15}) == 5.0f);
+		CHECK(sparseHisto->getProjectionValueFromDetPair({10, 15}) == 3.0f);
+	}
+
+	SECTION("from-sparsehistos")
+	{
+		auto sparseHisto1 = std::make_unique<SparseHistogram>(*scanner);
+		sparseHisto1->accumulate({15, 10}, 100.f);
+		sparseHisto1->accumulate({12, 10}, 100.f);
+		sparseHisto1->accumulate({10, 12}, 100.f);
+		sparseHisto1->accumulate({5, 10}, 100.f);
+
+		auto sparseHistoTotal = std::make_unique<SparseHistogram>(*scanner);
+		sparseHistoTotal->accumulate(*sparseHisto1);
+
+		auto sparseHisto2 = std::make_unique<SparseHistogram>(*scanner);
+		sparseHisto2->accumulate({5, 20}, 10.0f);
+		sparseHisto2->accumulate({15, 10}, 10.0f);
+		sparseHisto2->accumulate({12, 10}, 10.0f);
+		sparseHisto2->accumulate({120, 100}, 10.0f);
+
+		sparseHistoTotal->accumulate(*sparseHisto2);
+
+		REQUIRE(sparseHistoTotal->count() == 5);
+
+		CHECK(sparseHistoTotal->getProjectionValueFromHistogramBin(
+		          det_pair_t{15, 10}) == Approx(110.0f));
+		CHECK(sparseHistoTotal->getProjectionValueFromHistogramBin(
+		          det_pair_t{12, 10}) == Approx(210.0f));
+		CHECK(sparseHistoTotal->getProjectionValueFromHistogramBin(
+		          det_pair_t{5, 10}) == Approx(100.0f));
+		CHECK(sparseHistoTotal->getProjectionValueFromHistogramBin(
+		          det_pair_t{5, 20}) == Approx(10.0f));
+		CHECK(sparseHistoTotal->getProjectionValueFromHistogramBin(
+		          det_pair_t{100, 120}) == Approx(10.0f));
 	}
 
 	SECTION("from-histogram3d")
 	{
 		auto histo = std::make_unique<Histogram3DOwned>(*scanner);
 		histo->allocate();
-		histo->clearProjections(1.0f);
+		const size_t numBins = histo->count();
+
+		for (bin_t bin = 0; bin < numBins; bin++)
+		{
+			histo->setProjectionValue(bin, static_cast<float>(rand() % 10 + 1));
+		}
 
 		auto sparseHisto = std::make_unique<SparseHistogram>(*scanner, *histo);
+
 		// Because Histogram3D also only has "unique" LORs
 		REQUIRE(sparseHisto->count() == histo->count());
 
 		for (bin_t i = 0; i < sparseHisto->count(); i++)
 		{
-			CHECK(sparseHisto->getProjectionValue(i) == 1.0f);
-		}
-	}
-
-	SECTION("from-histogram3d-with-biniterator")
-	{
-		auto histo = std::make_unique<Histogram3DOwned>(*scanner);
-		histo->allocate();
-		auto binIter = histo->getBinIter(5, 2);
-
-		int random_seed = time(0);
-		srand(random_seed);
-		for (bin_t bin = 0; bin < binIter->size(); bin++)
-		{
-			bin_t binId = binIter->get(bin);
-			histo->setProjectionValue(binId,
-			                          static_cast<float>(1 + rand() % 100));
-		}
-
-		auto sparseHisto =
-		    std::make_unique<SparseHistogram>(*scanner, *histo, binIter.get());
-		// Because Histogram3D also only has "unique" LORs
-		REQUIRE(sparseHisto->count() == binIter->size());
-
-		for (bin_t bin = 0; bin < binIter->size(); bin++)
-		{
-			bin_t binId = binIter->get(bin);
-			float origProjValue = histo->getProjectionValue(binId);
-			CHECK(origProjValue == sparseHisto->getProjectionValue(bin));
+			const det_pair_t detPair = sparseHisto->getDetectorPair(i);
+			CHECK(sparseHisto->getProjectionValueFromDetPair(detPair) ==
+			      histo->getProjectionValueFromHistogramBin(detPair));
 		}
 	}
 
@@ -98,7 +121,7 @@ TEST_CASE("sparsehisto", "[sparsehisto]")
 		{
 			sparseHisto->accumulate(
 			    det_pair_t{rand() % numDets, rand() % numDets},
-			    static_cast<float>(rand() % 10));
+			    static_cast<float>(rand() % 10 + 1));
 		}
 		std::string filename = "mysparsehisto.shis";
 

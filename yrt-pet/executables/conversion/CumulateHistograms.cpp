@@ -97,7 +97,7 @@ int main(int argc, char** argv)
 			histoOut = std::move(histo3DOut);
 		}
 
-		bool histo3DToHisto3D = input_format == "H";
+		bool histo3DToHisto3D = input_format == "H" && !toSparseHistogram;
 
 		for (const auto& input_fname : input_fnames)
 		{
@@ -112,8 +112,6 @@ int main(int argc, char** argv)
 				    reinterpret_cast<SparseHistogram*>(histoOut.get());
 				std::cout << "Accumulating into sparse histogram..."
 				          << std::endl;
-				sparseHisto->allocate(sparseHisto->count() +
-				                      dataInput->count());
 				sparseHisto->accumulate<true>(*dataInput);
 			}
 			else
@@ -122,7 +120,7 @@ int main(int argc, char** argv)
 				    reinterpret_cast<Histogram3D*>(histoOut.get());
 				if (histo3DToHisto3D)
 				{
-					std::cout << "Adding Histogram3Ds..." << std::endl;
+					std::cout << "Adding Histogram3D..." << std::endl;
 					const auto* dataInputHisto3D =
 					    dynamic_cast<const Histogram3D*>(dataInput.get());
 					ASSERT(dataInputHisto3D != nullptr);

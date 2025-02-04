@@ -239,7 +239,7 @@ void Corrector::setup()
 	}
 }
 
-const ProjectionData* Corrector::getSensImgGenBuffer() const
+const ProjectionData* Corrector::getSensImgGenProjData() const
 {
 	// Returns the buffer that should be used to iterate over bins and compute
 	//  LORs

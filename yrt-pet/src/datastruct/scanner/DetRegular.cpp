@@ -108,8 +108,7 @@ void DetRegular::writeToFile(const std::string& detReg_fname) const
 	file.open(detReg_fname.c_str(), std::ios::binary | std::ios::out);
 	if (!file.is_open())
 	{
-		throw std::runtime_error("Error opening file " + detReg_fname +
-		                         "for writing.");
+		throw std::runtime_error("Error opening file " + detReg_fname);
 	}
 	for (size_t j = 0; j < getNumDets(); j++)
 	{

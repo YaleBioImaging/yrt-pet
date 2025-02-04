@@ -22,14 +22,20 @@ void py_setup_operatorprojectorsiddon(py::module& m)
 {
 	auto c = py::class_<OperatorProjectorSiddon, OperatorProjector>(
 	    m, "OperatorProjectorSiddon");
+
+	c.def(py::init<Scanner&, int, float, int>(), py::arg("scanner"),
+	      py::arg("num_rays") = 1, py::arg("tofWidth_ps") = 0.f,
+	      py::arg("tofNumStd") = -1);
 	c.def(py::init<const OperatorProjectorParams&>(), py::arg("projParams"));
+
 	c.def_property("num_rays", &OperatorProjectorSiddon::getNumRays,
 	               &OperatorProjectorSiddon::setNumRays);
 	c.def(
 	    "forwardProjection",
 	    [](const OperatorProjectorSiddon& self, const Image* in_image,
 	       const Line3D& lor, const Vector3D& n1, const Vector3D& n2,
-	       const TimeOfFlightHelper* tofHelper, float tofValue) -> float {
+	       const TimeOfFlightHelper* tofHelper, float tofValue) -> float
+	    {
 		    return self.forwardProjection(in_image, lor, n1, n2, tofHelper,
 		                                  tofValue);
 	    },
@@ -70,6 +76,14 @@ void py_setup_operatorprojectorsiddon(py::module& m)
 	    py::arg("tofValue") = 0.0f);
 }
 #endif
+
+OperatorProjectorSiddon::OperatorProjectorSiddon(const Scanner& pr_scanner,
+                                                 int numRays, float tofWidth_ps,
+                                                 int tofNumStd)
+    : OperatorProjector{pr_scanner, tofWidth_ps, tofNumStd}, m_numRays(numRays)
+{
+	ASSERT(numRays >= 1);
+}
 
 OperatorProjectorSiddon::OperatorProjectorSiddon(
     const OperatorProjectorParams& p_projParams)

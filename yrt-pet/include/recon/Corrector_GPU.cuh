@@ -24,12 +24,13 @@ public:
 	//  (randoms+scatter)/(acf*sensitivity) for each LOR in measurements,
 	//  but also using GPU for the attenuation image forward projection if
 	//  needed
-	void
-	    precomputeAdditiveCorrectionFactors(const ProjectionData& measurements);
+	void precomputeAdditiveCorrectionFactors(
+	    const ProjectionData& measurements) override;
 	// Pre-computes a ProjectionList of a^(i)_i for each LOR in measurements,
 	//  but also using GPU for the attenuation image forward projection if
 	//  needed
-	void precomputeInVivoAttenuationFactors(const ProjectionData& measurements);
+	void precomputeInVivoAttenuationFactors(
+	    const ProjectionData& measurements) override;
 
 	void loadAdditiveCorrectionFactorsToTemporaryDeviceBuffer(
 	    const cudaStream_t* stream = nullptr);

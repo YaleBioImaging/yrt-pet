@@ -17,6 +17,10 @@ class ProjectionData;
 class OperatorProjectorDD : public OperatorProjector
 {
 public:
+	explicit OperatorProjectorDD(const Scanner& pr_scanner,
+	                             float tofWidth_ps = 0.0f, int tofNumStd = -1,
+	                             const std::string& psfProjFilename = "");
+
 	explicit OperatorProjectorDD(const OperatorProjectorParams& p_projParams);
 
 	float forwardProjection(
@@ -25,9 +29,8 @@ public:
 	    float tofValue = 0.0f,
 	    const ProjectionPsfManager* psfManager = nullptr) const;
 
-	void backProjection(Image* in_image, const Line3D& lor,
-	                    const Vector3D& n1, const Vector3D& n2,
-	                    float proj_value,
+	void backProjection(Image* in_image, const Line3D& lor, const Vector3D& n1,
+	                    const Vector3D& n2, float proj_value,
 	                    const TimeOfFlightHelper* tofHelper = nullptr,
 	                    float tofValue = 0.0f,
 	                    const ProjectionPsfManager* psfManager = nullptr) const;
@@ -51,9 +54,8 @@ public:
 
 private:
 	template <bool IS_FWD, bool FLAG_TOF>
-	void dd_project_ref(Image* in_image, const Line3D& lor,
-	                    const Vector3D& n1, const Vector3D& n2,
-	                    float& proj_value,
+	void dd_project_ref(Image* in_image, const Line3D& lor, const Vector3D& n1,
+	                    const Vector3D& n2, float& proj_value,
 	                    const TimeOfFlightHelper* tofHelper = nullptr,
 	                    float tofValue = 0.f,
 	                    const ProjectionPsfManager* psfManager = nullptr) const;

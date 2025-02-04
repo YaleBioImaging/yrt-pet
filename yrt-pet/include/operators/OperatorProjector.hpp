@@ -29,6 +29,10 @@ public:
 		DD_GPU
 	};
 
+	explicit OperatorProjector(const Scanner& pr_scanner,
+	                           float tofWidth_ps = 0.0f, int tofNumStd = -1,
+	                           const std::string& psfProjFilename = "");
+
 	explicit OperatorProjector(const OperatorProjectorParams& p_projParams);
 
 	// Virtual functions
@@ -43,6 +47,7 @@ public:
 	void applyA(const Variable* in, Variable* out) override;
 	void applyAH(const Variable* in, Variable* out) override;
 
+	void addTOF(float tofWidth_ps, int tofNumStd = -1);
 	void setupTOFHelper(float tofWidth_ps, int tofNumStd = -1);
 	void setupProjPsfManager(const std::string& psfFilename);
 

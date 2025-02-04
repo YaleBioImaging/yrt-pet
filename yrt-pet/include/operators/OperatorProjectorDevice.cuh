@@ -33,7 +33,7 @@ public:
 
 protected:
 	explicit
-	    OperatorProjectorDevice(const OperatorProjectorParams& projParams,
+	    OperatorProjectorDevice(const OperatorProjectorParams& pr_projParams,
 	                            bool p_synchronized = true,
 	                            const cudaStream_t* pp_mainStream = nullptr,
 	                            const cudaStream_t* pp_auxStream = nullptr);

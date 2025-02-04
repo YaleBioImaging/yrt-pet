@@ -17,15 +17,13 @@ public:
 	explicit SparseHistogram(const Scanner& pr_scanner);
 	SparseHistogram(const Scanner& pr_scanner, const std::string& filename);
 	SparseHistogram(const Scanner& pr_scanner,
-	                const ProjectionData& pr_projData,
-	                const BinIterator* pp_binIter = nullptr);
+	                const ProjectionData& pr_projData);
 
 	void allocate(size_t numBins);
 
 	// Insertion
 	template <bool IgnoreZeros = true>
-	void accumulate(const ProjectionData& projData,
-	                const BinIterator* binIter = nullptr);
+	void accumulate(const ProjectionData& projData);
 	void accumulate(det_pair_t detPair, float projValue);
 
 	// Getters
@@ -57,7 +55,7 @@ public:
 	static Plugin::OptionsListPerPlugin getOptions();
 
 private:
-	// Comparator for std::unordered_map
+	// Comparators for std::unordered_map
 	struct det_pair_hash
 	{
 		size_t operator()(const det_pair_t& pair) const

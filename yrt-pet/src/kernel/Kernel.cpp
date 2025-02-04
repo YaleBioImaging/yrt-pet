@@ -3,17 +3,18 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include <cmath>
-#include <cstdio>
-#include <memory>
-#include <omp.h>
-#include <queue>
-#include <utility>
-
 #include "kernel/Kernel.hpp"
 #include "utils/Array.hpp"
 #include "utils/Assert.hpp"
 #include "utils/Tools.hpp"
+
+#include <cmath>
+#include <cstdio>
+#include <memory>
+#include <queue>
+#include <utility>
+
+#include "omp.h"
 
 void Kernel::build_K_neighbors(float* x, float* k, int* k_i, int* k_j,
                                size_t nz, size_t ny, size_t nx, int W,

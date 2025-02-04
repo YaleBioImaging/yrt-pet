@@ -32,7 +32,7 @@ public:
 	int tofNumStd;
 
 	// Projection-domain PSF
-	std::string psfProjFilename;
+	std::string psfProj_fname;
 
 	// Multi-ray siddon only
 	int numRays;
@@ -42,6 +42,7 @@ public:
 class OperatorProjectorBase : public Operator
 {
 public:
+	explicit OperatorProjectorBase(const Scanner& pr_scanner);
 	explicit OperatorProjectorBase(const OperatorProjectorParams& p_projParams);
 
 	const Scanner& getScanner() const;

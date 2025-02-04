@@ -45,7 +45,7 @@ namespace Util
 	void ProgressDisplayMultiThread::progress(int threadId,
 	                                          int64_t progressStep)
 	{
-		ASSERT(m_totalWork > 0);
+		ASSERT_MSG(m_totalWork > 0, "Total work not defined");
 		m_progressPerThread[threadId] += progressStep;
 
 		// Only use thread 0 to compute progress bar increment

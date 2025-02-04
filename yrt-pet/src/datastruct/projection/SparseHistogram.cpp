@@ -5,8 +5,11 @@
 
 #include "datastruct/projection/SparseHistogram.hpp"
 #include "utils/Assert.hpp"
+#include "utils/ProgressDisplay.hpp"
 
 #include <cstring>
+
+#include "omp.h"
 
 #if BUILD_PYBIND11
 #include <pybind11/numpy.h>
@@ -21,8 +24,8 @@ void py_setup_sparsehistogram(py::module& m)
 	c.def(py::init<const Scanner&>(), "scanner"_a);
 	c.def(py::init<const Scanner&, const std::string&>(), "scanner"_a,
 	      "filename"_a);
-	c.def(py::init<const Scanner&, const ProjectionData&, const BinIterator*>(),
-	      "scanner"_a, "projectionData"_a, "binIterator"_a = nullptr);
+	c.def(py::init<const Scanner&, const ProjectionData&>(), "scanner"_a,
+	      "projectionData"_a);
 	c.def("allocate", &SparseHistogram::allocate, "numBins"_a);
 	c.def(
 	    "accumulate",
@@ -32,18 +35,18 @@ void py_setup_sparsehistogram(py::module& m)
 	c.def(
 	    "accumulate",
 	    [](SparseHistogram& self, const ProjectionData& projData,
-	       bool ignoreZeros, const BinIterator* binIter)
+	       bool ignoreZeros)
 	    {
 		    if (ignoreZeros)
 		    {
-			    self.accumulate<true>(projData, binIter);
+			    self.accumulate<true>(projData);
 		    }
 		    else
 		    {
-			    self.accumulate<false>(projData, binIter);
+			    self.accumulate<false>(projData);
 		    }
 	    },
-	    "projData"_a, "ignoreZeros"_a = true, "binIter"_a = nullptr);
+	    "projData"_a, "ignoreZeros"_a = true);
 	c.def("getProjectionValueFromDetPair",
 	      &SparseHistogram::getProjectionValueFromDetPair, "detPair"_a);
 	c.def("readFromFile", &SparseHistogram::readFromFile, "filename"_a);
@@ -73,11 +76,10 @@ SparseHistogram::SparseHistogram(const Scanner& pr_scanner,
 }
 
 SparseHistogram::SparseHistogram(const Scanner& pr_scanner,
-                                 const ProjectionData& pr_projData,
-                                 const BinIterator* pp_binIter)
+                                 const ProjectionData& pr_projData)
     : SparseHistogram(pr_scanner)
 {
-	accumulate(pr_projData, pp_binIter);
+	accumulate(pr_projData);
 }
 
 void SparseHistogram::allocate(size_t numBins)
@@ -88,28 +90,17 @@ void SparseHistogram::allocate(size_t numBins)
 }
 
 template <bool IgnoreZeros>
-void SparseHistogram::accumulate(const ProjectionData& projData,
-                                 const BinIterator* binIter)
+void SparseHistogram::accumulate(const ProjectionData& projData)
 {
-	size_t numBins;
-	if (binIter == nullptr)
-	{
-		numBins = projData.count();
-	}
-	else
-	{
-		numBins = binIter->size();
-	}
+	const size_t numBins = projData.count();
 
-	allocate(numBins);
-	for (bin_t bin = 0; bin < numBins; bin++)
-	{
-		bin_t binId = bin;
-		if (binIter != nullptr)
-		{
-			binId = binIter->get(bin);
-		}
+	allocate(count() + numBins);
 
+	Util::ProgressDisplay progress{static_cast<int64_t>(numBins), 5};
+
+	for (bin_t binId = 0; binId < numBins; binId++)
+	{
+		progress.progress(binId);
 		const float projValue = projData.getProjectionValue(binId);
 		if constexpr (IgnoreZeros)
 		{
@@ -123,33 +114,32 @@ void SparseHistogram::accumulate(const ProjectionData& projData,
 		accumulate(detPair, projValue);
 	}
 }
-template void SparseHistogram::accumulate<true>(const ProjectionData& projData,
-                                                const BinIterator* binIter);
-template void SparseHistogram::accumulate<false>(const ProjectionData& projData,
-                                                 const BinIterator* binIter);
+template void SparseHistogram::accumulate<true>(const ProjectionData& projData);
+template void
+    SparseHistogram::accumulate<false>(const ProjectionData& projData);
 
 void SparseHistogram::accumulate(det_pair_t detPair, float projValue)
 {
-	det_pair_t newPair = SwapDetectorPairIfNeeded(detPair);
+	const det_pair_t newPair = SwapDetectorPairIfNeeded(detPair);
 
-	const auto detectorMapLocation = m_detectorMap.find(newPair);
-	if (detectorMapLocation != m_detectorMap.end())
+	auto [detectorMapLocation, newlyInserted] =
+	    m_detectorMap.try_emplace(newPair, m_detectorMap.size());
+	if (newlyInserted)
+	{
+		// Add the pair
+		m_detPairs.push_back(newPair);
+		// Initialize its value
+		m_projValues.push_back(projValue);
+	}
+	else
 	{
 		// Get the proper bin
 		const bin_t bin = detectorMapLocation->second;
 		// Accumulate the value
 		m_projValues[bin] += projValue;
 	}
-	else
-	{
-		// Create new element
-		m_detectorMap.emplace(newPair, m_projValues.size());
-
-		// Add the pair
-		m_detPairs.push_back(newPair);
-		// Initialize its value
-		m_projValues.push_back(projValue);
-	}
+	ASSERT(m_detPairs.size() == m_detectorMap.size());
+	ASSERT(m_projValues.size() == m_detectorMap.size());
 }
 
 float SparseHistogram::getProjectionValueFromDetPair(det_pair_t detPair) const
@@ -222,8 +212,7 @@ void SparseHistogram::writeToFile(const std::string& filename) const
 
 	if (!ofs.good())
 	{
-		throw std::runtime_error("Error opening file " + filename +
-		                         "ListModeLUTOwned::writeToFile.");
+		throw std::runtime_error("Error opening file " + filename);
 	}
 
 	constexpr std::streamsize sizeOfAnEvent_bytes =
@@ -244,6 +233,7 @@ void SparseHistogram::writeToFile(const std::string& filename) const
 		const std::streamsize writeSize_events =
 		    writeSize_fields / numFieldsPerEvent;
 
+#pragma omp parallel for
 		for (std::streamoff i = 0; i < writeSize_events; i++)
 		{
 			std::memcpy(&buff[numFieldsPerEvent * i + 0], &m_detPairs[i].d1,

@@ -64,7 +64,7 @@ void OSEM_GPU::setupOperatorsForSensImgGen()
 	{
 		// Create and add Bin Iterator
 		getBinIterators().push_back(
-		    mp_corrector->getSensImgGenBuffer()->getBinIter(num_OSEM_subsets,
+		    mp_corrector->getSensImgGenProjData()->getBinIter(num_OSEM_subsets,
 		                                                    subsetId));
 	}
 	// Create ProjectorParams object
@@ -87,7 +87,7 @@ void OSEM_GPU::allocateForSensImgGen()
 
 	// Allocate for projection space
 	auto tempSensDataInput = std::make_unique<ProjectionDataDeviceOwned>(
-	    scanner, mp_corrector->getSensImgGenBuffer(), num_OSEM_subsets);
+	    scanner, mp_corrector->getSensImgGenProjData(), num_OSEM_subsets);
 	mpd_tempSensDataInput = std::move(tempSensDataInput);
 
 	// Make sure the corrector buffer is properly defined

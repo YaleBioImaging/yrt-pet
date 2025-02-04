@@ -20,6 +20,11 @@ class Corrector
 public:
 	explicit Corrector(const Scanner& pr_scanner);
 
+	virtual void precomputeAdditiveCorrectionFactors(
+	    const ProjectionData& measurements) = 0;
+	virtual void precomputeInVivoAttenuationFactors(
+	    const ProjectionData& measurements) = 0;
+
 	void setInvertSensitivity(bool invert);
 	void setGlobalScalingFactor(float globalScalingFactor);
 	void setSensitivityHistogram(const Histogram* pp_sensitivity);
@@ -43,7 +48,7 @@ public:
 	void setup();
 
 	// For sensitivity image generation
-	const ProjectionData* getSensImgGenBuffer() const;
+	const ProjectionData* getSensImgGenProjData() const;
 	bool hasSensitivityHistogram() const;
 	bool hasHardwareAttenuation() const;
 	bool hasMultiplicativeCorrection() const;
@@ -54,7 +59,6 @@ public:
 	bool hasInVivoAttenuation() const;
 
 protected:
-
 	static constexpr float StabilityEpsilon = 1e-8f;
 
 	// Helper functions
@@ -104,5 +108,4 @@ protected:
 	std::unique_ptr<TimeOfFlightHelper> mp_tofHelper;
 
 	bool m_attenuationSetupComplete;
-
 };

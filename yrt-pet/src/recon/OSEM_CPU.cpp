@@ -64,7 +64,7 @@ void OSEM_CPU::setupOperatorsForSensImgGen()
 	{
 		// Create and add Bin Iterator
 		getBinIterators().push_back(
-		    mp_corrector->getSensImgGenBuffer()->getBinIter(num_OSEM_subsets,
+		    mp_corrector->getSensImgGenProjData()->getBinIter(num_OSEM_subsets,
 		                                                    subsetId));
 	}
 

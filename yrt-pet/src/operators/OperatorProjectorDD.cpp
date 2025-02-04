@@ -16,12 +16,18 @@
 #if BUILD_PYBIND11
 #include <pybind11/pybind11.h>
 namespace py = pybind11;
+using namespace py::literals;
 
 void py_setup_operatorprojectordd(py::module& m)
 {
 	auto c = py::class_<OperatorProjectorDD, OperatorProjector>(
 	    m, "OperatorProjectorDD");
-	c.def(py::init<const OperatorProjectorParams&>(), py::arg("projParams"));
+
+	c.def(py::init<const Scanner&, float, int, const std::string&>(),
+	      "scanner"_a, "tofWidth_ps"_a = 0.f, "tofNumStd"_a = -1,
+	      "psfProj_fname"_a = "");
+	c.def(py::init<const OperatorProjectorParams&>(), "projParams"_a);
+
 	c.def(
 	    "forwardProjection",
 	    [](const OperatorProjectorDD& self, const Image* in_image,
@@ -50,6 +56,13 @@ void py_setup_operatorprojectordd(py::module& m)
 }
 #endif
 
+
+OperatorProjectorDD::OperatorProjectorDD(const Scanner& pr_scanner,
+                                         float tofWidth_ps, int tofNumStd,
+                                         const std::string& psfProjFilename)
+    : OperatorProjector{pr_scanner, tofWidth_ps, tofNumStd, psfProjFilename}
+{
+}
 
 OperatorProjectorDD::OperatorProjectorDD(
     const OperatorProjectorParams& p_projParams)

@@ -41,6 +41,7 @@ set(SOURCES
         operators/OperatorProjectorDD.cpp
         operators/OperatorPsf.cpp
         operators/ProjectionPsfManager.cpp
+        operators/SparseProjection.cpp
         operators/TimeOfFlight.cpp
         recon/Corrector.cpp
         recon/Corrector_CPU.cpp

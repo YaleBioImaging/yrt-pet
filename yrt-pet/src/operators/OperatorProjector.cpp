@@ -50,6 +50,23 @@ void py_setup_operatorprojector(py::module& m)
 
 #endif
 
+OperatorProjector::OperatorProjector(const Scanner& pr_scanner,
+                                     float tofWidth_ps, int tofNumStd,
+                                     const std::string& psfProjFilename)
+    : OperatorProjectorBase{pr_scanner},
+      mp_tofHelper{nullptr},
+      mp_projPsfManager{nullptr}
+{
+	if (tofWidth_ps > 0.0f)
+	{
+		setupTOFHelper(tofWidth_ps, tofNumStd);
+	}
+	if (!psfProjFilename.empty())
+	{
+		setupProjPsfManager(psfProjFilename);
+	}
+}
+
 OperatorProjector::OperatorProjector(
     const OperatorProjectorParams& p_projParams)
     : OperatorProjectorBase{p_projParams},
@@ -60,9 +77,9 @@ OperatorProjector::OperatorProjector(
 	{
 		setupTOFHelper(p_projParams.tofWidth_ps, p_projParams.tofNumStd);
 	}
-	if (!p_projParams.psfProjFilename.empty())
+	if (!p_projParams.psfProj_fname.empty())
 	{
-		setupProjPsfManager(p_projParams.psfProjFilename);
+		setupProjPsfManager(p_projParams.psfProj_fname);
 	}
 }
 
@@ -73,6 +90,7 @@ void OperatorProjector::applyA(const Variable* in, Variable* out)
 
 	ASSERT_MSG(dat != nullptr, "Output variable has to be Projection data");
 	ASSERT_MSG(img != nullptr, "Input variable has to be an Image");
+	ASSERT_MSG(binIter != nullptr, "BinIterator undefined");
 
 #pragma omp parallel for default(none) firstprivate(binIter, img, dat)
 	for (bin_t binIdx = 0; binIdx < binIter->size(); binIdx++)
@@ -95,6 +113,7 @@ void OperatorProjector::applyAH(const Variable* in, Variable* out)
 
 	ASSERT_MSG(dat != nullptr, "Input variable has to be Projection data");
 	ASSERT_MSG(img != nullptr, "Output variable has to be an Image");
+	ASSERT_MSG(binIter != nullptr, "BinIterator undefined");
 
 #pragma omp parallel for default(none) firstprivate(binIter, img, dat)
 	for (bin_t binIdx = 0; binIdx < binIter->size(); binIdx++)
@@ -112,6 +131,11 @@ void OperatorProjector::applyAH(const Variable* in, Variable* out)
 
 		backProjection(img, projectionProperties, projValue);
 	}
+}
+
+void OperatorProjector::addTOF(float tofWidth_ps, int tofNumStd)
+{
+	setupTOFHelper(tofWidth_ps, tofNumStd);
 }
 
 void OperatorProjector::setupTOFHelper(float tofWidth_ps, int tofNumStd)

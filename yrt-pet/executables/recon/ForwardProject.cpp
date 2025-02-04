@@ -5,12 +5,15 @@
 
 #include "datastruct/IO.hpp"
 #include "datastruct/projection/Histogram3D.hpp"
+#include "datastruct/projection/SparseHistogram.hpp"
 #include "datastruct/scanner/Scanner.hpp"
 #include "operators/OperatorProjector.hpp"
+#include "operators/OperatorProjectorDD.hpp"
+#include "operators/OperatorProjectorSiddon.hpp"
+#include "operators/SparseProjection.hpp"
 #include "utils/Assert.hpp"
 #include "utils/Globals.hpp"
 #include "utils/ReconstructionUtils.hpp"
-#include "utils/Tools.hpp"
 
 #include <cxxopts.hpp>
 #include <iostream>
@@ -30,6 +33,7 @@ int main(int argc, char** argv)
 		int subsetId = 0;
 		int numRays = 1;
 		bool convertToAcf = false;
+		bool toSparseHistogram = false;
 
 		// Parse command line arguments
 		cxxopts::Options options(argv[0],
@@ -50,6 +54,7 @@ int main(int argc, char** argv)
 		("to_acf", "Generate ACF histogram", cxxopts::value<bool>(convertToAcf))
 		("num_rays", "Number of rays to use in the Siddon projector", cxxopts::value<int>(numRays))
 		("o,out", "Output histogram filename", cxxopts::value<std::string>(outHis_fname))
+		("sparse", "Forward project to a sparse histogram", cxxopts::value<bool>(toSparseHistogram))
 		("num_threads", "Number of threads to use", cxxopts::value<int>(numThreads))
 		("num_subsets", "Number of subsets to use (Default: 1)", cxxopts::value<int>(numSubsets))
 		("subset_id", "Subset to project (Default: 0)", cxxopts::value<int>(subsetId))
@@ -94,28 +99,70 @@ int main(int argc, char** argv)
 			imageSpacePsf->applyA(inputImage.get(), inputImage.get());
 		}
 
-		// Create histo here
-		auto his = std::make_unique<Histogram3DOwned>(*scanner);
-		his->allocate();
-
-		// Setup forward projection
-		auto binIter = his->getBinIter(numSubsets, subsetId);
-		OperatorProjectorParams projParams(binIter.get(), *scanner, 0, 0,
-		                                   projSpacePsf_fname, numRays);
-
 		auto projectorType = IO::getProjector(projector_name);
 
-		Util::forwProject(*inputImage, *his, projParams, projectorType);
-
-		if (convertToAcf)
+		if (!toSparseHistogram)
 		{
-			std::cout << "Computing attenuation coefficient factors..."
-			          << std::endl;
-			Util::convertProjectionValuesToACF(*his);
+			auto his = std::make_unique<Histogram3DOwned>(*scanner);
+			his->allocate();
+
+			// Setup forward projection
+			auto binIter = his->getBinIter(numSubsets, subsetId);
+			OperatorProjectorParams projParams(binIter.get(), *scanner, 0, 0,
+			                                   projSpacePsf_fname, numRays);
+
+			Util::forwProject(*inputImage, *his, projParams, projectorType);
+
+			if (convertToAcf)
+			{
+				std::cout << "Computing attenuation coefficient factors..."
+				          << std::endl;
+				Util::convertProjectionValuesToACF(*his);
+			}
+
+			std::cout << "Writing histogram to file..." << std::endl;
+			his->writeToFile(outHis_fname);
+		}
+		else
+		{
+			ASSERT_MSG(!IO::requiresGPU(projectorType),
+			           "Forward projection to sparse histogram is currently "
+			           "not supported on GPU");
+
+			ASSERT_MSG(numSubsets == 1 && subsetId == 0,
+			           "Forward projection to sparse histogram is currently "
+			           "not supported for multiple subsets");
+
+			std::unique_ptr<OperatorProjector> projector;
+			if (projectorType == OperatorProjector::ProjectorType::SIDDON)
+			{
+				projector = std::make_unique<OperatorProjectorSiddon>(*scanner,
+				                                                      numRays);
+			}
+			else
+			{
+				projector = std::make_unique<OperatorProjectorDD>(
+				    *scanner, 0, -1, projSpacePsf_fname);
+			}
+
+			const ImageParams& params = inputImage->getParams();
+			auto sparseHistogram = std::make_unique<SparseHistogram>(*scanner);
+
+			sparseHistogram->allocate(params.nx * params.ny);
+
+			Util::forwProjectToSparseHistogram(*inputImage, *projector,
+			                                   *sparseHistogram);
+
+			if (convertToAcf)
+			{
+				std::cout << "Computing attenuation coefficient factors..."
+				          << std::endl;
+				Util::convertProjectionValuesToACF(*sparseHistogram);
+			}
+
+			sparseHistogram->writeToFile(outHis_fname);
 		}
 
-		std::cout << "Writing histogram to file..." << std::endl;
-		his->writeToFile(outHis_fname);
 		std::cout << "Done." << std::endl;
 		return 0;
 	}

@@ -21,18 +21,18 @@ void py_setup_operatorprojectordevice(py::module& m)
 #endif
 
 OperatorProjectorDevice::OperatorProjectorDevice(
-    const OperatorProjectorParams& p_projParams, bool p_synchronized,
+    const OperatorProjectorParams& pr_projParams, bool p_synchronized,
     const cudaStream_t* pp_mainStream, const cudaStream_t* pp_auxStream)
-    : OperatorProjectorBase{p_projParams},
+    : OperatorProjectorBase{pr_projParams},
       DeviceSynchronized{p_synchronized, pp_mainStream, pp_auxStream}
 {
-	if (p_projParams.tofWidth_ps > 0.f)
+	if (pr_projParams.tofWidth_ps > 0.f)
 	{
-		setupTOFHelper(p_projParams.tofWidth_ps, p_projParams.tofNumStd);
+		setupTOFHelper(pr_projParams.tofWidth_ps, pr_projParams.tofNumStd);
 	}
-	if (!p_projParams.psfProjFilename.empty())
+	if (!pr_projParams.psfProj_fname.empty())
 	{
-		setupProjPsfManager(p_projParams.psfProjFilename);
+		setupProjPsfManager(pr_projParams.psfProj_fname);
 	}
 
 	m_batchSize = 0ull;

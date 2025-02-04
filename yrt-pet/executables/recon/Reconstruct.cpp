@@ -463,6 +463,9 @@ int main(int argc, char** argv)
 		}
 		else
 		{
+			std::cout
+			    << "No motion in input file. No need to move sensitivity image."
+			    << std::endl;
 			osem->setSensitivityImages(sensImages);
 		}
 

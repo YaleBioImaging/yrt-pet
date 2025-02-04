@@ -348,17 +348,17 @@ void Histogram3D::getCoordsFromDetPair(det_id_t d1, det_id_t d2, coord_t& r,
 	int z2 = (d2 / (mr_scanner.detsPerRing)) % (mr_scanner.numRings);
 
 	coord_t delta_z = static_cast<coord_t>(std::abs(z2 - z1));
+	if (delta_z > mr_scanner.maxRingDiff)
+	{
+		throw std::range_error("The detector pair given does not respect the "
+							   "maximum ring difference rule");
+	}
 	coord_t num_removed_z_bins = delta_z * (delta_z - 1) / 2;
 	z_bin =
 	    delta_z * mr_scanner.numRings + std::min(z1, z2) - num_removed_z_bins;
 	if (delta_z > 0 && z1 > z2)
 	{
 		z_bin += m_numZBinDiff;  // switch
-	}
-	if (z_bin >= numZBin)
-	{
-		throw std::range_error("The detector pair given does not respect the "
-		                       "maximum ring difference rule");
 	}
 }
 

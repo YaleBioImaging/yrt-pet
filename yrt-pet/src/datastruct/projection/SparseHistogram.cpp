@@ -233,7 +233,6 @@ void SparseHistogram::writeToFile(const std::string& filename) const
 		const std::streamsize writeSize_events =
 		    writeSize_fields / numFieldsPerEvent;
 
-#pragma omp parallel for
 		for (std::streamoff i = 0; i < writeSize_events; i++)
 		{
 			std::memcpy(&buff[numFieldsPerEvent * i + 0], &m_detPairs[i].d1,

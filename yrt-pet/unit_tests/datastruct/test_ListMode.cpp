@@ -3,11 +3,11 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "catch.hpp"
+#include "../../../build-cuda-pybind11/external/Catch/single_include/catch2/catch.hpp"
 
-#include "datastruct/projection/ListModeLUT.hpp"
-#include "test_utils.hpp"
-#include "utils/Array.hpp"
+#include "../../include/datastruct/projection/ListModeLUT.hpp"
+#include "../../include/utils/Array.hpp"
+#include "../test_utils.hpp"
 
 #include <cmath>
 #include <cstdio>

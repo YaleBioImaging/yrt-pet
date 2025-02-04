@@ -3,13 +3,13 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "catch.hpp"
+#include "../../../build-cuda-pybind11/external/Catch/single_include/catch2/catch.hpp"
 
-#include "datastruct/projection/Histogram3D.hpp"
-#include "datastruct/projection/ListModeLUT.hpp"
-#include "datastruct/projection/SparseHistogram.hpp"
-#include "datastruct/scanner/DetRegular.hpp"
-#include "test_utils.hpp"
+#include "../../include/datastruct/projection/Histogram3D.hpp"
+#include "../../include/datastruct/projection/ListModeLUT.hpp"
+#include "../../include/datastruct/projection/SparseHistogram.hpp"
+#include "../../include/datastruct/scanner/DetRegular.hpp"
+#include "../test_utils.hpp"
 
 
 TEST_CASE("sparsehisto", "[sparsehisto]")

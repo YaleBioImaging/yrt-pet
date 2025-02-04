@@ -3,10 +3,10 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "geometry/Line3D.hpp"
-#include "operators/TimeOfFlight.hpp"
+#include "../../include/geometry/Line3D.hpp"
+#include "../../include/operators/TimeOfFlight.hpp"
 
-#include "catch.hpp"
+#include "../../../build-cuda-pybind11/external/Catch/single_include/catch2/catch.hpp"
 #include <cmath>
 #include <iostream>
 

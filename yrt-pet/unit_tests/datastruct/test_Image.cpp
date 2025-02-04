@@ -4,9 +4,9 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "catch.hpp"
+#include "../../../build-cuda-pybind11/external/Catch/single_include/catch2/catch.hpp"
 
-#include "datastruct/image/Image.hpp"
+#include "../../include/datastruct/image/Image.hpp"
 
 #include <ctime>
 #include <random>

@@ -3,11 +3,11 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "catch.hpp"
+#include "../../../build-cuda-pybind11/external/Catch/single_include/catch2/catch.hpp"
 #include <cstdio>
 #include <fstream>
 
-#include "utils/Tools.hpp"
+#include "../../include/utils/Tools.hpp"
 
 // #define REQUIRE(x) (std::cout << "test-> " << (x) << std::endl);
 

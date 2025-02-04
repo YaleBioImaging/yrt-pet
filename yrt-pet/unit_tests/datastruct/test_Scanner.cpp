@@ -3,12 +3,12 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "../../../build-cuda-pybind11/external/Catch/single_include/catch2/catch.hpp"
+#include "catch.hpp"
 
-#include "../../include/datastruct/projection/Histogram3D.hpp"
-#include "../../include/datastruct/scanner/DetRegular.hpp"
-#include "../../include/datastruct/scanner/Scanner.hpp"
-#include "../../include/utils/Array.hpp"
+#include "datastruct/projection/Histogram3D.hpp"
+#include "datastruct/scanner/DetRegular.hpp"
+#include "datastruct/scanner/Scanner.hpp"
+#include "utils/Array.hpp"
 #include "../test_utils.hpp"
 
 

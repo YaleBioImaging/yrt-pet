@@ -3,10 +3,10 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "../../include/datastruct/image/Image.hpp"
-#include "../../include/operators/OperatorProjectorSiddon.hpp"
+#include "datastruct/image/Image.hpp"
+#include "operators/OperatorProjectorSiddon.hpp"
 
-#include "../../../build-cuda-pybind11/external/Catch/single_include/catch2/catch.hpp"
+#include "catch.hpp"
 #include <cmath>
 #include <cstdlib>
 #include <ctime>

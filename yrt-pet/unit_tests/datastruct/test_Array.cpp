@@ -3,10 +3,10 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "../../../build-cuda-pybind11/external/Catch/single_include/catch2/catch.hpp"
+#include "catch.hpp"
 #include <stdio.h>
 
-#include "../../include/utils/Array.hpp"
+#include "utils/Array.hpp"
 
 TEST_CASE("array1d", "[array]")
 {

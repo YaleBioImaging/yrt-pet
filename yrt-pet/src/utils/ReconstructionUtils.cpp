@@ -14,6 +14,7 @@
 #include "recon/OSEM_CPU.hpp"
 #include "utils/Assert.hpp"
 #include "utils/Globals.hpp"
+#include "utils/ProgressDisplay.hpp"
 #include "utils/ProgressDisplayMultiThread.hpp"
 #include "utils/Tools.hpp"
 
@@ -27,6 +28,7 @@
 #include <pybind11/pybind11.h>
 
 namespace py = pybind11;
+using namespace pybind11::literals;
 
 void py_setup_reconstructionutils(pybind11::module& m)
 {
@@ -48,6 +50,11 @@ void py_setup_reconstructionutils(pybind11::module& m)
 		    return osem;
 	    },
 	    py::arg("scanner"), py::arg("useGPU") = false);
+
+	m.def("timeAverageMoveSensitivityImage",
+	      &Util::timeAverageMoveSensitivityImage, "dataInput"_a,
+	      "unmovedSensImage"_a);
+
 	m.def("generateTORRandomDOI", &Util::generateTORRandomDOI,
 	      py::arg("scanner"), py::arg("d1"), py::arg("d2"), py::arg("vmax"));
 
@@ -205,6 +212,33 @@ namespace Util
 				}
 			}
 		}
+	}
+
+	std::unique_ptr<ImageOwned>
+	    timeAverageMoveSensitivityImage(const ProjectionData& dataInput,
+	                                    const Image& unmovedSensImage)
+	{
+		const ImageParams& params = unmovedSensImage.getParams();
+		ASSERT_MSG(params.isValid(), "Image parameters incomplete");
+		ASSERT_MSG(unmovedSensImage.isMemoryValid(),
+		           "Sensitivity image given is not allocated");
+
+		const int64_t numFrames = dataInput.getNumFrames();
+		ProgressDisplay progress{numFrames};
+		const auto scanDuration =
+		    static_cast<float>(dataInput.getScanDuration());
+		auto movedSensImage = std::make_unique<ImageOwned>(params);
+
+		for (frame_t frame = 0; frame < numFrames; frame++)
+		{
+			progress.progress(frame);
+			transform_t transform = dataInput.getTransformOfFrame(frame);
+			const float weight =
+			    dataInput.getDurationOfFrame(frame) / scanDuration;
+			unmovedSensImage.transformImage(transform, *movedSensImage, weight);
+		}
+
+		return movedSensImage;
 	}
 
 	template <bool RequiresAtomicAccumulation>

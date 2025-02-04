@@ -431,24 +431,9 @@ int main(int argc, char** argv)
 			const Image* unmovedSensImage = sensImages[0].get();
 			ASSERT(unmovedSensImage != nullptr);
 
-			movedSensImage =
-			    std::make_unique<ImageOwned>(unmovedSensImage->getParams());
-			movedSensImage->allocate();
-
 			std::cout << "Moving sensitivity image..." << std::endl;
-			int64_t numFrames = dataInput->getNumFrames();
-			Util::ProgressDisplay progress{numFrames};
-			const auto scanDuration =
-			    static_cast<float>(dataInput->getScanDuration());
-			for (frame_t frame = 0; frame < numFrames; frame++)
-			{
-				progress.progress(frame);
-				transform_t transform = dataInput->getTransformOfFrame(frame);
-				const float weight =
-				    dataInput->getDurationOfFrame(frame) / scanDuration;
-				unmovedSensImage->transformImage(transform, *movedSensImage,
-				                                 weight);
-			}
+			movedSensImage = Util::timeAverageMoveSensitivityImage(
+			    *dataInput, *unmovedSensImage);
 
 			if (!out_sensImg_fname.empty())
 			{

@@ -20,6 +20,10 @@ namespace Util
 	                              ListModeLUTOwned* lmOut,
 	                              size_t numEvents = 0);
 
+	std::unique_ptr<ImageOwned>
+	    timeAverageMoveSensitivityImage(const ProjectionData& dataInput,
+	                                    const Image& unmovedSensImage);
+
 	template <bool RequiresAtomic>
 	void convertToHistogram3D(const ProjectionData& dat, Histogram3D& histoOut);
 

@@ -76,7 +76,14 @@ See [Documentation on Scanner definition](doc/usage/scanner.md)
 #### Listmode (``ListmodeLUT``)
 
 YRT-PET defines a generic default List-Mode format.
+When used as input, the format name is `LM`.
 See [Documentation on the List-Mode file](doc/usage/list-mode_file.md)
+
+#### Sparse histogram (``SparseHistogram``)
+
+YRT-PET defines a generic default sparse histogram format.
+When used as input, the format name is `SH`.
+See [Documentation on the sparse histogram file](doc/usage/sparse-histogram.md)
 
 #### Motion information
 
@@ -92,6 +99,7 @@ The histogram's dimensions are defined by the scanner properties, which are
 defined in the `json` file [decribed earlier](doc/usage/scanner.md).
 See [Documentation on the histogram format](doc/usage/histogram3d_format.md)
 for more information.
+When used as input, the format name is `H`.
 
 ## Setup
 

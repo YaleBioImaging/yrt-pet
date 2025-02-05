@@ -52,46 +52,46 @@ export PYTHONPATH=${PYTHONPATH}:<compilation folder>
 Almost all the functions defined in the header files have a Python bindings.
 more thorough documentation on the python library is still to be written.
 
-### Data formats
+# Data formats
 
 Note that all binary formats encode numerical values in little endian.
 
-#### Image format
+## Image format
 
 Images are read and stored in NIfTI format.
 YRT-PET also uses a JSON file to define the Image parameters
 (size, voxel size, offset). See
 [Documentation on the Image parameters format](doc/usage/image_parameters.md).
 
-#### YRT-PET raw data format
+## YRT-PET raw data format
 
 YRT-PET stores its array structures in the RAWD format.
 See [Documentation on the RAWD file structure](doc/usage/rawd_file.md)
 
-#### Scanner parameter file
+## Scanner parameter file
 
 Scanners are decribed using a JSON file and a Look-Up-Table (LUT).
 See [Documentation on Scanner definition](doc/usage/scanner.md)
 
-#### Listmode (``ListmodeLUT``)
+## Listmode (``ListmodeLUT``)
 
 YRT-PET defines a generic default List-Mode format.
 When used as input, the format name is `LM`.
 See [Documentation on the List-Mode file](doc/usage/list-mode_file.md)
 
-#### Sparse histogram (``SparseHistogram``)
+## Sparse histogram (``SparseHistogram``)
 
 YRT-PET defines a generic default sparse histogram format.
 When used as input, the format name is `SH`.
 See [Documentation on the sparse histogram file](doc/usage/sparse-histogram.md)
 
-#### Motion information
+## Motion information
 
 Motion information is encoded in a binary file describing the transformation
 of each frame.
 See [Documentation on the Motion information file](doc/usage/motion_file.md)
 
-#### Histogram (`Histogram3D`)
+## Histogram (`Histogram3D`)
 
 Fully 3D Histograms are stored in YRT-PET's RAWD format
 [described earlier](doc/usage/rawd_file.md). Values are encoded in `float32`.
@@ -101,13 +101,13 @@ See [Documentation on the histogram format](doc/usage/histogram3d_format.md)
 for more information.
 When used as input, the format name is `H`.
 
-## Setup
+# Setup
 
-### Compilation
+## Compilation
 
 See [Documentation on compilation](doc/compilation/building.md).
 
-### Testing
+## Testing
 
 There are two types of tests available, unit tests and integration tests.
 

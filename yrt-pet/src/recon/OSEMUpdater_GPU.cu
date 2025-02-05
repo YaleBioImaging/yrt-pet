@@ -43,14 +43,15 @@ void OSEMUpdater_GPU::computeSensitivityImage(ImageDevice& destImage) const
 		const bool hasReallocated =
 		    sensDataBuffer->allocateForProjValues(auxStream);
 
+		// Load the projection values to backproject
+		// This will either load projection values from sensitivity histogram,
+		//  from ACF histogram, or it will load "ones" from a uniform histogram
+		sensDataBuffer->loadProjValuesFromReference(auxStream);
+
 		// Load the projection values to the device buffer depending on the
 		//  situation
 		if (corrector.hasSensitivityHistogram())
 		{
-			// Load the projection values from the sensitivity
-			//  histogram (its reference)
-			sensDataBuffer->loadProjValuesFromReference(auxStream);
-
 			// Apply global scaling factor if it's not 1.0
 			if (corrector.hasGlobalScalingFactor())
 			{
@@ -64,11 +65,17 @@ void OSEMUpdater_GPU::computeSensitivityImage(ImageDevice& destImage) const
 				sensDataBuffer->invertProjValuesDevice(auxStream);
 			}
 		}
-		if (corrector.hasHardwareAttenuation())
+		if (corrector.hasHardwareAttenuationImage())
 		{
-			corrector.applyHardwareAttenuationFactorsToGivenDeviceBuffer(
+			corrector.applyHardwareAttenuationImageFactorsToGivenDeviceBuffer(
 			    sensDataBuffer, projector, auxStream);
 		}
+		else if (corrector.doesHardwareACFComeFromHistogram())
+		{
+			corrector.applyHardwareACFCorrectionFactorsToGivenDeviceBuffer(
+			    sensDataBuffer, auxStream);
+		}
+
 		if (!corrector.hasMultiplicativeCorrection() &&
 		    (loadGlobalScalingFactor || hasReallocated))
 		{

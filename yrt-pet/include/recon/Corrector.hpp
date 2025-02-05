@@ -51,12 +51,16 @@ public:
 	const ProjectionData* getSensImgGenProjData() const;
 	bool hasSensitivityHistogram() const;
 	bool hasHardwareAttenuation() const;
+	bool hasHardwareAttenuationImage() const;
 	bool hasMultiplicativeCorrection() const;
 	bool mustInvertSensitivity() const;
+	bool doesHardwareACFComeFromHistogram() const;
 
 	// For reconstruction
 	bool hasAdditiveCorrection() const;
 	bool hasInVivoAttenuation() const;
+	bool doesTotalACFComeFromHistogram() const;
+	bool doesInVivoACFComeFromHistogram() const;
 
 protected:
 	static constexpr float StabilityEpsilon = 1e-8f;
@@ -68,9 +72,6 @@ protected:
 	float getSensitivity(histo_bin_t histoBin) const;
 	float getTotalACFFromHistogram(histo_bin_t histoBin) const;
 
-	bool doesTotalACFComeFromHistogram() const;
-	bool doesInVivoACFComeFromHistogram() const;
-	bool doesHardwareACFComeFromHistogram() const;
 
 	const Scanner& mr_scanner;
 

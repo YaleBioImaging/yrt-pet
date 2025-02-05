@@ -9,25 +9,29 @@
 - OpenMP, but this is baked into most compilers
 - zlib, to read NIfTI images in `.nii.gz` format.
 
-## Configuration and Compilation
+## Configuration and compilation
 
-From the root of the repository:\
+`git clone git@github.com:YaleBioImaging/yrt-pet.git`\
+`cd yrt-pet`\
 `mkdir build`\
 `cd build`\
-With `[ON/OFF]` being replaced by the desired configuration:\
-`cmake ../yrt-pet/ -DUSE_CUDA=[ON/OFF] -DBUILD_PYBIND11=[ON/OFF]`
+`cmake ../yrt-pet/ -DUSE_CUDA=[ON/OFF] -DBUILD_PYBIND11=[ON/OFF]`\
+`make`
+
+With `[ON/OFF]` being replaced by the desired configuration
 
 - The `-DUSE_CUDA` option enables or disables GPU accelerated code
     - This option is `ON` by default
 - The `-DBUILD_PYBIND11` option enables or disables YRT-PET's python bindings
     - This option is `ON` by default
 
-## Caveats
+## FAQ
 
 - If compiling with GPU acceleration enabled, note that by default, the
   architecture
   that the code will be compiled towards will be `native`. This means that
-  YRT-PET will be compiled for the architecture of the host's GPU.
+  YRT-PET will be compiled for the architecture of the host's GPU. Note that
+  YRT-PET requires CMake 3.28+ to build the project
     - One can bypass this behavior using one of the two following ways:
         - Set the `CUDAARCHS` environment variable.
         - Add `-DCMAKE_CUDA_ARCHITECTURES=[CUDA architectures list]`.

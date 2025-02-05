@@ -265,6 +265,11 @@ bool Corrector::hasHardwareAttenuation() const
 	return mp_hardwareAcf != nullptr || mp_hardwareAttenuationImage != nullptr;
 }
 
+bool Corrector::hasHardwareAttenuationImage() const
+{
+	return mp_hardwareAttenuationImage != nullptr;
+}
+
 bool Corrector::hasMultiplicativeCorrection() const
 {
 	// Has either hardware attenuation or sensitivity

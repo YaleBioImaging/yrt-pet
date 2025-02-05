@@ -162,36 +162,42 @@ ProjectionDataDevice* Corrector_GPU::getTemporaryDeviceBuffer()
 	return mpd_temporaryCorrectionFactors.get();
 }
 
-void Corrector_GPU::applyHardwareAttenuationFactorsToGivenDeviceBuffer(
+void Corrector_GPU::applyHardwareACFCorrectionFactorsToGivenDeviceBuffer(
+    ProjectionDataDevice* destProjData, const cudaStream_t* stream)
+{
+	ASSERT_MSG(mpd_temporaryCorrectionFactors != nullptr,
+	           "Need to initialize temporary correction factors first");
+	ASSERT(hasHardwareAttenuation());
+	ASSERT(mp_hardwareAcf != nullptr);
+
+	mpd_temporaryCorrectionFactors->allocateForProjValues(stream);
+
+	mpd_temporaryCorrectionFactors->loadProjValuesFromHostHistogram(
+	    mp_hardwareAcf, stream);
+	destProjData->multiplyProjValues(mpd_temporaryCorrectionFactors.get(),
+	                                 stream);
+}
+
+void Corrector_GPU::applyHardwareAttenuationImageFactorsToGivenDeviceBuffer(
     ProjectionDataDevice* destProjData, OperatorProjectorDevice* projector,
     const cudaStream_t* stream)
 {
 	ASSERT_MSG(mpd_temporaryCorrectionFactors != nullptr,
 	           "Need to initialize temporary correction factors first");
 	ASSERT(hasHardwareAttenuation());
+	ASSERT(mp_hardwareAttenuationImage != nullptr);
+	ASSERT(projector != nullptr);
 
 	mpd_temporaryCorrectionFactors->allocateForProjValues(stream);
+	initializeTemporaryDeviceImageIfNeeded(mp_hardwareAttenuationImage, stream);
 
-	if (mp_hardwareAcf != nullptr)
-	{
-		mpd_temporaryCorrectionFactors->loadProjValuesFromHostHistogram(
-		    mp_hardwareAcf, stream);
-		destProjData->multiplyProjValues(mpd_temporaryCorrectionFactors.get(),
-		                                 stream);
-	}
-	else if (mp_hardwareAttenuationImage != nullptr)
-	{
-		ASSERT(projector != nullptr);
-		initializeTemporaryDeviceImageIfNeeded(mp_hardwareAttenuationImage,
-		                                       stream);
-		// TODO: Design-wise, it would be better to call a static function here
-		//  instead of relying on a projector given as argument
-		projector->applyA(mpd_temporaryImage.get(),
-		                  mpd_temporaryCorrectionFactors.get());
-		mpd_temporaryCorrectionFactors->convertToACFsDevice(stream);
-		destProjData->multiplyProjValues(mpd_temporaryCorrectionFactors.get(),
-		                                 stream);
-	}
+	// TODO: Design-wise, it would be better to call a static function here
+	//  instead of relying on a projector given as argument
+	projector->applyA(mpd_temporaryImage.get(),
+	                  mpd_temporaryCorrectionFactors.get());
+	mpd_temporaryCorrectionFactors->convertToACFsDevice(stream);
+	destProjData->multiplyProjValues(mpd_temporaryCorrectionFactors.get(),
+	                                 stream);
 }
 
 void Corrector_GPU::loadPrecomputedCorrectionFactorsToTemporaryDeviceBuffer(

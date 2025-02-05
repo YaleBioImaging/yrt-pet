@@ -242,3 +242,8 @@ void Corrector_GPU::initializeTemporaryDeviceBuffer(
 	mpd_temporaryCorrectionFactors =
 	    std::make_unique<ProjectionDataDeviceOwned>(master);
 }
+
+void Corrector_GPU::clearTemporaryDeviceBuffer()
+{
+	mpd_temporaryCorrectionFactors = nullptr;
+}

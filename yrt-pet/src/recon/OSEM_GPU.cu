@@ -65,7 +65,7 @@ void OSEM_GPU::setupOperatorsForSensImgGen()
 		// Create and add Bin Iterator
 		getBinIterators().push_back(
 		    mp_corrector->getSensImgGenProjData()->getBinIter(num_OSEM_subsets,
-		                                                    subsetId));
+		                                                      subsetId));
 	}
 	// Create ProjectorParams object
 	OperatorProjectorParams projParams(
@@ -114,6 +114,7 @@ void OSEM_GPU::endSensImgGen()
 {
 	// Clear temporary buffers
 	mpd_sensImageBuffer = nullptr;
+	mp_corrector->clearTemporaryDeviceBuffer();
 	mpd_tempSensDataInput = nullptr;
 }
 
@@ -242,6 +243,7 @@ void OSEM_GPU::endRecon()
 	mpd_mlemImageTmpEMRatio = nullptr;
 	mpd_mlemImageTmpPsf = nullptr;
 	mpd_sensImageBuffer = nullptr;
+	mp_corrector->clearTemporaryDeviceBuffer();
 	mpd_dat = nullptr;
 	mpd_datTmp = nullptr;
 }

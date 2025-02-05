@@ -18,6 +18,7 @@ public:
 
 	// Set the reference to use for the temporary device buffer
 	void initializeTemporaryDeviceBuffer(const ProjectionDataDevice* master);
+	void clearTemporaryDeviceBuffer();
 
 	// For reconstruction:
 	// Pre-computes the additive correction factors

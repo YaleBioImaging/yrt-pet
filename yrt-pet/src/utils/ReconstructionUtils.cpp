@@ -225,9 +225,12 @@ namespace Util
 
 		const int64_t numFrames = dataInput.getNumFrames();
 		ProgressDisplay progress{numFrames};
+
 		const auto scanDuration =
 		    static_cast<float>(dataInput.getScanDuration());
+
 		auto movedSensImage = std::make_unique<ImageOwned>(params);
+		movedSensImage->allocate();
 
 		for (frame_t frame = 0; frame < numFrames; frame++)
 		{

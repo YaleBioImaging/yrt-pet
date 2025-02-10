@@ -14,41 +14,6 @@
         $`l_x`$ is the image length and $`v_x`$ is the voxel size in the
         X dimension. The same equation applies in the Y and Z dimensions
 
-Relating to library dependencies
-- I get a message that look like
-``Could NOT find ZLIB (missing: ZLIB_LIBRARY ZLIB_INCLUDE_DIR)``
-  - This means that the zlib library was not found
-  - Remedy for Linux:
-    - if you use APT: `sudo apt install zlib1g-dev`
-    - if you use YUM: `sudo yum install zlib-devel`
-  - Remedy for macOS:
-    - `brew install zlib-devel`
-  - It is a widely used library and is widely available on many platforms.
-  Make sure to check online if the above solutions do not work.
-- I get a message that looks like:
-  ```
-  Could not find a package configuration file provided by "pybind11" with any
-  of the following names:
-
-    pybind11Config.cmake
-    pybind11-config.cmake
-
-  Add the installation prefix of "pybind11" to CMAKE_PREFIX_PATH or set
-  "pybind11_DIR" to a directory containing one of the above files.  If
-  "pybind11" provides a separate development package or SDK, be sure it has
-  been installed.
-  ```
-  - This is because the `pybind11` library was not found. YRT-PET requires the
-  `pybind11` sources and CMake files to compile with python bindings.
-  Several fixes are possible:
-    - Disable Python bindings altogether by adding `-DBUILD_PYBIND11=OFF` to
-    the CMake command
-    - If you are using Linux with APT: ``sudo apt install pybind11-dev``
-    - On macOS: `brew install pybind11`
-    - Another fix is to install `pybind11` using `pip` or `conda`.
-    ([See documentation for more\
-    information](https://pybind11.readthedocs.io/en/stable/installing.html))
-
 Relating to CASToR:
 - I have scanner parameters from CASToR and want to use them in YRT-PET
   - For the Look-Up-Table:

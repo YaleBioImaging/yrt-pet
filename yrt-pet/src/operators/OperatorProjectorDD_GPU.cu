@@ -111,6 +111,7 @@ void OperatorProjectorDD_GPU::applyA(const Variable* in, Variable* out)
 		ASSERT_MSG(hostDat_out != nullptr,
 		           "The Projection Data provded is not a ProjectionDataDevice "
 		           "nor a ProjectionData (host)");
+		ASSERT_MSG(binIter != nullptr, "BinIterator undefined");
 
 		std::vector<const BinIterator*> binIterators;
 		binIterators.push_back(binIter);  // We project only one subset
@@ -185,6 +186,7 @@ void OperatorProjectorDD_GPU::applyAH(const Variable* in, Variable* out)
 		ASSERT_MSG(hostDat_in != nullptr,
 		           "The Projection Data provded is not a ProjectionDataDevice "
 		           "nor a ProjectionData (host)");
+		ASSERT_MSG(binIter != nullptr, "BinIterator undefined");
 
 		std::vector<const BinIterator*> binIterators;
 		binIterators.push_back(binIter);  // We project only one subset

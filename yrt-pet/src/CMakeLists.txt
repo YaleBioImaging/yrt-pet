@@ -77,13 +77,16 @@ if (USE_CUDA)
         operators/OperatorPsfDevice.cu
         operators/ProjectionPsfManagerDevice.cu
         operators/OperatorProjectorDD_GPUKernels.cu
+        operators/OperatorProjectorSiddon_GPUKernels.cu
         operators/OperatorProjectorDD_GPU.cu
+        operators/OperatorProjectorSiddon_GPU.cu
         recon/Corrector_GPU.cu
         recon/OSEMUpdater_GPU.cu
         recon/OSEM_GPU.cu
         utils/PageLockedBuffer.cu
         utils/GPUStream.cu
         utils/GPUUtils.cu
+        utils/GPUKernelUtils.cu
     )
 endif (USE_CUDA)
 

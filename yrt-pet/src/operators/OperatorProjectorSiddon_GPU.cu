@@ -98,7 +98,7 @@ void OperatorProjectorSiddon_GPU::launchKernel(
 
 	if (stream != nullptr)
 	{
-		OperatorProjectorSiddonCU_kernel<IsForward, HasTOF>
+		OperatorProjectorSiddonCU_kernel<IsForward, HasTOF, true>
 		    <<<gridSize, blockSize, 0, *stream>>>(
 		        pd_projValues, pd_image, pd_lorDet1Pos, pd_lorDet2Pos,
 		        pd_lorDet1Orient, pd_lorDet2Orient, pd_lorTOFValue,
@@ -111,7 +111,7 @@ void OperatorProjectorSiddon_GPU::launchKernel(
 	}
 	else
 	{
-		OperatorProjectorSiddonCU_kernel<IsForward, HasTOF>
+		OperatorProjectorSiddonCU_kernel<IsForward, HasTOF, true>
 		    <<<gridSize, blockSize>>>(
 		        pd_projValues, pd_image, pd_lorDet1Pos, pd_lorDet2Pos,
 		        pd_lorDet1Orient, pd_lorDet2Orient, pd_lorTOFValue,

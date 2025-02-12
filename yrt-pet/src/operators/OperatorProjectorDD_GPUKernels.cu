@@ -67,9 +67,11 @@ __global__ void OperatorProjectorDDCU_kernel(
 	const long eventId = blockIdx.x * blockDim.x + threadIdx.x;
 	if (eventId < batchSize)
 	{
-		if constexpr (IsForward)
+		float value = 0.0f;
+		if constexpr (!IsForward)
 		{
-			pd_projValues[eventId] = 0.0f;
+			// Initialize value at proj-space value if backward
+			value = pd_projValues[eventId];
 		}
 
 		float tofValue;
@@ -387,18 +389,18 @@ __global__ void OperatorProjectorDDCU_kernel(
 							float* ptr = pd_image + idx;
 							if constexpr (IsForward)
 							{
-								pd_projValues[eventId] += (*ptr) * weight;
+								value += (*ptr) * weight;
 							}
 							else
 							{
-								float projValue = pd_projValues[eventId];
-								atomicAdd(ptr, projValue * weight);
+								atomicAdd(ptr, value * weight);
 							}
 						}
 					}
 				}
 			}
 		}
+		pd_projValues[eventId] = value;
 	}
 }
 

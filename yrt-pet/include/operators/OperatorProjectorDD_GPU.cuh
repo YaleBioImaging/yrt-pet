@@ -19,13 +19,15 @@ public:
 	                                 const cudaStream_t* mainStream = nullptr,
 	                                 const cudaStream_t* auxStream = nullptr);
 
-	void applyA(const Variable* in, Variable* out) override;
-	void applyAH(const Variable* in, Variable* out) override;
+protected:
+	void applyAOnLoadedBatch(ImageDevice& img,
+	                         ProjectionDataDevice& dat) override;
+	void applyAHOnLoadedBatch(ProjectionDataDevice& dat,
+	                          ImageDevice& img) override;
 
 private:
-
 	template <bool IsForward>
-	void applyOnLoadedBatch(ProjectionDataDevice* dat, ImageDevice* img);
+	void applyOnLoadedBatch(ProjectionDataDevice& dat, ImageDevice& img);
 
 	template <bool IsForward, bool HasTOF, bool HasProjPsf>
 	static void launchKernel(
@@ -33,8 +35,7 @@ private:
 	    const float4* pd_lorDet2Pos, const float4* pd_lorDet1Orient,
 	    const float4* pd_lorDet2Orient, const float* pd_lorTOFValue,
 	    const TimeOfFlightHelper* pd_tofHelper, const float* pd_projPsfKernels,
-	    ProjectionPsfProperties
-	        projectionPsfProperties,
+	    ProjectionPsfProperties projectionPsfProperties,
 	    CUScannerParams scannerParams, CUImageParams imgParams,
 	    size_t batchSize, unsigned int gridSize, unsigned int blockSize,
 	    const cudaStream_t* stream, bool synchronize);

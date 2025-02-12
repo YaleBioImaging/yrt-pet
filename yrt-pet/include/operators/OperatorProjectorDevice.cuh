@@ -31,12 +31,19 @@ public:
 	bool requiresIntermediaryProjData() const;
 	void setupTOFHelper(float tofWidth_ps, int tofNumStd = -1);
 
+	void applyA(const Variable* in, Variable* out) override;
+	void applyAH(const Variable* in, Variable* out) override;
+
 protected:
-	explicit
-	    OperatorProjectorDevice(const OperatorProjectorParams& pr_projParams,
-	                            bool p_synchronized = true,
-	                            const cudaStream_t* pp_mainStream = nullptr,
-	                            const cudaStream_t* pp_auxStream = nullptr);
+	virtual void applyAOnLoadedBatch(ImageDevice& img,
+	                                 ProjectionDataDevice& dat) = 0;
+	virtual void applyAHOnLoadedBatch(ProjectionDataDevice& dat,
+	                                  ImageDevice& img) = 0;
+
+	explicit OperatorProjectorDevice(
+	    const OperatorProjectorParams& pr_projParams,
+	    bool p_synchronized = true, const cudaStream_t* pp_mainStream = nullptr,
+	    const cudaStream_t* pp_auxStream = nullptr);
 
 	void setBatchSize(size_t newBatchSize);
 

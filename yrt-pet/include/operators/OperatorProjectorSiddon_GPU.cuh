@@ -14,6 +14,7 @@ class ImageDevice;
 class OperatorProjectorSiddon_GPU : public OperatorProjectorDevice
 {
 public:
+	// TODO NOW: Support multi-ray siddon
 	explicit OperatorProjectorSiddon_GPU(const OperatorProjectorParams& projParams,
 	                                 bool p_synchronized = true,
 	                                 const cudaStream_t* mainStream = nullptr,

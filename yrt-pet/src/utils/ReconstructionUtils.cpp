@@ -11,6 +11,7 @@
 #include "geometry/Matrix.hpp"
 #include "operators/OperatorProjectorDD.hpp"
 #include "operators/OperatorProjectorSiddon.hpp"
+#include "operators/OperatorProjectorSiddon_GPU.cuh"
 #include "recon/OSEM_CPU.hpp"
 #include "utils/Assert.hpp"
 #include "utils/Globals.hpp"
@@ -49,62 +50,66 @@ void py_setup_reconstructionutils(pybind11::module& m)
 		    osem->enableNeedToMakeCopyOfSensImage();
 		    return osem;
 	    },
-	    py::arg("scanner"), py::arg("useGPU") = false);
+	    "scanner"_a, "useGPU"_a = false);
 
 	m.def("timeAverageMoveSensitivityImage",
 	      &Util::timeAverageMoveSensitivityImage, "dataInput"_a,
 	      "unmovedSensImage"_a);
 
-	m.def("generateTORRandomDOI", &Util::generateTORRandomDOI,
-	      py::arg("scanner"), py::arg("d1"), py::arg("d2"), py::arg("vmax"));
+	m.def("generateTORRandomDOI", &Util::generateTORRandomDOI, "scanner"_a,
+	      "d1"_a, "d2"_a, "vmax"_a);
 
+	m.def(
+	    "forwProject",
+	    static_cast<void (*)(
+	        const Scanner& scanner, const Image& img, ProjectionData& projData,
+	        OperatorProjector::ProjectorType projectorType, bool useGPU)>(
+	        &Util::forwProject),
+	    "scanner"_a, "img"_a, "projData"_a,
+	    "projectorType"_a = OperatorProjector::ProjectorType::SIDDON,
+	    "useGPU"_a = false);
 	m.def("forwProject",
-	      static_cast<void (*)(const Scanner& scanner, const Image& img,
-	                           ProjectionData& projData,
-	                           OperatorProjector::ProjectorType projectorType)>(
-	          &Util::forwProject),
-	      py::arg("scanner"), py::arg("img"), py::arg("projData"),
-	      py::arg("projectorType") = OperatorProjector::ProjectorType::SIDDON);
-	m.def("forwProject",
-	      static_cast<void (*)(const Scanner& scanner, const Image& img,
-	                           ProjectionData& projData,
-	                           const BinIterator& binIterator,
-	                           OperatorProjector::ProjectorType projectorType)>(
+	      static_cast<void (*)(
+	          const Scanner& scanner, const Image& img,
+	          ProjectionData& projData, const BinIterator& binIterator,
+	          OperatorProjector::ProjectorType projectorType, bool useGPU)>(
 	          &Util::forwProject),
 	      py::arg("scanner"), py::arg("img"), py::arg("projData"),
 	      py::arg("binIterator"),
-	      py::arg("projectorType") = OperatorProjector::SIDDON);
+	      py::arg("projectorType") = OperatorProjector::SIDDON,
+	      "useGPU"_a = false);
 	m.def("forwProject",
 	      static_cast<void (*)(const Image& img, ProjectionData& projData,
 	                           const OperatorProjectorParams& projParams,
-	                           OperatorProjector::ProjectorType projectorType)>(
-	          &Util::forwProject),
-	      py::arg("img"), py::arg("projData"), py::arg("projParams"),
-	      py::arg("projectorType") = OperatorProjector::SIDDON);
+	                           OperatorProjector::ProjectorType projectorType,
+	                           bool useGPU)>(&Util::forwProject),
+	      "img"_a, "projData"_a, "projParams"_a,
+	      "projectorType"_a = OperatorProjector::SIDDON, "useGPU"_a = false);
 
+	m.def(
+	    "backProject",
+	    static_cast<void (*)(
+	        const Scanner& scanner, Image& img, const ProjectionData& projData,
+	        OperatorProjector::ProjectorType projectorType, bool useGPU)>(
+	        &Util::backProject),
+	    "scanner"_a, "img"_a, "projData"_a,
+	    "projectorType"_a = OperatorProjector::ProjectorType::SIDDON,
+	    "useGPU"_a = false);
 	m.def("backProject",
-	      static_cast<void (*)(const Scanner& scanner, Image& img,
-	                           const ProjectionData& projData,
-	                           OperatorProjector::ProjectorType projectorType)>(
+	      static_cast<void (*)(
+	          const Scanner& scanner, Image& img,
+	          const ProjectionData& projData, const BinIterator& binIterator,
+	          OperatorProjector::ProjectorType projectorType, bool useGPU)>(
 	          &Util::backProject),
-	      py::arg("scanner"), py::arg("img"), py::arg("projData"),
-	      py::arg("projectorType") = OperatorProjector::ProjectorType::SIDDON);
-	m.def("backProject",
-	      static_cast<void (*)(const Scanner& scanner, Image& img,
-	                           const ProjectionData& projData,
-	                           const BinIterator& binIterator,
-	                           OperatorProjector::ProjectorType projectorType)>(
-	          &Util::backProject),
-	      py::arg("scanner"), py::arg("img"), py::arg("projData"),
-	      py::arg("binIterator"),
-	      py::arg("projectorType") = OperatorProjector::SIDDON);
+	      "scanner"_a, "img"_a, "projData"_a, "binIterator"_a,
+	      "projectorType"_a = OperatorProjector::SIDDON, "useGPU"_a = false);
 	m.def("backProject",
 	      static_cast<void (*)(Image& img, const ProjectionData& projData,
 	                           const OperatorProjectorParams& projParams,
-	                           OperatorProjector::ProjectorType projectorType)>(
-	          &Util::backProject),
-	      py::arg("img"), py::arg("projData"), py::arg("projParams"),
-	      py::arg("projectorType") = OperatorProjector::SIDDON);
+	                           OperatorProjector::ProjectorType projectorType,
+	                           bool useGPU)>(&Util::backProject),
+	      "img"_a, "projData"_a, "projParams"_a,
+	      "projectorType"_a = OperatorProjector::SIDDON, "useGPU"_a = false);
 }
 
 #endif
@@ -356,31 +361,44 @@ namespace Util
 	template <bool IS_FWD>
 	static void project(Image* img, ProjectionData* projData,
 	                    const OperatorProjectorParams& projParams,
-	                    OperatorProjector::ProjectorType projectorType)
+	                    OperatorProjector::ProjectorType projectorType,
+	                    bool useGPU)
 	{
-		std::unique_ptr<OperatorProjectorBase> oper;
-		if (projectorType == OperatorProjector::SIDDON)
+		if (useGPU)
 		{
-			oper = std::make_unique<OperatorProjectorSiddon>(projParams);
-		}
-		else if (projectorType == OperatorProjector::DD)
-		{
-			oper = std::make_unique<OperatorProjectorDD>(projParams);
-		}
-		else if (projectorType == OperatorProjector::DD_GPU)
-		{
-#ifdef BUILD_CUDA
-			oper = std::make_unique<OperatorProjectorDD_GPU>(projParams);
-#else
-			throw std::runtime_error("GPU projector not supported because "
+#ifndef BUILD_CUDA
+			throw std::runtime_error("GPU projectors not supported because "
 			                         "Project was not compiled with CUDA ");
 #endif
 		}
+
+		std::unique_ptr<OperatorProjectorBase> oper;
+		if (projectorType == OperatorProjector::SIDDON)
+		{
+			if (useGPU)
+			{
+				oper =
+				    std::make_unique<OperatorProjectorSiddon_GPU>(projParams);
+			}
+			else
+			{
+				oper = std::make_unique<OperatorProjectorSiddon>(projParams);
+			}
+		}
+		else if (projectorType == OperatorProjector::DD)
+		{
+			if (useGPU)
+			{
+				oper = std::make_unique<OperatorProjectorDD_GPU>(projParams);
+			}
+			else
+			{
+				oper = std::make_unique<OperatorProjectorDD>(projParams);
+			}
+		}
 		else
 		{
-			throw std::logic_error(
-			    "Error in forwProject: Unknown projector type (Note that the "
-			    "GPU Distance-Driven projector is unsupported for now)");
+			throw std::runtime_error("Unknown error");
 		}
 
 		if constexpr (IS_FWD)
@@ -397,53 +415,59 @@ namespace Util
 
 	void forwProject(const Scanner& scanner, const Image& img,
 	                 ProjectionData& projData,
-	                 OperatorProjector::ProjectorType projectorType)
+	                 OperatorProjector::ProjectorType projectorType,
+	                 bool useGPU)
 	{
 		const auto binIter = projData.getBinIter(1, 0);
 		const OperatorProjectorParams projParams(binIter.get(), scanner);
-		forwProject(img, projData, projParams, projectorType);
+		forwProject(img, projData, projParams, projectorType, useGPU);
 	}
 
 	void forwProject(const Scanner& scanner, const Image& img,
 	                 ProjectionData& projData, const BinIterator& binIterator,
-	                 OperatorProjector::ProjectorType projectorType)
+	                 OperatorProjector::ProjectorType projectorType,
+	                 bool useGPU)
 	{
 		const OperatorProjectorParams projParams(&binIterator, scanner);
-		forwProject(img, projData, projParams, projectorType);
+		forwProject(img, projData, projParams, projectorType, useGPU);
 	}
 
 	void forwProject(const Image& img, ProjectionData& projData,
 	                 const OperatorProjectorParams& projParams,
-	                 OperatorProjector::ProjectorType projectorType)
+	                 OperatorProjector::ProjectorType projectorType,
+	                 bool useGPU)
 	{
 		project<true>(const_cast<Image*>(&img), &projData, projParams,
-		              projectorType);
+		              projectorType, useGPU);
 	}
 
 	void backProject(const Scanner& scanner, Image& img,
 	                 const ProjectionData& projData,
-	                 OperatorProjector::ProjectorType projectorType)
+	                 OperatorProjector::ProjectorType projectorType,
+	                 bool useGPU)
 	{
 		const auto binIter = projData.getBinIter(1, 0);
 		const OperatorProjectorParams projParams(binIter.get(), scanner);
-		backProject(img, projData, projParams, projectorType);
+		backProject(img, projData, projParams, projectorType, useGPU);
 	}
 
 	void backProject(const Scanner& scanner, Image& img,
 	                 const ProjectionData& projData,
 	                 const BinIterator& binIterator,
-	                 OperatorProjector::ProjectorType projectorType)
+	                 OperatorProjector::ProjectorType projectorType,
+	                 bool useGPU)
 	{
 		const OperatorProjectorParams projParams(&binIterator, scanner);
-		backProject(img, projData, projParams, projectorType);
+		backProject(img, projData, projParams, projectorType, useGPU);
 	}
 
 	void backProject(Image& img, const ProjectionData& projData,
 	                 const OperatorProjectorParams& projParams,
-	                 OperatorProjector::ProjectorType projectorType)
+	                 OperatorProjector::ProjectorType projectorType,
+	                 bool useGPU)
 	{
 		project<false>(&img, const_cast<ProjectionData*>(&projData), projParams,
-		               projectorType);
+		               projectorType, useGPU);
 	}
 
 }  // namespace Util

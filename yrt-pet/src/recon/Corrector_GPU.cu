@@ -35,9 +35,9 @@ void Corrector_GPU::precomputeAdditiveCorrectionFactors(
 		             "additive corrections..."
 		          << std::endl;
 
-		// TODO: Once GPU Siddon is implemented, use it here instead of DD_GPU
 		Util::forwProject(measurements.getScanner(), *mp_attenuationImage,
-		                  *mph_additiveCorrections, OperatorProjector::DD_GPU);
+		                  *mph_additiveCorrections, OperatorProjector::SIDDON,
+		                  true);
 
 		// TODO: This part would be faster if done on GPU (inside the projection
 		//  kernel)
@@ -125,7 +125,7 @@ void Corrector_GPU::precomputeInVivoAttenuationFactors(
 		// TODO: Use GPU Siddon once available
 		Util::forwProject(measurements.getScanner(), *mp_inVivoAttenuationImage,
 		                  *mph_inVivoAttenuationFactors,
-		                  OperatorProjector::DD_GPU);
+		                  OperatorProjector::SIDDON, true);
 
 		// TODO: This part would be faster if done on GPU (inside the projection
 		//  kernel)

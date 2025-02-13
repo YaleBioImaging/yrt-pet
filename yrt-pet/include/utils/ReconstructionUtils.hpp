@@ -44,29 +44,35 @@ namespace Util
 	void forwProject(const Scanner& scanner, const Image& img,
 	                 ProjectionData& projData,
 	                 OperatorProjector::ProjectorType projectorType =
-	                     OperatorProjector::SIDDON);
+	                     OperatorProjector::SIDDON,
+	                 bool useGPU = false);
 	void forwProject(const Scanner& scanner, const Image& img,
 	                 ProjectionData& projData, const BinIterator& binIterator,
 	                 OperatorProjector::ProjectorType projectorType =
-	                     OperatorProjector::SIDDON);
+	                     OperatorProjector::SIDDON,
+	                 bool useGPU = false);
 	void forwProject(const Image& img, ProjectionData& projData,
 	                 const OperatorProjectorParams& projParams,
 	                 OperatorProjector::ProjectorType projectorType =
-	                     OperatorProjector::SIDDON);
+	                     OperatorProjector::SIDDON,
+	                 bool useGPU = false);
 
 	// Back projection
 	void backProject(const Scanner& scanner, Image& img,
 	                 const ProjectionData& projData,
 	                 OperatorProjector::ProjectorType projectorType =
-	                     OperatorProjector::SIDDON);
+	                     OperatorProjector::SIDDON,
+	                 bool useGPU = false);
 	void backProject(const Scanner& scanner, Image& img,
 	                 const ProjectionData& projData,
 	                 const BinIterator& binIterator,
 	                 OperatorProjector::ProjectorType projectorType =
-	                     OperatorProjector::SIDDON);
+	                     OperatorProjector::SIDDON,
+	                 bool useGPU = false);
 	void backProject(Image& img, const ProjectionData& projData,
 	                 const OperatorProjectorParams& projParams,
 	                 OperatorProjector::ProjectorType projectorType =
-	                     OperatorProjector::SIDDON);
+	                     OperatorProjector::SIDDON,
+	                 bool useGPU = false);
 
 }  // namespace Util

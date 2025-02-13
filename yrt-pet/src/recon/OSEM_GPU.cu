@@ -8,16 +8,17 @@
 #include "datastruct/image/ImageDevice.cuh"
 #include "datastruct/projection/ProjectionDataDevice.cuh"
 #include "operators/OperatorProjectorDD_GPU.cuh"
+#include "operators/OperatorProjectorSiddon_GPU.cuh"
 #include "operators/OperatorPsfDevice.cuh"
 #include "utils/Assert.hpp"
 
 OSEM_GPU::OSEM_GPU(const Scanner& pr_scanner)
     : OSEM(pr_scanner),
       mpd_sensImageBuffer(nullptr),
-      mpd_tempSensDataInput(nullptr),
       mpd_mlemImage(nullptr),
       mpd_mlemImageTmpEMRatio(nullptr),
       mpd_mlemImageTmpPsf(nullptr),
+      mpd_tempSensDataInput(nullptr),
       mpd_dat(nullptr),
       mpd_datTmp(nullptr),
       m_current_OSEM_subset(-1)
@@ -25,9 +26,6 @@ OSEM_GPU::OSEM_GPU(const Scanner& pr_scanner)
 	mp_corrector = std::make_unique<Corrector_GPU>(pr_scanner);
 
 	std::cout << "Creating an instance of OSEM GPU" << std::endl;
-
-	// Since the only available projector in GPU right now is DD_GPU:
-	projectorType = OperatorProjector::DD_GPU;
 }
 
 OSEM_GPU::~OSEM_GPU() = default;
@@ -54,9 +52,6 @@ Corrector_GPU& OSEM_GPU::getCorrector_GPU()
 
 void OSEM_GPU::setupOperatorsForSensImgGen()
 {
-	ASSERT_MSG(projectorType == OperatorProjector::ProjectorType::DD_GPU,
-	           "No viable projector provided");
-
 	getBinIterators().clear();
 	getBinIterators().reserve(num_OSEM_subsets);
 
@@ -72,8 +67,20 @@ void OSEM_GPU::setupOperatorsForSensImgGen()
 	    nullptr /* Will be set later at each subset loading */, scanner, 0.f, 0,
 	    flagProjPSF ? projSpacePsf_fname : "", numRays);
 
-	mp_projector = std::make_unique<OperatorProjectorDD_GPU>(
-	    projParams, getMainStream(), getAuxStream());
+	if (projectorType == OperatorProjector::DD)
+	{
+		mp_projector = std::make_unique<OperatorProjectorDD_GPU>(
+		    projParams, getMainStream(), getAuxStream());
+	}
+	else if (projectorType == OperatorProjector::SIDDON)
+	{
+		mp_projector = std::make_unique<OperatorProjectorSiddon_GPU>(
+		    projParams, getMainStream(), getAuxStream());
+	}
+	else
+	{
+		throw std::runtime_error("Unknown error");
+	}
 
 	mp_updater = std::make_unique<OSEMUpdater_GPU>(this);
 }
@@ -120,9 +127,6 @@ void OSEM_GPU::endSensImgGen()
 
 void OSEM_GPU::setupOperatorsForRecon()
 {
-	ASSERT_MSG(projectorType == OperatorProjector::ProjectorType::DD_GPU,
-	           "No viable projector provided");
-
 	getBinIterators().clear();
 	getBinIterators().reserve(num_OSEM_subsets);
 
@@ -138,8 +142,20 @@ void OSEM_GPU::setupOperatorsForRecon()
 	    flagProjTOF ? tofWidth_ps : 0.f, flagProjTOF ? tofNumStd : 0,
 	    flagProjPSF ? projSpacePsf_fname : "", numRays);
 
-	mp_projector = std::make_unique<OperatorProjectorDD_GPU>(
-	    projParams, getMainStream(), getAuxStream());
+	if (projectorType == OperatorProjector::DD)
+	{
+		mp_projector = std::make_unique<OperatorProjectorDD_GPU>(
+		    projParams, getMainStream(), getAuxStream());
+	}
+	else if (projectorType == OperatorProjector::SIDDON)
+	{
+		mp_projector = std::make_unique<OperatorProjectorSiddon_GPU>(
+		    projParams, getMainStream(), getAuxStream());
+	}
+	else
+	{
+		throw std::runtime_error("Unknown error");
+	}
 
 	mp_updater = std::make_unique<OSEMUpdater_GPU>(this);
 }
@@ -292,7 +308,7 @@ ProjectionData* OSEM_GPU::getMLEMDataTmpBuffer()
 	return mpd_datTmp.get();
 }
 
-OperatorProjectorDevice* OSEM_GPU::getProjector()
+OperatorProjectorDevice* OSEM_GPU::getProjector() const
 {
 	auto* deviceProjector =
 	    dynamic_cast<OperatorProjectorDevice*>(mp_projector.get());
@@ -302,6 +318,9 @@ OperatorProjectorDevice* OSEM_GPU::getProjector()
 
 int OSEM_GPU::getNumBatches(int subsetId, bool forRecon) const
 {
+	ASSERT(mpd_dat != nullptr);
+	ASSERT(mpd_tempSensDataInput != nullptr);
+
 	if (forRecon)
 	{
 		return mpd_dat->getNumBatches(subsetId);

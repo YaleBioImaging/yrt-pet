@@ -55,6 +55,7 @@ int main(int argc, char** argv)
 		int tofNumStd = 0;
 		int saveIterStep = 0;
 		std::string saveIterRanges;
+		bool useGPU = false;
 		bool sensOnly = false;
 		bool mustMoveSens = false;
 		bool invertSensitivity = false;
@@ -77,6 +78,9 @@ int main(int argc, char** argv)
 		          "Only generate the sensitivity image(s)."
 		          "Do not launch reconstruction",
 		          cxxopts::value<bool>(sensOnly));
+#if BUILD_CUDA
+		coreGroup("gpu", "Use GPU acceleration", cxxopts::value<bool>(useGPU));
+#endif
 		coreGroup("num_threads", "Number of threads to use",
 		          cxxopts::value<int>(numThreads));
 		coreGroup("o,out", "Output image filename",
@@ -197,11 +201,8 @@ int main(int argc, char** argv)
 		auto projectorGroup = options.add_options("4. Projector");
 		projectorGroup(
 		    "projector",
-		    "Projector to use, choices: Siddon (S), Distance-Driven (D)"
-#if BUILD_CUDA
-		    ", or GPU Distance-Driven (DD_GPU)"
-#endif
-		    ". The default projector is Siddon",
+		    "Projector to use, choices: Siddon (S), Distance-Driven (D)."
+		    " The default projector is Siddon",
 		    cxxopts::value<std::string>(projector_name));
 		projectorGroup("num_rays",
 		               "Number of rays to use (for Siddon projector only)",
@@ -263,11 +264,9 @@ int main(int argc, char** argv)
 			    "pre-existing sensitivity images were provided");
 		}
 
-
 		auto scanner = std::make_unique<Scanner>(scanner_fname);
 		auto projectorType = IO::getProjector(projector_name);
-		std::unique_ptr<OSEM> osem =
-		    Util::createOSEM(*scanner, IO::requiresGPU(projectorType));
+		std::unique_ptr<OSEM> osem = Util::createOSEM(*scanner, useGPU);
 
 		osem->num_MLEM_iterations = numIterations;
 		osem->num_OSEM_subsets = numSubsets;

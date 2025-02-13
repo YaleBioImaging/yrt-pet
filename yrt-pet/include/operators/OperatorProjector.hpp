@@ -25,8 +25,7 @@ public:
 	enum ProjectorType
 	{
 		SIDDON = 0,
-		DD,
-		DD_GPU
+		DD
 	};
 
 	explicit OperatorProjector(const Scanner& pr_scanner,

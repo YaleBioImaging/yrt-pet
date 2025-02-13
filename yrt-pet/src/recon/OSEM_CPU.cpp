@@ -81,6 +81,10 @@ void OSEM_CPU::setupOperatorsForSensImgGen()
 	{
 		mp_projector = std::make_unique<OperatorProjectorDD>(projParams);
 	}
+	else
+	{
+		throw std::runtime_error("Unknown error");
+	}
 
 	mp_updater = std::make_unique<OSEMUpdater_CPU>(this);
 }
@@ -193,6 +197,10 @@ void OSEM_CPU::setupOperatorsForRecon()
 	else if (projectorType == OperatorProjector::DD)
 	{
 		mp_projector = std::make_unique<OperatorProjectorDD>(projParams);
+	}
+	else
+	{
+		throw std::runtime_error("Unknown error");
 	}
 
 	mp_updater = std::make_unique<OSEMUpdater_CPU>(this);

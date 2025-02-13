@@ -21,47 +21,6 @@ void py_setup_operatorprojectordd_gpu(py::module& m)
 	auto c = py::class_<OperatorProjectorDD_GPU, OperatorProjectorDevice>(
 	    m, "OperatorProjectorDD_GPU");
 	c.def(py::init<const OperatorProjectorParams&>(), py::arg("projParams"));
-	c.def(
-	    "applyA",
-	    [](OperatorProjectorDD_GPU& self, const ImageDevice* img,
-	       ProjectionData* proj) { self.applyA(img, proj); },
-	    py::arg("img"), py::arg("proj"));
-	c.def(
-	    "applyA",
-	    [](OperatorProjectorDD_GPU& self, const Image* img,
-	       ProjectionData* proj) { self.applyA(img, proj); },
-	    py::arg("img"), py::arg("proj"));
-	c.def(
-	    "applyA",
-	    [](OperatorProjectorDD_GPU& self, const ImageDevice* img,
-	       ProjectionDataDevice* proj) { self.applyA(img, proj); },
-	    py::arg("img"), py::arg("proj"));
-	c.def(
-	    "applyA",
-	    [](OperatorProjectorDD_GPU& self, const Image* img,
-	       ProjectionDataDevice* proj) { self.applyA(img, proj); },
-	    py::arg("img"), py::arg("proj"));
-
-	c.def(
-	    "applyAH",
-	    [](OperatorProjectorDD_GPU& self, const ProjectionData* proj,
-	       Image* img) { self.applyAH(proj, img); },
-	    py::arg("proj"), py::arg("img"));
-	c.def(
-	    "applyAH",
-	    [](OperatorProjectorDD_GPU& self, const ProjectionData* proj,
-	       ImageDevice* img) { self.applyAH(proj, img); },
-	    py::arg("proj"), py::arg("img"));
-	c.def(
-	    "applyAH",
-	    [](OperatorProjectorDD_GPU& self, const ProjectionDataDevice* proj,
-	       Image* img) { self.applyAH(proj, img); },
-	    py::arg("proj"), py::arg("img"));
-	c.def(
-	    "applyAH",
-	    [](OperatorProjectorDD_GPU& self, const ProjectionDataDevice* proj,
-	       ImageDevice* img) { self.applyAH(proj, img); },
-	    py::arg("proj"), py::arg("img"));
 }
 #endif
 

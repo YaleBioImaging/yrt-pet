@@ -17,6 +17,47 @@ void py_setup_operatorprojectordevice(py::module& m)
 {
 	auto c = py::class_<OperatorProjectorDevice, OperatorProjectorBase>(
 	    m, "OperatorProjectorDevice");
+	c.def(
+	    "applyA",
+	    [](OperatorProjectorDevice& self, const ImageDevice* img,
+	       ProjectionData* proj) { self.applyA(img, proj); },
+	    py::arg("img"), py::arg("proj"));
+	c.def(
+	    "applyA",
+	    [](OperatorProjectorDevice& self, const Image* img,
+	       ProjectionData* proj) { self.applyA(img, proj); },
+	    py::arg("img"), py::arg("proj"));
+	c.def(
+	    "applyA",
+	    [](OperatorProjectorDevice& self, const ImageDevice* img,
+	       ProjectionDataDevice* proj) { self.applyA(img, proj); },
+	    py::arg("img"), py::arg("proj"));
+	c.def(
+	    "applyA",
+	    [](OperatorProjectorDevice& self, const Image* img,
+	       ProjectionDataDevice* proj) { self.applyA(img, proj); },
+	    py::arg("img"), py::arg("proj"));
+
+	c.def(
+	    "applyAH",
+	    [](OperatorProjectorDevice& self, const ProjectionData* proj,
+	       Image* img) { self.applyAH(proj, img); },
+	    py::arg("proj"), py::arg("img"));
+	c.def(
+	    "applyAH",
+	    [](OperatorProjectorDevice& self, const ProjectionData* proj,
+	       ImageDevice* img) { self.applyAH(proj, img); },
+	    py::arg("proj"), py::arg("img"));
+	c.def(
+	    "applyAH",
+	    [](OperatorProjectorDevice& self, const ProjectionDataDevice* proj,
+	       Image* img) { self.applyAH(proj, img); },
+	    py::arg("proj"), py::arg("img"));
+	c.def(
+	    "applyAH",
+	    [](OperatorProjectorDevice& self, const ProjectionDataDevice* proj,
+	       ImageDevice* img) { self.applyAH(proj, img); },
+	    py::arg("proj"), py::arg("img"));
 }
 #endif
 

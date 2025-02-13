@@ -41,24 +41,6 @@ double get_rmse(const Image* img_ref, const Image* img)
 	return rmse;
 }
 
-void dd(const Scanner& scanner, const ListMode* proj,
-        const std::shared_ptr<Image>& out, const bool flag_cuda)
-{
-	OperatorProjector::ProjectorType projectorType;
-	if (flag_cuda)
-	{
-		projectorType = OperatorProjector::DD_GPU;
-	}
-	else
-	{
-		projectorType = OperatorProjector::DD;
-	}
-
-	ASSERT(proj != nullptr);
-
-	Util::backProject(scanner, *out, *proj, projectorType);
-}
-
 TEST_CASE("DD-simple", "[dd]")
 {
 	SECTION("get_overlap")
@@ -119,15 +101,15 @@ TEST_CASE("DD", "[dd]")
 	const auto toOwned = [](const ImageSharedPTR& i)
 	{ return reinterpret_cast<ImageOwned*>(i.get()); };
 
-	ImageSharedPTR img_cpu = std::make_shared<ImageOwned>(imgParams);
+	const ImageSharedPTR img_cpu = std::make_shared<ImageOwned>(imgParams);
 	toOwned(img_cpu)->allocate();
 	img_cpu->setValue(0.0);
-	dd(*scanner, data.get(), img_cpu, false);
+	Util::backProject(*scanner, *img_cpu, *data, OperatorProjector::DD, false);
 
-	ImageSharedPTR img_gpu = std::make_shared<ImageOwned>(imgParams);
+	const ImageSharedPTR img_gpu = std::make_shared<ImageOwned>(imgParams);
 	toOwned(img_gpu)->allocate();
 	img_gpu->setValue(0.0);
-	dd(*scanner, data.get(), img_gpu, true);
+	Util::backProject(*scanner, *img_gpu, *data, OperatorProjector::DD, true);
 
 	const double rmseCpuGpu = get_rmse(img_gpu.get(), img_cpu.get());
 

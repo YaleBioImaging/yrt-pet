@@ -27,6 +27,5 @@ namespace IO
 	// Projector-related
 	OperatorProjector::ProjectorType
 	    getProjector(const std::string& projectorName);
-	bool requiresGPU(OperatorProjector::ProjectorType projector);
 
 }  // namespace IO

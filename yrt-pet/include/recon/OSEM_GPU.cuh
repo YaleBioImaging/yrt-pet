@@ -26,7 +26,7 @@ public:
 	Corrector& getCorrector() override;
 	const Corrector_GPU& getCorrector_GPU() const;
 	Corrector_GPU& getCorrector_GPU();
-	OperatorProjectorDevice* getProjector();
+	OperatorProjectorDevice* getProjector() const;
 	const cudaStream_t* getAuxStream() const;
 	const cudaStream_t* getMainStream() const;
 

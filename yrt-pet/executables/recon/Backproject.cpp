@@ -31,6 +31,7 @@ int main(int argc, char** argv)
 		int numSubsets = 1;
 		int subsetId = 0;
 		int numRays = 1;
+		bool useGPU = false;
 		float tofWidth_ps = 0.0;
 		int tofNumStd = 0;
 
@@ -48,13 +49,11 @@ int main(int argc, char** argv)
 		("f,format", "Input data format", cxxopts::value<std::string>(input_format))
 		("o,out", "Output image filename", cxxopts::value<std::string>(outputImage_fname))
 		("p,params", "Output image parameters filename", cxxopts::value<std::string>(outputImageParams_fname))
+		("gpu", "Use GPU acceleration", cxxopts::value<bool>(useGPU))
 		("psf", "Image-space PSF kernel file", cxxopts::value<std::string>(imageSpacePsf_fname))
 		("proj_psf", "Projection-space PSF kernel file", cxxopts::value<std::string>(projSpacePsf_fname))
 		("projector", "Projector to use, choices: Siddon (S), Distance-Driven (D)"
-		#if BUILD_CUDA
-		", or GPU Distance-Driven (DD_GPU)"
-		#endif
-		". The default projector is Siddon", cxxopts::value<std::string>(projector_name))
+			". The default projector is Siddon", cxxopts::value<std::string>(projector_name))
 		("tof_width_ps", "TOF Width in Picoseconds", cxxopts::value<float>(tofWidth_ps))
 		("tof_n_std", "Number of standard deviations to consider for TOF's Gaussian curve", cxxopts::value<int>(tofNumStd))
 		("num_rays", "Number of rays to use in the Siddon projector", cxxopts::value<int>(numRays))
@@ -117,7 +116,8 @@ int main(int argc, char** argv)
 
 		auto projectorType = IO::getProjector(projector_name);
 
-		Util::backProject(*outputImage, *dataInput, projParams, projectorType);
+		Util::backProject(*outputImage, *dataInput, projParams, projectorType,
+		                  useGPU);
 
 		// Image-space PSF
 		if (!imageSpacePsf_fname.empty())

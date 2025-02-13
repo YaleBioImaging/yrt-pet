@@ -257,7 +257,7 @@ void OperatorProjectorSiddon::project_helper(
 {
 	if (IS_FWD)
 	{
-		value = 0.0;
+		value = 0.0f;
 	}
 
 	ImageParams params = img->getParams();
@@ -269,44 +269,44 @@ void OperatorProjectorSiddon::project_helper(
 	float t1;
 	// Intersection with (centered) FOV cylinder
 	float A = (p2.x - p1.x) * (p2.x - p1.x) + (p2.y - p1.y) * (p2.y - p1.y);
-	float B = 2.0 * ((p2.x - p1.x) * p1.x + (p2.y - p1.y) * p1.y);
+	float B = 2.0f * ((p2.x - p1.x) * p1.x + (p2.y - p1.y) * p1.y);
 	float C = p1.x * p1.x + p1.y * p1.y - params.fovRadius * params.fovRadius;
-	float Delta = B * B - 4 * A * C;
-	if (A != 0.0)
+	float Delta = B * B - 4.0f * A * C;
+	if (A != 0.0f)
 	{
-		if (Delta <= 0.0)
+		if (Delta <= 0.0f)
 		{
-			t0 = 1.0;
-			t1 = 0.0;
+			t0 = 1.0f;
+			t1 = 0.0f;
 			return;
 		}
-		t0 = (-B - sqrt(Delta)) / (2 * A);
-		t1 = (-B + sqrt(Delta)) / (2 * A);
+		t0 = (-B - sqrt(Delta)) / (2.0f * A);
+		t1 = (-B + sqrt(Delta)) / (2.0f * A);
 	}
 	else
 	{
-		t0 = 0.0;
-		t1 = 1.0;
+		t0 = 0.0f;
+		t1 = 1.0f;
 	}
 
 	float d_norm = (p1 - p2).getNorm();
 	bool flat_x = (p1.x == p2.x);
 	bool flat_y = (p1.y == p2.y);
 	bool flat_z = (p1.z == p2.z);
-	float inv_p12_x = flat_x ? 0.0 : 1 / (p2.x - p1.x);
-	float inv_p12_y = flat_y ? 0.0 : 1 / (p2.y - p1.y);
-	float inv_p12_z = flat_z ? 0.0 : 1 / (p2.z - p1.z);
-	int dir_x = (inv_p12_x >= 0.0) ? 1 : -1;
-	int dir_y = (inv_p12_y >= 0.0) ? 1 : -1;
-	int dir_z = (inv_p12_z >= 0.0) ? 1 : -1;
+	float inv_p12_x = flat_x ? 0.0f : 1.0f / (p2.x - p1.x);
+	float inv_p12_y = flat_y ? 0.0f : 1.0f / (p2.y - p1.y);
+	float inv_p12_z = flat_z ? 0.0f : 1.0f / (p2.z - p1.z);
+	int dir_x = (inv_p12_x >= 0.0f) ? 1 : -1;
+	int dir_y = (inv_p12_y >= 0.0f) ? 1 : -1;
+	int dir_z = (inv_p12_z >= 0.0f) ? 1 : -1;
 
 	// 2. Intersection with volume
 	float dx = params.vx;
 	float dy = params.vy;
 	float dz = params.vz;
-	float inv_dx = 1.0 / dx;
-	float inv_dy = 1.0 / dy;
-	float inv_dz = 1.0 / dz;
+	float inv_dx = 1.0f / dx;
+	float inv_dy = 1.0f / dy;
+	float inv_dz = 1.0f / dz;
 
 	float x0 = -params.length_x * 0.5f;
 	float x1 = params.length_x * 0.5f;
@@ -428,8 +428,8 @@ void OperatorProjectorSiddon::project_helper(
 			continue;
 		}
 		// Determine pixel location
-		float tof_weight = 1.f;
-		float a_mid = 0.5 * (a_cur + a_next);
+		float tof_weight = 1.0f;
+		float a_mid = 0.5f * (a_cur + a_next);
 		if (FLAG_TOF)
 		{
 			tof_weight = tofHelper->getWeight(d_norm, tofValue, a_cur * d_norm,
@@ -437,11 +437,11 @@ void OperatorProjectorSiddon::project_helper(
 		}
 		if (!FLAG_INCR || flag_first)
 		{
-			vx = (int)((p1.x + a_mid * (p2.x - p1.x) + params.length_x / 2) *
+			vx = (int)((p1.x + a_mid * (p2.x - p1.x) + params.length_x / 2.0f) *
 			           inv_dx);
-			vy = (int)((p1.y + a_mid * (p2.y - p1.y) + params.length_y / 2) *
+			vy = (int)((p1.y + a_mid * (p2.y - p1.y) + params.length_y / 2.0f) *
 			           inv_dy);
-			vz = (int)((p1.z + a_mid * (p2.z - p1.z) + params.length_z / 2) *
+			vz = (int)((p1.z + a_mid * (p2.z - p1.z) + params.length_z / 2.0f) *
 			           inv_dz);
 			cur_img_ptr = raw_img_ptr + vz * num_xy + vy * num_x;
 			flag_first = false;

@@ -11,7 +11,6 @@
 #include "geometry/Matrix.hpp"
 #include "operators/OperatorProjectorDD.hpp"
 #include "operators/OperatorProjectorSiddon.hpp"
-#include "operators/OperatorProjectorSiddon_GPU.cuh"
 #include "recon/OSEM_CPU.hpp"
 #include "utils/Assert.hpp"
 #include "utils/Globals.hpp"
@@ -21,6 +20,7 @@
 
 #if BUILD_CUDA
 #include "operators/OperatorProjectorDD_GPU.cuh"
+#include "operators/OperatorProjectorSiddon_GPU.cuh"
 #include "recon/OSEM_GPU.cuh"
 #endif
 

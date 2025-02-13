@@ -5,9 +5,8 @@
 
 #include "geometry/ProjectorUtils.hpp"
 #include "operators/OperatorProjectorSiddon_GPUKernels.cuh"
-#include "operators/ProjectionPsfManagerDevice.cuh"
-#include "operators/ProjectionPsfUtils.cuh"
 
+#include <cfloat>
 #include <cuda_runtime.h>
 
 
@@ -109,14 +108,14 @@ __global__ void OperatorProjectorSiddonCU_kernel(
 		                inv_p12_y, ay_min, ay_max);
 		Util::get_alpha(-0.5f * imgLength_z, 0.5f * imgLength_z, p1.z, p2.z,
 		                inv_p12_z, az_min, az_max);
-		float amin = std::max({0.0f, t0, ax_min, ay_min, az_min});
-		float amax = std::min({1.0f, t1, ax_max, ay_max, az_max});
+		float amin = max(0.0f, t0, ax_min, ay_min, az_min);
+		float amax = min(1.0f, t1, ax_max, ay_max, az_max);
 		if (HasTOF)
 		{
 			float amin_tof, amax_tof;
 			pd_tofHelper->getAlphaRange(amin_tof, amax_tof, d_norm, tofValue);
-			amin = std::max(amin, amin_tof);
-			amax = std::min(amax, amax_tof);
+			amin = max(amin, amin_tof);
+			amax = min(amax, amax_tof);
 		}
 
 		float a_cur = amin;
@@ -133,7 +132,7 @@ __global__ void OperatorProjectorSiddonCU_kernel(
 			return;
 		}
 		// Move starting point inside FOV
-		float ax_next = flat_x ? std::numeric_limits<float>::max() : ax_min;
+		float ax_next = flat_x ? FLT_MAX : ax_min;
 		if (!flat_x)
 		{
 			int kx =
@@ -141,7 +140,7 @@ __global__ void OperatorProjectorSiddonCU_kernel(
 			x_cur += kx * dir_x * dx;
 			ax_next = (x_cur - p1.x) * inv_p12_x;
 		}
-		float ay_next = flat_y ? std::numeric_limits<float>::max() : ay_min;
+		float ay_next = flat_y ? FLT_MAX : ay_min;
 		if (!flat_y)
 		{
 			int ky =
@@ -149,7 +148,7 @@ __global__ void OperatorProjectorSiddonCU_kernel(
 			y_cur += ky * dir_y * dy;
 			ay_next = (y_cur - p1.y) * inv_p12_y;
 		}
-		float az_next = flat_z ? std::numeric_limits<float>::max() : az_min;
+		float az_next = flat_z ? FLT_MAX : az_min;
 		if (!flat_z)
 		{
 			int kz =

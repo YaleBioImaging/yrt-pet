@@ -96,7 +96,7 @@ TEST_CASE("DD", "[dd]")
 
 	double rmseCpuGpu = TestUtils::getRMSE(*img_gpu, *img_cpu);
 
-	CHECK(rmseCpuGpu < 0.0005);
+	CHECK(rmseCpuGpu < 0.000003);
 
 	const Image& imgToFwdProj = *img_cpu;
 

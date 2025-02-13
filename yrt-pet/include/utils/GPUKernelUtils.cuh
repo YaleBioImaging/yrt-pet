@@ -6,30 +6,20 @@
 #pragma once
 
 #include <cuda_runtime.h>
-
-__device__ inline float3 operator+(const float3& a, const float3& b)
-{
-	return make_float3(a.x + b.x, a.y + b.y, a.z + b.z);
-}
-
-__device__ inline float3 operator-(const float3& a, const float3& b)
-{
-	return make_float3(a.x - b.x, a.y - b.y, a.z - b.z);
-}
-
-__device__ inline float3 operator*(const float3& a, const float f)
-{
-	return make_float3(a.x * f, a.y * f, a.z * f);
-}
-
-__device__ inline float4 operator*(const float4& a, const float f)
-{
-	return make_float4(a.x * f, a.y * f, a.z * f, a.w * f);
-}
+#include <cooperative_groups.h>
 
 __device__ inline float4 operator+(const float4& a, const float4& b)
 {
 	return make_float4(a.x + b.x, a.y + b.y, a.z + b.z, a.w + b.w);
+}
+
+__device__ inline float4& operator+=(float4& a, const float4& b)
+{
+	a.x += b.x;
+	a.y += b.y;
+	a.z += b.z;
+	a.w += b.w;
+	return a;
 }
 
 __device__ inline float4 operator-(const float4& a, const float4& b)
@@ -37,9 +27,93 @@ __device__ inline float4 operator-(const float4& a, const float4& b)
 	return make_float4(a.x - b.x, a.y - b.y, a.z - b.z, a.w - b.w);
 }
 
+__device__ inline float4& operator-=(float4& a, const float4& b)
+{
+	a.x -= b.x;
+	a.y -= b.y;
+	a.z -= b.z;
+	a.w -= b.w;
+	return a;
+}
+
+__device__ inline float4 operator*(const float4& a, const float f)
+{
+	return make_float4(a.x * f, a.y * f, a.z * f, a.w * f);
+}
+
+__device__ inline float4& operator*=(float4& a, const float4& b)
+{
+	a.x *= b.x;
+	a.y *= b.y;
+	a.z *= b.z;
+	a.w *= b.w;
+	return a;
+}
+
+__device__ inline float4 operator/(const float4& a, const float f)
+{
+	return make_float4(a.x / f, a.y / f, a.z / f, a.w / f);
+}
+
+__device__ inline float4& operator/=(float4& a, const float4& b)
+{
+	a.x /= b.x;
+	a.y /= b.y;
+	a.z /= b.z;
+	a.w /= b.w;
+	return a;
+}
+
+__device__ inline float3 operator+(const float3& a, const float3& b)
+{
+	return make_float3(a.x + b.x, a.y + b.y, a.z + b.z);
+}
+
+__device__ inline float3& operator+=(float3& a, const float3& b)
+{
+	a.x += b.x;
+	a.y += b.y;
+	a.z += b.z;
+	return a;
+}
+
+__device__ inline float3 operator-(const float3& a, const float3& b)
+{
+	return make_float3(a.x - b.x, a.y - b.y, a.z - b.z);
+}
+
+__device__ inline float3& operator-=(float3& a, const float3& b)
+{
+	a.x -= b.x;
+	a.y -= b.y;
+	a.z -= b.z;
+	return a;
+}
+
+__device__ inline float3 operator*(const float3& a, const float f)
+{
+	return make_float3(a.x * f, a.y * f, a.z * f);
+}
+
+__device__ inline float3& operator*=(float3& a, const float3& b)
+{
+	a.x *= b.x;
+	a.y *= b.y;
+	a.z *= b.z;
+	return a;
+}
+
 __device__ inline float3 operator/(const float3& a, const float f)
 {
 	return make_float3(a.x / f, a.y / f, a.z / f);
+}
+
+__device__ inline float3& operator/=(float3& a, const float3& b)
+{
+	a.x /= b.x;
+	a.y /= b.y;
+	a.z /= b.z;
+	return a;
 }
 
 // Base case: single argument

@@ -27,11 +27,10 @@ void py_setup_projectiondatadevice(py::module& m)
 	    m, "ProjectionDataDevice");
 	c.def(
 	    "loadEventLORs",
-	    [](ProjectionDataDevice& self, size_t subsetId, size_t batchId,
-	       const ImageParams& imgParams)
-	    { self.loadEventLORs(subsetId, batchId, imgParams); },
+	    [](ProjectionDataDevice& self, size_t subsetId, size_t batchId)
+	    { self.loadEventLORs(subsetId, batchId); },
 	    "Load the LORs of a specific batch in a specific subset", "subsetId"_a,
-	    "batchId"_a, "imgParams"_a);
+	    "batchId"_a);
 	c.def("transferProjValuesToHost",
 	      [](ProjectionDataDevice& self, ProjectionData* dest)
 	      { self.transferProjValuesToHost(dest); });
@@ -202,12 +201,11 @@ void ProjectionDataDevice::createBatchSetups(float shareOfMemoryToUse)
 }
 
 void ProjectionDataDevice::loadEventLORs(size_t subsetId, size_t batchId,
-                                         const ImageParams& imgParams,
                                          const cudaStream_t* stream)
 {
 	mp_LORs->loadEventLORs(*mp_binIteratorList.at(subsetId),
 	                       m_batchSetups.at(subsetId), subsetId, batchId,
-	                       *mp_reference, imgParams, stream);
+	                       *mp_reference, stream);
 }
 
 void ProjectionDataDevice::loadProjValuesFromReference(

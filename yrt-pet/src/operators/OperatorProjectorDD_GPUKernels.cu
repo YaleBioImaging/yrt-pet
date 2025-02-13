@@ -80,8 +80,16 @@ __global__ void OperatorProjectorDDCU_kernel(
 			tofValue = pd_lorTOFValue[eventId];
 		}
 
-		const float4 d1 = pd_lorDet1Pos[eventId];
-		const float4 d2 = pd_lorDet2Pos[eventId];
+		float4 d1 = pd_lorDet1Pos[eventId];
+		float4 d2 = pd_lorDet2Pos[eventId];
+
+		float4 imageOffset =
+		    make_float4(imgParams.offset[0], imgParams.offset[1],
+		                imgParams.offset[2], 0.0f);
+
+		d1 -= imageOffset;
+		d2 -= imageOffset;
+
 		const float4 n1 = pd_lorDet1Orient[eventId];
 		const float4 n2 = pd_lorDet2Orient[eventId];
 		const float4 d1_minus_d2 = d1 - d2;

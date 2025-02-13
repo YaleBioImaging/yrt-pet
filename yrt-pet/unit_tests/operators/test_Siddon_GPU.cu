@@ -81,5 +81,5 @@ TEST_CASE("siddon_gpu_vs_cpu", "[siddon-gpu]")
 
 	rmseCpuGpu = TestUtils::getRMSE(*projList_cpu, *projList_gpu);
 
-	CHECK(rmseCpuGpu < 0.0002);
+	CHECK(rmseCpuGpu < 0.0001);
 }

@@ -57,7 +57,6 @@ public:
 	// Load the events' detector ids from a specific subset&batch id and prepare
 	// the projection values buffer
 	void loadEventLORs(size_t subsetId, size_t batchId,
-	                   const ImageParams& imgParams,
 	                   const cudaStream_t* stream = nullptr);
 	void loadProjValuesFromReference(const cudaStream_t* stream = nullptr);
 	void loadProjValuesFromHost(const ProjectionData* src,

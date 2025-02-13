@@ -34,8 +34,16 @@ __global__ void OperatorProjectorSiddonCU_kernel(
 			value = pd_projValues[eventId];
 		}
 
-		const float4 p1 = pd_lorDet1Pos[eventId];
-		const float4 p2 = pd_lorDet2Pos[eventId];
+		float4 p1 = pd_lorDet1Pos[eventId];
+		float4 p2 = pd_lorDet2Pos[eventId];
+
+		float4 imageOffset =
+		    make_float4(imgParams.offset[0], imgParams.offset[1],
+		                imgParams.offset[2], 0.0f);
+
+		p1 -= imageOffset;
+		p2 -= imageOffset;
+
 		const float4 p1_minus_p2 = p1 - p2;
 		float tofValue = 0.0f;
 		if constexpr (HasTOF)

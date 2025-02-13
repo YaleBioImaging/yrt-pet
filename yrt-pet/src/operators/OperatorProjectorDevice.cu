@@ -139,12 +139,12 @@ void OperatorProjectorDevice::applyA(const Variable* in, Variable* out)
 	{
 		// Iterate over all the batches of the current subset
 		const size_t numBatches = dat_out->getBatchSetup(0).getNumBatches();
-		const ImageParams& imgParams = img_in->getParams();
+
 		for (size_t batchId = 0; batchId < numBatches; batchId++)
 		{
 			std::cout << "Loading batch " << batchId + 1 << "/" << numBatches
 			          << "..." << std::endl;
-			dat_out->loadEventLORs(0, batchId, imgParams, getAuxStream());
+			dat_out->loadEventLORs(0, batchId, getAuxStream());
 			deviceDat_out->allocateForProjValues(getAuxStream());
 			dat_out->clearProjectionsDevice(getMainStream());
 			std::cout << "Forward projecting batch..." << std::endl;
@@ -225,7 +225,7 @@ void OperatorProjectorDevice::applyAH(const Variable* in, Variable* out)
 		{
 			std::cout << "Loading batch " << batchId + 1 << "/" << numBatches
 			          << "..." << std::endl;
-			dat_in->loadEventLORs(0, batchId, imgParams, getAuxStream());
+			dat_in->loadEventLORs(0, batchId, getAuxStream());
 			deviceDat_in->allocateForProjValues(getAuxStream());
 			deviceDat_in->loadProjValuesFromReference(getAuxStream());
 			std::cout << "Backprojecting batch..." << std::endl;

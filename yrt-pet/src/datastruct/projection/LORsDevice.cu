@@ -36,7 +36,6 @@ LORsDevice::LORsDevice(const Scanner& pr_scanner)
 void LORsDevice::loadEventLORs(const BinIterator& binIter,
                                const GPUBatchSetup& batchSetup, size_t subsetId,
                                size_t batchId, const ProjectionData& reference,
-                               const ImageParams& imgParams,
                                const cudaStream_t* stream)
 {
 	m_areLORsGathered = false;
@@ -62,26 +61,20 @@ void LORsDevice::loadEventLORs(const BinIterator& binIter,
 
 	const size_t offset = batchId * batchSetup.getBatchSize(0);
 	auto* binIter_ptr = &binIter;
-	const Vector3D offsetVec{imgParams.off_x, imgParams.off_y, imgParams.off_z};
 	const ProjectionData* reference_ptr = &reference;
 
 	bin_t binId;
 	size_t binIdx;
-#pragma omp parallel for default(none) private(binIdx, binId)                  \
-    firstprivate(offset, batchSize, binIter_ptr, offsetVec,                    \
-                     tempBufferLorDet1Pos_ptr, tempBufferLorDet2Pos_ptr,       \
-                     tempBufferLorDet1Orient_ptr, tempBufferLorDet2Orient_ptr, \
-                     tempBufferLorTOFValue_ptr, reference_ptr, hasTOF)
+#pragma omp parallel for default(none) private(binIdx, binId)                \
+    firstprivate(offset, batchSize, binIter_ptr, tempBufferLorDet1Pos_ptr,   \
+                     tempBufferLorDet2Pos_ptr, tempBufferLorDet1Orient_ptr,  \
+                     tempBufferLorDet2Orient_ptr, tempBufferLorTOFValue_ptr, \
+                     reference_ptr, hasTOF)
 	for (binIdx = 0; binIdx < batchSize; binIdx++)
 	{
 		binId = binIter_ptr->get(binIdx + offset);
 		auto [lor, tofValue, det1Orient, det2Orient] =
 		    reference_ptr->getProjectionProperties(binId);
-
-		// TODO NOW: Remove this from here and do the subtraction in the kernel
-		//  instead
-		lor.point1 = lor.point1 - offsetVec;
-		lor.point2 = lor.point2 - offsetVec;
 
 		tempBufferLorDet1Pos_ptr[binIdx].x = lor.point1.x;
 		tempBufferLorDet1Pos_ptr[binIdx].y = lor.point1.y;

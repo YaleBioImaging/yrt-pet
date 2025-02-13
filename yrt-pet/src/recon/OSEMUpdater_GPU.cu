@@ -37,7 +37,7 @@ void OSEMUpdater_GPU::computeSensitivityImage(ImageDevice& destImage) const
 		std::cout << "Batch " << batch + 1 << "/" << numBatchesInCurrentSubset
 		          << "..." << std::endl;
 		// Load LORs into device buffers
-		sensDataBuffer->loadEventLORs(currentSubset, batch, imageParams,
+		sensDataBuffer->loadEventLORs(currentSubset, batch,
 		                              auxStream);
 		// Allocate for the projection values
 		const bool hasReallocated =
@@ -124,7 +124,7 @@ void OSEMUpdater_GPU::computeEMUpdateImage(const ImageDevice& inputImage,
 	{
 		std::cout << "Batch " << batch + 1 << "/" << numBatchesInCurrentSubset
 		          << "..." << std::endl;
-		measurementsDevice->loadEventLORs(currentSubset, batch, imageParams,
+		measurementsDevice->loadEventLORs(currentSubset, batch,
 		                                  auxStream);
 
 		measurementsDevice->allocateForProjValues(auxStream);

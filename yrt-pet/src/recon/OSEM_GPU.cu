@@ -360,7 +360,7 @@ void OSEM_GPU::loadBatch(int batchId, bool forRecon)
 	          << std::endl;
 	if (forRecon)
 	{
-		mpd_dat->loadEventLORs(m_current_OSEM_subset, batchId, imageParams,
+		mpd_dat->loadEventLORs(m_current_OSEM_subset, batchId,
 		                       getAuxStream());
 		mpd_dat->allocateForProjValues(getAuxStream());
 		mpd_dat->loadProjValuesFromReference(getAuxStream());
@@ -370,7 +370,7 @@ void OSEM_GPU::loadBatch(int batchId, bool forRecon)
 	else
 	{
 		mpd_tempSensDataInput->loadEventLORs(m_current_OSEM_subset, batchId,
-		                                     imageParams, getAuxStream());
+		                                     getAuxStream());
 		mpd_tempSensDataInput->allocateForProjValues(getAuxStream());
 		mpd_tempSensDataInput->loadProjValuesFromReference(getAuxStream());
 	}

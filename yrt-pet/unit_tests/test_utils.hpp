@@ -5,10 +5,15 @@
 
 #pragma once
 
-#include "datastruct/scanner/DetRegular.hpp"
 #include "datastruct/scanner/Scanner.hpp"
+
+class Image;
+class ProjectionList;
 
 namespace TestUtils
 {
 	std::unique_ptr<Scanner> makeScanner();
-}
+	double getRMSE(const Image& imgRef, const Image& img);
+	double getRMSE(const ProjectionList& projListRef,
+	               const ProjectionList& projList);
+}  // namespace TestUtils

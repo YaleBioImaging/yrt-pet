@@ -16,7 +16,7 @@ outImage = yrt.ImageOwned(imgParams)
 outImage.allocate()
 
 # Available projectors: SIDDON, DD, DD_GPU
-projectorType = yrt.OperatorProjector.ProjectorType.DD_GPU
+projectorType = yrt.OperatorProjector.ProjectorType.DD
 
 yrt.backProject(scanner, outImage, dataset, projectorType)
 

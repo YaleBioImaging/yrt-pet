@@ -63,7 +63,7 @@ TEST_CASE("siddon_gpu_vs_cpu", "[siddon-gpu]")
 
 	REQUIRE(img_gpu->voxelSum() > 0.0f);
 
-	CHECK(rmseCpuGpu < 0.005);
+	CHECK(rmseCpuGpu < 0.000005);
 
 	const Image& imgToFwdProj = *img_cpu;
 

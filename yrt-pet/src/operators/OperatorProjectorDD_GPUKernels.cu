@@ -84,8 +84,8 @@ __global__ void OperatorProjectorDDCU_kernel(
 		const float4 d2 = pd_lorDet2Pos[eventId];
 		const float4 n1 = pd_lorDet1Orient[eventId];
 		const float4 n2 = pd_lorDet2Orient[eventId];
-		float4 d1_minus_d2 = d1 - d2;
-		float4 d2_minus_d1 = d1_minus_d2 * (-1.0f);
+		const float4 d1_minus_d2 = d1 - d2;
+		const float4 d2_minus_d1 = d1_minus_d2 * (-1.0f);
 
 		// ----------------------- Compute TOR
 		const float thickness_z = scannerParams.crystalSize_z;

@@ -374,7 +374,6 @@ void OSEM_GPU::loadBatch(int batchId, bool forRecon)
 		mpd_tempSensDataInput->allocateForProjValues(getAuxStream());
 		mpd_tempSensDataInput->loadProjValuesFromReference(getAuxStream());
 	}
-	std::cout << "Batch " << batchId + 1 << " loaded." << std::endl;
 }
 
 void OSEM_GPU::loadSubset(int subsetId, bool forRecon)

@@ -294,8 +294,7 @@ __global__ void OperatorProjectorSiddonCU_kernel(
 			{
 				float output = value * weight;
 				float* ptr = &cur_img_ptr[vx];
-#pragma omp atomic
-				*ptr += output;
+				atomicAdd(ptr, output);
 			}
 			a_cur = a_next;
 			ax_next_prev = ax_next;
@@ -303,7 +302,10 @@ __global__ void OperatorProjectorSiddonCU_kernel(
 			az_next_prev = az_next;
 		}
 
-		pd_projValues[eventId] = value;
+		if constexpr (IsForward)
+		{
+			pd_projValues[eventId] = value;
+		}
 	}
 }
 

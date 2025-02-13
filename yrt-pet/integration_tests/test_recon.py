@@ -65,11 +65,15 @@ def test_savant_sim_ultra_micro_hotspot_nomotion_mlem():
                                atol=0, rtol=5e-2)
 
 
-def _test_savant_sim_ultra_micro_hotspot_motion_mlem_dd_gpu_exec(keyword: str):
+def _test_savant_sim_ultra_micro_hotspot_motion_mlem_gpu_exec(keyword: str, proj_keyword: str):
     if not yrt.compiledWithCuda():
         pytest.skip("Code not compiled with cuda. Skipping...")
+
+    proj_name_upper = proj_keyword.upper()
+
     fold_savant_sim = os.path.join(fold_data, "savant_sim")
-    out_path = os.path.join(fold_out, "test_savant_sim_ultra_micro_hotspot_" + keyword + "_mlem_dd_gpu_exec.nii.gz")
+    out_path = os.path.join(fold_out, "test_savant_sim_ultra_micro_hotspot_" +\
+                            keyword + "_mlem_" + proj_keyword + "_gpu_exec.nii.gz")
 
     exec_str = os.path.join(fold_bin, "yrtpet_reconstruct")
     exec_str += " -s " + os.path.join(fold_savant_sim, "SAVANT_sim.json")
@@ -82,7 +86,7 @@ def _test_savant_sim_ultra_micro_hotspot_motion_mlem_dd_gpu_exec(keyword: str):
                                                 "ultra_micro_hotspot",
                                                 keyword + ".mot")
     exec_str += " -o " + out_path
-    exec_str += " --projector DD_GPU"
+    exec_str += " --projector " + proj_name_upper + " --gpu"
 
     ret = os.system(exec_str)
     assert ret == 0
@@ -93,7 +97,8 @@ def _test_savant_sim_ultra_micro_hotspot_motion_mlem_dd_gpu_exec(keyword: str):
     ref_image = yrt.ImageOwned(
         os.path.join(fold_savant_sim,
                      "ref",
-                     "ultra_micro_hotspot_" + keyword + "_mlem_dd.nii.gz"))
+                     "ultra_micro_hotspot_" + keyword + "_mlem_"\
+                     + proj_keyword + ".nii.gz"))
     ref_image_np = np.array(ref_image, copy=False)
 
     np.testing.assert_allclose(out_image_np, ref_image_np,
@@ -101,15 +106,27 @@ def _test_savant_sim_ultra_micro_hotspot_motion_mlem_dd_gpu_exec(keyword: str):
 
 
 def test_savant_sim_ultra_micro_hotspot_piston_mlem_dd_gpu_exec():
-    _test_savant_sim_ultra_micro_hotspot_motion_mlem_dd_gpu_exec("piston")
+    _test_savant_sim_ultra_micro_hotspot_motion_mlem_gpu_exec("piston", "dd")
 
 
 def test_savant_sim_ultra_micro_hotspot_yesman_mlem_dd_gpu_exec():
-    _test_savant_sim_ultra_micro_hotspot_motion_mlem_dd_gpu_exec("yesman")
+    _test_savant_sim_ultra_micro_hotspot_motion_mlem_gpu_exec("yesman", "dd")
 
 
 def test_savant_sim_ultra_micro_hotspot_wobble_mlem_dd_gpu_exec():
-    _test_savant_sim_ultra_micro_hotspot_motion_mlem_dd_gpu_exec("wobble")
+    _test_savant_sim_ultra_micro_hotspot_motion_mlem_gpu_exec("wobble", "dd")
+
+
+def test_savant_sim_ultra_micro_hotspot_piston_mlem_siddon_gpu_exec():
+    _test_savant_sim_ultra_micro_hotspot_motion_mlem_gpu_exec("piston", "siddon")
+
+
+def test_savant_sim_ultra_micro_hotspot_yesman_mlem_siddon_gpu_exec():
+    _test_savant_sim_ultra_micro_hotspot_motion_mlem_gpu_exec("yesman", "siddon")
+
+
+def test_savant_sim_ultra_micro_hotspot_wobble_mlem_siddon_gpu_exec():
+    _test_savant_sim_ultra_micro_hotspot_motion_mlem_gpu_exec("wobble", "siddon")
 
 
 def test_savant_sim_sens_image_siddon():
@@ -482,7 +499,7 @@ def test_large_flat_panel_xcat_osem_tof_dd_gpu_exec():
                                              "large_flat_panel.json")
     exec_str += ' --params ' + os.path.join(fold_xcat, "img_params_3mm.json")
     exec_str += ' --input ' + os.path.join(fold_xcat, "sim_4min_49ps.lmDoiDat")
-    exec_str += ' --format LM-DOI --projector DD_GPU'
+    exec_str += ' --format LM-DOI --projector DD --gpu'
     exec_str += ' --sens ' + os.path.join(fold_xcat, "sens_image_dd.nii")
     exec_str += ' --flag_tof --tof_width_ps 70 --tof_n_std 5'
     exec_str += ' --num_iterations 5 --num_subsets 12'

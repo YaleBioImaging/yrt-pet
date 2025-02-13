@@ -100,8 +100,8 @@ TEST_CASE("DD", "[dd]")
 	const float ox = 0.0f;
 	const float oy = 0.0f;
 	const float oz = 0.0f;
-	ImageParams img_params{nx, ny, nz, sx, sy, sz, ox, oy, oz};
-	auto img = std::make_unique<ImageOwned>(img_params);
+	ImageParams imgParams{nx, ny, nz, sx, sy, sz, ox, oy, oz};
+	auto img = std::make_unique<ImageOwned>(imgParams);
 	img->allocate();
 
 	auto data = std::make_unique<ListModeLUTOwned>(*scanner);
@@ -119,12 +119,12 @@ TEST_CASE("DD", "[dd]")
 	const auto toOwned = [](const ImageSharedPTR& i)
 	{ return reinterpret_cast<ImageOwned*>(i.get()); };
 
-	ImageSharedPTR img_cpu = std::make_shared<ImageOwned>(img_params);
+	ImageSharedPTR img_cpu = std::make_shared<ImageOwned>(imgParams);
 	toOwned(img_cpu)->allocate();
 	img_cpu->setValue(0.0);
 	dd(*scanner, data.get(), img_cpu, false);
 
-	ImageSharedPTR img_gpu = std::make_shared<ImageOwned>(img_params);
+	ImageSharedPTR img_gpu = std::make_shared<ImageOwned>(imgParams);
 	toOwned(img_gpu)->allocate();
 	img_gpu->setValue(0.0);
 	dd(*scanner, data.get(), img_gpu, true);

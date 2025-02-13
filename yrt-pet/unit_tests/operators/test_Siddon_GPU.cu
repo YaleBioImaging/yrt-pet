@@ -7,10 +7,7 @@
 
 #include "../test_utils.hpp"
 #include "datastruct/image/Image.hpp"
-#include "datastruct/projection/ListMode.hpp"
 #include "datastruct/projection/ListModeLUT.hpp"
-#include "operators/OperatorProjectorSiddon.hpp"
-#include "utils/Assert.hpp"
 #include "utils/ReconstructionUtils.hpp"
 
 TEST_CASE("siddon_gpu_vs_cpu", "[siddon-gpu]")

@@ -31,11 +31,13 @@ private:
 	void applyOnLoadedBatch(ProjectionDataDevice& dat, ImageDevice& img);
 
 	template <bool IsForward, bool HasTOF>
-	static void launchKernel(
+	void launchKernel(
 	    float* pd_projValues, float* pd_image, const float4* pd_lorDet1Pos,
 	    const float4* pd_lorDet2Pos, const float4* pd_lorDet1Orient,
 	    const float4* pd_lorDet2Orient, const float* pd_lorTOFValue,
 	    const TimeOfFlightHelper* pd_tofHelper, CUScannerParams scannerParams,
 	    CUImageParams imgParams, size_t batchSize, unsigned int gridSize,
 	    unsigned int blockSize, const cudaStream_t* stream, bool synchronize);
+
+	int p_numRays;
 };

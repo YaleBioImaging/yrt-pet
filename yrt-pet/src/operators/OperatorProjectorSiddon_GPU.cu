@@ -27,24 +27,26 @@ void py_setup_operatorprojectorsiddon_gpu(py::module& m)
 OperatorProjectorSiddon_GPU::OperatorProjectorSiddon_GPU(
     const OperatorProjectorParams& projParams, bool p_synchronized,
     const cudaStream_t* mainStream, const cudaStream_t* auxStream)
-    : OperatorProjectorDevice(projParams, p_synchronized, mainStream, auxStream)
+    : OperatorProjectorDevice(projParams, p_synchronized, mainStream,
+                              auxStream),
+      p_numRays{projParams.numRays}
 {
 }
 
 void OperatorProjectorSiddon_GPU::applyAOnLoadedBatch(ImageDevice& img,
-                                                  ProjectionDataDevice& dat)
+                                                      ProjectionDataDevice& dat)
 {
 	applyOnLoadedBatch<true>(dat, img);
 }
-void OperatorProjectorSiddon_GPU::applyAHOnLoadedBatch(ProjectionDataDevice& dat,
-                                                   ImageDevice& img)
+void OperatorProjectorSiddon_GPU::applyAHOnLoadedBatch(
+    ProjectionDataDevice& dat, ImageDevice& img)
 {
 	applyOnLoadedBatch<false>(dat, img);
 }
 
 template <bool IsForward>
 void OperatorProjectorSiddon_GPU::applyOnLoadedBatch(ProjectionDataDevice& dat,
-                                                 ImageDevice& img)
+                                                     ImageDevice& img)
 {
 	setBatchSize(dat.getCurrentBatchSize());
 	const auto cuScannerParams = getCUScannerParams(getScanner());
@@ -58,37 +60,33 @@ void OperatorProjectorSiddon_GPU::applyOnLoadedBatch(ProjectionDataDevice& dat,
 	{
 		OperatorProjectorSiddon_GPU::launchKernel<IsForward, false>(
 		    dat.getProjValuesDevicePointer(), img.getDevicePointer(),
-		    dat.getLorDet1PosDevicePointer(),
-		    dat.getLorDet2PosDevicePointer(),
+		    dat.getLorDet1PosDevicePointer(), dat.getLorDet2PosDevicePointer(),
 		    dat.getLorDet1OrientDevicePointer(),
 		    dat.getLorDet2OrientDevicePointer(), nullptr /*No TOF*/,
-		    nullptr /*No TOF*/,
-		    cuScannerParams, cuImageParams, getBatchSize(), getGridSize(),
-		    getBlockSize(), getMainStream(), isSynchronized());
+		    nullptr /*No TOF*/, cuScannerParams, cuImageParams, getBatchSize(),
+		    getGridSize(), getBlockSize(), getMainStream(), isSynchronized());
 	}
 	else
 	{
 		OperatorProjectorSiddon_GPU::launchKernel<IsForward, true>(
 		    dat.getProjValuesDevicePointer(), img.getDevicePointer(),
-		    dat.getLorDet1PosDevicePointer(),
-		    dat.getLorDet2PosDevicePointer(),
+		    dat.getLorDet1PosDevicePointer(), dat.getLorDet2PosDevicePointer(),
 		    dat.getLorDet1OrientDevicePointer(),
 		    dat.getLorDet2OrientDevicePointer(),
 		    dat.getLorTOFValueDevicePointer(), tofHelperDevicePointer,
-		    cuScannerParams, cuImageParams, getBatchSize(), getGridSize(), getBlockSize(),
-		    getMainStream(), isSynchronized());
+		    cuScannerParams, cuImageParams, getBatchSize(), getGridSize(),
+		    getBlockSize(), getMainStream(), isSynchronized());
 	}
 }
 
 template <bool IsForward, bool HasTOF>
 void OperatorProjectorSiddon_GPU::launchKernel(
-		float* pd_projValues, float* pd_image, const float4* pd_lorDet1Pos,
-		const float4* pd_lorDet2Pos, const float4* pd_lorDet1Orient,
-		const float4* pd_lorDet2Orient, const float* pd_lorTOFValue,
-		const TimeOfFlightHelper* pd_tofHelper,
-		CUScannerParams scannerParams, CUImageParams imgParams,
-		size_t batchSize, unsigned int gridSize, unsigned int blockSize,
-		const cudaStream_t* stream, bool synchronize)
+    float* pd_projValues, float* pd_image, const float4* pd_lorDet1Pos,
+    const float4* pd_lorDet2Pos, const float4* pd_lorDet1Orient,
+    const float4* pd_lorDet2Orient, const float* pd_lorTOFValue,
+    const TimeOfFlightHelper* pd_tofHelper, CUScannerParams scannerParams,
+    CUImageParams imgParams, size_t batchSize, unsigned int gridSize,
+    unsigned int blockSize, const cudaStream_t* stream, bool synchronize)
 {
 	ASSERT_MSG(pd_projValues != nullptr && pd_lorDet1Pos != nullptr &&
 	               pd_lorDet2Pos != nullptr && pd_lorDet1Orient != nullptr &&
@@ -96,30 +94,60 @@ void OperatorProjectorSiddon_GPU::launchKernel(
 	           "Projection space not allocated on device");
 	ASSERT_MSG(pd_image != nullptr, "Image space not allocated on device");
 
-	if (stream != nullptr)
+	if (p_numRays == 1)
 	{
-		OperatorProjectorSiddonCU_kernel<IsForward, HasTOF, true>
-		    <<<gridSize, blockSize, 0, *stream>>>(
-		        pd_projValues, pd_image, pd_lorDet1Pos, pd_lorDet2Pos,
-		        pd_lorDet1Orient, pd_lorDet2Orient, pd_lorTOFValue,
-		        pd_tofHelper,
-		        scannerParams, imgParams, batchSize);
-		if (synchronize)
+		if (stream != nullptr)
 		{
-			cudaStreamSynchronize(*stream);
+			OperatorProjectorSiddonCU_kernel<IsForward, HasTOF, true, false>
+			    <<<gridSize, blockSize, 0, *stream>>>(
+			        pd_projValues, pd_image, pd_lorDet1Pos, pd_lorDet2Pos,
+			        pd_lorDet1Orient, pd_lorDet2Orient, pd_lorTOFValue,
+			        pd_tofHelper, scannerParams, imgParams, 1, batchSize);
+			if (synchronize)
+			{
+				cudaStreamSynchronize(*stream);
+			}
+		}
+		else
+		{
+			OperatorProjectorSiddonCU_kernel<IsForward, HasTOF, true, false>
+			    <<<gridSize, blockSize>>>(
+			        pd_projValues, pd_image, pd_lorDet1Pos, pd_lorDet2Pos,
+			        pd_lorDet1Orient, pd_lorDet2Orient, pd_lorTOFValue,
+			        pd_tofHelper, scannerParams, imgParams, 1, batchSize);
+			if (synchronize)
+			{
+				cudaDeviceSynchronize();
+			}
 		}
 	}
 	else
 	{
-		OperatorProjectorSiddonCU_kernel<IsForward, HasTOF, true>
-		    <<<gridSize, blockSize>>>(
-		        pd_projValues, pd_image, pd_lorDet1Pos, pd_lorDet2Pos,
-		        pd_lorDet1Orient, pd_lorDet2Orient, pd_lorTOFValue,
-		        pd_tofHelper,
-		        scannerParams, imgParams, batchSize);
-		if (synchronize)
+		if (stream != nullptr)
 		{
-			cudaDeviceSynchronize();
+			OperatorProjectorSiddonCU_kernel<IsForward, HasTOF, true, true>
+			    <<<gridSize, blockSize, 0, *stream>>>(
+			        pd_projValues, pd_image, pd_lorDet1Pos, pd_lorDet2Pos,
+			        pd_lorDet1Orient, pd_lorDet2Orient, pd_lorTOFValue,
+			        pd_tofHelper, scannerParams, imgParams, p_numRays,
+			        batchSize);
+			if (synchronize)
+			{
+				cudaStreamSynchronize(*stream);
+			}
+		}
+		else
+		{
+			OperatorProjectorSiddonCU_kernel<IsForward, HasTOF, true, true>
+			    <<<gridSize, blockSize>>>(
+			        pd_projValues, pd_image, pd_lorDet1Pos, pd_lorDet2Pos,
+			        pd_lorDet1Orient, pd_lorDet2Orient, pd_lorTOFValue,
+			        pd_tofHelper, scannerParams, imgParams, p_numRays,
+			        batchSize);
+			if (synchronize)
+			{
+				cudaDeviceSynchronize();
+			}
 		}
 	}
 	cudaCheckError();

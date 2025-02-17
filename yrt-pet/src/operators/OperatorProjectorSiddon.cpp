@@ -147,9 +147,9 @@ float OperatorProjectorSiddon::forwardProjection(
 		mp_lineGen->at(currThread).setupGenerator(lor, n1, n2);
 	}
 
+	unsigned int seed = 13;
 	for (int i_line = 0; i_line < m_numRays; i_line++)
 	{
-		unsigned int seed = 13;
 		Line3D randLine = (i_line == 0) ?
 		                      lor :
 		                      mp_lineGen->at(currThread).getRandomLine(seed);
@@ -197,9 +197,9 @@ void OperatorProjectorSiddon::backProjection(
 		projValuePerLor = projValue / static_cast<float>(m_numRays);
 	}
 
+	unsigned int seed = 13;
 	for (int i_line = 0; i_line < m_numRays; i_line++)
 	{
-		unsigned int seed = 13;
 		Line3D randLine = (i_line == 0) ?
 		                      lor :
 		                      mp_lineGen->at(currThread).getRandomLine(seed);

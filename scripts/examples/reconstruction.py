@@ -13,11 +13,11 @@ osem = yrt.createOSEM(scanner)
 # or, alternatively, use GPU reconstruction (available only if yrt.compiledWithCuda() returns True)
 osem = yrt.createOSEM(scanner, useGPU=True)
 
-osem.setProjector("<Projector>") # Possible values: S (Siddon), DD (Distance-Driven), or DD_GPU (GPU Distance-Driven, available only if useGPU is 'True')
+osem.setProjector("<Projector>") # Possible values: S (Siddon), DD (Distance-Driven)
 osem.setImageParams(imgParams) # Set the parameters of the output image
 osem.num_MLEM_iterations = 10 # Number of MLEM iterations
 osem.num_OSEM_subsets = 5 # Number of OSEM subsets
-osem.setSensitivity(...) # Sensitivity histogram to use (normalisation)
+osem.setSensitivityHistogram(...) # Sensitivity histogram to use (normalisation correction)
 osem.addTOF("""<TOF width in picoseconds>""", """<Number of STD deviations>""") # To enable Time-of-flight
 osem.addProjPSF("<path to the PSF's CSV file>") # To add Projection-space PSF
 osem.addImagePSF(...) # To add Image-space PSF. Takes, as input, a OperatorPsf object

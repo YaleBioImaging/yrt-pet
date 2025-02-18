@@ -121,14 +121,12 @@ template void
 
 void SparseHistogram::accumulate(det_pair_t detPair, float projValue)
 {
-	const det_pair_t newPair = SwapDetectorPairIfNeeded(detPair);
-
 	auto [detectorMapLocation, newlyInserted] =
-	    m_detectorMap.try_emplace(newPair, m_detectorMap.size());
+	    m_detectorMap.try_emplace(detPair, m_detectorMap.size());
 	if (newlyInserted)
 	{
 		// Add the pair
-		m_detPairs.push_back(newPair);
+		m_detPairs.push_back(detPair);
 		// Initialize its value
 		m_projValues.push_back(projValue);
 	}
@@ -145,8 +143,7 @@ void SparseHistogram::accumulate(det_pair_t detPair, float projValue)
 
 float SparseHistogram::getProjectionValueFromDetPair(det_pair_t detPair) const
 {
-	const auto detectorMapLocation =
-	    m_detectorMap.find(SwapDetectorPairIfNeeded(detPair));
+	const auto detectorMapLocation = m_detectorMap.find(detPair);
 	if (detectorMapLocation != m_detectorMap.end())
 	{
 		// Get the proper bin
@@ -252,8 +249,6 @@ void SparseHistogram::writeToFile(const std::string& filename) const
 
 void SparseHistogram::readFromFile(const std::string& filename)
 {
-	// TODO NOW: remove all debug prints
-
 	std::ifstream ifs{filename, std::ios::in | std::ios::binary};
 
 	if (!ifs.good())
@@ -275,8 +270,6 @@ void SparseHistogram::readFromFile(const std::string& filename)
 	// Compute the number of events using its size
 	const int64_t numEvents = fileSize_bytes / sizeOfAnEvent_bytes;
 
-	std::cout << "numEvents: " << numEvents << std::endl;
-
 	// Allocate the memory
 	allocate(numEvents);
 
@@ -291,15 +284,11 @@ void SparseHistogram::readFromFile(const std::string& filename)
 	int64_t posStart_events = 0;
 	while (posStart_events < numEvents)
 	{
-		std::cout << "posStart_events: " << posStart_events << std::endl;
-
 		const int64_t readSize_fields =
 		    std::min(bufferSize_fields,
 		             numFieldsPerEvent * (numEvents - posStart_events));
 		const int64_t readSize_events = readSize_fields / numFieldsPerEvent;
 		const int64_t readSize_bytes = sizeOfAnEvent_bytes * readSize_events;
-
-		std::cout << "readSize_events: " << readSize_events << std::endl;
 
 		ifs.read(reinterpret_cast<char*>(buff.get()), readSize_bytes);
 

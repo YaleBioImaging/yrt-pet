@@ -55,13 +55,15 @@ public:
 	static Plugin::OptionsListPerPlugin getOptions();
 
 private:
+	static det_pair_t SwapDetectorPairIfNeeded(det_pair_t detPair);
+
 	// Comparators for std::unordered_map
 	struct det_pair_hash
 	{
 		size_t operator()(const det_pair_t& pair) const
 		{
-			return (static_cast<size_t>(pair.d1) << 32) |
-			       static_cast<size_t>(pair.d2);
+			auto [d1, d2] = SwapDetectorPairIfNeeded(pair);
+			return (static_cast<size_t>(d1) << 32) | static_cast<size_t>(d2);
 		}
 	};
 	struct det_pair_equal
@@ -73,7 +75,6 @@ private:
 		}
 	};
 
-	static det_pair_t SwapDetectorPairIfNeeded(det_pair_t detPair);
 
 	std::unordered_map<det_pair_t, bin_t, det_pair_hash, det_pair_equal>
 	    m_detectorMap;

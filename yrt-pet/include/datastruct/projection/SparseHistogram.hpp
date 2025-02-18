@@ -68,7 +68,8 @@ private:
 	{
 		bool operator()(const det_pair_t& pair1, const det_pair_t& pair2) const
 		{
-			return pair1.d1 == pair2.d1 && pair1.d2 == pair2.d2;
+			return (pair1.d1 == pair2.d1 && pair1.d2 == pair2.d2) ||
+			       (pair1.d1 == pair2.d2 && pair1.d2 == pair2.d1);
 		}
 	};
 

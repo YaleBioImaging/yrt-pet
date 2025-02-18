@@ -216,24 +216,23 @@ void SparseHistogram::writeToFile(const std::string& filename) const
 		throw std::runtime_error("Error opening file " + filename);
 	}
 
-	constexpr long long sizeOfAnEvent_bytes =
-	    sizeof(det_pair_t) + sizeof(float);
+	constexpr int64_t sizeOfAnEvent_bytes = sizeof(det_pair_t) + sizeof(float);
 
-	constexpr long long bufferSize_fields = (1ll << 30);
+	constexpr int64_t bufferSize_fields = (1ll << 30);
 	auto buff = std::make_unique<float[]>(bufferSize_fields);
 	constexpr int numFieldsPerEvent = 3;
 	static_assert(numFieldsPerEvent * sizeof(float) == sizeOfAnEvent_bytes);
-	const long long numEvents = count();
+	const int64_t numEvents = count();
 
-	long long posStart_events = 0;
+	int64_t posStart_events = 0;
 	while (posStart_events < numEvents)
 	{
-		const long long writeSize_fields =
+		const int64_t writeSize_fields =
 		    std::min(bufferSize_fields,
 		             numFieldsPerEvent * (numEvents - posStart_events));
-		const long long writeSize_events = writeSize_fields / numFieldsPerEvent;
+		const int64_t writeSize_events = writeSize_fields / numFieldsPerEvent;
 
-		for (long long i = 0; i < writeSize_events; i++)
+		for (int64_t i = 0; i < writeSize_events; i++)
 		{
 			std::memcpy(&buff[numFieldsPerEvent * i + 0], &m_detPairs[i].d1,
 			            sizeof(det_id_t));
@@ -260,12 +259,11 @@ void SparseHistogram::readFromFile(const std::string& filename)
 		throw std::runtime_error("Error reading input file " + filename);
 	}
 
-	constexpr long long sizeOfAnEvent_bytes =
-	    sizeof(det_pair_t) + sizeof(float);
+	constexpr int64_t sizeOfAnEvent_bytes = sizeof(det_pair_t) + sizeof(float);
 
 	// Check that file has a proper size:
-	const long long fileSize_bytes =
-	    static_cast<long long>(fs::file_size(filename));
+	const int64_t fileSize_bytes =
+	    static_cast<int64_t>(fs::file_size(filename));
 
 	if (fileSize_bytes <= 0 || (fileSize_bytes % sizeOfAnEvent_bytes) != 0)
 	{
@@ -273,27 +271,27 @@ void SparseHistogram::readFromFile(const std::string& filename)
 		                         "SparseHistogram::readFromFile.");
 	}
 	// Compute the number of events using its size
-	const long long numEvents = fileSize_bytes / sizeOfAnEvent_bytes;
+	const int64_t numEvents = fileSize_bytes / sizeOfAnEvent_bytes;
 
 	// Allocate the memory
 	allocate(numEvents);
 
 	// Prepare buffer of 3 4-byte fields (multiple of three)
-	constexpr long long numFieldsPerEvent = 3ll;
-	constexpr long long bufferSize_fields =
+	constexpr int64_t numFieldsPerEvent = 3ll;
+	constexpr int64_t bufferSize_fields =
 	    ((1ll << 28) / numFieldsPerEvent) * numFieldsPerEvent;
 	auto buff = std::make_unique<float[]>(bufferSize_fields);
 	static_assert(numFieldsPerEvent * sizeof(float) == sizeOfAnEvent_bytes);
-	static_assert(sizeof(long long) == 8);
+	static_assert(sizeof(int64_t) == 8);
 
-	long long posStart_events = 0;
+	int64_t posStart_events = 0;
 	while (posStart_events < numEvents)
 	{
-		const long long readSize_fields =
+		const int64_t readSize_fields =
 		    std::min(bufferSize_fields,
 		             numFieldsPerEvent * (numEvents - posStart_events));
-		const long long readSize_events = readSize_fields / numFieldsPerEvent;
-		const long long readSize_bytes = sizeOfAnEvent_bytes * readSize_events;
+		const int64_t readSize_events = readSize_fields / numFieldsPerEvent;
+		const int64_t readSize_bytes = sizeOfAnEvent_bytes * readSize_events;
 
 		ifs.read(reinterpret_cast<char*>(buff.get()), readSize_bytes);
 
@@ -307,7 +305,7 @@ void SparseHistogram::readFromFile(const std::string& filename)
 			ASSERT_MSG(false, "Error: File read failure before EOF.");
 		}
 
-		for (long long i = 0; i < readSize_events; i++)
+		for (int64_t i = 0; i < readSize_events; i++)
 		{
 			const det_id_t d1 = *reinterpret_cast<det_id_t*>(
 			    &buff[numFieldsPerEvent * i + 0ll]);

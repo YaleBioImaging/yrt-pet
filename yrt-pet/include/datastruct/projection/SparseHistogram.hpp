@@ -60,23 +60,20 @@ private:
 	{
 		size_t operator()(const det_pair_t& pair) const
 		{
-			const auto [d1, d2] = std::minmax(pair.d1, pair.d2);
-
-			const size_t hash1 = std::hash<det_id_t>{}(d1);
-			const size_t hash2 = std::hash<det_id_t>{}(d2);
-
-			return hash1 ^ (hash2 << 1);  // Combines hashes better
+			size_t result = pair.d1 | (static_cast<size_t>(pair.d2) << 32);
+			return result;
 		}
 	};
+
+	static det_pair_t SwapDetectorsIfNeeded(det_pair_t pair);
+
 	struct det_pair_equal
 	{
 		bool operator()(const det_pair_t& pair1, const det_pair_t& pair2) const
 		{
-			return (pair1.d1 == pair2.d1 && pair1.d2 == pair2.d2) ||
-			       (pair1.d1 == pair2.d2 && pair1.d2 == pair2.d1);
+			return (pair1.d1 == pair2.d1 && pair1.d2 == pair2.d2);
 		}
 	};
-
 
 	std::unordered_map<det_pair_t, bin_t, det_pair_hash, det_pair_equal>
 	    m_detectorMap;

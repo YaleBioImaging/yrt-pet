@@ -121,12 +121,13 @@ template void
 
 void SparseHistogram::accumulate(det_pair_t detPair, float projValue)
 {
+	const auto newDetPair = SwapDetectorsIfNeeded(detPair);
 	auto [detectorMapLocation, newlyInserted] =
-	    m_detectorMap.try_emplace(detPair, m_detectorMap.size());
+	    m_detectorMap.try_emplace(newDetPair, m_detectorMap.size());
 	if (newlyInserted)
 	{
 		// Add the pair
-		m_detPairs.push_back(detPair);
+		m_detPairs.push_back(newDetPair);
 		// Initialize its value
 		m_projValues.push_back(projValue);
 	}
@@ -143,7 +144,8 @@ void SparseHistogram::accumulate(det_pair_t detPair, float projValue)
 
 float SparseHistogram::getProjectionValueFromDetPair(det_pair_t detPair) const
 {
-	const auto detectorMapLocation = m_detectorMap.find(detPair);
+	const auto detectorMapLocation =
+	    m_detectorMap.find(SwapDetectorsIfNeeded(detPair));
 	if (detectorMapLocation != m_detectorMap.end())
 	{
 		// Get the proper bin
@@ -348,6 +350,12 @@ std::unique_ptr<ProjectionData>
 Plugin::OptionsListPerPlugin SparseHistogram::getOptions()
 {
 	return {};
+}
+
+det_pair_t SparseHistogram::SwapDetectorsIfNeeded(det_pair_t pair)
+{
+	const auto [d1, d2] = std::minmax(pair.d1, pair.d2);
+	return {d1, d2};
 }
 
 REGISTER_PROJDATA_PLUGIN("SH", SparseHistogram, SparseHistogram::create,

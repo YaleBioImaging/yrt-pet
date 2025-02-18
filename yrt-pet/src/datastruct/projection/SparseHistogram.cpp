@@ -233,25 +233,24 @@ void SparseHistogram::readFromFile(const std::string& filename)
 		                         "SparseHistogram::readFromFile.");
 	}
 	// Compute the number of events using its size
-	const int64_t numEvents = fileSize_bytes / sizeOfAnEvent_bytes;
+	const int64_t numBins = fileSize_bytes / sizeOfAnEvent_bytes;
 
 	// Allocate the memory
-	allocate(numEvents);
+	allocate(numBins);
 
 	// Prepare buffer of 3 4-byte fields (multiple of three)
 	constexpr int64_t numFieldsPerEvent = 3ll;
 	constexpr int64_t bufferSize_fields =
-	    ((1ll << 28) / numFieldsPerEvent) * numFieldsPerEvent;
+	    ((1ll << 30) / numFieldsPerEvent) * numFieldsPerEvent;
 	auto buff = std::make_unique<float[]>(bufferSize_fields);
 	static_assert(numFieldsPerEvent * sizeof(float) == sizeOfAnEvent_bytes);
 	static_assert(sizeof(int64_t) == 8);
 
 	int64_t posStart_events = 0;
-	while (posStart_events < numEvents)
+	while (posStart_events < numBins)
 	{
-		const int64_t readSize_fields =
-		    std::min(bufferSize_fields,
-		             numFieldsPerEvent * (numEvents - posStart_events));
+		const int64_t readSize_fields = std::min(
+		    bufferSize_fields, numFieldsPerEvent * (numBins - posStart_events));
 		const int64_t readSize_events = readSize_fields / numFieldsPerEvent;
 		const int64_t readSize_bytes = sizeOfAnEvent_bytes * readSize_events;
 

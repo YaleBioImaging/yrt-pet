@@ -6,16 +6,18 @@
 #pragma once
 
 #include <algorithm>
+#include <bit>
 #include <cstdint>
 #include <stdexcept>
 #include <vector>
+#include <x86intrin.h>  // For SSE/AVX intrinsics (optional)
 
 template <typename TValue>
 class PairHashMap
 {
 public:
 	// Hash table entry: (key, index in m_data)
-	struct HashEntry
+	struct alignas(32) HashEntry
 	{
 		uint64_t key{};
 		uint32_t index{};
@@ -25,13 +27,6 @@ public:
 	{
 		uint32_t d1, d2;
 		TValue value;
-
-		DataEntry(uint32_t a, uint32_t b, TValue v)
-		{
-			d1 = std::min(a, b);  // Ensure canonical order
-			d2 = std::max(a, b);
-			value = v;
-		}
 	};
 
 	PairHashMap() { m_hashTable.resize(64); }
@@ -161,31 +156,39 @@ public:
 	/// Returns reference to the updated/inserted value.
 	TValue& update_or_insert(uint32_t d1, uint32_t d2, TValue value)
 	{
-		const auto [a, b] = std::minmax(d1, d2);
-		const uint64_t key = makeKey(a, b);
-
+		const uint64_t key = makeKey(d1, d2);
 		size_t idx = hash(key);
+
+		// Fast path: assume the key exists in the first probe
+		if (m_hashTable[idx].key == key) [[likely]]
+		{
+			m_data[m_hashTable[idx].index].value += value;
+			return m_data[m_hashTable[idx].index].value;
+		}
+
+		// Linear probing with early exit
 		while (true)
 		{
 			if (!m_hashTable[idx].occupied)
 			{
-				// Insert new entry
-				if (m_size >= m_hashTable.size() * LOAD_FACTOR)
+				if (m_size >= m_hashTable.size() * LOAD_FACTOR) [[unlikely]]
+				{
 					rehash();
-				m_data.emplace_back(a, b, value);
-				const uint32_t new_index = m_data.size() - 1;
-				insertInternal(key, new_index);
+					idx = hash(key);  // Recompute after rehash
+					continue;
+				}
+				m_data.push_back({d1, d2, value});
+				m_hashTable[idx] = {
+				    key, static_cast<uint32_t>(m_data.size() - 1), true};
+				m_size++;
 				return m_data.back().value;
 			}
-
 			if (m_hashTable[idx].key == key)
 			{
-				// Update existing entry
 				m_data[m_hashTable[idx].index].value += value;
 				return m_data[m_hashTable[idx].index].value;
 			}
-
-			idx = (idx + 1) % m_hashTable.size();
+			idx = (idx + 1) & (m_hashTable.size() - 1);
 		}
 	}
 
@@ -195,41 +198,38 @@ private:
 	std::vector<DataEntry> m_data;  // Stores pairs in insertion order
 	std::vector<HashEntry> m_hashTable;
 	size_t m_size = 0;  // Number of occupied entries
-	static constexpr double LOAD_FACTOR = 0.7;
+	static constexpr double LOAD_FACTOR = 0.6;
 
 	// Combine d1 and d2 into a 64-bit key (d1 <= d2)
 	static uint64_t makeKey(uint32_t d1, uint32_t d2)
 	{
-		return (static_cast<uint64_t>(d1) << 32ull) | d2;
+		const bool swap = d1 > d2;
+		const uint32_t a = swap ? d2 : d1;
+		const uint32_t b = swap ? d1 : d2;
+		return (static_cast<uint64_t>(b) << 32) | a;
 	}
 
 	// Hash function using Fibonacci hashing
 	size_t hash(uint64_t key) const
 	{
-		constexpr uint64_t multiplier =
-		    11400714819323198485ull;  // Golden ratio
-		return (key * multiplier) >> (64ull - log2TableSize());
-	}
-
-	size_t log2TableSize() const
-	{
-		return 31 -
-		       __builtin_clz(m_hashTable.size());  // For power-of-two sizes
+		constexpr uint64_t multiplier = 0x9E3779B97F4A7C15;
+		return (key * multiplier) & (m_hashTable.size() - 1);
 	}
 
 	void rehash()
 	{
-		std::vector<HashEntry> newTable(
-		    std::max(m_hashTable.size() * 2ull, 64ull));
-		std::swap(m_hashTable, newTable);
-
-		for (const auto& entry : newTable)
+		std::vector<HashEntry> newTable(m_hashTable.size() * 2);
+		for (auto& entry : m_hashTable)
 		{
 			if (entry.occupied)
 			{
-				insertInternal(entry.key, entry.index);
+				size_t idx = hash(entry.key) & (newTable.size() - 1);
+				while (newTable[idx].occupied)
+					idx = (idx + 1) & (newTable.size() - 1);
+				newTable[idx] = entry;
 			}
 		}
+		m_hashTable = std::move(newTable);
 	}
 
 	void insertInternal(uint64_t key, uint32_t index)

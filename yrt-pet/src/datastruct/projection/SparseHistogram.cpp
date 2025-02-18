@@ -85,9 +85,9 @@ SparseHistogram::SparseHistogram(const Scanner& pr_scanner,
 
 void SparseHistogram::allocate(size_t numBins)
 {
-	m_detectorMap.reserve(numBins);
-	m_projValues.reserve(numBins);
-	m_detPairs.reserve(numBins);
+	m_detectorMap.reserve(static_cast<size_t>(numBins * 1.2f));
+	m_projValues.reserve(static_cast<size_t>(numBins * 1.2f));
+	m_detPairs.reserve(static_cast<size_t>(numBins * 1.2f));
 }
 
 template <bool IgnoreZeros>
@@ -279,9 +279,10 @@ void SparseHistogram::readFromFile(const std::string& filename)
 	allocate(numEvents);
 
 	// Prepare buffer of 3 4-byte fields (multiple of three)
-	constexpr long long bufferSize_fields = (1ll << 28) - 1;
-	auto buff = std::make_unique<float[]>(bufferSize_fields);
 	constexpr long long numFieldsPerEvent = 3ll;
+	constexpr long long bufferSize_fields =
+	    ((1ll << 28) / numFieldsPerEvent) * numFieldsPerEvent;
+	auto buff = std::make_unique<float[]>(bufferSize_fields);
 	static_assert(numFieldsPerEvent * sizeof(float) == sizeOfAnEvent_bytes);
 
 	long long posStart_events = 0;
@@ -299,6 +300,10 @@ void SparseHistogram::readFromFile(const std::string& filename)
 		{
 			ASSERT_MSG(false,
 			           "Error: Failed to read expected bytes from file.");
+		}
+		if (!ifs && !ifs.eof())
+		{
+			ASSERT_MSG(false, "Error: File read failure before EOF.");
 		}
 
 		for (long long i = 0; i < readSize_events; i++)

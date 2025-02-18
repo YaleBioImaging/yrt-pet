@@ -283,7 +283,7 @@ void SparseHistogram::readFromFile(const std::string& filename)
 	// Prepare buffer of 3 4-byte fields
 	constexpr long long bufferSize_fields = (1ll << 30);
 	auto buff = std::make_unique<float[]>(bufferSize_fields);
-	constexpr long long numFieldsPerEvent = 3;
+	constexpr long long numFieldsPerEvent = 3ll;
 	static_assert(numFieldsPerEvent * sizeof(float) == sizeOfAnEvent_bytes);
 
 	long long posStart_events = 0;
@@ -301,10 +301,10 @@ void SparseHistogram::readFromFile(const std::string& filename)
 		for (long long i = 0; i < readSize_events; i++)
 		{
 			const det_id_t d1 =
-			    *reinterpret_cast<det_id_t*>(&buff[numFieldsPerEvent * i + 0]);
+			    *reinterpret_cast<det_id_t*>(&buff[numFieldsPerEvent * i + 0ll]);
 			const det_id_t d2 =
-			    *reinterpret_cast<det_id_t*>(&buff[numFieldsPerEvent * i + 1]);
-			const float projValue = buff[numFieldsPerEvent * i + 2];
+			    *reinterpret_cast<det_id_t*>(&buff[numFieldsPerEvent * i + 1ll]);
+			const float projValue = buff[numFieldsPerEvent * i + 2ll];
 			accumulate({d1, d2}, projValue);
 		}
 

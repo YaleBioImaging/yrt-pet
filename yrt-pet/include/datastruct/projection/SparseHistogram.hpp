@@ -8,8 +8,7 @@
 #include "datastruct/PluginFramework.hpp"
 #include "datastruct/projection/Histogram.hpp"
 #include "datastruct/scanner/Scanner.hpp"
-
-#include <unordered_map>
+#include "utils/PairHashMap.hpp"
 
 class SparseHistogram final : public Histogram
 {
@@ -44,39 +43,11 @@ public:
 	void writeToFile(const std::string& filename) const;
 	void readFromFile(const std::string& filename);
 
-	float* getProjectionValuesBuffer();
-	det_pair_t* getDetectorPairBuffer();
-	const float* getProjectionValuesBuffer() const;
-	const det_pair_t* getDetectorPairBuffer() const;
-
 	static std::unique_ptr<ProjectionData>
 	    create(const Scanner& scanner, const std::string& filename,
 	           const Plugin::OptionsResult& pluginOptions);
 	static Plugin::OptionsListPerPlugin getOptions();
 
 private:
-	// Comparators for std::unordered_map
-	struct det_pair_hash
-	{
-		size_t operator()(const det_pair_t& pair) const
-		{
-			size_t result = pair.d1 | (static_cast<size_t>(pair.d2) << 32);
-			return result;
-		}
-	};
-
-	static det_pair_t SwapDetectorsIfNeeded(det_pair_t pair);
-
-	struct det_pair_equal
-	{
-		bool operator()(const det_pair_t& pair1, const det_pair_t& pair2) const
-		{
-			return (pair1.d1 == pair2.d1 && pair1.d2 == pair2.d2);
-		}
-	};
-
-	std::unordered_map<det_pair_t, bin_t, det_pair_hash, det_pair_equal>
-	    m_detectorMap;
-	std::vector<det_pair_t> m_detPairs;
-	std::vector<float> m_projValues;
+	PairHashMap<float> m_map;
 };

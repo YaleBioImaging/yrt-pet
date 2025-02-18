@@ -215,25 +215,25 @@ void SparseHistogram::writeToFile(const std::string& filename) const
 		throw std::runtime_error("Error opening file " + filename);
 	}
 
-	constexpr std::streamsize sizeOfAnEvent_bytes =
+	constexpr long long sizeOfAnEvent_bytes =
 	    sizeof(det_pair_t) + sizeof(float);
 
-	constexpr std::streamsize bufferSize_fields = (1ll << 30);
+	constexpr long long bufferSize_fields = (1ll << 30);
 	auto buff = std::make_unique<float[]>(bufferSize_fields);
 	constexpr int numFieldsPerEvent = 3;
 	static_assert(numFieldsPerEvent * sizeof(float) == sizeOfAnEvent_bytes);
-	const std::streamsize numEvents = count();
+	const long long numEvents = count();
 
-	std::streamoff posStart_events = 0;
+	long long posStart_events = 0;
 	while (posStart_events < numEvents)
 	{
-		const std::streamsize writeSize_fields =
+		const long long writeSize_fields =
 		    std::min(bufferSize_fields,
 		             numFieldsPerEvent * (numEvents - posStart_events));
-		const std::streamsize writeSize_events =
+		const long long writeSize_events =
 		    writeSize_fields / numFieldsPerEvent;
 
-		for (std::streamoff i = 0; i < writeSize_events; i++)
+		for (long long i = 0; i < writeSize_events; i++)
 		{
 			std::memcpy(&buff[numFieldsPerEvent * i + 0], &m_detPairs[i].d1,
 			            sizeof(det_id_t));
@@ -260,45 +260,45 @@ void SparseHistogram::readFromFile(const std::string& filename)
 		throw std::runtime_error("Error reading input file " + filename);
 	}
 
-	constexpr std::streamsize sizeOfAnEvent_bytes =
+	constexpr long long sizeOfAnEvent_bytes =
 	    sizeof(det_pair_t) + sizeof(float);
 
 	// Check that file has a proper size:
 	ifs.seekg(0, std::ios::end);
-	const std::streamsize end = ifs.tellg();
+	const long long end = ifs.tellg();
 	ifs.seekg(0, std::ios::beg);
-	const std::streamsize begin = ifs.tellg();
-	const std::streamsize fileSize_bytes = end - begin;
+	const long long begin = ifs.tellg();
+	const long long fileSize_bytes = end - begin;
 	if (fileSize_bytes <= 0 || (fileSize_bytes % sizeOfAnEvent_bytes) != 0)
 	{
 		throw std::runtime_error("Error: Input file has incorrect size in "
 		                         "SparseHistogram::readFromFile.");
 	}
 	// Compute the number of events using its size
-	const std::streamsize numEvents = fileSize_bytes / sizeOfAnEvent_bytes;
+	const long long numEvents = fileSize_bytes / sizeOfAnEvent_bytes;
 
 	// Allocate the memory
 	allocate(numEvents);
 
 	// Prepare buffer of 3 4-byte fields
-	constexpr std::streamsize bufferSize_fields = (1ll << 30);
+	constexpr long long bufferSize_fields = (1ll << 30);
 	auto buff = std::make_unique<float[]>(bufferSize_fields);
-	constexpr int numFieldsPerEvent = 3;
+	constexpr long long numFieldsPerEvent = 3;
 	static_assert(numFieldsPerEvent * sizeof(float) == sizeOfAnEvent_bytes);
 
-	std::streamoff posStart_events = 0;
+	long long posStart_events = 0;
 	while (posStart_events < numEvents)
 	{
-		const std::streamsize readSize_fields =
+		const long long readSize_fields =
 		    std::min(bufferSize_fields,
 		             numFieldsPerEvent * (numEvents - posStart_events));
-		const std::streamsize readSize_events =
+		const long long readSize_events =
 		    readSize_fields / numFieldsPerEvent;
 
 		ifs.read(reinterpret_cast<char*>(buff.get()),
 		         sizeOfAnEvent_bytes * readSize_events);
 
-		for (std::streamoff i = 0; i < readSize_events; i++)
+		for (long long i = 0; i < readSize_events; i++)
 		{
 			const det_id_t d1 =
 			    *reinterpret_cast<det_id_t*>(&buff[numFieldsPerEvent * i + 0]);

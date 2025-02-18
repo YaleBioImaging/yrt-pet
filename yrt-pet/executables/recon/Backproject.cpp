@@ -24,8 +24,8 @@ int main(int argc, char** argv)
 		std::string outputImage_fname;
 		std::string input_fname;
 		std::string input_format;
-		std::string imageSpacePsf_fname;
-		std::string projSpacePsf_fname;
+		std::string imagePsf_fname;
+		std::string projPsf_fname;
 		std::string projector_name = "S";
 		int numThreads = -1;
 		int numSubsets = 1;
@@ -50,8 +50,8 @@ int main(int argc, char** argv)
 		("o,out", "Output image filename", cxxopts::value<std::string>(outputImage_fname))
 		("p,params", "Output image parameters filename", cxxopts::value<std::string>(outputImageParams_fname))
 		("gpu", "Use GPU acceleration", cxxopts::value<bool>(useGPU))
-		("psf", "Image-space PSF kernel file", cxxopts::value<std::string>(imageSpacePsf_fname))
-		("proj_psf", "Projection-space PSF kernel file", cxxopts::value<std::string>(projSpacePsf_fname))
+		("psf", "Image-space PSF kernel file", cxxopts::value<std::string>(imagePsf_fname))
+		("proj_psf", "Projection-space PSF kernel file", cxxopts::value<std::string>(projPsf_fname))
 		("projector", "Projector to use, choices: Siddon (S), Distance-Driven (D)"
 			". The default projector is Siddon", cxxopts::value<std::string>(projector_name))
 		("tof_width_ps", "TOF Width in Picoseconds", cxxopts::value<float>(tofWidth_ps))
@@ -111,8 +111,7 @@ int main(int argc, char** argv)
 		// Setup forward projection
 		auto binIter = dataInput->getBinIter(numSubsets, subsetId);
 		OperatorProjectorParams projParams(binIter.get(), *scanner, tofWidth_ps,
-		                                   tofNumStd, projSpacePsf_fname,
-		                                   numRays);
+		                                   tofNumStd, projPsf_fname, numRays);
 
 		auto projectorType = IO::getProjector(projector_name);
 
@@ -120,12 +119,11 @@ int main(int argc, char** argv)
 		                  useGPU);
 
 		// Image-space PSF
-		if (!imageSpacePsf_fname.empty())
+		if (!imagePsf_fname.empty())
 		{
-			auto imageSpacePsf =
-			    std::make_unique<OperatorPsf>(imageSpacePsf_fname);
+			auto imagePsf = std::make_unique<OperatorPsf>(imagePsf_fname);
 			std::cout << "Applying Image-space PSF..." << std::endl;
-			imageSpacePsf->applyAH(outputImage.get(), outputImage.get());
+			imagePsf->applyAH(outputImage.get(), outputImage.get());
 		}
 
 		std::cout << "Writing image to file..." << std::endl;

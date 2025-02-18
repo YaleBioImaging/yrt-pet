@@ -34,8 +34,8 @@ int main(int argc, char** argv)
 		std::string hardwareAttImg_fname;
 		std::string hardwareAcf_fname;
 		std::string hardwareAcf_format;
-		std::string imageSpacePsf_fname;
-		std::string projSpacePsf_fname;
+		std::string imagePsf_fname;
+		std::string projPsf_fname;
 		std::string randoms_fname;
 		std::string randoms_format;
 		std::string scatter_fname;
@@ -146,7 +146,7 @@ int main(int argc, char** argv)
 		        IO::possibleFormats(Plugin::InputFormatsChoice::ONLYHISTOGRAMS),
 		    cxxopts::value<std::string>(scatter_format));
 		reconGroup("psf", "Image-space PSF kernel file",
-		           cxxopts::value<std::string>(imageSpacePsf_fname));
+		           cxxopts::value<std::string>(imagePsf_fname));
 		reconGroup("hard_threshold", "Hard Threshold",
 		           cxxopts::value<float>(hardThreshold));
 		reconGroup("save_iter_step",
@@ -208,7 +208,7 @@ int main(int argc, char** argv)
 		               "Number of rays to use (for Siddon projector only)",
 		               cxxopts::value<int>(numRays));
 		projectorGroup("proj_psf", "Projection-space PSF kernel file",
-		               cxxopts::value<std::string>(projSpacePsf_fname));
+		               cxxopts::value<std::string>(projPsf_fname));
 		projectorGroup("tof_width_ps", "TOF Width in Picoseconds",
 		               cxxopts::value<float>(tofWidth_ps));
 		projectorGroup("tof_n_std",
@@ -334,16 +334,15 @@ int main(int argc, char** argv)
 		}
 
 		// Image-space PSF
-		std::unique_ptr<OperatorPsf> imageSpacePsf;
-		if (!imageSpacePsf_fname.empty())
+		if (!imagePsf_fname.empty())
 		{
-			osem->addImagePSF(imageSpacePsf_fname);
+			osem->addImagePSF(imagePsf_fname);
 		}
 
 		// Projection-space PSF
-		if (!projSpacePsf_fname.empty())
+		if (!projPsf_fname.empty())
 		{
-			osem->addProjPSF(projSpacePsf_fname);
+			osem->addProjPSF(projPsf_fname);
 		}
 
 		// Sensitivity image(s)

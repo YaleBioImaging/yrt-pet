@@ -14,10 +14,10 @@ class OperatorPsf : public Operator
 {
 public:
 	OperatorPsf();
-	explicit OperatorPsf(const std::string& imageSpacePsf_fname);
+	explicit OperatorPsf(const std::string& imagePsf_fname);
 	~OperatorPsf() override = default;
 
-	virtual void readFromFile(const std::string& imageSpacePsf_fname);
+	virtual void readFromFile(const std::string& imagePsf_fname);
 
 	void applyA(const Variable* in, Variable* out) override;
 	void applyAH(const Variable* in, Variable* out) override;
@@ -36,6 +36,6 @@ protected:
 	std::vector<float> m_kernelZ_flipped;
 
 private:
-	void readFromFileInternal(const std::string& imageSpacePsf_fname);
+	void readFromFileInternal(const std::string& imagePsf_fname);
 	mutable std::vector<float> m_buffer_tmp;
 };

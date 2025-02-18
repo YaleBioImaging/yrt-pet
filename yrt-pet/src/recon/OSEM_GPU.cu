@@ -388,11 +388,11 @@ void OSEM_GPU::loadSubset(int subsetId, bool forRecon)
 	}
 }
 
-void OSEM_GPU::addImagePSF(const std::string& p_imageSpacePsf_fname)
+void OSEM_GPU::addImagePSF(const std::string& p_imagePsf_fname)
 {
-	ASSERT_MSG(!p_imageSpacePsf_fname.empty(),
+	ASSERT_MSG(!p_imagePsf_fname.empty(),
 	           "Empty filename for Image-space PSF");
-	imagePsf = std::make_unique<OperatorPsfDevice>(p_imageSpacePsf_fname,
+	imagePsf = std::make_unique<OperatorPsfDevice>(p_imagePsf_fname,
 	                                                    getMainStream());
 	flagImagePSF = true;
 }

@@ -33,21 +33,21 @@ void py_setup_operatorpsf(py::module& m)
 
 OperatorPsf::OperatorPsf() : Operator{} {}
 
-OperatorPsf::OperatorPsf(const std::string& imageSpacePsf_fname) : OperatorPsf{}
+OperatorPsf::OperatorPsf(const std::string& imagePsf_fname) : OperatorPsf{}
 {
-	readFromFileInternal(imageSpacePsf_fname);
+	readFromFileInternal(imagePsf_fname);
 }
 
-void OperatorPsf::readFromFile(const std::string& imageSpacePsf_fname)
+void OperatorPsf::readFromFile(const std::string& imagePsf_fname)
 {
-	readFromFileInternal(imageSpacePsf_fname);
+	readFromFileInternal(imagePsf_fname);
 }
 
-void OperatorPsf::readFromFileInternal(const std::string& imageSpacePsf_fname)
+void OperatorPsf::readFromFileInternal(const std::string& imagePsf_fname)
 {
 	Array2D<float> kernelsArray2D;
 	std::cout << "Reading image space PSF kernel csv file..." << std::endl;
-	Util::readCSV<float>(imageSpacePsf_fname, kernelsArray2D);
+	Util::readCSV<float>(imagePsf_fname, kernelsArray2D);
 
 	std::array<int, 3> kerSize;
 	kerSize[0] = kernelsArray2D[3][0];

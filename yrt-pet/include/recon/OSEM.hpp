@@ -106,7 +106,7 @@ protected:
 
 	// ---------- Protected members ----------
 	bool flagImagePSF;
-	std::string imageSpacePsf_fname;
+	std::string imagePsf_fname;
 	std::unique_ptr<OperatorPsf> imagePsf;
 	bool flagProjPSF;
 	std::string projPsf_fname;

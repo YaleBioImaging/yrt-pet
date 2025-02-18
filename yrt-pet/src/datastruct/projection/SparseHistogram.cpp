@@ -8,8 +8,9 @@
 #include "utils/ProgressDisplay.hpp"
 
 #include <cstring>
+#include <filesystem>
 
-#include "omp.h"
+namespace fs = std::filesystem;
 
 #if BUILD_PYBIND11
 #include <pybind11/numpy.h>
@@ -230,8 +231,7 @@ void SparseHistogram::writeToFile(const std::string& filename) const
 		const long long writeSize_fields =
 		    std::min(bufferSize_fields,
 		             numFieldsPerEvent * (numEvents - posStart_events));
-		const long long writeSize_events =
-		    writeSize_fields / numFieldsPerEvent;
+		const long long writeSize_events = writeSize_fields / numFieldsPerEvent;
 
 		for (long long i = 0; i < writeSize_events; i++)
 		{
@@ -264,11 +264,9 @@ void SparseHistogram::readFromFile(const std::string& filename)
 	    sizeof(det_pair_t) + sizeof(float);
 
 	// Check that file has a proper size:
-	ifs.seekg(0, std::ios::end);
-	const long long end = ifs.tellg();
-	ifs.seekg(0, std::ios::beg);
-	const long long begin = ifs.tellg();
-	const long long fileSize_bytes = end - begin;
+	const long long fileSize_bytes =
+	    static_cast<long long>(fs::file_size(filename));
+
 	if (fileSize_bytes <= 0 || (fileSize_bytes % sizeOfAnEvent_bytes) != 0)
 	{
 		throw std::runtime_error("Error: Input file has incorrect size in "
@@ -292,18 +290,17 @@ void SparseHistogram::readFromFile(const std::string& filename)
 		const long long readSize_fields =
 		    std::min(bufferSize_fields,
 		             numFieldsPerEvent * (numEvents - posStart_events));
-		const long long readSize_events =
-		    readSize_fields / numFieldsPerEvent;
+		const long long readSize_events = readSize_fields / numFieldsPerEvent;
 
 		ifs.read(reinterpret_cast<char*>(buff.get()),
 		         sizeOfAnEvent_bytes * readSize_events);
 
 		for (long long i = 0; i < readSize_events; i++)
 		{
-			const det_id_t d1 =
-			    *reinterpret_cast<det_id_t*>(&buff[numFieldsPerEvent * i + 0ll]);
-			const det_id_t d2 =
-			    *reinterpret_cast<det_id_t*>(&buff[numFieldsPerEvent * i + 1ll]);
+			const det_id_t d1 = *reinterpret_cast<det_id_t*>(
+			    &buff[numFieldsPerEvent * i + 0ll]);
+			const det_id_t d2 = *reinterpret_cast<det_id_t*>(
+			    &buff[numFieldsPerEvent * i + 1ll]);
 			const float projValue = buff[numFieldsPerEvent * i + 2ll];
 			accumulate({d1, d2}, projValue);
 		}

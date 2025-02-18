@@ -252,6 +252,8 @@ void SparseHistogram::writeToFile(const std::string& filename) const
 
 void SparseHistogram::readFromFile(const std::string& filename)
 {
+	// TODO NOW: remove all debug prints
+
 	std::ifstream ifs{filename, std::ios::in | std::ios::binary};
 
 	if (!ifs.good())
@@ -273,6 +275,8 @@ void SparseHistogram::readFromFile(const std::string& filename)
 	// Compute the number of events using its size
 	const int64_t numEvents = fileSize_bytes / sizeOfAnEvent_bytes;
 
+	std::cout << "numEvents: " << numEvents << std::endl;
+
 	// Allocate the memory
 	allocate(numEvents);
 
@@ -287,11 +291,15 @@ void SparseHistogram::readFromFile(const std::string& filename)
 	int64_t posStart_events = 0;
 	while (posStart_events < numEvents)
 	{
+		std::cout << "posStart_events: " << posStart_events << std::endl;
+
 		const int64_t readSize_fields =
 		    std::min(bufferSize_fields,
 		             numFieldsPerEvent * (numEvents - posStart_events));
 		const int64_t readSize_events = readSize_fields / numFieldsPerEvent;
 		const int64_t readSize_bytes = sizeOfAnEvent_bytes * readSize_events;
+
+		std::cout << "readSize_events: " << readSize_events << std::endl;
 
 		ifs.read(reinterpret_cast<char*>(buff.get()), readSize_bytes);
 

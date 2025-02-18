@@ -8,11 +8,11 @@
 #include <cstdint>
 #include <variant>
 
-typedef uint32_t det_id_t; // detector ids
-typedef uint64_t bin_t; // histogram bins or listmode event ids
+typedef uint32_t det_id_t;  // detector ids
+typedef uint64_t bin_t;     // histogram bins or listmode event ids
 typedef uint64_t size_t;
-typedef uint32_t timestamp_t; // timestamps in milliseconds
-typedef int32_t frame_t; // motion correction frame
+typedef uint32_t timestamp_t;  // timestamps in milliseconds
+typedef int32_t frame_t;       // motion correction frame
 
 // Defining a pair of detectors
 struct det_pair_t

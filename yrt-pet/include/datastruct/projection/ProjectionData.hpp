@@ -5,11 +5,11 @@
 
 #pragma once
 
-#include "datastruct/scanner/Scanner.hpp"
 #include "datastruct/projection/BinIterator.hpp"
+#include "datastruct/scanner/Scanner.hpp"
+#include "geometry/Line3D.hpp"
 #include "operators/Variable.hpp"
 #include "utils/Types.hpp"
-#include "geometry/Line3D.hpp"
 
 #include <functional>
 #include <memory>
@@ -37,7 +37,7 @@ public:
 	virtual det_pair_t getDetectorPair(bin_t id) const;
 	virtual histo_bin_t getHistogramBin(bin_t bin) const;
 	virtual std::unique_ptr<BinIterator> getBinIter(int numSubsets,
-	                                                  int idxSubset) const = 0;
+	                                                int idxSubset) const = 0;
 
 	// Optional methods
 	virtual timestamp_t getTimestamp(bin_t id) const;

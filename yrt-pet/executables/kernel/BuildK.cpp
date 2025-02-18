@@ -2,8 +2,8 @@
 #include "utils/Array.hpp"
 #include "utils/Assert.hpp"
 
-#include <cxxopts.hpp>
 #include "omp.h"
+#include <cxxopts.hpp>
 
 int main(int argc, char** argv)
 {

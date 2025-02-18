@@ -25,7 +25,7 @@ namespace Util
 
 	private:
 		int64_t m_total;
-		int8_t m_lastDisplayedPercentage; // Should never be higher than 100
+		int8_t m_lastDisplayedPercentage;  // Should never be higher than 100
 		int64_t m_increment;
 	};
 }  // namespace Util

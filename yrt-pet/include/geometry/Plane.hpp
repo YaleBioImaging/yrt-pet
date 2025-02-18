@@ -25,7 +25,8 @@ public:
 	Plane();
 	Plane(const Vector3D& pt1, const Vector3D& pt2, const Vector3D& pt3);
 	void update(const Vector3D& pt1, const Vector3D& pt2, const Vector3D& pt3);
-	void update_eq(const Vector3D& pt1, const Vector3D& pt2, const Vector3D& pt3);
+	void update_eq(const Vector3D& pt1, const Vector3D& pt2,
+	               const Vector3D& pt3);
 	bool isCoplanar(const Vector3D& pt) const;
 	bool isParallel(const Line3D& l) const;
 	Vector3D findInterLine(const Line3D& line) const;

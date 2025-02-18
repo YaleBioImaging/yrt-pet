@@ -18,10 +18,11 @@ public:
 
 	// Pre-computes a ProjectionList of (randoms+scatter)/(acf*sensitivity) for
 	//  each LOR in 'measurements'
-	void
-	    precomputeAdditiveCorrectionFactors(const ProjectionData& measurements) override;
+	void precomputeAdditiveCorrectionFactors(
+	    const ProjectionData& measurements) override;
 	// Pre-computes a ProjectionList of a^(i)_i for each LOR in measurements
-	void precomputeInVivoAttenuationFactors(const ProjectionData& measurements) override;
+	void precomputeInVivoAttenuationFactors(
+	    const ProjectionData& measurements) override;
 
 	float getAdditiveCorrectionFactor(bin_t binId) const;
 	float getInVivoAttenuationFactor(bin_t binId) const;
@@ -29,6 +30,7 @@ public:
 	    getCachedMeasurementsForAdditiveCorrectionFactors() const;
 	const ProjectionData*
 	    getCachedMeasurementsForInVivoAttenuationFactors() const;
+
 private:
 	// Functions used for precomputation only:
 	// Return (randoms+scatter)/(sensitivity*attenuation)

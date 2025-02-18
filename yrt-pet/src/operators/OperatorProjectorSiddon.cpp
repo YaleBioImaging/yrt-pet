@@ -34,8 +34,7 @@ void py_setup_operatorprojectorsiddon(py::module& m)
 	    "forwardProjection",
 	    [](const OperatorProjectorSiddon& self, const Image* in_image,
 	       const Line3D& lor, const Vector3D& n1, const Vector3D& n2,
-	       const TimeOfFlightHelper* tofHelper, float tofValue) -> float
-	    {
+	       const TimeOfFlightHelper* tofHelper, float tofValue) -> float {
 		    return self.forwardProjection(in_image, lor, n1, n2, tofHelper,
 		                                  tofValue);
 	    },

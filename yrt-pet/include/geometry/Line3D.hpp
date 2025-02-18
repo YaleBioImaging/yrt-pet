@@ -7,17 +7,18 @@
 
 #include "geometry/Vector3D.hpp"
 
-template<typename TFloat>
+template <typename TFloat>
 class Line3DBase
 {
 public:
-	void update(const Vector3DBase<TFloat>& pt1, const Vector3DBase<TFloat>& pt2);
+	void update(const Vector3DBase<TFloat>& pt1,
+	            const Vector3DBase<TFloat>& pt2);
 
 	bool isEqual(Line3DBase<TFloat>& line) const;
 	bool isParallel(Line3DBase<TFloat>& line) const;
 	TFloat getNorm() const;
 
-	template<typename TargetType>
+	template <typename TargetType>
 	Line3DBase<TargetType> to() const;
 
 	static Line3DBase<TFloat> nullLine();
@@ -34,4 +35,3 @@ using Line3D = Line3DBase<float>;
 
 // Created to avoid type-castings
 using Line3DDouble = Line3DBase<double>;
-

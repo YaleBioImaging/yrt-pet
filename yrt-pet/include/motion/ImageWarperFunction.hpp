@@ -43,6 +43,6 @@ private:
 	std::vector<double> getVoxelPhysPos(std::vector<int> voxelId);
 	void applyTransformation(const std::vector<double>& pos, Vector3D& result,
 	                         int frameId) const;
-	void applyInvTransformation(const std::vector<double>& pos, Vector3D& result,
-	                            int frameId) const;
+	void applyInvTransformation(const std::vector<double>& pos,
+	                            Vector3D& result, int frameId) const;
 };

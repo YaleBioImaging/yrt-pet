@@ -13,6 +13,7 @@ public:
 
 	virtual float
 	    getProjectionValueFromHistogramBin(histo_bin_t histoBinId) const = 0;
+
 protected:
 	explicit Histogram(const Scanner& pr_scanner);
 };

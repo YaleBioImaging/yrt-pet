@@ -65,7 +65,7 @@ void OSEM_CPU::setupOperatorsForSensImgGen()
 		// Create and add Bin Iterator
 		getBinIterators().push_back(
 		    mp_corrector->getSensImgGenProjData()->getBinIter(num_OSEM_subsets,
-		                                                    subsetId));
+		                                                      subsetId));
 	}
 
 	// Create ProjectorParams object

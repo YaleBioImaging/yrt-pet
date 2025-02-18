@@ -15,7 +15,7 @@ namespace Util
 		static constexpr std::streamsize DEFAULT_CACHE_SIZE = 1ull << 30;
 		virtual ~FileReader() = default;
 		FileReader(std::istream& pr_istream, bool p_useCache = true,
-		             size_t p_cacheSize = DEFAULT_CACHE_SIZE);
+		           size_t p_cacheSize = DEFAULT_CACHE_SIZE);
 
 		virtual std::streamsize read(std::streamoff startPos,
 		                             char* receivingBuffer,
@@ -42,7 +42,7 @@ namespace Util
 	{
 	public:
 		FileReaderContiguous(std::istream& pr_istream, bool p_useCache = true,
-		                       size_t p_cacheSize = DEFAULT_CACHE_SIZE);
+		                     size_t p_cacheSize = DEFAULT_CACHE_SIZE);
 
 		std::streamsize read(char* receivingBuffer,
 		                     std::streamsize bytesToRead);

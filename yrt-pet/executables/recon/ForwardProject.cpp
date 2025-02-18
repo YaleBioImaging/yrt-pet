@@ -92,8 +92,7 @@ int main(int argc, char** argv)
 		// Image-space PSF
 		if (!imagePsf_fname.empty())
 		{
-			auto imagePsf =
-			    std::make_unique<OperatorPsf>(imagePsf_fname);
+			auto imagePsf = std::make_unique<OperatorPsf>(imagePsf_fname);
 			std::cout << "Applying Image-space PSF..." << std::endl;
 			imagePsf->applyA(inputImage.get(), inputImage.get());
 		}

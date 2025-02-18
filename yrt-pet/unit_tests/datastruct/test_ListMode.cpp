@@ -5,9 +5,9 @@
 
 #include "catch.hpp"
 
+#include "../test_utils.hpp"
 #include "datastruct/projection/ListModeLUT.hpp"
 #include "utils/Array.hpp"
-#include "../test_utils.hpp"
 
 #include <cmath>
 #include <cstdio>

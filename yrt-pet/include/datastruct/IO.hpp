@@ -20,7 +20,8 @@ namespace IO
 	    const std::string& input_fname, const std::string& input_format,
 	    const Scanner& scanner, const Plugin::OptionsResult&);
 
-	std::string possibleFormats(Plugin::InputFormatsChoice choice = Plugin::InputFormatsChoice::ALL);
+	std::string possibleFormats(
+	    Plugin::InputFormatsChoice choice = Plugin::InputFormatsChoice::ALL);
 
 	bool isFormatListMode(const std::string& format);
 

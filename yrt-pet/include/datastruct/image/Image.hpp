@@ -10,8 +10,8 @@
 #include "geometry/Vector3D.hpp"
 #include "utils/Array.hpp"
 
-#include <string>
 #include <functional>
+#include <string>
 
 struct transform_t;
 
@@ -71,8 +71,7 @@ public:
 	// parallel without race conditions for different bins.
 	// In other words, two different bins shouldn't point
 	// to the same memory location.
-	void
-	    operationOnEachVoxelParallel(const std::function<float(size_t)>& func);
+	void operationOnEachVoxelParallel(const std::function<float(size_t)>& func);
 
 protected:
 	static float originToOffset(float origin, float voxelSize, float length);

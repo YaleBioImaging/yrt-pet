@@ -279,7 +279,7 @@ void SparseHistogram::readFromFile(const std::string& filename)
 	allocate(numEvents);
 
 	// Prepare buffer of 3 4-byte fields
-	constexpr long long bufferSize_fields = (1ll << 30);
+	constexpr long long bufferSize_fields = (1ll << 28);
 	auto buff = std::make_unique<float[]>(bufferSize_fields);
 	constexpr long long numFieldsPerEvent = 3ll;
 	static_assert(numFieldsPerEvent * sizeof(float) == sizeOfAnEvent_bytes);
@@ -291,9 +291,15 @@ void SparseHistogram::readFromFile(const std::string& filename)
 		    std::min(bufferSize_fields,
 		             numFieldsPerEvent * (numEvents - posStart_events));
 		const long long readSize_events = readSize_fields / numFieldsPerEvent;
+		const long long readSize_bytes = sizeOfAnEvent_bytes * readSize_events;
 
-		ifs.read(reinterpret_cast<char*>(buff.get()),
-		         sizeOfAnEvent_bytes * readSize_events);
+		ifs.read(reinterpret_cast<char*>(buff.get()), readSize_bytes);
+
+		if (ifs.gcount() < readSize_bytes)
+		{
+			ASSERT_MSG(false,
+			           "Error: Failed to read expected bytes from file.");
+		}
 
 		for (long long i = 0; i < readSize_events; i++)
 		{

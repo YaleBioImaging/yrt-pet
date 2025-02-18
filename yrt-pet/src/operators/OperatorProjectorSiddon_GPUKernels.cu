@@ -122,7 +122,7 @@ __global__ void OperatorProjectorSiddonCU_kernel(
 			if constexpr (IsMultiRay)
 			{
 				// Modify p1 and p2 for multi-ray
-				if (i_line > 1)
+				if (i_line > 0)
 				{
 					generateRandomLine(state, p1, p2, parallelToTrans1,
 					                   parallelToTrans2, scannerParams, p1, p2);

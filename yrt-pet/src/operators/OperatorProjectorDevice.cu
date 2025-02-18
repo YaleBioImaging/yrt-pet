@@ -71,9 +71,9 @@ OperatorProjectorDevice::OperatorProjectorDevice(
 	{
 		setupTOFHelper(pr_projParams.tofWidth_ps, pr_projParams.tofNumStd);
 	}
-	if (!pr_projParams.psfProj_fname.empty())
+	if (!pr_projParams.projPsf_fname.empty())
 	{
-		setupProjPsfManager(pr_projParams.psfProj_fname);
+		setupProjPsfManager(pr_projParams.projPsf_fname);
 	}
 
 	m_batchSize = 0ull;

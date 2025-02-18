@@ -71,7 +71,7 @@ void OSEM_CPU::setupOperatorsForSensImgGen()
 	// Create ProjectorParams object
 	OperatorProjectorParams projParams(
 	    nullptr /* Will be set later at each subset loading */, scanner, 0.f, 0,
-	    flagProjPSF ? projSpacePsf_fname : "", numRays);
+	    flagProjPSF ? projPsf_fname : "", numRays);
 
 	if (projectorType == OperatorProjector::ProjectorType::SIDDON)
 	{
@@ -170,7 +170,7 @@ const OperatorProjector* OSEM_CPU::getProjector() const
 
 OperatorPsf* OSEM_CPU::getOperatorPsf() const
 {
-	return imageSpacePsf.get();
+	return imagePsf.get();
 }
 
 void OSEM_CPU::setupOperatorsForRecon()
@@ -188,7 +188,7 @@ void OSEM_CPU::setupOperatorsForRecon()
 	OperatorProjectorParams projParams(
 	    nullptr /* Will be set later at each subset loading */, scanner,
 	    flagProjTOF ? tofWidth_ps : 0.f, flagProjTOF ? tofNumStd : 0,
-	    flagProjPSF ? projSpacePsf_fname : "", numRays);
+	    flagProjPSF ? projPsf_fname : "", numRays);
 
 	if (projectorType == OperatorProjector::SIDDON)
 	{

@@ -118,7 +118,7 @@ OSEM::OSEM(const Scanner& pr_scanner)
       maskImage(nullptr),
       initialEstimate(nullptr),
       flagImagePSF(false),
-      imageSpacePsf(nullptr),
+      imagePsf(nullptr),
       flagProjPSF(false),
       flagProjTOF(false),
       tofWidth_ps(0.0f),
@@ -160,7 +160,7 @@ void OSEM::generateSensitivityImageForLoadedSubset()
 
 	if (flagImagePSF)
 	{
-		imageSpacePsf->applyAH(getSensImageBuffer(), getSensImageBuffer());
+		imagePsf->applyAH(getSensImageBuffer(), getSensImageBuffer());
 	}
 
 	std::cout << "Applying threshold..." << std::endl;
@@ -391,17 +391,16 @@ void OSEM::addTOF(float p_tofWidth_ps, int p_tofNumStd)
 	flagProjTOF = true;
 }
 
-void OSEM::addProjPSF(const std::string& p_projSpacePsf_fname)
+void OSEM::addProjPSF(const std::string& pr_projPsf_fname)
 {
-	projSpacePsf_fname = p_projSpacePsf_fname;
-	flagProjPSF = !projSpacePsf_fname.empty();
+	projPsf_fname = pr_projPsf_fname;
+	flagProjPSF = !projPsf_fname.empty();
 }
 
-void OSEM::addImagePSF(const std::string& p_imageSpacePsf_fname)
+void OSEM::addImagePSF(const std::string& p_imagePsf_fname)
 {
-	ASSERT_MSG(!p_imageSpacePsf_fname.empty(),
-	           "Empty filename for Image-space PSF");
-	imageSpacePsf = std::make_unique<OperatorPsf>(p_imageSpacePsf_fname);
+	ASSERT_MSG(!p_imagePsf_fname.empty(), "Empty filename for Image-space PSF");
+	imagePsf = std::make_unique<OperatorPsf>(p_imagePsf_fname);
 	flagImagePSF = true;
 }
 
@@ -589,7 +588,7 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 			if (flagImagePSF)
 			{
 				// PSF
-				imageSpacePsf->applyA(
+				imagePsf->applyA(
 				    getMLEMImageBuffer(),
 				    getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType::PSF));
 				mlemImage_rp =
@@ -607,11 +606,10 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 			// PSF
 			if (flagImagePSF)
 			{
-				imageSpacePsf->applyAH(
-				    getMLEMImageTmpBuffer(
-				        TemporaryImageSpaceBufferType::EM_RATIO),
-				    getMLEMImageTmpBuffer(
-				        TemporaryImageSpaceBufferType::EM_RATIO));
+				imagePsf->applyAH(getMLEMImageTmpBuffer(
+				                      TemporaryImageSpaceBufferType::EM_RATIO),
+				                  getMLEMImageTmpBuffer(
+				                      TemporaryImageSpaceBufferType::EM_RATIO));
 			}
 
 			// UPDATE

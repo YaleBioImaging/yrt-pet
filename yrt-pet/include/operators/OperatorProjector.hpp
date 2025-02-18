@@ -30,7 +30,7 @@ public:
 
 	explicit OperatorProjector(const Scanner& pr_scanner,
 	                           float tofWidth_ps = 0.0f, int tofNumStd = -1,
-	                           const std::string& psfProjFilename = "");
+	                           const std::string& projPsf_fname = "");
 
 	explicit OperatorProjector(const OperatorProjectorParams& p_projParams);
 
@@ -48,7 +48,7 @@ public:
 
 	void addTOF(float tofWidth_ps, int tofNumStd = -1);
 	void setupTOFHelper(float tofWidth_ps, int tofNumStd = -1);
-	void setupProjPsfManager(const std::string& psfFilename);
+	void setupProjPsfManager(const std::string& projPsf_fname);
 
 	const TimeOfFlightHelper* getTOFHelper() const;
 	const ProjectionPsfManager* getProjectionPsfManager() const;

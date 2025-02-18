@@ -337,12 +337,6 @@ const det_pair_t* SparseHistogram::getDetectorPairBuffer() const
 	return m_detPairs.data();
 }
 
-det_pair_t SparseHistogram::SwapDetectorPairIfNeeded(det_pair_t detPair)
-{
-	auto [d1, d2] = std::minmax({detPair.d1, detPair.d2});
-	return det_pair_t{d1, d2};
-}
-
 std::unique_ptr<ProjectionData>
     SparseHistogram::create(const Scanner& scanner, const std::string& filename,
                             const Plugin::OptionsResult& pluginOptions)

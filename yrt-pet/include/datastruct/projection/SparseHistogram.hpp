@@ -55,15 +55,12 @@ public:
 	static Plugin::OptionsListPerPlugin getOptions();
 
 private:
-	static det_pair_t SwapDetectorPairIfNeeded(det_pair_t detPair);
-
 	// Comparators for std::unordered_map
 	struct det_pair_hash
 	{
 		size_t operator()(const det_pair_t& pair) const
 		{
-			const det_id_t d1 = std::min(pair.d1, pair.d2);
-			const det_id_t d2 = std::max(pair.d1, pair.d2);
+			const auto [d1, d2] = std::minmax(pair.d1, pair.d2);
 
 			const size_t hash1 = std::hash<det_id_t>{}(d1);
 			const size_t hash2 = std::hash<det_id_t>{}(d2);

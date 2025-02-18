@@ -60,8 +60,8 @@ public:
 	const ProjectionData* getDataInput() const;
 	void setDataInput(const ProjectionData* pp_dataInput);
 	void addTOF(float p_tofWidth_ps, int p_tofNumStd);
-	void addProjPSF(const std::string& p_projSpacePsf_fname);
-	virtual void addImagePSF(const std::string& p_imageSpacePsf_fname);
+	void addProjPSF(const std::string& pr_projPsf_fname);
+	virtual void addImagePSF(const std::string& p_imagePsf_fname);
 	void setSaveIterRanges(Util::RangeList p_saveIterList,
 	                       const std::string& p_saveIterPath);
 	void setListModeEnabled(bool enabled);
@@ -107,9 +107,9 @@ protected:
 	// ---------- Protected members ----------
 	bool flagImagePSF;
 	std::string imageSpacePsf_fname;
-	std::unique_ptr<OperatorPsf> imageSpacePsf;
+	std::unique_ptr<OperatorPsf> imagePsf;
 	bool flagProjPSF;
-	std::string projSpacePsf_fname;
+	std::string projPsf_fname;
 	bool flagProjTOF;
 	float tofWidth_ps;
 	int tofNumStd;

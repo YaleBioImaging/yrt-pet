@@ -65,7 +65,7 @@ void OSEM_GPU::setupOperatorsForSensImgGen()
 	// Create ProjectorParams object
 	OperatorProjectorParams projParams(
 	    nullptr /* Will be set later at each subset loading */, scanner, 0.f, 0,
-	    flagProjPSF ? projSpacePsf_fname : "", numRays);
+	    flagProjPSF ? projPsf_fname : "", numRays);
 
 	if (projectorType == OperatorProjector::DD)
 	{
@@ -140,7 +140,7 @@ void OSEM_GPU::setupOperatorsForRecon()
 	OperatorProjectorParams projParams(
 	    nullptr /* Will be set later at each subset loading */, scanner,
 	    flagProjTOF ? tofWidth_ps : 0.f, flagProjTOF ? tofNumStd : 0,
-	    flagProjPSF ? projSpacePsf_fname : "", numRays);
+	    flagProjPSF ? projPsf_fname : "", numRays);
 
 	if (projectorType == OperatorProjector::DD)
 	{
@@ -392,7 +392,7 @@ void OSEM_GPU::addImagePSF(const std::string& p_imageSpacePsf_fname)
 {
 	ASSERT_MSG(!p_imageSpacePsf_fname.empty(),
 	           "Empty filename for Image-space PSF");
-	imageSpacePsf = std::make_unique<OperatorPsfDevice>(p_imageSpacePsf_fname,
+	imagePsf = std::make_unique<OperatorPsfDevice>(p_imageSpacePsf_fname,
 	                                                    getMainStream());
 	flagImagePSF = true;
 }

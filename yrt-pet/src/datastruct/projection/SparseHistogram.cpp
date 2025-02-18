@@ -284,6 +284,7 @@ void SparseHistogram::readFromFile(const std::string& filename)
 	    ((1ll << 28) / numFieldsPerEvent) * numFieldsPerEvent;
 	auto buff = std::make_unique<float[]>(bufferSize_fields);
 	static_assert(numFieldsPerEvent * sizeof(float) == sizeOfAnEvent_bytes);
+	static_assert(sizeof(long long) == 8);
 
 	long long posStart_events = 0;
 	while (posStart_events < numEvents)

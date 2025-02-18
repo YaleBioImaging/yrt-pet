@@ -62,8 +62,13 @@ private:
 	{
 		size_t operator()(const det_pair_t& pair) const
 		{
-			auto [d1, d2] = SwapDetectorPairIfNeeded(pair);
-			return (static_cast<size_t>(d1) << 32) | static_cast<size_t>(d2);
+			const det_id_t d1 = std::min(pair.d1, pair.d2);
+			const det_id_t d2 = std::max(pair.d1, pair.d2);
+
+			const size_t hash1 = std::hash<det_id_t>{}(d1);
+			const size_t hash2 = std::hash<det_id_t>{}(d2);
+
+			return hash1 ^ (hash2 << 1);  // Combines hashes better
 		}
 	};
 	struct det_pair_equal

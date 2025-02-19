@@ -30,15 +30,9 @@ namespace Util
 		const Image* sourceImage_ptr = &sourceImage;
 		const OperatorProjector* projector_ptr = &projector;
 
-		omp_lock_t mapLock;
-		omp_init_lock(&mapLock);
-
 		ProgressDisplayMultiThread progress(Globals::get_num_threads(), numBins,
 		                                    5);
 
-#pragma omp parallel for default(none)                               \
-    firstprivate(numBins, sparseHistogram_ptr, uniformHistogram_ptr, \
-                     sourceImage_ptr, projector_ptr) shared(mapLock, progress)
 		for (bin_t bin = 0; bin < numBins; ++bin)
 		{
 			progress.progress(omp_get_thread_num(), 1);
@@ -53,12 +47,8 @@ namespace Util
 
 			if (std::abs(projValue) > SMALL)
 			{
-				omp_set_lock(&mapLock);
 				sparseHistogram_ptr->accumulate(detPair, projValue);
-				omp_unset_lock(&mapLock);
 			}
 		}
-
-		omp_destroy_lock(&mapLock);
 	}
 }  // namespace Util

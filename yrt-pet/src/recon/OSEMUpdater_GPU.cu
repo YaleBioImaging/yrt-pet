@@ -67,12 +67,12 @@ void OSEMUpdater_GPU::computeSensitivityImage(ImageDevice& destImage) const
 		}
 		if (corrector.hasHardwareAttenuationImage())
 		{
-			corrector.applyHardwareAttenuationImageFactorsToGivenDeviceBuffer(
+			corrector.applyHardwareAttenuationToGivenDeviceBufferFromAttenuationImage(
 			    sensDataBuffer, projector, auxStream);
 		}
 		else if (corrector.doesHardwareACFComeFromHistogram())
 		{
-			corrector.applyHardwareACFCorrectionFactorsToGivenDeviceBuffer(
+			corrector.applyHardwareAttenuationToGivenDeviceBufferFromACFHistogram(
 			    sensDataBuffer, auxStream);
 		}
 

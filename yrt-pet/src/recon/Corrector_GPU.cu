@@ -162,7 +162,7 @@ ProjectionDataDevice* Corrector_GPU::getTemporaryDeviceBuffer()
 	return mpd_temporaryCorrectionFactors.get();
 }
 
-void Corrector_GPU::applyHardwareACFCorrectionFactorsToGivenDeviceBuffer(
+void Corrector_GPU::applyHardwareAttenuationToGivenDeviceBufferFromACFHistogram(
     ProjectionDataDevice* destProjData, const cudaStream_t* stream)
 {
 	ASSERT_MSG(mpd_temporaryCorrectionFactors != nullptr,
@@ -178,7 +178,7 @@ void Corrector_GPU::applyHardwareACFCorrectionFactorsToGivenDeviceBuffer(
 	                                 stream);
 }
 
-void Corrector_GPU::applyHardwareAttenuationImageFactorsToGivenDeviceBuffer(
+void Corrector_GPU::applyHardwareAttenuationToGivenDeviceBufferFromAttenuationImage(
     ProjectionDataDevice* destProjData, OperatorProjectorDevice* projector,
     const cudaStream_t* stream)
 {

@@ -10,7 +10,7 @@
 #include "datastruct/projection/UniformHistogram.hpp"
 #include "operators/OperatorProjector.hpp"
 #include "utils/Globals.hpp"
-#include "utils/ProgressDisplayMultiThread.hpp"
+#include "utils/ProgressDisplay.hpp"
 
 #include "omp.h"
 
@@ -30,12 +30,11 @@ namespace Util
 		const Image* sourceImage_ptr = &sourceImage;
 		const OperatorProjector* projector_ptr = &projector;
 
-		ProgressDisplayMultiThread progress(Globals::get_num_threads(), numBins,
-		                                    5);
+		ProgressDisplay progress(numBins, 5);
 
 		for (bin_t bin = 0; bin < numBins; ++bin)
 		{
-			progress.progress(omp_get_thread_num(), 1);
+			progress.progress(bin);
 
 			const det_pair_t detPair =
 			    uniformHistogram_ptr->getDetectorPair(bin);

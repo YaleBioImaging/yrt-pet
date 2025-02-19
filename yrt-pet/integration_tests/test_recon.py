@@ -336,7 +336,7 @@ def _test_savant_sim_ultra_micro_hotspot_nomotion_osem_6rays(use_gpu: bool):
     dataset = yrt.ListModeLUTOwned(
         scanner, os.path.join(fold_savant_sim, "ultra_micro_hotspot", "nomotion.lmDat"))
     sens_img = yrt.ImageOwned(
-        img_params, os.path.join(fold_savant_sim, "images", "sens_image_siddon_6rays.nii"))
+        img_params, os.path.join(fold_savant_sim, "images", "sens_image_siddon_6rays.nii.gz"))
 
     osem = yrt.createOSEM(scanner, use_gpu)
     osem.setImageParams(img_params)
@@ -360,7 +360,7 @@ def _test_savant_sim_ultra_micro_hotspot_nomotion_osem_6rays(use_gpu: bool):
     ref_img = yrt.ImageOwned(img_params,
                              os.path.join(fold_savant_sim,
                                           "ref",
-                                          "ultra_micro_hotspot_nomotion_osem_6rays.nii"))
+                                          "ultra_micro_hotspot_nomotion_osem_6rays.nii.gz"))
 
     np_out_img = np.array(out_img, copy=False)
     np_ref_img = np.array(ref_img, copy=False)

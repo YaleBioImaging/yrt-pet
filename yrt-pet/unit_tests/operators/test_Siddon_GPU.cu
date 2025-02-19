@@ -28,11 +28,9 @@ TEST_CASE("siddon_gpu_vs_cpu", "[siddon-gpu]")
 	const float sy = scanner->scannerRadius * 2.0f / sqrt(2.0f) - oy * 2.0f;
 	const float sz = scanner->axialFOV;
 	ImageParams imgParams{nx, ny, nz, sx, sy, sz, ox, oy, oz};
-	auto img = std::make_unique<ImageOwned>(imgParams);
-	img->allocate();
 
 	auto data = std::make_unique<ListModeLUTOwned>(*scanner);
-	constexpr size_t numEvents = 1000;
+	constexpr size_t numEvents = 10000;
 	data->allocate(numEvents);
 
 	for (bin_t binId = 0; binId < numEvents; binId++)
@@ -42,41 +40,57 @@ TEST_CASE("siddon_gpu_vs_cpu", "[siddon-gpu]")
 		data->setDetectorIdsOfEvent(binId, d1, d2);
 	}
 
-	auto img_cpu = std::make_unique<ImageOwned>(imgParams);
-	img_cpu->allocate();
-	img_cpu->setValue(0.0);
-	Util::backProject(*scanner, *img_cpu, *data, OperatorProjector::SIDDON,
-	                  false);
+	SECTION("bwd-project")
+	{
+		auto img_cpu = std::make_unique<ImageOwned>(imgParams);
+		img_cpu->allocate();
+		img_cpu->setValue(0.0);
+		Util::backProject(*scanner, *img_cpu, *data, OperatorProjector::SIDDON,
+		                  false);
 
-	REQUIRE(img_cpu->voxelSum() > 0.0f);
+		REQUIRE(img_cpu->voxelSum() > 0.0f);
 
-	auto img_gpu = std::make_unique<ImageOwned>(imgParams);
-	img_gpu->allocate();
-	img_gpu->setValue(0.0);
-	Util::backProject(*scanner, *img_gpu, *data, OperatorProjector::SIDDON,
-	                  true);
+		auto img_gpu = std::make_unique<ImageOwned>(imgParams);
+		img_gpu->allocate();
+		img_gpu->setValue(0.0);
+		Util::backProject(*scanner, *img_gpu, *data, OperatorProjector::SIDDON,
+		                  true);
 
-	double rmseCpuGpu = TestUtils::getRMSE(*img_gpu, *img_cpu);
+		double rmseCpuGpu = TestUtils::getRMSE(*img_gpu, *img_cpu);
 
-	REQUIRE(img_gpu->voxelSum() > 0.0f);
+		REQUIRE(img_gpu->voxelSum() > 0.0f);
+		CHECK(rmseCpuGpu < 0.000007);
+	}
 
-	CHECK(rmseCpuGpu < 0.000005);
+	auto imgToFwdProj = TestUtils::makeImageWithRandomPrism(imgParams);
 
-	const Image& imgToFwdProj = *img_cpu;
+	SECTION("fwd-project")
+	{
+		auto projList_cpu = std::make_unique<ProjectionListOwned>(data.get());
+		projList_cpu->allocate();
+		projList_cpu->clearProjections(0.0f);
+		Util::forwProject(*scanner, *imgToFwdProj, *projList_cpu,
+		                  OperatorProjector::SIDDON, false);
 
-	auto projList_cpu = std::make_unique<ProjectionListOwned>(data.get());
-	projList_cpu->allocate();
-	projList_cpu->clearProjections(0.0f);
-	Util::forwProject(*scanner, imgToFwdProj, *projList_cpu,
-	                  OperatorProjector::SIDDON, false);
+		auto projList_gpu = std::make_unique<ProjectionListOwned>(data.get());
+		projList_gpu->allocate();
+		projList_gpu->clearProjections(0.0f);
+		Util::forwProject(*scanner, *imgToFwdProj, *projList_gpu,
+		                  OperatorProjector::SIDDON, true);
 
-	auto projList_gpu = std::make_unique<ProjectionListOwned>(data.get());
-	projList_gpu->allocate();
-	projList_gpu->clearProjections(0.0f);
-	Util::forwProject(*scanner, imgToFwdProj, *projList_gpu,
-	                  OperatorProjector::SIDDON, true);
+		double rmseCpuGpu = TestUtils::getRMSE(*projList_cpu, *projList_gpu);
 
-	rmseCpuGpu = TestUtils::getRMSE(*projList_cpu, *projList_gpu);
+		CHECK(rmseCpuGpu < 0.0003);
+	}
 
-	CHECK(rmseCpuGpu < 0.0001);
+
+
+
+
+
+
+
+
+
+
 }

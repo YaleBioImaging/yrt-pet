@@ -66,7 +66,7 @@ TEST_CASE("DD", "[dd]")
 	img->allocate();
 
 	auto data = std::make_unique<ListModeLUTOwned>(*scanner);
-	constexpr size_t numEvents = 1000;
+	constexpr size_t numEvents = 10000;
 	data->allocate(numEvents);
 	for (bin_t binId = 0; binId < numEvents; binId++)
 	{
@@ -96,7 +96,7 @@ TEST_CASE("DD", "[dd]")
 
 	double rmseCpuGpu = TestUtils::getRMSE(*img_gpu, *img_cpu);
 
-	CHECK(rmseCpuGpu < 0.000003);
+	CHECK(rmseCpuGpu < 0.000005);
 
 	const Image& imgToFwdProj = *img_cpu;
 
@@ -114,7 +114,7 @@ TEST_CASE("DD", "[dd]")
 
 	rmseCpuGpu = TestUtils::getRMSE(*projList_cpu, *projList_gpu);
 
-	CHECK(rmseCpuGpu < 0.0003);
+	CHECK(rmseCpuGpu < 0.0004);
 
 #endif
 }

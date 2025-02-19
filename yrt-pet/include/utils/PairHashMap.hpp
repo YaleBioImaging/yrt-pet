@@ -29,7 +29,11 @@ public:
 		TValue value;
 	};
 
-	PairHashMap() { m_hashTable.resize(64); }
+	PairHashMap()
+	{
+		m_hashTable.resize(64);
+		m_hashTableSize = m_hashTable.size();
+	}
 
 	// Insert/update a pair (d1, d2) with a value
 	void insert(uint32_t d1, uint32_t d2, TValue value)
@@ -49,13 +53,15 @@ public:
 				m_data[m_hashTable[idx].index].value += value;  // Accumulate
 				return;
 			}
-			idx = (idx + 1) % m_hashTable.size();
+			idx = (idx + 1) % m_hashTableSize;
 		}
 
 		// Add new entry
-		if (m_size >= m_hashTable.size() * LOAD_FACTOR)
+		if (m_size >= m_hashTableSize * LOAD_FACTOR)
+		{
 			rehash();
-		m_data.emplace_back(a, b, value);
+		}
+		m_data.push_back({a, b, value});
 		insertInternal(key, m_data.size() - 1);
 	}
 
@@ -89,12 +95,13 @@ public:
 			newTableSize <<= 1;
 
 		// Only resize if we need a larger table
-		if (newTableSize > m_hashTable.size())
+		if (newTableSize > m_hashTableSize)
 		{
 			std::vector<HashEntry> newTable(newTableSize);
 			std::vector<HashEntry> oldTable;
 			std::swap(oldTable, m_hashTable);  // Keep old entries temporarily
 			m_hashTable = std::move(newTable);
+			m_hashTableSize = m_hashTable.size();
 			m_size = 0;  // Reset size counter before reinsertion
 
 			// Reinsert all existing entries into the new table
@@ -124,9 +131,9 @@ public:
 			{
 				return m_data[m_hashTable[idx].index].value;
 			}
-			idx = (idx + 1) % m_hashTable.size();
+			idx = (idx + 1) % m_hashTableSize;
 
-			if (++numChecks > m_hashTable.size())
+			if (++numChecks > m_hashTableSize)
 			{
 				// Not found anywhere
 				return 0.0f;
@@ -144,17 +151,21 @@ public:
 		while (true)
 		{
 			if (!m_hashTable[idx].occupied)
+			{
 				return false;
+			}
 			if (m_hashTable[idx].key == key)
+			{
 				return true;
-			idx = (idx + 1) % m_hashTable.size();
+			}
+			idx = (idx + 1) % m_hashTableSize;
 		}
 	}
 
 	/// If (d1, d2) exists: add 'value' to its value.
 	/// If not: insert with 'value'.
 	/// Returns reference to the updated/inserted value.
-	TValue& update_or_insert(uint32_t d1, uint32_t d2, TValue value)
+	void update_or_insert(uint32_t d1, uint32_t d2, TValue value)
 	{
 		const uint64_t key = makeKey(d1, d2);
 		size_t idx = hash(key);
@@ -163,15 +174,20 @@ public:
 		if (m_hashTable[idx].key == key) [[likely]]
 		{
 			m_data[m_hashTable[idx].index].value += value;
-			return m_data[m_hashTable[idx].index].value;
+			return;
 		}
 
 		// Linear probing with early exit
 		while (true)
 		{
+			if (m_hashTable[idx].key == key)
+			{
+				m_data[m_hashTable[idx].index].value += value;
+				return;
+			}
 			if (!m_hashTable[idx].occupied)
 			{
-				if (m_size >= m_hashTable.size() * LOAD_FACTOR) [[unlikely]]
+				if (m_size >= m_hashTableSize * LOAD_FACTOR) [[unlikely]]
 				{
 					rehash();
 					idx = hash(key);  // Recompute after rehash
@@ -181,14 +197,9 @@ public:
 				m_hashTable[idx] = {
 				    key, static_cast<uint32_t>(m_data.size() - 1), true};
 				m_size++;
-				return m_data.back().value;
+				return;
 			}
-			if (m_hashTable[idx].key == key)
-			{
-				m_data[m_hashTable[idx].index].value += value;
-				return m_data[m_hashTable[idx].index].value;
-			}
-			idx = (idx + 1) & (m_hashTable.size() - 1);
+			idx = (idx + 1) & (m_hashTableSize - 1);
 		}
 	}
 
@@ -197,8 +208,9 @@ public:
 private:
 	std::vector<DataEntry> m_data;  // Stores pairs in insertion order
 	std::vector<HashEntry> m_hashTable;
-	size_t m_size = 0;  // Number of occupied entries
-	static constexpr double LOAD_FACTOR = 0.6;
+	size_t m_size = 0;           // Number of occupied entries
+	size_t m_hashTableSize = 0;  // Number of occupied entries
+	static constexpr double LOAD_FACTOR = 0.5;
 
 	// Combine d1 and d2 into a 64-bit key (d1 <= d2)
 	static uint64_t makeKey(uint32_t d1, uint32_t d2)
@@ -213,12 +225,12 @@ private:
 	size_t hash(uint64_t key) const
 	{
 		constexpr uint64_t multiplier = 0x9E3779B97F4A7C15;
-		return (key * multiplier) & (m_hashTable.size() - 1);
+		return (key * multiplier) & (m_hashTableSize - 1);
 	}
 
 	void rehash()
 	{
-		std::vector<HashEntry> newTable(m_hashTable.size() * 2);
+		std::vector<HashEntry> newTable(m_hashTableSize * 2);
 		for (auto& entry : m_hashTable)
 		{
 			if (entry.occupied)
@@ -230,6 +242,7 @@ private:
 			}
 		}
 		m_hashTable = std::move(newTable);
+		m_hashTableSize = m_hashTable.size();
 	}
 
 	void insertInternal(uint64_t key, uint32_t index)
@@ -243,7 +256,7 @@ private:
 				m_size++;
 				return;
 			}
-			idx = (idx + 1) % m_hashTable.size();
+			idx = (idx + 1) % m_hashTableSize;
 		}
 	}
 };

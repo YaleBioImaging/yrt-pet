@@ -21,6 +21,9 @@ option(DOWNLOAD_CATCH2 "Determines whether to download the Catch2 library" ON)
 option(DOWNLOAD_CXXOPTS "Determines whether to download the CxxOpts library" ON)
 option(DOWNLOAD_JSON "Determines whether to download the JSON library" ON)
 
+set(CMAKE_CXX_FLAGS "-Wall -Wextra")
+set(CMAKE_CXX_FLAGS_DEBUG "-g")
+set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 # # Parameters
 
 # cuda
@@ -74,8 +77,8 @@ function(setup_target TARGET JSON CXXOPTS PYBIND11)
         $<INSTALL_INTERFACE:include/${CMAKE_PROJECT_NAME}>)
     target_link_libraries(${TARGET} PUBLIC ${YRTPET_LINK_LIBRARIES})
     target_compile_options(${TARGET} PRIVATE
-        $<$<COMPILE_LANGUAGE:CXX>:-pedantic -Wall -Wextra>
-        "$<$<COMPILE_LANGUAGE:CUDA>:--compiler-options=-Wall -Wextra -fopenmp>")
+        $<$<COMPILE_LANGUAGE:CXX>:-pedantic>
+        "$<$<COMPILE_LANGUAGE:CUDA>:--compiler-options=-fopenmp>")
     if (${JSON})
         target_link_libraries(${TARGET} PUBLIC JSON)
     endif ()

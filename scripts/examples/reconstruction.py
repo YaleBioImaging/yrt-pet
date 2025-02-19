@@ -28,6 +28,8 @@ osem.setInVivoAttenuationImage(someImage) #
 
 sens_imgs = osem.generateSensitivityImages() # Returns a python list of Image objects
 osem.setSensitivityImages(sens_imgs) # Takes, as input, a python list of Image objects.
+# It it also possible to read a pre-existing sensitivity image (instead of
+#  generating one every time) and call "setSensitivityImages"
 
 # Optionally, save the sensitivity images:
 for i in range(len(sens_imgs)):

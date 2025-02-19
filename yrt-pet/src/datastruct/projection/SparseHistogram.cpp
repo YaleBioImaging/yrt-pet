@@ -76,7 +76,9 @@ SparseHistogram::SparseHistogram(const Scanner& pr_scanner,
 
 void SparseHistogram::allocate(size_t numBins)
 {
-	m_map.reserve(numBins);
+	m_detectorMap.reserve(numBins * 1.25);
+	m_detPairs.reserve(numBins);
+	m_projValues.reserve(numBins);
 }
 
 template <bool IgnoreZeros>
@@ -110,33 +112,60 @@ template void
 
 void SparseHistogram::accumulate(det_pair_t detPair, float projValue)
 {
-	m_map.update_or_insert(detPair.d1, detPair.d2, projValue);
+	const det_pair_t newPair = SwapDetectorPairIfNeeded(detPair);
+
+	auto [detectorMapLocation, newlyInserted] =
+	    m_detectorMap.try_emplace(newPair, m_detectorMap.size());
+	if (newlyInserted)
+	{
+		// Add the pair
+		m_detPairs.push_back(newPair);
+		// Initialize its value
+		m_projValues.push_back(projValue);
+	}
+	else
+	{
+		// Get the proper bin
+		const bin_t bin = detectorMapLocation->second;
+		// Accumulate the value
+		m_projValues[bin] += projValue;
+	}
+	ASSERT(m_detPairs.size() == m_detectorMap.size());
+	ASSERT(m_projValues.size() == m_detectorMap.size());
 }
 
 float SparseHistogram::getProjectionValueFromDetPair(det_pair_t detPair) const
 {
-	return m_map.get(detPair.d1, detPair.d2);
+	const auto detectorMapLocation =
+		m_detectorMap.find(SwapDetectorPairIfNeeded(detPair));
+	if (detectorMapLocation != m_detectorMap.end())
+	{
+		// Get the proper bin
+		const bin_t bin = detectorMapLocation->second;
+		// Return the value
+		return m_projValues[bin];
+	}
+	return 0.0f;
 }
 
 size_t SparseHistogram::count() const
 {
-	return m_map.size();
+	return m_projValues.size();
 }
 
 det_id_t SparseHistogram::getDetector1(bin_t id) const
 {
-	return m_map[id].d1;
+	return m_detPairs[id].d1;
 }
 
 det_id_t SparseHistogram::getDetector2(bin_t id) const
 {
-	return m_map[id].d2;
+	return m_detPairs[id].d2;
 }
 
 det_pair_t SparseHistogram::getDetectorPair(bin_t id) const
 {
-	auto entry = m_map[id];
-	return {entry.d1, entry.d2};
+	return m_detPairs[id];
 }
 
 std::unique_ptr<BinIterator> SparseHistogram::getBinIter(int numSubsets,
@@ -153,12 +182,12 @@ std::unique_ptr<BinIterator> SparseHistogram::getBinIter(int numSubsets,
 
 float SparseHistogram::getProjectionValue(bin_t id) const
 {
-	return m_map[id].value;
+	return m_projValues[id];
 }
 
 void SparseHistogram::setProjectionValue(bin_t id, float val)
 {
-	m_map[id].value = val;
+	m_projValues[id] = val;
 }
 
 float SparseHistogram::getProjectionValueFromHistogramBin(
@@ -196,11 +225,11 @@ void SparseHistogram::writeToFile(const std::string& filename) const
 
 		for (int64_t i = 0; i < writeSize_events; i++)
 		{
-			std::memcpy(&buff[numFieldsPerEvent * i + 0], &m_map[i].d1,
+			std::memcpy(&buff[numFieldsPerEvent * i + 0], &m_detPairs[i].d1,
 			            sizeof(det_id_t));
-			std::memcpy(&buff[numFieldsPerEvent * i + 1], &m_map[i].d2,
+			std::memcpy(&buff[numFieldsPerEvent * i + 1], &m_detPairs[i].d2,
 			            sizeof(det_id_t));
-			buff[numFieldsPerEvent * i + 2] = m_map[i].value;
+			buff[numFieldsPerEvent * i + 2] = m_projValues[i];
 		}
 
 		ofs.write(reinterpret_cast<char*>(buff.get()),
@@ -292,6 +321,12 @@ std::unique_ptr<ProjectionData>
 Plugin::OptionsListPerPlugin SparseHistogram::getOptions()
 {
 	return {};
+}
+
+det_pair_t SparseHistogram::SwapDetectorPairIfNeeded(det_pair_t detPair)
+{
+	auto [d1, d2] = std::minmax(detPair.d1, detPair.d2);
+	return {d1, d2};
 }
 
 REGISTER_PROJDATA_PLUGIN("SH", SparseHistogram, SparseHistogram::create,

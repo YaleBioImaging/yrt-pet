@@ -6,9 +6,9 @@
 #pragma once
 
 #include "datastruct/PluginFramework.hpp"
+#include "datastruct/parallel_hashmap/phmap.h"
 #include "datastruct/projection/Histogram.hpp"
 #include "datastruct/scanner/Scanner.hpp"
-#include "utils/PairHashMap.hpp"
 
 class SparseHistogram final : public Histogram
 {
@@ -49,5 +49,18 @@ public:
 	static Plugin::OptionsListPerPlugin getOptions();
 
 private:
-	PairHashMap<float> m_map;
+	struct det_pair_hash
+	{
+		size_t operator()(const det_pair_t& pair) const
+		{
+			return (static_cast<size_t>(pair.d1) << 32) |
+			       static_cast<size_t>(pair.d2);
+		}
+	};
+
+	static det_pair_t SwapDetectorPairIfNeeded(det_pair_t detPair);
+
+	phmap::flat_hash_map<det_pair_t, bin_t, det_pair_hash> m_detectorMap;
+	std::vector<float> m_projValues;
+	std::vector<det_pair_t> m_detPairs;
 };

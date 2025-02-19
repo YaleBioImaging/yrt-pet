@@ -17,6 +17,10 @@ typedef int32_t frame_t;       // motion correction frame
 // Defining a pair of detectors
 struct det_pair_t
 {
+	bool operator==(const det_pair_t& other) const
+	{
+		return d1 == other.d1 && d2 == other.d2;
+	}
 	det_id_t d1, d2;
 };
 

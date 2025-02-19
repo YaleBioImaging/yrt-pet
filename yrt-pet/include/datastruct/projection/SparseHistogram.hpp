@@ -53,7 +53,7 @@ private:
 	{
 		size_t operator()(const det_pair_t& pair) const
 		{
-			return (static_cast<size_t>(pair.d1) << 32) |
+			return (static_cast<size_t>(pair.d1) << 4) ^
 			       static_cast<size_t>(pair.d2);
 		}
 	};

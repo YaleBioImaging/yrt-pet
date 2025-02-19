@@ -328,7 +328,7 @@ def test_psf_adjoint_gpu():
         pytest.skip("Code not compiled with cuda. Skipping...")
 
 
-def test_savant_sim_ultra_micro_hotspot_nomotion_osem_6rays():
+def _test_savant_sim_ultra_micro_hotspot_nomotion_osem_6rays(use_gpu: bool):
     fold_savant_sim = os.path.join(fold_data, "savant_sim")
     num_siddon_rays = 6
     img_params = yrt.ImageParams(os.path.join(fold_savant_sim, "img_params_500.json"))
@@ -338,7 +338,7 @@ def test_savant_sim_ultra_micro_hotspot_nomotion_osem_6rays():
     sens_img = yrt.ImageOwned(
         img_params, os.path.join(fold_savant_sim, "images", "sens_image_siddon_6rays.nii"))
 
-    osem = yrt.createOSEM(scanner)
+    osem = yrt.createOSEM(scanner, use_gpu)
     osem.setImageParams(img_params)
     osem.num_MLEM_iterations = 3
     osem.num_OSEM_subsets = 12
@@ -348,8 +348,14 @@ def test_savant_sim_ultra_micro_hotspot_nomotion_osem_6rays():
 
     out_img = osem.reconstruct()
 
-    out_img.writeToFile(os.path.join(fold_out,
-                                     "test_savant_sim_ultra_micro_hotspot_nomotion_osem_6rays.nii.gz"))
+    out_img_fname = "test_savant_sim_ultra_micro_hotspot_nomotion_osem_6rays_"
+    if use_gpu:
+        out_img_fname += "gpu"
+    else:
+        out_img_fname += "cpu"
+    out_img_fname += ".nii.gz"
+
+    out_img.writeToFile(os.path.join(fold_out, out_img_fname))
 
     ref_img = yrt.ImageOwned(img_params,
                              os.path.join(fold_savant_sim,
@@ -360,6 +366,13 @@ def test_savant_sim_ultra_micro_hotspot_nomotion_osem_6rays():
     np_ref_img = np.array(ref_img, copy=False)
     np.testing.assert_allclose(np_out_img, np_ref_img,
                                atol=0, rtol=1e-3)
+
+def test_savant_sim_ultra_micro_hotspot_nomotion_osem_6rays_cpu():
+    _test_savant_sim_ultra_micro_hotspot_nomotion_osem_6rays(False)
+
+
+def test_savant_sim_ultra_micro_hotspot_nomotion_osem_6rays_gpu():
+    _test_savant_sim_ultra_micro_hotspot_nomotion_osem_6rays(True)
 
 
 def _test_savant_sim_ultra_micro_hotpot_nomotion_subsets(projector: str):

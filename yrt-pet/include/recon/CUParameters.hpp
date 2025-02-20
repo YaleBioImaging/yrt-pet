@@ -12,7 +12,6 @@ typedef struct CUScannerParams
 	size_t numDets;
 } CUScannerParams;
 
-// TODO: Add fovRadius
 typedef struct CUImageParams
 {
 	int voxelNumber[3];

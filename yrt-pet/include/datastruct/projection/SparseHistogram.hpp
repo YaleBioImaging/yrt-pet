@@ -61,6 +61,6 @@ private:
 	static det_pair_t SwapDetectorPairIfNeeded(det_pair_t detPair);
 
 	phmap::flat_hash_map<det_pair_t, bin_t, det_pair_hash> m_detectorMap;
-	std::vector<float> m_projValues;
 	std::vector<det_pair_t> m_detPairs;
+	std::vector<float> m_projValues;
 };

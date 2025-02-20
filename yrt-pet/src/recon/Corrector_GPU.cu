@@ -122,7 +122,6 @@ void Corrector_GPU::precomputeInVivoAttenuationFactors(
 	}
 	else if (mp_inVivoAttenuationImage != nullptr)
 	{
-		// TODO: Use GPU Siddon once available
 		Util::forwProject(measurements.getScanner(), *mp_inVivoAttenuationImage,
 		                  *mph_inVivoAttenuationFactors,
 		                  OperatorProjector::SIDDON, true);

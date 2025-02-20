@@ -36,6 +36,10 @@ set(SOURCES_ALGORITHMS
     operators/test_Siddon.cpp
     motion/test_Warper.cpp)
 
+if (${USE_CUDA})
+    set(SOURCES_ALGORITHMS "${SOURCES_ALGORITHMS};operators/test_Siddon_GPU.cu")
+endif ()
+
 define_target_exe(test_runner_algorithms "${SOURCES_ALGORITHMS}")
 if (${USE_CUDA})
     set_property(TARGET test_runner_algorithms PROPERTY

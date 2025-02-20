@@ -24,14 +24,15 @@ int main(int argc, char** argv)
 	{
 		std::string scanner_fname;
 		std::string inputImage_fname;
-		std::string imageSpacePsf_fname;
-		std::string projSpacePsf_fname;
+		std::string imagePsf_fname;
+		std::string projPsf_fname;
 		std::string outHis_fname;
 		std::string projector_name = "S";
 		int numThreads = -1;
 		int numSubsets = 1;
 		int subsetId = 0;
 		int numRays = 1;
+		bool useGPU = false;
 		bool convertToAcf = false;
 		bool toSparseHistogram = false;
 
@@ -44,17 +45,15 @@ int main(int argc, char** argv)
 		options.add_options()
 		("s,scanner", "Scanner parameters file", cxxopts::value<std::string>(scanner_fname))
 		("i,input", "Input image file", cxxopts::value<std::string>(inputImage_fname))
-		("psf", "Image-space PSF kernel file", cxxopts::value<std::string>(imageSpacePsf_fname))
-		("proj_psf", "Projection-space PSF kernel file", cxxopts::value<std::string>(projSpacePsf_fname))
-		("projector", "Projector to use, choices: Siddon (S), Distance-Driven (D)"
-		#if BUILD_CUDA
-		", or GPU Distance-Driven (DD_GPU)"
-		#endif
-		". The default projector is Siddon", cxxopts::value<std::string>(projector_name))
+		("psf", "Image-space PSF kernel file", cxxopts::value<std::string>(imagePsf_fname))
+		("proj_psf", "Projection-space PSF kernel file", cxxopts::value<std::string>(projPsf_fname))
+		("projector", "Projector to use, choices: Siddon (S), Distance-Driven (D)."
+			"The default projector is Siddon", cxxopts::value<std::string>(projector_name))
 		("to_acf", "Generate ACF histogram", cxxopts::value<bool>(convertToAcf))
 		("num_rays", "Number of rays to use in the Siddon projector", cxxopts::value<int>(numRays))
 		("o,out", "Output histogram filename", cxxopts::value<std::string>(outHis_fname))
 		("sparse", "Forward project to a sparse histogram", cxxopts::value<bool>(toSparseHistogram))
+		("gpu", "Use GPU acceleration", cxxopts::value<bool>(useGPU))
 		("num_threads", "Number of threads to use", cxxopts::value<int>(numThreads))
 		("num_subsets", "Number of subsets to use (Default: 1)", cxxopts::value<int>(numSubsets))
 		("subset_id", "Subset to project (Default: 0)", cxxopts::value<int>(subsetId))
@@ -91,12 +90,11 @@ int main(int argc, char** argv)
 		auto inputImage = std::make_unique<ImageOwned>(inputImage_fname);
 
 		// Image-space PSF
-		if (!imageSpacePsf_fname.empty())
+		if (!imagePsf_fname.empty())
 		{
-			auto imageSpacePsf =
-			    std::make_unique<OperatorPsf>(imageSpacePsf_fname);
+			auto imagePsf = std::make_unique<OperatorPsf>(imagePsf_fname);
 			std::cout << "Applying Image-space PSF..." << std::endl;
-			imageSpacePsf->applyA(inputImage.get(), inputImage.get());
+			imagePsf->applyA(inputImage.get(), inputImage.get());
 		}
 
 		auto projectorType = IO::getProjector(projector_name);
@@ -109,9 +107,10 @@ int main(int argc, char** argv)
 			// Setup forward projection
 			auto binIter = his->getBinIter(numSubsets, subsetId);
 			OperatorProjectorParams projParams(binIter.get(), *scanner, 0, 0,
-			                                   projSpacePsf_fname, numRays);
+			                                   projPsf_fname, numRays);
 
-			Util::forwProject(*inputImage, *his, projParams, projectorType);
+			Util::forwProject(*inputImage, *his, projParams, projectorType,
+			                  useGPU);
 
 			if (convertToAcf)
 			{
@@ -125,7 +124,7 @@ int main(int argc, char** argv)
 		}
 		else
 		{
-			ASSERT_MSG(!IO::requiresGPU(projectorType),
+			ASSERT_MSG(!useGPU,
 			           "Forward projection to sparse histogram is currently "
 			           "not supported on GPU");
 
@@ -142,7 +141,7 @@ int main(int argc, char** argv)
 			else
 			{
 				projector = std::make_unique<OperatorProjectorDD>(
-				    *scanner, 0, -1, projSpacePsf_fname);
+				    *scanner, 0, -1, projPsf_fname);
 			}
 
 			const ImageParams& params = inputImage->getParams();

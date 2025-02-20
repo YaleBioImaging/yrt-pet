@@ -8,8 +8,9 @@
 #include "utils/ProgressDisplay.hpp"
 
 #include <cstring>
+#include <filesystem>
 
-#include "omp.h"
+namespace fs = std::filesystem;
 
 #if BUILD_PYBIND11
 #include <pybind11/numpy.h>
@@ -51,15 +52,6 @@ void py_setup_sparsehistogram(py::module& m)
 	      &SparseHistogram::getProjectionValueFromDetPair, "detPair"_a);
 	c.def("readFromFile", &SparseHistogram::readFromFile, "filename"_a);
 	c.def("writeToFile", &SparseHistogram::writeToFile, "filename"_a);
-	c.def("getProjValuesArray",
-	      [](SparseHistogram& self) -> pybind11::array_t<float>
-	      {
-		      const auto buf_info = py::buffer_info(
-		          self.getProjectionValuesBuffer(), sizeof(float),
-		          py::format_descriptor<float>::format(), 1, {self.count()},
-		          {sizeof(float)});
-		      return py::array_t<float>(buf_info);
-	      });
 }
 #endif
 
@@ -84,9 +76,9 @@ SparseHistogram::SparseHistogram(const Scanner& pr_scanner,
 
 void SparseHistogram::allocate(size_t numBins)
 {
-	m_detectorMap.reserve(numBins);
-	m_projValues.reserve(numBins);
+	m_detectorMap.reserve(numBins * 1.25);
 	m_detPairs.reserve(numBins);
+	m_projValues.reserve(numBins);
 }
 
 template <bool IgnoreZeros>
@@ -145,7 +137,7 @@ void SparseHistogram::accumulate(det_pair_t detPair, float projValue)
 float SparseHistogram::getProjectionValueFromDetPair(det_pair_t detPair) const
 {
 	const auto detectorMapLocation =
-	    m_detectorMap.find(SwapDetectorPairIfNeeded(detPair));
+		m_detectorMap.find(SwapDetectorPairIfNeeded(detPair));
 	if (detectorMapLocation != m_detectorMap.end())
 	{
 		// Get the proper bin
@@ -215,25 +207,23 @@ void SparseHistogram::writeToFile(const std::string& filename) const
 		throw std::runtime_error("Error opening file " + filename);
 	}
 
-	constexpr std::streamsize sizeOfAnEvent_bytes =
-	    sizeof(det_pair_t) + sizeof(float);
+	constexpr int64_t sizeOfAnEvent_bytes = sizeof(det_pair_t) + sizeof(float);
 
-	constexpr std::streamsize bufferSize_fields = (1ll << 30);
+	constexpr int64_t bufferSize_fields = (1ll << 30);
 	auto buff = std::make_unique<float[]>(bufferSize_fields);
 	constexpr int numFieldsPerEvent = 3;
 	static_assert(numFieldsPerEvent * sizeof(float) == sizeOfAnEvent_bytes);
-	const std::streamsize numEvents = count();
+	const int64_t numEvents = count();
 
-	std::streamoff posStart_events = 0;
+	int64_t posStart_events = 0;
 	while (posStart_events < numEvents)
 	{
-		const std::streamsize writeSize_fields =
+		const int64_t writeSize_fields =
 		    std::min(bufferSize_fields,
 		             numFieldsPerEvent * (numEvents - posStart_events));
-		const std::streamsize writeSize_events =
-		    writeSize_fields / numFieldsPerEvent;
+		const int64_t writeSize_events = writeSize_fields / numFieldsPerEvent;
 
-		for (std::streamoff i = 0; i < writeSize_events; i++)
+		for (int64_t i = 0; i < writeSize_events; i++)
 		{
 			std::memcpy(&buff[numFieldsPerEvent * i + 0], &m_detPairs[i].d1,
 			            sizeof(det_id_t));
@@ -260,83 +250,64 @@ void SparseHistogram::readFromFile(const std::string& filename)
 		throw std::runtime_error("Error reading input file " + filename);
 	}
 
-	constexpr std::streamsize sizeOfAnEvent_bytes =
-	    sizeof(det_pair_t) + sizeof(float);
+	constexpr int64_t sizeOfAnEvent_bytes = sizeof(det_pair_t) + sizeof(float);
 
 	// Check that file has a proper size:
-	ifs.seekg(0, std::ios::end);
-	const std::streamsize end = ifs.tellg();
-	ifs.seekg(0, std::ios::beg);
-	const std::streamsize begin = ifs.tellg();
-	const std::streamsize fileSize_bytes = end - begin;
+	const int64_t fileSize_bytes =
+	    static_cast<int64_t>(fs::file_size(filename));
+
 	if (fileSize_bytes <= 0 || (fileSize_bytes % sizeOfAnEvent_bytes) != 0)
 	{
 		throw std::runtime_error("Error: Input file has incorrect size in "
 		                         "SparseHistogram::readFromFile.");
 	}
 	// Compute the number of events using its size
-	const std::streamsize numEvents = fileSize_bytes / sizeOfAnEvent_bytes;
+	const int64_t numBins = fileSize_bytes / sizeOfAnEvent_bytes;
 
 	// Allocate the memory
-	allocate(numEvents);
+	allocate(numBins);
 
-	// Prepare buffer of 3 4-byte fields
-	constexpr std::streamsize bufferSize_fields = (1ll << 30);
+	// Prepare buffer of 3 4-byte fields (multiple of three)
+	constexpr int64_t numFieldsPerEvent = 3ll;
+	constexpr int64_t bufferSize_fields =
+	    ((1ll << 30) / numFieldsPerEvent) * numFieldsPerEvent;
 	auto buff = std::make_unique<float[]>(bufferSize_fields);
-	constexpr int numFieldsPerEvent = 3;
 	static_assert(numFieldsPerEvent * sizeof(float) == sizeOfAnEvent_bytes);
+	static_assert(sizeof(int64_t) == 8);
 
-	std::streamoff posStart_events = 0;
-	while (posStart_events < numEvents)
+	int64_t posStart_events = 0;
+	while (posStart_events < numBins)
 	{
-		const std::streamsize readSize_fields =
-		    std::min(bufferSize_fields,
-		             numFieldsPerEvent * (numEvents - posStart_events));
-		const std::streamsize readSize_events =
-		    readSize_fields / numFieldsPerEvent;
+		const int64_t readSize_fields = std::min(
+		    bufferSize_fields, numFieldsPerEvent * (numBins - posStart_events));
+		const int64_t readSize_events = readSize_fields / numFieldsPerEvent;
+		const int64_t readSize_bytes = sizeOfAnEvent_bytes * readSize_events;
 
-		ifs.read(reinterpret_cast<char*>(buff.get()),
-		         sizeOfAnEvent_bytes * readSize_events);
+		ifs.read(reinterpret_cast<char*>(buff.get()), readSize_bytes);
 
-		for (std::streamoff i = 0; i < readSize_events; i++)
+		if (ifs.gcount() < readSize_bytes)
 		{
-			const det_id_t d1 =
-			    *reinterpret_cast<det_id_t*>(&buff[numFieldsPerEvent * i + 0]);
-			const det_id_t d2 =
-			    *reinterpret_cast<det_id_t*>(&buff[numFieldsPerEvent * i + 1]);
-			const float projValue = buff[numFieldsPerEvent * i + 2];
+			ASSERT_MSG(false,
+			           "Error: Failed to read expected bytes from file.");
+		}
+		if (!ifs && !ifs.eof())
+		{
+			ASSERT_MSG(false, "Error: File read failure before EOF.");
+		}
+
+		for (int64_t i = 0; i < readSize_events; i++)
+		{
+			const det_id_t d1 = *reinterpret_cast<det_id_t*>(
+			    &buff[numFieldsPerEvent * i + 0ll]);
+			const det_id_t d2 = *reinterpret_cast<det_id_t*>(
+			    &buff[numFieldsPerEvent * i + 1ll]);
+			const float projValue = buff[numFieldsPerEvent * i + 2ll];
 			accumulate({d1, d2}, projValue);
 		}
 
 		posStart_events += readSize_events;
 	}
 	ifs.close();
-}
-
-float* SparseHistogram::getProjectionValuesBuffer()
-{
-	return m_projValues.data();
-}
-
-det_pair_t* SparseHistogram::getDetectorPairBuffer()
-{
-	return m_detPairs.data();
-}
-
-const float* SparseHistogram::getProjectionValuesBuffer() const
-{
-	return m_projValues.data();
-}
-
-const det_pair_t* SparseHistogram::getDetectorPairBuffer() const
-{
-	return m_detPairs.data();
-}
-
-det_pair_t SparseHistogram::SwapDetectorPairIfNeeded(det_pair_t detPair)
-{
-	auto [d1, d2] = std::minmax({detPair.d1, detPair.d2});
-	return det_pair_t{d1, d2};
 }
 
 std::unique_ptr<ProjectionData>
@@ -350,6 +321,12 @@ std::unique_ptr<ProjectionData>
 Plugin::OptionsListPerPlugin SparseHistogram::getOptions()
 {
 	return {};
+}
+
+det_pair_t SparseHistogram::SwapDetectorPairIfNeeded(det_pair_t detPair)
+{
+	auto [d1, d2] = std::minmax(detPair.d1, detPair.d2);
+	return {d1, d2};
 }
 
 REGISTER_PROJDATA_PLUGIN("SH", SparseHistogram, SparseHistogram::create,

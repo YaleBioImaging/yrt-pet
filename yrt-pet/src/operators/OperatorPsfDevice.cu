@@ -59,31 +59,31 @@ OperatorPsfDevice::OperatorPsfDevice()
 	initDeviceArraysIfNeeded();
 }
 
-OperatorPsfDevice::OperatorPsfDevice(const std::string& imageSpacePsf_fname,
+OperatorPsfDevice::OperatorPsfDevice(const std::string& imagePsf_fname,
                                      const cudaStream_t* pp_stream)
     : DeviceSynchronized{true, pp_stream, pp_stream},
       OperatorPsf{},
       mpd_intermediaryImage{nullptr}
 {
-	readFromFileInternal(imageSpacePsf_fname, pp_stream);
+	readFromFileInternal(imagePsf_fname, pp_stream);
 }
 
 void OperatorPsfDevice::readFromFileInternal(
-    const std::string& imageSpacePsf_fname, const cudaStream_t* pp_stream)
+    const std::string& imagePsf_fname, const cudaStream_t* pp_stream)
 {
-	OperatorPsf::readFromFile(imageSpacePsf_fname);
+	OperatorPsf::readFromFile(imagePsf_fname);
 	copyToDevice(pp_stream);
 }
 
-void OperatorPsfDevice::readFromFile(const std::string& imageSpacePsf_fname)
+void OperatorPsfDevice::readFromFile(const std::string& imagePsf_fname)
 {
-	readFromFileInternal(imageSpacePsf_fname, nullptr);
+	readFromFileInternal(imagePsf_fname, nullptr);
 }
 
-void OperatorPsfDevice::readFromFile(const std::string& imageSpacePsf_fname,
+void OperatorPsfDevice::readFromFile(const std::string& imagePsf_fname,
                                      const cudaStream_t* pp_stream)
 {
-	readFromFileInternal(imageSpacePsf_fname, pp_stream);
+	readFromFileInternal(imagePsf_fname, pp_stream);
 }
 
 void OperatorPsfDevice::copyToDevice(const cudaStream_t* pp_stream)

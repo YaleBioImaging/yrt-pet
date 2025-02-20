@@ -5,11 +5,11 @@
 
 #include "catch.hpp"
 
+#include "../test_utils.hpp"
 #include "datastruct/projection/Histogram3D.hpp"
 #include "datastruct/projection/ListModeLUT.hpp"
 #include "datastruct/projection/SparseHistogram.hpp"
 #include "datastruct/scanner/DetRegular.hpp"
-#include "../test_utils.hpp"
 
 
 TEST_CASE("sparsehisto", "[sparsehisto]")
@@ -114,7 +114,7 @@ TEST_CASE("sparsehisto", "[sparsehisto]")
 		const det_id_t numDets = static_cast<det_id_t>(scanner->getNumDets());
 
 		auto sparseHisto = std::make_unique<SparseHistogram>(*scanner);
-		constexpr size_t NumBins = 100;
+		constexpr size_t NumBins = 1<<24;
 		sparseHisto->allocate(NumBins);
 		// Generate sparse histo with random data
 		for (size_t i = 0; i < NumBins; i++)

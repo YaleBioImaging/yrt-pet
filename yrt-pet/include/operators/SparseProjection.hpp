@@ -11,5 +11,7 @@ class SparseHistogram;
 
 namespace Util
 {
-	void forwProjectToSparseHistogram(const Image& sourceImage, const OperatorProjector& projector, SparseHistogram& sparseHistogram);
+	void forwProjectToSparseHistogram(const Image& sourceImage,
+	                                  const OperatorProjector& projector,
+	                                  SparseHistogram& sparseHistogram);
 }

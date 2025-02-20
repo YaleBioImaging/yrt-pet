@@ -26,7 +26,7 @@ public:
 	Corrector& getCorrector() override;
 	const Corrector_GPU& getCorrector_GPU() const;
 	Corrector_GPU& getCorrector_GPU();
-	OperatorProjectorDevice* getProjector();
+	OperatorProjectorDevice* getProjector() const;
 	const cudaStream_t* getAuxStream() const;
 	const cudaStream_t* getMainStream() const;
 
@@ -65,7 +65,7 @@ public:
 	// Common methods
 	void loadBatch(int batchId, bool forRecon) override;
 	void loadSubset(int subsetId, bool forRecon) override;
-	void addImagePSF(const std::string& p_imageSpacePsf_fname) override;
+	void addImagePSF(const std::string& p_imagePsf_fname) override;
 
 private:
 

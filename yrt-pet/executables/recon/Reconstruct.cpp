@@ -34,8 +34,8 @@ int main(int argc, char** argv)
 		std::string hardwareAttImg_fname;
 		std::string hardwareAcf_fname;
 		std::string hardwareAcf_format;
-		std::string imageSpacePsf_fname;
-		std::string projSpacePsf_fname;
+		std::string imagePsf_fname;
+		std::string projPsf_fname;
 		std::string randoms_fname;
 		std::string randoms_format;
 		std::string scatter_fname;
@@ -55,6 +55,7 @@ int main(int argc, char** argv)
 		int tofNumStd = 0;
 		int saveIterStep = 0;
 		std::string saveIterRanges;
+		bool useGPU = false;
 		bool sensOnly = false;
 		bool mustMoveSens = false;
 		bool invertSensitivity = false;
@@ -77,6 +78,9 @@ int main(int argc, char** argv)
 		          "Only generate the sensitivity image(s)."
 		          "Do not launch reconstruction",
 		          cxxopts::value<bool>(sensOnly));
+#if BUILD_CUDA
+		coreGroup("gpu", "Use GPU acceleration", cxxopts::value<bool>(useGPU));
+#endif
 		coreGroup("num_threads", "Number of threads to use",
 		          cxxopts::value<int>(numThreads));
 		coreGroup("o,out", "Output image filename",
@@ -142,7 +146,7 @@ int main(int argc, char** argv)
 		        IO::possibleFormats(Plugin::InputFormatsChoice::ONLYHISTOGRAMS),
 		    cxxopts::value<std::string>(scatter_format));
 		reconGroup("psf", "Image-space PSF kernel file",
-		           cxxopts::value<std::string>(imageSpacePsf_fname));
+		           cxxopts::value<std::string>(imagePsf_fname));
 		reconGroup("hard_threshold", "Hard Threshold",
 		           cxxopts::value<float>(hardThreshold));
 		reconGroup("save_iter_step",
@@ -197,17 +201,14 @@ int main(int argc, char** argv)
 		auto projectorGroup = options.add_options("4. Projector");
 		projectorGroup(
 		    "projector",
-		    "Projector to use, choices: Siddon (S), Distance-Driven (D)"
-#if BUILD_CUDA
-		    ", or GPU Distance-Driven (DD_GPU)"
-#endif
-		    ". The default projector is Siddon",
+		    "Projector to use, choices: Siddon (S), Distance-Driven (D)."
+		    " The default projector is Siddon",
 		    cxxopts::value<std::string>(projector_name));
 		projectorGroup("num_rays",
 		               "Number of rays to use (for Siddon projector only)",
 		               cxxopts::value<int>(numRays));
 		projectorGroup("proj_psf", "Projection-space PSF kernel file",
-		               cxxopts::value<std::string>(projSpacePsf_fname));
+		               cxxopts::value<std::string>(projPsf_fname));
 		projectorGroup("tof_width_ps", "TOF Width in Picoseconds",
 		               cxxopts::value<float>(tofWidth_ps));
 		projectorGroup("tof_n_std",
@@ -263,11 +264,9 @@ int main(int argc, char** argv)
 			    "pre-existing sensitivity images were provided");
 		}
 
-
 		auto scanner = std::make_unique<Scanner>(scanner_fname);
 		auto projectorType = IO::getProjector(projector_name);
-		std::unique_ptr<OSEM> osem =
-		    Util::createOSEM(*scanner, IO::requiresGPU(projectorType));
+		std::unique_ptr<OSEM> osem = Util::createOSEM(*scanner, useGPU);
 
 		osem->num_MLEM_iterations = numIterations;
 		osem->num_OSEM_subsets = numSubsets;
@@ -335,16 +334,15 @@ int main(int argc, char** argv)
 		}
 
 		// Image-space PSF
-		std::unique_ptr<OperatorPsf> imageSpacePsf;
-		if (!imageSpacePsf_fname.empty())
+		if (!imagePsf_fname.empty())
 		{
-			osem->addImagePSF(imageSpacePsf_fname);
+			osem->addImagePSF(imagePsf_fname);
 		}
 
 		// Projection-space PSF
-		if (!projSpacePsf_fname.empty())
+		if (!projPsf_fname.empty())
 		{
-			osem->addProjPSF(projSpacePsf_fname);
+			osem->addProjPSF(projPsf_fname);
 		}
 
 		// Sensitivity image(s)

@@ -118,7 +118,7 @@ hisDev = yrt.ProjectionDataDeviceAlias(scanner, his, 1)
 
 # Important: This is needed to precompute all LORs
 # Arguments: Load events from the batch 0 of the subset 0
-hisDev.loadEventLORs(0, 0, params) # Image Params are needed for batch loading
+hisDev.loadEventLORs(0, 0)
 
 # Create a torch array with the appropriate size
 onesProj = torch.ones([hisDev.getCurrentBatchSize()], device=cuda0,

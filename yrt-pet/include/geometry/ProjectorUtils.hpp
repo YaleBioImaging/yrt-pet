@@ -85,7 +85,8 @@ namespace Util
 			// Add full bins between x0 and x1
 			for (int xi = x0_i + 1; xi < x1_i; xi++)
 			{
-				const float v_lo = (xi < 0 || xi >= kernelSize) ? 0.f : kernel[xi];
+				const float v_lo =
+				    (xi < 0 || xi >= kernelSize) ? 0.f : kernel[xi];
 				const float v_hi =
 				    (xi + 1 < 0 || xi + 1 >= kernelSize) ? 0.f : kernel[xi + 1];
 				out += kernelStep * 0.5f * (v_lo + v_hi);

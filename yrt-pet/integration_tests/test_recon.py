@@ -65,11 +65,15 @@ def test_savant_sim_ultra_micro_hotspot_nomotion_mlem():
                                atol=0, rtol=5e-2)
 
 
-def _test_savant_sim_ultra_micro_hotspot_motion_mlem_dd_gpu_exec(keyword: str):
+def _test_savant_sim_ultra_micro_hotspot_motion_mlem_gpu_exec(keyword: str, proj_keyword: str):
     if not yrt.compiledWithCuda():
         pytest.skip("Code not compiled with cuda. Skipping...")
+
+    proj_name_upper = proj_keyword.upper()
+
     fold_savant_sim = os.path.join(fold_data, "savant_sim")
-    out_path = os.path.join(fold_out, "test_savant_sim_ultra_micro_hotspot_" + keyword + "_mlem_dd_gpu_exec.nii.gz")
+    out_path = os.path.join(fold_out, "test_savant_sim_ultra_micro_hotspot_" +\
+                            keyword + "_mlem_" + proj_keyword + "_gpu_exec.nii.gz")
 
     exec_str = os.path.join(fold_bin, "yrtpet_reconstruct")
     exec_str += " -s " + os.path.join(fold_savant_sim, "SAVANT_sim.json")
@@ -82,7 +86,7 @@ def _test_savant_sim_ultra_micro_hotspot_motion_mlem_dd_gpu_exec(keyword: str):
                                                 "ultra_micro_hotspot",
                                                 keyword + ".mot")
     exec_str += " -o " + out_path
-    exec_str += " --projector DD_GPU"
+    exec_str += " --projector " + proj_name_upper + " --gpu"
 
     ret = os.system(exec_str)
     assert ret == 0
@@ -93,7 +97,8 @@ def _test_savant_sim_ultra_micro_hotspot_motion_mlem_dd_gpu_exec(keyword: str):
     ref_image = yrt.ImageOwned(
         os.path.join(fold_savant_sim,
                      "ref",
-                     "ultra_micro_hotspot_" + keyword + "_mlem_dd.nii.gz"))
+                     "ultra_micro_hotspot_" + keyword + "_mlem_"\
+                     + proj_keyword + ".nii.gz"))
     ref_image_np = np.array(ref_image, copy=False)
 
     np.testing.assert_allclose(out_image_np, ref_image_np,
@@ -101,15 +106,27 @@ def _test_savant_sim_ultra_micro_hotspot_motion_mlem_dd_gpu_exec(keyword: str):
 
 
 def test_savant_sim_ultra_micro_hotspot_piston_mlem_dd_gpu_exec():
-    _test_savant_sim_ultra_micro_hotspot_motion_mlem_dd_gpu_exec("piston")
+    _test_savant_sim_ultra_micro_hotspot_motion_mlem_gpu_exec("piston", "dd")
 
 
 def test_savant_sim_ultra_micro_hotspot_yesman_mlem_dd_gpu_exec():
-    _test_savant_sim_ultra_micro_hotspot_motion_mlem_dd_gpu_exec("yesman")
+    _test_savant_sim_ultra_micro_hotspot_motion_mlem_gpu_exec("yesman", "dd")
 
 
 def test_savant_sim_ultra_micro_hotspot_wobble_mlem_dd_gpu_exec():
-    _test_savant_sim_ultra_micro_hotspot_motion_mlem_dd_gpu_exec("wobble")
+    _test_savant_sim_ultra_micro_hotspot_motion_mlem_gpu_exec("wobble", "dd")
+
+
+def test_savant_sim_ultra_micro_hotspot_piston_mlem_siddon_gpu_exec():
+    _test_savant_sim_ultra_micro_hotspot_motion_mlem_gpu_exec("piston", "siddon")
+
+
+def test_savant_sim_ultra_micro_hotspot_yesman_mlem_siddon_gpu_exec():
+    _test_savant_sim_ultra_micro_hotspot_motion_mlem_gpu_exec("yesman", "siddon")
+
+
+def test_savant_sim_ultra_micro_hotspot_wobble_mlem_siddon_gpu_exec():
+    _test_savant_sim_ultra_micro_hotspot_motion_mlem_gpu_exec("wobble", "siddon")
 
 
 def test_savant_sim_sens_image_siddon():
@@ -311,7 +328,7 @@ def test_psf_adjoint_gpu():
         pytest.skip("Code not compiled with cuda. Skipping...")
 
 
-def test_savant_sim_ultra_micro_hotspot_nomotion_osem_6rays():
+def _test_savant_sim_ultra_micro_hotspot_nomotion_osem_6rays(use_gpu: bool):
     fold_savant_sim = os.path.join(fold_data, "savant_sim")
     num_siddon_rays = 6
     img_params = yrt.ImageParams(os.path.join(fold_savant_sim, "img_params_500.json"))
@@ -319,9 +336,9 @@ def test_savant_sim_ultra_micro_hotspot_nomotion_osem_6rays():
     dataset = yrt.ListModeLUTOwned(
         scanner, os.path.join(fold_savant_sim, "ultra_micro_hotspot", "nomotion.lmDat"))
     sens_img = yrt.ImageOwned(
-        img_params, os.path.join(fold_savant_sim, "images", "sens_image_siddon_6rays.nii"))
+        img_params, os.path.join(fold_savant_sim, "images", "sens_image_siddon_6rays.nii.gz"))
 
-    osem = yrt.createOSEM(scanner)
+    osem = yrt.createOSEM(scanner, use_gpu)
     osem.setImageParams(img_params)
     osem.num_MLEM_iterations = 3
     osem.num_OSEM_subsets = 12
@@ -331,18 +348,38 @@ def test_savant_sim_ultra_micro_hotspot_nomotion_osem_6rays():
 
     out_img = osem.reconstruct()
 
-    out_img.writeToFile(os.path.join(fold_out,
-                                     "test_savant_sim_ultra_micro_hotspot_nomotion_osem_6rays.nii.gz"))
+    out_img_fname = "test_savant_sim_ultra_micro_hotspot_nomotion_osem_6rays_"
+    if use_gpu:
+        out_img_fname += "gpu"
+    else:
+        out_img_fname += "cpu"
+    out_img_fname += ".nii.gz"
+
+    out_img.writeToFile(os.path.join(fold_out, out_img_fname))
+
+    # The reference is different between CPU and GPU
+    ref_img_fname = "ultra_micro_hotspot_nomotion_osem_6rays_"
+    if use_gpu:
+        ref_img_fname += "gpu"
+    else:
+        ref_img_fname += "cpu"
+    ref_img_fname += ".nii.gz"
 
     ref_img = yrt.ImageOwned(img_params,
                              os.path.join(fold_savant_sim,
-                                          "ref",
-                                          "ultra_micro_hotspot_nomotion_osem_6rays.nii"))
+                                          "ref", ref_img_fname))
 
     np_out_img = np.array(out_img, copy=False)
     np_ref_img = np.array(ref_img, copy=False)
     np.testing.assert_allclose(np_out_img, np_ref_img,
                                atol=0, rtol=1e-3)
+
+def test_savant_sim_ultra_micro_hotspot_nomotion_osem_6rays_cpu():
+    _test_savant_sim_ultra_micro_hotspot_nomotion_osem_6rays(False)
+
+
+def test_savant_sim_ultra_micro_hotspot_nomotion_osem_6rays_gpu():
+    _test_savant_sim_ultra_micro_hotspot_nomotion_osem_6rays(True)
 
 
 def _test_savant_sim_ultra_micro_hotpot_nomotion_subsets(projector: str):
@@ -482,7 +519,7 @@ def test_large_flat_panel_xcat_osem_tof_dd_gpu_exec():
                                              "large_flat_panel.json")
     exec_str += ' --params ' + os.path.join(fold_xcat, "img_params_3mm.json")
     exec_str += ' --input ' + os.path.join(fold_xcat, "sim_4min_49ps.lmDoiDat")
-    exec_str += ' --format LM-DOI --projector DD_GPU'
+    exec_str += ' --format LM-DOI --projector DD --gpu'
     exec_str += ' --sens ' + os.path.join(fold_xcat, "sens_image_dd.nii")
     exec_str += ' --flag_tof --tof_width_ps 70 --tof_n_std 5'
     exec_str += ' --num_iterations 5 --num_subsets 12'

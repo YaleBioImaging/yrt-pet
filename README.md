@@ -115,3 +115,11 @@ There are two types of tests available, unit tests and integration tests.
   individual modules. To run the unit test suite, simply run `make test` after
   compiling (with `make`).
 - Integration test data is currently not publicly available.
+
+# Acknowledgements
+- [pybind11](https://github.com/pybind/pybind11)
+- [Catch2](https://github.com/catchorg/Catch2)
+- [NVIDIA CUDA Toolkit](https://developer.nvidia.com/cuda-toolkit)
+- [The Parallel Hashmap](https://github.com/greg7mdp/parallel-hashmap)
+- [NIFTI C Libraries](https://github.com/NIFTI-Imaging/nifti_clib)
+- [zlib](https://www.zlib.net/)

@@ -10,41 +10,6 @@
 
 #include <cuda_runtime.h>
 
-__device__ float3 operator+(const float3& a, const float3& b)
-{
-	return make_float3(a.x + b.x, a.y + b.y, a.z + b.z);
-}
-
-__device__ float3 operator-(const float3& a, const float3& b)
-{
-	return make_float3(a.x - b.x, a.y - b.y, a.z - b.z);
-}
-
-__device__ float3 operator*(const float3& a, const float f)
-{
-	return make_float3(a.x * f, a.y * f, a.z * f);
-}
-
-__device__ float4 operator*(const float4& a, const float f)
-{
-	return make_float4(a.x * f, a.y * f, a.z * f, a.w * f);
-}
-
-__device__ float4 operator+(const float4& a, const float4& b)
-{
-	return make_float4(a.x + b.x, a.y + b.y, a.z + b.z, a.w + b.w);
-}
-
-__device__ float4 operator-(const float4& a, const float4& b)
-{
-	return make_float4(a.x - b.x, a.y - b.y, a.z - b.z, a.w - b.w);
-}
-
-__device__ float3 operator/(const float3& a, const float f)
-{
-	return make_float3(a.x / f, a.y / f, a.z / f);
-}
-
 __global__ void gatherLORs_kernel(const uint2* pd_lorDetsIds,
                                   const float4* pd_detsPos,
                                   const float4* pd_detsOrient,
@@ -102,9 +67,11 @@ __global__ void OperatorProjectorDDCU_kernel(
 	const long eventId = blockIdx.x * blockDim.x + threadIdx.x;
 	if (eventId < batchSize)
 	{
-		if constexpr (IsForward)
+		float value = 0.0f;
+		if constexpr (!IsForward)
 		{
-			pd_projValues[eventId] = 0.0f;
+			// Initialize value at proj-space value if backward
+			value = pd_projValues[eventId];
 		}
 
 		float tofValue;
@@ -113,12 +80,20 @@ __global__ void OperatorProjectorDDCU_kernel(
 			tofValue = pd_lorTOFValue[eventId];
 		}
 
-		const float4 d1 = pd_lorDet1Pos[eventId];
-		const float4 d2 = pd_lorDet2Pos[eventId];
+		float4 d1 = pd_lorDet1Pos[eventId];
+		float4 d2 = pd_lorDet2Pos[eventId];
+
+		float4 imageOffset =
+		    make_float4(imgParams.offset[0], imgParams.offset[1],
+		                imgParams.offset[2], 0.0f);
+
+		d1 -= imageOffset;
+		d2 -= imageOffset;
+
 		const float4 n1 = pd_lorDet1Orient[eventId];
 		const float4 n2 = pd_lorDet2Orient[eventId];
-		float4 d1_minus_d2 = d1 - d2;
-		float4 d2_minus_d1 = d1_minus_d2 * (-1.0f);
+		const float4 d1_minus_d2 = d1 - d2;
+		const float4 d2_minus_d1 = d1_minus_d2 * (-1.0f);
 
 		// ----------------------- Compute TOR
 		const float thickness_z = scannerParams.crystalSize_z;
@@ -422,18 +397,18 @@ __global__ void OperatorProjectorDDCU_kernel(
 							float* ptr = pd_image + idx;
 							if constexpr (IsForward)
 							{
-								pd_projValues[eventId] += (*ptr) * weight;
+								value += (*ptr) * weight;
 							}
 							else
 							{
-								float projValue = pd_projValues[eventId];
-								atomicAdd(ptr, projValue * weight);
+								atomicAdd(ptr, value * weight);
 							}
 						}
 					}
 				}
 			}
 		}
+		pd_projValues[eventId] = value;
 	}
 }
 
@@ -493,18 +468,3 @@ template __global__ void OperatorProjectorDDCU_kernel<false, false, true>(
     const TimeOfFlightHelper* pd_tofHelper, const float* pd_projPsfKernels,
     ProjectionPsfProperties projectionPsfProperties,
     CUScannerParams scannerParams, CUImageParams imgParams, size_t batchSize);
-
-__global__ void applyAttenuationFactors_kernel(const float* pd_attImgProjData,
-                                               const float* pd_imgProjData,
-                                               float* pd_destProjData,
-                                               float unitFactor,
-                                               const size_t maxNumberOfEvents)
-{
-	const long eventId = blockIdx.x * blockDim.x + threadIdx.x;
-	if (eventId < maxNumberOfEvents)
-	{
-		const float attProj = pd_attImgProjData[eventId];
-		pd_destProjData[eventId] =
-		    pd_imgProjData[eventId] * exp(-attProj * unitFactor);
-	}
-}

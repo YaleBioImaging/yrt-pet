@@ -18,4 +18,5 @@ typedef struct CUImageParams
 	float voxelSize[3];
 	float imgLength[3];
 	float offset[3];
+	float fovRadius;
 } CUImageParams;

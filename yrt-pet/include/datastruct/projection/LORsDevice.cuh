@@ -26,7 +26,6 @@ public:
 	void loadEventLORs(const BinIterator& binIter,
 	                   const GPUBatchSetup& batchSetup, size_t subsetId,
 	                   size_t batchId, const ProjectionData& reference,
-	                   const ImageParams& imgParams,
 	                   const cudaStream_t* stream = nullptr);
 
 	std::shared_ptr<ScannerDevice> getScannerDevice() const;

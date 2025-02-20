@@ -15,11 +15,11 @@ class OperatorPsfDevice : public DeviceSynchronized, public OperatorPsf
 {
 public:
 	OperatorPsfDevice();
-	explicit OperatorPsfDevice(const std::string& imageSpacePsf_fname,
+	explicit OperatorPsfDevice(const std::string& imagePsf_fname,
 	                           const cudaStream_t* pp_stream = nullptr);
 
-	void readFromFile(const std::string& imageSpacePsf_fname) override;
-	void readFromFile(const std::string& imageSpacePsf_fname,
+	void readFromFile(const std::string& imagePsf_fname) override;
+	void readFromFile(const std::string& imagePsf_fname,
 	                  const cudaStream_t* pp_stream = nullptr);
 
 	void copyToDevice(const cudaStream_t* pp_stream = nullptr);
@@ -65,7 +65,7 @@ protected:
 	mutable std::unique_ptr<ImageDeviceOwned> mpd_intermediaryImage;
 
 private:
-	void readFromFileInternal(const std::string& imageSpacePsf_fname,
+	void readFromFileInternal(const std::string& imagePsf_fname,
 	                          const cudaStream_t* pp_stream);
 	static void initDeviceArrayIfNeeded(
 	    std::unique_ptr<DeviceArray<float>>& ppd_kernel);

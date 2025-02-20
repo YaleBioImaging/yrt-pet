@@ -35,9 +35,9 @@ void Corrector_GPU::precomputeAdditiveCorrectionFactors(
 		             "additive corrections..."
 		          << std::endl;
 
-		// TODO: Once GPU Siddon is implemented, use it here instead of DD_GPU
 		Util::forwProject(measurements.getScanner(), *mp_attenuationImage,
-		                  *mph_additiveCorrections, OperatorProjector::DD_GPU);
+		                  *mph_additiveCorrections, OperatorProjector::SIDDON,
+		                  true);
 
 		// TODO: This part would be faster if done on GPU (inside the projection
 		//  kernel)
@@ -122,10 +122,9 @@ void Corrector_GPU::precomputeInVivoAttenuationFactors(
 	}
 	else if (mp_inVivoAttenuationImage != nullptr)
 	{
-		// TODO: Use GPU Siddon once available
 		Util::forwProject(measurements.getScanner(), *mp_inVivoAttenuationImage,
 		                  *mph_inVivoAttenuationFactors,
-		                  OperatorProjector::DD_GPU);
+		                  OperatorProjector::SIDDON, true);
 
 		// TODO: This part would be faster if done on GPU (inside the projection
 		//  kernel)
@@ -162,7 +161,7 @@ ProjectionDataDevice* Corrector_GPU::getTemporaryDeviceBuffer()
 	return mpd_temporaryCorrectionFactors.get();
 }
 
-void Corrector_GPU::applyHardwareACFCorrectionFactorsToGivenDeviceBuffer(
+void Corrector_GPU::applyHardwareAttenuationToGivenDeviceBufferFromACFHistogram(
     ProjectionDataDevice* destProjData, const cudaStream_t* stream)
 {
 	ASSERT_MSG(mpd_temporaryCorrectionFactors != nullptr,
@@ -178,7 +177,7 @@ void Corrector_GPU::applyHardwareACFCorrectionFactorsToGivenDeviceBuffer(
 	                                 stream);
 }
 
-void Corrector_GPU::applyHardwareAttenuationImageFactorsToGivenDeviceBuffer(
+void Corrector_GPU::applyHardwareAttenuationToGivenDeviceBufferFromAttenuationImage(
     ProjectionDataDevice* destProjData, OperatorProjectorDevice* projector,
     const cudaStream_t* stream)
 {

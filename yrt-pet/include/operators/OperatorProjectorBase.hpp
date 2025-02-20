@@ -21,7 +21,7 @@ public:
 	OperatorProjectorParams(const BinIterator* pp_binIter,
 	                        const Scanner& pr_scanner,
 	                        float p_tofWidth_ps = 0.f, int p_tofNumStd = 0,
-	                        std::string p_psfProjFilename = "",
+	                        const std::string& pr_projPsf_fname = "",
 	                        int p_num_rays = 1);
 
 	const BinIterator* binIter;
@@ -32,7 +32,7 @@ public:
 	int tofNumStd;
 
 	// Projection-domain PSF
-	std::string psfProj_fname;
+	std::string projPsf_fname;
 
 	// Multi-ray siddon only
 	int numRays;

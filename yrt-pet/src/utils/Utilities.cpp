@@ -78,6 +78,22 @@ void py_setup_utilities(py::module& m)
 		                                      self.r10, self.r11, self.r12,
 		                                      self.r20, self.r21, self.r22);
 	                });
+
+	auto c_detpair = py::class_<det_pair_t>(m, "det_pair_t");
+	c_detpair.def(py::init(
+	                  [](const py::tuple& pair)
+	                  {
+		                  ASSERT_MSG(pair.size() == 2,
+		                             "detector pair misformed");
+		                  det_pair_t detPair{};
+		                  detPair.d1 = py::cast<det_id_t>(pair[0]);
+		                  detPair.d2 = py::cast<det_id_t>(pair[1]);
+		                  return detPair;
+	                  }),
+	              "detector_pair"_a);
+
+	c_detpair.def("toTuple", [](const det_pair_t& self)
+	              { return py::make_tuple(self.d1, self.d2); });
 }
 #endif
 

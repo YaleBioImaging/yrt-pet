@@ -21,7 +21,6 @@ void py_setup_io(py::module& m)
 	m.def("openProjectionData", &IO::openProjectionData, "input_fname"_a,
 	      "input_format"_a, "scanner"_a, "pluginOptions"_a);
 	m.def("getProjector", IO::getProjector, "projector_name"_a);
-	m.def("requiresGPU", IO::requiresGPU, "projector_type"_a);
 	m.def("possibleFormats", IO::possibleFormats);
 }
 #endif
@@ -62,29 +61,15 @@ OperatorProjector::ProjectorType
 	const std::string projectorName_upper = Util::toUpper(projectorName);
 
 	// Projector type
-	if (projectorName_upper == "DD_GPU")
-	{
-		return OperatorProjector::ProjectorType::DD_GPU;
-	}
 	if (projectorName_upper == "S" || projectorName_upper == "SIDDON")
 	{
 		return OperatorProjector::ProjectorType::SIDDON;
 	}
-	if (projectorName_upper == "D" || projectorName_upper == "DD" ||
-	    projectorName_upper == "DD_CPU")
+	if (projectorName_upper == "D" || projectorName_upper == "DD")
 	{
 		return OperatorProjector::ProjectorType::DD;
 	}
 	throw std::invalid_argument(
 	    "Invalid Projector name, choices are Siddon (S), "
-	    "Distance-Driven cpu (D) and Distance-Driven gpu (DD_GPU)");
-}
-
-bool IO::requiresGPU(OperatorProjector::ProjectorType projector)
-{
-	if (projector == OperatorProjector::DD_GPU)
-	{
-		return true;
-	}
-	return false;
+	    "Distance-Driven cpu (D)");
 }

@@ -16,11 +16,11 @@ void py_setup_operatorprojectorparams(py::module& m)
 	c.def(
 	    py::init<BinIterator*, Scanner&, float, int, const std::string&, int>(),
 	    py::arg("binIter"), py::arg("scanner"), py::arg("tofWidth_ps") = 0.f,
-	    py::arg("tofNumStd") = -1, py::arg("psfProj_fname") = "",
+	    py::arg("tofNumStd") = -1, py::arg("projPsf_fname") = "",
 	    py::arg("num_rays") = 1);
 	c.def_readwrite("tofWidth_ps", &OperatorProjectorParams::tofWidth_ps);
 	c.def_readwrite("tofNumStd", &OperatorProjectorParams::tofNumStd);
-	c.def_readwrite("psfProj_fname", &OperatorProjectorParams::psfProj_fname);
+	c.def_readwrite("projPsf_fname", &OperatorProjectorParams::projPsf_fname);
 	c.def_readwrite("num_rays", &OperatorProjectorParams::numRays);
 }
 
@@ -35,17 +35,15 @@ void py_setup_operatorprojectorbase(py::module& m)
 #endif
 
 
-OperatorProjectorParams::OperatorProjectorParams(const BinIterator* pp_binIter,
-                                                 const Scanner& pr_scanner,
-                                                 float p_tofWidth_ps,
-                                                 int p_tofNumStd,
-                                                 std::string p_psfProjFilename,
-                                                 int p_num_rays)
+OperatorProjectorParams::OperatorProjectorParams(
+    const BinIterator* pp_binIter, const Scanner& pr_scanner,
+    float p_tofWidth_ps, int p_tofNumStd, const std::string& pr_projPsf_fname,
+    int p_num_rays)
     : binIter(pp_binIter),
       scanner(pr_scanner),
       tofWidth_ps(p_tofWidth_ps),
       tofNumStd(p_tofNumStd),
-      psfProj_fname(std::move(p_psfProjFilename)),
+      projPsf_fname(pr_projPsf_fname),
       numRays(p_num_rays)
 {
 }

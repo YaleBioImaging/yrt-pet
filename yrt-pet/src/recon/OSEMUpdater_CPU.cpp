@@ -25,7 +25,8 @@ void OSEMUpdater_CPU::computeSensitivityImage(Image& destImage) const
 	const bin_t numBins = binIter->size();
 	const Corrector_CPU& corrector = mp_osem->getCorrector_CPU();
 	const Corrector_CPU* correctorPtr = &corrector;
-	const ProjectionData* sensImgGenProjData = corrector.getSensImgGenProjData();
+	const ProjectionData* sensImgGenProjData =
+	    corrector.getSensImgGenProjData();
 	Image* destImagePtr = &destImage;
 	Util::ProgressDisplayMultiThread progressDisplay(Globals::get_num_threads(),
 	                                                 numBins);

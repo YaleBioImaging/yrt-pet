@@ -25,7 +25,7 @@ void py_setup_operatorprojectordd(py::module& m)
 
 	c.def(py::init<const Scanner&, float, int, const std::string&>(),
 	      "scanner"_a, "tofWidth_ps"_a = 0.f, "tofNumStd"_a = -1,
-	      "psfProj_fname"_a = "");
+	      "projPsf_fname"_a = "");
 	c.def(py::init<const OperatorProjectorParams&>(), "projParams"_a);
 
 	c.def(
@@ -59,8 +59,8 @@ void py_setup_operatorprojectordd(py::module& m)
 
 OperatorProjectorDD::OperatorProjectorDD(const Scanner& pr_scanner,
                                          float tofWidth_ps, int tofNumStd,
-                                         const std::string& psfProjFilename)
-    : OperatorProjector{pr_scanner, tofWidth_ps, tofNumStd, psfProjFilename}
+                                         const std::string& projPsf_fname)
+    : OperatorProjector{pr_scanner, tofWidth_ps, tofNumStd, projPsf_fname}
 {
 }
 

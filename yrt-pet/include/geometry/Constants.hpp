@@ -38,8 +38,8 @@
 #define GET_MIN(a, b, c) ((((a > b) ? b : a) > c) ? c : ((a > b) ? b : a))
 #define GET_SGN(a) ((a > 0) ? 1 : -1)
 #define GET_SQ(a) ((a) * (a))
-#define APPROX_EQ(a, b) (std::abs((a)-(b)) < 1e-6)
-#define APPROX_EQ_THRESH(a, b, thresh) (std::abs((a)-(b)) < (thresh))
+#define APPROX_EQ(a, b) (std::abs((a) - (b)) < 1e-6)
+#define APPROX_EQ_THRESH(a, b, thresh) (std::abs((a) - (b)) < (thresh))
 #define SIGN(a, b) ((b) > 0.0 ? std::abs(a) : -std::abs(a))
 #define SHFT(a, b, c, d) \
 	(a) = (b);           \

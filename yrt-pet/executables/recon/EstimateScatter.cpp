@@ -199,10 +199,8 @@ int main(int argc, char** argv)
 			acfHis = std::make_unique<Histogram3DOwned>(*scanner);
 			acfHis->allocate();
 
-			auto projector = useGPU ? OperatorProjector::ProjectorType::DD_GPU :
-			                          OperatorProjector::ProjectorType::SIDDON;
-
-			Util::forwProject(*scanner, *attImage, *acfHis, projector);
+			Util::forwProject(*scanner, *attImage, *acfHis,
+			                  OperatorProjector::ProjectorType::SIDDON, useGPU);
 
 			if (!acfOutHis_fname.empty())
 			{

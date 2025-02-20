@@ -19,7 +19,7 @@ class OperatorProjectorDD : public OperatorProjector
 public:
 	explicit OperatorProjectorDD(const Scanner& pr_scanner,
 	                             float tofWidth_ps = 0.0f, int tofNumStd = -1,
-	                             const std::string& psfProjFilename = "");
+	                             const std::string& projPsf_fname = "");
 
 	explicit OperatorProjectorDD(const OperatorProjectorParams& p_projParams);
 

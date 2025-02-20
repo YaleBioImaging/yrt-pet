@@ -43,10 +43,10 @@ public:
 	ProjectionDataDevice* getTemporaryDeviceBuffer();
 
 	// Use ACF histogram for sensitivity image generation
-	void applyHardwareACFCorrectionFactorsToGivenDeviceBuffer(
+	void applyHardwareAttenuationToGivenDeviceBufferFromACFHistogram(
 	    ProjectionDataDevice* destProjData, const cudaStream_t* stream);
 	// The projector used is in case the attenuation image needs to be projected
-	void applyHardwareAttenuationImageFactorsToGivenDeviceBuffer(
+	void applyHardwareAttenuationToGivenDeviceBufferFromAttenuationImage(
 	    ProjectionDataDevice* destProjData, OperatorProjectorDevice* projector,
 	    const cudaStream_t* stream = nullptr);
 

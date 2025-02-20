@@ -95,17 +95,19 @@ CUImageParams DeviceSynchronized::getCUImageParams(const ImageParams& imgParams)
 	params.voxelNumber[1] = imgParams.ny;
 	params.voxelNumber[2] = imgParams.nz;
 
-	params.imgLength[0] = static_cast<float>(imgParams.length_x);
-	params.imgLength[1] = static_cast<float>(imgParams.length_y);
-	params.imgLength[2] = static_cast<float>(imgParams.length_z);
+	params.imgLength[0] = imgParams.length_x;
+	params.imgLength[1] = imgParams.length_y;
+	params.imgLength[2] = imgParams.length_z;
 
-	params.voxelSize[0] = static_cast<float>(imgParams.vx);
-	params.voxelSize[1] = static_cast<float>(imgParams.vy);
-	params.voxelSize[2] = static_cast<float>(imgParams.vz);
+	params.voxelSize[0] = imgParams.vx;
+	params.voxelSize[1] = imgParams.vy;
+	params.voxelSize[2] = imgParams.vz;
 
-	params.offset[0] = static_cast<float>(imgParams.off_x);
-	params.offset[1] = static_cast<float>(imgParams.off_y);
-	params.offset[2] = static_cast<float>(imgParams.off_z);
+	params.offset[0] = imgParams.off_x;
+	params.offset[1] = imgParams.off_y;
+	params.offset[2] = imgParams.off_z;
+
+	params.fovRadius = imgParams.fovRadius;
 
 	return params;
 }

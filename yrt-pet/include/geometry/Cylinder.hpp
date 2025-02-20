@@ -19,9 +19,9 @@ public:
 	Cylinder();
 	Cylinder(const Vector3D& cent, float lz, float r);
 	bool doesLineIntersectCylinderInfinite(const Line3D& l, Vector3D& p1,
-	                                  Vector3D& p2) const;
+	                                       Vector3D& p2) const;
 	bool doesLineIntersectCylinder(const Line3D& l, Vector3D& p1,
-	                         Vector3D& p2) const;
+	                               Vector3D& p2) const;
 	bool clipLine(Line3D& l) const;
 	bool clipLineInfinite(Line3D& l) const;
 };

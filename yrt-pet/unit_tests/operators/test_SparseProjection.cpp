@@ -20,77 +20,8 @@ TEST_CASE("sparse-projection", "[SparseProjection]")
 
 	SECTION("against-dense-histogram")
 	{
-		std::default_random_engine engine(
-		    static_cast<unsigned int>(std::time(nullptr)));
-		constexpr float MaxPrismValue = 10.0f;
-
-		// Initialize image with prism inside
-		ImageParams params{64, 64, 16, 280.0f, 280.0f, 200.0f};
-		REQUIRE(params.nx == params.ny);
-
-		std::uniform_int_distribution<int> prismPositionDistributionXY(
-		    0, params.nx);
-		std::uniform_int_distribution<int> prismPositionDistributionZ(
-		    0, params.nz);
-		std::uniform_real_distribution<float> prismValueDistribution(
-		    0.1f, MaxPrismValue);
-
-		auto image = std::make_unique<ImageOwned>(params);
-		image->allocate();
-		image->setValue(0.0f);
-
-		bool mustTryAgain = false;
-
-		int prismBeginX, prismBeginY, prismBeginZ, prismEndX, prismEndY,
-		    prismEndZ;
-
-		do
-		{
-			prismBeginX = prismPositionDistributionXY(engine);
-			prismBeginY = prismPositionDistributionXY(engine);
-			prismBeginZ = prismPositionDistributionZ(engine);
-			prismEndX = prismPositionDistributionXY(engine);
-			prismEndY = prismPositionDistributionXY(engine);
-			prismEndZ = prismPositionDistributionZ(engine);
-
-			auto [prismBeginX_n, prismEndX_n] =
-			    std::minmax(prismBeginX, prismEndX);
-			prismBeginX = prismBeginX_n;
-			prismEndX = prismEndX_n;
-			auto [prismBeginY_n, prismEndY_n] =
-			    std::minmax(prismBeginY, prismEndY);
-			prismBeginY = prismBeginY_n;
-			prismEndY = prismEndY_n;
-			auto [prismBeginZ_n, prismEndZ_n] =
-			    std::minmax(prismBeginZ, prismEndZ);
-			prismBeginZ = prismBeginZ_n;
-			prismEndZ = prismEndZ_n;
-
-			// In case randomness made it so that the prism is of null value
-			mustTryAgain = prismBeginX == prismEndX ||
-			               prismBeginY == prismEndY || prismBeginZ == prismEndZ;
-		} while (mustTryAgain);
-
-		REQUIRE(prismEndX > prismBeginX);
-		REQUIRE(prismEndY > prismBeginY);
-		REQUIRE(prismEndZ > prismBeginZ);
-
-		float* image_ptr = image->getRawPointer();
-
-		for (int i_x = prismBeginX; i_x < prismEndX; i_x++)
-		{
-			for (int i_y = prismBeginY; i_y < prismEndY; i_y++)
-			{
-				for (int i_z = prismBeginZ; i_z < prismEndZ; i_z++)
-				{
-					const size_t flatIdx = image->unravel(i_z, i_y, i_x);
-					image_ptr[flatIdx] = prismValueDistribution(engine);
-				}
-			}
-		}
-
-		const float voxelSum = image->voxelSum();
-		REQUIRE(voxelSum > 0.0f);
+		ImageParams imgParams{64, 64, 16, 280.0f, 280.0f, 200.0f};
+		auto image = TestUtils::makeImageWithRandomPrism(imgParams);
 
 		// Initialize dense histogram
 		auto histogram3D = std::make_unique<Histogram3DOwned>(*scanner);

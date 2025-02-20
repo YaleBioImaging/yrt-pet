@@ -65,13 +65,13 @@ void OSEM_CPU::setupOperatorsForSensImgGen()
 		// Create and add Bin Iterator
 		getBinIterators().push_back(
 		    mp_corrector->getSensImgGenProjData()->getBinIter(num_OSEM_subsets,
-		                                                    subsetId));
+		                                                      subsetId));
 	}
 
 	// Create ProjectorParams object
 	OperatorProjectorParams projParams(
 	    nullptr /* Will be set later at each subset loading */, scanner, 0.f, 0,
-	    flagProjPSF ? projSpacePsf_fname : "", numRays);
+	    flagProjPSF ? projPsf_fname : "", numRays);
 
 	if (projectorType == OperatorProjector::ProjectorType::SIDDON)
 	{
@@ -80,6 +80,10 @@ void OSEM_CPU::setupOperatorsForSensImgGen()
 	else if (projectorType == OperatorProjector::ProjectorType::DD)
 	{
 		mp_projector = std::make_unique<OperatorProjectorDD>(projParams);
+	}
+	else
+	{
+		throw std::runtime_error("Unknown error");
 	}
 
 	mp_updater = std::make_unique<OSEMUpdater_CPU>(this);
@@ -166,7 +170,7 @@ const OperatorProjector* OSEM_CPU::getProjector() const
 
 OperatorPsf* OSEM_CPU::getOperatorPsf() const
 {
-	return imageSpacePsf.get();
+	return imagePsf.get();
 }
 
 void OSEM_CPU::setupOperatorsForRecon()
@@ -184,7 +188,7 @@ void OSEM_CPU::setupOperatorsForRecon()
 	OperatorProjectorParams projParams(
 	    nullptr /* Will be set later at each subset loading */, scanner,
 	    flagProjTOF ? tofWidth_ps : 0.f, flagProjTOF ? tofNumStd : 0,
-	    flagProjPSF ? projSpacePsf_fname : "", numRays);
+	    flagProjPSF ? projPsf_fname : "", numRays);
 
 	if (projectorType == OperatorProjector::SIDDON)
 	{
@@ -193,6 +197,10 @@ void OSEM_CPU::setupOperatorsForRecon()
 	else if (projectorType == OperatorProjector::DD)
 	{
 		mp_projector = std::make_unique<OperatorProjectorDD>(projParams);
+	}
+	else
+	{
+		throw std::runtime_error("Unknown error");
 	}
 
 	mp_updater = std::make_unique<OSEMUpdater_CPU>(this);

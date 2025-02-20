@@ -44,7 +44,6 @@ void py_setup_operatorprojector(py::module& m)
 	py::enum_<OperatorProjector::ProjectorType>(c, "ProjectorType")
 	    .value("SIDDON", OperatorProjector::ProjectorType::SIDDON)
 	    .value("DD", OperatorProjector::ProjectorType::DD)
-	    .value("DD_GPU", OperatorProjector::ProjectorType::DD_GPU)
 	    .export_values();
 }
 
@@ -52,7 +51,7 @@ void py_setup_operatorprojector(py::module& m)
 
 OperatorProjector::OperatorProjector(const Scanner& pr_scanner,
                                      float tofWidth_ps, int tofNumStd,
-                                     const std::string& psfProjFilename)
+                                     const std::string& projPsf_fname)
     : OperatorProjectorBase{pr_scanner},
       mp_tofHelper{nullptr},
       mp_projPsfManager{nullptr}
@@ -61,9 +60,9 @@ OperatorProjector::OperatorProjector(const Scanner& pr_scanner,
 	{
 		setupTOFHelper(tofWidth_ps, tofNumStd);
 	}
-	if (!psfProjFilename.empty())
+	if (!projPsf_fname.empty())
 	{
-		setupProjPsfManager(psfProjFilename);
+		setupProjPsfManager(projPsf_fname);
 	}
 }
 
@@ -77,9 +76,9 @@ OperatorProjector::OperatorProjector(
 	{
 		setupTOFHelper(p_projParams.tofWidth_ps, p_projParams.tofNumStd);
 	}
-	if (!p_projParams.psfProj_fname.empty())
+	if (!p_projParams.projPsf_fname.empty())
 	{
-		setupProjPsfManager(p_projParams.psfProj_fname);
+		setupProjPsfManager(p_projParams.projPsf_fname);
 	}
 }
 
@@ -145,9 +144,9 @@ void OperatorProjector::setupTOFHelper(float tofWidth_ps, int tofNumStd)
 	           "Error occured during the setup of TimeOfFlightHelper");
 }
 
-void OperatorProjector::setupProjPsfManager(const std::string& psfFilename)
+void OperatorProjector::setupProjPsfManager(const std::string& projPsf_fname)
 {
-	mp_projPsfManager = std::make_unique<ProjectionPsfManager>(psfFilename);
+	mp_projPsfManager = std::make_unique<ProjectionPsfManager>(projPsf_fname);
 	ASSERT_MSG(mp_projPsfManager != nullptr,
 	           "Error occured during the setup of ProjectionPsfManager");
 }

@@ -13,22 +13,23 @@ osem = yrt.createOSEM(scanner)
 # or, alternatively, use GPU reconstruction (available only if yrt.compiledWithCuda() returns True)
 osem = yrt.createOSEM(scanner, useGPU=True)
 
-osem.setProjector("<Projector>") # Possible values: S (Siddon), DD (Distance-Driven), or DD_GPU (GPU Distance-Driven, available only if useGPU is 'True')
+osem.setProjector("<Projector>") # Possible values: S (Siddon), DD (Distance-Driven)
 osem.setImageParams(imgParams) # Set the parameters of the output image
 osem.num_MLEM_iterations = 10 # Number of MLEM iterations
 osem.num_OSEM_subsets = 5 # Number of OSEM subsets
-osem.setSensDataInput(...) # Dataset to use as input for the sensitivity image generation. Takes, as input, a ProjectionData object. Example: A histogram of sensitivity
+osem.setSensitivityHistogram(...) # Sensitivity histogram to use (normalisation correction)
 osem.addTOF("""<TOF width in picoseconds>""", """<Number of STD deviations>""") # To enable Time-of-flight
 osem.addProjPSF("<path to the PSF's CSV file>") # To add Projection-space PSF
 osem.addImagePSF(...) # To add Image-space PSF. Takes, as input, a OperatorPsf object
 osem.setListModeEnabled("""<True/False>""") # To enable if the dataset to use for reconstruction will be in ListMode format. This is important as it changes the way sensitivity image(s) are generated.
-osem.attenuationImageForForwardProjection = ... # To add an attenuation image (Image object) to the forward model
-osem.addHis = ... # To add an additive histogram (Histogram format) for example for Scatter and Randoms corrections.
+osem.setInVivoAttenuationImage(someImage) #
 
 # --- Generate the sensitivity image(s)
 
 sens_imgs = osem.generateSensitivityImages() # Returns a python list of Image objects
 osem.setSensitivityImages(sens_imgs) # Takes, as input, a python list of Image objects.
+# It it also possible to read a pre-existing sensitivity image (instead of
+#  generating one every time) and call "setSensitivityImages"
 
 # Optionally, save the sensitivity images:
 for i in range(len(sens_imgs)):

@@ -357,10 +357,17 @@ def _test_savant_sim_ultra_micro_hotspot_nomotion_osem_6rays(use_gpu: bool):
 
     out_img.writeToFile(os.path.join(fold_out, out_img_fname))
 
+    # The reference is different between CPU and GPU
+    ref_img_fname = "ultra_micro_hotspot_nomotion_osem_6rays_"
+    if use_gpu:
+        ref_img_fname += "gpu"
+    else:
+        ref_img_fname += "cpu"
+    ref_img_fname += ".nii.gz"
+
     ref_img = yrt.ImageOwned(img_params,
                              os.path.join(fold_savant_sim,
-                                          "ref",
-                                          "ultra_micro_hotspot_nomotion_osem_6rays.nii.gz"))
+                                          "ref", ref_img_fname))
 
     np_out_img = np.array(out_img, copy=False)
     np_ref_img = np.array(ref_img, copy=False)

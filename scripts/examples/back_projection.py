@@ -15,7 +15,7 @@ dataset = yrt.ListModeLUTOwned(scanner, "<path to a listmode to be backprojected
 outImage = yrt.ImageOwned(imgParams)
 outImage.allocate()
 
-# Available projectors: SIDDON, DD, DD_GPU
+# Available projectors: SIDDON, DD
 projectorType = yrt.OperatorProjector.ProjectorType.DD
 
 yrt.backProject(scanner, outImage, dataset, projectorType)

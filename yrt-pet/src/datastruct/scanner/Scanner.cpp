@@ -156,6 +156,11 @@ void Scanner::createLUT(Array2D<float>& lut) const
 void Scanner::setDetectorSetup(
     const std::shared_ptr<DetectorSetup>& pp_detectors)
 {
+	if (pp_detectors->getNumDets() != getTheoreticalNumDets())
+		throw std::runtime_error(
+		    "The number of detectors given by the LUT does not match "
+		    "the scanner's characteristics. Namely, num_doi * num_rings * "
+		    "dets_per_ring does not equal the size of the LUT");
 	mp_detectors = pp_detectors;
 }
 

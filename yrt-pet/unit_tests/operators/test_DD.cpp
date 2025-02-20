@@ -49,7 +49,7 @@ TEST_CASE("DD", "[dd]")
 	// Create Scanner
 	const auto scanner = TestUtils::makeScanner();
 
-	const size_t numDets = scanner->getTheoreticalNumDets();
+	const size_t numDets = scanner->getNumDets();
 
 	// Setup image
 	constexpr int nx = 256;

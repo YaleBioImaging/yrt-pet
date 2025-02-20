@@ -15,7 +15,7 @@ TEST_CASE("siddon_gpu_vs_cpu", "[siddon-gpu]")
 	// Create Scanner
 	const auto scanner = TestUtils::makeScanner();
 
-	const size_t numDets = scanner->getTheoreticalNumDets();
+	const size_t numDets = scanner->getNumDets();
 
 	// Setup image
 	constexpr int nx = 256;

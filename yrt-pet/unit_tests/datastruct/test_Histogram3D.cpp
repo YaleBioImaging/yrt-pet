@@ -98,6 +98,7 @@ bool compare_coords(std::array<coord_t, 3> c1, std::array<coord_t, 3> c2)
 
 TEST_CASE("histo3d", "[histo]")
 {
+	// TODO: Randomize scanner generation
 	auto scanner = TestUtils::makeScanner();
 
 	size_t n_total_detectors =
@@ -106,9 +107,9 @@ TEST_CASE("histo3d", "[histo]")
 
 	SECTION("histo3d-sizes")
 	{
-		REQUIRE(histo3d->numR == 28);  // 7*(2*2)
-		REQUIRE(histo3d->numPhi == 24);
-		REQUIRE(histo3d->numZBin == 61);
+		REQUIRE(histo3d->numR == 76);  // 4*(48/2+1-6)
+		REQUIRE(histo3d->numPhi == 48); // 48 detectors
+		REQUIRE(histo3d->numZBin == 132);
 	}
 
 	SECTION("histo3d-binIds")

@@ -11,6 +11,8 @@
 
 ## Configuration and compilation
 
+From the command-line interface:
+
 `git clone git@github.com:YaleBioImaging/yrt-pet.git`\
 `cd yrt-pet`\
 `mkdir build`\
@@ -24,6 +26,13 @@ With `[ON/OFF]` being replaced by the desired configuration
     - This option is `ON` by default
 - The `-DBUILD_PYBIND11` option enables or disables YRT-PET's python bindings
     - This option is `ON` by default
+
+### Post-compilation steps
+- (optional) To run unit tests, run `ctest -V` from the build folder.
+- Add the `executables` folder to the `PATH` environment variable
+- To check if GPU was successfully enabled for the project, run
+`yrtpet_reconstruct --help`. If the `--gpu` option appears, the program was
+compiled with GPU acceleration.
 
 ## FAQ
 

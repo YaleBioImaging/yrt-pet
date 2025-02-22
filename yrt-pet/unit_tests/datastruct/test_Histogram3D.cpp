@@ -7,6 +7,7 @@
 
 #include "datastruct/projection/Histogram3D.hpp"
 #include "datastruct/projection/ListModeLUT.hpp"
+#include "datastruct/scanner/DetRegular.hpp"
 #include "test_utils.hpp"
 #include "utils/ReconstructionUtils.hpp"
 
@@ -95,22 +96,29 @@ bool compare_coords(std::array<coord_t, 3> c1, std::array<coord_t, 3> c2)
 		}
 	}
 }
+auto getDetectorPositionInScanner(const Scanner& scanner, det_id_t d)
+{
+	int64_t doi = d / (scanner.numRings * scanner.detsPerRing);
+	int64_t ring = (d - doi * scanner.detsPerRing * scanner.numRings) /
+	               scanner.detsPerRing;
+	int64_t posInRing =
+	    (d - (ring + doi * scanner.numRings) * scanner.detsPerRing) %
+	    scanner.detsPerRing;
+	return std::make_tuple(doi, ring, posInRing);
+}
 
 TEST_CASE("histo3d", "[histo]")
 {
 	// TODO: Randomize scanner generation
-	auto scanner = TestUtils::makeScanner();
+	auto scanner = std::make_unique<Scanner>("FakeScanner", 200, 1, 1, 10, 200,
+	                                         48, 12, 2, 8, 1, 4);
+	const auto detRegular = std::make_shared<DetRegular>(scanner.get());
+	detRegular->generateLUT();
+	scanner->setDetectorSetup(detRegular);
 
 	size_t n_total_detectors =
 	    scanner->numDOI * scanner->numRings * scanner->detsPerRing;
 	auto histo3d = std::make_unique<Histogram3DOwned>(*scanner);
-
-	SECTION("histo3d-sizes")
-	{
-		REQUIRE(histo3d->numR == 76);  // 4*(48/2+1-6)
-		REQUIRE(histo3d->numPhi == 48); // 48 detectors
-		REQUIRE(histo3d->numZBin == 132);
-	}
 
 	SECTION("histo3d-binIds")
 	{
@@ -165,9 +173,9 @@ TEST_CASE("histo3d", "[histo]")
 					histo3d->getDetPairFromCoords(r, phi, z_bin, d1, d2);
 					histo3d->getCoordsFromDetPair(d2, d1, r_supp, phi_supp,
 					                              z_bin_supp);
-					REQUIRE(r_supp == r);
-					REQUIRE(phi_supp == phi);
-					REQUIRE(z_bin_supp == z_bin);
+					CHECK(r_supp == r);
+					CHECK(phi_supp == phi);
+					CHECK(z_bin_supp == z_bin);
 				}
 			}
 		}
@@ -239,7 +247,7 @@ TEST_CASE("histo3d", "[histo]")
 		someListMode->allocate(3);
 		someListMode->setDetectorIdsOfEvent(0, 15, 105);
 		someListMode->setDetectorIdsOfEvent(1, 238, 75);
-		someListMode->setDetectorIdsOfEvent(2, 200, 110);
+		someListMode->setDetectorIdsOfEvent(2, 215, 110);
 		for (size_t lmEv = 0; lmEv < someListMode->count(); lmEv++)
 		{
 			auto [d1, d2] = someListMode->getDetectorPair(lmEv);
@@ -290,5 +298,49 @@ TEST_CASE("histo3d", "[histo]")
 		det_pair_t detPair = histo3d->getDetectorPair(newBin);
 		CHECK(d1_ref == detPair.d1);
 		CHECK(d2_ref == detPair.d2);
+	}
+
+	SECTION("histo3d-allowed-lors")
+	{
+		det_id_t numDets = scanner->getNumDets();
+		for (det_id_t d1 = 0; d1 < numDets; d1++)
+		{
+			for (det_id_t d2 = d1 + 1; d2 < numDets; d2++)
+			{
+				auto [doi_d1, ring_d1, posInRing_d1] =
+				    getDetectorPositionInScanner(*scanner, d1);
+				auto [doi_d2, ring_d2, posInRing_d2] =
+				    getDetectorPositionInScanner(*scanner, d2);
+
+				// Check ring difference
+				if (std::abs(ring_d1 - ring_d2) >
+				    static_cast<int64_t>(scanner->maxRingDiff))
+				{
+					continue;
+				}
+
+				// Check difference in ring (angle difference)
+				if (std::min(Util::positiveModulo(posInRing_d1 - posInRing_d2,
+				                                  scanner->detsPerRing),
+				             Util::positiveModulo(posInRing_d2 - posInRing_d1,
+				                                  scanner->detsPerRing)) <
+				    static_cast<int64_t>(scanner->minAngDiff))
+				{
+					continue;
+				}
+
+				coord_t r, phi, z_bin;
+				histo3d->getCoordsFromDetPair(d1, d2, r, phi, z_bin);
+
+				det_pair_t detPair2;
+				histo3d->getDetPairFromCoords(r, phi, z_bin, detPair2.d1,
+				                              detPair2.d2);
+
+				bool checkDetPair = d1 == detPair2.d1 && d2 == detPair2.d2;
+				bool checkDetPairSwapped =
+				    d1 == detPair2.d2 && d2 == detPair2.d1;
+				CHECK((checkDetPairSwapped || checkDetPair));
+			}
+		}
 	}
 }

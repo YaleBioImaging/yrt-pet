@@ -24,6 +24,12 @@ namespace Util
 	std::vector<std::string> split(const std::string str,
 	                               const std::string regex_str);
 
+	// ----------------- Math -----------------------------
+	inline int64_t positiveModulo(int64_t i, int64_t n)
+	{
+		return (i % n + n) % n;
+	}
+
 	// ----------------- Bit manipulation -----------------
 
 	// This generates a mask of all 1s from bits at position pLSBLimit to

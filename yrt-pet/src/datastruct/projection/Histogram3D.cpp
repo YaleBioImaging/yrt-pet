@@ -155,9 +155,13 @@ void py_setup_histogram3d(pybind11::module& m)
 Histogram3D::Histogram3D(const Scanner& pr_scanner)
     : Histogram{pr_scanner}, mp_data(nullptr)
 {
-	// LIMITATION: mr_scanner.minAngDiff has to be an even number for the
+	// LIMITATION: mr_scanner.detsPerRing has to be an even number for the
 	// histogram to be properly defined
 	m_rCut = mr_scanner.minAngDiff / 2;
+	if (mr_scanner.minAngDiff % 2 != 0)
+	{
+		m_rCut++;
+	}
 	m_numDOIPoss = mr_scanner.numDOI * mr_scanner.numDOI;
 
 	numR =

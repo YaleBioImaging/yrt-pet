@@ -249,6 +249,10 @@ void Scanner::readFromString(const std::string& fileContents)
 	ASSERT_MSG(
 	    maxRingDiff < numRings,
 	    "Maximum Ring difference has to be lower than the number of rings");
+
+	ASSERT_MSG(maxRingDiff > 0, "Maximum Ring has to be non-zero");
+
+	ASSERT_MSG(minAngDiff > 0, "Minimum ");
 }
 
 std::string Scanner::getScannerPath() const

@@ -295,6 +295,15 @@ void Histogram3D::getDetPairFromCoords(coord_t r, coord_t phi, coord_t z_bin,
 	coord_t d1_ring, d2_ring;
 	getDetPairInSameRing(r_ring, phi, d1_ring, d2_ring);
 
+	// Specific case when minAngDiff == 1 on some bins
+	if(d1_ring == d2_ring)
+	{
+		// TODO NOW: Check if this ever happens with minAngDiff != 1
+		d1 = 0;
+		d2 = 0;
+		return;
+	}
+
 	coord_t doi_case = r % m_numDOIPoss;
 	coord_t doi_d1 = doi_case % mr_scanner.numDOI;
 	coord_t doi_d2 = doi_case / mr_scanner.numDOI;
@@ -356,8 +365,8 @@ void Histogram3D::getCoordsFromDetPair(det_id_t d1, det_id_t d2, coord_t& r,
 		std::swap(doi_d1, doi_d2);
 	r = r_ring * m_numDOIPoss + (doi_d1 + doi_d2 * mr_scanner.numDOI);
 
-	int z1 = (d1 / (mr_scanner.detsPerRing)) % (mr_scanner.numRings);
-	int z2 = (d2 / (mr_scanner.detsPerRing)) % (mr_scanner.numRings);
+	const int z1 = (d1 / (mr_scanner.detsPerRing)) % (mr_scanner.numRings);
+	const int z2 = (d2 / (mr_scanner.detsPerRing)) % (mr_scanner.numRings);
 
 	coord_t delta_z = static_cast<coord_t>(std::abs(z2 - z1));
 	if (delta_z > mr_scanner.maxRingDiff)

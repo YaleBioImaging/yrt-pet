@@ -4,6 +4,7 @@
  */
 
 #include "datastruct/projection/Histogram3D.hpp"
+#include "utils/Assert.hpp"
 
 #if BUILD_PYBIND11
 #include <pybind11/numpy.h>
@@ -157,6 +158,13 @@ Histogram3D::Histogram3D(const Scanner& pr_scanner)
 {
 	// LIMITATION: mr_scanner.detsPerRing has to be an even number for the
 	// histogram to be properly defined
+
+	ASSERT_MSG(
+	    mr_scanner.maxRingDiff < mr_scanner.numRings,
+	    "Maximum Ring difference has to be lower than the number of rings");
+	ASSERT_MSG(mr_scanner.minAngDiff > 0,
+	           "Minimum angle difference cannot be zero");
+
 	m_rCut = mr_scanner.minAngDiff / 2;
 	if (mr_scanner.minAngDiff % 2 != 0)
 	{

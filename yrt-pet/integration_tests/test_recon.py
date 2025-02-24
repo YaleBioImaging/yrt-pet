@@ -25,7 +25,8 @@ fold_bin = _helper.fold_bin
 #  test_<scanner>_<dataset>_<algorithms tested>_<running conditions>
 #  Examples of "algorithms tested": osem, dd (distance-driven), bwd
 #  Examples of running conditions: gpu/cpu, exec
-
+#  If the projector is not specified, it is assumed to be Siddon
+#  If neither CPU or GPU is specified, test is assumed to be ran on the CPU
 # %% Tests
 
 def test_omp_multithreading():

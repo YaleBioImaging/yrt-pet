@@ -120,13 +120,13 @@ TEST_CASE("histo3d", "[histo]")
 	// detsPerRing is forced to be an even number here (from 2 to 100 crystals)
 	std::uniform_int_distribution<size_t> halfDetsPerRingDistribution(1, 50);
 
-	constexpr int NumTrials = 10;
+	constexpr int NumTrials = 25;
 
 	for (int trial = 0; trial < NumTrials; trial++)
 	{
 		size_t numDOI = numDOIDistribution(engine);
 		size_t numRings = numRingsDistribution(engine);
-		size_t detsPerRing = halfDetsPerRingDistribution(engine) * 2;
+		size_t detsPerRing = halfDetsPerRingDistribution(engine) * 2ull;
 
 		std::uniform_int_distribution<size_t> minAngDiffDistribution(
 		    1, detsPerRing / 2);

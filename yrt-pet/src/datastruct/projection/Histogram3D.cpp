@@ -156,9 +156,11 @@ void py_setup_histogram3d(pybind11::module& m)
 Histogram3D::Histogram3D(const Scanner& pr_scanner)
     : Histogram{pr_scanner}, mp_data(nullptr)
 {
-	// LIMITATION: mr_scanner.detsPerRing has to be an even number for the
-	// histogram to be properly defined
+	ASSERT_MSG(mr_scanner.detsPerRing % 2 == 0,
+	           "Limitation: The number of detectors per ring has to be even "
+	           "for the histogram to be properly defined");
 
+	// Double checks (These checks are also done on Scanner.cpp)
 	ASSERT_MSG(
 	    mr_scanner.maxRingDiff < mr_scanner.numRings,
 	    "Maximum Ring difference has to be lower than the number of rings");
@@ -166,7 +168,7 @@ Histogram3D::Histogram3D(const Scanner& pr_scanner)
 	           "Minimum angle difference cannot be zero");
 
 	m_rCut = mr_scanner.minAngDiff / 2;
-	if (mr_scanner.minAngDiff % 2 != 0)
+	if (mr_scanner.minAngDiff % 2 != 0 && mr_scanner.detsPerRing % 4 == 0)
 	{
 		m_rCut++;
 	}
@@ -296,9 +298,9 @@ void Histogram3D::getDetPairFromCoords(coord_t r, coord_t phi, coord_t z_bin,
 	getDetPairInSameRing(r_ring, phi, d1_ring, d2_ring);
 
 	// Specific case when minAngDiff == 1 on some bins
-	if(d1_ring == d2_ring)
+	if (d1_ring == d2_ring)
 	{
-		// TODO NOW: Check if this ever happens with minAngDiff != 1
+		ASSERT(mr_scanner.minAngDiff == 1);  // Sanity check
 		d1 = 0;
 		d2 = 0;
 		return;

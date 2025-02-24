@@ -9,6 +9,7 @@
 #include "operators/ProjectionPsfUtils.cuh"
 
 #include <cuda_runtime.h>
+#include <cuda/std/limits>
 
 __device__ float3 operator+(const float3& a, const float3& b)
 {
@@ -114,6 +115,10 @@ __global__ void OperatorProjectorDDCU_kernel(
 		}
 
 		const float4 d1 = pd_lorDet1Pos[eventId];
+		if (d1.x == ::cuda::std::numeric_limits<float>::infinity())
+		{
+			return;
+		}
 		const float4 d2 = pd_lorDet2Pos[eventId];
 		const float4 n1 = pd_lorDet1Orient[eventId];
 		const float4 n2 = pd_lorDet2Orient[eventId];

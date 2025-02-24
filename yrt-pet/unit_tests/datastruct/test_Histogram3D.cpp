@@ -143,12 +143,6 @@ TEST_CASE("histo3d", "[histo]")
 			maxRingDiff = 0;
 		}
 
-		std::cout << "numDOI=" << numDOI << "\n";
-		std::cout << "numRings=" << numRings << "\n";
-		std::cout << "detsPerRing=" << detsPerRing << "\n";
-		std::cout << "minAngDiff=" << minAngDiff << "\n";
-		std::cout << "maxRingDiff=" << maxRingDiff << std::endl;
-
 		// Create scanner
 		auto scanner = std::make_unique<Scanner>(
 		    "FakeScanner", 200, 1, 1, 10, 200, detsPerRing, numRings, numDOI,

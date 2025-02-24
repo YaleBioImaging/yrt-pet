@@ -107,3 +107,10 @@ private:
 	static std::tuple<bin_t, bin_t, bin_t>
 	    getSubsetRange(bin_t numSubsets, bin_t numEvents, bin_t idxSubset);
 };
+
+class BinIteratorChronologicalInterleaved : public BinIteratorRange
+{
+public:
+	BinIteratorChronologicalInterleaved(bin_t p_numSubsets, bin_t p_numEvents,
+	                                    bin_t p_idxSubset);
+};

@@ -14,6 +14,8 @@
 #include <functional>
 #include <memory>
 
+class BinIterator;
+
 struct ProjectionProperties
 {
 	Line3D lor;

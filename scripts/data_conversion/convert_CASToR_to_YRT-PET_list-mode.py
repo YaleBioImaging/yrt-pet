@@ -1,9 +1,5 @@
 #!/bin/env python
 """This script converts castor list mode data to YRT-PET format
-
-When no TOF information is present in the castor list mode this script simply
-converts <uint32><uint32><uint32> to <float32><uint32><uint32>
-
 """
 
 # %% Imports

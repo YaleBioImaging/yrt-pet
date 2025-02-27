@@ -5,6 +5,7 @@
 #include "datastruct/scanner/DetRegular.hpp"
 #include "utils/Assert.hpp"
 
+#include <algorithm>
 #include <random>
 
 double TestUtils::getRMSE(const Image& imgRef, const Image& img)

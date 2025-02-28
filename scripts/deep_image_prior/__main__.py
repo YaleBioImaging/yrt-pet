@@ -273,11 +273,6 @@ if __name__ == "__main__":
         type=int,
         default=1,
     )
-    parser.add_argument(
-        "--cylinder_mask",
-        help="Use cylinder mask on the neural network input",
-        action="store_true",
-    )
     default_learning_rate = 0.1
     parser.add_argument(
         "--learning_rate",
@@ -431,11 +426,6 @@ if __name__ == "__main__":
 
         # Move to the appropriate device
         nn_input_torch = nn_input_torch.to(device)
-
-    # Generate cylinder mask if needed
-    if args.cylinder_mask:
-        print("Applying cylinder mask")
-        zero_outside_largest_fitting_circle(nn_input_torch)
 
     print("Initializing optimizer...")
     learning_rate = args.learning_rate

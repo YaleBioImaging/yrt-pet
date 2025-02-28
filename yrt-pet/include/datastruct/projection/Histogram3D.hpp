@@ -6,6 +6,7 @@
 #pragma once
 
 #include "datastruct/PluginFramework.hpp"
+#include "datastruct/parallel_hashmap/phmap.h"
 #include "datastruct/projection/Histogram.hpp"
 #include "datastruct/scanner/Scanner.hpp"
 #include "utils/Array.hpp"
@@ -101,8 +102,8 @@ public:
 
 protected:
 	std::unique_ptr<Array3DBase<float>> mp_data;
-	std::unordered_map<det_pair_t, DetRingCoordinates, HashDetPair,
-	                   EqualDetPair>
+	phmap::flat_hash_map<det_pair_t, DetRingCoordinates, HashDetPair,
+	                     EqualDetPair>
 	    m_ringMap;
 	size_t m_rCut;
 	size_t m_numDOIPoss;   // Number of DOI combinations (ex: 2 doi -> 4 lor

@@ -223,6 +223,7 @@ const Scanner& ProjectionData::getScanner() const
 	return mr_scanner;
 }
 
+// Note: If a bin is disabled, this should return {0, 0}
 det_pair_t ProjectionData::getDetectorPair(bin_t id) const
 {
 	return {getDetector1(id), getDetector2(id)};

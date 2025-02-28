@@ -123,3 +123,5 @@ There are two types of tests available, unit tests and integration tests.
 - [The Parallel Hashmap](https://github.com/greg7mdp/parallel-hashmap)
 - [NIFTI C Libraries](https://github.com/NIFTI-Imaging/nifti_clib)
 - [zlib](https://www.zlib.net/)
+- [cxxopts](https://github.com/jarro2783/cxxopts)
+- [nlohmann::json](https://github.com/nlohmann/json)

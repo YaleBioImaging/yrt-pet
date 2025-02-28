@@ -1,4 +1,5 @@
 #include "datastruct/projection/BinIteratorConstrained.hpp"
+#include "datastruct/projection/ProjectionData.hpp"
 #include <cstdlib>
 
 // Constraints
@@ -43,12 +44,13 @@ ConstraintDetectorMask::ConstraintDetectorMask(Scanner* scanner)
 {
 	mConstraintFcn = [scanner](constraint_params info)
 	{
-		return scanner->isDetectorAllowed(info["det1"]);
+		return scanner->isDetectorAllowed(info["det1"]) &&
+			scanner->isDetectorAllowed(info["det2"]);
 	};
 }
 std::vector<std::string> ConstraintDetectorMask::getVariables() const
 {
-	return {"det1"};
+	return {"det1", "det2"};
 }
 
 // Constrained bin iterator
@@ -141,4 +143,9 @@ void BinIteratorConstrained::produce()
 			    ProjectionProperties({lor, tofValue, det1Orient, det2Orient}));
 		}
 	}
+}
+
+const ProjectionProperties& BinIteratorConstrained::get()
+{
+	return mQueue.wait_and_pop();
 }

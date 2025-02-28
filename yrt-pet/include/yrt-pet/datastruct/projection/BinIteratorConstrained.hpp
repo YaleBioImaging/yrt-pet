@@ -27,13 +27,14 @@ public:
 		cv_pop.notify_one();  // Notify all waiting consumers
 	}
 
-	void wait_and_pop(T& value)
+	T& wait_and_pop()
 	{
 		std::unique_lock<std::mutex> lock(mtx);
 		cv_pop.wait(lock, [this] { return !queue.empty(); });
-		value = queue.front();
+		T& value = queue.front();
 		queue.pop();
 		cv_push.notify_one();  // Notify producer
+		return value;
 	}
 
 	bool empty() const
@@ -91,6 +92,7 @@ class BinIteratorConstrained
 	void addConstraint(Constraint& pConstraint);
 	size_t count() const;
 	void produce();
+	const ProjectionProperties& get();
 
 private:
 	size_t mNumBins;

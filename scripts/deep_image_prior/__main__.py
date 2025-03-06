@@ -14,9 +14,9 @@ import pyyrtpet as yrt
 
 # 3D Unet architecture for Deep image prior reconstruction using a forward model
 # from pyyrtpet
-class UNet3D(nn.Module):
+class BiggerUNet3D(nn.Module):
     def __init__(self, in_channels=1, out_channels=1, init_features=16):
-        super(UNet3D, self).__init__()
+        super(BiggerUNet3D, self).__init__()
 
         features = init_features
         self.encoder1 = self._block(in_channels, features)
@@ -37,7 +37,22 @@ class UNet3D(nn.Module):
             features * 8, features * 8, kernel_size=3, stride=2, padding=1
         )
 
-        self.bottleneck = self._block(features * 8, features * 16)
+        self.encoder5 = self._block(features * 8, features * 16)
+        self.pool5 = nn.Conv3d(
+            features * 16, features * 16, kernel_size=3, stride=2, padding=1
+        )
+
+        self.bottleneck = self._block(features * 16, features * 32)
+
+        self.upconv5 = nn.ConvTranspose3d(
+            features * 32,
+            features * 16,
+            kernel_size=3,
+            stride=2,
+            padding=1,
+            output_padding=1,
+        )
+        self.decoder5 = self._block((features * 16) * 2, features * 16)
 
         self.upconv4 = nn.ConvTranspose3d(
             features * 16,
@@ -81,10 +96,18 @@ class UNet3D(nn.Module):
         enc2 = self.encoder2(self.pool1(enc1))
         enc3 = self.encoder3(self.pool2(enc2))
         enc4 = self.encoder4(self.pool3(enc3))
+        enc5 = self.encoder5(self.pool4(enc4))
 
-        bottleneck = self.bottleneck(self.pool4(enc4))
+        bottleneck = self.bottleneck(self.pool5(enc5))
 
-        dec4 = self.upconv4(bottleneck)
+        dec5 = self.upconv5(bottleneck)
+        dec5 = F.interpolate(
+            dec5, size=enc5.shape[2:], mode="trilinear", align_corners=False
+        )  # Adjust size
+        dec5 = torch.cat((dec5, enc5), dim=1)
+        dec5 = self.decoder5(dec5)
+
+        dec4 = self.upconv4(dec5)
         dec4 = F.interpolate(
             dec4, size=enc4.shape[2:], mode="trilinear", align_corners=False
         )  # Adjust size
@@ -218,8 +241,12 @@ def zero_outside_largest_fitting_circle(image):
 
     # Calculate center coordinates (cx, cy) and radius
     radius = min(y_size - 1, x_size - 1) // 2
-    cx = (x_size - 1) / 2.0  # Center x-coordinate (95.5 for 192)
-    cy = (y_size - 1) / 2.0  # Center y-coordinate (95.5 for 192)
+    cx = x_size / 2.0  # Center x-coordinate (96.5 for 192)
+    cy = y_size / 2.0  # Center y-coordinate (96.5 for 192)
+    if x_size % 2 == 0:
+        cx += 0.5
+    if y_size % 2 == 0:
+        cy += 0.5
 
     # Create grid of (y, x) coordinates
     y_indices = torch.arange(y_size, dtype=torch.float32, device=image.device)
@@ -307,9 +334,9 @@ if __name__ == "__main__":
     # Save command line to text file
     command = " ".join(sys.argv[1:])
     with open(os.path.join(args.out, "command_arguments.txt"), "w") as f:
-        f.write(__file__ + " " + command)
+        f.write(__file__ + " " + command + "\n")
     with open(os.path.join(args.out, "working_directory.txt"), "w") as f:
-        f.write(os.getcwd())
+        f.write(os.getcwd() + "\n")
     # Save this script to the output folder
     with open(__file__, "r") as f:
         current_script_content = f.read()
@@ -397,7 +424,7 @@ if __name__ == "__main__":
     # Assuming the output is also a single-channel image
     output_channels = input_channels
 
-    model = UNet3D().to(device)
+    model = BiggerUNet3D().to(device)
 
     # Initialize the network input as either prior or noise
     print("Initializing neural network input...")
@@ -478,12 +505,8 @@ if __name__ == "__main__":
     )
 
     # Save the loss curve as png
-    plt.plot(loss_values)
-    plt.xlabel("Step")
-    plt.ylabel("Loss")
-    plt.ylim((loss_values[0], loss_values[-1]))
-    plt.title("Loss curve")
-    plt.savefig(os.path.join(args.out, "loss_curve.pdf"))
+    loss_values_np = np.array(loss_values)
+    np.save(os.path.join(args.out, "loss_values.npy"), loss_values_np)
 
     # Save model weights
     torch.save(model.state_dict(), os.path.join(args.out, "model_weights.pth"))

@@ -63,7 +63,6 @@ public:
 	ProjectionDataDeviceOwned* getMLEMDataTmpDeviceBuffer();
 
 	// Common methods
-	void loadBatch(int batchId, bool forRecon) override;
 	void loadSubset(int subsetId, bool forRecon) override;
 	void addImagePSF(const std::string& p_imagePsf_fname) override;
 
@@ -86,6 +85,5 @@ private:
 	int m_current_OSEM_subset;
 
 	GPUStream m_mainStream;
-	// TODO: Add parallel batch loading
-	// GPUStream m_auxStream;
+	GPUStream m_auxStream;
 };

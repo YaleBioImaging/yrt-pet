@@ -34,28 +34,31 @@ public:
 	    const ProjectionData& measurements) override;
 
 	void loadAdditiveCorrectionFactorsToTemporaryDeviceBuffer(
-	    const cudaStream_t* stream = nullptr);
+	    GPULaunchConfig launchConfig);
 	void loadInVivoAttenuationFactorsToTemporaryDeviceBuffer(
-	    const cudaStream_t* stream = nullptr);
+	    GPULaunchConfig launchConfig);
 
 	// Getters
 	const ProjectionDataDevice* getTemporaryDeviceBuffer() const;
 	ProjectionDataDevice* getTemporaryDeviceBuffer();
 
-	// Use ACF histogram for sensitivity image generation
+	// Use ACF histogram to apply hardware attenuation correction in the
+	//  sensitivity image
 	void applyHardwareAttenuationToGivenDeviceBufferFromACFHistogram(
-	    ProjectionDataDevice* destProjData, const cudaStream_t* stream);
-	// The projector used is in case the attenuation image needs to be projected
+	    ProjectionDataDevice* destProjData, GPULaunchConfig launchConfig);
+
+	// Use attenuation image to apply hardware attenuation correction in the
+	//  sensitivity image
 	void applyHardwareAttenuationToGivenDeviceBufferFromAttenuationImage(
 	    ProjectionDataDevice* destProjData, OperatorProjectorDevice* projector,
-	    const cudaStream_t* stream = nullptr);
+	    GPULaunchConfig launchConfig);
 
 private:
 	// Helper function
 	void loadPrecomputedCorrectionFactorsToTemporaryDeviceBuffer(
-	    const ProjectionList* factors, const cudaStream_t* stream = nullptr);
-	void initializeTemporaryDeviceImageIfNeeded(
-	    const Image* hostReference, const cudaStream_t* stream = nullptr);
+	    const ProjectionList* factors, GPULaunchConfig launchConfig);
+	void initializeTemporaryDeviceImageIfNeeded(const Image* hostReference,
+	                                            GPULaunchConfig launchConfig);
 
 	// Internal management
 	void initializeTemporaryDeviceImageIfNeeded(const Image* hostReference);

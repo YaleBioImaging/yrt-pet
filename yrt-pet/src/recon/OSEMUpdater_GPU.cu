@@ -17,7 +17,6 @@ void OSEMUpdater_GPU::computeSensitivityImage(ImageDevice& destImage) const
 {
 	OperatorProjectorDevice* projector = mp_osem->getProjector();
 	const int currentSubset = mp_osem->getCurrentOSEMSubset();
-	const ImageParams& imageParams = mp_osem->getImageParams();
 	Corrector_GPU& corrector = mp_osem->getCorrector_GPU();
 
 	const cudaStream_t* mainStream = mp_osem->getMainStream();
@@ -30,23 +29,23 @@ void OSEMUpdater_GPU::computeSensitivityImage(ImageDevice& destImage) const
 
 	bool loadGlobalScalingFactor = !corrector.hasMultiplicativeCorrection();
 
-	// TODO: do parallel batch loading here
-
 	for (int batch = 0; batch < numBatchesInCurrentSubset; batch++)
 	{
-		std::cout << "Batch " << batch + 1 << "/" << numBatchesInCurrentSubset
-		          << "..." << std::endl;
-		// Load LORs into device buffers
-		sensDataBuffer->loadEventLORs(currentSubset, batch,
-		                              auxStream);
+		std::cout << "Loading batch " << batch + 1 << "/"
+		          << numBatchesInCurrentSubset << "..." << std::endl;
+
+		sensDataBuffer->precomputeBatchLORs(currentSubset, batch);
+
 		// Allocate for the projection values
 		const bool hasReallocated =
-		    sensDataBuffer->allocateForProjValues(auxStream);
+		    sensDataBuffer->allocateForProjValues({mainStream, false});
+
+		sensDataBuffer->loadPrecomputedLORsToDevice({mainStream, false});
 
 		// Load the projection values to backproject
 		// This will either load projection values from sensitivity histogram,
 		//  from ACF histogram, or it will load "ones" from a uniform histogram
-		sensDataBuffer->loadProjValuesFromReference(auxStream);
+		sensDataBuffer->loadProjValuesFromReference({mainStream, false});
 
 		// Load the projection values to the device buffer depending on the
 		//  situation
@@ -56,24 +55,28 @@ void OSEMUpdater_GPU::computeSensitivityImage(ImageDevice& destImage) const
 			if (corrector.hasGlobalScalingFactor())
 			{
 				sensDataBuffer->multiplyProjValues(
-				    corrector.getGlobalScalingFactor(), auxStream);
+				    corrector.getGlobalScalingFactor(), {mainStream, false});
 			}
 
 			// Invert sensitivity if needed
 			if (corrector.mustInvertSensitivity())
 			{
-				sensDataBuffer->invertProjValuesDevice(auxStream);
+				sensDataBuffer->invertProjValuesDevice({mainStream, false});
 			}
 		}
 		if (corrector.hasHardwareAttenuationImage())
 		{
-			corrector.applyHardwareAttenuationToGivenDeviceBufferFromAttenuationImage(
-			    sensDataBuffer, projector, auxStream);
+			// TODO: it would be faster if this was done on the auxiliary stream
+			//  so that a backprojection is done at the same time as a forward
+			corrector
+			    .applyHardwareAttenuationToGivenDeviceBufferFromAttenuationImage(
+			        sensDataBuffer, projector, {mainStream, false});
 		}
 		else if (corrector.doesHardwareACFComeFromHistogram())
 		{
-			corrector.applyHardwareAttenuationToGivenDeviceBufferFromACFHistogram(
-			    sensDataBuffer, auxStream);
+			corrector
+			    .applyHardwareAttenuationToGivenDeviceBufferFromACFHistogram(
+			        sensDataBuffer, {mainStream, false});
 		}
 
 		if (!corrector.hasMultiplicativeCorrection() &&
@@ -86,8 +89,21 @@ void OSEMUpdater_GPU::computeSensitivityImage(ImageDevice& destImage) const
 			loadGlobalScalingFactor = false;
 		}
 
+		if (mainStream != nullptr)
+		{
+			cudaStreamSynchronize(*mainStream);
+		}
+
+		std::cout << "Backprojecting batch " << batch + 1 << "/"
+		          << numBatchesInCurrentSubset << "..." << std::endl;
+
 		// Backproject values
-		projector->applyAH(sensDataBuffer, &destImage);
+		projector->applyAH(sensDataBuffer, &destImage, false);
+	}
+
+	if (mainStream != nullptr)
+	{
+		cudaStreamSynchronize(*mainStream);
 	}
 }
 
@@ -96,7 +112,6 @@ void OSEMUpdater_GPU::computeEMUpdateImage(const ImageDevice& inputImage,
 {
 	OperatorProjectorDevice* projector = mp_osem->getProjector();
 	const int currentSubset = mp_osem->getCurrentOSEMSubset();
-	const ImageParams& imageParams = mp_osem->getImageParams();
 	Corrector_GPU& corrector = mp_osem->getCorrector_GPU();
 
 	const cudaStream_t* mainStream = mp_osem->getMainStream();
@@ -117,40 +132,48 @@ void OSEMUpdater_GPU::computeEMUpdateImage(const ImageDevice& inputImage,
 	const int numBatchesInCurrentSubset =
 	    measurementsDevice->getNumBatches(currentSubset);
 
-	// TODO: Use parallel CUDA streams here (They are currently all
-	//  synchronized)
-
 	for (int batch = 0; batch < numBatchesInCurrentSubset; batch++)
 	{
 		std::cout << "Batch " << batch + 1 << "/" << numBatchesInCurrentSubset
 		          << "..." << std::endl;
-		measurementsDevice->loadEventLORs(currentSubset, batch,
-		                                  auxStream);
+		measurementsDevice->precomputeBatchLORs(currentSubset, batch);
 
-		measurementsDevice->allocateForProjValues(auxStream);
-		measurementsDevice->loadProjValuesFromReference(auxStream);
+		measurementsDevice->allocateForProjValues({mainStream, false});
+		measurementsDevice->loadPrecomputedLORsToDevice({mainStream, false});
+		measurementsDevice->loadProjValuesFromReference({mainStream, false});
 
-		tmpBufferDevice->allocateForProjValues(auxStream);
+		tmpBufferDevice->allocateForProjValues({mainStream, false});
 
-		projector->applyA(&inputImage, tmpBufferDevice);
+		projector->applyA(&inputImage, tmpBufferDevice, false);
 
 		if (corrector.hasAdditiveCorrection())
 		{
 			corrector.loadAdditiveCorrectionFactorsToTemporaryDeviceBuffer(
-			    auxStream);
-			tmpBufferDevice->addProjValues(correctorTempBuffer, mainStream);
+			    {mainStream, false});
+			tmpBufferDevice->addProjValues(correctorTempBuffer,
+			                               {mainStream, false});
 		}
 		if (corrector.hasInVivoAttenuation())
 		{
 			corrector.loadInVivoAttenuationFactorsToTemporaryDeviceBuffer(
-			    auxStream);
+			    {mainStream, false});
 			tmpBufferDevice->multiplyProjValues(correctorTempBuffer,
-			                                    mainStream);
+			                                    {mainStream, false});
 		}
 
 		tmpBufferDevice->divideMeasurementsDevice(measurementsDevice,
-		                                          mainStream);
+		                                          {mainStream, false});
 
-		projector->applyAH(tmpBufferDevice, &destImage);
+		if (mainStream != nullptr)
+		{
+			cudaStreamSynchronize(*mainStream);
+		}
+
+		projector->applyAH(tmpBufferDevice, &destImage, false);
+	}
+
+	if (mainStream != nullptr)
+	{
+		cudaStreamSynchronize(*mainStream);
 	}
 }

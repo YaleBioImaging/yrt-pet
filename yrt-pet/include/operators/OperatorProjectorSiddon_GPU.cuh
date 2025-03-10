@@ -15,19 +15,20 @@ class OperatorProjectorSiddon_GPU : public OperatorProjectorDevice
 {
 public:
 	explicit OperatorProjectorSiddon_GPU(
-	    const OperatorProjectorParams& projParams, bool p_synchronized = true,
+	    const OperatorProjectorParams& projParams,
 	    const cudaStream_t* mainStream = nullptr,
 	    const cudaStream_t* auxStream = nullptr);
 
 protected:
-	void applyAOnLoadedBatch(ImageDevice& img,
-	                         ProjectionDataDevice& dat) override;
-	void applyAHOnLoadedBatch(ProjectionDataDevice& dat,
-	                          ImageDevice& img) override;
+	void applyAOnLoadedBatch(ImageDevice& img, ProjectionDataDevice& dat,
+	                         bool synchronize) override;
+	void applyAHOnLoadedBatch(ProjectionDataDevice& dat, ImageDevice& img,
+	                          bool synchronize) override;
 
 private:
 	template <bool IsForward>
-	void applyOnLoadedBatch(ProjectionDataDevice& dat, ImageDevice& img);
+	void applyOnLoadedBatch(ProjectionDataDevice& dat, ImageDevice& img,
+				 bool synchronize);
 
 	template <bool IsForward, bool HasTOF>
 	void launchKernel(

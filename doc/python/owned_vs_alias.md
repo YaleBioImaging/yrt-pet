@@ -118,10 +118,10 @@ hisDev = yrt.ProjectionDataDeviceAlias(scanner, his, 1)
 
 # Important: This is needed to precompute all LORs
 # Arguments: Load events from the batch 0 of the subset 0
-hisDev.loadEventLORs(0, 0)
+hisDev.prepareBatchLORs(0, 0)
 
 # Create a torch array with the appropriate size
-onesProj = torch.ones([hisDev.getCurrentBatchSize()], device=cuda0,
+onesProj = torch.ones([hisDev.getLoadedBatchSize()], device=cuda0,
                       dtype=torch.float32, layout=torch.strided)
 
 # Bind PyTorch array to YRT-PET ProjectionData

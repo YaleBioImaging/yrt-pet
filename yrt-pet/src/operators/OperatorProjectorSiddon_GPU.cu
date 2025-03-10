@@ -25,30 +25,31 @@ void py_setup_operatorprojectorsiddon_gpu(py::module& m)
 #endif
 
 OperatorProjectorSiddon_GPU::OperatorProjectorSiddon_GPU(
-    const OperatorProjectorParams& projParams, bool p_synchronized,
-    const cudaStream_t* mainStream, const cudaStream_t* auxStream)
-    : OperatorProjectorDevice(projParams, p_synchronized, mainStream,
-                              auxStream),
+    const OperatorProjectorParams& projParams, const cudaStream_t* mainStream,
+    const cudaStream_t* auxStream)
+    : OperatorProjectorDevice(projParams, mainStream, auxStream),
       p_numRays{projParams.numRays}
 {
 }
 
 void OperatorProjectorSiddon_GPU::applyAOnLoadedBatch(ImageDevice& img,
-                                                      ProjectionDataDevice& dat)
+                                                      ProjectionDataDevice& dat,
+                                                      bool synchronize)
 {
-	applyOnLoadedBatch<true>(dat, img);
+	applyOnLoadedBatch<true>(dat, img, synchronize);
 }
 void OperatorProjectorSiddon_GPU::applyAHOnLoadedBatch(
-    ProjectionDataDevice& dat, ImageDevice& img)
+    ProjectionDataDevice& dat, ImageDevice& img, bool synchronize)
 {
-	applyOnLoadedBatch<false>(dat, img);
+	applyOnLoadedBatch<false>(dat, img, synchronize);
 }
 
 template <bool IsForward>
 void OperatorProjectorSiddon_GPU::applyOnLoadedBatch(ProjectionDataDevice& dat,
-                                                     ImageDevice& img)
+                                                     ImageDevice& img,
+                                                     bool synchronize)
 {
-	setBatchSize(dat.getCurrentBatchSize());
+	setBatchSize(dat.getLoadedBatchSize());
 	const auto cuScannerParams = getCUScannerParams(getScanner());
 	const auto cuImageParams = getCUImageParams(img.getParams());
 	const TimeOfFlightHelper* tofHelperDevicePointer =
@@ -64,7 +65,7 @@ void OperatorProjectorSiddon_GPU::applyOnLoadedBatch(ProjectionDataDevice& dat,
 		    dat.getLorDet1OrientDevicePointer(),
 		    dat.getLorDet2OrientDevicePointer(), nullptr /*No TOF*/,
 		    nullptr /*No TOF*/, cuScannerParams, cuImageParams, getBatchSize(),
-		    getGridSize(), getBlockSize(), getMainStream(), isSynchronized());
+		    getGridSize(), getBlockSize(), getMainStream(), synchronize);
 	}
 	else
 	{
@@ -75,7 +76,7 @@ void OperatorProjectorSiddon_GPU::applyOnLoadedBatch(ProjectionDataDevice& dat,
 		    dat.getLorDet2OrientDevicePointer(),
 		    dat.getLorTOFValueDevicePointer(), tofHelperDevicePointer,
 		    cuScannerParams, cuImageParams, getBatchSize(), getGridSize(),
-		    getBlockSize(), getMainStream(), isSynchronized());
+		    getBlockSize(), getMainStream(), synchronize);
 	}
 }
 

@@ -24,12 +24,14 @@ void py_setup_operatorpsfdevice(py::module& m)
 	          const std::vector<float>& kernelZ) const>(
 	          &OperatorPsfDevice::convolve));
 	c.def("convolve",
-	      static_cast<void (OperatorPsfDevice::*)(
-	          const ImageDevice& inputImageDevice,
-	          ImageDevice& outputImageDevice, const std::vector<float>& kernelX,
-	          const std::vector<float>& kernelY,
-	          const std::vector<float>& kernelZ) const>(
-	          &OperatorPsfDevice::convolve));
+	      [](const OperatorPsfDevice& self, const ImageDevice& inputImageDevice,
+	         ImageDevice& outputImageDevice, const std::vector<float>& kernelX,
+	         const std::vector<float>& kernelY,
+	         const std::vector<float>& kernelZ)
+	      {
+		      self.convolve(inputImageDevice, outputImageDevice, kernelX,
+		                    kernelY, kernelZ, true);
+	      });
 	c.def(
 	    "applyA",
 	    [](OperatorPsfDevice& self, const Image* img_in, Image* img_out)
@@ -53,63 +55,61 @@ void py_setup_operatorpsfdevice(py::module& m)
 }
 #endif
 
-OperatorPsfDevice::OperatorPsfDevice()
-    : OperatorPsf{}, mpd_intermediaryImage{nullptr}
-{
-	initDeviceArraysIfNeeded();
-}
-
-OperatorPsfDevice::OperatorPsfDevice(const std::string& imagePsf_fname,
-                                     const cudaStream_t* pp_stream)
-    : DeviceSynchronized{true, pp_stream, pp_stream},
+OperatorPsfDevice::OperatorPsfDevice(const cudaStream_t* pp_stream)
+    : DeviceSynchronized{pp_stream, pp_stream},
       OperatorPsf{},
       mpd_intermediaryImage{nullptr}
 {
-	readFromFileInternal(imagePsf_fname, pp_stream);
+	initDeviceArraysIfNeeded();
+}
+
+OperatorPsfDevice::OperatorPsfDevice(const std::string& pr_imagePsf_fname,
+                                     const cudaStream_t* pp_stream)
+    : OperatorPsfDevice{pp_stream}
+{
+	// Constructors should be synchronized
+	readFromFileInternal(pr_imagePsf_fname, true);
 }
 
 void OperatorPsfDevice::readFromFileInternal(
-    const std::string& imagePsf_fname, const cudaStream_t* pp_stream)
+    const std::string& pr_imagePsf_fname, bool p_synchronize)
 {
-	OperatorPsf::readFromFile(imagePsf_fname);
-	copyToDevice(pp_stream);
+	OperatorPsf::readFromFile(pr_imagePsf_fname);
+	copyToDevice(p_synchronize);
 }
 
-void OperatorPsfDevice::readFromFile(const std::string& imagePsf_fname)
+void OperatorPsfDevice::readFromFile(const std::string& pr_imagePsf_fname)
 {
-	readFromFileInternal(imagePsf_fname, nullptr);
+	readFromFileInternal(pr_imagePsf_fname, true);
 }
 
-void OperatorPsfDevice::readFromFile(const std::string& imagePsf_fname,
-                                     const cudaStream_t* pp_stream)
+void OperatorPsfDevice::readFromFile(const std::string& pr_imagePsf_fname,
+                                     bool p_synchronize)
 {
-	readFromFileInternal(imagePsf_fname, pp_stream);
+	readFromFileInternal(pr_imagePsf_fname, p_synchronize);
 }
 
-void OperatorPsfDevice::copyToDevice(const cudaStream_t* pp_stream)
+void OperatorPsfDevice::copyToDevice(bool synchronize)
 {
+	const GPULaunchConfig launchConfig{getAuxStream(), synchronize};
+
 	initDeviceArraysIfNeeded();
-	allocateDeviceArrays(pp_stream, m_synchronized);
+	allocateDeviceArrays(synchronize);
 
-	mpd_kernelX->copyFromHost(m_kernelX.data(), m_kernelX.size(), pp_stream,
-	                          m_synchronized);
-	mpd_kernelY->copyFromHost(m_kernelY.data(), m_kernelY.size(), pp_stream,
-	                          m_synchronized);
-	mpd_kernelZ->copyFromHost(m_kernelZ.data(), m_kernelZ.size(), pp_stream,
-	                          m_synchronized);
+	mpd_kernelX->copyFromHost(m_kernelX.data(), m_kernelX.size(), launchConfig);
+	mpd_kernelY->copyFromHost(m_kernelY.data(), m_kernelY.size(), launchConfig);
+	mpd_kernelZ->copyFromHost(m_kernelZ.data(), m_kernelZ.size(), launchConfig);
 	mpd_kernelX_flipped->copyFromHost(m_kernelX_flipped.data(),
-	                                  m_kernelX_flipped.size(), pp_stream,
-	                                  m_synchronized);
+	                                  m_kernelX_flipped.size(), launchConfig);
 	mpd_kernelY_flipped->copyFromHost(m_kernelY_flipped.data(),
-	                                  m_kernelY_flipped.size(), pp_stream,
-	                                  m_synchronized);
+	                                  m_kernelY_flipped.size(), launchConfig);
 	mpd_kernelZ_flipped->copyFromHost(m_kernelZ_flipped.data(),
-	                                  m_kernelZ_flipped.size(), pp_stream,
-	                                  m_synchronized);
+	                                  m_kernelZ_flipped.size(), launchConfig);
 }
 
 template <bool Transpose>
-void OperatorPsfDevice::apply(const Variable* in, Variable* out) const
+void OperatorPsfDevice::apply(const Variable* in, Variable* out,
+                              bool synchronize) const
 {
 	const auto img_in = dynamic_cast<const Image*>(in);
 	auto img_out = dynamic_cast<Image*>(out);
@@ -122,7 +122,7 @@ void OperatorPsfDevice::apply(const Variable* in, Variable* out) const
 		inputImageDevice =
 		    std::make_unique<ImageDeviceOwned>(img_in->getParams());
 		reinterpret_cast<ImageDeviceOwned*>(inputImageDevice.get())->allocate();
-		inputImageDevice->transferToDeviceMemory(img_in, m_synchronized);
+		inputImageDevice->transferToDeviceMemory(img_in, synchronize);
 		inputImageDevice_ptr = inputImageDevice.get();
 	}
 	else
@@ -148,23 +148,36 @@ void OperatorPsfDevice::apply(const Variable* in, Variable* out) const
 		ASSERT_MSG(outputImageDevice_ptr, "Output is not an image");
 	}
 
-	convolveDevice<Transpose>(*inputImageDevice_ptr, *outputImageDevice_ptr);
+	convolveDevice<Transpose>(*inputImageDevice_ptr, *outputImageDevice_ptr,
+	                          false);
 
 	// Transfer to host
 	if (img_out != nullptr)
 	{
-		outputImageDevice->transferToHostMemory(img_out, m_synchronized);
+		outputImageDevice->transferToHostMemory(img_out, synchronize);
 	}
 }
 
 void OperatorPsfDevice::applyA(const Variable* in, Variable* out)
 {
-	apply<false>(in, out);
+	applyA(in, out, true);
 }
 
 void OperatorPsfDevice::applyAH(const Variable* in, Variable* out)
 {
-	apply<true>(in, out);
+	applyAH(in, out, true);
+}
+
+void OperatorPsfDevice::applyA(const Variable* in, Variable* out,
+                               bool synchronize) const
+{
+	apply<false>(in, out, synchronize);
+}
+
+void OperatorPsfDevice::applyAH(const Variable* in, Variable* out,
+                                bool synchronize) const
+{
+	apply<true>(in, out, synchronize);
 }
 
 void OperatorPsfDevice::initDeviceArrayIfNeeded(
@@ -177,11 +190,9 @@ void OperatorPsfDevice::initDeviceArrayIfNeeded(
 }
 
 void OperatorPsfDevice::allocateDeviceArray(DeviceArray<float>& prd_kernel,
-                                            size_t newSize,
-                                            const cudaStream_t* stream,
-                                            bool synchronize)
+                                            size_t newSize, bool synchronize)
 {
-	prd_kernel.allocate(newSize, stream, synchronize);
+	prd_kernel.allocate(newSize, {getAuxStream(), synchronize});
 }
 
 void OperatorPsfDevice::initDeviceArraysIfNeeded()
@@ -194,39 +205,37 @@ void OperatorPsfDevice::initDeviceArraysIfNeeded()
 	initDeviceArrayIfNeeded(mpd_kernelZ_flipped);
 }
 
-void OperatorPsfDevice::allocateDeviceArrays(const cudaStream_t* stream,
-                                             bool synchronize)
+void OperatorPsfDevice::allocateDeviceArrays(bool synchronize)
 {
-	allocateDeviceArray(*mpd_kernelX, m_kernelX.size(), stream, synchronize);
-	allocateDeviceArray(*mpd_kernelY, m_kernelY.size(), stream, synchronize);
-	allocateDeviceArray(*mpd_kernelZ, m_kernelZ.size(), stream, synchronize);
-	allocateDeviceArray(*mpd_kernelX_flipped, m_kernelX.size(), stream,
-	                    synchronize);
-	allocateDeviceArray(*mpd_kernelY_flipped, m_kernelY.size(), stream,
-	                    synchronize);
-	allocateDeviceArray(*mpd_kernelZ_flipped, m_kernelZ.size(), stream,
-	                    synchronize);
+	allocateDeviceArray(*mpd_kernelX, m_kernelX.size(), synchronize);
+	allocateDeviceArray(*mpd_kernelY, m_kernelY.size(), synchronize);
+	allocateDeviceArray(*mpd_kernelZ, m_kernelZ.size(), synchronize);
+	allocateDeviceArray(*mpd_kernelX_flipped, m_kernelX.size(), synchronize);
+	allocateDeviceArray(*mpd_kernelY_flipped, m_kernelY.size(), synchronize);
+	allocateDeviceArray(*mpd_kernelZ_flipped, m_kernelZ.size(), synchronize);
 }
 
 void OperatorPsfDevice::convolve(const ImageDevice& inputImageDevice,
                                  ImageDevice& outputImageDevice,
                                  const std::vector<float>& kernelX,
                                  const std::vector<float>& kernelY,
-                                 const std::vector<float>& kernelZ) const
+                                 const std::vector<float>& kernelZ,
+                                 bool synchronize) const
 {
 	DeviceArray<float> d_kernelX{kernelX.size(), mp_auxStream};
-	d_kernelX.copyFromHost(kernelX.data(), kernelX.size(), mp_auxStream,
-	                       m_synchronized);
+	d_kernelX.copyFromHost(kernelX.data(), kernelX.size(),
+	                       {mp_auxStream, false});
 
 	DeviceArray<float> d_kernelY{kernelY.size(), mp_auxStream};
-	d_kernelY.copyFromHost(kernelY.data(), kernelY.size(), mp_auxStream,
-	                       m_synchronized);
+	d_kernelY.copyFromHost(kernelY.data(), kernelY.size(),
+	                       {mp_auxStream, false});
 
 	DeviceArray<float> d_kernelZ{kernelZ.size(), mp_auxStream};
-	d_kernelZ.copyFromHost(kernelZ.data(), kernelZ.size(), mp_auxStream, true);
+	d_kernelZ.copyFromHost(kernelZ.data(), kernelZ.size(),
+	                       {mp_auxStream, true});
 
 	convolveDevice(inputImageDevice, outputImageDevice, d_kernelX, d_kernelY,
-	               d_kernelZ, mp_mainStream, true);
+	               d_kernelZ, synchronize);
 }
 
 void OperatorPsfDevice::convolve(const Image* in, Image* out,
@@ -234,50 +243,62 @@ void OperatorPsfDevice::convolve(const Image* in, Image* out,
                                  const std::vector<float>& kernelY,
                                  const std::vector<float>& kernelZ) const
 {
+	// By default, synchronize
+	convolve(in, out, kernelX, kernelY, kernelZ, true);
+}
+
+void OperatorPsfDevice::convolve(const Image* in, Image* out,
+                                 const std::vector<float>& kernelX,
+                                 const std::vector<float>& kernelY,
+                                 const std::vector<float>& kernelZ,
+                                 bool synchronize) const
+{
 	ASSERT(in != nullptr);
 	ASSERT(out != nullptr);
 
 	ImageDeviceOwned inputImageDevice{in->getParams(), mp_auxStream};
-	inputImageDevice.allocate();
-	inputImageDevice.transferToDeviceMemory(in, m_synchronized);
+	inputImageDevice.allocate(false);
+	inputImageDevice.transferToDeviceMemory(in, false);
 
 	ImageDeviceOwned outputImageDevice{out->getParams(), mp_auxStream};
-	outputImageDevice.allocate();
+	outputImageDevice.allocate(false);
 
-	convolve(inputImageDevice, outputImageDevice, kernelX, kernelY, kernelZ);
+	convolve(inputImageDevice, outputImageDevice, kernelX, kernelY, kernelZ,
+	         synchronize);
 
-	outputImageDevice.transferToHostMemory(out, m_synchronized);
+	outputImageDevice.transferToHostMemory(out, synchronize);
 }
 
 template <bool Flipped>
 void OperatorPsfDevice::convolveDevice(const ImageDevice& inputImage,
-                                       ImageDevice& outputImage) const
+                                       ImageDevice& outputImage,
+                                       bool synchronize) const
 {
 	if constexpr (Flipped)
 	{
 		convolveDevice(inputImage, outputImage, *mpd_kernelX_flipped,
-		               *mpd_kernelY_flipped, *mpd_kernelZ_flipped,
-		               mp_mainStream, m_synchronized);
+		               *mpd_kernelY_flipped, *mpd_kernelZ_flipped, synchronize);
 	}
 	else
 	{
 		convolveDevice(inputImage, outputImage, *mpd_kernelX, *mpd_kernelY,
-		               *mpd_kernelZ, mp_mainStream, m_synchronized);
+		               *mpd_kernelZ, synchronize);
 	}
 }
 template void
     OperatorPsfDevice::convolveDevice<false>(const ImageDevice& inputImage,
-                                             ImageDevice& outputImage) const;
+                                             ImageDevice& outputImage,
+                                             bool synchronize) const;
 template void
     OperatorPsfDevice::convolveDevice<true>(const ImageDevice& inputImage,
-                                            ImageDevice& outputImage) const;
+                                            ImageDevice& outputImage,
+                                            bool synchronize) const;
 
 void OperatorPsfDevice::convolveDevice(const ImageDevice& inputImage,
                                        ImageDevice& outputImage,
                                        const DeviceArray<float>& kernelX,
                                        const DeviceArray<float>& kernelY,
                                        const DeviceArray<float>& kernelZ,
-                                       const cudaStream_t* stream,
                                        bool synchronize) const
 {
 	const ImageParams& params = inputImage.getParams();
@@ -290,6 +311,9 @@ void OperatorPsfDevice::convolveDevice(const ImageDevice& inputImage,
 	           "Input device Image not allocated yet");
 	ASSERT_MSG(pd_outputImage != nullptr,
 	           "Output device Image not allocated yet");
+
+	// Everything here is done in the main stream
+	const auto* stream = getMainStream();
 
 	if (mpd_intermediaryImage == nullptr ||
 	    !(mpd_intermediaryImage->getParams().isSameDimensionsAs(params)))

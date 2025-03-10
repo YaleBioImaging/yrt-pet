@@ -40,12 +40,19 @@ public:
 	                       float threshold) override;
 	void writeToFile(const std::string& image_fname) const override;
 
-	void copyFromHostImage(const Image* imSrc);
-	void copyFromDeviceImage(const ImageDevice* imSrc,
-	                         bool p_synchronize = true);
+	void copyFromHostImage(const Image* imSrc, bool synchronize);
+	void copyFromDeviceImage(const ImageDevice* imSrc, bool p_synchronize);
+
+	void setValueDevice(float initValue, bool synchronize);
+	void updateEMThresholdDevice(ImageDevice* updateImg,
+	                             const ImageDevice* normImg, float threshold,
+	                             bool synchronize);
+	void addFirstImageToSecondDevice(ImageDevice* imgOut,
+	                                 bool synchronize) const;
 	void applyThresholdDevice(const ImageDevice* maskImg, float threshold,
 	                          float val_le_scale, float val_le_off,
-	                          float val_gt_scale, float val_gt_off);
+	                          float val_gt_scale, float val_gt_off,
+	                          bool synchronize);
 
 protected:
 	explicit ImageDevice(const cudaStream_t* stream_ptr = nullptr);
@@ -72,7 +79,7 @@ public:
 	ImageDeviceOwned(const ImageParams& imgParams, const std::string& filename,
 	                 const cudaStream_t* stream_ptr = nullptr);
 	~ImageDeviceOwned() override;
-	void allocate(bool synchronize = true);
+	void allocate(bool synchronize = true, bool initializeToZero = true);
 	void readFromFile(const ImageParams& params, const std::string& filename);
 	void readFromFile(const std::string& filename);
 	float* getDevicePointer() override;

@@ -14,46 +14,50 @@
 class OperatorPsfDevice : public DeviceSynchronized, public OperatorPsf
 {
 public:
-	OperatorPsfDevice();
-	explicit OperatorPsfDevice(const std::string& imagePsf_fname,
+	explicit OperatorPsfDevice(const cudaStream_t* pp_stream = nullptr);
+	explicit OperatorPsfDevice(const std::string& pr_imagePsf_fname,
 	                           const cudaStream_t* pp_stream = nullptr);
 
-	void readFromFile(const std::string& imagePsf_fname) override;
-	void readFromFile(const std::string& imagePsf_fname,
-	                  const cudaStream_t* pp_stream = nullptr);
+	void readFromFile(const std::string& pr_imagePsf_fname) override;
+	void readFromFile(const std::string& pr_imagePsf_fname, bool p_synchronize);
 
-	void copyToDevice(const cudaStream_t* pp_stream = nullptr);
+	void copyToDevice(bool synchronize);
 
-	template <bool Transpose>
-	void apply(const Variable* in, Variable* out) const;
 	void applyA(const Variable* in, Variable* out) override;
 	void applyAH(const Variable* in, Variable* out) override;
+	void applyA(const Variable* in, Variable* out, bool synchronize) const;
+	void applyAH(const Variable* in, Variable* out, bool synchronize) const;
 
 	void convolve(const ImageDevice& inputImageDevice,
 	              ImageDevice& outputImageDevice,
 	              const std::vector<float>& kernelX,
 	              const std::vector<float>& kernelY,
-	              const std::vector<float>& kernelZ) const;
+	              const std::vector<float>& kernelZ, bool synchronize) const;
 
 	void convolve(const Image* in, Image* out,
 	              const std::vector<float>& kernelX,
 	              const std::vector<float>& kernelY,
 	              const std::vector<float>& kernelZ) const override;
 
+	void convolve(const Image* in, Image* out,
+	              const std::vector<float>& kernelX,
+	              const std::vector<float>& kernelY,
+	              const std::vector<float>& kernelZ, bool synchronize) const;
+
 protected:
 	void initDeviceArraysIfNeeded();
-	void allocateDeviceArrays(const cudaStream_t* stream = nullptr,
-	                          bool synchronize = true);
+	void allocateDeviceArrays(bool synchronize);
+	template <bool Transpose>
+	void apply(const Variable* in, Variable* out, bool synchronize) const;
 
 	template <bool Flipped>
-	void convolveDevice(const ImageDevice& inputImage,
-	                    ImageDevice& outputImage) const;
+	void convolveDevice(const ImageDevice& inputImage, ImageDevice& outputImage,
+	                    bool synchronize) const;
 
 	void convolveDevice(const ImageDevice& inputImage, ImageDevice& outputImage,
 	                    const DeviceArray<float>& kernelX,
 	                    const DeviceArray<float>& kernelY,
 	                    const DeviceArray<float>& kernelZ,
-	                    const cudaStream_t* stream = nullptr,
 	                    bool synchronize = true) const;
 
 	std::unique_ptr<DeviceArray<float>> mpd_kernelX;
@@ -65,12 +69,10 @@ protected:
 	mutable std::unique_ptr<ImageDeviceOwned> mpd_intermediaryImage;
 
 private:
-	void readFromFileInternal(const std::string& imagePsf_fname,
-	                          const cudaStream_t* pp_stream);
+	void readFromFileInternal(const std::string& pr_imagePsf_fname,
+	                          bool p_synchronize);
 	static void initDeviceArrayIfNeeded(
 	    std::unique_ptr<DeviceArray<float>>& ppd_kernel);
-	static void allocateDeviceArray(DeviceArray<float>& prd_kernel,
-	                                size_t newSize,
-	                                const cudaStream_t* stream = nullptr,
-	                                bool synchronize = true);
+	void allocateDeviceArray(DeviceArray<float>& prd_kernel, size_t newSize,
+	                         bool synchronize);
 };

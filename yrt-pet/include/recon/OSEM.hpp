@@ -149,7 +149,6 @@ protected:
 	virtual Corrector& getCorrector() = 0;
 
 	// Common methods
-	virtual void loadBatch(int p_batchId, bool p_forRecon) = 0;
 	virtual void loadSubset(int p_subsetId, bool p_forRecon) = 0;
 
 private:

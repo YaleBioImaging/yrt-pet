@@ -23,12 +23,12 @@ struct ProjectionPsfProperties
 class ProjectionPsfManagerDevice : public ProjectionPsfManager
 {
 public:
-	explicit
-	    ProjectionPsfManagerDevice(const std::string& psfFilename,
-	                               const cudaStream_t* pp_stream = nullptr);
+	explicit ProjectionPsfManagerDevice(
+	    const std::string& psfFilename,
+	    const cudaStream_t* pp_stream = nullptr);
 	void readFromFile(const std::string& psfFilename) override;
 	void readFromFile(const std::string& psfFilename,
-	                  const cudaStream_t* pp_stream);
+	                  GPULaunchConfig launchConfig);
 	const float* getKernelsDevicePointer() const;
 	const float* getFlippedKernelsDevicePointer() const;
 
@@ -39,8 +39,7 @@ protected:
 	std::unique_ptr<DeviceArray<float>> mpd_kernelsFlipped;
 
 private:
-	void copyKernelsToDevice(const cudaStream_t* pp_stream = nullptr);
+	void copyKernelsToDevice(GPULaunchConfig launchConfig);
 	void readFromFileInternal(const std::string& psfFilename,
-	                          const cudaStream_t* pp_stream = nullptr);
+	                          GPULaunchConfig launchConfig);
 };
-

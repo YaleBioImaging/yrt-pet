@@ -9,7 +9,6 @@
 #include "datastruct/projection/LORsDevice.cuh"
 #include "datastruct/projection/ProjectionData.hpp"
 #include "datastruct/projection/ProjectionList.hpp"
-#include "datastruct/scanner/ScannerDevice.cuh"
 #include "utils/DeviceArray.cuh"
 #include "utils/GPUTypes.cuh"
 #include "utils/PageLockedBuffer.cuh"
@@ -33,12 +32,6 @@ public:
 	                     const ProjectionData* pp_reference,
 	                     int num_OSEM_subsets = 1,
 	                     float shareOfMemoryToUse = DefaultMemoryShare);
-	// The Scanner LUT is already in the device, but still need to generate the
-	// BinIterators
-	ProjectionDataDevice(std::shared_ptr<ScannerDevice> pp_scannerDevice,
-	                     const ProjectionData* pp_reference,
-	                     int num_OSEM_subsets = 1,
-	                     float shareOfMemoryToUse = DefaultMemoryShare);
 	// The Scanner LUT AND the lines of responses are already on device, but the
 	// BinIterators have already been generated
 	ProjectionDataDevice(std::shared_ptr<LORsDevice> pp_LORs,
@@ -56,24 +49,31 @@ public:
 
 	// Load the events' detector ids from a specific subset&batch id and prepare
 	// the projection values buffer
-	void loadEventLORs(size_t subsetId, size_t batchId,
-	                   const cudaStream_t* stream = nullptr);
-	void loadProjValuesFromReference(const cudaStream_t* stream = nullptr);
+	void prepareBatchLORs(int subsetId, int batchId,
+	                      GPULaunchConfig launchConfig);
+	void precomputeBatchLORs(int subsetId, int batchId);
+	void loadPrecomputedLORsToDevice(GPULaunchConfig launchConfig);
+
+	void loadProjValuesFromReference(GPULaunchConfig launchConfig);
 	void loadProjValuesFromHost(const ProjectionData* src,
-	                            const cudaStream_t* stream);
+	                            GPULaunchConfig launchConfig);
 	void loadProjValuesFromHostHistogram(const Histogram* histo,
-	                                     const cudaStream_t* stream);
+	                                     GPULaunchConfig launchConfig);
 	void transferProjValuesToHost(ProjectionData* projDataDest,
 	                              const cudaStream_t* stream = nullptr) const;
 
-	std::shared_ptr<ScannerDevice> getScannerDevice() const;
-
+	// Gets the size of the last precomputed batch
+	size_t getPrecomputedBatchSize() const;
+	// Gets the index of the last precomputed batch
+	size_t getPrecomputedBatchId() const;
+	// Get the index of the last precomputed subset
+	size_t getPrecomputedSubsetId() const;
 	// Gets the size of the last-loaded batch
-	size_t getCurrentBatchSize() const;
+	size_t getLoadedBatchSize() const;
 	// Gets the index of the last-loaded batch
-	size_t getCurrentBatchId() const;
+	size_t getLoadedBatchId() const;
 	// Get the index of the last-loaded subset
-	size_t getCurrentSubsetId() const;
+	size_t getLoadedSubsetId() const;
 
 	virtual float* getProjValuesDevicePointer() = 0;
 	virtual const float* getProjValuesDevicePointer() const = 0;
@@ -86,19 +86,19 @@ public:
 	float getProjectionValue(bin_t id) const override;
 	void setProjectionValue(bin_t id, float val) override;
 	void clearProjections(float value) override;
-	void clearProjectionsDevice(float value, const cudaStream_t* stream);
-	void clearProjectionsDevice(const cudaStream_t* stream = nullptr);
+	void clearProjectionsDevice(float value, GPULaunchConfig launchConfig);
+	void clearProjectionsDevice(GPULaunchConfig launchConfig);
 	void divideMeasurements(const ProjectionData* measurements,
 	                        const BinIterator* binIter) override;
 	void divideMeasurementsDevice(const ProjectionData* measurements,
-	                              const cudaStream_t* stream);
-	void invertProjValuesDevice(const cudaStream_t* stream);
+	                              GPULaunchConfig launchConfig);
+	void invertProjValuesDevice(GPULaunchConfig launchConfig);
 	void addProjValues(const ProjectionDataDevice* projValues,
-	                   const cudaStream_t* stream);
-	void convertToACFsDevice(const cudaStream_t* stream);
+	                   GPULaunchConfig launchConfig);
+	void convertToACFsDevice(GPULaunchConfig launchConfig);
 	void multiplyProjValues(const ProjectionDataDevice* projValues,
-	                        const cudaStream_t* stream);
-	void multiplyProjValues(float scalar, const cudaStream_t* stream);
+	                        GPULaunchConfig launchConfig);
+	void multiplyProjValues(float scalar, GPULaunchConfig launchConfig);
 	const GPUBatchSetup& getBatchSetup(size_t subsetId) const;
 	size_t getNumBatches(size_t subsetId) const;
 	bool areLORsGathered() const;
@@ -109,7 +109,7 @@ public:
 protected:
 	virtual void loadProjValuesFromHostInternal(const ProjectionData* src,
 	                                            const Histogram* histo,
-	                                            const cudaStream_t* stream);
+	                                            GPULaunchConfig launchConfig);
 
 	// For Host->Device data transfers
 	mutable PageLockedBuffer<float> m_tempBuffer;
@@ -141,10 +141,6 @@ public:
 	                          const ProjectionData* pp_reference,
 	                          int num_OSEM_subsets = 1,
 	                          float shareOfMemoryToUse = DefaultMemoryShare);
-	ProjectionDataDeviceOwned(std::shared_ptr<ScannerDevice> pp_scannerDevice,
-	                          const ProjectionData* pp_reference,
-	                          int num_OSEM_subsets = 1,
-	                          float shareOfMemoryToUse = DefaultMemoryShare);
 	ProjectionDataDeviceOwned(std::shared_ptr<LORsDevice> pp_LORs,
 	                          const ProjectionData* pp_reference,
 	                          int num_OSEM_subsets = 1,
@@ -153,11 +149,11 @@ public:
 	    std::shared_ptr<LORsDevice> pp_LORs, const ProjectionData* pp_reference,
 	    std::vector<const BinIterator*> pp_binIteratorList,
 	    float shareOfMemoryToUse = DefaultMemoryShare);
-	ProjectionDataDeviceOwned(const ProjectionDataDevice* orig);
+	explicit ProjectionDataDeviceOwned(const ProjectionDataDevice* orig);
 
 	~ProjectionDataDeviceOwned() override = default;
 
-	bool allocateForProjValues(const cudaStream_t* stream = nullptr);
+	bool allocateForProjValues(GPULaunchConfig launchConfig);
 
 	float* getProjValuesDevicePointer() override;
 	const float* getProjValuesDevicePointer() const override;
@@ -165,7 +161,7 @@ public:
 protected:
 	void loadProjValuesFromHostInternal(const ProjectionData* src,
 	                                    const Histogram* histo,
-	                                    const cudaStream_t* stream) override;
+	                                    GPULaunchConfig launchConfig) override;
 
 private:
 	std::unique_ptr<DeviceArray<float>> mp_projValues;
@@ -182,10 +178,6 @@ public:
 	                          const ProjectionData* pp_reference,
 	                          int num_OSEM_subsets = 1,
 	                          float shareOfMemoryToUse = DefaultMemoryShare);
-	ProjectionDataDeviceAlias(std::shared_ptr<ScannerDevice> pp_scannerDevice,
-	                          const ProjectionData* pp_reference,
-	                          int num_OSEM_subsets = 1,
-	                          float shareOfMemoryToUse = DefaultMemoryShare);
 	ProjectionDataDeviceAlias(std::shared_ptr<LORsDevice> pp_LORs,
 	                          const ProjectionData* pp_reference,
 	                          int num_OSEM_subsets = 1,
@@ -194,7 +186,7 @@ public:
 	    std::shared_ptr<LORsDevice> pp_LORs, const ProjectionData* pp_reference,
 	    std::vector<const BinIterator*> pp_binIteratorList,
 	    float shareOfMemoryToUse = DefaultMemoryShare);
-	ProjectionDataDeviceAlias(const ProjectionDataDevice* orig);
+	explicit ProjectionDataDeviceAlias(const ProjectionDataDevice* orig);
 
 	float* getProjValuesDevicePointer() override;
 	const float* getProjValuesDevicePointer() const override;

@@ -273,13 +273,6 @@ void OSEM_CPU::endRecon()
 	mp_datTmp = nullptr;
 }
 
-void OSEM_CPU::loadBatch(int batchId, bool forRecon)
-{
-	// No-op on CPU
-	(void)forRecon;
-	(void)batchId;
-}
-
 void OSEM_CPU::loadSubset(int subsetId, bool forRecon)
 {
 	(void)forRecon;

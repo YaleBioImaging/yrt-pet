@@ -138,17 +138,17 @@ void Corrector_GPU::precomputeInVivoAttenuationFactors(
 }
 
 void Corrector_GPU::loadAdditiveCorrectionFactorsToTemporaryDeviceBuffer(
-    const cudaStream_t* stream)
+    GPULaunchConfig launchConfig)
 {
 	loadPrecomputedCorrectionFactorsToTemporaryDeviceBuffer(
-	    mph_additiveCorrections.get(), stream);
+	    mph_additiveCorrections.get(), launchConfig);
 }
 
 void Corrector_GPU::loadInVivoAttenuationFactorsToTemporaryDeviceBuffer(
-    const cudaStream_t* stream)
+    GPULaunchConfig launchConfig)
 {
 	loadPrecomputedCorrectionFactorsToTemporaryDeviceBuffer(
-	    mph_inVivoAttenuationFactors.get(), stream);
+	    mph_inVivoAttenuationFactors.get(), launchConfig);
 }
 
 const ProjectionDataDevice* Corrector_GPU::getTemporaryDeviceBuffer() const
@@ -162,24 +162,27 @@ ProjectionDataDevice* Corrector_GPU::getTemporaryDeviceBuffer()
 }
 
 void Corrector_GPU::applyHardwareAttenuationToGivenDeviceBufferFromACFHistogram(
-    ProjectionDataDevice* destProjData, const cudaStream_t* stream)
+    ProjectionDataDevice* destProjData, GPULaunchConfig launchConfig)
 {
 	ASSERT_MSG(mpd_temporaryCorrectionFactors != nullptr,
 	           "Need to initialize temporary correction factors first");
 	ASSERT(hasHardwareAttenuation());
 	ASSERT(mp_hardwareAcf != nullptr);
+	ASSERT(mpd_temporaryCorrectionFactors->getPrecomputedBatchSize() > 0);
 
-	mpd_temporaryCorrectionFactors->allocateForProjValues(stream);
+	mpd_temporaryCorrectionFactors->allocateForProjValues(
+	    {launchConfig.stream, false});
 
 	mpd_temporaryCorrectionFactors->loadProjValuesFromHostHistogram(
-	    mp_hardwareAcf, stream);
+	    mp_hardwareAcf, {launchConfig.stream, false});
 	destProjData->multiplyProjValues(mpd_temporaryCorrectionFactors.get(),
-	                                 stream);
+	                                 launchConfig);
 }
 
-void Corrector_GPU::applyHardwareAttenuationToGivenDeviceBufferFromAttenuationImage(
-    ProjectionDataDevice* destProjData, OperatorProjectorDevice* projector,
-    const cudaStream_t* stream)
+void Corrector_GPU::
+    applyHardwareAttenuationToGivenDeviceBufferFromAttenuationImage(
+        ProjectionDataDevice* destProjData, OperatorProjectorDevice* projector,
+        GPULaunchConfig launchConfig)
 {
 	ASSERT_MSG(mpd_temporaryCorrectionFactors != nullptr,
 	           "Need to initialize temporary correction factors first");
@@ -187,32 +190,37 @@ void Corrector_GPU::applyHardwareAttenuationToGivenDeviceBufferFromAttenuationIm
 	ASSERT(mp_hardwareAttenuationImage != nullptr);
 	ASSERT(projector != nullptr);
 
-	mpd_temporaryCorrectionFactors->allocateForProjValues(stream);
-	initializeTemporaryDeviceImageIfNeeded(mp_hardwareAttenuationImage, stream);
+	mpd_temporaryCorrectionFactors->allocateForProjValues(
+	    {launchConfig.stream, false});
+	initializeTemporaryDeviceImageIfNeeded(mp_hardwareAttenuationImage,
+	                                       {launchConfig.stream, false});
 
 	// TODO: Design-wise, it would be better to call a static function here
 	//  instead of relying on a projector given as argument
 	projector->applyA(mpd_temporaryImage.get(),
-	                  mpd_temporaryCorrectionFactors.get());
-	mpd_temporaryCorrectionFactors->convertToACFsDevice(stream);
+	                  mpd_temporaryCorrectionFactors.get(), false);
+	mpd_temporaryCorrectionFactors->convertToACFsDevice(
+	    {launchConfig.stream, false});
 	destProjData->multiplyProjValues(mpd_temporaryCorrectionFactors.get(),
-	                                 stream);
+	                                 launchConfig);
 }
 
 void Corrector_GPU::loadPrecomputedCorrectionFactorsToTemporaryDeviceBuffer(
-    const ProjectionList* factors, const cudaStream_t* stream)
+    const ProjectionList* factors, GPULaunchConfig launchConfig)
 {
 	ASSERT_MSG(mpd_temporaryCorrectionFactors != nullptr,
 	           "Need to initialize temporary correction factors first");
 
 	// Will only allocate if necessary
-	mpd_temporaryCorrectionFactors->allocateForProjValues(stream);
+	mpd_temporaryCorrectionFactors->allocateForProjValues(
+	    {launchConfig.stream, false});
 
-	mpd_temporaryCorrectionFactors->loadProjValuesFromHost(factors, stream);
+	mpd_temporaryCorrectionFactors->loadProjValuesFromHost(factors,
+	                                                       launchConfig);
 }
 
 void Corrector_GPU::initializeTemporaryDeviceImageIfNeeded(
-    const Image* hostReference, const cudaStream_t* stream)
+    const Image* hostReference, GPULaunchConfig launchConfig)
 {
 	ASSERT_MSG(hostReference != nullptr, "Null host-side image");
 	ASSERT(hostReference->isMemoryValid());
@@ -224,11 +232,12 @@ void Corrector_GPU::initializeTemporaryDeviceImageIfNeeded(
 		if (mpd_temporaryImage == nullptr ||
 		    !referenceParams.isSameAs(mpd_temporaryImage->getParams()))
 		{
-			mpd_temporaryImage =
-			    std::make_unique<ImageDeviceOwned>(referenceParams, stream);
+			mpd_temporaryImage = std::make_unique<ImageDeviceOwned>(
+			    referenceParams, launchConfig.stream);
 			mpd_temporaryImage->allocate();
 		}
-		mpd_temporaryImage->copyFromHostImage(hostReference);
+		mpd_temporaryImage->copyFromHostImage(hostReference,
+		                                      launchConfig.synchronize);
 
 		mph_lastCopiedHostImage = hostReference;
 	}

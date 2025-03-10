@@ -26,25 +26,25 @@ void py_setup_projectiondatadevice(py::module& m)
 	auto c = py::class_<ProjectionDataDevice, ProjectionList>(
 	    m, "ProjectionDataDevice");
 	c.def(
-	    "loadEventLORs",
+	    "prepareBatchLORs",
 	    [](ProjectionDataDevice& self, size_t subsetId, size_t batchId)
-	    { self.loadEventLORs(subsetId, batchId); },
+	    { self.prepareBatchLORs(subsetId, batchId, {nullptr, true}); },
 	    "Load the LORs of a specific batch in a specific subset", "subsetId"_a,
 	    "batchId"_a);
 	c.def("transferProjValuesToHost",
-	      [](ProjectionDataDevice& self, ProjectionData* dest)
+	      [](const ProjectionDataDevice& self, ProjectionData* dest)
 	      { self.transferProjValuesToHost(dest); });
 	c.def("loadProjValuesFromHost",
 	      [](ProjectionDataDevice& self, const ProjectionData* src)
-	      { self.loadProjValuesFromHost(src, nullptr); });
+	      { self.loadProjValuesFromHost(src, {nullptr, true}); });
 	c.def("loadProjValuesFromHost",
 	      [](ProjectionDataDevice& self, const Histogram* histo)
-	      { self.loadProjValuesFromHostHistogram(histo, nullptr); });
+	      { self.loadProjValuesFromHostHistogram(histo, {nullptr, true}); });
 	c.def("loadProjValuesFromReference", [](ProjectionDataDeviceOwned& self)
-	      { self.loadProjValuesFromReference(); });
-	c.def("getCurrentBatchSize", &ProjectionDataDevice::getCurrentBatchSize);
-	c.def("getCurrentBatchId", &ProjectionDataDevice::getCurrentBatchId);
-	c.def("getCurrentSubsetId", &ProjectionDataDevice::getCurrentSubsetId);
+	      { self.loadProjValuesFromReference({nullptr, true}); });
+	c.def("getLoadedBatchSize", &ProjectionDataDevice::getLoadedBatchSize);
+	c.def("getLoadedBatchId", &ProjectionDataDevice::getLoadedBatchId);
+	c.def("getLoadedSubsetId", &ProjectionDataDevice::getLoadedSubsetId);
 	c.def("getNumBatches", &ProjectionDataDevice::getNumBatches);
 	c.def("areLORsGathered", &ProjectionDataDevice::areLORsGathered);
 
@@ -61,7 +61,7 @@ void py_setup_projectiondatadevice(py::module& m)
 	            "share the LORs",
 	            "orig"_a);
 	c_owned.def("allocateForProjValues", [](ProjectionDataDeviceOwned& self)
-	            { self.allocateForProjValues(); });
+	            { self.allocateForProjValues({nullptr, true}); });
 
 	auto c_alias = py::class_<ProjectionDataDeviceAlias, ProjectionDataDevice>(
 	    m, "ProjectionDataDeviceAlias");
@@ -112,7 +112,7 @@ ProjectionDataDevice::ProjectionDataDevice(
       mp_binIteratorList(std::move(pp_binIteratorList)),
       mr_scanner(pr_scanner)
 {
-	mp_LORs = std::make_unique<LORsDevice>(mr_scanner);
+	mp_LORs = std::make_unique<LORsDevice>();
 	createBatchSetups(shareOfMemoryToUse);
 }
 
@@ -123,7 +123,7 @@ ProjectionDataDevice::ProjectionDataDevice(
     : ProjectionList(pp_reference),
       mp_binIteratorList(std::move(pp_binIteratorList)),
       mp_LORs(std::move(pp_LORs)),
-      mr_scanner(mp_LORs->getScanner())
+      mr_scanner(pp_reference->getScanner())
 {
 	createBatchSetups(shareOfMemoryToUse);
 }
@@ -134,21 +134,10 @@ ProjectionDataDevice::ProjectionDataDevice(std::shared_ptr<LORsDevice> pp_LORs,
                                            float shareOfMemoryToUse)
     : ProjectionList(pp_reference),
       mp_LORs(std::move(pp_LORs)),
-      mr_scanner(mp_LORs->getScanner())
+      mr_scanner(pp_reference->getScanner())
 {
 	createBinIterators(num_OSEM_subsets);
 	createBatchSetups(shareOfMemoryToUse);
-}
-
-ProjectionDataDevice::ProjectionDataDevice(
-    std::shared_ptr<ScannerDevice> pp_scannerDevice,
-    const ProjectionData* pp_reference, int num_OSEM_subsets,
-    float shareOfMemoryToUse)
-    : ProjectionList(pp_reference), mr_scanner(pp_scannerDevice->getScanner())
-{
-	createBinIterators(num_OSEM_subsets);
-	createBatchSetups(shareOfMemoryToUse);
-	mp_LORs = std::make_unique<LORsDevice>(std::move(pp_scannerDevice));
 }
 
 ProjectionDataDevice::ProjectionDataDevice(const Scanner& pr_scanner,
@@ -160,7 +149,7 @@ ProjectionDataDevice::ProjectionDataDevice(const Scanner& pr_scanner,
 	createBinIterators(num_OSEM_subsets);
 	createBatchSetups(shareOfMemoryToUse);
 
-	mp_LORs = std::make_unique<LORsDevice>(mr_scanner);
+	mp_LORs = std::make_unique<LORsDevice>();
 }
 
 void ProjectionDataDevice::createBinIterators(int num_OSEM_subsets)
@@ -200,45 +189,70 @@ void ProjectionDataDevice::createBatchSetups(float shareOfMemoryToUse)
 	}
 }
 
-void ProjectionDataDevice::loadEventLORs(size_t subsetId, size_t batchId,
-                                         const cudaStream_t* stream)
+void ProjectionDataDevice::prepareBatchLORs(int subsetId, int batchId,
+                                            GPULaunchConfig launchConfig)
 {
-	mp_LORs->loadEventLORs(*mp_binIteratorList.at(subsetId),
-	                       m_batchSetups.at(subsetId), subsetId, batchId,
-	                       *mp_reference, stream);
+	precomputeBatchLORs(subsetId, batchId);
+
+	// Necessary bottleneck
+	// Must wait until previous operation using the device buffers is
+	// finished before loading another batch
+	if (launchConfig.stream != nullptr)
+	{
+		cudaStreamSynchronize(*launchConfig.stream);
+	}
+	else
+	{
+		cudaDeviceSynchronize();
+	}
+
+	loadPrecomputedLORsToDevice(launchConfig);
+}
+
+void ProjectionDataDevice::precomputeBatchLORs(int subsetId, int batchId)
+{
+	mp_LORs->precomputeBatchLORs(*mp_binIteratorList.at(subsetId),
+	                             m_batchSetups.at(subsetId), subsetId, batchId,
+	                             *mp_reference);
+}
+
+void ProjectionDataDevice::loadPrecomputedLORsToDevice(
+    GPULaunchConfig launchConfig)
+{
+	mp_LORs->loadPrecomputedLORsToDevice(launchConfig);
 }
 
 void ProjectionDataDevice::loadProjValuesFromReference(
-    const cudaStream_t* stream)
+    GPULaunchConfig launchConfig)
 {
-	loadProjValuesFromHostInternal(getReference(), nullptr, stream);
+	loadProjValuesFromHostInternal(getReference(), nullptr, launchConfig);
 }
 
 void ProjectionDataDevice::loadProjValuesFromHost(const ProjectionData* src,
-                                                  const cudaStream_t* stream)
+                                                  GPULaunchConfig launchConfig)
 {
-	loadProjValuesFromHostInternal(src, nullptr, stream);
+	loadProjValuesFromHostInternal(src, nullptr, launchConfig);
 }
 
 void ProjectionDataDevice::loadProjValuesFromHostHistogram(
-    const Histogram* histo, const cudaStream_t* stream)
+    const Histogram* histo, GPULaunchConfig launchConfig)
 {
-	loadProjValuesFromHostInternal(getReference(), histo, stream);
+	loadProjValuesFromHostInternal(getReference(), histo, launchConfig);
 }
 
 void ProjectionDataDevice::loadProjValuesFromHostInternal(
     const ProjectionData* src, const Histogram* histo,
-    const cudaStream_t* stream)
+    GPULaunchConfig launchConfig)
 {
 	if (src->isUniform() && histo == nullptr)
 	{
 		// No need to "getProjectionValue" everywhere, just fill the buffer with
 		// the same value
-		clearProjectionsDevice(getReference()->getProjectionValue(0), stream);
+		clearProjectionsDevice(src->getProjectionValue(0), launchConfig);
 	}
 	else
 	{
-		const size_t batchSize = getCurrentBatchSize();
+		const size_t batchSize = getPrecomputedBatchSize();
 		ASSERT_MSG(batchSize > 0,
 		           "The Batch size is 0. You didn't load the LORs "
 		           "before loading the projection values");
@@ -246,10 +260,10 @@ void ProjectionDataDevice::loadProjValuesFromHostInternal(
 		m_tempBuffer.reAllocateIfNeeded(batchSize);
 		float* projValuesBuffer = m_tempBuffer.getPointer();
 
-		auto* binIter = mp_binIteratorList.at(getCurrentSubsetId());
+		auto* binIter = mp_binIteratorList.at(getPrecomputedSubsetId());
 		const size_t firstBatchSize =
-		    getBatchSetup(getCurrentSubsetId()).getBatchSize(0);
-		const size_t offset = getCurrentBatchId() * firstBatchSize;
+		    getBatchSetup(getPrecomputedSubsetId()).getBatchSize(0);
+		const size_t offset = getPrecomputedBatchId() * firstBatchSize;
 
 		size_t binIdx;
 		bin_t binId;
@@ -283,26 +297,26 @@ void ProjectionDataDevice::loadProjValuesFromHostInternal(
 		}
 
 		Util::copyHostToDevice(getProjValuesDevicePointer(), projValuesBuffer,
-		                       batchSize, stream, true);
+		                       batchSize, launchConfig);
 	}
 }
 
 void ProjectionDataDevice::transferProjValuesToHost(
     ProjectionData* projDataDest, const cudaStream_t* stream) const
 {
-	const size_t batchSize = getCurrentBatchSize();
+	const size_t batchSize = getLoadedBatchSize();
 	ASSERT_MSG(batchSize > 0, "The Batch size is 0. You didn't load the LORs "
 	                          "before loading the projection values");
 
 	m_tempBuffer.reAllocateIfNeeded(batchSize);
 	float* projValuesBuffer = m_tempBuffer.getPointer();
 	Util::copyDeviceToHost(projValuesBuffer, getProjValuesDevicePointer(),
-	                       batchSize, stream, true);
+	                       batchSize, {stream, true});
 
-	auto* binIter = mp_binIteratorList.at(getCurrentSubsetId());
+	auto* binIter = mp_binIteratorList.at(getLoadedSubsetId());
 	const size_t firstBatchSize =
-	    m_batchSetups.at(getCurrentSubsetId()).getBatchSize(0);
-	const size_t offset = getCurrentBatchId() * firstBatchSize;
+	    m_batchSetups.at(getLoadedSubsetId()).getBatchSize(0);
+	const size_t offset = getLoadedBatchId() * firstBatchSize;
 
 	size_t binIdx;
 	bin_t binId;
@@ -315,22 +329,32 @@ void ProjectionDataDevice::transferProjValuesToHost(
 	}
 }
 
-std::shared_ptr<ScannerDevice> ProjectionDataDevice::getScannerDevice() const
+size_t ProjectionDataDevice::getPrecomputedBatchSize() const
 {
-	return mp_LORs->getScannerDevice();
+	return mp_LORs->getPrecomputedBatchSize();
 }
 
-size_t ProjectionDataDevice::getCurrentBatchSize() const
+size_t ProjectionDataDevice::getPrecomputedBatchId() const
+{
+	return mp_LORs->getPrecomputedBatchId();
+}
+
+size_t ProjectionDataDevice::getPrecomputedSubsetId() const
+{
+	return mp_LORs->getPrecomputedSubsetId();
+}
+
+size_t ProjectionDataDevice::getLoadedBatchSize() const
 {
 	return mp_LORs->getLoadedBatchSize();
 }
 
-size_t ProjectionDataDevice::getCurrentBatchId() const
+size_t ProjectionDataDevice::getLoadedBatchId() const
 {
 	return mp_LORs->getLoadedBatchId();
 }
 
-size_t ProjectionDataDevice::getCurrentSubsetId() const
+size_t ProjectionDataDevice::getLoadedSubsetId() const
 {
 	return mp_LORs->getLoadedSubsetId();
 }
@@ -375,50 +399,67 @@ void ProjectionDataDevice::setProjectionValue(bin_t id, float val)
 
 void ProjectionDataDevice::clearProjections(float value)
 {
-	clearProjectionsDevice(value, nullptr);
+	clearProjectionsDevice(value, {nullptr, true});
 }
 
 void ProjectionDataDevice::clearProjectionsDevice(float value,
-                                                  const cudaStream_t* stream)
+                                                  GPULaunchConfig launchConfig)
 {
 	if (value == 0.0f)
 	{
-		clearProjectionsDevice(stream);
+		clearProjectionsDevice(launchConfig);
 		return;
 	}
-	const size_t batchSize = getCurrentBatchSize();
+	const size_t batchSize = getPrecomputedBatchSize();
 	const auto launchParams = Util::initiateDeviceParameters(batchSize);
 
-	if (stream != nullptr)
+	ASSERT(getProjValuesDevicePointer() != nullptr);
+
+	if (launchConfig.stream != nullptr)
 	{
 		clearProjections_kernel<<<launchParams.gridSize, launchParams.blockSize,
-		                          0, *stream>>>(
+		                          0, *launchConfig.stream>>>(
 		    getProjValuesDevicePointer(), value, static_cast<int>(batchSize));
-		cudaStreamSynchronize(*stream);
+		if (launchConfig.synchronize)
+		{
+			cudaStreamSynchronize(*launchConfig.stream);
+		}
 	}
 	else
 	{
 		clearProjections_kernel<<<launchParams.gridSize,
 		                          launchParams.blockSize>>>(
 		    getProjValuesDevicePointer(), value, static_cast<int>(batchSize));
-		cudaDeviceSynchronize();
+		if (launchConfig.synchronize)
+		{
+			cudaDeviceSynchronize();
+		}
 	}
 	cudaCheckError();
 }
 
-void ProjectionDataDevice::clearProjectionsDevice(const cudaStream_t* stream)
+void ProjectionDataDevice::clearProjectionsDevice(GPULaunchConfig launchConfig)
 {
-	if (stream != nullptr)
+	ASSERT(getProjValuesDevicePointer() != nullptr);
+
+	if (launchConfig.stream != nullptr)
 	{
 		cudaMemsetAsync(getProjValuesDevicePointer(), 0,
-		                sizeof(float) * getCurrentBatchSize(), *stream);
-		cudaStreamSynchronize(*stream);
+		                sizeof(float) * getLoadedBatchSize(),
+		                *launchConfig.stream);
+		if (launchConfig.synchronize)
+		{
+			cudaStreamSynchronize(*launchConfig.stream);
+		}
 	}
 	else
 	{
 		cudaMemset(getProjValuesDevicePointer(), 0,
-		           sizeof(float) * getCurrentBatchSize());
-		cudaDeviceSynchronize();
+		           sizeof(float) * getLoadedBatchSize());
+		if (launchConfig.synchronize)
+		{
+			cudaDeviceSynchronize();
+		}
 	}
 	cudaCheckError();
 }
@@ -427,24 +468,31 @@ void ProjectionDataDevice::divideMeasurements(
     const ProjectionData* measurements, const BinIterator* binIter)
 {
 	(void)binIter;  // Not needed as this class has its own BinIterators
-	divideMeasurementsDevice(measurements, nullptr);
+	divideMeasurementsDevice(measurements, {nullptr, true});
 }
 
 void ProjectionDataDevice::divideMeasurementsDevice(
-    const ProjectionData* measurements, const cudaStream_t* stream)
+    const ProjectionData* measurements, GPULaunchConfig launchConfig)
 {
 	const auto* measurements_device =
 	    dynamic_cast<const ProjectionDataDevice*>(measurements);
-	const size_t batchSize = getCurrentBatchSize();
+	const size_t batchSize = getLoadedBatchSize();
 	const auto launchParams = Util::initiateDeviceParameters(batchSize);
 
-	if (stream != nullptr)
+	ASSERT(getProjValuesDevicePointer() != nullptr);
+	ASSERT(measurements_device->getProjValuesDevicePointer() != nullptr);
+
+	if (launchConfig.stream != nullptr)
 	{
 		divideMeasurements_kernel<<<launchParams.gridSize,
-		                            launchParams.blockSize, 0, *stream>>>(
+		                            launchParams.blockSize, 0,
+		                            *launchConfig.stream>>>(
 		    measurements_device->getProjValuesDevicePointer(),
 		    getProjValuesDevicePointer(), static_cast<int>(batchSize));
-		cudaStreamSynchronize(*stream);
+		if (launchConfig.synchronize)
+		{
+			cudaStreamSynchronize(*launchConfig.stream);
+		}
 	}
 	else
 	{
@@ -452,23 +500,31 @@ void ProjectionDataDevice::divideMeasurementsDevice(
 		                            launchParams.blockSize>>>(
 		    measurements_device->getProjValuesDevicePointer(),
 		    getProjValuesDevicePointer(), static_cast<int>(batchSize));
-		cudaDeviceSynchronize();
+		if (launchConfig.synchronize)
+		{
+			cudaDeviceSynchronize();
+		}
 	}
 	cudaCheckError();
 }
 
-void ProjectionDataDevice::invertProjValuesDevice(const cudaStream_t* stream)
+void ProjectionDataDevice::invertProjValuesDevice(GPULaunchConfig launchConfig)
 {
-	const size_t batchSize = getCurrentBatchSize();
+	const size_t batchSize = getLoadedBatchSize();
 	const auto launchParams = Util::initiateDeviceParameters(batchSize);
 
-	if (stream != nullptr)
+	ASSERT(getProjValuesDevicePointer() != nullptr);
+
+	if (launchConfig.stream != nullptr)
 	{
 		invertProjValues_kernel<<<launchParams.gridSize, launchParams.blockSize,
-		                          0, *stream>>>(getProjValuesDevicePointer(),
-		                                        getProjValuesDevicePointer(),
-		                                        static_cast<int>(batchSize));
-		cudaStreamSynchronize(*stream);
+		                          0, *launchConfig.stream>>>(
+		    getProjValuesDevicePointer(), getProjValuesDevicePointer(),
+		    static_cast<int>(batchSize));
+		if (launchConfig.synchronize)
+		{
+			cudaStreamSynchronize(*launchConfig.stream);
+		}
 	}
 	else
 	{
@@ -476,71 +532,97 @@ void ProjectionDataDevice::invertProjValuesDevice(const cudaStream_t* stream)
 		                          launchParams.blockSize>>>(
 		    getProjValuesDevicePointer(), getProjValuesDevicePointer(),
 		    static_cast<int>(batchSize));
-		cudaDeviceSynchronize();
+		if (launchConfig.synchronize)
+		{
+			cudaDeviceSynchronize();
+		}
 	}
 	cudaCheckError();
 }
 
 void ProjectionDataDevice::addProjValues(const ProjectionDataDevice* projValues,
-                                         const cudaStream_t* stream)
+                                         GPULaunchConfig launchConfig)
 {
-	const size_t batchSize = getCurrentBatchSize();
+	const size_t batchSize = getLoadedBatchSize();
 	const auto launchParams = Util::initiateDeviceParameters(batchSize);
 
-	if (stream != nullptr)
+	ASSERT(projValues->getProjValuesDevicePointer() != nullptr);
+	ASSERT(getProjValuesDevicePointer() != nullptr);
+
+	if (launchConfig.stream != nullptr)
 	{
 		addProjValues_kernel<<<launchParams.gridSize, launchParams.blockSize, 0,
-		                       *stream>>>(
+		                       *launchConfig.stream>>>(
 		    projValues->getProjValuesDevicePointer(),
 		    getProjValuesDevicePointer(), static_cast<int>(batchSize));
-		cudaStreamSynchronize(*stream);
+		if (launchConfig.synchronize)
+		{
+			cudaStreamSynchronize(*launchConfig.stream);
+		}
 	}
 	else
 	{
 		addProjValues_kernel<<<launchParams.gridSize, launchParams.blockSize>>>(
 		    projValues->getProjValuesDevicePointer(),
 		    getProjValuesDevicePointer(), static_cast<int>(batchSize));
-		cudaDeviceSynchronize();
+		if (launchConfig.synchronize)
+		{
+			cudaDeviceSynchronize();
+		}
 	}
 	cudaCheckError();
 }
 
-void ProjectionDataDevice::convertToACFsDevice(const cudaStream_t* stream)
+void ProjectionDataDevice::convertToACFsDevice(GPULaunchConfig launchConfig)
 {
-	const size_t batchSize = getCurrentBatchSize();
+	const size_t batchSize = getLoadedBatchSize();
 	const auto launchParams = Util::initiateDeviceParameters(batchSize);
 
-	if (stream != nullptr)
+	ASSERT(getProjValuesDevicePointer() != nullptr);
+
+	if (launchConfig.stream != nullptr)
 	{
 		convertToACFs_kernel<<<launchParams.gridSize, launchParams.blockSize, 0,
-		                       *stream>>>(getProjValuesDevicePointer(),
-		                                  getProjValuesDevicePointer(), 0.1f,
-		                                  static_cast<int>(batchSize));
-		cudaStreamSynchronize(*stream);
+		                       *launchConfig.stream>>>(
+		    getProjValuesDevicePointer(), getProjValuesDevicePointer(), 0.1f,
+		    static_cast<int>(batchSize));
+		if (launchConfig.synchronize)
+		{
+			cudaStreamSynchronize(*launchConfig.stream);
+		}
 	}
 	else
 	{
 		convertToACFs_kernel<<<launchParams.gridSize, launchParams.blockSize>>>(
 		    getProjValuesDevicePointer(), getProjValuesDevicePointer(), 0.1f,
 		    static_cast<int>(batchSize));
-		cudaDeviceSynchronize();
+		if (launchConfig.synchronize)
+		{
+			cudaDeviceSynchronize();
+		}
 	}
 	cudaCheckError();
 }
 
 void ProjectionDataDevice::multiplyProjValues(
-    const ProjectionDataDevice* projValues, const cudaStream_t* stream)
+    const ProjectionDataDevice* projValues, GPULaunchConfig launchConfig)
 {
-	const size_t batchSize = getCurrentBatchSize();
+	const size_t batchSize = getLoadedBatchSize();
 	const auto launchParams = Util::initiateDeviceParameters(batchSize);
 
-	if (stream != nullptr)
+	ASSERT(getProjValuesDevicePointer() != nullptr);
+
+	if (launchConfig.stream != nullptr)
 	{
 		multiplyProjValues_kernel<<<launchParams.gridSize,
-		                            launchParams.blockSize, 0, *stream>>>(
+		                            launchParams.blockSize, 0,
+		                            *launchConfig.stream>>>(
 		    projValues->getProjValuesDevicePointer(),
 		    getProjValuesDevicePointer(), static_cast<int>(batchSize));
-		cudaStreamSynchronize(*stream);
+		if (launchConfig.synchronize)
+		{
+			cudaStreamSynchronize(*launchConfig.stream);
+		}
 	}
 	else
 	{
@@ -548,30 +630,42 @@ void ProjectionDataDevice::multiplyProjValues(
 		                            launchParams.blockSize>>>(
 		    projValues->getProjValuesDevicePointer(),
 		    getProjValuesDevicePointer(), static_cast<int>(batchSize));
-		cudaDeviceSynchronize();
+		if (launchConfig.synchronize)
+		{
+			cudaDeviceSynchronize();
+		}
 	}
 	cudaCheckError();
 }
 
 void ProjectionDataDevice::multiplyProjValues(float scalar,
-                                              const cudaStream_t* stream)
+                                              GPULaunchConfig launchConfig)
 {
-	const size_t batchSize = getCurrentBatchSize();
+	const size_t batchSize = getLoadedBatchSize();
 	const auto launchParams = Util::initiateDeviceParameters(batchSize);
 
-	if (stream != nullptr)
+	ASSERT(getProjValuesDevicePointer() != nullptr);
+
+	if (launchConfig.stream != nullptr)
 	{
 		multiplyProjValues_kernel<<<launchParams.gridSize,
-		                            launchParams.blockSize, 0, *stream>>>(
+		                            launchParams.blockSize, 0,
+		                            *launchConfig.stream>>>(
 		    scalar, getProjValuesDevicePointer(), static_cast<int>(batchSize));
-		cudaStreamSynchronize(*stream);
+		if (launchConfig.synchronize)
+		{
+			cudaStreamSynchronize(*launchConfig.stream);
+		}
 	}
 	else
 	{
 		multiplyProjValues_kernel<<<launchParams.gridSize,
 		                            launchParams.blockSize>>>(
 		    scalar, getProjValuesDevicePointer(), static_cast<int>(batchSize));
-		cudaDeviceSynchronize();
+		if (launchConfig.synchronize)
+		{
+			cudaDeviceSynchronize();
+		}
 	}
 	cudaCheckError();
 }
@@ -606,16 +700,6 @@ ProjectionDataDeviceOwned::ProjectionDataDeviceOwned(
     int num_OSEM_subsets, float shareOfMemoryToUse)
     : ProjectionDataDevice(pr_scanner, pp_reference, num_OSEM_subsets,
                            shareOfMemoryToUse)
-{
-	mp_projValues = std::make_unique<DeviceArray<float>>();
-}
-
-ProjectionDataDeviceOwned::ProjectionDataDeviceOwned(
-    std::shared_ptr<ScannerDevice> pp_scannerDevice,
-    const ProjectionData* pp_reference, int num_OSEM_subsets,
-    float shareOfMemoryToUse)
-    : ProjectionDataDevice(std::move(pp_scannerDevice), pp_reference,
-                           num_OSEM_subsets, shareOfMemoryToUse)
 {
 	mp_projValues = std::make_unique<DeviceArray<float>>();
 }
@@ -657,20 +741,23 @@ const float* ProjectionDataDeviceOwned::getProjValuesDevicePointer() const
 }
 
 bool ProjectionDataDeviceOwned::allocateForProjValues(
-    const cudaStream_t* stream)
+    GPULaunchConfig launchConfig)
 {
-	return mp_projValues->allocate(getCurrentBatchSize(), stream);
+	// Allocate projection value buffers based on the latest precomputed batch
+	//  size
+	return mp_projValues->allocate(getPrecomputedBatchSize(), launchConfig);
 }
 
 void ProjectionDataDeviceOwned::loadProjValuesFromHostInternal(
     const ProjectionData* src, const Histogram* histo,
-    const cudaStream_t* stream)
+    GPULaunchConfig launchConfig)
 {
 	if (!mp_projValues->isAllocated())
 	{
-		allocateForProjValues(stream);
+		allocateForProjValues(launchConfig);
 	}
-	ProjectionDataDevice::loadProjValuesFromHostInternal(src, histo, stream);
+	ProjectionDataDevice::loadProjValuesFromHostInternal(src, histo,
+	                                                     launchConfig);
 }
 
 ProjectionDataDeviceAlias::ProjectionDataDeviceAlias(
@@ -688,16 +775,6 @@ ProjectionDataDeviceAlias::ProjectionDataDeviceAlias(
     int num_OSEM_subsets, float shareOfMemoryToUse)
     : ProjectionDataDevice(pr_scanner, pp_reference, num_OSEM_subsets,
                            shareOfMemoryToUse),
-      mpd_devicePointer(nullptr)
-{
-}
-
-ProjectionDataDeviceAlias::ProjectionDataDeviceAlias(
-    std::shared_ptr<ScannerDevice> pp_scannerDevice,
-    const ProjectionData* pp_reference, int num_OSEM_subsets,
-    float shareOfMemoryToUse)
-    : ProjectionDataDevice(std::move(pp_scannerDevice), pp_reference,
-                           num_OSEM_subsets, shareOfMemoryToUse),
       mpd_devicePointer(nullptr)
 {
 }

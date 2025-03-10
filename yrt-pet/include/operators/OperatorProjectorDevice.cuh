@@ -26,7 +26,6 @@ public:
 
 	unsigned int getGridSize() const;
 	unsigned int getBlockSize() const;
-	bool isSynchronized() const;
 
 	bool requiresIntermediaryProjData() const;
 	void setupTOFHelper(float tofWidth_ps, int tofNumStd = -1);
@@ -34,16 +33,21 @@ public:
 	void applyA(const Variable* in, Variable* out) override;
 	void applyAH(const Variable* in, Variable* out) override;
 
-protected:
-	virtual void applyAOnLoadedBatch(ImageDevice& img,
-	                                 ProjectionDataDevice& dat) = 0;
-	virtual void applyAHOnLoadedBatch(ProjectionDataDevice& dat,
-	                                  ImageDevice& img) = 0;
+	void applyA(const Variable* in, Variable* out, bool synchronize);
+	void applyAH(const Variable* in, Variable* out, bool synchronize);
 
+protected:
 	explicit OperatorProjectorDevice(
 	    const OperatorProjectorParams& pr_projParams,
-	    bool p_synchronized = true, const cudaStream_t* pp_mainStream = nullptr,
+	    const cudaStream_t* pp_mainStream = nullptr,
 	    const cudaStream_t* pp_auxStream = nullptr);
+
+	// These must run on the main stream
+	virtual void applyAOnLoadedBatch(ImageDevice& img,
+	                                 ProjectionDataDevice& dat,
+	                                 bool synchronize) = 0;
+	virtual void applyAHOnLoadedBatch(ProjectionDataDevice& dat,
+	                                  ImageDevice& img, bool synchronize) = 0;
 
 	void setBatchSize(size_t newBatchSize);
 

@@ -1,4 +1,4 @@
-# Jinsong Ouayang, 03-2019
+# Jinsong Ouyang, 03-2019
 
 cmake_minimum_required(VERSION 3.21)
 project(yrt-pet VERSION 0.0.1 LANGUAGES CXX)

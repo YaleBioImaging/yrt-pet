@@ -167,14 +167,19 @@ void OSEM_GPU::allocateForRecon()
 	    std::make_unique<ImageDeviceOwned>(getImageParams(), getAuxStream());
 	mpd_mlemImageTmpEMRatio =
 	    std::make_unique<ImageDeviceOwned>(getImageParams(), getAuxStream());
-	mpd_mlemImageTmpPsf =
-	    std::make_unique<ImageDeviceOwned>(getImageParams(), getAuxStream());
 	mpd_sensImageBuffer =
 	    std::make_unique<ImageDeviceOwned>(getImageParams(), getAuxStream());
+
 	mpd_mlemImage->allocate(false);
 	mpd_mlemImageTmpEMRatio->allocate(false);
-	mpd_mlemImageTmpPsf->allocate(false);
 	mpd_sensImageBuffer->allocate(false);
+
+	if (flagImagePSF)
+	{
+		mpd_mlemImageTmpPsf =
+			std::make_unique<ImageDeviceOwned>(getImageParams(), getAuxStream());
+		mpd_mlemImageTmpPsf->allocate(false);
+	}
 
 	// Initialize the MLEM image values to non-zero
 	if (initialEstimate != nullptr)
@@ -190,27 +195,30 @@ void OSEM_GPU::allocateForRecon()
 	// unnecessarily)
 	if (maskImage != nullptr)
 	{
-		mpd_mlemImageTmpEMRatio->copyFromHostImage(maskImage);
+		mpd_mlemImageTmpEMRatio->copyFromHostImage(maskImage, true);
 	}
 	else if (num_OSEM_subsets == 1 || usingListModeInput)
 	{
 		// No need to sum all sensitivity images, just use the only one
-		mpd_mlemImageTmpEMRatio->copyFromHostImage(getSensitivityImage(0));
+		mpd_mlemImageTmpEMRatio->copyFromHostImage(getSensitivityImage(0),
+		                                           true);
 	}
 	else
 	{
 		std::cout << "Summing sensitivity images to generate mask image..."
 		          << std::endl;
+
 		for (int i = 0; i < num_OSEM_subsets; ++i)
 		{
-			mpd_sensImageBuffer->copyFromHostImage(getSensitivityImage(i));
-			mpd_sensImageBuffer->addFirstImageToSecond(
-			    mpd_mlemImageTmpEMRatio.get());
+			mpd_sensImageBuffer->copyFromHostImage(getSensitivityImage(i),
+			                                       false);
+			mpd_sensImageBuffer->addFirstImageToSecondDevice(
+			    mpd_mlemImageTmpEMRatio.get(), false);
 		}
 	}
-	mpd_mlemImage->applyThreshold(mpd_mlemImageTmpEMRatio.get(), 0.0f, 0.0f,
-	                              0.0f, 1.0f, 0.0f);
-	mpd_mlemImageTmpEMRatio->setValue(0.0f);
+	mpd_mlemImage->applyThresholdDevice(mpd_mlemImageTmpEMRatio.get(), 0.0f,
+	                                    0.0f, 0.0f, 1.0f, 0.0f, false);
+	mpd_mlemImageTmpEMRatio->setValueDevice(0.0f, false);
 
 	// Initialize device's sensitivity image with the host's
 	if (usingListModeInput)
@@ -219,13 +227,12 @@ void OSEM_GPU::allocateForRecon()
 		                                            true);
 	}
 
-	// Allocate projection-space buffers
-
 	// Use the already-computed BinIterators instead of recomputing them
 	std::vector<const BinIterator*> binIteratorPtrList;
 	for (const auto& subsetBinIter : getBinIterators())
 		binIteratorPtrList.push_back(subsetBinIter.get());
 
+	// Allocate projection-space buffers
 	const ProjectionData* dataInput = getDataInput();
 	auto dat = std::make_unique<ProjectionDataDeviceOwned>(
 	    scanner, dataInput, binIteratorPtrList, 0.4f);
@@ -293,6 +300,7 @@ ImageBase* OSEM_GPU::getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType type)
 	}
 	if (type == TemporaryImageSpaceBufferType::PSF)
 	{
+		ASSERT(flagImagePSF);
 		return mpd_mlemImageTmpPsf.get();
 	}
 	throw std::runtime_error("Unknown Temporary image type");
@@ -353,29 +361,6 @@ const ProjectionDataDeviceOwned* OSEM_GPU::getMLEMDataDeviceBuffer() const
 	return mpd_dat.get();
 }
 
-void OSEM_GPU::loadBatch(int batchId, bool forRecon)
-{
-	std::cout << "Loading batch " << batchId + 1 << "/"
-	          << getNumBatches(m_current_OSEM_subset, forRecon) << "..."
-	          << std::endl;
-	if (forRecon)
-	{
-		mpd_dat->loadEventLORs(m_current_OSEM_subset, batchId,
-		                       getAuxStream());
-		mpd_dat->allocateForProjValues(getAuxStream());
-		mpd_dat->loadProjValuesFromReference(getAuxStream());
-
-		mpd_datTmp->allocateForProjValues(getAuxStream());
-	}
-	else
-	{
-		mpd_tempSensDataInput->loadEventLORs(m_current_OSEM_subset, batchId,
-		                                     getAuxStream());
-		mpd_tempSensDataInput->allocateForProjValues(getAuxStream());
-		mpd_tempSensDataInput->loadProjValuesFromReference(getAuxStream());
-	}
-}
-
 void OSEM_GPU::loadSubset(int subsetId, bool forRecon)
 {
 	m_current_OSEM_subset = subsetId;
@@ -390,10 +375,9 @@ void OSEM_GPU::loadSubset(int subsetId, bool forRecon)
 
 void OSEM_GPU::addImagePSF(const std::string& p_imagePsf_fname)
 {
-	ASSERT_MSG(!p_imagePsf_fname.empty(),
-	           "Empty filename for Image-space PSF");
-	imagePsf = std::make_unique<OperatorPsfDevice>(p_imagePsf_fname,
-	                                                    getMainStream());
+	ASSERT_MSG(!p_imagePsf_fname.empty(), "Empty filename for Image-space PSF");
+	imagePsf =
+	    std::make_unique<OperatorPsfDevice>(p_imagePsf_fname, getMainStream());
 	flagImagePSF = true;
 }
 
@@ -409,9 +393,7 @@ void OSEM_GPU::computeEMUpdateImage(const ImageBase& inputImage,
 
 const cudaStream_t* OSEM_GPU::getAuxStream() const
 {
-	// TODO: Add parallel loading
-	// return &m_auxStream.getStream();
-	return &m_mainStream.getStream();
+	return &m_auxStream.getStream();
 }
 
 const cudaStream_t* OSEM_GPU::getMainStream() const

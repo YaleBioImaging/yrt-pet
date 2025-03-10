@@ -112,11 +112,25 @@ CUImageParams DeviceSynchronized::getCUImageParams(const ImageParams& imgParams)
 	return params;
 }
 
-DeviceSynchronized::DeviceSynchronized(bool p_synchronized,
-                               const cudaStream_t* pp_mainStream,
-                               const cudaStream_t* pp_auxStream)
+DeviceSynchronized::DeviceSynchronized(const cudaStream_t* pp_mainStream,
+                                       const cudaStream_t* pp_auxStream)
 {
-	m_synchronized = p_synchronized;
-	mp_mainStream = pp_mainStream;
-	mp_auxStream = pp_auxStream;
+	if (pp_mainStream != nullptr)
+	{
+		mp_mainStream = pp_mainStream;
+	}
+	else
+	{
+		mp_mainStreamPtr = std::make_unique<GPUStream>();
+		mp_mainStream = &mp_mainStreamPtr->getStream();
+	}
+	if (pp_auxStream != nullptr)
+	{
+		mp_auxStream = pp_auxStream;
+	}
+	else
+	{
+		mp_auxStreamPtr = std::make_unique<GPUStream>();
+		mp_auxStream = &mp_auxStreamPtr->getStream();
+	}
 }

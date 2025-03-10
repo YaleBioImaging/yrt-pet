@@ -13,113 +13,147 @@
 #include "omp.h"
 
 
-LORsDevice::LORsDevice(std::shared_ptr<ScannerDevice> pp_scannerDevice)
-    : mp_scannerDevice(std::move(pp_scannerDevice)),
-      m_areLORsGathered(false),
+LORsDevice::LORsDevice()
+    : m_hasTOF(false),
+      m_precomputedBatchSize(0ull),
+      m_precomputedBatchId(-1),
+      m_precomputedSubsetId(-1),
+      m_areLORsPrecomputed(false),
       m_loadedBatchSize(0ull),
-      m_loadedBatchId(0ull),
-      m_loadedSubsetId(0ull)
+      m_loadedBatchId(-1),
+      m_loadedSubsetId(-1)
 {
 	initializeDeviceArrays();
 }
 
-LORsDevice::LORsDevice(const Scanner& pr_scanner)
-    : m_areLORsGathered(false),
-      m_loadedBatchSize(0ull),
-      m_loadedBatchId(0ull),
-      m_loadedSubsetId(0ull)
+void LORsDevice::precomputeBatchLORs(const BinIterator& binIter,
+                                     const GPUBatchSetup& batchSetup,
+                                     int subsetId, int batchId,
+                                     const ProjectionData& reference)
 {
-	mp_scannerDevice = std::make_shared<ScannerDevice>(pr_scanner);
-	initializeDeviceArrays();
-}
-
-void LORsDevice::loadEventLORs(const BinIterator& binIter,
-                               const GPUBatchSetup& batchSetup, size_t subsetId,
-                               size_t batchId, const ProjectionData& reference,
-                               const cudaStream_t* stream)
-{
-	m_areLORsGathered = false;
-	const bool hasTOF = reference.hasTOF();
-
-	const size_t batchSize = batchSetup.getBatchSize(batchId);
-
-	m_tempLorDet1Pos.reAllocateIfNeeded(batchSize);
-	m_tempLorDet2Pos.reAllocateIfNeeded(batchSize);
-	m_tempLorDet1Orient.reAllocateIfNeeded(batchSize);
-	m_tempLorDet2Orient.reAllocateIfNeeded(batchSize);
-	float4* tempBufferLorDet1Pos_ptr = m_tempLorDet1Pos.getPointer();
-	float4* tempBufferLorDet2Pos_ptr = m_tempLorDet2Pos.getPointer();
-	float4* tempBufferLorDet1Orient_ptr = m_tempLorDet1Orient.getPointer();
-	float4* tempBufferLorDet2Orient_ptr = m_tempLorDet2Orient.getPointer();
-
-	PageLockedBuffer<float> tempBufferLorTOFValue;
-	if (hasTOF)
+	if (m_precomputedSubsetId != subsetId || m_precomputedBatchId != batchId ||
+	    m_areLORsPrecomputed == false)
 	{
-		tempBufferLorTOFValue.allocate(batchSize);
-	}
-	float* tempBufferLorTOFValue_ptr = tempBufferLorTOFValue.getPointer();
+		m_areLORsPrecomputed = false;
+		m_hasTOF = reference.hasTOF();
 
-	const size_t offset = batchId * batchSetup.getBatchSize(0);
-	auto* binIter_ptr = &binIter;
-	const ProjectionData* reference_ptr = &reference;
+		const size_t batchSize = batchSetup.getBatchSize(batchId);
 
-	bin_t binId;
-	size_t binIdx;
+		m_tempLorDet1Pos.reAllocateIfNeeded(batchSize);
+		m_tempLorDet2Pos.reAllocateIfNeeded(batchSize);
+		m_tempLorDet1Orient.reAllocateIfNeeded(batchSize);
+		m_tempLorDet2Orient.reAllocateIfNeeded(batchSize);
+		float4* tempBufferLorDet1Pos_ptr = m_tempLorDet1Pos.getPointer();
+		float4* tempBufferLorDet2Pos_ptr = m_tempLorDet2Pos.getPointer();
+		float4* tempBufferLorDet1Orient_ptr = m_tempLorDet1Orient.getPointer();
+		float4* tempBufferLorDet2Orient_ptr = m_tempLorDet2Orient.getPointer();
+
+		float* tempBufferLorTOFValue_ptr = nullptr;
+		if (m_hasTOF)
+		{
+			m_tempLorTOFValue.reAllocateIfNeeded(batchSize);
+			tempBufferLorTOFValue_ptr = m_tempLorTOFValue.getPointer();
+		}
+
+		const size_t offset = batchId * batchSetup.getBatchSize(0);
+		auto* binIter_ptr = &binIter;
+		const ProjectionData* reference_ptr = &reference;
+
+		bin_t binId;
+		size_t binIdx;
 #pragma omp parallel for default(none) private(binIdx, binId)                \
     firstprivate(offset, batchSize, binIter_ptr, tempBufferLorDet1Pos_ptr,   \
                      tempBufferLorDet2Pos_ptr, tempBufferLorDet1Orient_ptr,  \
                      tempBufferLorDet2Orient_ptr, tempBufferLorTOFValue_ptr, \
-                     reference_ptr, hasTOF)
-	for (binIdx = 0; binIdx < batchSize; binIdx++)
-	{
-		binId = binIter_ptr->get(binIdx + offset);
-		auto [lor, tofValue, det1Orient, det2Orient] =
-		    reference_ptr->getProjectionProperties(binId);
-
-		tempBufferLorDet1Pos_ptr[binIdx].x = lor.point1.x;
-		tempBufferLorDet1Pos_ptr[binIdx].y = lor.point1.y;
-		tempBufferLorDet1Pos_ptr[binIdx].z = lor.point1.z;
-		tempBufferLorDet2Pos_ptr[binIdx].x = lor.point2.x;
-		tempBufferLorDet2Pos_ptr[binIdx].y = lor.point2.y;
-		tempBufferLorDet2Pos_ptr[binIdx].z = lor.point2.z;
-		tempBufferLorDet1Orient_ptr[binIdx].x = det1Orient.x;
-		tempBufferLorDet1Orient_ptr[binIdx].y = det1Orient.y;
-		tempBufferLorDet1Orient_ptr[binIdx].z = det1Orient.z;
-		tempBufferLorDet2Orient_ptr[binIdx].x = det2Orient.x;
-		tempBufferLorDet2Orient_ptr[binIdx].y = det2Orient.y;
-		tempBufferLorDet2Orient_ptr[binIdx].z = det2Orient.z;
-		if (hasTOF)
+                     reference_ptr, m_hasTOF)
+		for (binIdx = 0; binIdx < batchSize; binIdx++)
 		{
-			tempBufferLorTOFValue_ptr[binIdx] = tofValue;
+			binId = binIter_ptr->get(binIdx + offset);
+			auto [lor, tofValue, det1Orient, det2Orient] =
+			    reference_ptr->getProjectionProperties(binId);
+
+			tempBufferLorDet1Pos_ptr[binIdx].x = lor.point1.x;
+			tempBufferLorDet1Pos_ptr[binIdx].y = lor.point1.y;
+			tempBufferLorDet1Pos_ptr[binIdx].z = lor.point1.z;
+			tempBufferLorDet2Pos_ptr[binIdx].x = lor.point2.x;
+			tempBufferLorDet2Pos_ptr[binIdx].y = lor.point2.y;
+			tempBufferLorDet2Pos_ptr[binIdx].z = lor.point2.z;
+			tempBufferLorDet1Orient_ptr[binIdx].x = det1Orient.x;
+			tempBufferLorDet1Orient_ptr[binIdx].y = det1Orient.y;
+			tempBufferLorDet1Orient_ptr[binIdx].z = det1Orient.z;
+			tempBufferLorDet2Orient_ptr[binIdx].x = det2Orient.x;
+			tempBufferLorDet2Orient_ptr[binIdx].y = det2Orient.y;
+			tempBufferLorDet2Orient_ptr[binIdx].z = det2Orient.z;
+			if (m_hasTOF)
+			{
+				tempBufferLorTOFValue_ptr[binIdx] = tofValue;
+			}
 		}
+
+		m_precomputedBatchSize = batchSize;
+		m_precomputedBatchId = batchId;
+		m_precomputedSubsetId = subsetId;
 	}
 
-	m_loadedBatchSize = batchSize;
-	m_loadedBatchId = batchId;
-	m_loadedSubsetId = subsetId;
+	m_areLORsPrecomputed = true;
+}
 
-	allocateForLORs(hasTOF, stream);
+void LORsDevice::loadPrecomputedLORsToDevice(GPULaunchConfig launchConfig)
+{
+	const cudaStream_t* stream = launchConfig.stream;
 
-	mp_lorDet1Pos->copyFromHost(tempBufferLorDet1Pos_ptr, batchSize, stream,
-	                            false);
-	mp_lorDet2Pos->copyFromHost(tempBufferLorDet2Pos_ptr, batchSize, stream,
-	                            false);
-	mp_lorDet1Orient->copyFromHost(tempBufferLorDet1Orient_ptr, batchSize,
-	                               stream, false);
-	mp_lorDet2Orient->copyFromHost(tempBufferLorDet2Orient_ptr, batchSize,
-	                               stream, false);
-	if (hasTOF)
+	if (m_loadedSubsetId != m_precomputedSubsetId ||
+	    m_loadedBatchId != m_precomputedBatchId)
 	{
-		mp_lorTOFValue->copyFromHost(tempBufferLorTOFValue_ptr, batchSize,
-		                             stream, false);
-	}
+		allocateForPrecomputedLORsIfNeeded({stream, false});
 
-	if (stream != nullptr)
-	{
-		cudaStreamSynchronize(*stream);
-	}
+		mp_lorDet1Pos->copyFromHost(m_tempLorDet1Pos.getPointer(),
+		                            m_precomputedBatchSize, {stream, false});
+		mp_lorDet2Pos->copyFromHost(m_tempLorDet2Pos.getPointer(),
+		                            m_precomputedBatchSize, {stream, false});
+		mp_lorDet1Orient->copyFromHost(m_tempLorDet1Orient.getPointer(),
+		                               m_precomputedBatchSize, {stream, false});
+		mp_lorDet2Orient->copyFromHost(m_tempLorDet2Orient.getPointer(),
+		                               m_precomputedBatchSize, {stream, false});
+		if (m_hasTOF)
+		{
+			mp_lorTOFValue->copyFromHost(m_tempLorTOFValue.getPointer(),
+			                             m_precomputedBatchSize,
+			                             {stream, false});
+		}
 
-	m_areLORsGathered = true;
+		// In case the LOR loading is done for other reasons than projections
+		if (launchConfig.synchronize == true)
+		{
+			if (stream != nullptr)
+			{
+				cudaStreamSynchronize(*stream);
+			}
+			else
+			{
+				cudaDeviceSynchronize();
+			}
+		}
+
+		m_loadedBatchSize = m_precomputedBatchSize;
+		m_loadedBatchId = m_precomputedBatchId;
+		m_loadedSubsetId = m_precomputedSubsetId;
+	}
+}
+
+size_t LORsDevice::getPrecomputedBatchSize() const
+{
+	return m_precomputedBatchSize;
+}
+
+int LORsDevice::getPrecomputedBatchId() const
+{
+	return m_precomputedBatchId;
+}
+
+int LORsDevice::getPrecomputedSubsetId() const
+{
+	return m_precomputedSubsetId;
 }
 
 void LORsDevice::initializeDeviceArrays()
@@ -131,37 +165,38 @@ void LORsDevice::initializeDeviceArrays()
 	mp_lorTOFValue = std::make_unique<DeviceArray<float>>();
 }
 
-void LORsDevice::allocateForLORs(bool hasTOF, const cudaStream_t* stream)
+void LORsDevice::allocateForPrecomputedLORsIfNeeded(
+    GPULaunchConfig launchConfig)
 {
-	ASSERT_MSG(m_loadedBatchSize > 0, "No batch loaded");
+	ASSERT_MSG(m_precomputedBatchSize > 0, "No batch of LORs precomputed");
 	bool hasAllocated = false;
 
-	hasAllocated |= mp_lorDet1Pos->allocate(m_loadedBatchSize, stream, false);
-	hasAllocated |= mp_lorDet2Pos->allocate(m_loadedBatchSize, stream, false);
-	hasAllocated |=
-	    mp_lorDet1Orient->allocate(m_loadedBatchSize, stream, false);
-	hasAllocated |=
-	    mp_lorDet2Orient->allocate(m_loadedBatchSize, stream, false);
-	if (hasTOF)
+	hasAllocated |= mp_lorDet1Pos->allocate(m_precomputedBatchSize,
+	                                        {launchConfig.stream, false});
+	hasAllocated |= mp_lorDet2Pos->allocate(m_precomputedBatchSize,
+	                                        {launchConfig.stream, false});
+	hasAllocated |= mp_lorDet1Orient->allocate(m_precomputedBatchSize,
+	                                           {launchConfig.stream, false});
+	hasAllocated |= mp_lorDet2Orient->allocate(m_precomputedBatchSize,
+	                                           {launchConfig.stream, false});
+	if (m_hasTOF)
 	{
-		hasAllocated |=
-		    mp_lorTOFValue->allocate(m_loadedBatchSize, stream, false);
+		hasAllocated |= mp_lorTOFValue->allocate(m_precomputedBatchSize,
+		                                         {launchConfig.stream, false});
 	}
 
-	if (hasAllocated && stream != nullptr)
+	if (hasAllocated &&
+	    launchConfig.synchronize)
 	{
-		cudaStreamSynchronize(*stream);
+		if ( launchConfig.stream != nullptr)
+		{
+			cudaStreamSynchronize(*launchConfig.stream);
+		}
+		else
+		{
+			cudaDeviceSynchronize();
+		}
 	}
-}
-
-std::shared_ptr<ScannerDevice> LORsDevice::getScannerDevice() const
-{
-	return mp_scannerDevice;
-}
-
-const Scanner& LORsDevice::getScanner() const
-{
-	return mp_scannerDevice->getScanner();
 }
 
 const float4* LORsDevice::getLorDet1PosDevicePointer() const
@@ -216,7 +251,7 @@ float* LORsDevice::getLorTOFValueDevicePointer()
 
 bool LORsDevice::areLORsGathered() const
 {
-	return m_areLORsGathered;
+	return m_areLORsPrecomputed;
 }
 
 size_t LORsDevice::getLoadedBatchSize() const
@@ -224,12 +259,12 @@ size_t LORsDevice::getLoadedBatchSize() const
 	return m_loadedBatchSize;
 }
 
-size_t LORsDevice::getLoadedBatchId() const
+int LORsDevice::getLoadedBatchId() const
 {
 	return m_loadedBatchId;
 }
 
-size_t LORsDevice::getLoadedSubsetId() const
+int LORsDevice::getLoadedSubsetId() const
 {
 	return m_loadedSubsetId;
 }

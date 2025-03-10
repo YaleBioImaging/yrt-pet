@@ -11,18 +11,18 @@ ProjectionPsfManagerDevice::ProjectionPsfManagerDevice(
     const std::string& psfFilename, const cudaStream_t* pp_stream)
     : ProjectionPsfManager{}
 {
-	readFromFileInternal(psfFilename, pp_stream);
+	readFromFileInternal(psfFilename, {pp_stream, true});
 }
 
 void ProjectionPsfManagerDevice::readFromFile(const std::string& psfFilename)
 {
-	readFromFileInternal(psfFilename, nullptr);
+	readFromFileInternal(psfFilename, {nullptr, true});
 }
 
 void ProjectionPsfManagerDevice::readFromFile(const std::string& psfFilename,
-                                              const cudaStream_t* pp_stream)
+                                              GPULaunchConfig launchConfig)
 {
-	readFromFileInternal(psfFilename, pp_stream);
+	readFromFileInternal(psfFilename, launchConfig);
 }
 
 ProjectionPsfProperties
@@ -43,14 +43,14 @@ const float* ProjectionPsfManagerDevice::getFlippedKernelsDevicePointer() const
 }
 
 void ProjectionPsfManagerDevice::readFromFileInternal(
-    const std::string& psfFilename, const cudaStream_t* pp_stream)
+    const std::string& psfFilename, GPULaunchConfig launchConfig)
 {
 	ProjectionPsfManager::readFromFile(psfFilename);
-	copyKernelsToDevice(pp_stream);
+	copyKernelsToDevice(launchConfig);
 }
 
 void ProjectionPsfManagerDevice::copyKernelsToDevice(
-    const cudaStream_t* pp_stream)
+    GPULaunchConfig launchConfig)
 {
 	// TODO: Copy kernels to device
 	const size_t kernelSize = m_kernels.getSizeTotal();
@@ -58,20 +58,17 @@ void ProjectionPsfManagerDevice::copyKernelsToDevice(
 
 	if (mpd_kernels == nullptr)
 	{
-		mpd_kernels =
-		    std::make_unique<DeviceArray<float>>(kernelSize, pp_stream);
+		mpd_kernels = std::make_unique<DeviceArray<float>>(kernelSize,
+		                                                   launchConfig.stream);
 	}
 	if (mpd_kernelsFlipped == nullptr)
 	{
-		mpd_kernelsFlipped =
-		    std::make_unique<DeviceArray<float>>(kernelSize, pp_stream);
+		mpd_kernelsFlipped = std::make_unique<DeviceArray<float>>(
+		    kernelSize, launchConfig.stream);
 	}
 
-	mpd_kernels->copyFromHost(m_kernels.getRawPointer(), kernelSize, pp_stream);
+	mpd_kernels->copyFromHost(m_kernels.getRawPointer(), kernelSize,
+	                          {launchConfig.stream, false});
 	mpd_kernelsFlipped->copyFromHost(m_kernelsFlipped.getRawPointer(),
-	                                 kernelSize, pp_stream);
-	if (pp_stream != nullptr)
-	{
-		cudaStreamSynchronize(*pp_stream);
-	}
+	                                 kernelSize, launchConfig);
 }

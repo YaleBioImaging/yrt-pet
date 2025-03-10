@@ -14,14 +14,15 @@ ScannerDevice::ScannerDevice(const Scanner& pr_scanner,
 {
 	mpd_detPos = std::make_unique<DeviceArray<float4>>();
 	mpd_detOrient = std::make_unique<DeviceArray<float4>>();
-	load(pp_stream);
+	// Constructors should be synchronized
+	load({pp_stream, true});
 }
 
-void ScannerDevice::load(const cudaStream_t* stream)
+void ScannerDevice::load(GPULaunchConfig p_launchConfig)
 {
 	if (!isAllocated)
 	{
-		allocate(stream);
+		allocate(p_launchConfig);
 	}
 
 	// We use a single large buffer to store two sets of data
@@ -45,16 +46,16 @@ void ScannerDevice::load(const cudaStream_t* stream)
 		ph_detOrient[id_det].z = detectorSetup->getZorient(id_det);
 	}
 
-	mpd_detOrient->copyFromHost(ph_detOrient, numDets, stream);
-	mpd_detPos->copyFromHost(ph_detPos, numDets, stream);
+	mpd_detOrient->copyFromHost(ph_detOrient, numDets, p_launchConfig);
+	mpd_detPos->copyFromHost(ph_detPos, numDets, p_launchConfig);
 	isLoaded = true;
 }
 
-void ScannerDevice::allocate(const cudaStream_t* stream)
+void ScannerDevice::allocate(GPULaunchConfig p_launchConfig)
 {
 	const size_t numDets = mr_scanner.getNumDets();
-	mpd_detPos->allocate(numDets, stream);
-	mpd_detOrient->allocate(numDets, stream);
+	mpd_detPos->allocate(numDets, p_launchConfig);
+	mpd_detOrient->allocate(numDets, p_launchConfig);
 	isAllocated = true;
 }
 

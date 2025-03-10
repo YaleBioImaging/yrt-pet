@@ -50,7 +50,6 @@ protected:
 	ProjectionData* getMLEMDataTmpBuffer() override;
 
 	// Common methods
-	void loadBatch(int batchId, bool forRecon) override;
 	void loadSubset(int subsetId, bool forRecon) override;
 	void computeEMUpdateImage(const ImageBase& inputImage,
 	                          ImageBase& destImage) override;

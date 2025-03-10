@@ -19,22 +19,22 @@ public:
 		m_size = 0;
 		if (p_size > 0)
 		{
-			allocate(p_size, stream, true);
+			// Constructors should be synchronous
+			allocate(p_size, {stream, true});
 		}
 	}
 
-	~DeviceArray() { Deallocate(); }
+	~DeviceArray() { Deallocate({nullptr, true}); }
 
-	bool allocate(size_t p_size, const cudaStream_t* stream = nullptr,
-	              bool synchronize = true)
+	bool allocate(size_t p_size, GPULaunchConfig p_launchConfig)
 	{
 		if (p_size > m_size)
 		{
 			if (m_size > 0)
 			{
-				Deallocate(stream);
+				Deallocate(p_launchConfig);
 			}
-			Util::allocateDevice(&mpd_data, p_size, stream, synchronize);
+			Util::allocateDevice(&mpd_data, p_size, p_launchConfig);
 			m_size = p_size;
 			return true;
 		}
@@ -42,33 +42,27 @@ public:
 	}
 
 	void copyFromHost(const T* source, size_t numElements,
-	                  const cudaStream_t* stream = nullptr,
-	                  bool synchronize = true)
+	                  GPULaunchConfig p_launchConfig)
 	{
-		Util::copyHostToDevice(mpd_data, source, numElements, stream,
-		                       synchronize);
+		Util::copyHostToDevice(mpd_data, source, numElements, p_launchConfig);
 	}
 
 	void copyToHost(T* dest, size_t numElements,
-	                const cudaStream_t* stream = nullptr,
-	                bool synchronize = true)
+	                GPULaunchConfig p_launchConfig)
 	{
-		Util::copyDeviceToHost(dest, mpd_data, numElements, stream,
-		                       synchronize);
+		Util::copyDeviceToHost(dest, mpd_data, numElements, p_launchConfig);
 	}
 
-	void memset(int value, const cudaStream_t* stream = nullptr,
-	            bool synchronize = true)
+	void memset(int value, GPULaunchConfig p_launchConfig)
 	{
-		Util::memsetDevice(mpd_data, value, m_size, stream, synchronize);
+		Util::memsetDevice(mpd_data, value, m_size, p_launchConfig);
 	}
 
-	void Deallocate(const cudaStream_t* stream = nullptr,
-	                bool synchronize = true)
+	void Deallocate(GPULaunchConfig p_launchConfig)
 	{
 		if (m_size > 0)
 		{
-			Util::deallocateDevice(mpd_data, stream, synchronize);
+			Util::deallocateDevice(mpd_data, p_launchConfig);
 			mpd_data = nullptr;
 			m_size = 0;
 		}

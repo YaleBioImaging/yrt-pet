@@ -7,6 +7,7 @@
 
 #include "Assert.hpp"
 
+#include <driver_types.h>
 #include <vector_types.h>
 
 class GPUBatchSetup
@@ -32,20 +33,30 @@ public:
 			lastBatchSize = batchSize;
 		}
 	}
-	[[nodiscard]] size_t getBatchSize(size_t batchId) const
+	[[nodiscard]] size_t getBatchSize(int batchId) const
 	{
+		ASSERT(batchId < numBatches);
 		if (batchId == numBatches - 1)
 		{
 			return lastBatchSize;
 		}
 		return batchSize;
 	}
-	[[nodiscard]] size_t getNumBatches() const { return numBatches; }
+	[[nodiscard]] int getNumBatches() const { return numBatches; }
 
 private:
 	size_t batchSize;
 	size_t lastBatchSize;
-	size_t numBatches;
+	int numBatches;
+};
+
+// Structure encoding how a kernel should be called
+struct GPULaunchConfig
+{
+	// Which stream to run
+	const cudaStream_t* stream = nullptr;
+	// Whether to synchronize after the operation or not
+	bool synchronize = true;
 };
 
 struct GPULaunchParams

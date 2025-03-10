@@ -102,35 +102,35 @@ class BiggerUNet3D(nn.Module):
 
         dec5 = self.upconv5(bottleneck)
         dec5 = F.interpolate(
-            dec5, size=enc5.shape[2:], mode="trilinear", align_corners=False
+            dec5, size=enc5.shape[2:], mode="trilinear", align_corners=True
         )  # Adjust size
         dec5 = torch.cat((dec5, enc5), dim=1)
         dec5 = self.decoder5(dec5)
 
         dec4 = self.upconv4(dec5)
         dec4 = F.interpolate(
-            dec4, size=enc4.shape[2:], mode="trilinear", align_corners=False
+            dec4, size=enc4.shape[2:], mode="trilinear", align_corners=True
         )  # Adjust size
         dec4 = torch.cat((dec4, enc4), dim=1)
         dec4 = self.decoder4(dec4)
 
         dec3 = self.upconv3(dec4)
         dec3 = F.interpolate(
-            dec3, size=enc3.shape[2:], mode="trilinear", align_corners=False
+            dec3, size=enc3.shape[2:], mode="trilinear", align_corners=True
         )  # Adjust size
         dec3 = torch.cat((dec3, enc3), dim=1)
         dec3 = self.decoder3(dec3)
 
         dec2 = self.upconv2(dec3)
         dec2 = F.interpolate(
-            dec2, size=enc2.shape[2:], mode="trilinear", align_corners=False
+            dec2, size=enc2.shape[2:], mode="trilinear", align_corners=True
         )  # Adjust size
         dec2 = torch.cat((dec2, enc2), dim=1)
         dec2 = self.decoder2(dec2)
 
         dec1 = self.upconv1(dec2)
         dec1 = F.interpolate(
-            dec1, size=enc1.shape[2:], mode="trilinear", align_corners=False
+            dec1, size=enc1.shape[2:], mode="trilinear", align_corners=True
         )  # Adjust size
         dec1 = torch.cat((dec1, enc1), dim=1)
         dec1 = self.decoder1(dec1)

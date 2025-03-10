@@ -8,143 +8,111 @@ import sys
 import numpy as np
 import torch.nn.functional as F
 from torch.autograd import Function
-import matplotlib.pyplot as plt
 import pyyrtpet as yrt
 
 
 # 3D Unet architecture for Deep image prior reconstruction using a forward model
 # from pyyrtpet
-class BiggerUNet3D(nn.Module):
+class UNet3D(nn.Module):
     def __init__(self, in_channels=1, out_channels=1, init_features=16):
-        super(BiggerUNet3D, self).__init__()
+        super(UNet3D, self).__init__()
 
         features = init_features
+        # 16 features -> 32 features
         self.encoder1 = self._block(in_channels, features)
-        self.pool1 = nn.Conv3d(features, features, kernel_size=3, stride=2, padding=1)
-
-        self.encoder2 = self._block(features, features * 2)
-        self.pool2 = nn.Conv3d(
-            features * 2, features * 2, kernel_size=3, stride=2, padding=1
+        self.downsampler1 = nn.Conv3d(
+            features, features * 2, kernel_size=3, stride=2, padding=1
         )
-
-        self.encoder3 = self._block(features * 2, features * 4)
-        self.pool3 = nn.Conv3d(
-            features * 4, features * 4, kernel_size=3, stride=2, padding=1
+        # 32 features -> 64 features
+        self.encoder2 = self._block(features * 2, features * 2)
+        self.downsampler2 = nn.Conv3d(
+            features * 2, features * 4, kernel_size=3, stride=2, padding=1
         )
-
-        self.encoder4 = self._block(features * 4, features * 8)
-        self.pool4 = nn.Conv3d(
-            features * 8, features * 8, kernel_size=3, stride=2, padding=1
+        # 64 features -> 128 features
+        self.encoder3 = self._block(features * 4, features * 4)
+        self.downsampler3 = nn.Conv3d(
+            features * 4, features * 8, kernel_size=3, stride=2, padding=1
         )
+        # 128 features -> 128 features
+        self.bottleneck = self._block(features * 8, features * 8)
 
-        self.encoder5 = self._block(features * 8, features * 16)
-        self.pool5 = nn.Conv3d(
-            features * 16, features * 16, kernel_size=3, stride=2, padding=1
-        )
-
-        self.bottleneck = self._block(features * 16, features * 32)
-
-        self.upconv5 = nn.ConvTranspose3d(
-            features * 32,
-            features * 16,
-            kernel_size=3,
-            stride=2,
-            padding=1,
-            output_padding=1,
-        )
-        self.decoder5 = self._block((features * 16) * 2, features * 16)
-
-        self.upconv4 = nn.ConvTranspose3d(
-            features * 16,
-            features * 8,
-            kernel_size=3,
-            stride=2,
-            padding=1,
-            output_padding=1,
-        )
-        self.decoder4 = self._block((features * 8) * 2, features * 8)
-
-        self.upconv3 = nn.ConvTranspose3d(
+        # Transpose conv
+        self.conv_trans3 = nn.ConvTranspose3d(
             features * 8,
             features * 4,
             kernel_size=3,
-            stride=2,
-            padding=1,
-            output_padding=1,
+            stride=1,
         )
-        self.decoder3 = self._block((features * 4) * 2, features * 4)
+        # Upsampler here
+        self.decoder3 = self._block(features * 8, features * 4)
 
-        self.upconv2 = nn.ConvTranspose3d(
+        self.conv_trans2 = nn.ConvTranspose3d(
             features * 4,
             features * 2,
             kernel_size=3,
-            stride=2,
-            padding=1,
-            output_padding=1,
+            stride=1,
         )
-        self.decoder2 = self._block((features * 2) * 2, features * 2)
+        # Upsampler here
+        self.decoder2 = self._block(features * 4, features * 2)
 
-        self.upconv1 = nn.ConvTranspose3d(
-            features * 2, features, kernel_size=3, stride=2, padding=1, output_padding=1
+        self.conv_trans1 = nn.ConvTranspose3d(
+            features * 2,
+            features,
+            kernel_size=3,
+            stride=1,
         )
+        # Upsampler here
         self.decoder1 = self._block(features * 2, features)
 
-        self.conv = nn.Conv3d(features, out_channels, kernel_size=1)
+        self.conv_and_relu = nn.Sequential(
+            nn.Conv3d(features, out_channels, kernel_size=1), nn.ReLU(inplace=True)
+        )
 
     def forward(self, x):
         enc1 = self.encoder1(x)
-        enc2 = self.encoder2(self.pool1(enc1))
-        enc3 = self.encoder3(self.pool2(enc2))
-        enc4 = self.encoder4(self.pool3(enc3))
-        enc5 = self.encoder5(self.pool4(enc4))
+        enc1_d = self.downsampler1(enc1)
+        
+        enc2 = self.encoder2(enc1_d)
+        enc2_d = self.downsampler2(enc2)
+        
+        enc3 = self.encoder3(enc2_d)
+        enc3_d = self.downsampler3(enc3)
 
-        bottleneck = self.bottleneck(self.pool5(enc5))
+        t_bottleneck = self.bottleneck(enc3_d)
 
-        dec5 = self.upconv5(bottleneck)
-        dec5 = F.interpolate(
-            dec5, size=enc5.shape[2:], mode="trilinear", align_corners=True
-        )  # Adjust size
-        dec5 = torch.cat((dec5, enc5), dim=1)
-        dec5 = self.decoder5(dec5)
-
-        dec4 = self.upconv4(dec5)
-        dec4 = F.interpolate(
-            dec4, size=enc4.shape[2:], mode="trilinear", align_corners=True
-        )  # Adjust size
-        dec4 = torch.cat((dec4, enc4), dim=1)
-        dec4 = self.decoder4(dec4)
-
-        dec3 = self.upconv3(dec4)
+        dec3 = self.conv_trans3(t_bottleneck)
         dec3 = F.interpolate(
-            dec3, size=enc3.shape[2:], mode="trilinear", align_corners=True
-        )  # Adjust size
-        dec3 = torch.cat((dec3, enc3), dim=1)
+            dec3, size=enc3.shape[2:], mode="trilinear", align_corners=False
+        )
+        dec3 = torch.cat((dec3, enc3), dim=1)  # 1 is channel dimension
         dec3 = self.decoder3(dec3)
 
-        dec2 = self.upconv2(dec3)
+        dec2 = self.conv_trans2(dec3)
         dec2 = F.interpolate(
-            dec2, size=enc2.shape[2:], mode="trilinear", align_corners=True
-        )  # Adjust size
+            dec2, size=enc2.shape[2:], mode="trilinear", align_corners=False
+        )
         dec2 = torch.cat((dec2, enc2), dim=1)
         dec2 = self.decoder2(dec2)
 
-        dec1 = self.upconv1(dec2)
+        dec1 = self.conv_trans1(dec2)
         dec1 = F.interpolate(
-            dec1, size=enc1.shape[2:], mode="trilinear", align_corners=True
-        )  # Adjust size
+            dec1, size=enc1.shape[2:], mode="trilinear", align_corners=False
+        )
         dec1 = torch.cat((dec1, enc1), dim=1)
         dec1 = self.decoder1(dec1)
 
-        return F.relu(self.conv(dec1))
+        y = self.conv_and_relu(dec1)
+
+        return y
 
     @staticmethod
-    def _block(in_channels, features):
+    def _block(in_channels, num_features):
         return nn.Sequential(
-            nn.Conv3d(in_channels, features, kernel_size=3, padding=1),
-            nn.BatchNorm3d(features),
+            nn.Conv3d(in_channels, num_features, kernel_size=3, padding=1),
+            nn.BatchNorm3d(num_features),
             nn.LeakyReLU(inplace=True),
-            nn.Conv3d(features, features, kernel_size=3, padding=1),
-            nn.BatchNorm3d(features),
+            nn.Conv3d(num_features, num_features, kernel_size=3, padding=1),
+            nn.BatchNorm3d(num_features),
             nn.LeakyReLU(inplace=True),
         )
 
@@ -224,44 +192,6 @@ def save_array_to_nifti_image(
     array_np = np.require(array, dtype=np.float32, requirements=["C_CONTIGUOUS"])
     img_yrt.bind(array_np)
     img_yrt.writeToFile(filename)
-
-
-def zero_outside_largest_fitting_circle(image):
-    """
-    Args:
-        image: 3D PyTorch tensor of shape (z, y, x)
-
-    Returns:
-        Masked image where voxels outside the largest
-        inscribed circle in each XY plane are set to zero.
-    """
-    x_size = image.shape[-1]
-    y_size = image.shape[-2]
-    z_size = image.shape[-3]
-
-    # Calculate center coordinates (cx, cy) and radius
-    radius = min(y_size - 1, x_size - 1) // 2
-    cx = x_size / 2.0  # Center x-coordinate (96.5 for 192)
-    cy = y_size / 2.0  # Center y-coordinate (96.5 for 192)
-    if x_size % 2 == 0:
-        cx += 0.5
-    if y_size % 2 == 0:
-        cy += 0.5
-
-    # Create grid of (y, x) coordinates
-    y_indices = torch.arange(y_size, dtype=torch.float32, device=image.device)
-    x_indices = torch.arange(x_size, dtype=torch.float32, device=image.device)
-    y_grid, x_grid = torch.meshgrid(y_indices, x_indices, indexing="ij")
-
-    # Compute squared distance from center for each voxel in XY plane
-    distance_sq = (x_grid - cx) ** 2 + (y_grid - cy) ** 2
-    mask = distance_sq <= radius**2  # Boolean mask for circle
-
-    # Convert mask to same dtype as image and expand for broadcasting
-    mask = mask.to(image.dtype).unsqueeze(0)  # Shape: (1, y_size, x_size)
-
-    # Apply mask to all Z-slices
-    return image * mask
 
 
 # Main
@@ -424,7 +354,7 @@ if __name__ == "__main__":
     # Assuming the output is also a single-channel image
     output_channels = input_channels
 
-    model = BiggerUNet3D().to(device)
+    model = UNet3D().to(device)
 
     # Initialize the network input as either prior or noise
     print("Initializing neural network input...")

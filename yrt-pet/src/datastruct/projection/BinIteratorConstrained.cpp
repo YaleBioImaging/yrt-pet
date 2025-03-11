@@ -53,6 +53,21 @@ std::vector<std::string> ConstraintDetectorMask::getVariables() const
 	return {"det1", "det2"};
 }
 
+// Histogram subset
+ConstraintHistoSubset::ConstraintHistoSubset(int pNumSubsets, int pSubsetIdx)
+{
+	mConstraintFcn = [pNumSubsets, pSubsetIdx](constraint_params info)
+	{
+		return scanner->isDetectorAllowed(info["det1"]) &&
+			scanner->isDetectorAllowed(info["det2"]);
+	};
+}
+std::vector<std::string> ConstraintHistoSubset::getVariables() const
+{
+	return {"det1", "det2"};
+}
+
+
 // Constrained bin iterator
 BinIteratorConstrained::BinIteratorConstrained(size_t pNumBins,
                                                int pQueueSizeMax)

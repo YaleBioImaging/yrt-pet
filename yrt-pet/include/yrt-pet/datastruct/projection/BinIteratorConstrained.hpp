@@ -85,6 +85,14 @@ public:
 	ConstraintDetectorMask(Scanner* scanner);
 	std::vector<std::string> getVariables() const override;
 };
+class ConstraintHistoSubset : public Constraint
+{
+public:
+	ConstraintHistoSubset(size_t p_numZBin, size_t p_numPhi,
+	                      size_t p_numR, int p_numSubsets,
+	                      int p_idxSubset);
+	std::vector<std::string> getVariables() const override;
+};
 
 class BinIteratorConstrained
 {

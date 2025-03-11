@@ -10,3 +10,4 @@ GTAGS
 .*cache/
 compile_commands.json
 /build*/
+docs/build/

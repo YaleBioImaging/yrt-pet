@@ -1,0 +1,49 @@
+/*
+ * This file is subject to the terms and conditions defined in
+ * file 'LICENSE.txt', which is part of this source code package.
+ */
+
+ #pragma once
+
+ #include "datastruct/image/Image.hpp"
+ #include "operators/Operator.hpp"
+ 
+ #include <vector>
+
+ struct Sigma 
+ {
+    float x, y, z;
+    float sigmax, sigmay, sigmaz;
+ };
+
+ class OperatorVarPsf : public Operator
+ {
+ public:
+     OperatorVarPsf();
+     explicit OperatorVarPsf(const std::string& imageVarPsf_fname);
+     ~OperatorVarPsf() override = default;
+ 
+     virtual void readFromFile(const std::string& imageVarPsf_fname);
+ 
+     void applyA(const Variable* in, Variable* out) override;
+     void applyAH(const Variable* in, Variable* out) override;
+    //Need redesign, or use another mechnism
+     virtual void varconvolve(const Image* in, Image* out) const;
+ 
+ protected:
+     Sigma find_nearest_sigma(const std::vector<Sigma> &sigma_lookup, float x, float y, float z) const;
+ 
+ private:
+     void readFromFileInternal(const std::string& imageVarPsf_fname);
+     mutable std::vector<float> m_buffer_tmp;
+     std::vector<Sigma> sigma_lookup;
+     const float kernel_width_control = 4.0;
+     const float N=0.0634936;//1/sqrt(8*pi*pi*pi)
+     //in the futrue, these shold be included in the header of PSF LUT
+     float x_range = 150;
+     float x_gap = 50;
+     float y_range = 150;
+     float y_gap = 50;
+     float z_range = 200; //in mm
+     float z_gap = 50;
+ };

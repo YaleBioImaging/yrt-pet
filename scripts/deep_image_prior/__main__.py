@@ -71,10 +71,10 @@ class UNet3D(nn.Module):
     def forward(self, x):
         enc1 = self.encoder1(x)
         enc1_d = self.downsampler1(enc1)
-        
+
         enc2 = self.encoder2(enc1_d)
         enc2_d = self.downsampler2(enc2)
-        
+
         enc3 = self.encoder3(enc2_d)
         enc3_d = self.downsampler3(enc3)
 
@@ -220,13 +220,17 @@ if __name__ == "__main__":
         help="Input to the Neural network image"
         "file (NIfTI format). Leave empty to use noise as input.",
     )
+    parser.add_argument(
+        "--init_weights",
+        help="Initial weights to the neural network ('.pth' file).",
+    )
     parser.add_argument("-o", "--out", help="Output folder", required=True)
     parser.add_argument(
         "--projector", help="Projector to use " "(Siddon (S) or Distance-driven (DD))"
     )
     parser.add_argument(
         "--num_rays",
-        help="Number of rays to use (for the Siddon" " projector only) (Default: 1)",
+        help="Number of rays to use (for the Siddon projector only) (Default: 1)",
         type=int,
         default=1,
     )
@@ -355,6 +359,9 @@ if __name__ == "__main__":
     output_channels = input_channels
 
     model = UNet3D().to(device)
+
+    if args.init_weights is not None:
+        model.load_state_dict(torch.load(args.init_weights, weights_only=True))
 
     # Initialize the network input as either prior or noise
     print("Initializing neural network input...")

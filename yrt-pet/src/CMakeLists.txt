@@ -38,6 +38,7 @@ set(SOURCES
     operators/OperatorProjectorSiddon.cpp
     operators/OperatorProjectorDD.cpp
     operators/OperatorPsf.cpp
+    operators/OperatorVarPsf.cpp
     operators/ProjectionPsfManager.cpp
     operators/SparseProjection.cpp
     operators/TimeOfFlight.cpp

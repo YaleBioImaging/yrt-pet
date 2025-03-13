@@ -119,6 +119,7 @@ OSEM::OSEM(const Scanner& pr_scanner)
       initialEstimate(nullptr),
       flagImagePSF(false),
       imagePsf(nullptr),
+	  imageVarPsf(nullptr),
       flagProjPSF(false),
       flagProjTOF(false),
       tofWidth_ps(0.0f),
@@ -160,7 +161,8 @@ void OSEM::generateSensitivityImageForLoadedSubset()
 
 	if (flagImagePSF)
 	{
-		imagePsf->applyAH(getSensImageBuffer(), getSensImageBuffer());
+		if (imgpsfmode == UNIFORM)imagePsf->applyAH(getSensImageBuffer(), getSensImageBuffer());
+		else imageVarPsf->applyAH(getSensImageBuffer(), getSensImageBuffer());
 	}
 
 	std::cout << "Applying threshold..." << std::endl;
@@ -400,7 +402,14 @@ void OSEM::addProjPSF(const std::string& pr_projPsf_fname)
 void OSEM::addImagePSF(const std::string& p_imagePsf_fname)
 {
 	ASSERT_MSG(!p_imagePsf_fname.empty(), "Empty filename for Image-space PSF");
-	imagePsf = std::make_unique<OperatorPsf>(p_imagePsf_fname);
+	if (imgpsfmode == UNIFORM)
+	{
+		imagePsf = std::make_unique<OperatorPsf>(p_imagePsf_fname);
+	}
+	else 
+	{
+		imageVarPsf = std::make_unique<OperatorVarPsf>(p_imagePsf_fname);
+	}
 	flagImagePSF = true;
 }
 
@@ -587,12 +596,24 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 			ImageBase* mlemImage_rp;
 			if (flagImagePSF)
 			{
-				// PSF
-				imagePsf->applyA(
-				    getMLEMImageBuffer(),
-				    getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType::PSF));
-				mlemImage_rp =
-				    getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType::PSF);
+				if (imgpsfmode == UNIFORM)
+				{
+					// PSF
+					imagePsf->applyA(
+				    	getMLEMImageBuffer(),
+				    	getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType::PSF));
+					mlemImage_rp =
+				    	getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType::PSF);
+				}
+				else
+				{
+					// Variant PSF
+					imageVarPsf->applyA(
+				    	getMLEMImageBuffer(),
+				    	getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType::PSF));
+					mlemImage_rp =
+				    	getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType::PSF);
+				}
 			}
 			else
 			{
@@ -606,10 +627,20 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 			// PSF
 			if (flagImagePSF)
 			{
-				imagePsf->applyAH(getMLEMImageTmpBuffer(
-				                      TemporaryImageSpaceBufferType::EM_RATIO),
-				                  getMLEMImageTmpBuffer(
-				                      TemporaryImageSpaceBufferType::EM_RATIO));
+				if (imgpsfmode == UNIFORM)
+				{
+					imagePsf->applyAH(getMLEMImageTmpBuffer(
+				    	                TemporaryImageSpaceBufferType::EM_RATIO),
+				    	              getMLEMImageTmpBuffer(
+				        	            TemporaryImageSpaceBufferType::EM_RATIO));
+				}
+				else
+				{
+					imageVarPsf->applyAH(getMLEMImageTmpBuffer(
+										TemporaryImageSpaceBufferType::EM_RATIO),
+						getMLEMImageTmpBuffer(
+										TemporaryImageSpaceBufferType::EM_RATIO));
+				}
 			}
 
 			// UPDATE
@@ -679,7 +710,8 @@ void OSEM::summary() const
 
 	if (flagImagePSF)
 	{
-		std::cout << "Uses Image-space PSF" << std::endl;
+		if (imgpsfmode == UNIFORM)std::cout << "Uses Image-space PSF" << std::endl;
+		else std::cout << "Uses Image-space variant PSF" << std::endl;
 	}
 	if (flagProjPSF)
 	{

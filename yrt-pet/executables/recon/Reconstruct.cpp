@@ -146,6 +146,8 @@ int main(int argc, char** argv)
 		    false, IO::TypeOfArgument::STRING, "", reconstructionGroup);
 		registry.registerArgument("psf", "Image-space PSF kernel file", false,
 		                          IO::TypeOfArgument::STRING, "",
+		reconGroup("varpsf", "Image-space Variant PSF look-up table file",
+					cxxopts::value<std::string>(imageVarPsf_fname));		   
 		                          reconstructionGroup);
 		registry.registerArgument("hard_threshold", "Hard Threshold", false,
 		                          IO::TypeOfArgument::FLOAT, 1.0f,
@@ -357,7 +359,15 @@ int main(int argc, char** argv)
 		// Image-space PSF
 		if (!config.getValue<std::string>("psf").empty())
 		{
+			osem->imgpsfmode = UNIFORM;
+			ASSERT_MSG(!imageVarPsf_fname.empty(),
+			           "Got two different image PSF inputs");
 			osem->addImagePSF(config.getValue<std::string>("psf"));
+		}
+		else if (!imageVarPsf_fname.empty())
+		{
+			osem->imgpsfmode = VARIANT;
+			osem->addImagePSF(imageVarPsf_fname);
 		}
 
 		// Projection-space PSF

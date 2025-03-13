@@ -9,6 +9,7 @@
 #include "datastruct/projection/UniformHistogram.hpp"
 #include "operators/OperatorProjector.hpp"
 #include "operators/OperatorPsf.hpp"
+#include "operators/OperatorVarPsf.hpp"
 #include "recon/Corrector.hpp"
 #include "utils/RangeList.hpp"
 
@@ -16,6 +17,7 @@
 #include <pybind11/pybind11.h>
 #endif
 
+enum ImagePSFMode {UNIFORM =0, VARIANT};
 
 class OSEM
 {
@@ -62,6 +64,7 @@ public:
 	void addTOF(float p_tofWidth_ps, int p_tofNumStd);
 	void addProjPSF(const std::string& pr_projPsf_fname);
 	virtual void addImagePSF(const std::string& p_imagePsf_fname);
+	virtual void addImageVarPSF(const std::string& p_imageVarPsf_fname);
 	void setSaveIterRanges(Util::RangeList p_saveIterList,
 	                       const std::string& p_saveIterPath);
 	void setListModeEnabled(bool enabled);
@@ -89,6 +92,7 @@ public:
 	const Scanner& scanner;
 	const Image* maskImage;
 	const Image* initialEstimate;
+	ImagePSFMode imgpsfmode;
 
 protected:
 	enum class TemporaryImageSpaceBufferType
@@ -107,7 +111,9 @@ protected:
 	// ---------- Protected members ----------
 	bool flagImagePSF;
 	std::string imagePsf_fname;
+	std::string imageVarPsf_fname;
 	std::unique_ptr<OperatorPsf> imagePsf;
+	std::unique_ptr<OperatorVarPsf> imageVarPsf;
 	bool flagProjPSF;
 	std::string projPsf_fname;
 	bool flagProjTOF;

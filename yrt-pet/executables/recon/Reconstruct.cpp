@@ -35,6 +35,7 @@ int main(int argc, char** argv)
 		std::string hardwareAcf_fname;
 		std::string hardwareAcf_format;
 		std::string imagePsf_fname;
+		std::string imageVarPsf_fname;
 		std::string projPsf_fname;
 		std::string randoms_fname;
 		std::string randoms_format;
@@ -147,6 +148,8 @@ int main(int argc, char** argv)
 		    cxxopts::value<std::string>(scatter_format));
 		reconGroup("psf", "Image-space PSF kernel file",
 		           cxxopts::value<std::string>(imagePsf_fname));
+		reconGroup("varpsf", "Image-space Variant PSF look-up table file",
+					cxxopts::value<std::string>(imageVarPsf_fname));		   
 		reconGroup("hard_threshold", "Hard Threshold",
 		           cxxopts::value<float>(hardThreshold));
 		reconGroup("save_iter_step",
@@ -336,7 +339,15 @@ int main(int argc, char** argv)
 		// Image-space PSF
 		if (!imagePsf_fname.empty())
 		{
+			osem->imgpsfmode = UNIFORM;
+			ASSERT_MSG(!imageVarPsf_fname.empty(),
+			           "Got two different image PSF inputs");
 			osem->addImagePSF(imagePsf_fname);
+		}
+		else if (!imageVarPsf_fname.empty())
+		{
+			osem->imgpsfmode = VARIANT;
+			osem->addImagePSF(imageVarPsf_fname);
 		}
 
 		// Projection-space PSF

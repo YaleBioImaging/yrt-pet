@@ -64,7 +64,6 @@ public:
 	void addTOF(float p_tofWidth_ps, int p_tofNumStd);
 	void addProjPSF(const std::string& pr_projPsf_fname);
 	virtual void addImagePSF(const std::string& p_imagePsf_fname);
-	virtual void addImageVarPSF(const std::string& p_imageVarPsf_fname);
 	void setSaveIterRanges(Util::RangeList p_saveIterList,
 	                       const std::string& p_saveIterPath);
 	void setListModeEnabled(bool enabled);

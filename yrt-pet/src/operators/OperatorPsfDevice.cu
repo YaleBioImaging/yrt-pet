@@ -119,8 +119,8 @@ void OperatorPsfDevice::apply(const Variable* in, Variable* out,
 	if (img_in != nullptr)
 	{
 		// Input image is in host
-		inputImageDevice =
-		    std::make_unique<ImageDeviceOwned>(img_in->getParams());
+		inputImageDevice = std::make_unique<ImageDeviceOwned>(
+		    img_in->getParams(), getMainStream());
 		reinterpret_cast<ImageDeviceOwned*>(inputImageDevice.get())->allocate();
 		inputImageDevice->transferToDeviceMemory(img_in, synchronize);
 		inputImageDevice_ptr = inputImageDevice.get();
@@ -136,8 +136,8 @@ void OperatorPsfDevice::apply(const Variable* in, Variable* out,
 	if (img_out != nullptr)
 	{
 		// Input image is in host
-		outputImageDevice =
-		    std::make_unique<ImageDeviceOwned>(img_out->getParams());
+		outputImageDevice = std::make_unique<ImageDeviceOwned>(
+		    img_out->getParams(), getMainStream());
 		reinterpret_cast<ImageDeviceOwned*>(outputImageDevice.get())
 		    ->allocate();
 		outputImageDevice_ptr = outputImageDevice.get();
@@ -154,7 +154,19 @@ void OperatorPsfDevice::apply(const Variable* in, Variable* out,
 	// Transfer to host
 	if (img_out != nullptr)
 	{
-		outputImageDevice->transferToHostMemory(img_out, synchronize);
+		outputImageDevice->transferToHostMemory(img_out, false);
+	}
+
+	if (synchronize)
+	{
+		if (getMainStream() != nullptr)
+		{
+			cudaStreamSynchronize(*getMainStream());
+		}
+		else
+		{
+			cudaDeviceSynchronize();
+		}
 	}
 }
 

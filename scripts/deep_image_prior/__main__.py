@@ -346,7 +346,7 @@ if __name__ == "__main__":
     print("Initializing device-side projection-space buffers...")
     projdata_device = yrt.ProjectionDataDeviceAlias(scanner, prompts, 1)
     assert projdata_device.getNumBatches(0) == 1
-    projdata_device.loadEventLORs(0, 0)  # Load batch 0 subset 0
+    projdata_device.prepareBatchLORs(0, 0)  # Load batch 0 subset 0
 
     # Prepare image-side image-space buffer
     print("Initializing device-side image-space buffers...")

@@ -364,8 +364,10 @@ namespace Util
 	                    OperatorProjector::ProjectorType projectorType,
 	                    bool useGPU)
 	{
+#ifdef BUILD_CUDA
 		std::unique_ptr<GPUStream> mainStream;
 		std::unique_ptr<GPUStream> auxStream;
+#endif
 		if (useGPU)
 		{
 #ifdef BUILD_CUDA
@@ -373,7 +375,7 @@ namespace Util
 			auxStream = std::make_unique<GPUStream>();
 #else
 			throw std::runtime_error("GPU is not supported because project was "
-			                         "not compiled with CUDA ");
+			                         "not compiled with CUDA");
 #endif
 		}
 
@@ -389,7 +391,7 @@ namespace Util
 #else
 				throw std::runtime_error(
 				    "Siddon GPU projector not supported because "
-				    "project was not compiled with CUDA ");
+				    "project was not compiled with CUDA");
 #endif
 			}
 			else
@@ -408,7 +410,7 @@ namespace Util
 #else
 				throw std::runtime_error(
 				    "Distance-driven GPU projector not supported because "
-				    "project was not compiled with CUDA ");
+				    "project was not compiled with CUDA");
 #endif
 			}
 			else

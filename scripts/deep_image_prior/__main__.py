@@ -171,20 +171,6 @@ def compute_loss(prediction, target):
     return loss
 
 
-# Helper functions
-def add_before_nifti_extension(filename: str, suffix: str):
-    endswith_nii = filename.endswith(".nii")
-    endswith_niigz = filename.endswith(".nii.gz")
-
-    if not (endswith_nii or endswith_niigz):
-        raise ValueError("The given file must end with .nii or .nii.gz")
-
-    if endswith_niigz:
-        return filename[:-7] + suffix + ".nii.gz"
-    if endswith_nii:
-        return filename[:-4] + suffix + ".nii"
-
-
 def save_array_to_nifti_image(
     img_params: yrt.ImageParams, array: np.ndarray, filename: str
 ):

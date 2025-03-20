@@ -120,9 +120,9 @@
      const float vx = params.vx;
      const float vy = params.vy;
      const float vz = params.vz;
-     float x_center = nx * vx /2;
-     float y_center = ny * vy /2;
-     float z_center = nz * vz /2;
+     float x_center = nx * vx /2.0f;
+     float y_center = ny * vy /2.0f;
+     float z_center = nz * vz /2.0f;
  
      const size_t sizeBuffer = std::max(std::max(nx, ny), nz);
      m_buffer_tmp.resize(sizeBuffer);
@@ -143,7 +143,7 @@
         kernel_size_x = static_cast<int>(std::floor((s.sigmax*kernel_width_control)/vx))-1;
         kernel_size_y = static_cast<int>(std::floor((s.sigmay*kernel_width_control)/vy))-1;
         kernel_size_z = static_cast<int>(std::floor((s.sigmaz*kernel_width_control)/vz))-1;
-        std::vector<std::vector<std::vector<float>>> psf_kernel(nx*2+1, std::vector<std::vector<float>>(ny*2+1, std::vector<float>(nz*2+1, 0.0f))); 
+        std::vector<std::vector<std::vector<float>>> psf_kernel(kernel_size_x*2+1, std::vector<std::vector<float>>(kernel_size_y*2+1, std::vector<float>(kernel_size_z*2+1, 0.0f))); 
         float inv_2_sigmax2 = 1.0f / (2 * s.sigmax * s.sigmax);
         float inv_2_sigmay2 = 1.0f / (2 * s.sigmay * s.sigmay);
         float inv_2_sigmaz2 = 1.0f / (2 * s.sigmaz * s.sigmaz);

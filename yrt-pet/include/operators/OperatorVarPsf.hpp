@@ -46,4 +46,7 @@
      float y_gap = 50;
      float z_range = 200; //in mm
      float z_gap = 50;
+     //declare x_dim here, put the calculation in the constructor
+     float x_dim = x_range / x_gap;
+
  };

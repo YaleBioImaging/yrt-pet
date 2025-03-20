@@ -216,6 +216,11 @@ void OSEM_CPU::allocateForRecon()
 	// Allocate for image-space buffers
 	mp_mlemImageTmp = std::make_unique<ImageOwned>(getImageParams());
 	reinterpret_cast<ImageOwned*>(mp_mlemImageTmp.get())->allocate();
+	if (flagImagePSF)
+	{    
+		mp_mlemImageTmpPsf = std::make_unique<ImageOwned>(getImageParams());    
+		reinterpret_cast<ImageOwned*>(mp_mlemImageTmpPsf.get())->allocate();
+	}
 
 	if (flagImagePSF)
 	{

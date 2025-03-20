@@ -41,8 +41,4 @@ protected:
 
 	const cudaStream_t* mp_mainStream;
 	const cudaStream_t* mp_auxStream;
-
-	// In case the streams were not specified
-	std::unique_ptr<GPUStream> mp_mainStreamPtr;
-	std::unique_ptr<GPUStream> mp_auxStreamPtr;
 };

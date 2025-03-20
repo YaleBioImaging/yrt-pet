@@ -242,18 +242,29 @@ void OperatorProjectorDevice::applyAH(const Variable* in, Variable* out,
 	{
 		// Iterate over all the batches of the current subset
 		const size_t numBatches = dat_in->getBatchSetup(0).getNumBatches();
+		const cudaStream_t* mainStream = getMainStream();
 
 		std::cout << "Loading batch 1/" << numBatches << "..." << std::endl;
 		dat_in->precomputeBatchLORs(0, 0);
-		deviceDat_in->allocateForProjValues({getMainStream(), false});
+		deviceDat_in->allocateForProjValues({mainStream, false});
 
 		for (size_t batchId = 0; batchId < numBatches; batchId++)
 		{
-			deviceDat_in->loadPrecomputedLORsToDevice({getMainStream(), false});
-			deviceDat_in->loadProjValuesFromReference({getMainStream(), false});
+			deviceDat_in->loadPrecomputedLORsToDevice({mainStream, false});
+			deviceDat_in->loadProjValuesFromReference({mainStream, false});
 			std::cout << "Backprojecting batch " << batchId + 1 << "/"
 			          << numBatches << "..." << std::endl;
-			cudaStreamSynchronize(*getMainStream());
+
+			// Synchronize
+			if (mainStream != nullptr)
+			{
+				cudaStreamSynchronize(*mainStream);
+			}
+			else
+			{
+				cudaDeviceSynchronize();
+			}
+
 			applyAHOnLoadedBatch(*dat_in, *img_out, false);
 
 			if (batchId < numBatches - 1)
@@ -263,7 +274,16 @@ void OperatorProjectorDevice::applyAH(const Variable* in, Variable* out,
 				dat_in->precomputeBatchLORs(0, batchId + 1);
 			}
 		}
-		cudaStreamSynchronize(*getMainStream());
+
+		// Synchronize before getting returning
+		if (mainStream != nullptr)
+		{
+			cudaStreamSynchronize(*mainStream);
+		}
+		else
+		{
+			cudaDeviceSynchronize();
+		}
 	}
 
 	if (isImageDeviceOwned)

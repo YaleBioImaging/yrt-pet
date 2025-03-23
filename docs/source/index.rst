@@ -11,3 +11,17 @@ The documentation is currently under construction
 .. toctree::
    :maxdepth: 2
 
+   faq
+   compilation/building
+   python/owned_vs_alias
+   usage/index
+   usage/scanner
+   usage/image_parameters
+   usage/data_formats
+   usage/list-mode_file
+   usage/motion_file
+   usage/histogram3d_format
+   usage/rawd_file
+   usage/sparse-histogram
+   compilation/contributing
+

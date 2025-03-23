@@ -6,8 +6,8 @@ Note that all binary formats encode numerical values in little endian.
 
 Images are read and stored in NIfTI format.
 YRT-PET also uses a JSON file to define the Image parameters
-(size, voxel size, offset). See
-[Documentation on the Image parameters format](image_parameters).
+(size, voxel size, offset).
+See [Documentation on the Image parameters format](image_parameters).
 
 ## YRT-PET raw data format
 
@@ -16,7 +16,7 @@ See [Documentation on the RAWD file structure](rawd_file)
 
 ## Scanner parameter file
 
-Scanners are decribed using a JSON file and a Look-Up-Table (LUT).
+Scanners are described using a JSON file and a Look-Up-Table (LUT).
 See [Documentation on Scanner definition](scanner)
 
 ## Listmode (``ListmodeLUT``)

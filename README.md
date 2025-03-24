@@ -33,6 +33,7 @@ The following executables might be of interest:
 - `yrtpet_reconstruct`: Reconstruction executable for OSEM.
   Includes sensitivity image generation
 - `yrtpet_forward_project`: Forward project an image into a fully 3D histogram
+- `yrtpet_backproject`: Backproject a list-mode or a histogram into an image
 - `yrtpet_convert_to_histogram`: Convert a list-mode (or any other datatype
   input) into a fully 3D histogram or a sparse histogram
 - (Subject to change) `yrtpet_estimate_scatter`: Prepare a fully 3D
@@ -52,6 +53,42 @@ export PYTHONPATH=${PYTHONPATH}:<compilation folder>
 
 Almost all the functions defined in the header files have a Python bindings.
 more thorough documentation on the python library is still to be written.
+
+# Building YRT-PET
+
+## Requirements
+
+- `pybind11` if compiling the python bindings (ON by default)
+- CUDA toolkit if compiling using GPU (ON by default)
+- An internet connection to download the `cxxopts`, `nlohmann/json`,
+  and `catch2` libraries
+- OpenMP, but this is baked into most compilers
+- zlib, to read NIfTI images in `.nii.gz` format.
+
+## Configuration and compilation
+
+From the command-line interface:
+
+`git clone git@github.com:YaleBioImaging/yrt-pet.git`\
+`cd yrt-pet`\
+`mkdir build`\
+`cd build`\
+`cmake ../yrt-pet/ -DUSE_CUDA=[ON/OFF] -DBUILD_PYBIND11=[ON/OFF]`\
+`make`
+
+With `[ON/OFF]` being replaced by the desired configuration
+
+- The `-DUSE_CUDA` option enables or disables GPU accelerated code
+  - This option is `ON` by default
+- The `-DBUILD_PYBIND11` option enables or disables YRT-PET's python bindings
+  - This option is `ON` by default
+
+### Post-compilation steps
+- (optional) To run unit tests, run `ctest -V` from the build folder.
+- Add the `executables` folder to the `PATH` environment variable
+- To check if GPU was successfully enabled for the project, run
+  `yrtpet_reconstruct --help`. If the `--gpu` option appears, the program was
+  compiled with GPU acceleration.
 
 # Acknowledgements
 - [pybind11](https://github.com/pybind/pybind11)

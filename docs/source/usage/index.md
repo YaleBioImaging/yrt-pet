@@ -6,6 +6,7 @@ The following executables might be of interest:
 - `yrtpet_reconstruct`: Reconstruction executable for OSEM.
   Includes sensitivity image generation
 - `yrtpet_forward_project`: Forward project an image into a fully 3D histogram
+- `yrtpet_backproject`: Backproject a list-mode or a histogram into an image
 - `yrtpet_convert_to_histogram`: Convert a list-mode (or any other datatype
   input) into a fully 3D histogram or a sparse histogram
 - (Subject to change) `yrtpet_estimate_scatter`: Prepare a fully 3D

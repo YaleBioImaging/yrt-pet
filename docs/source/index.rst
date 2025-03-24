@@ -6,22 +6,41 @@
 YRT-PET documentation
 =====================
 
-The documentation is currently under construction
+.. toctree::
+   :maxdepth: 2
+   :caption: Compilation
+
+   compilation/building
 
 .. toctree::
    :maxdepth: 2
+   :caption: Usage
 
-   faq
-   compilation/building
    usage/index
+
+.. toctree::
+   :maxdepth: 2
+   :caption: File formats
+
+   usage/data_formats
    usage/scanner
    usage/image_parameters
-   usage/data_formats
    usage/list-mode_file
    usage/motion_file
    usage/histogram3d_format
    usage/rawd_file
    usage/sparse-histogram
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Python
+
    python/owned_vs_alias
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Other
+
+   faq
    compilation/contributing
 

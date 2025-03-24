@@ -7,7 +7,8 @@
 - An internet connection to download the `cxxopts`, `nlohmann/json`,
   and `catch2` libraries
 - OpenMP, but this is baked into most compilers
-- zlib, to read NIfTI images in `.nii.gz` format.
+- zlib, to read NIfTI images in `.nii.gz` format, but this is pre-installed
+  in most Unix distributions
 
 ## Configuration and compilation
 
@@ -28,11 +29,12 @@ With `[ON/OFF]` being replaced by the desired configuration
     - This option is `ON` by default
 
 ### Post-compilation steps
+
 - (optional) To run unit tests, run `ctest -V` from the build folder.
 - Add the `executables` folder to the `PATH` environment variable
 - To check if GPU was successfully enabled for the project, run
-`yrtpet_reconstruct --help`. If the `--gpu` option appears, the program was
-compiled with GPU acceleration.
+  `yrtpet_reconstruct --help`. If the `--gpu` option appears, the program was
+  compiled with GPU acceleration.
 
 ## FAQ
 

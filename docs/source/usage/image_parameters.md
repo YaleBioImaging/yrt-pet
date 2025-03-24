@@ -1,4 +1,6 @@
-# Image parameters
+# Image
+
+## Image parameters
 
 The image parameters file is defined in JSON format and looks like the
 following:
@@ -42,7 +44,7 @@ index of the voxel while $x_p$ is the *physical* position (in millimeters)
 of the voxel in dimension X. The above equation also applies in dimensions
 Y and Z.
 
-# Image format
+## Image file format
 
 Images are stored and read in NIfTI format.
 Since NifTI files include image orientation, origin and pixel

@@ -2,22 +2,25 @@
 
 Note that all binary formats encode numerical values in little endian.
 
-## Image format
+## Scanner (`Scanner`)
+
+Scanners are defined in two parts:
+- A scanner parameters file in JSON format
+- A Look-Up-Table (LUT) file in binary format.
+
+See [Documentation on the scanner definition](scanner) for more details
+
+## Image format (`Image`)
 
 Images are read and stored in NIfTI format.
 YRT-PET also uses a JSON file to define the Image parameters
 (size, voxel size, offset).
 See [Documentation on the Image parameters format](image_parameters).
 
-## YRT-PET raw data format
+## YRT-PET raw data format (`Array`)
 
 YRT-PET stores its array structures in the RAWD format.
 See [Documentation on the RAWD file structure](rawd_file)
-
-## Scanner parameter file
-
-Scanners are described using a JSON file and a Look-Up-Table (LUT).
-See [Documentation on Scanner definition](scanner)
 
 ## Listmode (``ListmodeLUT``)
 

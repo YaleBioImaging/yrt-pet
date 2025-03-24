@@ -1,4 +1,5 @@
 # YRT-PET
+
 The Yale Reconstruction Toolkit for Positron Emission Tomography (YRT-PET)
 is an image reconstruction software for PET imaging.
 
@@ -6,12 +7,13 @@ YRT-PET is currently focused on OSEM reconstructions in List-Mode and
 Histogram format.
 
 Current features include:
+
 - GPU acceleration with NVIDIA CUDA
 - Python bindings with pybind11
 - Event-by-event motion correction
 - Siddon, multi-ray Siddon and Distance-Driven projectors
-  - Time-of-Flight Support
-  - Projection-space PSF support for the Distance-Driven projector
+    - Time-of-Flight Support
+    - Projection-space PSF support for the Distance-Driven projector
 - Image-space PSF
 - Image-space post-reconstruction motion correction
 - Additive corrections (Scatter & Randoms)
@@ -63,7 +65,8 @@ more thorough documentation on the python library is still to be written.
 - An internet connection to download the `cxxopts`, `nlohmann/json`,
   and `catch2` libraries
 - OpenMP, but this is baked into most compilers
-- zlib, to read NIfTI images in `.nii.gz` format.
+- zlib, to read NIfTI images in `.nii.gz` format, but this is pre-installed
+  in most Unix distributions
 
 ## Configuration and compilation
 
@@ -79,11 +82,12 @@ From the command-line interface:
 With `[ON/OFF]` being replaced by the desired configuration
 
 - The `-DUSE_CUDA` option enables or disables GPU accelerated code
-  - This option is `ON` by default
+    - This option is `ON` by default
 - The `-DBUILD_PYBIND11` option enables or disables YRT-PET's python bindings
-  - This option is `ON` by default
+    - This option is `ON` by default
 
 ### Post-compilation steps
+
 - (optional) To run unit tests, run `ctest -V` from the build folder.
 - Add the `executables` folder to the `PATH` environment variable
 - To check if GPU was successfully enabled for the project, run
@@ -91,6 +95,7 @@ With `[ON/OFF]` being replaced by the desired configuration
   compiled with GPU acceleration.
 
 # Acknowledgements
+
 - [pybind11](https://github.com/pybind/pybind11)
 - [Catch2](https://github.com/catchorg/Catch2)
 - [NVIDIA CUDA Toolkit](https://developer.nvidia.com/cuda-toolkit)

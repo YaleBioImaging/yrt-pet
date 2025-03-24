@@ -54,7 +54,7 @@ export PYTHONPATH=${PYTHONPATH}:<compilation folder>
 Almost all the functions defined in the header files have a Python bindings.
 more thorough documentation on the python library is still to be written.
 
-# Building YRT-PET
+# Building
 
 ## Requirements
 

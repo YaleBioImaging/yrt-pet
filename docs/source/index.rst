@@ -13,7 +13,6 @@ The documentation is currently under construction
 
    faq
    compilation/building
-   python/owned_vs_alias
    usage/index
    usage/scanner
    usage/image_parameters
@@ -23,5 +22,6 @@ The documentation is currently under construction
    usage/histogram3d_format
    usage/rawd_file
    usage/sparse-histogram
+   python/owned_vs_alias
    compilation/contributing
 

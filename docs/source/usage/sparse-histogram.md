@@ -20,7 +20,7 @@ The detectors specified in the Sparse histogram correspond to their indices in
 the
 scanner's LUT.
 
-# Implementation
+## Implementation
 
 Sparse histograms are, in memory, stored as a hash map with the detector pair as
 a key, ensuring O(1) when accessing projection values.

@@ -1,6 +1,4 @@
-# Usage
-
-## Command line interface
+# Command line interface
 
 The compilation directory should contain a folder named `executables`.
 The following executables might be of interest:
@@ -14,7 +12,7 @@ The following executables might be of interest:
   histogram for usage in OSEM as scatter estimate. Currently experimental and
   incomplete
 
-## Python interface
+# Python interface
 
 If the project is compiled with `BUILD_PYBIND11`, the compilation directory
 should contain a folder named `pyyrtpet`.

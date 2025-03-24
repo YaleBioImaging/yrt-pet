@@ -21,8 +21,8 @@ scanner's LUT.
 
 If the ListMode file contains time-of-flight (TOF) information, the option
 `--flag_tof` must be used in the executable(s). The TOF value is the difference
-of arrival time between detector 2 (t2) and detector 1 (t1): t2 - t1, expressed
-in picoseconds.
+of arrival time between detector 2 ($t_2$) and detector 1 ($t_1$),
+or $t_2 - t_1$, expressed in picoseconds.
 
 ## For Python users
 
@@ -47,8 +47,9 @@ layer (encoded in 256 bits) for each detector (from the inward face of the
 detector). The `num_layers` option in the reconstruction executable allows
 binning of the DOI layers from 256 layers to an arbitrary number of layers.
 
-Note that it is still possible to use the default list-mode format for
-DOI-enabled scanners. This additional format only allows to save some disk space
+**Note that it is still possible to use the default list-mode format for
+DOI-enabled scanners**. This additional format only allows to save some disk
+space
 in case the amount of DOI layers in the scanner is configurable.
 
 ```

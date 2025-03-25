@@ -54,7 +54,7 @@ void py_setup_reconstructionutils(pybind11::module& m)
 
 	m.def("timeAverageMoveSensitivityImage",
 	      &Util::timeAverageMoveSensitivityImage, "dataInput"_a,
-	      "unmovedSensImage"_a);
+	      "unmovedSensImage"_a, "numFirstFrames"_a = -1);
 
 	m.def("generateTORRandomDOI", &Util::generateTORRandomDOI, "scanner"_a,
 	      "d1"_a, "d2"_a, "vmax"_a);
@@ -221,14 +221,25 @@ namespace Util
 
 	std::unique_ptr<ImageOwned>
 	    timeAverageMoveSensitivityImage(const ProjectionData& dataInput,
-	                                    const Image& unmovedSensImage)
+	                                    const Image& unmovedSensImage,
+	                                    int numFirstFrames)
 	{
 		const ImageParams& params = unmovedSensImage.getParams();
 		ASSERT_MSG(params.isValid(), "Image parameters incomplete");
 		ASSERT_MSG(unmovedSensImage.isMemoryValid(),
 		           "Sensitivity image given is not allocated");
 
-		const int64_t numFrames = dataInput.getNumFrames();
+		int64_t numFrames;
+
+		if (numFirstFrames == -1)
+		{
+			numFrames = dataInput.getNumFrames();
+		}
+		else
+		{
+			numFrames = numFirstFrames;
+		}
+
 		ProgressDisplay progress{numFrames};
 
 		const auto scanDuration =

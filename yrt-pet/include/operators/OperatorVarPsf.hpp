@@ -21,6 +21,7 @@
  public:
      OperatorVarPsf();
      explicit OperatorVarPsf(const std::string& imageVarPsf_fname);
+     //second constructor, use sigma as input
      ~OperatorVarPsf() override = default;
  
      virtual void readFromFile(const std::string& imageVarPsf_fname);

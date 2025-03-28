@@ -81,6 +81,8 @@
             throw std::runtime_error("Invalid format in image space Variant PSF lookup table file.");
         }
         sigma_lookup.push_back(s);
+        sigma_lookup.push_back(s);
+        sigma_lookup.push_back(s);
     }
     file.close();
  }

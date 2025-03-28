@@ -70,12 +70,12 @@ int main(int argc, char** argv)
 		coreGroup("s,scanner", "Scanner parameters file",
 		          cxxopts::value<std::string>(scanner_fname));
 		coreGroup("p,params",
-		          "Image parameters file."
-		          "Note: If sensitivity image(s) are provided,"
+		          "Image parameters file. "
+		          "Note: If sensitivity image(s) are provided, "
 		          "the image parameters will be determined from them.",
 		          cxxopts::value<std::string>(imgParams_fname));
 		coreGroup("sens_only",
-		          "Only generate the sensitivity image(s)."
+		          "Only generate the sensitivity image(s). "
 		          "Do not launch reconstruction",
 		          cxxopts::value<bool>(sensOnly));
 #if BUILD_CUDA
@@ -87,7 +87,7 @@ int main(int argc, char** argv)
 		          cxxopts::value<std::string>(out_fname));
 		coreGroup("out_sens",
 		          "Filename for the generated sensitivity image (if it needed "
-		          "to be computed)."
+		          "to be computed). "
 		          "Leave blank to not save it",
 		          cxxopts::value<std::string>(out_sensImg_fname));
 

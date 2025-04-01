@@ -94,7 +94,7 @@ __global__ void OperatorProjectorSiddonCU_kernel(
 			                       parallelToTrans2);
 			if constexpr (!IsForward)
 			{
-				value /= p_numRays;
+				value /= static_cast<float>(p_numRays);
 			}
 		}
 
@@ -401,9 +401,9 @@ __global__ void OperatorProjectorSiddonCU_kernel(
 
 		if constexpr (IsForward)
 		{
-			if (IsMultiRay)
+			if constexpr (IsMultiRay)
 			{
-				value /= p_numRays;
+				value /= static_cast<float>(p_numRays);
 			}
 			pd_projValues[eventId] = value;
 		}

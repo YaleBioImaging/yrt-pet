@@ -12,7 +12,7 @@ class Scanner;
 class MultiRayGenerator
 {
 public:
-	static constexpr bool USE_PARALLEL_LINES = true;
+	static constexpr bool USE_PARALLEL_LINES = false;
 	MultiRayGenerator(float thickness_z_i, float thickness_trans_i,
 	                  bool isParallel_i = USE_PARALLEL_LINES);
 	Line3D getRandomLine(unsigned int& seed) const;

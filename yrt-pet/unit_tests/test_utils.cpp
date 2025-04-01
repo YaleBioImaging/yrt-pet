@@ -71,6 +71,27 @@ template bool TestUtils::allclose<false>(const ProjectionList& projListRef,
                                          const ProjectionList& projList,
                                          float rtol, float atol);
 
+template <bool EQUAL_NAN>
+bool TestUtils::allclose(const Image& imageRef, const Image& image, float rtol,
+                         float atol)
+{
+	const auto params = imageRef.getParams();
+	ASSERT(image.getParams().isSameDimensionsAs(params));
+	const size_t numVoxels = params.nx * params.ny * params.nz;
+
+	const float* valuesRef = imageRef.getRawPointer();
+	const float* values = image.getRawPointer();
+
+	return TestUtils::allclose<float, EQUAL_NAN>(valuesRef, values, numVoxels,
+	                                             rtol, atol);
+}
+template bool TestUtils::allclose<true>(const Image& imageRef,
+                                        const Image& image, float rtol,
+                                        float atol);
+template bool TestUtils::allclose<false>(const Image& imageRef,
+                                         const Image& image, float rtol,
+                                         float atol);
+
 
 template <typename TFloat, bool EQUAL_NAN>
 bool TestUtils::allclose(const TFloat* valuesRef, const TFloat* values,

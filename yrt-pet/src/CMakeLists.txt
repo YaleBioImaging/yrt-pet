@@ -10,6 +10,7 @@ set(SOURCES
     datastruct/projection/LORMotion.cpp
     datastruct/projection/BinIterator.cpp
     datastruct/projection/ProjectionList.cpp
+    datastruct/projection/Sinogram.cpp
     datastruct/projection/SparseHistogram.cpp
     datastruct/projection/ProjectionData.cpp
     datastruct/projection/ListMode.cpp

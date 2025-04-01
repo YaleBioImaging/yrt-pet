@@ -123,7 +123,7 @@ void OperatorProjector::applyAH(const Variable* in, Variable* out)
 		    dat->getProjectionProperties(bin);
 
 		float projValue = dat->getProjectionValue(bin);
-		if (std::abs(projValue) < SMALL)
+		if (std::abs(projValue) < SMALL_FLT)
 		{
 			continue;
 		}

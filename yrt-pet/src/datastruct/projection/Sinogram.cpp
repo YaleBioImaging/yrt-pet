@@ -42,8 +42,16 @@ float Sinogram::getValue(size_t rIdx, size_t phiIdx, size_t zIdx,
 	return mp_data->getFlat(index);
 }
 
-LORRegion Sinogram::getLORCoordinates(size_t rIdx, size_t phiIdx, size_t zIdx,
-                                      size_t thetaIdx, size_t tofIdx) const
+float Sinogram::getTOFFromCoord(size_t tofIdx) const
+{
+	const float tof =
+		(-m_sinoParams.maxTOF + 2.0f * m_sinoParams.maxTOF * tofIdx) /
+		(m_sinoParams.numTOFBins - 1.0f);
+	return tof;
+}
+
+Line3D Sinogram::getLORFromCoords(size_t rIdx, size_t phiIdx, size_t zIdx,
+                                      size_t thetaIdx) const
 {
 	// Convert indices to physical values
 	const float r = (m_sinoParams.numR > 1) ?
@@ -55,9 +63,6 @@ LORRegion Sinogram::getLORCoordinates(size_t rIdx, size_t phiIdx, size_t zIdx,
 	                m_sinoParams.axialFOV * zIdx / (m_sinoParams.numZ - 1);
 	const float theta = (m_sinoParams.thetaMax * thetaIdx) /
 	                    (m_sinoParams.numTheta - 1.0f) * PI / 180.0f;
-	const float tof =
-	    (-m_sinoParams.maxTOF + 2.0f * m_sinoParams.maxTOF * tofIdx) /
-	    (m_sinoParams.numTOFBins - 1.0f);
 
 	// Calculate transaxial coordinates
 	const float t = std::sqrt(m_sinoParams.rMax * m_sinoParams.rMax - r * r);
@@ -67,27 +72,27 @@ LORRegion Sinogram::getLORCoordinates(size_t rIdx, size_t phiIdx, size_t zIdx,
 	const float y2 = r * std::sin(phi) - t * std::cos(phi);
 
 	// Calculate axial coordinates
-	const float transaxialLength = 2 * t;
+	const float transaxialLength = 2.0f * t;
 	const float deltaZ = transaxialLength * std::tan(theta);
-	const float zStart = z - deltaZ / 2;
-	const float zEnd = z + deltaZ / 2;
+	const float zStart = z - deltaZ / 2.0f;
+	const float zEnd = z + deltaZ / 2.0f;
 
-	return LORRegion{{x1, y1, zStart, x2, y2, zEnd}, tof};
+	return {x1, y1, zStart, x2, y2, zEnd};
 }
 
-float Sinogram::interpolate(const LORRegion& lor) const
+float Sinogram::interpolate(const Line3D& lor, float tof) const
 {
 	// Convert LOR to parameters
-	auto [r, phi, z, theta, tof] = convertLORToParameters(lor);
+	auto [r, phi, z, theta] = getLORParameters(lor);
 
 	// Calculate continuous indices
 	float rIdx = (m_sinoParams.numR > 1) ?
 	                 (r / m_sinoParams.rMax) * (m_sinoParams.numR - 1) :
 	                 0.0f;
-	float phiIdx = (phi * 180.0f / PI) / 180.0f * (m_sinoParams.numPhi - 1);
+	float phiIdx = (phi * 180.0f / PI_FLT) / 180.0f * (m_sinoParams.numPhi - 1);
 	float zIdx = (z + m_sinoParams.axialFOV / 2.0f) / m_sinoParams.axialFOV *
 	             (m_sinoParams.numZ - 1);
-	float thetaIdx = (theta * 180.0f / PI) / m_sinoParams.thetaMax *
+	float thetaIdx = (theta * 180.0f / PI_FLT) / m_sinoParams.thetaMax *
 	                 (m_sinoParams.numTheta - 1);
 	float tofIdx = (tof + m_sinoParams.maxTOF) / (2 * m_sinoParams.maxTOF) *
 	               (m_sinoParams.numTOFBins - 1);
@@ -102,65 +107,25 @@ float Sinogram::interpolate(const LORRegion& lor) const
 	return interpolate5D(rIdx, phiIdx, zIdx, thetaIdx, tofIdx);
 }
 
-size_t Sinogram::getNumR() const
+const SinogramParams& Sinogram::getParams() const
 {
-	return m_sinoParams.numR;
+	return m_sinoParams;
 }
 
-size_t Sinogram::getNumPhi() const
+std::tuple<float, float, float, float>
+    Sinogram::getLORParameters(const Line3D& lor) const
 {
-	return m_sinoParams.numPhi;
-}
-
-size_t Sinogram::getNumZ() const
-{
-	return m_sinoParams.numZ;
-}
-
-size_t Sinogram::getNumTheta() const
-{
-	return m_sinoParams.numTheta;
-}
-
-size_t Sinogram::getNumTOFBins() const
-{
-	return m_sinoParams.numTOFBins;
-}
-
-float Sinogram::getRMax() const
-{
-	return m_sinoParams.rMax;
-}
-
-float Sinogram::getAxialFOV() const
-{
-	return m_sinoParams.axialFOV;
-}
-
-float Sinogram::getThetaMax() const
-{
-	return m_sinoParams.thetaMax;
-}
-
-float Sinogram::getMaxTOF() const
-{
-	return m_sinoParams.maxTOF;
-}
-
-std::tuple<float, float, float, float, float>
-    Sinogram::convertLORToParameters(const LORRegion& sinogramPos) const
-{
-	float r = std::sqrt(sinogramPos.lor.point1.x * sinogramPos.lor.point1.x +
-	                    sinogramPos.lor.point1.y * sinogramPos.lor.point1.y);
-	float phi = std::atan2(sinogramPos.lor.point1.y, sinogramPos.lor.point1.x) *
+	float r = std::sqrt(lor.point1.x * lor.point1.x +
+	                    lor.point1.y * lor.point1.y);
+	float phi = std::atan2(lor.point1.y, lor.point1.x) *
 	            180.0f / PI;
-	float z = (sinogramPos.lor.point1.z + sinogramPos.lor.point2.z) / 2.0f;
+	float z = (lor.point1.z + lor.point2.z) / 2.0f;
 	float theta =
-	    std::atan2(sinogramPos.lor.point2.z - sinogramPos.lor.point1.z,
+	    std::atan2(lor.point2.z - lor.point1.z,
 	               m_sinoParams.axialFOV) *
 	    180.0 / PI;
-	float tof = sinogramPos.tof;
-	return {r, phi, z, theta, tof};
+
+	return {r, phi, z, theta};
 }
 
 float Sinogram::interpolate5D(float rIdx, float phiIdx, float zIdx,

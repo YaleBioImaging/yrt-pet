@@ -39,5 +39,5 @@ private:
 	    CUImageParams imgParams, size_t batchSize, unsigned int gridSize,
 	    unsigned int blockSize, const cudaStream_t* stream, bool synchronize);
 
-	int p_numRays;
+	int m_numRays;
 };

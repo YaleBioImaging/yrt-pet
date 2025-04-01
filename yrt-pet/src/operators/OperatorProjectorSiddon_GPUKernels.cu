@@ -36,13 +36,13 @@ __device__ curandState setupMultiRays(unsigned long seed, unsigned long id,
 	return state;
 }
 
-__device__ void generateRandomLine(curandState& state, const float4& p1,
-                                   const float4& p2,
-                                   const float4& parallelToTrans1,
-                                   const float4& parallelToTrans2,
-                                   const CUScannerParams& scannerParams,
-                                   float4& p1_transformed,
-                                   float4& p2_transformed)
+template <bool UseParallelLines = false>
+__device__ void
+    generateRandomLine(curandState& state, const float4& p1, const float4& p2,
+                       const float4& parallelToTrans1,
+                       const float4& parallelToTrans2,
+                       const CUScannerParams& scannerParams,
+                       float4& p1_transformed, float4& p2_transformed)
 {
 	constexpr float4 vectParallelToZ{0, 0, 1, 0};
 
@@ -51,8 +51,17 @@ __device__ void generateRandomLine(curandState& state, const float4& p1,
 	const float rand_i_1 = curand_uniform(&state) - 0.5f;
 	const float rand_j_1 = curand_uniform(&state) - 0.5f;
 
-	const float rand_i_2 = curand_uniform(&state) - 0.5f;
-	const float rand_j_2 = curand_uniform(&state) - 0.5f;
+	float rand_i_2, rand_j_2;
+	if constexpr (UseParallelLines)
+	{
+		rand_i_2 = rand_i_1;
+		rand_j_2 = rand_j_1;
+	}
+	else
+	{
+		rand_i_2 = curand_uniform(&state) - 0.5f;
+		rand_j_2 = curand_uniform(&state) - 0.5f;
+	}
 
 	p1_transformed =
 	    p1 + vectParallelToZ * (rand_i_1 * scannerParams.crystalSize_z) +

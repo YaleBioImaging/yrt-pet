@@ -248,11 +248,15 @@ void OSEM_CPU::allocateForRecon()
 	if (maskImage != nullptr)
 	{
 		applyMask(maskImage);
+		std::cout << "Mask zty test5"
+		          << std::endl;
 	}
 	else if (num_OSEM_subsets == 1 || usingListModeInput)
 	{
 		// No need to sum all sensitivity images, just use the only one
-		applyMask(getSensitivityImage(0));
+		//applyMask(getSensitivityImage(0));
+		std::cout << "Mask zty test4"
+		          << std::endl;
 	}
 	else
 	{

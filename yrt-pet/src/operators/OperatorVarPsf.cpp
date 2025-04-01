@@ -11,6 +11,7 @@
  #include <sstream>
  #include <stdexcept>
  #include <iostream>
+ #include <chrono>
  
  #if BUILD_PYBIND11
  #include <pybind11/pybind11.h>
@@ -81,8 +82,6 @@
             throw std::runtime_error("Invalid format in image space Variant PSF lookup table file.");
         }
         sigma_lookup.push_back(s);
-        sigma_lookup.push_back(s);
-        sigma_lookup.push_back(s);
     }
     file.close();
  }
@@ -90,23 +89,32 @@
  //need redesign
  void OperatorVarPsf::applyA(const Variable* in, Variable* out)
  {
+     auto start = std::chrono::high_resolution_clock::now();
      const Image* img_in = dynamic_cast<const Image*>(in);
      Image* img_out = dynamic_cast<Image*>(out);
      ASSERT_MSG(img_in != nullptr && img_out != nullptr,
                 "Input parameters must be images");
  
      varconvolve(img_in, img_out);
+     auto end = std::chrono::high_resolution_clock::now();
+     std::chrono::duration<double> duration = end - start;
+     std::cout << "Var PSF execution time: " << duration.count() << " seconds" << std::endl;
+
  }
  
  //need redesign
  void OperatorVarPsf::applyAH(const Variable* in, Variable* out)
  {
+     auto start = std::chrono::high_resolution_clock::now();
      const Image* img_in = dynamic_cast<const Image*>(in);
      Image* img_out = dynamic_cast<Image*>(out);
      ASSERT_MSG(img_in != nullptr && img_out != nullptr,
                 "Input parameters must be images");
     //need discussion
      vartransposedconvolve(img_in, img_out);
+     auto end = std::chrono::high_resolution_clock::now();
+     std::chrono::duration<double> duration = end - start;
+     std::cout << "Var Transposed PSF execution time: " << duration.count() << " seconds" << std::endl;
  }
  
  void OperatorVarPsf::varconvolve(const Image* in, Image* out) const
@@ -132,6 +140,8 @@
      float xoffset,yoffset,zoffset,temp_x,temp_y,temp_z;
      int ii,jj,kk,kernel_size_x,kernel_size_y,kernel_size_z;
      int i,j,k;
+     //padding 0
+     #pragma omp parallel for private(temp_x,temp_y,temp_z,i,j,k,ii,jj,kk,kernel_size_x,kernel_size_y,kernel_size_z,xoffset,yoffset,zoffset) shared(outPtr)
      for (int pp =0; pp<nx*ny*nz;pp++)
      {
         i = pp % nx;
@@ -177,7 +187,7 @@
 		        //index1 = IDX3(i, j, k, nx, ny);
 		        //index2 = IDX3(ii, jj, kk, nx, ny);
                 //ans=exp(-xoffset*xoffset/(2*sigmax*sigmax))*exp(-yoffset*yoffset/(2*sigmay*sigmay))*exp(-zoffset*zoffset/(2*sigmaz*sigmaz));
-                //#pragma omp atomic
+                #pragma omp atomic
                 outPtr[IDX3(i, j, k, nx, ny)] += inPtr[IDX3(ii, jj, kk, nx, ny)]*N_temp*psf_kernel[x_diff+kernel_size_x][y_diff+kernel_size_y][z_diff+kernel_size_z];
             }
         }
@@ -207,6 +217,7 @@
      float xoffset,yoffset,zoffset,temp_x,temp_y,temp_z;
      int ii,jj,kk,kernel_size_x,kernel_size_y,kernel_size_z;
      int i,j,k;
+     #pragma omp parallel for private(temp_x,temp_y,temp_z,i,j,k,ii,jj,kk,kernel_size_x,kernel_size_y,kernel_size_z,xoffset,yoffset,zoffset) shared(outPtr)
      for (int pp =0; pp<nx*ny*nz;pp++)
      {
         i = pp % nx;
@@ -245,6 +256,8 @@
             kk = k+z_diff;
             if (ii>=0 && ii<nx && jj>=0 && jj<ny && kk>=0 && kk<nz)
             {
+                #pragma omp atomic
+                //outPtr[IDX3(ii, jj, kk, nx, ny)] += N_temp*psf_kernel[x_diff+kernel_size_x][y_diff+kernel_size_y][z_diff+kernel_size_z];
                 outPtr[IDX3(ii, jj, kk, nx, ny)] += temp1*N_temp*psf_kernel[x_diff+kernel_size_x][y_diff+kernel_size_y][z_diff+kernel_size_z];
             }
         }

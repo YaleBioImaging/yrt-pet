@@ -608,7 +608,6 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 				else
 				{
 					// Variant PSF
-					//std::cout<<getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType::PSF)<<std::endl;;
 					imageVarPsf->applyAH(
 				    	getMLEMImageBuffer(),
 				    	getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType::PSF));

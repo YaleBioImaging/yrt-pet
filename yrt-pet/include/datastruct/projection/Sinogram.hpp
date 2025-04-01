@@ -13,50 +13,32 @@
 
 using json = nlohmann::json;
 
-struct LORRegion
+struct SinogramParams
 {
-	Line3D lor;
-	float tof;
+	// Configuration parameters
+	float rMax, axialFOV, thetaMax, maxTOF;
+	size_t numR, numPhi, numZ, numTheta, numTOFBins;
 };
-
 
 class Sinogram
 {
 public:
 	explicit Sinogram(const std::string& configPath);
 
-	// Dimension getters
-	size_t getNumR() const;
-	size_t getNumPhi() const;
-	size_t getNumZ() const;
-	size_t getNumTheta() const;
-	size_t getNumTOFBins() const;
-
-	// Physical parameter getters
-	float getRMax() const;
-	float getAxialFOV() const;
-	float getThetaMax() const;
-	float getMaxTOF() const;
+	const SinogramParams& getParams() const;
 
 	float getValue(size_t rIdx, size_t phiIdx, size_t zIdx, size_t thetaIdx,
 	               size_t tofIdx) const;
 
-	LORRegion getLORCoordinates(size_t rIdx, size_t phiIdx, size_t zIdx,
-	                            size_t thetaIdx, size_t tofIdx) const;
+	Line3D getLORFromCoords(size_t rIdx, size_t phiIdx, size_t zIdx,
+	                        size_t thetaIdx) const;
+	float getTOFFromCoord(size_t tofIdx) const;
 
-	float interpolate(const LORRegion& lor) const;
+	float interpolate(const Line3D& lor, float tof) const;
 
 private:
-
-	struct SinogramParams
-	{
-		// Configuration parameters
-		float rMax, axialFOV, thetaMax, maxTOF;
-		size_t numR, numPhi, numZ, numTheta, numTOFBins;
-	};
-
-	std::tuple<float, float, float, float, float>
-	    convertLORToParameters(const LORRegion& sinogramPos) const;
+	std::tuple<float, float, float, float>
+	    getLORParameters(const Line3D& lor) const;
 
 	float interpolate5D(float rIdx, float phiIdx, float zIdx, float thetaIdx,
 	                    float tofIdx) const;
@@ -65,7 +47,6 @@ private:
 	                                                      size_t max);
 
 protected:
-
 	SinogramParams m_sinoParams;
 
 	// Raw data storage
@@ -76,5 +57,4 @@ class SinogramOwned : public Sinogram
 {
 public:
 	SinogramOwned(const std::string& configPath, const std::string& dataPath);
-
 };

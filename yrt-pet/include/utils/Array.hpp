@@ -742,3 +742,186 @@ protected:
 		    "Unsupported operation, cannot Allocate on Alias array");
 	}
 };
+
+template <typename T>
+class Array4DBase : public Array<4, T>
+{
+public:
+	Array4DBase() : Array<4, T>()
+	{
+		size_t dims[4] = {0, 0, 0, 0};
+		this->setShape(dims);
+	}
+
+private:
+	Array4DBase(const Array4DBase<T>&) = delete;
+};
+
+template <typename T>
+class Array4D : public Array4DBase<T>
+{
+public:
+	Array4D() : Array4DBase<T>() {}
+
+	void allocate(size_t dim0, size_t dim1, size_t dim2, size_t dim3)
+	{
+		const size_t expectedTotalSize = dim0 * dim1 * dim2 * dim3;
+		if (expectedTotalSize != this->getSizeTotal())
+		{
+			if (_data_ptr != nullptr)
+			{
+				_data_ptr.reset();
+			}
+			allocateFlat(expectedTotalSize);
+		}
+		size_t dims[4] = {dim0, dim1, dim2, dim3};
+		this->setShape(dims);
+	}
+
+private:
+	Array4D(const Array4D<T>&) = delete;
+
+protected:
+	std::unique_ptr<T[]> _data_ptr;
+
+	void allocateFlat(size_t size) override
+	{
+		_data_ptr = this->allocateFlatPointer(size);
+		this->_data = _data_ptr.get();
+		if (_data_ptr == nullptr)
+			throw std::runtime_error("Error occured during memory allocation");
+	}
+};
+
+
+template <typename T>
+class Array4DAlias : public Array4DBase<T>
+{
+public:
+	Array4DAlias() : Array4DBase<T>() {}
+
+	void bind(const Array4DBase<T>& array)
+	{
+		size_t dims[4];
+		array.getDims(dims);
+		this->setShape(dims);
+		this->_data = array[0][0];
+	}
+
+	void bind(T* data, size_t dim0, size_t dim1, size_t dim2, size_t dim3)
+	{
+		size_t dims[4] = {dim0, dim1, dim2, dim3};
+		this->setShape(dims);
+		this->_data = data;
+	}
+
+	explicit Array4DAlias(const Array4DBase<T>* array) { bind(*array); }
+
+	Array4DAlias(const Array4DAlias<T>& array) : Array4DBase<T>()
+	{
+		bind(array);
+	}
+
+	explicit Array4DAlias(const Array4D<T>& array) { bind(array); }
+
+protected:
+	void allocateFlat(size_t size) override
+	{
+		(void)size;
+		throw std::runtime_error(
+		    "Unsupported operation, cannot Allocate on Alias array");
+	}
+};
+
+
+template <typename T>
+class Array5DBase : public Array<5, T>
+{
+public:
+	Array5DBase() : Array<5, T>()
+	{
+		size_t dims[5] = {0, 0, 0, 0, 0};
+		this->setShape(dims);
+	}
+
+private:
+	Array5DBase(const Array5DBase<T>&) = delete;
+};
+
+template <typename T>
+class Array5D : public Array5DBase<T>
+{
+public:
+	Array5D() : Array5DBase<T>() {}
+
+	void allocate(size_t dim0, size_t dim1, size_t dim2, size_t dim3,
+	              size_t dim4)
+	{
+		const size_t expectedTotalSize = dim0 * dim1 * dim2 * dim3 * dim4;
+		if (expectedTotalSize != this->getSizeTotal())
+		{
+			if (_data_ptr != nullptr)
+			{
+				_data_ptr.reset();
+			}
+			allocateFlat(expectedTotalSize);
+		}
+		size_t dims[5] = {dim0, dim1, dim2, dim3, dim4};
+		this->setShape(dims);
+	}
+
+private:
+	Array5D(const Array5D<T>&) = delete;
+
+protected:
+	std::unique_ptr<T[]> _data_ptr;
+
+	void allocateFlat(size_t size) override
+	{
+		_data_ptr = this->allocateFlatPointer(size);
+		this->_data = _data_ptr.get();
+		if (_data_ptr == nullptr)
+			throw std::runtime_error("Error occured during memory allocation");
+	}
+};
+
+
+template <typename T>
+class Array5DAlias : public Array5DBase<T>
+{
+public:
+	Array5DAlias() : Array5DBase<T>() {}
+
+	void bind(const Array5DBase<T>& array)
+	{
+		size_t dims[5];
+		array.getDims(dims);
+		this->setShape(dims);
+		this->_data = array[0][0];
+	}
+
+	void bind(T* data, size_t dim0, size_t dim1, size_t dim2, size_t dim3,
+	          size_t dim4)
+	{
+		size_t dims[5] = {dim0, dim1, dim2, dim3, dim4};
+		this->setShape(dims);
+		this->_data = data;
+	}
+
+	explicit Array5DAlias(const Array5DBase<T>* array) { bind(*array); }
+
+	Array5DAlias(const Array5DAlias<T>& array) : Array5DBase<T>()
+	{
+		bind(array);
+	}
+
+	explicit Array5DAlias(const Array5D<T>& array) { bind(array); }
+
+protected:
+	void allocateFlat(size_t size) override
+	{
+		(void)size;
+		throw std::runtime_error(
+		    "Unsupported operation, cannot Allocate on Alias array");
+	}
+};

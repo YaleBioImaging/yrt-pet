@@ -34,7 +34,7 @@ OperatorProjectorSiddon_GPU::OperatorProjectorSiddon_GPU(
     const OperatorProjectorParams& projParams, const cudaStream_t* mainStream,
     const cudaStream_t* auxStream)
     : OperatorProjectorDevice(projParams, mainStream, auxStream),
-      p_numRays{projParams.numRays}
+      m_numRays{projParams.numRays}
 {
 }
 
@@ -101,7 +101,7 @@ void OperatorProjectorSiddon_GPU::launchKernel(
 	           "Projection space not allocated on device");
 	ASSERT_MSG(pd_image != nullptr, "Image space not allocated on device");
 
-	if (p_numRays == 1)
+	if (m_numRays == 1)
 	{
 		if (stream != nullptr)
 		{
@@ -136,7 +136,7 @@ void OperatorProjectorSiddon_GPU::launchKernel(
 			    <<<gridSize, blockSize, 0, *stream>>>(
 			        pd_projValues, pd_image, pd_lorDet1Pos, pd_lorDet2Pos,
 			        pd_lorDet1Orient, pd_lorDet2Orient, pd_lorTOFValue,
-			        pd_tofHelper, scannerParams, imgParams, p_numRays,
+			        pd_tofHelper, scannerParams, imgParams, m_numRays,
 			        batchSize);
 			if (synchronize)
 			{
@@ -149,7 +149,7 @@ void OperatorProjectorSiddon_GPU::launchKernel(
 			    <<<gridSize, blockSize>>>(
 			        pd_projValues, pd_image, pd_lorDet1Pos, pd_lorDet2Pos,
 			        pd_lorDet1Orient, pd_lorDet2Orient, pd_lorTOFValue,
-			        pd_tofHelper, scannerParams, imgParams, p_numRays,
+			        pd_tofHelper, scannerParams, imgParams, m_numRays,
 			        batchSize);
 			if (synchronize)
 			{

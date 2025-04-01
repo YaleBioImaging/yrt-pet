@@ -23,7 +23,9 @@ namespace Util
 	std::unique_ptr<ImageOwned>
 	    timeAverageMoveSensitivityImage(const ProjectionData& dataInput,
 	                                    const Image& unmovedSensImage,
-	                                    int numFirstFrames = -1);
+	                                    int numFirstFrames = -1,
+	                                    uint32_t scanDurationFirstFrames = 0);
+
 
 	template <bool RequiresAtomic>
 	void convertToHistogram3D(const ProjectionData& dat, Histogram3D& histoOut);

@@ -28,10 +28,8 @@
  
      void applyA(const Variable* in, Variable* out) override;
      void applyAH(const Variable* in, Variable* out) override;
-    //Need redesign, or use another mechnism
      template <bool IS_FWD>
      void varconvolve(const Image* in, Image* out) const;
-     //virtual void vartransposedconvolve(const Image* in, Image* out) const;
  
  protected:
      Sigma find_nearest_sigma(const std::vector<Sigma> &sigma_lookup, float x, float y, float z) const;

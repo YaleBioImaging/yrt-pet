@@ -69,21 +69,27 @@
  void OperatorVarPsf::readFromFileInternal(const std::string& imageVarPsf_fname)
  {
      std::cout << "Reading image space Variant PSF sigma lookup table file..." << std::endl;
-     std::ifstream file(imageVarPsf_fname);
-     if (!file.is_open()) {
-        throw std::runtime_error("Could not open image space Variant PSF lookup table file: " + imageVarPsf_fname);
-    }
- 
-    std::string line;
-    while (std::getline(file, line)) {
-        std::istringstream iss(line);
-        Sigma s;
-        if (!(iss >> s.x >> s.y >> s.z >> s.sigmax >> s.sigmay >> s.sigmaz)) {
-            throw std::runtime_error("Invalid format in image space Variant PSF lookup table file.");
+     Array2D<float> data;
+     Util::readCSV<float>(imageVarPsf_fname, data);
+     
+     size_t dims[2];
+     data.getDims(dims);
+
+     for (size_t i = 0; i < dims[0]; ++i)
+     {
+        if (dims[1] < 6) 
+        {
+            throw std::runtime_error("CSV file format error: Not enough columns");
         }
+        Sigma s;
+        s.x = data[i][0];
+        s.y = data[i][1];
+        s.z = data[i][2];
+        s.sigmax = data[i][3];
+        s.sigmay = data[i][4];
+        s.sigmaz = data[i][5];
         sigma_lookup.push_back(s);
-    }
-    file.close();
+     }
  }
  
  //need redesign

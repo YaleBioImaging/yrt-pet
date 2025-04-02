@@ -119,7 +119,7 @@ constraint_params
 	const Scanner* scanner = nullptr;
 	bool needsScanner = (
 		variables.find("abs_delta_block_idx") != variables.end() ||
-		variables.find("abs_delta_block_idx") != variables.end());
+		variables.find("abs_delta_angle_idx") != variables.end());
 	if (needsScanner)
 	{
 		scanner = &mProjData->getScanner();
@@ -135,7 +135,8 @@ constraint_params
 	}
 
 	bool needsPlaneIdx =
-	    variables.find("abs_delta_angle_idx") != variables.end();
+	    variables.find("abs_delta_angle_idx") != variables.end() ||
+		variables.find("abs_delta_block_idx") != variables.end();
 	size_t d1xyi;
 	size_t d2xyi;
 	if (needsPlaneIdx)
@@ -155,8 +156,8 @@ constraint_params
 	size_t d2bi;
 	if (needsPlaneBlock)
 	{
-		d1bi = d1 % scanner->detsPerBlock;
-		d2bi = d2 % scanner->detsPerBlock;
+		d1bi = d1xyi / scanner->detsPerBlock;
+		d2bi = d2xyi / scanner->detsPerBlock;
 	}
 	if (variables.find("abs_delta_block_idx") != variables.end())
 	{

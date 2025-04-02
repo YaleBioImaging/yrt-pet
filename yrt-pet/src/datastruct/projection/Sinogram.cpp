@@ -9,25 +9,29 @@
 #include <fstream>
 #include <stdexcept>
 
-Sinogram::Sinogram(const std::string& configPath)
+SinogramParams::SinogramParams(const std::string& params_fname)
 {
 	// Load JSON configuration
-	std::ifstream configFile(configPath);
+	std::ifstream configFile(params_fname);
 	if (!configFile)
 		throw std::runtime_error("Could not open config file");
 	json config;
 	configFile >> config;
 
 	// Parse parameters
-	m_sinoParams.rMax = config["rMax"];
-	m_sinoParams.axialFOV = config["axialFOV"];
-	m_sinoParams.thetaMax = config["thetaMax"];
-	m_sinoParams.maxTOF = config["maxTOF"];
-	m_sinoParams.numR = config["numR"];
-	m_sinoParams.numPhi = config["numPhi"];
-	m_sinoParams.numZ = config["numZ"];
-	m_sinoParams.numTheta = config["numTheta"];
-	m_sinoParams.numTOFBins = config["numTOFBins"];
+	rMax = config["rMax"];
+	thetaMax = config["thetaMax"];
+	maxTOF = config["maxTOF"];
+	numR = config["numR"];
+	numPhi = config["numPhi"];
+	numZ = config["numZ"];
+	numTheta = config["numTheta"];
+	numTOFBins = config["numTOFBins"];
+}
+
+Sinogram::Sinogram(const Scanner& pr_scanner, const SinogramParams& params)
+    : Histogram(pr_scanner), m_sinoParams{params}
+{
 }
 
 float Sinogram::getValue(size_t rIdx, size_t phiIdx, size_t zIdx,
@@ -39,19 +43,19 @@ float Sinogram::getValue(size_t rIdx, size_t phiIdx, size_t zIdx,
 	                                 m_sinoParams.numR) +
 	                     zIdx * (m_sinoParams.numPhi * m_sinoParams.numR) +
 	                     phiIdx * m_sinoParams.numR + rIdx;
-	return mp_data->getFlat(index);
+	return mp_array->getFlat(index);
 }
 
 float Sinogram::getTOFFromCoord(size_t tofIdx) const
 {
 	const float tof =
-		(-m_sinoParams.maxTOF + 2.0f * m_sinoParams.maxTOF * tofIdx) /
-		(m_sinoParams.numTOFBins - 1.0f);
+	    (-m_sinoParams.maxTOF + 2.0f * m_sinoParams.maxTOF * tofIdx) /
+	    (m_sinoParams.numTOFBins - 1.0f);
 	return tof;
 }
 
 Line3D Sinogram::getLORFromCoords(size_t rIdx, size_t phiIdx, size_t zIdx,
-                                      size_t thetaIdx) const
+                                  size_t thetaIdx) const
 {
 	// Convert indices to physical values
 	const float r = (m_sinoParams.numR > 1) ?
@@ -59,8 +63,8 @@ Line3D Sinogram::getLORFromCoords(size_t rIdx, size_t phiIdx, size_t zIdx,
 	                    0.0f;
 	const float phi =
 	    (180.0f * phiIdx) / (m_sinoParams.numPhi - 1) * PI / 180.0f;
-	const float z = -m_sinoParams.axialFOV / 2.0f +
-	                m_sinoParams.axialFOV * zIdx / (m_sinoParams.numZ - 1);
+	const float z = -mr_scanner.axialFOV / 2.0f +
+	                mr_scanner.axialFOV * zIdx / (m_sinoParams.numZ - 1);
 	const float theta = (m_sinoParams.thetaMax * thetaIdx) /
 	                    (m_sinoParams.numTheta - 1.0f) * PI / 180.0f;
 
@@ -90,7 +94,7 @@ float Sinogram::interpolate(const Line3D& lor, float tof) const
 	                 (r / m_sinoParams.rMax) * (m_sinoParams.numR - 1) :
 	                 0.0f;
 	float phiIdx = (phi * 180.0f / PI_FLT) / 180.0f * (m_sinoParams.numPhi - 1);
-	float zIdx = (z + m_sinoParams.axialFOV / 2.0f) / m_sinoParams.axialFOV *
+	float zIdx = (z + mr_scanner.axialFOV / 2.0f) / mr_scanner.axialFOV *
 	             (m_sinoParams.numZ - 1);
 	float thetaIdx = (theta * 180.0f / PI_FLT) / m_sinoParams.thetaMax *
 	                 (m_sinoParams.numTheta - 1);
@@ -115,15 +119,12 @@ const SinogramParams& Sinogram::getParams() const
 std::tuple<float, float, float, float>
     Sinogram::getLORParameters(const Line3D& lor) const
 {
-	float r = std::sqrt(lor.point1.x * lor.point1.x +
-	                    lor.point1.y * lor.point1.y);
-	float phi = std::atan2(lor.point1.y, lor.point1.x) *
-	            180.0f / PI;
+	float r =
+	    std::sqrt(lor.point1.x * lor.point1.x + lor.point1.y * lor.point1.y);
+	float phi = std::atan2(lor.point1.y, lor.point1.x) * 180.0f / PI;
 	float z = (lor.point1.z + lor.point2.z) / 2.0f;
-	float theta =
-	    std::atan2(lor.point2.z - lor.point1.z,
-	               m_sinoParams.axialFOV) *
-	    180.0 / PI;
+	float theta = std::atan2(lor.point2.z - lor.point1.z, mr_scanner.axialFOV) *
+	              180.0 / PI;
 
 	return {r, phi, z, theta};
 }
@@ -187,13 +188,47 @@ std::tuple<size_t, size_t, float> Sinogram::getNeighbors(float idx, size_t max)
 	return {i0, i1, frac};
 }
 
-SinogramOwned::SinogramOwned(const std::string& configPath,
-                             const std::string& dataPath)
-    : Sinogram(configPath)
+SinogramOwned::SinogramOwned(const Scanner& pr_scanner,
+                             const SinogramParams& params)
+    : Sinogram(pr_scanner, params)
 {
-	auto data = std::make_unique<Array5D<float>>();
-	data->readFromFile(dataPath, {m_sinoParams.numR, m_sinoParams.numPhi,
-	                              m_sinoParams.numZ, m_sinoParams.numTheta,
-	                              m_sinoParams.numTOFBins});
-	mp_data = std::move(data);
+	mp_array = std::make_unique<Array5D<float>>();
+}
+
+SinogramOwned::SinogramOwned(const Scanner& pr_scanner,
+                             const SinogramParams& params,
+                             const std::string& array_fname)
+    : SinogramOwned(pr_scanner, params)
+{
+	readFromFile(array_fname);
+}
+
+void SinogramOwned::allocate()
+{
+	reinterpret_cast<Array5D<float>*>(mp_array.get())
+	    ->allocate(m_sinoParams.numR, m_sinoParams.numPhi, m_sinoParams.numZ,
+	               m_sinoParams.numTheta, m_sinoParams.numTOFBins);
+}
+
+void SinogramOwned::readFromFile(const std::string& array_fname)
+{
+	mp_array->readFromFile(
+	    array_fname, {m_sinoParams.numR, m_sinoParams.numPhi, m_sinoParams.numZ,
+	                  m_sinoParams.numTheta, m_sinoParams.numTOFBins});
+}
+
+SinogramAlias::SinogramAlias(const Scanner& pr_scanner,
+                             const SinogramParams& params)
+    : Sinogram(pr_scanner, params)
+{
+	mp_array = std::make_unique<Array5DAlias<float>>();
+}
+
+void SinogramAlias::bind(Array5DBase<float>& pr_array)
+{
+	reinterpret_cast<Array5DAlias<float>*>(mp_array.get())->bind(pr_array);
+	if (mp_array->getRawPointer() != pr_array.getRawPointer())
+	{
+		throw std::runtime_error("An error occured during Sinogram binding");
+	}
 }

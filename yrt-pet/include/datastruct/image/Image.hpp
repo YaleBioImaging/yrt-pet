@@ -103,5 +103,5 @@ class ImageAlias : public Image
 {
 public:
 	explicit ImageAlias(const ImageParams& imgParams);
-	void bind(Array3DBase<float>& p_data);
+	void bind(Array3DBase<float>& pr_data);
 };

@@ -266,8 +266,7 @@ public:
 		file.read((char*)_data, totalSize * sizeof(T));
 	}
 
-	T* getRawPointer() { return _data; }
-	const T* getRawPointer() const { return _data; }
+	T* getRawPointer() const { return _data; }
 
 	Array<ndim, T>& operator+=(const Array<ndim, T>& other)
 	{
@@ -497,7 +496,7 @@ public:
 		size_t dims[1];
 		array.getDims(dims);
 		this->setShape(dims);
-		this->_data = &(array[0]);
+		this->_data = array.getRawPointer();
 	}
 
 	void bind(T* data, size_t num_el)
@@ -598,7 +597,7 @@ public:
 		size_t dims[2];
 		array.getDims(dims);
 		this->setShape(dims);
-		this->_data = array[0];
+		this->_data = array.getRawPointer();
 	}
 
 	void bind(T* data, size_t num_rows, size_t num_el)
@@ -715,7 +714,7 @@ public:
 		size_t dims[3];
 		array.getDims(dims);
 		this->setShape(dims);
-		this->_data = array[0][0];
+		this->_data = array.getRawPointer();
 	}
 
 	void bind(T* data, size_t num_slices, size_t num_rows, size_t num_el)
@@ -805,7 +804,7 @@ public:
 		size_t dims[4];
 		array.getDims(dims);
 		this->setShape(dims);
-		this->_data = array[0][0];
+		this->_data = array.getRawPointer();
 	}
 
 	void bind(T* data, size_t dim0, size_t dim1, size_t dim2, size_t dim3)
@@ -897,7 +896,7 @@ public:
 		size_t dims[5];
 		array.getDims(dims);
 		this->setShape(dims);
-		this->_data = array[0][0];
+		this->_data = array.getRawPointer();
 	}
 
 	void bind(T* data, size_t dim0, size_t dim1, size_t dim2, size_t dim3,

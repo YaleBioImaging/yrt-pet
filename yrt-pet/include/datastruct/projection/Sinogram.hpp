@@ -5,6 +5,8 @@
 
 #pragma once
 
+#include "datastruct/projection/Histogram3D.hpp"
+#include "datastruct/scanner/Scanner.hpp"
 #include "geometry/Line3D.hpp"
 #include "utils/Array.hpp"
 
@@ -15,25 +17,32 @@ using json = nlohmann::json;
 
 struct SinogramParams
 {
-	// Configuration parameters
-	float rMax, axialFOV, thetaMax, maxTOF;
+	explicit SinogramParams(const std::string& params_fname);
+
+	// Properties:
+	//  Maximum distance to center
+	float rMax;
+	//  Maximum axial angle
+	float thetaMax;
+	//  Maximum TOF value
+	float maxTOF;
+
+	// Dimensions:
 	size_t numR, numPhi, numZ, numTheta, numTOFBins;
 };
 
-class Sinogram
+class Sinogram : public Histogram
 {
 public:
-	explicit Sinogram(const std::string& configPath);
+	Sinogram(const Scanner& pr_scanner, const SinogramParams& params);
 
 	const SinogramParams& getParams() const;
 
 	float getValue(size_t rIdx, size_t phiIdx, size_t zIdx, size_t thetaIdx,
 	               size_t tofIdx) const;
-
 	Line3D getLORFromCoords(size_t rIdx, size_t phiIdx, size_t zIdx,
 	                        size_t thetaIdx) const;
 	float getTOFFromCoord(size_t tofIdx) const;
-
 	float interpolate(const Line3D& lor, float tof) const;
 
 private:
@@ -50,11 +59,22 @@ protected:
 	SinogramParams m_sinoParams;
 
 	// Raw data storage
-	std::unique_ptr<Array5DBase<float>> mp_data;
+	std::unique_ptr<Array5DBase<float>> mp_array;
 };
 
 class SinogramOwned : public Sinogram
 {
 public:
-	SinogramOwned(const std::string& configPath, const std::string& dataPath);
+	SinogramOwned(const Scanner& pr_scanner, const SinogramParams& params);
+	SinogramOwned(const Scanner& pr_scanner, const SinogramParams& params,
+	              const std::string& array_fname);
+	void allocate();
+	void readFromFile(const std::string& array_fname);
+};
+
+class SinogramAlias : public Sinogram
+{
+public:
+	SinogramAlias(const Scanner& pr_scanner, const SinogramParams& params);
+	void bind(Array5DBase<float>& pr_array);
 };

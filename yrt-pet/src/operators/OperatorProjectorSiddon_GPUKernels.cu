@@ -37,12 +37,11 @@ __device__ curandState setupMultiRays(unsigned long seed, unsigned long id,
 }
 
 template <bool UseParallelLines = false>
-__device__ void
-    generateRandomLine(curandState& state, const float4& p1, const float4& p2,
-                       const float4& parallelToTrans1,
-                       const float4& parallelToTrans2,
-                       const CUScannerParams& scannerParams,
-                       float4& p1_transformed, float4& p2_transformed)
+__device__ void moveLineToRandomOffset(curandState& state, float4& p1,
+                                       float4& p2,
+                                       const float4& parallelToTrans1,
+                                       const float4& parallelToTrans2,
+                                       const CUScannerParams& scannerParams)
 {
 	constexpr float4 vectParallelToZ{0, 0, 1, 0};
 
@@ -63,12 +62,10 @@ __device__ void
 		rand_j_2 = curand_uniform(&state) - 0.5f;
 	}
 
-	p1_transformed =
-	    p1 + vectParallelToZ * (rand_i_1 * scannerParams.crystalSize_z) +
-	    parallelToTrans1 * (rand_j_1 * scannerParams.crystalSize_trans);
-	p2_transformed =
-	    p2 + vectParallelToZ * (rand_i_2 * scannerParams.crystalSize_z) +
-	    parallelToTrans2 * (rand_j_2 * scannerParams.crystalSize_trans);
+	p1 = p1 + vectParallelToZ * (rand_i_1 * scannerParams.crystalSize_z) +
+	     parallelToTrans1 * (rand_j_1 * scannerParams.crystalSize_trans);
+	p2 = p2 + vectParallelToZ * (rand_i_2 * scannerParams.crystalSize_z) +
+	     parallelToTrans2 * (rand_j_2 * scannerParams.crystalSize_trans);
 }
 
 template <bool IsForward, bool HasTOF, bool IsIncremental, bool IsMultiRay>
@@ -133,8 +130,8 @@ __global__ void OperatorProjectorSiddonCU_kernel(
 				// Modify p1 and p2 for multi-ray
 				if (i_line > 0)
 				{
-					generateRandomLine(state, p1, p2, parallelToTrans1,
-					                   parallelToTrans2, scannerParams, p1, p2);
+					moveLineToRandomOffset(state, p1, p2, parallelToTrans1,
+					                       parallelToTrans2, scannerParams);
 				}
 			}
 

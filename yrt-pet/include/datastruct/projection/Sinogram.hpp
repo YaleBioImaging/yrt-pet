@@ -31,6 +31,21 @@ struct SinogramParams
 	size_t numR, numPhi, numZ, numTheta, numTOFBins;
 };
 
+class BinIteratorSinogram : public BinIterator
+{
+public:
+	BinIteratorSinogram(size_t p_numZBin, size_t p_numPhi,
+				    size_t p_numR, int p_numSubsets,
+				    int p_idxSubset);
+	bin_t begin() const override;
+	bin_t end() const override;
+	size_t size() const override;
+
+protected:
+	bin_t getSafe(bin_t idx) const override;
+};
+
+// Inherits from Histogram since it bins LORs geometrically
 class Sinogram : public Histogram
 {
 public:
@@ -44,6 +59,15 @@ public:
 	                        size_t thetaIdx) const;
 	float getTOFFromCoord(size_t tofIdx) const;
 	float interpolate(const Line3D& lor, float tof) const;
+
+	std::unique_ptr<BinIterator> getBinIter(int numSubsets,
+	                                        int idxSubset) const override;
+
+	// TODO NOW: What needs to be done:
+	//  Bin iterator: Iterate over sinogram bins
+	//  getProjectionValueFromHistogramBin: do interpolation from a given d1,d2
+	//   (maybe add a new histogram bin type?)
+	//  getProjectionValue(bin): get projection value for a given Sinogram bin
 
 private:
 	std::tuple<float, float, float, float>

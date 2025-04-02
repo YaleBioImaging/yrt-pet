@@ -109,7 +109,7 @@ float Corrector::getGlobalScalingFactor() const
 
 bool Corrector::hasGlobalScalingFactor() const
 {
-	return std::abs(1.0f - m_globalScalingFactor) > 1e-8;
+	return std::abs(1.0f - m_globalScalingFactor) > EPS_FLT;
 }
 
 void Corrector::setup()

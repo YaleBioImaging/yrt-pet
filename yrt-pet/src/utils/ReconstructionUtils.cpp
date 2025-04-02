@@ -55,7 +55,7 @@ void py_setup_reconstructionutils(pybind11::module& m)
 	m.def("timeAverageMoveSensitivityImage",
 	      &Util::timeAverageMoveSensitivityImage, "dataInput"_a,
 	      "unmovedSensImage"_a, "numFirstFrames"_a = -1,
-	      "scanDuration"_a = 0.0f);
+	      "scanDuration"_a = 0);
 
 	m.def("generateTORRandomDOI", &Util::generateTORRandomDOI, "scanner"_a,
 	      "d1"_a, "d2"_a, "vmax"_a);

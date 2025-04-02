@@ -1356,10 +1356,10 @@ ImageAlias::ImageAlias(const ImageParams& imgParams) : Image(imgParams)
 	mp_array = std::make_unique<Array3DAlias<float>>();
 }
 
-void ImageAlias::bind(Array3DBase<float>& p_data)
+void ImageAlias::bind(Array3DBase<float>& pr_data)
 {
-	static_cast<Array3DAlias<float>*>(mp_array.get())->bind(p_data);
-	if (mp_array->getRawPointer() != p_data.getRawPointer())
+	static_cast<Array3DAlias<float>*>(mp_array.get())->bind(pr_data);
+	if (mp_array->getRawPointer() != pr_data.getRawPointer())
 	{
 		throw std::runtime_error("An error occured during Image binding");
 	}

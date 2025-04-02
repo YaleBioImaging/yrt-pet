@@ -111,6 +111,12 @@ float Sinogram::interpolate(const Line3D& lor, float tof) const
 	return interpolate5D(rIdx, phiIdx, zIdx, thetaIdx, tofIdx);
 }
 
+std::unique_ptr<BinIterator> Sinogram::getBinIter(int numSubsets,
+                                                  int idxSubset) const
+{
+
+}
+
 const SinogramParams& Sinogram::getParams() const
 {
 	return m_sinoParams;

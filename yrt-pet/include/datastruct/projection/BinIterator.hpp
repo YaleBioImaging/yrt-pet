@@ -10,7 +10,6 @@
 #include <memory>
 #include <vector>
 
-
 class BinIterator
 {
 public:
@@ -28,9 +27,9 @@ private:
 class BinIteratorRange : public BinIterator
 {
 public:
-	BinIteratorRange(bin_t num);
+	explicit BinIteratorRange(bin_t num);
 	BinIteratorRange(bin_t p_idxStart, bin_t p_idxEnd, bin_t p_idxStride = 1);
-	BinIteratorRange(std::tuple<bin_t, bin_t, bin_t> info);
+	explicit BinIteratorRange(std::tuple<bin_t, bin_t, bin_t> info);
 	bin_t begin() const override;
 	bin_t end() const override;
 	size_t size() const override;

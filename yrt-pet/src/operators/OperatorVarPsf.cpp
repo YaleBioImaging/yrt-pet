@@ -95,7 +95,7 @@
      ASSERT_MSG(img_in != nullptr && img_out != nullptr,
                 "Input parameters must be images");
  
-     varconvolve(img_in, img_out);
+     varconvolve<true>(img_in, img_out);
      auto end = std::chrono::high_resolution_clock::now();
      std::chrono::duration<double> duration = end - start;
      std::cout << "Var PSF execution time: " << duration.count() << " seconds" << std::endl;
@@ -110,13 +110,13 @@
      Image* img_out = dynamic_cast<Image*>(out);
      ASSERT_MSG(img_in != nullptr && img_out != nullptr,
                 "Input parameters must be images");
-    //need discussion
-     vartransposedconvolve(img_in, img_out);
+     varconvolve<false>(img_in, img_out);
      auto end = std::chrono::high_resolution_clock::now();
      std::chrono::duration<double> duration = end - start;
      std::cout << "Var Transposed PSF execution time: " << duration.count() << " seconds" << std::endl;
  }
  
+ template <bool IS_FWD>
  void OperatorVarPsf::varconvolve(const Image* in, Image* out) const
  {
      const ImageParams& params = in->getParams();
@@ -170,82 +170,6 @@
             temp = (-xoffset*xoffset*inv_2_sigmax2)+(-yoffset*yoffset*inv_2_sigmay2)+(-zoffset*zoffset*inv_2_sigmaz2);
             psf_kernel[x_diff + kernel_size_x][y_diff + kernel_size_y][z_diff + kernel_size_z] = exp(temp);
         }
-        for (int x_diff = -kernel_size_x;x_diff<=kernel_size_x;x_diff++)
-        for (int y_diff = -kernel_size_y;y_diff<=kernel_size_y;y_diff++)
-        for (int z_diff = -kernel_size_z;z_diff<=kernel_size_z;z_diff++)
-        {
-            ii = i+x_diff;
-            jj = j+y_diff;
-            kk = k+z_diff;
-            //xoffset = x_diff*vx;
-            //yoffset = y_diff*vy;
-            //zoffset = z_diff*vz;
-            //float temp;
-            //float ans = 0;
-            if (ii>=0 && ii<nx && jj>=0 && jj<ny && kk>=0 && kk<nz)
-            {
-		        //index1 = IDX3(i, j, k, nx, ny);
-		        //index2 = IDX3(ii, jj, kk, nx, ny);
-                //ans=exp(-xoffset*xoffset/(2*sigmax*sigmax))*exp(-yoffset*yoffset/(2*sigmay*sigmay))*exp(-zoffset*zoffset/(2*sigmaz*sigmaz));
-                #pragma omp atomic
-                outPtr[IDX3(i, j, k, nx, ny)] += inPtr[IDX3(ii, jj, kk, nx, ny)]*N_temp*psf_kernel[x_diff+kernel_size_x][y_diff+kernel_size_y][z_diff+kernel_size_z];
-            }
-        }
-     }
- }
- 
- void OperatorVarPsf::vartransposedconvolve(const Image* in, Image* out) const
- {
-    const ImageParams& params = in->getParams();
-     ASSERT_MSG(params.isSameDimensionsAs(out->getParams()),
-                "Dimensions mismatch between the two images");
-     const float* inPtr = in->getRawPointer();
-     float* outPtr = out->getRawPointer();
-     const int nx = params.nx;
-     const int ny = params.ny;
-     const int nz = params.nz;
-     const float vx = params.vx;
-     const float vy = params.vy;
-     const float vz = params.vz;
-     float x_center = nx * vx /2.0f;
-     float y_center = ny * vy /2.0f;
-     float z_center = nz * vz /2.0f;
- 
-     const size_t sizeBuffer = std::max(std::max(nx, ny), nz);
-     m_buffer_tmp.resize(sizeBuffer);
- 
-     float xoffset,yoffset,zoffset,temp_x,temp_y,temp_z;
-     int ii,jj,kk,kernel_size_x,kernel_size_y,kernel_size_z;
-     int i,j,k;
-     #pragma omp parallel for private(temp_x,temp_y,temp_z,i,j,k,ii,jj,kk,kernel_size_x,kernel_size_y,kernel_size_z,xoffset,yoffset,zoffset) shared(outPtr)
-     for (int pp =0; pp<nx*ny*nz;pp++)
-     {
-        i = pp % nx;
-        j = (pp / nx) % ny;
-        k = pp / (nx * ny);
-        temp_x = std::abs((i+0.5) * vx-x_center);
-        temp_y = std::abs((j+0.5) * vy-y_center);
-        temp_z = std::abs((k+0.5) * vz-z_center);
-        Sigma s = find_nearest_sigma(sigma_lookup, temp_x, temp_y, temp_z);
-        float N_temp = N/(s.sigmax*s.sigmay*s.sigmaz);
-        kernel_size_x = static_cast<int>(std::floor((s.sigmax*kernel_width_control)/vx))-1;
-        kernel_size_y = static_cast<int>(std::floor((s.sigmay*kernel_width_control)/vy))-1;
-        kernel_size_z = static_cast<int>(std::floor((s.sigmaz*kernel_width_control)/vz))-1;
-        std::vector<std::vector<std::vector<float>>> psf_kernel(kernel_size_x*2+1, std::vector<std::vector<float>>(kernel_size_y*2+1, std::vector<float>(kernel_size_z*2+1, 0.0f))); 
-        float inv_2_sigmax2 = 1.0f / (2 * s.sigmax * s.sigmax);
-        float inv_2_sigmay2 = 1.0f / (2 * s.sigmay * s.sigmay);
-        float inv_2_sigmaz2 = 1.0f / (2 * s.sigmaz * s.sigmaz);
-        for (int x_diff = -kernel_size_x;x_diff<=kernel_size_x;x_diff++)
-        for (int y_diff = -kernel_size_y;y_diff<=kernel_size_y;y_diff++)
-        for (int z_diff = -kernel_size_z;z_diff<=kernel_size_z;z_diff++)
-        {
-            xoffset = x_diff*vx;
-            yoffset = y_diff*vy;
-            zoffset = z_diff*vz;
-            float temp;
-            temp = (-xoffset*xoffset*inv_2_sigmax2)+(-yoffset*yoffset*inv_2_sigmay2)+(-zoffset*zoffset*inv_2_sigmaz2);
-            psf_kernel[x_diff + kernel_size_x][y_diff + kernel_size_y][z_diff + kernel_size_z] = exp(temp);
-        }
         float temp1 = inPtr[IDX3(i, j, k, nx, ny)];
         for (int x_diff = -kernel_size_x;x_diff<=kernel_size_x;x_diff++)
         for (int y_diff = -kernel_size_y;y_diff<=kernel_size_y;y_diff++)
@@ -256,9 +180,16 @@
             kk = k+z_diff;
             if (ii>=0 && ii<nx && jj>=0 && jj<ny && kk>=0 && kk<nz)
             {
-                #pragma omp atomic
-                //outPtr[IDX3(ii, jj, kk, nx, ny)] += N_temp*psf_kernel[x_diff+kernel_size_x][y_diff+kernel_size_y][z_diff+kernel_size_z];
-                outPtr[IDX3(ii, jj, kk, nx, ny)] += temp1*N_temp*psf_kernel[x_diff+kernel_size_x][y_diff+kernel_size_y][z_diff+kernel_size_z];
+		        if (IS_FWD)
+                {
+                    #pragma omp atomic
+                    outPtr[IDX3(i, j, k, nx, ny)] += inPtr[IDX3(ii, jj, kk, nx, ny)]*N_temp*psf_kernel[x_diff+kernel_size_x][y_diff+kernel_size_y][z_diff+kernel_size_z];
+                }
+                else
+                {
+                    #pragma omp atomic
+                    outPtr[IDX3(ii, jj, kk, nx, ny)] += temp1*N_temp*psf_kernel[x_diff+kernel_size_x][y_diff+kernel_size_y][z_diff+kernel_size_z];
+                }
             }
         }
      }

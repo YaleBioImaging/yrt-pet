@@ -4,6 +4,7 @@
  */
 
 #include "datastruct/projection/ProjectionData.hpp"
+#include "geometry/Constants.hpp"
 
 #include "geometry/Matrix.hpp"
 #include "utils/Globals.hpp"
@@ -251,7 +252,7 @@ void ProjectionData::divideMeasurements(const ProjectionData* measurements,
 		const bin_t bin = binIter->get(binIdx);
 		const float projValue = getProjectionValue(bin);
 		// to prevent numerical instability
-		if (projValue > 1e-8)
+		if (projValue > EPS_FLT)
 		{
 			setProjectionValue(bin, measurements->getProjectionValue(bin) /
 			                            projValue);

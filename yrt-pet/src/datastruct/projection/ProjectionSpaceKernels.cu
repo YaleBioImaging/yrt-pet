@@ -4,6 +4,7 @@
  */
 
 #include "datastruct/projection/ProjectionSpaceKernels.cuh"
+#include "geometry/Constants.hpp"
 
 #include <complex>
 
@@ -14,7 +15,7 @@ __global__ void divideMeasurements_kernel(const float* d_dataIn,
 	const long eventId = blockIdx.x * blockDim.x + threadIdx.x;
 	if (eventId < maxNumberOfEvents)
 	{
-		if (d_dataOut[eventId] > 1e-8)
+		if (d_dataOut[eventId] > EPS_FLT)
 		{
 			d_dataOut[eventId] = d_dataIn[eventId] / d_dataOut[eventId];
 		}

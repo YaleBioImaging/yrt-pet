@@ -57,9 +57,9 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    size_x, sigma_x = args.size_x, fwhm_to_sigma(float(args.fx))
-    size_y, sigma_y = args.size_y, fwhm_to_sigma(float(args.fy))
-    size_z, sigma_z = args.size_z, fwhm_to_sigma(float(args.fz))
+    size_x, sigma_x = int(args.size_x), fwhm_to_sigma(float(args.fx))
+    size_y, sigma_y = int(args.size_y), fwhm_to_sigma(float(args.fy))
+    size_z, sigma_z = int(args.size_z), fwhm_to_sigma(float(args.fz))
     vx = float(args.vx)
     vy = float(args.vy)
     vz = float(args.vz)

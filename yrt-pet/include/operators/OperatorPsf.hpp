@@ -27,6 +27,13 @@ public:
 	                      const std::vector<float>& kernelY,
 	                      const std::vector<float>& kernelZ) const;
 
+	const std::vector<float>& getKernelX() const;
+	const std::vector<float>& getKernelY() const;
+	const std::vector<float>& getKernelZ() const;
+	const std::vector<float>& getKernelXFlipped() const;
+	const std::vector<float>& getKernelYFlipped() const;
+	const std::vector<float>& getKernelZFlipped() const;
+
 protected:
 	std::vector<float> m_kernelX;
 	std::vector<float> m_kernelY;

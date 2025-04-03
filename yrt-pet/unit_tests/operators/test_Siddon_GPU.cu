@@ -82,15 +82,4 @@ TEST_CASE("siddon_gpu_vs_cpu", "[siddon-gpu]")
 
 		CHECK(rmseCpuGpu < 0.0003);
 	}
-
-
-
-
-
-
-
-
-
-
-
 }

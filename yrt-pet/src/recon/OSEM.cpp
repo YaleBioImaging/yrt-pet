@@ -615,7 +615,7 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 			// UPDATE
 			getMLEMImageBuffer()->updateEMThreshold(
 			    getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType::EM_RATIO),
-			    getSensImageBuffer(), 0.0);
+			    getSensImageBuffer(), EPS_FLT);
 		}
 		if (saveIterRanges.isIn(iter + 1))
 		{

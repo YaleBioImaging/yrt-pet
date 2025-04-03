@@ -25,7 +25,7 @@ OSEM_GPU::OSEM_GPU(const Scanner& pr_scanner)
 {
 	mp_corrector = std::make_unique<Corrector_GPU>(pr_scanner);
 
-	std::cout << "Creating an instance of OSEM GPU" << std::endl;
+	std::cout << "Creating an instance of OSEM GPU..." << std::endl;
 }
 
 OSEM_GPU::~OSEM_GPU() = default;
@@ -89,7 +89,7 @@ void OSEM_GPU::allocateForSensImgGen()
 {
 	// Allocate for image space
 	mpd_sensImageBuffer =
-	    std::make_unique<ImageDeviceOwned>(getImageParams(), getAuxStream());
+	    std::make_unique<ImageDeviceOwned>(getImageParams(), getMainStream());
 	mpd_sensImageBuffer->allocate(true);
 
 	// Allocate for projection space
@@ -177,7 +177,7 @@ void OSEM_GPU::allocateForRecon()
 	if (flagImagePSF)
 	{
 		mpd_mlemImageTmpPsf =
-			std::make_unique<ImageDeviceOwned>(getImageParams(), getAuxStream());
+			std::make_unique<ImageDeviceOwned>(getImageParams(), getMainStream());
 		mpd_mlemImageTmpPsf->allocate(false);
 	}
 

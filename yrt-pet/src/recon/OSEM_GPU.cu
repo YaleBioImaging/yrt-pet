@@ -164,11 +164,11 @@ void OSEM_GPU::allocateForRecon()
 {
 	// Allocate image-space buffers
 	mpd_mlemImage =
-	    std::make_unique<ImageDeviceOwned>(getImageParams(), getAuxStream());
+	    std::make_unique<ImageDeviceOwned>(getImageParams(), getMainStream());
 	mpd_mlemImageTmpEMRatio =
-	    std::make_unique<ImageDeviceOwned>(getImageParams(), getAuxStream());
+	    std::make_unique<ImageDeviceOwned>(getImageParams(), getMainStream());
 	mpd_sensImageBuffer =
-	    std::make_unique<ImageDeviceOwned>(getImageParams(), getAuxStream());
+	    std::make_unique<ImageDeviceOwned>(getImageParams(), getMainStream());
 
 	mpd_mlemImage->allocate(false);
 	mpd_mlemImageTmpEMRatio->allocate(false);

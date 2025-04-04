@@ -92,7 +92,6 @@
      }
  }
  
- //need redesign
  void OperatorVarPsf::applyA(const Variable* in, Variable* out)
  {
      auto start = std::chrono::high_resolution_clock::now();
@@ -108,7 +107,6 @@
 
  }
  
- //need redesign
  void OperatorVarPsf::applyAH(const Variable* in, Variable* out)
  {
      auto start = std::chrono::high_resolution_clock::now();

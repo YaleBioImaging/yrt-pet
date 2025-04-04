@@ -184,7 +184,7 @@
             kk = k+z_diff;
             if (ii>=0 && ii<nx && jj>=0 && jj<ny && kk>=0 && kk<nz)
             {
-		        if (IS_FWD)
+		        if constexpr (IS_FWD)
                 {
                     #pragma omp atomic
                     outPtr[IDX3(i, j, k, nx, ny)] += inPtr[IDX3(ii, jj, kk, nx, ny)]*N_temp*psf_kernel[x_diff+kernel_size_x][y_diff+kernel_size_y][z_diff+kernel_size_z];

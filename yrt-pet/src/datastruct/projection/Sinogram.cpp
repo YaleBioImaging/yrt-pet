@@ -114,7 +114,7 @@ float Sinogram::interpolate(const Line3D& lor, float tof) const
 std::unique_ptr<BinIterator> Sinogram::getBinIter(int numSubsets,
                                                   int idxSubset) const
 {
-
+// TODO NOW: Implement this
 }
 
 const SinogramParams& Sinogram::getParams() const

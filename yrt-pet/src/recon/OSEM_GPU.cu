@@ -92,6 +92,17 @@ void OSEM_GPU::allocateForSensImgGen()
 	    std::make_unique<ImageDeviceOwned>(getImageParams(), getMainStream());
 	mpd_sensImageBuffer->allocate(true);
 
+	if (flagImagePSF)
+	{
+		const auto imagePsfDevice =
+		    dynamic_cast<OperatorPsfDevice*>(imagePsf.get());
+		ASSERT(imagePsfDevice != nullptr);
+		// This is done in order to more accurately compute the available
+		//  device memory for the projection-space buffers below
+		imagePsfDevice->allocateTemporaryDeviceImageIfNeeded(
+		    getImageParams(), {getMainStream(), true});
+	}
+
 	// Allocate for projection space
 	auto tempSensDataInput = std::make_unique<ProjectionDataDeviceOwned>(
 	    scanner, mp_corrector->getSensImgGenProjData(), num_OSEM_subsets);
@@ -176,8 +187,8 @@ void OSEM_GPU::allocateForRecon()
 
 	if (flagImagePSF)
 	{
-		mpd_mlemImageTmpPsf =
-			std::make_unique<ImageDeviceOwned>(getImageParams(), getMainStream());
+		mpd_mlemImageTmpPsf = std::make_unique<ImageDeviceOwned>(
+		    getImageParams(), getMainStream());
 		mpd_mlemImageTmpPsf->allocate(false);
 	}
 

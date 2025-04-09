@@ -107,6 +107,23 @@ void OperatorPsfDevice::copyToDevice(bool synchronize)
 	                                  m_kernelZ_flipped.size(), launchConfig);
 }
 
+void OperatorPsfDevice::allocateTemporaryDeviceImageIfNeeded(
+    const ImageParams& params, GPULaunchConfig config) const
+{
+	const auto* stream = config.stream;
+	if (mpd_intermediaryImage == nullptr ||
+	    !(mpd_intermediaryImage->getParams().isSameDimensionsAs(params)))
+	{
+		mpd_intermediaryImage =
+		    std::make_unique<ImageDeviceOwned>(params, stream);
+	}
+
+	if (!mpd_intermediaryImage->isMemoryValid())
+	{
+		mpd_intermediaryImage->allocate(config.synchronize);
+	}
+}
+
 template <bool Transpose>
 void OperatorPsfDevice::apply(const Variable* in, Variable* out,
                               bool synchronize) const
@@ -327,13 +344,7 @@ void OperatorPsfDevice::convolveDevice(const ImageDevice& inputImage,
 	// Everything here is done in the main stream
 	const auto* stream = getMainStream();
 
-	if (mpd_intermediaryImage == nullptr ||
-	    !(mpd_intermediaryImage->getParams().isSameDimensionsAs(params)))
-	{
-		mpd_intermediaryImage =
-		    std::make_unique<ImageDeviceOwned>(params, stream);
-		mpd_intermediaryImage->allocate(true);
-	}
+	allocateTemporaryDeviceImageIfNeeded(params, {stream, true});
 	float* pd_intermediaryImage = mpd_intermediaryImage->getDevicePointer();
 
 	const float* pd_kernelX = kernelX.getDevicePointer();

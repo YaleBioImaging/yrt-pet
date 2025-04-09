@@ -103,6 +103,13 @@ void OSEM_GPU::allocateForSensImgGen()
 		    getImageParams(), {getMainStream(), true});
 	}
 
+	if (mp_corrector->hasHardwareAttenuationImage())
+	{
+		mp_corrector->initializeTemporaryDeviceImageIfNeeded(
+		    mp_corrector->getHardwareAttenuationImage(),
+		    {getMainStream(), true});
+	}
+
 	// Allocate for projection space
 	auto tempSensDataInput = std::make_unique<ProjectionDataDeviceOwned>(
 	    scanner, mp_corrector->getSensImgGenProjData(), num_OSEM_subsets);

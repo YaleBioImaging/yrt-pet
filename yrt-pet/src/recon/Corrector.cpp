@@ -270,6 +270,11 @@ bool Corrector::hasHardwareAttenuationImage() const
 	return mp_hardwareAttenuationImage != nullptr;
 }
 
+const Image* Corrector::getHardwareAttenuationImage() const
+{
+	return mp_hardwareAttenuationImage;
+}
+
 bool Corrector::hasMultiplicativeCorrection() const
 {
 	// Has either hardware attenuation or sensitivity
@@ -289,6 +294,11 @@ bool Corrector::mustInvertSensitivity() const
 bool Corrector::hasInVivoAttenuation() const
 {
 	return mp_inVivoAcf != nullptr || mp_inVivoAttenuationImage != nullptr;
+}
+
+const Image* Corrector::getInVivoAttenuationImage() const
+{
+	return mp_inVivoAttenuationImage;
 }
 
 float Corrector::getRandomsEstimate(const ProjectionData& measurements,

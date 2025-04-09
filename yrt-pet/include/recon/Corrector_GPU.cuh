@@ -53,15 +53,13 @@ public:
 	    ProjectionDataDevice* destProjData, OperatorProjectorDevice* projector,
 	    GPULaunchConfig launchConfig);
 
+	void initializeTemporaryDeviceImageIfNeeded(const Image* hostReference,
+	                                            GPULaunchConfig launchConfig);
+
 private:
 	// Helper function
 	void loadPrecomputedCorrectionFactorsToTemporaryDeviceBuffer(
 	    const ProjectionList* factors, GPULaunchConfig launchConfig);
-	void initializeTemporaryDeviceImageIfNeeded(const Image* hostReference,
-	                                            GPULaunchConfig launchConfig);
-
-	// Internal management
-	void initializeTemporaryDeviceImageIfNeeded(const Image* hostReference);
 
 	std::unique_ptr<ProjectionDataDeviceOwned> mpd_temporaryCorrectionFactors;
 

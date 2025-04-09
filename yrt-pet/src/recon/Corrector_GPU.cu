@@ -234,6 +234,9 @@ void Corrector_GPU::initializeTemporaryDeviceImageIfNeeded(
 		{
 			mpd_temporaryImage = std::make_unique<ImageDeviceOwned>(
 			    referenceParams, launchConfig.stream);
+		}
+		if (!mpd_temporaryImage->isMemoryValid())
+		{
 			mpd_temporaryImage->allocate();
 		}
 		mpd_temporaryImage->copyFromHostImage(hostReference,

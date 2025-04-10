@@ -111,3 +111,17 @@ With `[ON/OFF]` being replaced by the desired configuration
     - It is common within HPC cluster infrastructures to override this
       environment variable to a smaller number like 4. Beware of such situations
       if computation time is a constraint.
+- I get an error that looks like:
+    ```
+    CMake Error at /usr/share/cmake-3.29/Modules/CMakeDetermineCompilerId.cmake:814 (message):
+    Compiling the CUDA compiler identification source file
+    "CMakeCUDACompilerId.cu" failed.
+
+    ...
+    143 | #error -- unsupported GNU version! gcc versions later than 12 are not supported! The nvcc flag '-allow-unsupported-compiler' can be used to override this version check; however, using an unsupported host compiler may cause compilation failure or incorrect run time execution. Use at your own risk.
+    |      ^~~~~
+    ```
+    - This is because `nvcc` tries to use a version of `gcc` that is
+    not supported by the CUDA toolkit (yet).
+    - If you have a different version of `gcc` installed, you can do:
+    ``-DCMAKE_CUDA_HOST_COMPILER=g++-11``

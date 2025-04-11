@@ -205,20 +205,22 @@ void ListModeLUTOwned::readFromFile(const std::string& listMode_fname)
 			const det_id_t d1 = buff[numFields * i + 1];
 			const det_id_t d2 = buff[numFields * i + 2];
 
-			if (CHECK_LIKELY(d1 >= numDets || d2 >= numDets))
+			if (CHECK_LIKELY(d1 < numDets && d2 < numDets))
+			{
+				(*mp_timestamps)[eventPos] = buff[numFields * i];
+				(*mp_detectorId1)[eventPos] = d1;
+				(*mp_detectorId2)[eventPos] = d2;
+				if (m_flagTOF)
+				{
+					std::memcpy(&mp_tof_ps->getRawPointer()[eventPos],
+								&buff[numFields * i + 3], sizeof(float));
+				}
+			}
+			else
 			{
 				throw std::invalid_argument(
-				    "Detectors invalid in list-mode event " +
-				    std::to_string(eventPos));
-			}
-
-			(*mp_timestamps)[eventPos] = buff[numFields * i];
-			(*mp_detectorId1)[eventPos] = d1;
-			(*mp_detectorId2)[eventPos] = d2;
-			if (m_flagTOF)
-			{
-				std::memcpy(&mp_tof_ps->getRawPointer()[eventPos],
-				            &buff[numFields * i + 3], sizeof(float));
+					"Detectors invalid in list-mode event " +
+					std::to_string(eventPos));
 			}
 		}
 		posStart += readSize / numFields;

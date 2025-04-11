@@ -110,7 +110,7 @@ void OSEMUpdater_CPU::computeEMUpdateImage(const Image& inputImage,
 			update *= correctorPtr->getInVivoAttenuationFactor(bin);
 		}
 
-		if (update > 1e-8)  // to prevent numerical instability
+		if (update > EPS_FLT)  // to prevent numerical instability
 		{
 			const float measurement = measurements->getProjectionValue(bin);
 

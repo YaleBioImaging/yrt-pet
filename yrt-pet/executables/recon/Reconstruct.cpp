@@ -264,6 +264,7 @@ int main(int argc, char** argv)
 			    "pre-existing sensitivity images were provided");
 		}
 
+		std::cout << "Initializing scanner..." << std::endl;
 		auto scanner = std::make_unique<Scanner>(scanner_fname);
 		auto projectorType = IO::getProjector(projector_name);
 		std::unique_ptr<OSEM> osem = Util::createOSEM(*scanner, useGPU);

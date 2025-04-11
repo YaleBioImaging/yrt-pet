@@ -22,6 +22,9 @@ namespace TestUtils
 	bool allclose(const ProjectionList& projValuesRef,
 	              const ProjectionList& projValues, float rtol = 1e-5,
 	              float atol = 1e-8);
+	template <bool EQUAL_NAN = false>
+	bool allclose(const Image& imageRef, const Image& image, float rtol = 1e-5,
+	              float atol = 1e-8);
 
 	template <typename TFloat, bool EQUAL_NAN = false>
 	bool allclose(const TFloat* valuesRef, const TFloat* values,

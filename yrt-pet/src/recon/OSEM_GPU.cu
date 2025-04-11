@@ -25,7 +25,7 @@ OSEM_GPU::OSEM_GPU(const Scanner& pr_scanner)
 {
 	mp_corrector = std::make_unique<Corrector_GPU>(pr_scanner);
 
-	std::cout << "Creating an instance of OSEM GPU" << std::endl;
+	std::cout << "Creating an instance of OSEM GPU..." << std::endl;
 }
 
 OSEM_GPU::~OSEM_GPU() = default;
@@ -89,8 +89,26 @@ void OSEM_GPU::allocateForSensImgGen()
 {
 	// Allocate for image space
 	mpd_sensImageBuffer =
-	    std::make_unique<ImageDeviceOwned>(getImageParams(), getAuxStream());
+	    std::make_unique<ImageDeviceOwned>(getImageParams(), getMainStream());
 	mpd_sensImageBuffer->allocate(true);
+
+	if (flagImagePSF)
+	{
+		const auto imagePsfDevice =
+		    dynamic_cast<OperatorPsfDevice*>(imagePsf.get());
+		ASSERT(imagePsfDevice != nullptr);
+		// This is done in order to more accurately compute the available
+		//  device memory for the projection-space buffers below
+		imagePsfDevice->allocateTemporaryDeviceImageIfNeeded(
+		    getImageParams(), {getMainStream(), true});
+	}
+
+	if (mp_corrector->hasHardwareAttenuationImage())
+	{
+		mp_corrector->initializeTemporaryDeviceImageIfNeeded(
+		    mp_corrector->getHardwareAttenuationImage(),
+		    {getMainStream(), true});
+	}
 
 	// Allocate for projection space
 	auto tempSensDataInput = std::make_unique<ProjectionDataDeviceOwned>(
@@ -164,11 +182,11 @@ void OSEM_GPU::allocateForRecon()
 {
 	// Allocate image-space buffers
 	mpd_mlemImage =
-	    std::make_unique<ImageDeviceOwned>(getImageParams(), getAuxStream());
+	    std::make_unique<ImageDeviceOwned>(getImageParams(), getMainStream());
 	mpd_mlemImageTmpEMRatio =
-	    std::make_unique<ImageDeviceOwned>(getImageParams(), getAuxStream());
+	    std::make_unique<ImageDeviceOwned>(getImageParams(), getMainStream());
 	mpd_sensImageBuffer =
-	    std::make_unique<ImageDeviceOwned>(getImageParams(), getAuxStream());
+	    std::make_unique<ImageDeviceOwned>(getImageParams(), getMainStream());
 
 	mpd_mlemImage->allocate(false);
 	mpd_mlemImageTmpEMRatio->allocate(false);
@@ -176,8 +194,8 @@ void OSEM_GPU::allocateForRecon()
 
 	if (flagImagePSF)
 	{
-		mpd_mlemImageTmpPsf =
-			std::make_unique<ImageDeviceOwned>(getImageParams(), getAuxStream());
+		mpd_mlemImageTmpPsf = std::make_unique<ImageDeviceOwned>(
+		    getImageParams(), getMainStream());
 		mpd_mlemImageTmpPsf->allocate(false);
 	}
 

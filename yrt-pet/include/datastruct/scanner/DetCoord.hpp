@@ -74,6 +74,6 @@ class DetCoordOwned : public DetCoord
 public:
 	DetCoordOwned();
 	DetCoordOwned(const std::string& filename);
-	void allocate(size_t num_dets);
+	void allocate(size_t numDets);
 	void readFromFile(const std::string& filename);
 };

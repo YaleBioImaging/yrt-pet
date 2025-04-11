@@ -54,7 +54,8 @@ void py_setup_reconstructionutils(pybind11::module& m)
 
 	m.def("timeAverageMoveSensitivityImage",
 	      &Util::timeAverageMoveSensitivityImage, "dataInput"_a,
-	      "unmovedSensImage"_a, "numFirstFrames"_a = -1);
+	      "unmovedSensImage"_a, "numFirstFrames"_a = -1,
+	      "scanDuration"_a = 0);
 
 	m.def("generateTORRandomDOI", &Util::generateTORRandomDOI, "scanner"_a,
 	      "d1"_a, "d2"_a, "vmax"_a);
@@ -219,10 +220,9 @@ namespace Util
 		}
 	}
 
-	std::unique_ptr<ImageOwned>
-	    timeAverageMoveSensitivityImage(const ProjectionData& dataInput,
-	                                    const Image& unmovedSensImage,
-	                                    int numFirstFrames)
+	std::unique_ptr<ImageOwned> timeAverageMoveSensitivityImage(
+	    const ProjectionData& dataInput, const Image& unmovedSensImage,
+	    int numFirstFrames, timestamp_t scanDurationFirstFrames)
 	{
 		const ImageParams& params = unmovedSensImage.getParams();
 		ASSERT_MSG(params.isValid(), "Image parameters incomplete");
@@ -230,6 +230,7 @@ namespace Util
 		           "Sensitivity image given is not allocated");
 
 		int64_t numFrames;
+		float scanDuration;
 
 		if (numFirstFrames == -1)
 		{
@@ -240,10 +241,16 @@ namespace Util
 			numFrames = numFirstFrames;
 		}
 
-		ProgressDisplay progress{numFrames};
+		if (scanDurationFirstFrames == 0)
+		{
+			scanDuration = static_cast<float>(dataInput.getScanDuration());
+		}
+		else
+		{
+			scanDuration = static_cast<float>(scanDurationFirstFrames);
+		}
 
-		const auto scanDuration =
-		    static_cast<float>(dataInput.getScanDuration());
+		ProgressDisplay progress{numFrames};
 
 		auto movedSensImage = std::make_unique<ImageOwned>(params);
 		movedSensImage->allocate();

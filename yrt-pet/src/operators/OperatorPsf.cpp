@@ -10,6 +10,7 @@
 
 #if BUILD_PYBIND11
 #include <pybind11/pybind11.h>
+#include <pybind11/numpy.h>
 #include <pybind11/stl.h>
 namespace py = pybind11;
 
@@ -28,6 +29,67 @@ void py_setup_operatorpsf(py::module& m)
 	    "applyAH", [](OperatorPsf& self, const Image* img_in, Image* img_out)
 	    { self.applyAH(img_in, img_out); }, py::arg("img_in"),
 	    py::arg("img_out"));
+
+	c.def("getKernelX",
+	      [](const OperatorPsf& self) -> py::array_t<float>
+	      {
+		      auto arr = self.getKernelX();
+		      const auto buf_info =
+		          py::buffer_info(arr.data(), sizeof(float),
+		                          py::format_descriptor<float>::format(), 1,
+		                          {arr.size()}, {sizeof(float)});
+		      return pybind11::array_t<float>(buf_info);
+	      });
+	c.def("getKernelY",
+	      [](const OperatorPsf& self) -> py::array_t<float>
+	      {
+		      auto arr = self.getKernelY();
+		      const auto buf_info =
+		          py::buffer_info(arr.data(), sizeof(float),
+		                          py::format_descriptor<float>::format(), 1,
+		                          {arr.size()}, {sizeof(float)});
+		      return pybind11::array_t<float>(buf_info);
+	      });
+	c.def("getKernelZ",
+	      [](const OperatorPsf& self) -> py::array_t<float>
+	      {
+		      auto arr = self.getKernelZ();
+		      const auto buf_info =
+		          py::buffer_info(arr.data(), sizeof(float),
+		                          py::format_descriptor<float>::format(), 1,
+		                          {arr.size()}, {sizeof(float)});
+		      return pybind11::array_t<float>(buf_info);
+	      });
+	c.def("getKernelXFlipped",
+	      [](const OperatorPsf& self) -> py::array_t<float>
+	      {
+		      auto arr = self.getKernelXFlipped();
+		      const auto buf_info =
+		          py::buffer_info(arr.data(), sizeof(float),
+		                          py::format_descriptor<float>::format(), 1,
+		                          {arr.size()}, {sizeof(float)});
+		      return pybind11::array_t<float>(buf_info);
+	      });
+	c.def("getKernelYFlipped",
+	      [](const OperatorPsf& self) -> py::array_t<float>
+	      {
+		      auto arr = self.getKernelYFlipped();
+		      const auto buf_info =
+		          py::buffer_info(arr.data(), sizeof(float),
+		                          py::format_descriptor<float>::format(), 1,
+		                          {arr.size()}, {sizeof(float)});
+		      return pybind11::array_t<float>(buf_info);
+	      });
+	c.def("getKernelZFlipped",
+	      [](const OperatorPsf& self) -> py::array_t<float>
+	      {
+		      auto arr = self.getKernelZFlipped();
+		      const auto buf_info =
+		          py::buffer_info(arr.data(), sizeof(float),
+		                          py::format_descriptor<float>::format(), 1,
+		                          {arr.size()}, {sizeof(float)});
+		      return pybind11::array_t<float>(buf_info);
+	      });
 }
 #endif
 
@@ -203,4 +265,34 @@ void OperatorPsf::convolve(const Image* in, Image* out,
 			}
 		}
 	}
+}
+
+const std::vector<float>& OperatorPsf::getKernelX() const
+{
+	return m_kernelX;
+}
+
+const std::vector<float>& OperatorPsf::getKernelY() const
+{
+	return m_kernelX;
+}
+
+const std::vector<float>& OperatorPsf::getKernelZ() const
+{
+	return m_kernelZ;
+}
+
+const std::vector<float>& OperatorPsf::getKernelXFlipped() const
+{
+	return m_kernelX_flipped;
+}
+
+const std::vector<float>& OperatorPsf::getKernelYFlipped() const
+{
+	return m_kernelY_flipped;
+}
+
+const std::vector<float>& OperatorPsf::getKernelZFlipped() const
+{
+	return m_kernelZ_flipped;
 }

@@ -22,6 +22,8 @@ public:
 	void readFromFile(const std::string& pr_imagePsf_fname, bool p_synchronize);
 
 	void copyToDevice(bool synchronize);
+	void allocateTemporaryDeviceImageIfNeeded(const ImageParams& params,
+	                                          GPULaunchConfig config) const;
 
 	void applyA(const Variable* in, Variable* out) override;
 	void applyAH(const Variable* in, Variable* out) override;

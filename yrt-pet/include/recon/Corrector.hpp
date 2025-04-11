@@ -52,6 +52,7 @@ public:
 	bool hasSensitivityHistogram() const;
 	bool hasHardwareAttenuation() const;
 	bool hasHardwareAttenuationImage() const;
+	const Image* getHardwareAttenuationImage() const;
 	bool hasMultiplicativeCorrection() const;
 	bool mustInvertSensitivity() const;
 	bool doesHardwareACFComeFromHistogram() const;
@@ -59,11 +60,12 @@ public:
 	// For reconstruction
 	bool hasAdditiveCorrection() const;
 	bool hasInVivoAttenuation() const;
+	const Image* getInVivoAttenuationImage() const;
 	bool doesTotalACFComeFromHistogram() const;
 	bool doesInVivoACFComeFromHistogram() const;
 
 protected:
-	static constexpr float StabilityEpsilon = 1e-8f;
+	static constexpr float StabilityEpsilon = EPS_FLT;
 
 	// Helper functions
 	float getRandomsEstimate(const ProjectionData& measurements, bin_t binId,

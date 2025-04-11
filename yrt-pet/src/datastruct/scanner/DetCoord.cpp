@@ -171,7 +171,8 @@ void py_setup_detcoord(py::module& m)
 }
 #endif
 
-DetCoord::DetCoord() {}
+DetCoord::DetCoord() = default;
+
 DetCoordOwned::DetCoordOwned() : DetCoord()
 {
 	mp_Xpos = std::make_unique<Array1D<float>>();
@@ -181,10 +182,12 @@ DetCoordOwned::DetCoordOwned() : DetCoord()
 	mp_Yorient = std::make_unique<Array1D<float>>();
 	mp_Zorient = std::make_unique<Array1D<float>>();
 }
+
 DetCoordOwned::DetCoordOwned(const std::string& filename) : DetCoordOwned()
 {
 	readFromFile(filename);
 }
+
 DetCoordAlias::DetCoordAlias() : DetCoord()
 {
 	mp_Xpos = std::make_unique<Array1DAlias<float>>();
@@ -195,15 +198,14 @@ DetCoordAlias::DetCoordAlias() : DetCoord()
 	mp_Zorient = std::make_unique<Array1DAlias<float>>();
 }
 
-
-void DetCoordOwned::allocate(size_t num_dets)
+void DetCoordOwned::allocate(size_t numDets)
 {
-	static_cast<Array1D<float>*>(mp_Xpos.get())->allocate(num_dets);
-	static_cast<Array1D<float>*>(mp_Ypos.get())->allocate(num_dets);
-	static_cast<Array1D<float>*>(mp_Zpos.get())->allocate(num_dets);
-	static_cast<Array1D<float>*>(mp_Xorient.get())->allocate(num_dets);
-	static_cast<Array1D<float>*>(mp_Yorient.get())->allocate(num_dets);
-	static_cast<Array1D<float>*>(mp_Zorient.get())->allocate(num_dets);
+	reinterpret_cast<Array1D<float>*>(mp_Xpos.get())->allocate(numDets);
+	reinterpret_cast<Array1D<float>*>(mp_Ypos.get())->allocate(numDets);
+	reinterpret_cast<Array1D<float>*>(mp_Zpos.get())->allocate(numDets);
+	reinterpret_cast<Array1D<float>*>(mp_Xorient.get())->allocate(numDets);
+	reinterpret_cast<Array1D<float>*>(mp_Yorient.get())->allocate(numDets);
+	reinterpret_cast<Array1D<float>*>(mp_Zorient.get())->allocate(numDets);
 }
 
 void DetCoord::writeToFile(const std::string& detCoord_fname) const
@@ -249,30 +251,42 @@ void DetCoordOwned::readFromFile(const std::string& filename)
 	size_t end = fin.tellg();
 	fin.seekg(0, std::ios::beg);
 	size_t begin = fin.tellg();
-	size_t file_size = end - begin;
+	size_t fileSize = end - begin;
 
-	size_t num_float = file_size / sizeof(float);
+	size_t numElem = fileSize / sizeof(float);
 
-	if (file_size <= 0 || file_size % sizeof(float) != 0 || num_float % 6 != 0)
+	if (fileSize <= 0 || fileSize % sizeof(float) != 0 || numElem % 6 != 0)
 	{
 		throw std::logic_error("Error: Input file has incorrect size");
 	}
 
-	size_t num_el = num_float / 6;
-	allocate(num_el);
+	size_t numDets = numElem / 6;
+	allocate(numDets);
 
-	auto buff = std::make_unique<float[]>(num_float);
+	auto buff = std::make_unique<float[]>(numElem);
 
-	fin.read((char*)buff.get(), num_float * sizeof(float));
+	fin.read(reinterpret_cast<char*>(buff.get()), numElem * sizeof(float));
 
-	for (size_t i = 0; i < num_el; i++)
+	// Get raw pointers
+	float* xPos_ptr = mp_Xpos->getRawPointer();
+	float* yPos_ptr = mp_Ypos->getRawPointer();
+	float* zPos_ptr = mp_Zpos->getRawPointer();
+	float* xOrient_ptr = mp_Xorient->getRawPointer();
+	float* yOrient_ptr = mp_Yorient->getRawPointer();
+	float* zOrient_ptr = mp_Zorient->getRawPointer();
+	const float* buff_ptr = buff.get();
+
+#pragma omp parallel for default(none)                                   \
+    firstprivate(xPos_ptr, yPos_ptr, zPos_ptr, xOrient_ptr, yOrient_ptr, \
+                     zOrient_ptr, buff_ptr, numDets)
+	for (size_t i = 0; i < numDets; i++)
 	{
-		(*mp_Xpos)[i] = buff[6 * i];
-		(*mp_Ypos)[i] = buff[6 * i + 1];
-		(*mp_Zpos)[i] = buff[6 * i + 2];
-		(*mp_Xorient)[i] = buff[6 * i + 3];
-		(*mp_Yorient)[i] = buff[6 * i + 4];
-		(*mp_Zorient)[i] = buff[6 * i + 5];
+		xPos_ptr[i] = buff_ptr[6 * i + 0];
+		yPos_ptr[i] = buff_ptr[6 * i + 1];
+		zPos_ptr[i] = buff_ptr[6 * i + 2];
+		xOrient_ptr[i] = buff_ptr[6 * i + 3];
+		yOrient_ptr[i] = buff_ptr[6 * i + 4];
+		zOrient_ptr[i] = buff_ptr[6 * i + 5];
 	}
 
 	fin.close();

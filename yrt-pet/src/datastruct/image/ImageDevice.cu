@@ -371,7 +371,10 @@ void ImageDevice::updateEMThresholdDevice(ImageDevice* updateImg,
 		    updateImg->getDevicePointer(), getDevicePointer(),
 		    normImg->getDevicePointer(), getParams().nx, getParams().ny,
 		    getParams().nz, threshold);
-		cudaStreamSynchronize(*mp_stream);
+		if (synchronize)
+		{
+			cudaStreamSynchronize(*mp_stream);
+		}
 	}
 	else
 	{
@@ -379,7 +382,10 @@ void ImageDevice::updateEMThresholdDevice(ImageDevice* updateImg,
 		    updateImg->getDevicePointer(), getDevicePointer(),
 		    normImg->getDevicePointer(), getParams().nx, getParams().ny,
 		    getParams().nz, threshold);
-		cudaDeviceSynchronize();
+		if (synchronize)
+		{
+			cudaDeviceSynchronize();
+		}
 	}
 	cudaCheckError();
 }

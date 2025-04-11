@@ -99,9 +99,13 @@ void OperatorProjector::applyA(const Variable* in, Variable* out)
 		ProjectionProperties projectionProperties =
 		    dat->getProjectionProperties(bin);
 
-		const float imProj = forwardProjection(img, projectionProperties);
+		if (projectionProperties.lor.point1.x !=
+		    std::numeric_limits<float>::infinity())
+		{
+			float imProj = forwardProjection(img, projectionProperties);
 
-		dat->setProjectionValue(bin, imProj);
+			dat->setProjectionValue(bin, static_cast<float>(imProj));
+		}
 	}
 }
 
@@ -122,13 +126,19 @@ void OperatorProjector::applyAH(const Variable* in, Variable* out)
 		ProjectionProperties projectionProperties =
 		    dat->getProjectionProperties(bin);
 
-		float projValue = dat->getProjectionValue(bin);
-		if (std::abs(projValue) < SMALL)
+		if (projectionProperties.lor.point1.x !=
+		    std::numeric_limits<float>::infinity())
 		{
-			continue;
-		}
+			// TODO: What to do with randomsEstimate ?
 
-		backProjection(img, projectionProperties, projValue);
+			float projValue = dat->getProjectionValue(bin);
+			if (std::abs(projValue) < SMALL)
+			{
+				continue;
+			}
+
+			backProjection(img, projectionProperties, projValue);
+		}
 	}
 }
 

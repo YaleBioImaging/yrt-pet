@@ -9,6 +9,7 @@
 #include "operators/ProjectionPsfUtils.cuh"
 
 #include <cuda_runtime.h>
+#include <cuda/std/limits>
 
 __global__ void gatherLORs_kernel(const uint2* pd_lorDetsIds,
                                   const float4* pd_detsPos,

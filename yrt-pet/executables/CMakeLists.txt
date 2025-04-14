@@ -2,7 +2,7 @@ project(executables)
 
 define_target_exe(yrtpet_post_recon_motion_correction motion/PostReconMotionCorrection.cpp)
 
-define_target_exe(yrtpet_reconstruct recon/Reconstruct.cpp PluginOptionsHelper.cpp)
+define_target_exe(yrtpet_reconstruct recon/Reconstruct.cpp PluginOptionsHelper.cpp ReconstructionConfig.cpp)
 define_target_exe(yrtpet_forward_project recon/ForwardProject.cpp)
 define_target_exe(yrtpet_backproject recon/Backproject.cpp PluginOptionsHelper.cpp)
 define_target_exe(yrtpet_estimate_scatter recon/EstimateScatter.cpp)

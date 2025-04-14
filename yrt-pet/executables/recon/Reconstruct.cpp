@@ -5,12 +5,12 @@
 
 #include "../PluginOptionsHelper.hpp"
 #include "datastruct/IO.hpp"
+#include "datastruct/projection/ListMode.hpp"
 #include "datastruct/scanner/Scanner.hpp"
 #include "utils/Assert.hpp"
 #include "utils/Globals.hpp"
 #include "utils/ProgressDisplay.hpp"
 #include "utils/ReconstructionUtils.hpp"
-#include "utils/Utilities.hpp"
 
 #include <cxxopts.hpp>
 #include <iostream>
@@ -303,6 +303,7 @@ int main(int argc, char** argv)
 		}
 		else if (!attImg_fname.empty())
 		{
+			std::cout << "Reading attenuation image..." << std::endl;
 			attImg = std::make_unique<ImageOwned>(attImg_fname);
 			osem->setAttenuationImage(attImg.get());
 		}
@@ -330,6 +331,7 @@ int main(int argc, char** argv)
 		}
 		else if (!hardwareAttImg_fname.empty())
 		{
+			std::cout << "Reading hardware attenuation image..." << std::endl;
 			hardwareAttImg = std::make_unique<ImageOwned>(hardwareAttImg_fname);
 			osem->setHardwareAttenuationImage(hardwareAttImg.get());
 		}
@@ -348,6 +350,7 @@ int main(int argc, char** argv)
 
 		// Sensitivity image(s)
 		std::unique_ptr<ProjectionData> sensitivityProjData = nullptr;
+		const Histogram* sensitivityHis = nullptr;
 		if (!sensitivityData_fname.empty())
 		{
 			std::cout << "Reading sensitivity histogram..." << std::endl;
@@ -360,7 +363,7 @@ int main(int argc, char** argv)
 			    sensitivityData_fname, sensitivityData_format, *scanner,
 			    pluginOptionsResults);
 
-			const auto* sensitivityHis =
+			sensitivityHis =
 			    dynamic_cast<const Histogram*>(sensitivityProjData.get());
 			ASSERT(sensitivityHis != nullptr);
 
@@ -418,6 +421,13 @@ int main(int argc, char** argv)
 		dataInput = IO::openProjectionData(input_fname, input_format, *scanner,
 		                                   pluginOptionsResults);
 		osem->setDataInput(dataInput.get());
+
+		// Give sensitivity histogram to list-mode if needed
+		auto dataInputListMode = dynamic_cast<ListMode*>(dataInput.get());
+		if (dataInputListMode != nullptr && sensitivityHis != nullptr)
+		{
+			dataInputListMode->setSensitivityHistogram(sensitivityHis);
+		}
 
 		std::unique_ptr<ImageOwned> movedSensImage = nullptr;
 		if (dataInput->hasMotion() && !sensImageAlreadyMoved)
@@ -501,6 +511,7 @@ int main(int argc, char** argv)
 		std::unique_ptr<ImageOwned> invivoAttImg = nullptr;
 		if (!invivoAttImg_fname.empty())
 		{
+			std::cout << "Reading in-vivo attenuation image..." << std::endl;
 			ASSERT_MSG_WARNING(dataInput->hasMotion(),
 			                   "An in-vivo attenuation image was provided but "
 			                   "the data input has no motion");

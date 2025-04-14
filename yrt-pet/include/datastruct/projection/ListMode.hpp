@@ -8,6 +8,8 @@
 
 #include <memory>
 
+class Histogram;
+
 class ListMode : public ProjectionData
 {
 public:
@@ -23,6 +25,9 @@ public:
 	std::unique_ptr<BinIterator> getBinIter(int numSubsets,
 	                                        int idxSubset) const override;
 
+	void setSensitivityHistogram(const Histogram* pp_sensitivity);
+	const Histogram* getSensitivityHistogram() const;
 protected:
 	explicit ListMode(const Scanner& pr_scanner);
+	const Histogram* mp_sensitivity;
 };

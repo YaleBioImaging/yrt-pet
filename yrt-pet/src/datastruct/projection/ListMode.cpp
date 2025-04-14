@@ -59,3 +59,13 @@ std::unique_ptr<BinIterator> ListMode::getBinIter(int numSubsets,
 	return std::make_unique<BinIteratorChronological>(numSubsets, numEvents,
 	                                                  idxSubset);
 }
+
+void ListMode::setSensitivityHistogram(const Histogram* pp_sensitivity)
+{
+	mp_sensitivity = pp_sensitivity;
+}
+
+const Histogram* ListMode::getSensitivityHistogram() const
+{
+	return mp_sensitivity;
+}

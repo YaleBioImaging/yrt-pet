@@ -11,24 +11,23 @@ std::shared_ptr<cxxopts::Value>
 {
 	if (std::holds_alternative<std::string>(v))
 	{
-		return cxxopts::value<std::string>(std::get<std::string>(v));
+		return cxxopts::value<std::string>();
 	}
 	if (std::holds_alternative<int>(v))
 	{
-		return cxxopts::value<int>(std::get<int>(v));
+		return cxxopts::value<int>();
 	}
 	if (std::holds_alternative<float>(v))
 	{
-		return cxxopts::value<float>(std::get<float>(v));
+		return cxxopts::value<float>();
 	}
 	if (std::holds_alternative<bool>(v))
 	{
-		return cxxopts::value<bool>(std::get<bool>(v));
+		return cxxopts::value<bool>();
 	}
 	if (std::holds_alternative<std::vector<std::string>>(v))
 	{
-		return cxxopts::value<std::vector<std::string>>(
-		    std::get<std::vector<std::string>>(v));
+		return cxxopts::value<std::vector<std::string>>();
 	}
 	return nullptr;
 }
@@ -199,7 +198,7 @@ void ReconstructionConfig::setupCommandLineOptions(cxxopts::Options& options)
 					    cxxoptsParamName.append(arg.name);
 
 					    groupOptions(cxxoptsParamName, arg.description,
-					                 cxxoptsValue, "arg");
+					                 cxxoptsValue);
 				    },
 				    arg.defaultValue);
 			}

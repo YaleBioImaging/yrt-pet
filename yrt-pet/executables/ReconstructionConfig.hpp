@@ -1,3 +1,8 @@
+/*
+* This file is subject to the terms and conditions defined in
+ * file 'LICENSE.txt', which is part of this source code package.
+ */
+
 #pragma once
 
 #include "PluginOptionsHelper.hpp"
@@ -11,7 +16,7 @@
 #include <vector>
 
 // Forward declarations
-class ReconstructionConfig;
+class ArgumentReader;
 
 // Argument type definitions
 struct ArgumentDefinition
@@ -60,14 +65,14 @@ private:
 	std::vector<std::string> groups;
 };
 
-class ReconstructionConfig
+class ArgumentReader
 {
 public:
-	explicit ReconstructionConfig(const ArgumentRegistry& pr_registry);
+	explicit ArgumentReader(const ArgumentRegistry& pr_registry);
 
 	// Load configuration from command line
-	//  Return value: true -> parsing complete false -> Parsing incomplete due to
-	//  "help" requested
+	//  Return value: true -> parsing complete false -> Parsing incomplete due
+	//  to "help" requested
 	bool loadFromCommandLine(int argc, char** argv);
 
 	// Load configuration from JSON file
@@ -107,7 +112,7 @@ private:
 
 // Template implementations
 template <typename T>
-T ReconstructionConfig::getValue(const std::string& name) const
+T ArgumentReader::getValue(const std::string& name) const
 {
 	auto it = m_values.find(name);
 	if (it == m_values.end())
@@ -118,7 +123,7 @@ T ReconstructionConfig::getValue(const std::string& name) const
 }
 
 template <typename T>
-void ReconstructionConfig::setValue(const std::string& name, const T& value)
+void ArgumentReader::setValue(const std::string& name, const T& value)
 {
 	m_values[name] = value;
 }

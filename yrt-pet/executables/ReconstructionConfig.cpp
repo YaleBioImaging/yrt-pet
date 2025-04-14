@@ -1,3 +1,8 @@
+/*
+* This file is subject to the terms and conditions defined in
+ * file 'LICENSE.txt', which is part of this source code package.
+ */
+
 #include "ReconstructionConfig.hpp"
 #include "datastruct/IO.hpp"
 #include "utils/Assert.hpp"
@@ -53,7 +58,7 @@ const std::vector<std::string>& ArgumentRegistry::getGroups() const
 }
 
 // ReconstructionConfig implementation
-ReconstructionConfig::ReconstructionConfig(const ArgumentRegistry& pr_registry)
+ArgumentReader::ArgumentReader(const ArgumentRegistry& pr_registry)
     : mr_registry(pr_registry)
 {
 	// Initialize with default values
@@ -63,7 +68,7 @@ ReconstructionConfig::ReconstructionConfig(const ArgumentRegistry& pr_registry)
 	}
 }
 
-bool ReconstructionConfig::loadFromCommandLine(int argc, char** argv)
+bool ArgumentReader::loadFromCommandLine(int argc, char** argv)
 {
 	cxxopts::Options options(argv[0], "Reconstruction executable");
 	options.positional_help("[optional args]").show_positional_help();
@@ -83,7 +88,7 @@ bool ReconstructionConfig::loadFromCommandLine(int argc, char** argv)
 	return true;
 }
 
-void ReconstructionConfig::loadFromJSON(const std::string& filename)
+void ArgumentReader::loadFromJSON(const std::string& filename)
 {
 	std::ifstream file(filename);
 	if (!file.is_open())
@@ -97,7 +102,7 @@ void ReconstructionConfig::loadFromJSON(const std::string& filename)
 	validateRequiredParameters();
 }
 
-void ReconstructionConfig::saveToJSON(const std::string& filename) const
+void ArgumentReader::saveToJSON(const std::string& filename) const
 {
 	std::ofstream file(filename);
 	if (!file.is_open())
@@ -109,7 +114,7 @@ void ReconstructionConfig::saveToJSON(const std::string& filename) const
 	file << toJSON().dump(4);
 }
 
-bool ReconstructionConfig::validate() const
+bool ArgumentReader::validate() const
 {
 	try
 	{
@@ -122,7 +127,7 @@ bool ReconstructionConfig::validate() const
 	}
 }
 
-nlohmann::json ReconstructionConfig::toJSON() const
+nlohmann::json ArgumentReader::toJSON() const
 {
 	nlohmann::json j;
 	for (const auto& [name, value] : m_values)
@@ -133,7 +138,7 @@ nlohmann::json ReconstructionConfig::toJSON() const
 	return j;
 }
 
-void ReconstructionConfig::fromJSON(const nlohmann::json& j)
+void ArgumentReader::fromJSON(const nlohmann::json& j)
 {
 	for (const auto& [name, arg] : mr_registry.getArguments())
 	{
@@ -170,13 +175,13 @@ void ReconstructionConfig::fromJSON(const nlohmann::json& j)
 	}
 }
 
-const Plugin::OptionsResult& ReconstructionConfig::getPluginResults() const
+const Plugin::OptionsResult& ArgumentReader::getPluginResults() const
 {
 	// TODO NOW: This should rather also include normal params
 	return m_pluginOptionsResults;
 }
 
-void ReconstructionConfig::setupCommandLineOptions(cxxopts::Options& options)
+void ArgumentReader::setupCommandLineOptions(cxxopts::Options& options)
 {
 	for (const auto& group : mr_registry.getGroups())
 	{
@@ -209,8 +214,7 @@ void ReconstructionConfig::setupCommandLineOptions(cxxopts::Options& options)
 	PluginOptionsHelper::fillOptionsFromPlugins(options);
 }
 
-void ReconstructionConfig::parseCommandLineResult(
-    const cxxopts::ParseResult& result)
+void ArgumentReader::parseCommandLineResult(const cxxopts::ParseResult& result)
 {
 	for (const auto& [name, arg] : mr_registry.getArguments())
 	{
@@ -250,7 +254,7 @@ void ReconstructionConfig::parseCommandLineResult(
 	    PluginOptionsHelper::convertPluginResultsToMap(result);
 }
 
-void ReconstructionConfig::validateRequiredParameters() const
+void ArgumentReader::validateRequiredParameters() const
 {
 	std::vector<std::string> missingParams;
 

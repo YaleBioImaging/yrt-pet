@@ -175,7 +175,7 @@ int main(int argc, char** argv)
 		    "projector",
 		    "Projector to use, choices: Siddon (S), Distance-Driven (D). The "
 		    "default projector is Siddon",
-		    false, "", projectorGroup);
+		    false, "S", projectorGroup);
 		registry.registerArgument(
 		    "num_rays", "Number of rays to use (for Siddon projector only)",
 		    false, 1, projectorGroup);
@@ -190,7 +190,7 @@ int main(int argc, char** argv)
 		                          false, 0, projectorGroup);
 
 		// Load configuration
-		ReconstructionConfig config{registry};
+		ArgumentReader config{registry};
 
 		if (!config.loadFromCommandLine(argc, argv))
 		{

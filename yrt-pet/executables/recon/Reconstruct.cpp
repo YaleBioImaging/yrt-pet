@@ -83,12 +83,12 @@ int main(int argc, char** argv)
 
 		// Input data parameters
 		std::string inputGroup = "2. Input";
-		registry.registerArgument("i,input", "Input file", false, "",
-		                          inputGroup);
-		registry.registerArgument("f,format",
+		registry.registerArgument("input", "Input file", false, "", inputGroup,
+		                          "i");
+		registry.registerArgument("format",
 		                          "Input file format. Possible values: " +
 		                              IO::possibleFormats(),
-		                          false, inputGroup);
+		                          false, "", inputGroup, "f");
 
 		// Reconstruction parameters
 		std::string reconstructionGroup = "3. Reconstruction";
@@ -210,15 +210,14 @@ int main(int argc, char** argv)
 		    !config.getValue<bool>("move_sens"))
 		{
 			ASSERT_MSG(
-			    config.getValue<std::vector<std::string>>("sens")
-			        .empty(),
+			    config.getValue<std::vector<std::string>>("sens").empty(),
 			    "Logic error: Sensitivity image generation was requested while "
 			    "pre-existing sensitivity images were provided");
 		}
 
 		std::cout << "Initializing scanner..." << std::endl;
-		auto scanner = std::make_unique<Scanner>(
-		    config.getValue<std::string>("scanner"));
+		auto scanner =
+		    std::make_unique<Scanner>(config.getValue<std::string>("scanner"));
 		auto projectorType =
 		    IO::getProjector(config.getValue<std::string>("projector"));
 		std::unique_ptr<OSEM> osem =
@@ -233,8 +232,8 @@ int main(int argc, char** argv)
 
 		// To make sure the sensitivity image gets generated accordingly
 		const bool useListMode =
-		    !config.getValue<std::string>("input_format").empty() &&
-		    IO::isFormatListMode(config.getValue<std::string>("input_format"));
+		    !config.getValue<std::string>("format").empty() &&
+		    IO::isFormatListMode(config.getValue<std::string>("format"));
 		osem->setListModeEnabled(useListMode);
 
 		// Total attenuation image
@@ -318,14 +317,14 @@ int main(int argc, char** argv)
 			ASSERT_MSG(
 			    !config.getValue<std::string>("sensitivity_format").empty(),
 			    "No format specified for sensitivity histogram");
-			ASSERT_MSG(!IO::isFormatListMode(config.getValue<std::string>(
-			               "sensitivity_format")),
+			ASSERT_MSG(!IO::isFormatListMode(
+			               config.getValue<std::string>("sensitivity_format")),
 			           "Sensitivity data has to be in a histogram format");
 
 			sensitivityProjData = IO::openProjectionData(
 			    config.getValue<std::string>("sensitivity"),
-			    config.getValue<std::string>("sensitivity_format"),
-			    *scanner, config.getPluginResults());
+			    config.getValue<std::string>("sensitivity_format"), *scanner,
+			    config.getPluginResults());
 
 			const auto* sensitivityHis =
 			    dynamic_cast<const Histogram*>(sensitivityProjData.get());
@@ -335,8 +334,7 @@ int main(int argc, char** argv)
 			osem->setInvertSensitivity(
 			    config.getValue<bool>("invert_sensitivity"));
 		}
-		osem->setGlobalScalingFactor(
-		    config.getValue<float>("global_scale"));
+		osem->setGlobalScalingFactor(config.getValue<float>("global_scale"));
 
 		std::vector<std::unique_ptr<Image>> sensImages;
 		bool sensImageAlreadyMoved = false;
@@ -344,8 +342,7 @@ int main(int argc, char** argv)
 		{
 			ASSERT_MSG(!config.getValue<std::string>("params").empty(),
 			           "Image parameters file unspecified");
-			ImageParams imgParams{
-			    config.getValue<std::string>("params")};
+			ImageParams imgParams{config.getValue<std::string>("params")};
 			osem->setImageParams(imgParams);
 
 			osem->generateSensitivityImages(
@@ -353,8 +350,7 @@ int main(int argc, char** argv)
 		}
 		else if (osem->getExpectedSensImagesAmount() ==
 		         static_cast<int>(
-		             config.getValue<std::vector<std::string>>("sens")
-		                 .size()))
+		             config.getValue<std::vector<std::string>>("sens").size()))
 		{
 			std::cout << "Reading sensitivity images..." << std::endl;
 			for (auto& sensImg_fname :
@@ -367,12 +363,10 @@ int main(int argc, char** argv)
 		}
 		else
 		{
-			std::cerr << "The number of sensitivity images given is "
-			          << config
-			                 .getValue<std::vector<std::string>>(
-			                     "sens")
-			                 .size()
-			          << std::endl;
+			std::cerr
+			    << "The number of sensitivity images given is "
+			    << config.getValue<std::vector<std::string>>("sens").size()
+			    << std::endl;
 			std::cerr << "The expected number of sensitivity images is "
 			          << osem->getExpectedSensImagesAmount() << std::endl;
 			throw std::invalid_argument(
@@ -382,9 +376,9 @@ int main(int argc, char** argv)
 			    "sensitivity image is required.");
 		}
 
-		// No need to read data input if in sensOnly mode
-		if (config.getValue<bool>("sensOnly") &&
-		    config.getValue<std::string>("input_fname").empty())
+		// No need to read data input if in sens_only mode
+		if (config.getValue<bool>("sens_only") &&
+		    config.getValue<std::string>("input").empty())
 		{
 			std::cout << "Done." << std::endl;
 			return 0;
@@ -393,11 +387,11 @@ int main(int argc, char** argv)
 		// Projection Data Input file
 		std::cout << "Reading input data..." << std::endl;
 		std::unique_ptr<ProjectionData> dataInput;
-		ASSERT_MSG(!config.getValue<std::string>("input_format").empty(),
+		ASSERT_MSG(!config.getValue<std::string>("format").empty(),
 		           "No format specified for Data input");
 		dataInput =
 		    IO::openProjectionData(config.getValue<std::string>("input"),
-		                           config.getValue<std::string>("input_format"),
+		                           config.getValue<std::string>("format"),
 		                           *scanner, config.getPluginResults());
 		osem->setDataInput(dataInput.get());
 

@@ -4,7 +4,7 @@
  */
 
 #include "../PluginOptionsHelper.hpp"
-#include "../ReconstructionConfig.hpp"
+#include "../ArgumentReader.hpp"
 #include "datastruct/IO.hpp"
 #include "datastruct/scanner/Scanner.hpp"
 #include "utils/Assert.hpp"
@@ -20,7 +20,7 @@ int main(int argc, char** argv)
 {
 	try
 	{
-		ArgumentRegistry registry{};
+		IO::ArgumentRegistry registry{};
 
 		std::string coreGroup = "0. Core";
 		registry.registerArgument("scanner", "Scanner parameters file", true,
@@ -190,7 +190,7 @@ int main(int argc, char** argv)
 		                          false, 0, projectorGroup);
 
 		// Load configuration
-		ArgumentReader config{registry};
+		IO::ArgumentReader config{registry};
 
 		if (!config.loadFromCommandLine(argc, argv))
 		{

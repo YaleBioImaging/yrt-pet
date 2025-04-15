@@ -410,6 +410,7 @@ std::unique_ptr<ProjectionData>
 	}
 	else
 	{
+
 		int numLayers = std::stoi(numLayers_it->second);
 		lm = std::make_unique<ListModeLUTDOIOwned>(scanner, filename, flagTOF,
 		                                           numLayers);

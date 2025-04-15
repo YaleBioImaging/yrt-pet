@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include "datastruct/ArgumentDefinition.hpp"
 #include "datastruct/projection/ProjectionData.hpp"
 #include "datastruct/scanner/Scanner.hpp"
 #include "utils/Utilities.hpp"

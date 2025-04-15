@@ -11,6 +11,15 @@
 
 namespace IO
 {
+	enum class TypesOfArguments
+	{
+		STRING,
+		INT,
+		FLOAT,
+		BOOL,
+		VECTOR_OF_STRINGS
+	};
+
 	using ArgumentValue =
 	    std::variant<std::string, int, float, bool, std::vector<std::string>>;
 

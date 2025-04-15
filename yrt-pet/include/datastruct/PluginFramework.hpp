@@ -39,10 +39,10 @@ namespace Plugin
 	using OptionPerPlugin = std::pair<std::string, OptionInfo>;
 	// Each format will have a list of options
 	using OptionsListPerPlugin = std::vector<OptionPerPlugin>;
-	// Key: Format name, Value: List of options
+	// Key: format name, value: List of options
 	using OptionsList = std::unordered_map<std::string, OptionsListPerPlugin>;
-	// Map: format name, value
-	using OptionsResult = std::unordered_map<std::string, std::string>;
+	// Map: format name, argument value
+	using OptionsResult = std::unordered_map<std::string, IO::ArgumentValue>;
 
 	using ProjectionDataFactory = std::function<std::unique_ptr<ProjectionData>(
 	    const Scanner&, const std::string&, const OptionsResult&)>;

@@ -403,6 +403,8 @@ std::unique_ptr<ProjectionData>
 	bool flagTOF = pluginOptions.find("flag_tof") != pluginOptions.end();
 
 	const auto numLayers_it = pluginOptions.find("num_layers");
+	const auto lorMotion_it = pluginOptions.find("lor_motion");
+
 	std::unique_ptr<ListModeLUTDOIOwned> lm;
 	if (numLayers_it == pluginOptions.end())
 	{
@@ -410,21 +412,30 @@ std::unique_ptr<ProjectionData>
 	}
 	else
 	{
+		const auto numLayersVariant = numLayers_it->second;
+		ASSERT(std::holds_alternative<int>(numLayersVariant));
+		const int numLayers = std::get<int>(numLayersVariant);
 
-		int numLayers = std::stoi(numLayers_it->second);
 		lm = std::make_unique<ListModeLUTDOIOwned>(scanner, filename, flagTOF,
 		                                           numLayers);
 	}
 
-	if (pluginOptions.count("lor_motion"))
+	ASSERT(lm != nullptr);
+
+	if (lorMotion_it != pluginOptions.end())
 	{
-		lm->addLORMotion(pluginOptions.at("lor_motion"));
+		const auto lorMotionVariant = lorMotion_it->second;
+		ASSERT(std::holds_alternative<std::string>(lorMotionVariant));
+		const std::string lorMotion = std::get<std::string>(lorMotionVariant);
+
+		lm->addLORMotion(lorMotion);
 	}
 	return lm;
 }
 
 Plugin::OptionsListPerPlugin ListModeLUTDOIOwned::getOptions()
 {
+	// TODO NOW: These should instead tell what type of argument this should be
 	return {{"flag_tof", {"Flag for reading TOF column", true}},
 	        {"num_layers", {"Number of layers", false}},
 	        {"lor_motion", {"LOR motion file for motion correction", false}}};

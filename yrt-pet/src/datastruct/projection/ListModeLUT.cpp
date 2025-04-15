@@ -547,11 +547,19 @@ std::unique_ptr<ProjectionData>
 	bool flagTOF = flagTOF_it != pluginOptions.end();
 	auto lm = std::make_unique<ListModeLUTOwned>(scanner, filename, flagTOF);
 
-	if (pluginOptions.count("lor_motion"))
+	const auto lorMotion_it = pluginOptions.find("lor_motion");
+
+	ASSERT(lm != nullptr);
+
+	if (lorMotion_it != pluginOptions.end())
 	{
-		std::cout << "Reading LOR motion file" << std::endl;
-		lm->addLORMotion(pluginOptions.at("lor_motion"));
+		const auto lorMotionVariant = lorMotion_it->second;
+		ASSERT(std::holds_alternative<std::string>(lorMotionVariant));
+		const std::string lorMotion = std::get<std::string>(lorMotionVariant);
+
+		lm->addLORMotion(lorMotion);
 	}
+
 	return lm;
 }
 

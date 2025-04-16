@@ -435,10 +435,12 @@ std::unique_ptr<ProjectionData>
 
 Plugin::OptionsListPerPlugin ListModeLUTDOIOwned::getOptions()
 {
-	// TODO NOW: These should instead tell what type of argument this should be
-	return {{"flag_tof", {"Flag for reading TOF column", true}},
-	        {"num_layers", {"Number of layers", false}},
-	        {"lor_motion", {"LOR motion file for motion correction", false}}};
+	return {{"flag_tof",
+	         {"Flag for reading TOF column", IO::TypesOfArguments::BOOL}},
+	        {"num_layers", {"Number of layers", IO::TypesOfArguments::INT}},
+	        {"lor_motion",
+	         {"LOR motion file for motion correction",
+	          IO::TypesOfArguments::STRING}}};
 }
 
 REGISTER_PROJDATA_PLUGIN("LM-DOI", ListModeLUTDOIOwned,

@@ -213,14 +213,14 @@ void ListModeLUTOwned::readFromFile(const std::string& listMode_fname)
 				if (m_flagTOF)
 				{
 					std::memcpy(&mp_tof_ps->getRawPointer()[eventPos],
-								&buff[numFields * i + 3], sizeof(float));
+					            &buff[numFields * i + 3], sizeof(float));
 				}
 			}
 			else
 			{
 				throw std::invalid_argument(
-					"Detectors invalid in list-mode event " +
-					std::to_string(eventPos));
+				    "Detectors invalid in list-mode event " +
+				    std::to_string(eventPos));
 			}
 		}
 		posStart += readSize / numFields;
@@ -565,8 +565,11 @@ std::unique_ptr<ProjectionData>
 
 Plugin::OptionsListPerPlugin ListModeLUTOwned::getOptions()
 {
-	return {{"flag_tof", {"Flag for reading TOF column", true}},
-	        {"lor_motion", {"LOR motion file for motion correction", false}}};
+	return {{"flag_tof",
+	         {"Flag for reading TOF column", IO::TypesOfArguments::BOOL}},
+	        {"lor_motion",
+	         {"LOR motion file for motion correction",
+	          IO::TypesOfArguments::STRING}}};
 }
 
 REGISTER_PROJDATA_PLUGIN("LM", ListModeLUTOwned, ListModeLUTOwned::create,

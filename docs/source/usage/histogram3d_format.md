@@ -62,7 +62,11 @@ Using a certain value of integers `r` and `phi`, we calculate the coordinates of
 two detectors in the same ring to respect rules 1 and 2:
 
 $$
-\rho=\left\{\begin{array}{lr} 0, \text{when } \phi \text{ is even}; 1, \text{when } \phi \text{ is odd}\end{array}\right\}
+\rho = 
+\begin{cases}
+0, & \text{when } \phi \text{ is even} \\
+1, & \text{when } \phi \text{ is odd}
+\end{cases}
 $$
 
 $$
@@ -167,7 +171,7 @@ N_{\phi} = N_d
 $$
 
 $$
-N_{z_{bin}} = 2*((M_r+1)*N_r-\frac{(M_r*(M_r+1))}{2})-N_r
+N_{z_{\text{bin}}} = 2 * \left( (M_r + 1) * N_p - \frac{M_r * (M_r + 1)}{2} \right) - N_p
 $$
 
 Where
@@ -177,11 +181,15 @@ N_D \text{ is the number of DOI layers}
 $$
 
 $$
+N_r \text{ is the number of radial bins}
+$$
+
+$$
 N_d \text{ is the number of detectors per ring in the scanner (not counting for DOI)}
 $$
 
 $$
-N_r \text{ is the number of rings in the scanner}
+N_p \text{ is the number of axial planes/rings in the scanner}
 $$
 
 $$

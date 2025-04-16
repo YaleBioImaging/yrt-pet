@@ -4,14 +4,14 @@ define_target_exe(yrtpet_post_recon_motion_correction motion/PostReconMotionCorr
 
 define_target_exe(yrtpet_reconstruct recon/Reconstruct.cpp PluginOptionsHelper.cpp ArgumentReader.cpp)
 define_target_exe(yrtpet_forward_project recon/ForwardProject.cpp)
-define_target_exe(yrtpet_backproject recon/Backproject.cpp PluginOptionsHelper.cpp)
+define_target_exe(yrtpet_backproject recon/Backproject.cpp PluginOptionsHelper.cpp ArgumentReader.cpp)
 define_target_exe(yrtpet_estimate_scatter recon/EstimateScatter.cpp)
 
-define_target_exe(yrtpet_convert_to_histogram conversion/ConvertToHistogram.cpp PluginOptionsHelper.cpp)
-define_target_exe(yrtpet_convert_to_listmodelut conversion/ConvertToListModeLUT.cpp PluginOptionsHelper.cpp)
-define_target_exe(yrtpet_cumulate_histograms conversion/CumulateHistograms.cpp PluginOptionsHelper.cpp)
+define_target_exe(yrtpet_convert_to_histogram conversion/ConvertToHistogram.cpp PluginOptionsHelper.cpp ArgumentReader.cpp)
+define_target_exe(yrtpet_convert_to_listmodelut conversion/ConvertToListModeLUT.cpp PluginOptionsHelper.cpp ArgumentReader.cpp)
+define_target_exe(yrtpet_cumulate_histograms conversion/CumulateHistograms.cpp PluginOptionsHelper.cpp ArgumentReader.cpp)
 define_target_exe(yrtpet_histogram_to_listmode conversion/Histogram3DToListMode.cpp)
 
 define_target_exe(yrtpet_build_k kernel/BuildK.cpp)
 
-define_target_exe(yrtpet_accumulate_to_detectors utils/AccumulateToDetectors.cpp PluginOptionsHelper.cpp)
+define_target_exe(yrtpet_accumulate_to_detectors utils/AccumulateToDetectors.cpp PluginOptionsHelper.cpp ArgumentReader.cpp)

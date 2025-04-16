@@ -40,7 +40,7 @@ namespace IO
 
 	ArgumentValue
 	    ArgumentRegistry::cxxoptsOptionValue(const cxxopts::OptionValue& o,
-	                                             TypeOfArgument t)
+	                                         TypeOfArgument t)
 	{
 		if (t == TypeOfArgument::STRING)
 		{
@@ -99,6 +99,42 @@ namespace IO
 		{
 			groups.push_back(arg.group);
 		}
+	}
+
+	void ArgumentRegistry::registerArgument(const std::string& name,
+	                                        const std::string& description,
+	                                        bool required,
+	                                        IO::TypeOfArgument argumentType,
+	                                        const std::string& group)
+	{
+		ASSERT_MSG(argumentType != TypeOfArgument::NONE,
+		           "Cannot use None for argument type");
+
+		// Setup default value for the argument
+		ArgumentValue defaultValue;
+		if (argumentType == TypeOfArgument::STRING)
+		{
+			defaultValue = std::string{};
+		}
+		else if (argumentType == TypeOfArgument::INT)
+		{
+			defaultValue = int{};
+		}
+		else if (argumentType == TypeOfArgument::FLOAT)
+		{
+			defaultValue = float{};
+		}
+		else if (argumentType == TypeOfArgument::BOOL)
+		{
+			defaultValue = false;
+		}
+		else if (argumentType == TypeOfArgument::VECTOR_OF_STRINGS)
+		{
+			defaultValue = std::vector<std::string>{};
+		}
+
+		registerArgumentInternal(
+		    {name, description, required, defaultValue, group, ""});
 	}
 
 	const std::map<std::string, ArgumentDefinition>&
@@ -230,10 +266,9 @@ namespace IO
 		}
 	}
 
-	const Plugin::OptionsResult& ArgumentReader::getPluginResults() const
+	const OptionsResult& ArgumentReader::getAllArguments() const
 	{
-		// TODO NOW: This should rather also include normal params
-		return m_pluginOptionsResults;
+		return m_values;
 	}
 
 	void ArgumentReader::setupCommandLineOptions(cxxopts::Options& options)
@@ -267,7 +302,6 @@ namespace IO
 		}
 
 		options.add_options()("h,help", "Print help");
-		PluginOptionsHelper::fillOptionsFromPlugins(options);
 	}
 
 	void ArgumentReader::parseCommandLineResult(
@@ -306,9 +340,6 @@ namespace IO
 				    m_values[name]);
 			}
 		}
-
-		m_pluginOptionsResults =
-		    PluginOptionsHelper::convertPluginResultsToMap(result);
 	}
 
 	void ArgumentReader::validateRequiredParameters() const

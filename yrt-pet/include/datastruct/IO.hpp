@@ -16,9 +16,10 @@ class Scanner;
 
 namespace IO
 {
-	std::unique_ptr<ProjectionData> openProjectionData(
-	    const std::string& input_fname, const std::string& input_format,
-	    const Scanner& scanner, const Plugin::OptionsResult&);
+	std::unique_ptr<ProjectionData>
+	    openProjectionData(const std::string& input_fname,
+	                       const std::string& input_format,
+	                       const Scanner& scanner, const OptionsResult&);
 
 	std::string possibleFormats(
 	    Plugin::InputFormatsChoice choice = Plugin::InputFormatsChoice::ALL);

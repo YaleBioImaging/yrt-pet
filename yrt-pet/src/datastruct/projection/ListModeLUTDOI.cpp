@@ -398,15 +398,15 @@ void ListModeLUTDOIAlias::bind(
 std::unique_ptr<ProjectionData>
     ListModeLUTDOIOwned::create(const Scanner& scanner,
                                 const std::string& filename,
-                                const Plugin::OptionsResult& pluginOptions)
+                                const IO::OptionsResult& options)
 {
-	bool flagTOF = pluginOptions.find("flag_tof") != pluginOptions.end();
+	bool flagTOF = options.find("flag_tof") != options.end();
 
-	const auto numLayers_it = pluginOptions.find("num_layers");
-	const auto lorMotion_it = pluginOptions.find("lor_motion");
+	const auto numLayers_it = options.find("num_layers");
+	const auto lorMotion_it = options.find("lor_motion");
 
 	std::unique_ptr<ListModeLUTDOIOwned> lm;
-	if (numLayers_it == pluginOptions.end())
+	if (numLayers_it == options.end())
 	{
 		lm = std::make_unique<ListModeLUTDOIOwned>(scanner, filename, flagTOF);
 	}
@@ -422,7 +422,7 @@ std::unique_ptr<ProjectionData>
 
 	ASSERT(lm != nullptr);
 
-	if (lorMotion_it != pluginOptions.end())
+	if (lorMotion_it != options.end())
 	{
 		const auto lorMotionVariant = lorMotion_it->second;
 		ASSERT(std::holds_alternative<std::string>(lorMotionVariant));
@@ -435,12 +435,12 @@ std::unique_ptr<ProjectionData>
 
 Plugin::OptionsListPerPlugin ListModeLUTDOIOwned::getOptions()
 {
-	return {{"flag_tof",
-	         {"Flag for reading TOF column", IO::TypeOfArgument::BOOL}},
-	        {"num_layers", {"Number of layers", IO::TypeOfArgument::INT}},
-	        {"lor_motion",
-	         {"LOR motion file for motion correction",
-	          IO::TypeOfArgument::STRING}}};
+	return {
+	    {"flag_tof", {"Flag for reading TOF column", IO::TypeOfArgument::BOOL}},
+	    {"num_layers", {"Number of layers", IO::TypeOfArgument::INT}},
+	    {"lor_motion",
+	     {"LOR motion file for motion correction",
+	      IO::TypeOfArgument::STRING}}};
 }
 
 REGISTER_PROJDATA_PLUGIN("LM-DOI", ListModeLUTDOIOwned,

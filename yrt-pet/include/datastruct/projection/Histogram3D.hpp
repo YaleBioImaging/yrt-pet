@@ -129,6 +129,6 @@ public:
 	// For registering the plugin
 	static std::unique_ptr<ProjectionData>
 	    create(const Scanner& scanner, const std::string& filename,
-	           const Plugin::OptionsResult& pluginOptions);
+	           const IO::OptionsResult& options);
 	static Plugin::OptionsListPerPlugin getOptions();
 };

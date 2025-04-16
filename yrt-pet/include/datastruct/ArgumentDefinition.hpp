@@ -6,6 +6,7 @@
 #pragma once
 
 #include <string>
+#include <unordered_map>
 #include <variant>
 #include <vector>
 
@@ -23,6 +24,9 @@ namespace IO
 
 	using ArgumentValue =
 	    std::variant<std::string, int, float, bool, std::vector<std::string>>;
+
+	// Map: argument name, argument value
+	using OptionsResult = std::unordered_map<std::string, ArgumentValue>;
 
 	// Argument type definitions
 	struct ArgumentDefinition

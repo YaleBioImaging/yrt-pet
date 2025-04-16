@@ -541,17 +541,17 @@ void ListModeLUTAlias::bind(
 std::unique_ptr<ProjectionData>
     ListModeLUTOwned::create(const Scanner& scanner,
                              const std::string& filename,
-                             const Plugin::OptionsResult& pluginOptions)
+                             const IO::OptionsResult& options)
 {
-	const auto flagTOF_it = pluginOptions.find("flag_tof");
-	bool flagTOF = flagTOF_it != pluginOptions.end();
+	const auto flagTOF_it = options.find("flag_tof");
+	bool flagTOF = flagTOF_it != options.end();
 	auto lm = std::make_unique<ListModeLUTOwned>(scanner, filename, flagTOF);
 
-	const auto lorMotion_it = pluginOptions.find("lor_motion");
+	const auto lorMotion_it = options.find("lor_motion");
 
 	ASSERT(lm != nullptr);
 
-	if (lorMotion_it != pluginOptions.end())
+	if (lorMotion_it != options.end())
 	{
 		const auto lorMotionVariant = lorMotion_it->second;
 		ASSERT(std::holds_alternative<std::string>(lorMotionVariant));

@@ -137,7 +137,7 @@ void SparseHistogram::accumulate(det_pair_t detPair, float projValue)
 float SparseHistogram::getProjectionValueFromDetPair(det_pair_t detPair) const
 {
 	const auto detectorMapLocation =
-		m_detectorMap.find(SwapDetectorPairIfNeeded(detPair));
+	    m_detectorMap.find(SwapDetectorPairIfNeeded(detPair));
 	if (detectorMapLocation != m_detectorMap.end())
 	{
 		// Get the proper bin
@@ -312,9 +312,9 @@ void SparseHistogram::readFromFile(const std::string& filename)
 
 std::unique_ptr<ProjectionData>
     SparseHistogram::create(const Scanner& scanner, const std::string& filename,
-                            const Plugin::OptionsResult& pluginOptions)
+                            const IO::OptionsResult& options)
 {
-	(void)pluginOptions;
+	(void)options;
 	return std::make_unique<SparseHistogram>(scanner, filename);
 }
 

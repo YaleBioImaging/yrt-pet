@@ -46,6 +46,8 @@ namespace IO
 		const std::vector<std::string>& getGroups() const;
 
 		static std::shared_ptr<cxxopts::Value>
+		    argumentTypeToCxxoptsValue(TypeOfArgument t);
+		static std::shared_ptr<cxxopts::Value>
 		    valueTypeToCxxoptsValue(ArgumentValue v);
 
 	private:

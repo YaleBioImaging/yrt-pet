@@ -566,10 +566,10 @@ std::unique_ptr<ProjectionData>
 Plugin::OptionsListPerPlugin ListModeLUTOwned::getOptions()
 {
 	return {{"flag_tof",
-	         {"Flag for reading TOF column", IO::TypesOfArguments::BOOL}},
+	         {"Flag for reading TOF column", IO::TypeOfArgument::BOOL}},
 	        {"lor_motion",
 	         {"LOR motion file for motion correction",
-	          IO::TypesOfArguments::STRING}}};
+	          IO::TypeOfArgument::STRING}}};
 }
 
 REGISTER_PROJDATA_PLUGIN("LM", ListModeLUTOwned, ListModeLUTOwned::create,

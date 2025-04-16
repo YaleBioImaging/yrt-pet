@@ -13,16 +13,38 @@
 namespace PluginOptionsHelper
 {
 	Plugin::OptionsResult
-	    convertPluginResultsToMap(const cxxopts::ParseResult& result)
+	    convertPluginResultsToMap(const cxxopts::ParseResult& result,
+	                              Plugin::InputFormatsChoice choice)
 	{
+		const Plugin::OptionsList pluginOptions =
+		    Plugin::PluginRegistry::instance().getAllOptions(choice);
+
 		Plugin::OptionsResult optionsMap;
 
 		for (const auto& option : result.arguments())
 		{
 			const auto& key = option.key();
+
+			// Find which format has that argument, and what is the appropriate
+			// argument type to which to cast the result to This could be slow
+			// if many plugins are loaded
+			auto argType = IO::TypeOfArgument::NONE;
+			for (const auto& [format, formatOptions] : pluginOptions)
+			{
+				for (const auto& [currentOption, currentOptionInfo] :
+				     formatOptions)
+				{
+					if (key == currentOption)
+					{
+						argType = std::get<1>(currentOptionInfo);
+					}
+				}
+			}
+
 			try
 			{
-				optionsMap[key] = result[key].as<std::string>();
+				optionsMap[key] = IO::ArgumentRegistry::cxxoptsOptionValue(
+				    result[key], argType);
 			}
 			catch (const std::bad_cast&)
 			{

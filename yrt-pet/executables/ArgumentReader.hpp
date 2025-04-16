@@ -49,6 +49,8 @@ namespace IO
 		    argumentTypeToCxxoptsValue(TypeOfArgument t);
 		static std::shared_ptr<cxxopts::Value>
 		    valueTypeToCxxoptsValue(ArgumentValue v);
+		static ArgumentValue cxxoptsOptionValue(const cxxopts::OptionValue& o,
+		                                        TypeOfArgument t);
 
 	private:
 		std::map<std::string, ArgumentDefinition> arguments;

@@ -3,8 +3,8 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "../PluginOptionsHelper.hpp"
 #include "../ArgumentReader.hpp"
+#include "../PluginOptionsHelper.hpp"
 #include "datastruct/IO.hpp"
 #include "datastruct/scanner/Scanner.hpp"
 #include "utils/Assert.hpp"
@@ -189,6 +189,9 @@ int main(int argc, char** argv)
 		                          "for TOF's Gaussian curve",
 		                          false, 0, projectorGroup);
 
+		PluginOptionsHelper::addOptionsFromPlugins(
+		    registry, Plugin::InputFormatsChoice::ALL);
+
 		// Load configuration
 		IO::ArgumentReader config{registry};
 
@@ -251,7 +254,7 @@ int main(int argc, char** argv)
 			acfHisProjData = IO::openProjectionData(
 			    config.getValue<std::string>("acf"),
 			    config.getValue<std::string>("acf_format"), *scanner,
-			    config.getPluginResults());
+			    config.getAllArguments());
 
 			const auto* acfHis =
 			    dynamic_cast<const Histogram*>(acfHisProjData.get());
@@ -282,7 +285,7 @@ int main(int argc, char** argv)
 			hardwareAcfHisProjData = IO::openProjectionData(
 			    config.getValue<std::string>("acf_hardware"),
 			    config.getValue<std::string>("acf_hardware_format"), *scanner,
-			    config.getPluginResults());
+			    config.getAllArguments());
 
 			const auto* hardwareAcfHis =
 			    dynamic_cast<const Histogram*>(hardwareAcfHisProjData.get());
@@ -324,7 +327,7 @@ int main(int argc, char** argv)
 			sensitivityProjData = IO::openProjectionData(
 			    config.getValue<std::string>("sensitivity"),
 			    config.getValue<std::string>("sensitivity_format"), *scanner,
-			    config.getPluginResults());
+			    config.getAllArguments());
 
 			const auto* sensitivityHis =
 			    dynamic_cast<const Histogram*>(sensitivityProjData.get());
@@ -392,7 +395,7 @@ int main(int argc, char** argv)
 		dataInput =
 		    IO::openProjectionData(config.getValue<std::string>("input"),
 		                           config.getValue<std::string>("format"),
-		                           *scanner, config.getPluginResults());
+		                           *scanner, config.getAllArguments());
 		osem->setDataInput(dataInput.get());
 
 		std::unique_ptr<ImageOwned> movedSensImage = nullptr;
@@ -452,7 +455,7 @@ int main(int argc, char** argv)
 			randomsProjData = IO::openProjectionData(
 			    config.getValue<std::string>("randoms"),
 			    config.getValue<std::string>("randoms_format"), *scanner,
-			    config.getPluginResults());
+			    config.getAllArguments());
 			const auto* randomsHis =
 			    dynamic_cast<const Histogram*>(randomsProjData.get());
 			ASSERT_MSG(randomsHis != nullptr,
@@ -473,7 +476,7 @@ int main(int argc, char** argv)
 			scatterProjData = IO::openProjectionData(
 			    config.getValue<std::string>("scatter"),
 			    config.getValue<std::string>("scatter_format"), *scanner,
-			    config.getPluginResults());
+			    config.getAllArguments());
 			const auto* scatterHis =
 			    dynamic_cast<const Histogram*>(scatterProjData.get());
 			ASSERT_MSG(scatterHis != nullptr,
@@ -506,7 +509,7 @@ int main(int argc, char** argv)
 			inVivoAcfProjData = IO::openProjectionData(
 			    config.getValue<std::string>("acf_invivo"),
 			    config.getValue<std::string>("acf_invivo_format"), *scanner,
-			    config.getPluginResults());
+			    config.getAllArguments());
 			const auto* inVivoAcfHis =
 			    dynamic_cast<const Histogram*>(inVivoAcfProjData.get());
 			ASSERT_MSG(

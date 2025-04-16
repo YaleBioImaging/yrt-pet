@@ -1,5 +1,5 @@
 /*
-* This file is subject to the terms and conditions defined in
+ * This file is subject to the terms and conditions defined in
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
@@ -11,8 +11,9 @@
 
 namespace IO
 {
-	enum class TypesOfArguments
+	enum class TypeOfArgument
 	{
+		NONE,  // Placeholder, should be illegal to use
 		STRING,
 		INT,
 		FLOAT,

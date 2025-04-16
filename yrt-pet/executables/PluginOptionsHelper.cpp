@@ -5,6 +5,7 @@
 
 #include "PluginOptionsHelper.hpp"
 
+#include "ArgumentReader.hpp"
 #include "utils/Assert.hpp"
 
 #include <cxxopts.hpp>
@@ -46,8 +47,8 @@ namespace PluginOptionsHelper
 		const Plugin::OptionsList pluginOptions =
 		    Plugin::PluginRegistry::instance().getAllOptions(choice);
 
-		// Group the plugin options in case two (or more) plugins gave the
-		// same options
+		// Group the plugin options (in case multiple plugins have the
+		// same options)
 
 		// Key: Option name, vector of pairs {format name, corresponding option
 		// info}
@@ -87,7 +88,7 @@ namespace PluginOptionsHelper
 			const auto& listOfPluginsThatHaveCurrentOption =
 			    pluginOptionGrouped.second;
 			std::string optionHelp;
-			int isBool = -1;
+			IO::TypeOfArgument argType = IO::TypeOfArgument::NONE;
 			const size_t numPluginsThatHaveCurrentOptions =
 			    listOfPluginsThatHaveCurrentOption.size();
 			for (size_t i = 0; i < numPluginsThatHaveCurrentOptions; ++i)
@@ -104,35 +105,32 @@ namespace PluginOptionsHelper
 					optionHelp += "\n";
 				}
 
-				// It should not be allowed to provide two plugins that
-				// have different IsBool (OptionInfo::second).
-				// Send a warning here if that happens
-				const int currentIsBool = (std::get<1>(helpForPlugin)) ? 1 : 0;
-				if (isBool == -1)
+				// cxxopts limitation:
+				//  It should not be allowed to provide two plugins that
+				//  have different argument type (OptionInfo::second).
+				//  Send a warning here if that happens
+				const IO::TypeOfArgument currentArgType =
+				    std::get<1>(helpForPlugin);
+
+				if (argType == IO::TypeOfArgument::NONE)
 				{
 					// First init
-					isBool = currentIsBool;
+					argType = currentArgType;
 				}
 				else
 				{
-					ASSERT_MSG(isBool == currentIsBool,
-					           "A plugin already uses that option with a "
-					           "different bool status");
+					const auto errorMsg = "A plugin already uses option " +
+					                      pluginOptionGrouped.first +
+					                      " with a different argument type";
+					ASSERT_MSG(argType == currentArgType, errorMsg.c_str());
 				}
+				ASSERT_MSG(argType != IO::TypeOfArgument::NONE,
+				           "Unspecified argument type in plugin definition");
 			}
 
-			if (isBool == 1)
-			{
-				// parse boolean value
-				adder(pluginOptionGrouped.first, optionHelp,
-				      cxxopts::value<bool>());
-			}
-			else
-			{
-				// parse string value
-				adder(pluginOptionGrouped.first, optionHelp,
-				      cxxopts::value<std::string>());
-			}
+			auto cxxOptsValue =
+			    IO::ArgumentRegistry::argumentTypeToCxxoptsValue(argType);
+			adder(pluginOptionGrouped.first, optionHelp, cxxOptsValue);
 		}
 	}
 }  // namespace PluginOptionsHelper

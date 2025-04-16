@@ -38,6 +38,32 @@ namespace IO
 		return nullptr;
 	}
 
+	std::shared_ptr<cxxopts::Value>
+	    ArgumentRegistry::argumentTypeToCxxoptsValue(TypeOfArgument t)
+	{
+		if (t == TypeOfArgument::STRING)
+		{
+			return cxxopts::value<std::string>();
+		}
+		if (t == TypeOfArgument::INT)
+		{
+			return cxxopts::value<int>();
+		}
+		if (t == TypeOfArgument::FLOAT)
+		{
+			return cxxopts::value<float>();
+		}
+		if (t == TypeOfArgument::BOOL)
+		{
+			return cxxopts::value<bool>();
+		}
+		if (t == TypeOfArgument::VECTOR_OF_STRINGS)
+		{
+			return cxxopts::value<std::vector<std::string>>();
+		}
+		return nullptr;
+	}
+
 	void ArgumentRegistry::registerArgumentInternal(
 	    const ArgumentDefinition& arg)
 	{

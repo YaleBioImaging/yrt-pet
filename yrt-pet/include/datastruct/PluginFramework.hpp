@@ -34,7 +34,7 @@ namespace Plugin
 	};
 
 	// Help string, Whether it's bool value (false: no, true: yes)
-	using OptionInfo = std::tuple<std::string, IO::TypesOfArguments>;
+	using OptionInfo = std::tuple<std::string, IO::TypeOfArgument>;
 	// Option name, Option info
 	using OptionPerPlugin = std::pair<std::string, OptionInfo>;
 	// Each format will have a list of options

@@ -110,31 +110,8 @@ namespace IO
 		ASSERT_MSG(argumentType != TypeOfArgument::NONE,
 		           "Cannot use None for argument type");
 
-		// Setup default value for the argument
-		ArgumentValue defaultValue;
-		if (argumentType == TypeOfArgument::STRING)
-		{
-			defaultValue = std::string{};
-		}
-		else if (argumentType == TypeOfArgument::INT)
-		{
-			defaultValue = int{};
-		}
-		else if (argumentType == TypeOfArgument::FLOAT)
-		{
-			defaultValue = float{};
-		}
-		else if (argumentType == TypeOfArgument::BOOL)
-		{
-			defaultValue = false;
-		}
-		else if (argumentType == TypeOfArgument::VECTOR_OF_STRINGS)
-		{
-			defaultValue = std::vector<std::string>{};
-		}
-
 		registerArgumentInternal(
-		    {name, description, required, defaultValue, group, ""});
+		    {name, description, required, std::monostate{}, group, ""});
 	}
 
 	const std::map<std::string, ArgumentDefinition>&
@@ -224,7 +201,16 @@ namespace IO
 		for (const auto& [name, value] : m_values)
 		{
 			const auto& arg = mr_registry.getArguments().at(name);
-			std::visit([&](const auto& v) { j[arg.name] = v; }, value);
+			std::visit(
+			    [&](const auto& v)
+			    {
+				    using T = std::decay_t<decltype(v)>;
+				    if constexpr (!std::is_same_v<T, std::monostate>)
+				    {
+					    j[arg.name] = v;
+				    }
+			    },
+			    value);
 		}
 		return j;
 	}
@@ -338,6 +324,10 @@ namespace IO
 					    }
 				    },
 				    m_values[name]);
+			}
+			else
+			{
+				m_values[name] = arg.defaultValue;
 			}
 		}
 	}

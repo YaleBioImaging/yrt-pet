@@ -22,13 +22,14 @@ namespace IO
 		VECTOR_OF_STRINGS
 	};
 
-	using ArgumentValue =
-	    std::variant<std::string, int, float, bool, std::vector<std::string>>;
+	using ArgumentValue = std::variant<std::monostate, std::string, int, float,
+	                                   bool, std::vector<std::string>>;
 
 	// Map: argument name, argument value
 	using OptionsResult = std::unordered_map<std::string, ArgumentValue>;
 
 	// Argument type definitions
+	// TODO NOW: Add TypeOfArgument field here.
 	struct ArgumentDefinition
 	{
 		std::string name;

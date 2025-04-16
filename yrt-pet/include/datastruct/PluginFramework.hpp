@@ -41,7 +41,7 @@ namespace Plugin
 	using OptionsListPerPlugin = std::vector<OptionPerPlugin>;
 	// Key: format name, value: List of options
 	using OptionsList = std::unordered_map<std::string, OptionsListPerPlugin>;
-	// Map: format name, argument value
+	// Map: argument name, argument value
 	using OptionsResult = std::unordered_map<std::string, IO::ArgumentValue>;
 
 	using ProjectionDataFactory = std::function<std::unique_ptr<ProjectionData>(

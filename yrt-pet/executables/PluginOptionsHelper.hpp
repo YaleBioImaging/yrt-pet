@@ -12,8 +12,9 @@
 namespace PluginOptionsHelper
 {
 	// Convert cxxopts's options to unordered map
-	Plugin::OptionsResult
-	    convertPluginResultsToMap(const cxxopts::ParseResult& result);
+	Plugin::OptionsResult convertPluginResultsToMap(
+	    const cxxopts::ParseResult& result,
+	    Plugin::InputFormatsChoice choice = Plugin::InputFormatsChoice::ALL);
 
 	void fillOptionsFromPlugins(
 	    cxxopts::Options& options,

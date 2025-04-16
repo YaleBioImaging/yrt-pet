@@ -5,9 +5,7 @@
 
 #pragma once
 
-#include "PluginOptionsHelper.hpp"
 #include "datastruct/ArgumentDefinition.hpp"
-#include "utils/JSONUtils.hpp"
 
 #include <cxxopts.hpp>
 #include <map>
@@ -24,6 +22,11 @@ namespace IO
 	public:
 		ArgumentRegistry() = default;
 		void registerArgumentInternal(const ArgumentDefinition& arg);
+
+		void registerArgument(const std::string& name,
+		                      const std::string& description,
+		                      bool required, TypeOfArgument argumentType,
+		                      const std::string& group = "");
 
 		template <typename ArgumentType>
 		void registerArgument(std::string name, std::string description,
@@ -90,11 +93,10 @@ namespace IO
 		// Set all values from JSON
 		void fromJSON(const nlohmann::json& j);
 
-		const Plugin::OptionsResult& getPluginResults() const;
+		const OptionsResult& getAllArguments() const;
 
 	private:
-		std::map<std::string, ArgumentValue> m_values;
-		Plugin::OptionsResult m_pluginOptionsResults;
+		OptionsResult m_values;
 		const ArgumentRegistry& mr_registry;
 
 		void setupCommandLineOptions(cxxopts::Options& options);

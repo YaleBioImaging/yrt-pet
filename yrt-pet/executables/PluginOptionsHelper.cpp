@@ -8,63 +8,10 @@
 #include "ArgumentReader.hpp"
 #include "utils/Assert.hpp"
 
-#include <cxxopts.hpp>
-
 namespace PluginOptionsHelper
 {
-	Plugin::OptionsResult
-	    convertPluginResultsToMap(const cxxopts::ParseResult& result,
-	                              Plugin::InputFormatsChoice choice)
-	{
-		const Plugin::OptionsList pluginOptions =
-		    Plugin::PluginRegistry::instance().getAllOptions(choice);
-
-		Plugin::OptionsResult optionsMap;
-
-		for (const auto& option : result.arguments())
-		{
-			const auto& key = option.key();
-
-			// Find which format has that argument, and what is the appropriate
-			// argument type to which to cast the result to This could be slow
-			// if many plugins are loaded
-			auto argType = IO::TypeOfArgument::NONE;
-			for (const auto& [format, formatOptions] : pluginOptions)
-			{
-				for (const auto& [currentOption, currentOptionInfo] :
-				     formatOptions)
-				{
-					if (key == currentOption)
-					{
-						argType = std::get<1>(currentOptionInfo);
-					}
-				}
-			}
-
-			try
-			{
-				optionsMap[key] = IO::ArgumentRegistry::cxxoptsOptionValue(
-				    result[key], argType);
-			}
-			catch (const std::bad_cast&)
-			{
-				try
-				{
-					// Exception for boolean values
-					const bool caughtBool = result[key].as<bool>();
-					optionsMap[key] = caughtBool ? "1" : "0";
-				}
-				catch (const std::bad_cast&)
-				{
-					// pass
-				}
-			}
-		}
-		return optionsMap;
-	}
-
-	void fillOptionsFromPlugins(cxxopts::Options& options,
-	                            Plugin::InputFormatsChoice choice)
+	void addOptionsFromPlugins(IO::ArgumentRegistry& registry,
+	                           Plugin::InputFormatsChoice choice)
 	{
 		const Plugin::OptionsList pluginOptions =
 		    Plugin::PluginRegistry::instance().getAllOptions(choice);
@@ -104,13 +51,13 @@ namespace PluginOptionsHelper
 			}
 		}
 
-		auto adder = options.add_options("Input format");
+		std::string inputFormatOptionsGroup = "Input format";
 		for (auto& pluginOptionGrouped : pluginOptionsGrouped)
 		{
 			const auto& listOfPluginsThatHaveCurrentOption =
 			    pluginOptionGrouped.second;
 			std::string optionHelp;
-			IO::TypeOfArgument argType = IO::TypeOfArgument::NONE;
+			auto argType = IO::TypeOfArgument::NONE;
 			const size_t numPluginsThatHaveCurrentOptions =
 			    listOfPluginsThatHaveCurrentOption.size();
 			for (size_t i = 0; i < numPluginsThatHaveCurrentOptions; ++i)
@@ -127,10 +74,9 @@ namespace PluginOptionsHelper
 					optionHelp += "\n";
 				}
 
-				// cxxopts limitation:
-				//  It should not be allowed to provide two plugins that
-				//  have different argument type (OptionInfo::second).
-				//  Send a warning here if that happens
+				// Due to a cxxopts limitation, it should not be allowed to
+				//  provide two plugins that have different argument types
+				//  (OptionInfo::second). Send an error here if that happens
 				const IO::TypeOfArgument currentArgType =
 				    std::get<1>(helpForPlugin);
 
@@ -150,9 +96,8 @@ namespace PluginOptionsHelper
 				           "Unspecified argument type in plugin definition");
 			}
 
-			auto cxxOptsValue =
-			    IO::ArgumentRegistry::argumentTypeToCxxoptsValue(argType);
-			adder(pluginOptionGrouped.first, optionHelp, cxxOptsValue);
+			registry.registerArgument(pluginOptionGrouped.first, optionHelp,
+			                          false, argType, inputFormatOptionsGroup);
 		}
 	}
 }  // namespace PluginOptionsHelper

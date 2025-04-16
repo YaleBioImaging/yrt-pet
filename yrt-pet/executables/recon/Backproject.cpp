@@ -64,7 +64,7 @@ int main(int argc, char** argv)
 		/* clang-format on */
 
 		// Add plugin options
-		PluginOptionsHelper::fillOptionsFromPlugins(options);
+		PluginOptionsHelper::addOptionsFromPlugins(options);
 
 		auto result = options.parse(argc, argv);
 		if (result.count("help"))

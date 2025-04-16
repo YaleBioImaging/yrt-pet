@@ -49,7 +49,7 @@ int main(int argc, char** argv)
 		/* clang-format on */
 
 		// Add plugin options
-		PluginOptionsHelper::fillOptionsFromPlugins(
+		PluginOptionsHelper::addOptionsFromPlugins(
 		    options, Plugin::InputFormatsChoice::ONLYHISTOGRAMS);
 
 		auto result = options.parse(argc, argv);

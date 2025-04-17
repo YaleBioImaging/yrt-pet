@@ -50,9 +50,9 @@ if __name__ == "__main__":
     parser.add_argument("--size_x", dest="size_x", required=False, default=7,
                         help="Size of the kernel in the X dimension")
     parser.add_argument("--size_y", dest="size_y", required=False, default=7,
-                        help="Size of the kernel in the X dimension")
+                        help="Size of the kernel in the Y dimension")
     parser.add_argument("--size_z", dest="size_z", required=False, default=7,
-                        help="Size of the kernel in the X dimension")
+                        help="Size of the kernel in the Z dimension")
     parser.add_argument("-o", "--output", dest="output", required=True, help="Output CSV file")
 
     args = parser.parse_args()

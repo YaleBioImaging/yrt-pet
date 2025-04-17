@@ -5,7 +5,7 @@
 
 #include "ArgumentReader.hpp"
 #include "datastruct/IO.hpp"
-#include "utils/Assert.hpp"
+
 #include <fstream>
 #include <sstream>
 #include <string>
@@ -39,8 +39,8 @@ namespace IO
 	}
 
 	ArgumentValue
-	    ArgumentRegistry::cxxoptsOptionValue(const cxxopts::OptionValue& o,
-	                                         TypeOfArgument t)
+	    ArgumentRegistry::castCxxoptsOptionValue(const cxxopts::OptionValue& o,
+	                                             TypeOfArgument t)
 	{
 		if (t == TypeOfArgument::STRING)
 		{
@@ -104,14 +104,14 @@ namespace IO
 	void ArgumentRegistry::registerArgument(const std::string& name,
 	                                        const std::string& description,
 	                                        bool required,
-	                                        IO::TypeOfArgument argumentType,
+	                                        TypeOfArgument argumentType,
 	                                        const std::string& group)
 	{
 		ASSERT_MSG(argumentType != TypeOfArgument::NONE,
 		           "Cannot use None for argument type");
 
-		registerArgumentInternal(
-		    {name, description, required, std::monostate{}, group, ""});
+		registerArgumentInternal({name, description, required, argumentType,
+		                          std::monostate{}, group, ""});
 	}
 
 	const std::map<std::string, ArgumentDefinition>&
@@ -266,23 +266,17 @@ namespace IO
 			{
 				if (arg.group == group)
 				{
-					std::visit(
-					    [&](const ArgumentValue& v)
-					    {
-						    auto cxxoptsValue =
-						        ArgumentRegistry::valueTypeToCxxoptsValue(v);
-						    std::string cxxoptsParamName;
-						    if (!arg.shortOptionName.empty())
-						    {
-							    cxxoptsParamName.append(arg.shortOptionName +
-							                            ",");
-						    }
-						    cxxoptsParamName.append(arg.name);
+					std::string cxxoptsParamName;
+					if (!arg.shortOptionName.empty())
+					{
+						cxxoptsParamName.append(arg.shortOptionName + ",");
+					}
+					cxxoptsParamName.append(arg.name);
 
-						    groupOptions(cxxoptsParamName, arg.description,
-						                 cxxoptsValue);
-					    },
-					    arg.defaultValue);
+					auto cxxoptsValue =
+					    ArgumentRegistry::argumentTypeToCxxoptsValue(arg.dtype);
+					groupOptions(cxxoptsParamName, arg.description,
+					             cxxoptsValue);
 				}
 			}
 		}
@@ -297,41 +291,33 @@ namespace IO
 		{
 			if (result.count(arg.name))
 			{
-				std::visit(
-				    [&](auto& v)
-				    {
-					    using T = std::decay_t<decltype(v)>;
-					    if constexpr (std::is_same_v<T, std::string>)
-					    {
-						    v = result[arg.name].as<std::string>();
-					    }
-					    else if constexpr (std::is_same_v<T, int>)
-					    {
-						    v = result[arg.name].as<int>();
-					    }
-					    else if constexpr (std::is_same_v<T, float>)
-					    {
-						    v = result[arg.name].as<float>();
-					    }
-					    else if constexpr (std::is_same_v<T, bool>)
-					    {
-						    v = result[arg.name].as<bool>();
-					    }
-					    else if constexpr (std::is_same_v<
-					                           T, std::vector<std::string>>)
-					    {
-						    v = result[arg.name].as<std::vector<std::string>>();
-					    }
-				    },
-				    m_values[name]);
-			}
-			else
-			{
-				m_values[name] = arg.defaultValue;
+				if (arg.dtype == TypeOfArgument::STRING)
+				{
+					m_values[name] = result[arg.name].as<std::string>();
+				}
+				else if (arg.dtype == TypeOfArgument::INT)
+				{
+					m_values[name] = result[arg.name].as<int>();
+				}
+				else if (arg.dtype == TypeOfArgument::FLOAT)
+				{
+					m_values[name] = result[arg.name].as<float>();
+				}
+				else if (arg.dtype == TypeOfArgument::BOOL)
+				{
+					m_values[name] = result[arg.name].as<bool>();
+				}
+				else if (arg.dtype == TypeOfArgument::VECTOR_OF_STRINGS)
+				{
+					m_values[name] =
+					    result[arg.name].as<std::vector<std::string>>();
+				}
 			}
 		}
 	}
 
+	// TODO NOW: Maybe remove this since the required-ness could be managed by
+	//  the executable
 	void ArgumentReader::validateRequiredParameters() const
 	{
 		std::vector<std::string> missingParams;

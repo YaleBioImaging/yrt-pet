@@ -29,12 +29,12 @@ namespace IO
 	using OptionsResult = std::unordered_map<std::string, ArgumentValue>;
 
 	// Argument type definitions
-	// TODO NOW: Add TypeOfArgument field here.
 	struct ArgumentDefinition
 	{
 		std::string name;
 		std::string description;
 		bool isRequired;
+		TypeOfArgument dtype;
 		ArgumentValue defaultValue;
 		std::string group;            // For command line arg only
 		std::string shortOptionName;  // For command line arg only

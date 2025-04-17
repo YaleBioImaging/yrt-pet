@@ -24,35 +24,38 @@ int main(int argc, char** argv)
 
 		std::string coreGroup = "0. Core";
 		registry.registerArgument("scanner", "Scanner parameters file", true,
-		                          "", coreGroup, "s");
+		                          IO::TypeOfArgument::STRING, "", coreGroup,
+		                          "s");
 
 		registry.registerArgument(
 		    "params",
 		    "Image parameters file. Note: If sensitivity image(s) are "
 		    "provided, "
 		    "the image parameters will be determined from them",
-		    false, "", coreGroup, "p");
+		    false, IO::TypeOfArgument::STRING, "", coreGroup, "p");
 
 		registry.registerArgument(
 		    "sens_only",
 		    "Only generate sensitivity image(s). Do not launch reconstruction",
-		    false, false, coreGroup);
+		    false, IO::TypeOfArgument::BOOL, false, coreGroup);
 
 #if BUILD_CUDA
-		registry.registerArgument("gpu", "Use GPU acceleration", false, false,
-		                          coreGroup);
+		registry.registerArgument("gpu", "Use GPU acceleration", false,
+		                          IO::TypeOfArgument::BOOL, false, coreGroup);
 #endif
 		registry.registerArgument("num_threads", "Number of threads to use",
-		                          false, -1, coreGroup);
+		                          false, IO::TypeOfArgument::INT, -1,
+		                          coreGroup);
 
-		registry.registerArgument("out", "Output image filename", false, "",
-		                          coreGroup, "o");
+		registry.registerArgument("out", "Output image filename", false,
+		                          IO::TypeOfArgument::STRING, "", coreGroup,
+		                          "o");
 
 		registry.registerArgument(
 		    "out_sens",
 		    "Sensitivity image output filename (if it needs to be computed). "
 		    "Leave blank to not save it",
-		    false, "", coreGroup, "");
+		    false, IO::TypeOfArgument::STRING, "", coreGroup);
 
 		// Sensitivity parameters
 		std::string sensitivityGroup = "1. Sensitivity";
@@ -62,132 +65,144 @@ int main(int argc, char** argv)
 		    "input is a List-mode, one sensitivity image is required. When the "
 		    "input is a histogram, one sensitivity image *per subset* is "
 		    "required (Ordered by subset id)",
-		    false, std::vector<std::string>{}, sensitivityGroup, "");
+		    false, IO::TypeOfArgument::VECTOR_OF_STRINGS,
+		    std::vector<std::string>{}, sensitivityGroup);
 		registry.registerArgument("sensitivity", "Sensitivity histogram file",
-		                          false, "", sensitivityGroup);
+		                          false, IO::TypeOfArgument::STRING, "",
+		                          sensitivityGroup);
 		registry.registerArgument(
 		    "sensitivity_format",
 		    "Sensitivity histogram format. Possible values: " +
 		        IO::possibleFormats(Plugin::InputFormatsChoice::ONLYHISTOGRAMS),
-		    false, "", sensitivityGroup);
+		    false, IO::TypeOfArgument::STRING, "", sensitivityGroup);
 		registry.registerArgument("invert_sensitivity",
 		                          "Invert the sensitivity histogram values "
 		                          "(sensitivity -> 1/sensitivity)",
-		                          false, false, sensitivityGroup);
+		                          false, IO::TypeOfArgument::BOOL, false,
+		                          sensitivityGroup);
 		registry.registerArgument(
 		    "global_scale", "Global scaling factor to apply on the sensitivity",
-		    false, 1.0f, sensitivityGroup);
+		    false, IO::TypeOfArgument::FLOAT, 1.0f, sensitivityGroup);
 		registry.registerArgument(
 		    "move_sens", "Move the provided sensitivity image based on motion",
-		    false, false, sensitivityGroup);
+		    false, IO::TypeOfArgument::BOOL, false, sensitivityGroup);
 
 		// Input data parameters
 		std::string inputGroup = "2. Input";
-		registry.registerArgument("input", "Input file", false, "", inputGroup,
+		registry.registerArgument("input", "Input file", false,
+		                          IO::TypeOfArgument::STRING, "", inputGroup,
 		                          "i");
-		registry.registerArgument("format",
-		                          "Input file format. Possible values: " +
-		                              IO::possibleFormats(),
-		                          false, "", inputGroup, "f");
+		registry.registerArgument(
+		    "format",
+		    "Input file format. Possible values: " + IO::possibleFormats(),
+		    false, IO::TypeOfArgument::STRING, "", inputGroup, "f");
 
 		// Reconstruction parameters
 		std::string reconstructionGroup = "3. Reconstruction";
 		registry.registerArgument("num_iterations", "Number of MLEM Iterations",
-		                          false, 10, reconstructionGroup);
-		registry.registerArgument("num_subsets",
-		                          "Number of OSEM subsets (Default: 1)", false,
-		                          1, reconstructionGroup);
-		registry.registerArgument("initial_estimate",
-		                          "Initial image estimate for the MLEM", false,
-		                          "", reconstructionGroup);
-		registry.registerArgument("randoms",
-		                          "Randoms estimate histogram filename", false,
-		                          "", reconstructionGroup);
+		                          false, IO::TypeOfArgument::INT, 10,
+		                          reconstructionGroup);
+		registry.registerArgument(
+		    "num_subsets", "Number of OSEM subsets (Default: 1)", false,
+		    IO::TypeOfArgument::INT, 1, reconstructionGroup);
+		registry.registerArgument(
+		    "initial_estimate", "Initial image estimate for the MLEM", false,
+		    IO::TypeOfArgument::STRING, "", reconstructionGroup);
+		registry.registerArgument(
+		    "randoms", "Randoms estimate histogram filename", false,
+		    IO::TypeOfArgument::STRING, "", reconstructionGroup);
 		registry.registerArgument(
 		    "randoms_format",
 		    "Randoms estimate histogram format. Possible values: " +
 		        IO::possibleFormats(Plugin::InputFormatsChoice::ONLYHISTOGRAMS),
-		    false, "", reconstructionGroup);
-		registry.registerArgument("scatter",
-		                          "Scatter estimate histogram filename", false,
-		                          "", reconstructionGroup);
+		    false, IO::TypeOfArgument::STRING, "", reconstructionGroup);
+		registry.registerArgument(
+		    "scatter", "Scatter estimate histogram filename", false,
+		    IO::TypeOfArgument::STRING, "", reconstructionGroup);
 		registry.registerArgument(
 		    "scatter_format",
 		    "Scatter estimate histogram format. Possible values: " +
 		        IO::possibleFormats(Plugin::InputFormatsChoice::ONLYHISTOGRAMS),
-		    false, "", reconstructionGroup);
+		    false, IO::TypeOfArgument::STRING, "", reconstructionGroup);
 		registry.registerArgument("psf", "Image-space PSF kernel file", false,
-		                          "", reconstructionGroup);
+		                          IO::TypeOfArgument::STRING, "",
+		                          reconstructionGroup);
 		registry.registerArgument("hard_threshold", "Hard Threshold", false,
-		                          1.0f, reconstructionGroup);
+		                          IO::TypeOfArgument::FLOAT, 1.0f,
+		                          reconstructionGroup);
 		registry.registerArgument(
 		    "save_iter_step",
-		    "Increment into which to save MLEM iteration images", false, 0,
-		    reconstructionGroup);
+		    "Increment into which to save MLEM iteration images", false,
+		    IO::TypeOfArgument::INT, 0, reconstructionGroup);
 		registry.registerArgument(
 		    "save_iter_ranges",
-		    "List of iteration ranges to save MLEM iteration images", false, "",
-		    reconstructionGroup);
+		    "List of iteration ranges to save MLEM iteration images", false,
+		    IO::TypeOfArgument::STRING, "", reconstructionGroup);
 
 		std::string attenuationGroup = "3.1 Attenuation correction";
 		registry.registerArgument("att", "Total attenuation image filename",
-		                          false, "", attenuationGroup);
+		                          false, IO::TypeOfArgument::STRING, "",
+		                          attenuationGroup);
 		registry.registerArgument(
 		    "acf", "Total attenuation correction factors histogram filename",
-		    false, "", attenuationGroup);
+		    false, IO::TypeOfArgument::STRING, "", attenuationGroup);
 		registry.registerArgument(
 		    "acf_format",
 		    "Total attenuation correction factors histogram format. Possible "
 		    "values: " +
 		        IO::possibleFormats(Plugin::InputFormatsChoice::ONLYHISTOGRAMS),
-		    false, "", attenuationGroup);
+		    false, IO::TypeOfArgument::STRING, "", attenuationGroup);
 		registry.registerArgument("att_invivo",
 		                          "(Motion correction) In-vivo attenuation "
 		                          "image filename",
-		                          false, "", attenuationGroup);
+		                          false, IO::TypeOfArgument::STRING, "",
+		                          attenuationGroup);
 		registry.registerArgument("acf_invivo",
 		                          "(Motion correction) In-vivo attenuation "
 		                          "correction factors histogram filename",
-		                          false, "", attenuationGroup);
+		                          false, IO::TypeOfArgument::STRING, "",
+		                          attenuationGroup);
 		registry.registerArgument(
 		    "acf_invivo_format",
 		    "(Motion correction) In-vivo attenuation correction factors "
 		    "histogram format. Possible values: " +
 		        IO::possibleFormats(Plugin::InputFormatsChoice::ONLYHISTOGRAMS),
-		    false, "", attenuationGroup);
+		    false, IO::TypeOfArgument::STRING, "", attenuationGroup);
 		registry.registerArgument(
 		    "att_hardware",
 		    "(Motion correction) Hardware attenuation image filename", false,
-		    "", attenuationGroup);
+		    IO::TypeOfArgument::STRING, "", attenuationGroup);
 		registry.registerArgument(
 		    "acf_hardware",
 		    "(Motion correction) Hardware attenuation correction factors",
-		    false, "", attenuationGroup);
+		    false, IO::TypeOfArgument::STRING, "", attenuationGroup);
 		registry.registerArgument(
 		    "acf_hardware_format",
 		    "(Motion correction) Hardware attenuation correction factors "
 		    "histogram format. Possible values: " +
 		        IO::possibleFormats(Plugin::InputFormatsChoice::ONLYHISTOGRAMS),
-		    false, "", attenuationGroup);
+		    false, IO::TypeOfArgument::STRING, "", attenuationGroup);
 
 		auto projectorGroup = "4. Projector";
 		registry.registerArgument(
 		    "projector",
 		    "Projector to use, choices: Siddon (S), Distance-Driven (D). The "
 		    "default projector is Siddon",
-		    false, "S", projectorGroup);
+		    false, IO::TypeOfArgument::STRING, "S", projectorGroup);
 		registry.registerArgument(
 		    "num_rays", "Number of rays to use (for Siddon projector only)",
-		    false, 1, projectorGroup);
-		registry.registerArgument("proj_psf",
-		                          "Projection-space PSF kernel file", false, "",
-		                          projectorGroup);
+		    false, IO::TypeOfArgument::INT, 1, projectorGroup);
+		registry.registerArgument(
+		    "proj_psf", "Projection-space PSF kernel file", false,
+		    IO::TypeOfArgument::STRING, "", projectorGroup);
 		registry.registerArgument("tof_width_ps", "TOF Width in Picoseconds",
-		                          false, 0.0f, projectorGroup);
+		                          false, IO::TypeOfArgument::FLOAT, 0.0f,
+		                          projectorGroup);
 		registry.registerArgument("tof_n_std",
 		                          "Number of standard deviations to consider "
 		                          "for TOF's Gaussian curve",
-		                          false, 0, projectorGroup);
+		                          false, IO::TypeOfArgument::INT, 0,
+		                          projectorGroup);
 
 		PluginOptionsHelper::addOptionsFromPlugins(
 		    registry, Plugin::InputFormatsChoice::ALL);

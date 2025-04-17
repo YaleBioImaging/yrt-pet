@@ -6,6 +6,7 @@
 #pragma once
 
 #include "datastruct/ArgumentDefinition.hpp"
+#include "utils/Assert.hpp"
 
 #include <cxxopts.hpp>
 #include <map>
@@ -24,25 +25,21 @@ namespace IO
 		void registerArgumentInternal(const ArgumentDefinition& arg);
 
 		void registerArgument(const std::string& name,
-		                      const std::string& description,
-		                      bool required, TypeOfArgument argumentType,
+		                      const std::string& description, bool required,
+		                      TypeOfArgument argumentType,
 		                      const std::string& group = "");
 
 		template <typename ArgumentType>
 		void registerArgument(std::string name, std::string description,
-		                      bool required)
-		{
-			registerArgumentInternal(
-			    {name, description, required, ArgumentType{}, "", ""});
-		}
-		template <typename ArgumentType>
-		void registerArgument(std::string name, std::string description,
-		                      bool required, ArgumentType defaultValue,
-		                      std::string group = "",
+		                      bool required, TypeOfArgument argumentType,
+		                      ArgumentType defaultValue, std::string group = "",
 		                      std::string shortOptionName = "")
 		{
-			registerArgumentInternal({name, description, required, defaultValue,
-			                          group, shortOptionName});
+			ASSERT_MSG(argumentType != TypeOfArgument::NONE,
+			           "Cannot use None for argument type");
+
+			registerArgumentInternal({name, description, required, argumentType,
+			                          defaultValue, group, shortOptionName});
 		}
 
 		const std::map<std::string, ArgumentDefinition>& getArguments() const;
@@ -52,8 +49,9 @@ namespace IO
 		    argumentTypeToCxxoptsValue(TypeOfArgument t);
 		static std::shared_ptr<cxxopts::Value>
 		    valueTypeToCxxoptsValue(ArgumentValue v);
-		static ArgumentValue cxxoptsOptionValue(const cxxopts::OptionValue& o,
-		                                        TypeOfArgument t);
+		static ArgumentValue
+		    castCxxoptsOptionValue(const cxxopts::OptionValue& o,
+		                           TypeOfArgument t);
 
 	private:
 		std::map<std::string, ArgumentDefinition> arguments;

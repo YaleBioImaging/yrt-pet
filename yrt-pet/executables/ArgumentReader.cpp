@@ -313,11 +313,18 @@ namespace IO
 					    result[arg.name].as<std::vector<std::string>>();
 				}
 			}
+			else
+			{
+				if (arg.isRequired)
+				{
+					// Explicitly put a blank when the argument is required but
+					// unspecified
+					m_values[name] = std::monostate{};
+				}
+			}
 		}
 	}
 
-	// TODO NOW: Maybe remove this since the required-ness could be managed by
-	//  the executable
 	void ArgumentReader::validateRequiredParameters() const
 	{
 		std::vector<std::string> missingParams;
@@ -326,23 +333,12 @@ namespace IO
 		{
 			if (arg.isRequired)
 			{
-				std::visit(
-				    [&](const auto& v)
-				    {
-					    using T = std::decay_t<decltype(v)>;
-					    if constexpr (std::is_same_v<T, std::string>)
-					    {
-						    if (v.empty())
-							    missingParams.push_back(name);
-					    }
-					    else if constexpr (std::is_same_v<
-					                           T, std::vector<std::string>>)
-					    {
-						    if (v.empty())
-							    missingParams.push_back(name);
-					    }
-				    },
-				    m_values.at(name));
+				const auto argumentValueVariant = m_values.at(name);
+				if (std::holds_alternative<std::monostate>(
+				        argumentValueVariant))
+				{
+					missingParams.push_back(name);
+				}
 			}
 		}
 

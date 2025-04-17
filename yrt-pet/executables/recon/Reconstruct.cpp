@@ -357,12 +357,18 @@ int main(int argc, char** argv)
 		}
 
 		// Image-space PSF
-		if (!config.getValue<std::string>("psf").empty())
+		if (!imagePsf_fname.empty() && !imageVarPsf_fname.empty())
+		{
+			ASSERT_MSG(false, ("Got two different image PSF inputs: "
+        "imagePsf_fname = \"" + imagePsf_fname +
+        "\", imageVarPsf_fname = \"" + imageVarPsf_fname + "\"").c_str());
+		}
+		else if (!config.getValue<std::string>("psf").empty())
 		{
 			osem->imgpsfmode = UNIFORM;
 			ASSERT_MSG(!imageVarPsf_fname.empty(),
 			           "Got two different image PSF inputs");
-			osem->addImagePSF(config.getValue<std::string>("psf"));
+			osem->addImagePSF(imagePsf_fname);
 		}
 		else if (!imageVarPsf_fname.empty())
 		{

@@ -17,6 +17,7 @@
 #include "operators/OperatorProjectorDD.hpp"
 #include "operators/OperatorProjectorSiddon.hpp"
 #include "operators/OperatorPsf.hpp"
+#include "operators/OperatorVarPsf.hpp"
 #include "utils/Assert.hpp"
 #include "utils/Globals.hpp"
 #include "utils/Tools.hpp"

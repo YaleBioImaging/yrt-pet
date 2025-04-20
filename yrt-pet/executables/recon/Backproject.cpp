@@ -87,7 +87,8 @@ int main(int argc, char** argv)
 		    registry, Plugin::InputFormatsChoice::ALL);
 
 		// Load configuration
-		IO::ArgumentReader config{registry};
+		IO::ArgumentReader config{registry,
+		                          "Backproject projection data into an image"};
 
 		if (!config.loadFromCommandLine(argc, argv))
 		{

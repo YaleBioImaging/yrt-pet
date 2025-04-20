@@ -18,6 +18,8 @@ int main(int argc, char** argv)
 {
 	try
 	{
+		IO::ArgumentRegistry registry{};
+
 		std::string scanner_fname;
 		std::string input_fname;
 		std::string input_format;

@@ -125,9 +125,9 @@ namespace IO
 		return groups;
 	}
 
-	// ReconstructionConfig implementation
-	ArgumentReader::ArgumentReader(const ArgumentRegistry& pr_registry)
-	    : mr_registry(pr_registry)
+	ArgumentReader::ArgumentReader(const ArgumentRegistry& pr_registry,
+	                               const std::string& p_executableName)
+	    : mr_registry(pr_registry), m_executableName(p_executableName)
 	{
 		// Initialize with default values
 		for (const auto& [name, arg] : mr_registry.getArguments())
@@ -138,7 +138,7 @@ namespace IO
 
 	bool ArgumentReader::loadFromCommandLine(int argc, char** argv)
 	{
-		cxxopts::Options options(argv[0], "Reconstruction executable");
+		cxxopts::Options options(argv[0], m_executableName);
 		options.positional_help("[optional args]").show_positional_help();
 
 		setupCommandLineOptions(options);

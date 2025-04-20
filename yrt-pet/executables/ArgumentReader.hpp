@@ -61,7 +61,8 @@ namespace IO
 	class ArgumentReader
 	{
 	public:
-		explicit ArgumentReader(const ArgumentRegistry& pr_registry);
+		explicit ArgumentReader(const ArgumentRegistry& pr_registry,
+		                        const std::string& p_executableName);
 
 		// Load configuration from command line
 		//  Return value: true -> parsing complete false -> Parsing incomplete
@@ -96,6 +97,7 @@ namespace IO
 	private:
 		OptionsResult m_values;
 		const ArgumentRegistry& mr_registry;
+		std::string m_executableName;
 
 		void setupCommandLineOptions(cxxopts::Options& options);
 		void parseCommandLineResult(const cxxopts::ParseResult& result);

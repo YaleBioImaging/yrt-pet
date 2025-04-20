@@ -19,115 +19,135 @@ int main(int argc, char** argv)
 {
 	try
 	{
-		std::string scanner_fname;
-		std::string outputImageParams_fname;
-		std::string outputImage_fname;
-		std::string input_fname;
-		std::string input_format;
-		std::string imagePsf_fname;
-		std::string projPsf_fname;
-		std::string projector_name = "S";
-		int numThreads = -1;
-		int numSubsets = 1;
-		int subsetId = 0;
-		int numRays = 1;
-		bool useGPU = false;
-		float tofWidth_ps = 0.0;
-		int tofNumStd = 0;
+		IO::ArgumentRegistry registry{};
 
-		Plugin::OptionsResult pluginOptionsResults;  // For plugins' options
+		const std::string coreGroup = "0. Core";
+		const std::string inputGroup = "1. Input";
+		const std::string projectorGroup = "2. Projector";
+		const std::string imageGroup = "3. Image";
 
-		// Parse command line arguments
-		cxxopts::Options options(argv[0], "Backproject "
-		                                  "projection data into an image.");
-		options.positional_help("[optional args]").show_positional_help();
+		registry.registerArgument("scanner", "Scanner parameters file", true,
+		                          IO::TypeOfArgument::STRING, "", coreGroup,
+		                          "s");
+		registry.registerArgument("input", "Input file", true,
+		                          IO::TypeOfArgument::STRING, "", inputGroup,
+		                          "i");
+		registry.registerArgument(
+		    "format",
+		    "Input file format. Possible values: " + IO::possibleFormats(),
+		    true, IO::TypeOfArgument::STRING, "", inputGroup, "f");
 
-		/* clang-format off */
-		options.add_options()
-		("s,scanner", "Scanner parameters file", cxxopts::value<std::string>(scanner_fname))
-		("i,input", "Input data file", cxxopts::value<std::string>(input_fname))
-		("f,format", "Input data format", cxxopts::value<std::string>(input_format))
-		("o,out", "Output image filename", cxxopts::value<std::string>(outputImage_fname))
-		("p,params", "Output image parameters filename", cxxopts::value<std::string>(outputImageParams_fname))
-		("gpu", "Use GPU acceleration", cxxopts::value<bool>(useGPU))
-		("psf", "Image-space PSF kernel file", cxxopts::value<std::string>(imagePsf_fname))
-		("proj_psf", "Projection-space PSF kernel file", cxxopts::value<std::string>(projPsf_fname))
-		("projector", "Projector to use, choices: Siddon (S), Distance-Driven (D)"
-			". The default projector is Siddon", cxxopts::value<std::string>(projector_name))
-		("tof_width_ps", "TOF Width in Picoseconds", cxxopts::value<float>(tofWidth_ps))
-		("tof_n_std", "Number of standard deviations to consider for TOF's Gaussian curve", cxxopts::value<int>(tofNumStd))
-		("num_rays", "Number of rays to use in the Siddon projector", cxxopts::value<int>(numRays))
-		("num_threads", "Number of threads to use", cxxopts::value<int>(numThreads))
-		("num_subsets", "Number of subsets to use (Default: 1)", cxxopts::value<int>(numSubsets))
-		("subset_id", "Subset to backproject (Default: 0)", cxxopts::value<int>(subsetId))
-		("h,help", "Print help");
-		/* clang-format on */
+#if BUILD_CUDA
+		registry.registerArgument("gpu", "Use GPU acceleration", false,
+		                          IO::TypeOfArgument::BOOL, false, coreGroup);
+#endif
+		registry.registerArgument("num_threads", "Number of threads to use",
+		                          false, IO::TypeOfArgument::INT, -1,
+		                          coreGroup);
+
+		registry.registerArgument("out", "Output image filename", true,
+		                          IO::TypeOfArgument::STRING, "", imageGroup,
+		                          "o");
+		registry.registerArgument("params", "Image parameters file", true,
+		                          IO::TypeOfArgument::STRING, "", imageGroup,
+		                          "p");
+
+		registry.registerArgument(
+		    "projector",
+		    "Projector to use, choices: Siddon (S), Distance-Driven (D). The "
+		    "default projector is Siddon",
+		    false, IO::TypeOfArgument::STRING, "S", projectorGroup);
+		registry.registerArgument(
+		    "psf",
+		    "Image-space PSF kernel file (Applied after the backprojection)",
+		    false, IO::TypeOfArgument::STRING, "", imageGroup);
+		registry.registerArgument(
+		    "proj_psf", "Projection-space PSF kernel file", false,
+		    IO::TypeOfArgument::STRING, "", projectorGroup);
+		registry.registerArgument(
+		    "num_rays", "Number of rays to use (for Siddon projector only)",
+		    false, IO::TypeOfArgument::INT, 1, projectorGroup);
+		registry.registerArgument("tof_width_ps", "TOF Width in Picoseconds",
+		                          false, IO::TypeOfArgument::FLOAT, 0.0f,
+		                          projectorGroup);
+		registry.registerArgument("tof_n_std",
+		                          "Number of standard deviations to consider "
+		                          "for TOF's Gaussian curve",
+		                          false, IO::TypeOfArgument::INT, 0,
+		                          projectorGroup);
+		registry.registerArgument("num_subsets",
+		                          "Number of OSEM subsets (Default: 1)", false,
+		                          IO::TypeOfArgument::INT, 1, inputGroup);
+		registry.registerArgument("subset_id",
+		                          "Subset to backproject (Default: 0)", false,
+		                          IO::TypeOfArgument::INT, 0, inputGroup);
 
 		// Add plugin options
-		PluginOptionsHelper::addOptionsFromPlugins(options);
+		PluginOptionsHelper::addOptionsFromPlugins(
+		    registry, Plugin::InputFormatsChoice::ALL);
 
-		auto result = options.parse(argc, argv);
-		if (result.count("help"))
+		// Load configuration
+		IO::ArgumentReader config{registry};
+
+		if (!config.loadFromCommandLine(argc, argv))
 		{
-			std::cout << options.help() << std::endl;
+			// "--help" requested. Quit
 			return 0;
 		}
 
-		std::vector<std::string> required_params = {"scanner", "input",
-		                                            "format", "out"};
-		bool missing_args = false;
-		for (auto& p : required_params)
+		if (!config.validate())
 		{
-			if (result.count(p) == 0)
-			{
-				std::cerr << "Argument '" << p << "' missing" << std::endl;
-				missing_args = true;
-			}
-		}
-		if (missing_args)
-		{
-			std::cerr << options.help() << std::endl;
+			std::cerr
+			    << "Invalid configuration. Please check required parameters."
+			    << std::endl;
 			return -1;
 		}
 
-		// Parse plugin options
-		pluginOptionsResults =
-		    PluginOptionsHelper::convertPluginResultsToMap(result);
-
-		auto scanner = std::make_unique<Scanner>(scanner_fname);
-		Globals::set_num_threads(numThreads);
+		const auto scanner =
+		    std::make_unique<Scanner>(config.getValue<std::string>("scanner"));
+		Globals::set_num_threads(config.getValue<int>("num_threads"));
 
 		// Output image
 		std::cout << "Preparing output image..." << std::endl;
-		ImageParams outputImageParams{outputImageParams_fname};
-		auto outputImage = std::make_unique<ImageOwned>(outputImageParams);
+		ImageParams outputImageParams{config.getValue<std::string>("params")};
+		const auto outputImage =
+		    std::make_unique<ImageOwned>(outputImageParams);
 		outputImage->allocate();
 
 		// Input data
 		std::cout << "Reading input data..." << std::endl;
-		auto dataInput = IO::openProjectionData(input_fname, input_format,
-		                                        *scanner, pluginOptionsResults);
+		const auto dataInput =
+		    IO::openProjectionData(config.getValue<std::string>("input"),
+		                           config.getValue<std::string>("format"),
+		                           *scanner, config.getAllArguments());
 
 		// Setup forward projection
-		auto binIter = dataInput->getBinIter(numSubsets, subsetId);
-		OperatorProjectorParams projParams(binIter.get(), *scanner, tofWidth_ps,
-		                                   tofNumStd, projPsf_fname, numRays);
+		const auto binIter =
+		    dataInput->getBinIter(config.getValue<int>("nunm_subsets"),
+		                          config.getValue<int>("subset_id"));
+		const OperatorProjectorParams projParams(
+		    binIter.get(), *scanner, config.getValue<int>("tof_width_ps"),
+		    config.getValue<int>("tof_n_std"),
+		    config.getValue<std::string>("proj_psf"),
+		    config.getValue<int>("num_rays"));
 
-		auto projectorType = IO::getProjector(projector_name);
+		const auto projectorType =
+		    IO::getProjector(config.getValue<std::string>("projector"));
 
 		Util::backProject(*outputImage, *dataInput, projParams, projectorType,
-		                  useGPU);
+		                  config.getValue<bool>("gpu"));
 
 		// Image-space PSF
+		const std::string imagePsf_fname = config.getValue<std::string>("psf");
 		if (!imagePsf_fname.empty())
 		{
-			auto imagePsf = std::make_unique<OperatorPsf>(imagePsf_fname);
+			const auto imagePsf = std::make_unique<OperatorPsf>(imagePsf_fname);
 			std::cout << "Applying Image-space PSF..." << std::endl;
 			imagePsf->applyAH(outputImage.get(), outputImage.get());
 		}
 
 		std::cout << "Writing image to file..." << std::endl;
-		outputImage->writeToFile(outputImage_fname);
+		outputImage->writeToFile(config.getValue<std::string>("out"));
 		std::cout << "Done." << std::endl;
 		return 0;
 	}

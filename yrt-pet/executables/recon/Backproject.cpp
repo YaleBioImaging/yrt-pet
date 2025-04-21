@@ -125,7 +125,7 @@ int main(int argc, char** argv)
 
 		// Setup forward projection
 		const auto binIter =
-		    dataInput->getBinIter(config.getValue<int>("nunm_subsets"),
+		    dataInput->getBinIter(config.getValue<int>("num_subsets"),
 		                          config.getValue<int>("subset_id"));
 		const OperatorProjectorParams projParams(
 		    binIter.get(), *scanner, config.getValue<int>("tof_width_ps"),

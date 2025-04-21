@@ -128,7 +128,7 @@ int main(int argc, char** argv)
 		    dataInput->getBinIter(config.getValue<int>("num_subsets"),
 		                          config.getValue<int>("subset_id"));
 		const OperatorProjectorParams projParams(
-		    binIter.get(), *scanner, config.getValue<int>("tof_width_ps"),
+		    binIter.get(), *scanner, config.getValue<float>("tof_width_ps"),
 		    config.getValue<int>("tof_n_std"),
 		    config.getValue<std::string>("proj_psf"),
 		    config.getValue<int>("num_rays"));

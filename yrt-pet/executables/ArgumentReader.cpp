@@ -346,11 +346,8 @@ namespace IO
 		{
 			std::stringstream ss;
 			ss << "Missing required parameters: ";
-			for (const auto& param : missingParams)
-			{
-				ss << param << " ";
-			}
-			throw std::runtime_error(ss.str());
+			ss << Util::join(missingParams, ", ");
+			throw std::invalid_argument(ss.str());
 		}
 	}
 }  // namespace IO

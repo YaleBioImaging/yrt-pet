@@ -23,6 +23,12 @@ int main(int argc, char** argv)
 		IO::ArgumentRegistry registry{};
 
 		std::string coreGroup = "0. Core";
+		std::string sensitivityGroup = "1. Sensitivity";
+		std::string inputGroup = "2. Input";
+		std::string reconstructionGroup = "3. Reconstruction";
+		std::string attenuationGroup = "3.1 Attenuation correction";
+		std::string projectorGroup = "4. Projector";
+
 		registry.registerArgument("scanner", "Scanner parameters file", true,
 		                          IO::TypeOfArgument::STRING, "", coreGroup,
 		                          "s");
@@ -58,7 +64,6 @@ int main(int argc, char** argv)
 		    false, IO::TypeOfArgument::STRING, "", coreGroup);
 
 		// Sensitivity parameters
-		std::string sensitivityGroup = "1. Sensitivity";
 		registry.registerArgument(
 		    "sens",
 		    "Sensitivity image files (separated by a comma). Note: When the "
@@ -88,7 +93,6 @@ int main(int argc, char** argv)
 		    false, IO::TypeOfArgument::BOOL, false, sensitivityGroup);
 
 		// Input data parameters
-		std::string inputGroup = "2. Input";
 		registry.registerArgument("input", "Input file", false,
 		                          IO::TypeOfArgument::STRING, "", inputGroup,
 		                          "i");
@@ -98,7 +102,6 @@ int main(int argc, char** argv)
 		    false, IO::TypeOfArgument::STRING, "", inputGroup, "f");
 
 		// Reconstruction parameters
-		std::string reconstructionGroup = "3. Reconstruction";
 		registry.registerArgument("num_iterations", "Number of MLEM Iterations",
 		                          false, IO::TypeOfArgument::INT, 10,
 		                          reconstructionGroup);
@@ -139,7 +142,6 @@ int main(int argc, char** argv)
 		    "List of iteration ranges to save MLEM iteration images", false,
 		    IO::TypeOfArgument::STRING, "", reconstructionGroup);
 
-		std::string attenuationGroup = "3.1 Attenuation correction";
 		registry.registerArgument("att", "Total attenuation image filename",
 		                          false, IO::TypeOfArgument::STRING, "",
 		                          attenuationGroup);
@@ -183,7 +185,6 @@ int main(int argc, char** argv)
 		        IO::possibleFormats(Plugin::InputFormatsChoice::ONLYHISTOGRAMS),
 		    false, IO::TypeOfArgument::STRING, "", attenuationGroup);
 
-		auto projectorGroup = "4. Projector";
 		registry.registerArgument(
 		    "projector",
 		    "Projector to use, choices: Siddon (S), Distance-Driven (D). The "

@@ -16,6 +16,7 @@
 #include <iomanip>
 #include <iostream>
 #include <regex>
+#include <sstream>
 
 #if BUILD_PYBIND11
 #include <pybind11/pybind11.h>
@@ -122,6 +123,23 @@ namespace Util
 		char buffer[80];
 		std::strftime(buffer, 80, "%Y-%m-%d %H:%M:%S", &now_tm);
 		return std::string{buffer};
+	}
+
+	std::string join(const std::vector<std::string>& vec,
+	                 const std::string& delimiter)
+	{
+		std::ostringstream oss;
+		bool first = true;
+		for (const auto& s : vec)
+		{
+			if (!first)
+			{
+				oss << delimiter;
+			}
+			first = false;
+			oss << s;
+		}
+		return oss.str();
 	}
 
 	/*

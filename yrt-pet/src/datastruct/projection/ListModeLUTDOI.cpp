@@ -400,7 +400,13 @@ std::unique_ptr<ProjectionData>
                                 const std::string& filename,
                                 const IO::OptionsResult& options)
 {
-	bool flagTOF = options.find("flag_tof") != options.end();
+	const auto flagTOFVariant = options.at("flag_tof");
+	bool flagTOF = false;
+	if (!std::holds_alternative<std::monostate>(flagTOFVariant))
+	{
+		ASSERT(std::holds_alternative<bool>(flagTOFVariant));
+		flagTOF = std::get<bool>(flagTOFVariant);
+	}
 
 	const auto numLayersVariant = options.at("num_layers");
 

@@ -543,8 +543,14 @@ std::unique_ptr<ProjectionData>
                              const std::string& filename,
                              const IO::OptionsResult& options)
 {
-	const auto flagTOF_it = options.find("flag_tof");
-	bool flagTOF = flagTOF_it != options.end();
+	const auto flagTOFVariant = options.at("flag_tof");
+	bool flagTOF = false;
+	if (!std::holds_alternative<std::monostate>(flagTOFVariant))
+	{
+		ASSERT(std::holds_alternative<bool>(flagTOFVariant));
+		flagTOF = std::get<bool>(flagTOFVariant);
+	}
+
 	auto lm = std::make_unique<ListModeLUTOwned>(scanner, filename, flagTOF);
 
 	const auto lorMotionFnameVariant = options.at("lor_motion");

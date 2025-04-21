@@ -24,7 +24,7 @@ int main(int argc, char** argv)
 		const std::string coreGroup = "0. Core";
 		const std::string inputGroup = "1. Input";
 		const std::string projectorGroup = "2. Projector";
-		const std::string imageGroup = "3. Image";
+		const std::string outputGroup = "3. Output";
 
 		registry.registerArgument("scanner", "Scanner parameters file", true,
 		                          IO::TypeOfArgument::STRING, "", coreGroup,
@@ -46,10 +46,10 @@ int main(int argc, char** argv)
 		                          coreGroup);
 
 		registry.registerArgument("out", "Output image filename", true,
-		                          IO::TypeOfArgument::STRING, "", imageGroup,
+		                          IO::TypeOfArgument::STRING, "", outputGroup,
 		                          "o");
 		registry.registerArgument("params", "Image parameters file", true,
-		                          IO::TypeOfArgument::STRING, "", imageGroup,
+		                          IO::TypeOfArgument::STRING, "", outputGroup,
 		                          "p");
 
 		registry.registerArgument(
@@ -60,9 +60,10 @@ int main(int argc, char** argv)
 		registry.registerArgument(
 		    "psf",
 		    "Image-space PSF kernel file (Applied after the backprojection)",
-		    false, IO::TypeOfArgument::STRING, "", imageGroup);
+		    false, IO::TypeOfArgument::STRING, "", outputGroup);
 		registry.registerArgument(
-		    "proj_psf", "Projection-space PSF kernel file", false,
+		    "proj_psf",
+		    "Projection-space PSF kernel file (for DD projector only)", false,
 		    IO::TypeOfArgument::STRING, "", projectorGroup);
 		registry.registerArgument(
 		    "num_rays", "Number of rays to use (for Siddon projector only)",

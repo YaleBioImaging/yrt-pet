@@ -3,6 +3,7 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
+#include "../ArgumentReader.hpp"
 #include "datastruct/IO.hpp"
 #include "datastruct/projection/Histogram3D.hpp"
 #include "datastruct/scanner/Scanner.hpp"
@@ -21,112 +22,127 @@ int main(int argc, char** argv)
 {
 	try
 	{
-		std::string scanner_fname;
-		std::string promptsHis_fname;
-		std::string randomsHis_fname;
-		std::string sensitivityHis_fname;
-		std::string acfHis_fname;
-		std::string sourceImage_fname;
-		std::string attImage_fname;
-		std::string crystalMaterial_name = "LYSO";
-		size_t nZ, nPhi, nR;
-		std::string scatterOut_fname;
-		std::string acfOutHis_fname;  // In case ACF needs to be calculated
-		std::string saveIntermediary_dir;
-		bool invertSensitivity = false;
-		int numThreads = -1;
-		int maskWidth = -1;
-		float acfThreshold = Scatter::ScatterEstimator::DefaultACFThreshold;
-		bool useGPU = false;
-		int seed = Scatter::ScatterEstimator::DefaultSeed;
+		IO::ArgumentRegistry registry{};
 
-		// Parse command line arguments
-		cxxopts::Options options(argv[0], "Scatter estimation executable");
-		options.positional_help("[optional args]").show_positional_help();
+		std::string coreGroup = "0. Core";
+		std::string sssGroup = "1. Single Scatter Simulation";
+		std::string tailFittingGroup = "2. Tail fitting";
 
-		auto coreGroup = options.add_options("0. Core");
-		coreGroup("s,scanner", "Scanner parameters file",
-		          cxxopts::value(scanner_fname));
-		coreGroup("save_intermediary",
-		          "Directory where to save intermediary histograms (leave "
-		          "blank to not save any)",
-		          cxxopts::value(saveIntermediary_dir));
-		coreGroup("num_threads", "Number of threads to use",
-		          cxxopts::value(numThreads));
-		coreGroup("seed", "Random number generator seed to use",
-		          cxxopts::value(seed));
-		coreGroup("o,out", "Output scatter estimate histogram filename",
-		          cxxopts::value(scatterOut_fname));
+		registry.registerArgument("scanner", "Scanner parameters file", true,
+		                          IO::TypeOfArgument::STRING, "", coreGroup,
+		                          "s");
+#if BUILD_CUDA
+		registry.registerArgument(
+		    "gpu", "Use GPU to compute the ACF histogram (if needed)", false,
+		    IO::TypeOfArgument::STRING, false, coreGroup);
+#endif
+		registry.registerArgument(
+		    "save_intermediary",
+		    "Directory where to save intermediary histograms (leave "
+		    "blank to not save any)",
+		    false, IO::TypeOfArgument::STRING, false, coreGroup);
+		registry.registerArgument("num_threads", "Number of threads to use",
+		                          false, IO::TypeOfArgument::INT, false,
+		                          coreGroup);
+		registry.registerArgument("seed", "Random number generator seed to use",
+		                          false, IO::TypeOfArgument::INT,
+		                          Scatter::ScatterEstimator::DefaultSeed,
+		                          coreGroup);
+		registry.registerArgument(
+		    "o,out", "Output scatter estimate histogram filename", true,
+		    IO::TypeOfArgument::STRING, "", coreGroup);
+		registry.registerArgument(
+		    "out_acf",
+		    "Output ACF histogram filename (if it needs to be calculated from "
+		    "the attenuation image)",
+		    false, IO::TypeOfArgument::STRING, "", coreGroup);
 
-		auto sssGroup = options.add_options("1. Single Scatter Simulation");
-		sssGroup("att", "Attenuation image file",
-		         cxxopts::value(attImage_fname));
-		sssGroup("source", "Input source image",
-		         cxxopts::value(sourceImage_fname));
-		sssGroup("nZ", "Number of Z planes to consider for SSS",
-		         cxxopts::value(nZ));
-		sssGroup("nPhi", "Number of Phi angles to consider for SSS",
-		         cxxopts::value(nPhi));
-		sssGroup("nR", "Number of R distances to consider for SSS",
-		         cxxopts::value(nR));
-		sssGroup("crystal_mat", "Crystal material name (default: LYSO)",
-		         cxxopts::value(crystalMaterial_name));
+		registry.registerArgument("att", "Attenuation image file", true,
+		                          IO::TypeOfArgument::STRING, "", sssGroup);
+		registry.registerArgument("source", "Input source image", true,
+		                          IO::TypeOfArgument::STRING, "", sssGroup);
+		registry.registerArgument("n_z",
+		                          "Number of Z planes to consider for SSS",
+		                          true, IO::TypeOfArgument::INT, -1, sssGroup);
+		registry.registerArgument("n_phi",
+		                          "Number of Phi angles to consider for SSS",
+		                          true, IO::TypeOfArgument::INT, -1, sssGroup);
+		registry.registerArgument("n_r",
+		                          "Number of R distances to consider for SSS",
+		                          true, IO::TypeOfArgument::INT, -1, sssGroup);
+		registry.registerArgument(
+		    "crystal_mat", "Crystal material name (default: LYSO)", false,
+		    IO::TypeOfArgument::STRING, "LYSO", sssGroup);
 
-		auto tailFittingGroup = options.add_options("2. Tail fitting");
-		tailFittingGroup("prompts", "Prompts histogram file",
-		                 cxxopts::value(promptsHis_fname));
-		tailFittingGroup("randoms", "Randoms histogram file (optional)",
-		                 cxxopts::value(randomsHis_fname));
-		tailFittingGroup("sensitivity", "Sensitivity histogram file (optional)",
-		                 cxxopts::value(sensitivityHis_fname));
-		tailFittingGroup(
+		registry.registerArgument("prompts", "Prompts histogram file", true,
+		                          IO::TypeOfArgument::STRING, "",
+		                          tailFittingGroup);
+		registry.registerArgument(
+		    "randoms", "Randoms histogram file (optional)", false,
+		    IO::TypeOfArgument::STRING, "", tailFittingGroup);
+		registry.registerArgument(
+		    "sensitivity", "Sensitivity histogram file (optional)", false,
+		    IO::TypeOfArgument::STRING, "", tailFittingGroup);
+		registry.registerArgument(
 		    "invert_sensitivity",
 		    "Invert the sensitivity histogram values (sensitivity -> "
 		    "1/sensitivity)",
-		    cxxopts::value(invertSensitivity));
-		tailFittingGroup("acf",
-		                 "ACF histogram file (optional). Will be computed from "
-		                 "attenuation image if not provided",
-		                 cxxopts::value(acfHis_fname));
-		tailFittingGroup("gpu",
-		                 "Use GPU to compute the ACF histogram (if needed)",
-		                 cxxopts::value(useGPU));
-		tailFittingGroup(
+		    false, IO::TypeOfArgument::STRING, "", tailFittingGroup);
+		registry.registerArgument(
+		    "acf",
+		    "ACF histogram file (optional). Will be computed from "
+		    "attenuation image if not provided",
+		    false, IO::TypeOfArgument::STRING, "", tailFittingGroup);
+		registry.registerArgument(
 		    "acf_threshold",
 		    "Tail fitting ACF threshold for the scatter tails mask (Default: " +
-		        std::to_string(acfThreshold) + ")",
-		    cxxopts::value(acfThreshold));
-		tailFittingGroup("mask_width",
-		                 "Tail fitting mask width. By default, uses 1/10th of "
-		                 "the histogram \'r\' dimension",
-		                 cxxopts::value(maskWidth));
+		        std::to_string(Scatter::ScatterEstimator::DefaultACFThreshold) +
+		        ")",
+		    false, IO::TypeOfArgument::FLOAT, "", tailFittingGroup);
+		registry.registerArgument(
+		    "mask_width",
+		    "Tail fitting mask width. By default, uses 1/10th of "
+		    "the histogram \'r\' dimension",
+		    false, IO::TypeOfArgument::FLOAT, "", tailFittingGroup);
 
-		options.add_options()("h,help", "Print help");
+		// Load configuration
+		IO::ArgumentReader config{registry, "Scatter estimation executable"};
 
-		auto result = options.parse(argc, argv);
-		if (result.count("help"))
+		if (!config.loadFromCommandLine(argc, argv))
 		{
-			std::cout << options.help() << std::endl;
+			// "--help" requested. Quit
 			return 0;
 		}
 
-		std::vector<std::string> required_params = {
-		    "scanner", "prompts", "source", "att", "out", "nZ", "nPhi", "nR"};
-
-		bool missing_args = false;
-		for (auto& p : required_params)
+		if (!config.validate())
 		{
-			if (result.count(p) == 0)
-			{
-				std::cerr << "Argument '" << p << "' missing" << std::endl;
-				missing_args = true;
-			}
-		}
-		if (missing_args)
-		{
-			std::cerr << options.help() << std::endl;
+			std::cerr
+			    << "Invalid configuration. Please check required parameters."
+			    << std::endl;
 			return -1;
 		}
+
+		auto scanner_fname = config.getValue<std::string>("scanner");
+		auto promptsHis_fname = config.getValue<std::string>("prompts");
+		auto randomsHis_fname = config.getValue<std::string>("randoms");
+		auto sensitivityHis_fname = config.getValue<std::string>("sensitivity");
+		auto acfHis_fname = config.getValue<std::string>("acf");
+		auto sourceImage_fname = config.getValue<std::string>("source");
+		auto attImage_fname = config.getValue<std::string>("att");
+		auto crystalMaterial_name = config.getValue<std::string>("crystal_mat");
+		size_t nZ = config.getValue<int>("n_z");
+		size_t nPhi = config.getValue<int>("n_phi");
+		size_t nR = config.getValue<int>("n_z");
+		std::string scatterOut_fname = config.getValue<std::string>("out");
+		std::string acfOutHis_fname = config.getValue<std::string>("out_acf");
+		std::string saveIntermediary_dir =
+		    config.getValue<std::string>("save_intermediary");
+		bool invertSensitivity = config.getValue<bool>("invert_sensitivity");
+		int numThreads = config.getValue<int>("num_threads");
+		int maskWidth = config.getValue<int>("mask_width");
+		float acfThreshold = config.getValue<float>("acf_threshold");
+		bool useGPU = config.getValue<bool>("gpu");
+		int seed = config.getValue<int>("seed");
 
 		if (useGPU)
 		{

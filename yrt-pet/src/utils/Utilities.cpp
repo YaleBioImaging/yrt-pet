@@ -125,19 +125,17 @@ namespace Util
 		return std::string{buffer};
 	}
 
-	std::string join(const std::vector<std::string>& vec,
+	std::string join(const std::vector<std::string>& vectorOfStrings,
 	                 const std::string& delimiter)
 	{
 		std::ostringstream oss;
-		bool first = true;
-		for (const auto& s : vec)
+		if (!vectorOfStrings.empty())
 		{
-			if (!first)
+			oss << vectorOfStrings[0];
+			for (size_t i = 1; i < vectorOfStrings.size(); ++i)
 			{
-				oss << delimiter;
+				oss << delimiter << vectorOfStrings[i];
 			}
-			first = false;
-			oss << s;
 		}
 		return oss.str();
 	}

@@ -194,7 +194,8 @@ int main(int argc, char** argv)
 		    "num_rays", "Number of rays to use (for Siddon projector only)",
 		    false, IO::TypeOfArgument::INT, 1, projectorGroup);
 		registry.registerArgument(
-		    "proj_psf", "Projection-space PSF kernel file", false,
+		    "proj_psf",
+		    "Projection-space PSF kernel file (for DD projector only)", false,
 		    IO::TypeOfArgument::STRING, "", projectorGroup);
 		registry.registerArgument("tof_width_ps", "TOF Width in Picoseconds",
 		                          false, IO::TypeOfArgument::FLOAT, 0.0f,

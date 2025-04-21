@@ -3,6 +3,8 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
+#include "../ArgumentReader.hpp"
+
 #include "datastruct/IO.hpp"
 #include "datastruct/projection/Histogram3D.hpp"
 #include "datastruct/projection/SparseHistogram.hpp"
@@ -22,66 +24,94 @@ int main(int argc, char** argv)
 {
 	try
 	{
-		std::string scanner_fname;
-		std::string inputImage_fname;
-		std::string imagePsf_fname;
-		std::string projPsf_fname;
-		std::string outHis_fname;
-		std::string projector_name = "S";
-		int numThreads = -1;
-		int numSubsets = 1;
-		int subsetId = 0;
-		int numRays = 1;
-		bool useGPU = false;
-		bool convertToAcf = false;
-		bool toSparseHistogram = false;
+		IO::ArgumentRegistry registry{};
 
-		// Parse command line arguments
-		cxxopts::Options options(argv[0],
-		                         "Forward "
-		                         "project an image into a Histogram3D");
-		options.positional_help("[optional args]").show_positional_help();
-		/* clang-format off */
-		options.add_options()
-		("s,scanner", "Scanner parameters file", cxxopts::value<std::string>(scanner_fname))
-		("i,input", "Input image file", cxxopts::value<std::string>(inputImage_fname))
-		("psf", "Image-space PSF kernel file", cxxopts::value<std::string>(imagePsf_fname))
-		("proj_psf", "Projection-space PSF kernel file", cxxopts::value<std::string>(projPsf_fname))
-		("projector", "Projector to use, choices: Siddon (S), Distance-Driven (D)."
-			"The default projector is Siddon", cxxopts::value<std::string>(projector_name))
-		("to_acf", "Generate ACF histogram", cxxopts::value<bool>(convertToAcf))
-		("num_rays", "Number of rays to use in the Siddon projector", cxxopts::value<int>(numRays))
-		("o,out", "Output histogram filename", cxxopts::value<std::string>(outHis_fname))
-		("sparse", "Forward project to a sparse histogram", cxxopts::value<bool>(toSparseHistogram))
-		("gpu", "Use GPU acceleration", cxxopts::value<bool>(useGPU))
-		("num_threads", "Number of threads to use", cxxopts::value<int>(numThreads))
-		("num_subsets", "Number of subsets to use (Default: 1)", cxxopts::value<int>(numSubsets))
-		("subset_id", "Subset to project (Default: 0)", cxxopts::value<int>(subsetId))
-		("h,help", "Print help");
-		/* clang-format on */
+		std::string coreGroup = "0. Core";
+		std::string inputGroup = "1. Input";
+		std::string projectorGroup = "2. Projector";
+		std::string outputGroup = "3. Output";
 
-		auto result = options.parse(argc, argv);
-		if (result.count("help"))
+		registry.registerArgument("scanner", "Scanner parameters file", true,
+		                          IO::TypeOfArgument::STRING, "", coreGroup,
+		                          "s");
+#if BUILD_CUDA
+		registry.registerArgument("gpu", "Use GPU acceleration", false,
+		                          IO::TypeOfArgument::BOOL, false, coreGroup);
+#endif
+		registry.registerArgument("num_threads", "Number of threads to use",
+		                          false, IO::TypeOfArgument::INT, -1,
+		                          coreGroup);
+
+		registry.registerArgument("input", "Input image file", false,
+		                          IO::TypeOfArgument::STRING, "", inputGroup,
+		                          "i");
+		registry.registerArgument(
+		    "format",
+		    "Input file format. Possible values: " + IO::possibleFormats(),
+		    false, IO::TypeOfArgument::STRING, "", inputGroup, "f");
+		registry.registerArgument("psf", "Image-space PSF kernel file", false,
+		                          IO::TypeOfArgument::STRING, "", inputGroup);
+		registry.registerArgument("num_subsets",
+		                          "Number of OSEM subsets (Default: 1)", false,
+		                          IO::TypeOfArgument::INT, 1, inputGroup);
+		registry.registerArgument("subset_id",
+		                          "Subset to backproject (Default: 0)", false,
+		                          IO::TypeOfArgument::INT, 0, inputGroup);
+
+		registry.registerArgument(
+		    "projector",
+		    "Projector to use, choices: Siddon (S), Distance-Driven (D). The "
+		    "default projector is Siddon",
+		    false, IO::TypeOfArgument::STRING, "S", projectorGroup);
+		registry.registerArgument(
+		    "proj_psf",
+		    "Projection-space PSF kernel file (for DD projector only)", false,
+		    IO::TypeOfArgument::STRING, "", projectorGroup);
+		registry.registerArgument(
+		    "num_rays", "Number of rays to use (for Siddon projector only)",
+		    false, IO::TypeOfArgument::INT, 1, projectorGroup);
+
+		registry.registerArgument("out", "Output histogram filename", false,
+		                          IO::TypeOfArgument::STRING, "", outputGroup,
+		                          "o");
+		registry.registerArgument("to_acf", "Generate ACF histogram", false,
+		                          IO::TypeOfArgument::BOOL, false, outputGroup);
+		registry.registerArgument(
+		    "sparse", "Forward project to a sparse histogram", false,
+		    IO::TypeOfArgument::BOOL, false, outputGroup);
+
+
+		// Load configuration
+		IO::ArgumentReader config{
+		    registry, "Forward project an image into a Histogram3D"};
+
+		if (!config.loadFromCommandLine(argc, argv))
 		{
-			std::cout << options.help() << std::endl;
+			// "--help" requested. Quit
 			return 0;
 		}
 
-		std::vector<std::string> required_params = {"scanner", "input", "out"};
-		bool missing_args = false;
-		for (auto& p : required_params)
+		if (!config.validate())
 		{
-			if (result.count(p) == 0)
-			{
-				std::cerr << "Argument '" << p << "' missing" << std::endl;
-				missing_args = true;
-			}
-		}
-		if (missing_args)
-		{
-			std::cerr << options.help() << std::endl;
+			std::cerr
+			    << "Invalid configuration. Please check required parameters."
+			    << std::endl;
 			return -1;
 		}
+
+		auto scanner_fname = config.getValue<std::string>("scanner");
+		auto inputImage_fname = config.getValue<std::string>("input");
+		auto imagePsf_fname = config.getValue<std::string>("psf");
+		auto projPsf_fname = config.getValue<std::string>("proj_psf");
+		auto outHis_fname = config.getValue<std::string>("out");
+		auto projector_name = config.getValue<std::string>("projector");
+		int numThreads = config.getValue<int>("num_threads");
+		int numSubsets = config.getValue<int>("num_subsets");
+		int subsetId = config.getValue<int>("subset_id");
+		int numRays = config.getValue<int>("num_rays");
+		bool useGPU = config.getValue<bool>("gpu");
+		bool convertToAcf = config.getValue<bool>("to_acf");
+		bool toSparseHistogram = config.getValue<bool>("sparse");
 
 		auto scanner = std::make_unique<Scanner>(scanner_fname);
 		Globals::set_num_threads(numThreads);

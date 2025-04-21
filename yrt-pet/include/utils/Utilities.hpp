@@ -19,8 +19,8 @@ namespace Util
 	std::string toLower(const std::string& s);
 	std::string toUpper(const std::string& s);
 	std::string getDatetime();
-	std::string join(const std::vector<std::string>& vec,
-			 const std::string& delimiter);
+	std::string join(const std::vector<std::string>& vectorOfStrings,
+	                 const std::string& delimiter);
 
 
 	std::vector<std::string> split(const std::string str,

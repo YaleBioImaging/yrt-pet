@@ -547,29 +547,26 @@ std::unique_ptr<ProjectionData>
 	bool flagTOF = flagTOF_it != options.end();
 	auto lm = std::make_unique<ListModeLUTOwned>(scanner, filename, flagTOF);
 
-	const auto lorMotion_it = options.find("lor_motion");
-
-	ASSERT(lm != nullptr);
-
-	if (lorMotion_it != options.end())
+	const auto lorMotionFnameVariant = options.at("lor_motion");
+	if (!std::holds_alternative<std::monostate>(lorMotionFnameVariant))
 	{
-		const auto lorMotionVariant = lorMotion_it->second;
-		ASSERT(std::holds_alternative<std::string>(lorMotionVariant));
-		const std::string lorMotion = std::get<std::string>(lorMotionVariant);
-
+		ASSERT(std::holds_alternative<std::string>(lorMotionFnameVariant));
+		const auto lorMotion = std::get<std::string>(lorMotionFnameVariant);
 		lm->addLORMotion(lorMotion);
 	}
+
+	ASSERT(lm != nullptr);
 
 	return lm;
 }
 
 Plugin::OptionsListPerPlugin ListModeLUTOwned::getOptions()
 {
-	return {{"flag_tof",
-	         {"Flag for reading TOF column", IO::TypeOfArgument::BOOL}},
-	        {"lor_motion",
-	         {"LOR motion file for motion correction",
-	          IO::TypeOfArgument::STRING}}};
+	return {
+	    {"flag_tof", {"Flag for reading TOF column", IO::TypeOfArgument::BOOL}},
+	    {"lor_motion",
+	     {"LOR motion file for motion correction",
+	      IO::TypeOfArgument::STRING}}};
 }
 
 REGISTER_PROJDATA_PLUGIN("LM", ListModeLUTOwned, ListModeLUTOwned::create,

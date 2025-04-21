@@ -402,17 +402,15 @@ std::unique_ptr<ProjectionData>
 {
 	bool flagTOF = options.find("flag_tof") != options.end();
 
-	const auto numLayers_it = options.find("num_layers");
-	const auto lorMotion_it = options.find("lor_motion");
+	const auto numLayersVariant = options.at("num_layers");
 
 	std::unique_ptr<ListModeLUTDOIOwned> lm;
-	if (numLayers_it == options.end())
+	if (std::holds_alternative<std::monostate>(numLayersVariant))
 	{
 		lm = std::make_unique<ListModeLUTDOIOwned>(scanner, filename, flagTOF);
 	}
 	else
 	{
-		const auto numLayersVariant = numLayers_it->second;
 		ASSERT(std::holds_alternative<int>(numLayersVariant));
 		const int numLayers = std::get<int>(numLayersVariant);
 
@@ -420,16 +418,16 @@ std::unique_ptr<ProjectionData>
 		                                           numLayers);
 	}
 
-	ASSERT(lm != nullptr);
-
-	if (lorMotion_it != options.end())
+	const auto lorMotionFnameVariant = options.at("lor_motion");
+	if (!std::holds_alternative<std::monostate>(lorMotionFnameVariant))
 	{
-		const auto lorMotionVariant = lorMotion_it->second;
-		ASSERT(std::holds_alternative<std::string>(lorMotionVariant));
-		const std::string lorMotion = std::get<std::string>(lorMotionVariant);
-
+		ASSERT(std::holds_alternative<std::string>(lorMotionFnameVariant));
+		const auto lorMotion = std::get<std::string>(lorMotionFnameVariant);
 		lm->addLORMotion(lorMotion);
 	}
+
+	ASSERT(lm != nullptr);
+
 	return lm;
 }
 

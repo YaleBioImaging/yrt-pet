@@ -235,6 +235,7 @@ int main(int argc, char** argv)
 			    "pre-existing sensitivity images were provided");
 		}
 
+		Globals::set_num_threads(config.getValue<int>("num_threads"));
 		std::cout << "Initializing scanner..." << std::endl;
 		auto scanner =
 		    std::make_unique<Scanner>(config.getValue<std::string>("scanner"));
@@ -248,7 +249,6 @@ int main(int argc, char** argv)
 		osem->hardThreshold = config.getValue<float>("hard_threshold");
 		osem->projectorType = projectorType;
 		osem->numRays = config.getValue<int>("num_rays");
-		Globals::set_num_threads(config.getValue<int>("num_threads"));
 
 		// To make sure the sensitivity image gets generated accordingly
 		const bool useListMode =

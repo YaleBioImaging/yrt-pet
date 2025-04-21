@@ -1,6 +1,6 @@
 project(executables)
 
-define_target_exe(yrtpet_post_recon_motion_correction motion/PostReconMotionCorrection.cpp ArgumentReader.cpp)
+define_target_exe(yrtpet_post_recon_motion_correction motion/PostReconMotionCorrection.cpp)
 
 define_target_exe(yrtpet_reconstruct recon/Reconstruct.cpp PluginOptionsHelper.cpp ArgumentReader.cpp)
 define_target_exe(yrtpet_forward_project recon/ForwardProject.cpp ArgumentReader.cpp)
@@ -12,6 +12,6 @@ define_target_exe(yrtpet_convert_to_listmodelut conversion/ConvertToListModeLUT.
 define_target_exe(yrtpet_cumulate_histograms conversion/CumulateHistograms.cpp PluginOptionsHelper.cpp ArgumentReader.cpp)
 define_target_exe(yrtpet_histogram_to_listmode conversion/Histogram3DToListMode.cpp ArgumentReader.cpp)
 
-define_target_exe(yrtpet_build_k kernel/BuildK.cpp ArgumentReader.cpp)
+define_target_exe(yrtpet_build_k kernel/BuildK.cpp)
 
 define_target_exe(yrtpet_accumulate_to_detectors utils/AccumulateToDetectors.cpp PluginOptionsHelper.cpp ArgumentReader.cpp)

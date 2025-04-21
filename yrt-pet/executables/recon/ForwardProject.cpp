@@ -45,10 +45,6 @@ int main(int argc, char** argv)
 		registry.registerArgument("input", "Input image file", false,
 		                          IO::TypeOfArgument::STRING, "", inputGroup,
 		                          "i");
-		registry.registerArgument(
-		    "format",
-		    "Input file format. Possible values: " + IO::possibleFormats(),
-		    false, IO::TypeOfArgument::STRING, "", inputGroup, "f");
 		registry.registerArgument("psf", "Image-space PSF kernel file", false,
 		                          IO::TypeOfArgument::STRING, "", inputGroup);
 		registry.registerArgument("num_subsets",
@@ -79,7 +75,6 @@ int main(int argc, char** argv)
 		registry.registerArgument(
 		    "sparse", "Forward project to a sparse histogram", false,
 		    IO::TypeOfArgument::BOOL, false, outputGroup);
-
 
 		// Load configuration
 		IO::ArgumentReader config{

@@ -102,9 +102,9 @@ int main(int argc, char** argv)
 		    false, IO::TypeOfArgument::STRING, "", inputGroup, "f");
 
 		// Reconstruction parameters
-		registry.registerArgument("num_iterations", "Number of MLEM Iterations",
-		                          false, IO::TypeOfArgument::INT, 10,
-		                          reconstructionGroup);
+		registry.registerArgument(
+		    "num_iterations", "Number of MLEM iterations (Default: 10)", false,
+		    IO::TypeOfArgument::INT, 10, reconstructionGroup);
 		registry.registerArgument(
 		    "num_subsets", "Number of OSEM subsets (Default: 1)", false,
 		    IO::TypeOfArgument::INT, 1, reconstructionGroup);

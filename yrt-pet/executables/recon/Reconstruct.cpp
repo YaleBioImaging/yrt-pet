@@ -197,7 +197,7 @@ int main(int argc, char** argv)
 		    "proj_psf",
 		    "Projection-space PSF kernel file (for DD projector only)", false,
 		    IO::TypeOfArgument::STRING, "", projectorGroup);
-		registry.registerArgument("tof_width_ps", "TOF Width in Picoseconds",
+		registry.registerArgument("tof_width_ps", "TOF Width in picoseconds",
 		                          false, IO::TypeOfArgument::FLOAT, 0.0f,
 		                          projectorGroup);
 		registry.registerArgument("tof_n_std",

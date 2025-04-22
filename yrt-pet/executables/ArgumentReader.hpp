@@ -99,7 +99,7 @@ namespace IO
 		const ArgumentRegistry& mr_registry;
 		std::string m_executableName;
 
-		void setupCommandLineOptions(cxxopts::Options& options);
+		void setupCommandLineOptions(cxxopts::Options& options) const;
 		void parseCommandLineResult(const cxxopts::ParseResult& result);
 		void validateRequiredParameters() const;
 	};

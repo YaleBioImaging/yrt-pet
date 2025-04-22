@@ -217,9 +217,11 @@ namespace IO
 
 	void ArgumentReader::fromJSON(const nlohmann::json& j)
 	{
-		for (const auto& [name, arg] : mr_registry.getArguments())
+		for (const auto& entry : mr_registry.getArguments())
 		{
-			if (j.contains(arg.name))
+			std::string name = entry.first;
+			ArgumentDefinition arg = entry.second;
+			if (j.contains(name))
 			{
 				std::visit(
 				    [&](auto& v)
@@ -227,24 +229,24 @@ namespace IO
 					    using T = std::decay_t<decltype(v)>;
 					    if constexpr (std::is_same_v<T, std::string>)
 					    {
-						    v = j[arg.name].get<std::string>();
+						    v = j[name].get<std::string>();
 					    }
 					    else if constexpr (std::is_same_v<T, int>)
 					    {
-						    v = j[arg.name].get<int>();
+						    v = j[name].get<int>();
 					    }
 					    else if constexpr (std::is_same_v<T, float>)
 					    {
-						    v = j[arg.name].get<float>();
+						    v = j[name].get<float>();
 					    }
 					    else if constexpr (std::is_same_v<T, bool>)
 					    {
-						    v = j[arg.name].get<bool>();
+						    v = j[name].get<bool>();
 					    }
 					    else if constexpr (std::is_same_v<
 					                           T, std::vector<std::string>>)
 					    {
-						    v = j[arg.name].get<std::vector<std::string>>();
+						    v = j[name].get<std::vector<std::string>>();
 					    }
 				    },
 				    m_values[name]);
@@ -257,7 +259,8 @@ namespace IO
 		return m_values;
 	}
 
-	void ArgumentReader::setupCommandLineOptions(cxxopts::Options& options)
+	void
+	    ArgumentReader::setupCommandLineOptions(cxxopts::Options& options) const
 	{
 		for (const auto& group : mr_registry.getGroups())
 		{
@@ -287,8 +290,10 @@ namespace IO
 	void ArgumentReader::parseCommandLineResult(
 	    const cxxopts::ParseResult& result)
 	{
-		for (const auto& [name, arg] : mr_registry.getArguments())
+		for (const auto& entry : mr_registry.getArguments())
 		{
+			std::string name = entry.first;
+			ArgumentDefinition arg = entry.second;
 			if (result.count(arg.name))
 			{
 				if (arg.dtype == TypeOfArgument::STRING)

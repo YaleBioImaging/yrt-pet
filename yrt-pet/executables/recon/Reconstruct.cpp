@@ -281,6 +281,7 @@ int main(int argc, char** argv)
 		}
 		else if (!config.getValue<std::string>("att").empty())
 		{
+			std::cout << "Reading attenuation image..." << std::endl;
 			attImg = std::make_unique<ImageOwned>(
 			    config.getValue<std::string>("att"));
 			osem->setAttenuationImage(attImg.get());
@@ -312,6 +313,7 @@ int main(int argc, char** argv)
 		}
 		else if (!config.getValue<std::string>("att_hardware").empty())
 		{
+			std::cout << "Reading hardware attenuation image..." << std::endl;
 			hardwareAttImg = std::make_unique<ImageOwned>(
 			    config.getValue<std::string>("att_hardware"));
 			osem->setHardwareAttenuationImage(hardwareAttImg.get());
@@ -508,6 +510,7 @@ int main(int argc, char** argv)
 			ASSERT_MSG_WARNING(dataInput->hasMotion(),
 			                   "An in-vivo attenuation image was provided but "
 			                   "the data input has no motion");
+			std::cout << "Reading in-vivo attenuation image..." << std::endl;
 			invivoAttImg = std::make_unique<ImageOwned>(
 			    config.getValue<std::string>("att_invivo"));
 			osem->setInVivoAttenuationImage(invivoAttImg.get());

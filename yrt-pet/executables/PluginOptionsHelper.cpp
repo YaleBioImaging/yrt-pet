@@ -5,49 +5,19 @@
 
 #include "PluginOptionsHelper.hpp"
 
+#include "ArgumentReader.hpp"
 #include "utils/Assert.hpp"
-
-#include <cxxopts.hpp>
 
 namespace PluginOptionsHelper
 {
-	Plugin::OptionsResult
-	    convertPluginResultsToMap(const cxxopts::ParseResult& result)
-	{
-		Plugin::OptionsResult optionsMap;
-
-		for (const auto& option : result.arguments())
-		{
-			const auto& key = option.key();
-			try
-			{
-				optionsMap[key] = result[key].as<std::string>();
-			}
-			catch (const std::bad_cast&)
-			{
-				try
-				{
-					// Exception for boolean values
-					const bool caughtBool = result[key].as<bool>();
-					optionsMap[key] = caughtBool ? "1" : "0";
-				}
-				catch (const std::bad_cast&)
-				{
-					// pass
-				}
-			}
-		}
-		return optionsMap;
-	}
-
-	void fillOptionsFromPlugins(cxxopts::Options& options,
-	                            Plugin::InputFormatsChoice choice)
+	void addOptionsFromPlugins(IO::ArgumentRegistry& registry,
+	                           Plugin::InputFormatsChoice choice)
 	{
 		const Plugin::OptionsList pluginOptions =
 		    Plugin::PluginRegistry::instance().getAllOptions(choice);
 
-		// Group the plugin options in case two (or more) plugins gave the
-		// same options
+		// Group the plugin options (in case multiple plugins have the
+		// same options)
 
 		// Key: Option name, vector of pairs {format name, corresponding option
 		// info}
@@ -81,13 +51,13 @@ namespace PluginOptionsHelper
 			}
 		}
 
-		auto adder = options.add_options("Input format");
+		std::string inputFormatOptionsGroup = "Input format";
 		for (auto& pluginOptionGrouped : pluginOptionsGrouped)
 		{
 			const auto& listOfPluginsThatHaveCurrentOption =
 			    pluginOptionGrouped.second;
 			std::string optionHelp;
-			int isBool = -1;
+			auto argType = IO::TypeOfArgument::NONE;
 			const size_t numPluginsThatHaveCurrentOptions =
 			    listOfPluginsThatHaveCurrentOption.size();
 			for (size_t i = 0; i < numPluginsThatHaveCurrentOptions; ++i)
@@ -104,35 +74,30 @@ namespace PluginOptionsHelper
 					optionHelp += "\n";
 				}
 
-				// It should not be allowed to provide two plugins that
-				// have different IsBool (OptionInfo::second).
-				// Send a warning here if that happens
-				const int currentIsBool = (std::get<1>(helpForPlugin)) ? 1 : 0;
-				if (isBool == -1)
+				// Due to a cxxopts limitation, it should not be allowed to
+				//  provide two plugins that have different argument types
+				//  (OptionInfo::second). Send an error here if that happens
+				const IO::TypeOfArgument currentArgType =
+				    std::get<1>(helpForPlugin);
+
+				if (argType == IO::TypeOfArgument::NONE)
 				{
 					// First init
-					isBool = currentIsBool;
+					argType = currentArgType;
 				}
 				else
 				{
-					ASSERT_MSG(isBool == currentIsBool,
-					           "A plugin already uses that option with a "
-					           "different bool status");
+					const auto errorMsg = "A plugin already uses option " +
+					                      pluginOptionGrouped.first +
+					                      " with a different argument type";
+					ASSERT_MSG(argType == currentArgType, errorMsg.c_str());
 				}
+				ASSERT_MSG(argType != IO::TypeOfArgument::NONE,
+				           "Unspecified argument type in plugin definition");
 			}
 
-			if (isBool == 1)
-			{
-				// parse boolean value
-				adder(pluginOptionGrouped.first, optionHelp,
-				      cxxopts::value<bool>());
-			}
-			else
-			{
-				// parse string value
-				adder(pluginOptionGrouped.first, optionHelp,
-				      cxxopts::value<std::string>());
-			}
+			registry.registerArgument(pluginOptionGrouped.first, optionHelp,
+			                          false, argType, inputFormatOptionsGroup);
 		}
 	}
 }  // namespace PluginOptionsHelper

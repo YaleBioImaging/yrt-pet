@@ -3,6 +3,7 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
+#include "../ArgumentReader.hpp"
 #include "../PluginOptionsHelper.hpp"
 #include "datastruct/IO.hpp"
 #include "datastruct/scanner/Scanner.hpp"
@@ -19,281 +20,258 @@ int main(int argc, char** argv)
 {
 	try
 	{
-		std::string scanner_fname;
-		std::string imgParams_fname;
-		std::string input_fname;
-		std::string input_format;
-		std::vector<std::string> sensImg_fnames;
-		std::string initialEstimate_fname;
-		std::string attImg_fname;
-		std::string acf_fname;
-		std::string acf_format;
-		std::string invivoAttImg_fname;
-		std::string invivoAcf_fname;
-		std::string invivoAcf_format;
-		std::string hardwareAttImg_fname;
-		std::string hardwareAcf_fname;
-		std::string hardwareAcf_format;
-		std::string imagePsf_fname;
-		std::string projPsf_fname;
-		std::string randoms_fname;
-		std::string randoms_format;
-		std::string scatter_fname;
-		std::string scatter_format;
-		std::string projector_name = "S";
-		std::string sensitivityData_fname;
-		std::string sensitivityData_format;
-		std::string out_fname;
-		std::string out_sensImg_fname;
-		int numIterations = 10;
-		int numSubsets = 1;
-		int numThreads = -1;
-		int numRays = 1;
-		float hardThreshold = 1.0f;
-		float tofWidth_ps = 0.0f;
-		float globalScalingFactor = 1.0f;
-		int tofNumStd = 0;
-		int saveIterStep = 0;
-		std::string saveIterRanges;
-		bool useGPU = false;
-		bool sensOnly = false;
-		bool mustMoveSens = false;
-		bool invertSensitivity = false;
+		IO::ArgumentRegistry registry{};
 
-		Plugin::OptionsResult pluginOptionsResults;  // For plugins' options
+		std::string coreGroup = "0. Core";
+		std::string sensitivityGroup = "1. Sensitivity";
+		std::string inputGroup = "2. Input";
+		std::string reconstructionGroup = "3. Reconstruction";
+		std::string attenuationGroup = "3.1 Attenuation correction";
+		std::string projectorGroup = "4. Projector";
 
-		// Parse command line arguments
-		cxxopts::Options options(argv[0], "Reconstruction executable");
-		options.positional_help("[optional args]").show_positional_help();
+		registry.registerArgument("scanner", "Scanner parameters file", true,
+		                          IO::TypeOfArgument::STRING, "", coreGroup,
+		                          "s");
 
-		auto coreGroup = options.add_options("0. Core");
-		coreGroup("s,scanner", "Scanner parameters file",
-		          cxxopts::value<std::string>(scanner_fname));
-		coreGroup("p,params",
-		          "Image parameters file."
-		          "Note: If sensitivity image(s) are provided,"
-		          "the image parameters will be determined from them.",
-		          cxxopts::value<std::string>(imgParams_fname));
-		coreGroup("sens_only",
-		          "Only generate the sensitivity image(s)."
-		          "Do not launch reconstruction",
-		          cxxopts::value<bool>(sensOnly));
+		registry.registerArgument(
+		    "params",
+		    "Image parameters file. Note: If sensitivity image(s) are "
+		    "provided, "
+		    "the image parameters will be determined from them",
+		    false, IO::TypeOfArgument::STRING, "", coreGroup, "p");
+
+		registry.registerArgument(
+		    "sens_only",
+		    "Only generate sensitivity image(s). Do not launch reconstruction",
+		    false, IO::TypeOfArgument::BOOL, false, coreGroup);
+
 #if BUILD_CUDA
-		coreGroup("gpu", "Use GPU acceleration", cxxopts::value<bool>(useGPU));
+		registry.registerArgument("gpu", "Use GPU acceleration", false,
+		                          IO::TypeOfArgument::BOOL, false, coreGroup);
 #endif
-		coreGroup("num_threads", "Number of threads to use",
-		          cxxopts::value<int>(numThreads));
-		coreGroup("o,out", "Output image filename",
-		          cxxopts::value<std::string>(out_fname));
-		coreGroup("out_sens",
-		          "Filename for the generated sensitivity image (if it needed "
-		          "to be computed)."
-		          "Leave blank to not save it",
-		          cxxopts::value<std::string>(out_sensImg_fname));
+		registry.registerArgument("num_threads", "Number of threads to use",
+		                          false, IO::TypeOfArgument::INT, -1,
+		                          coreGroup);
 
-		auto sensGroup = options.add_options("1. Sensitivity");
-		sensGroup("sens",
-		          "Sensitivity image files (separated by a comma). Note: When "
-		          "the input is a List-mode, one sensitivity image is required."
-		          "When the input is a histogram, one sensitivity image *per "
-		          "subset* is required (Ordered by subset id)",
-		          cxxopts::value<std::vector<std::string>>(sensImg_fnames));
-		sensGroup("sensitivity", "Sensitivity histogram file",
-		          cxxopts::value<std::string>(sensitivityData_fname));
-		sensGroup(
+		registry.registerArgument("out", "Output image filename", false,
+		                          IO::TypeOfArgument::STRING, "", coreGroup,
+		                          "o");
+
+		registry.registerArgument(
+		    "out_sens",
+		    "Sensitivity image output filename (if it needs to be computed). "
+		    "Leave blank to not save it",
+		    false, IO::TypeOfArgument::STRING, "", coreGroup);
+
+		// Sensitivity parameters
+		registry.registerArgument(
+		    "sens",
+		    "Sensitivity image files (separated by a comma). Note: When the "
+		    "input is a List-mode, one sensitivity image is required. When the "
+		    "input is a histogram, one sensitivity image *per subset* is "
+		    "required (Ordered by subset id)",
+		    false, IO::TypeOfArgument::VECTOR_OF_STRINGS,
+		    std::vector<std::string>{}, sensitivityGroup);
+		registry.registerArgument("sensitivity", "Sensitivity histogram file",
+		                          false, IO::TypeOfArgument::STRING, "",
+		                          sensitivityGroup);
+		registry.registerArgument(
 		    "sensitivity_format",
 		    "Sensitivity histogram format. Possible values: " +
 		        IO::possibleFormats(Plugin::InputFormatsChoice::ONLYHISTOGRAMS),
-		    cxxopts::value<std::string>(sensitivityData_format));
-		sensGroup("invert_sensitivity",
-		          "Invert the sensitivity histogram values (sensitivity -> "
-		          "1/sensitivity)",
-		          cxxopts::value<bool>(invertSensitivity));
-		sensGroup("global_scale",
-		          "Global scaling factor to apply on the sensitivity",
-		          cxxopts::value<float>(globalScalingFactor));
-		sensGroup("move_sens",
-		          "Move the provided sensitivity image based on motion",
-		          cxxopts::value<bool>(mustMoveSens));
+		    false, IO::TypeOfArgument::STRING, "", sensitivityGroup);
+		registry.registerArgument("invert_sensitivity",
+		                          "Invert the sensitivity histogram values "
+		                          "(sensitivity -> 1/sensitivity)",
+		                          false, IO::TypeOfArgument::BOOL, false,
+		                          sensitivityGroup);
+		registry.registerArgument(
+		    "global_scale", "Global scaling factor to apply on the sensitivity",
+		    false, IO::TypeOfArgument::FLOAT, 1.0f, sensitivityGroup);
+		registry.registerArgument(
+		    "move_sens", "Move the provided sensitivity image based on motion",
+		    false, IO::TypeOfArgument::BOOL, false, sensitivityGroup);
 
-		auto inputGroup = options.add_options("2. Input");
-		inputGroup("i,input", "Input file",
-		           cxxopts::value<std::string>(input_fname));
-		inputGroup("f,format",
-		           "Input file format. Possible values: " +
-		               IO::possibleFormats(),
-		           cxxopts::value<std::string>(input_format));
+		// Input data parameters
+		registry.registerArgument("input", "Input file", false,
+		                          IO::TypeOfArgument::STRING, "", inputGroup,
+		                          "i");
+		registry.registerArgument(
+		    "format",
+		    "Input file format. Possible values: " + IO::possibleFormats(),
+		    false, IO::TypeOfArgument::STRING, "", inputGroup, "f");
 
-		auto reconGroup = options.add_options("3. Reconstruction");
-		reconGroup("num_iterations", "Number of MLEM Iterations",
-		           cxxopts::value<int>(numIterations));
-		reconGroup("num_subsets", "Number of OSEM subsets (Default: 1)",
-		           cxxopts::value<int>(numSubsets));
-		reconGroup("initial_estimate", "Initial image estimate for the MLEM",
-		           cxxopts::value<std::string>(initialEstimate_fname));
-		reconGroup("randoms", "Randoms estimate histogram filename",
-		           cxxopts::value<std::string>(randoms_fname));
-		reconGroup(
+		// Reconstruction parameters
+		registry.registerArgument(
+		    "num_iterations", "Number of MLEM iterations (Default: 10)", false,
+		    IO::TypeOfArgument::INT, 10, reconstructionGroup);
+		registry.registerArgument(
+		    "num_subsets", "Number of OSEM subsets (Default: 1)", false,
+		    IO::TypeOfArgument::INT, 1, reconstructionGroup);
+		registry.registerArgument(
+		    "initial_estimate", "Initial image estimate for the MLEM", false,
+		    IO::TypeOfArgument::STRING, "", reconstructionGroup);
+		registry.registerArgument(
+		    "randoms", "Randoms estimate histogram filename", false,
+		    IO::TypeOfArgument::STRING, "", reconstructionGroup);
+		registry.registerArgument(
 		    "randoms_format",
 		    "Randoms estimate histogram format. Possible values: " +
 		        IO::possibleFormats(Plugin::InputFormatsChoice::ONLYHISTOGRAMS),
-		    cxxopts::value<std::string>(randoms_format));
-		reconGroup("scatter", "Scatter estimate histogram filename",
-		           cxxopts::value<std::string>(scatter_fname));
-		reconGroup(
+		    false, IO::TypeOfArgument::STRING, "", reconstructionGroup);
+		registry.registerArgument(
+		    "scatter", "Scatter estimate histogram filename", false,
+		    IO::TypeOfArgument::STRING, "", reconstructionGroup);
+		registry.registerArgument(
 		    "scatter_format",
 		    "Scatter estimate histogram format. Possible values: " +
 		        IO::possibleFormats(Plugin::InputFormatsChoice::ONLYHISTOGRAMS),
-		    cxxopts::value<std::string>(scatter_format));
-		reconGroup("psf", "Image-space PSF kernel file",
-		           cxxopts::value<std::string>(imagePsf_fname));
-		reconGroup("hard_threshold", "Hard Threshold",
-		           cxxopts::value<float>(hardThreshold));
-		reconGroup("save_iter_step",
-		           "Increment into which to save MLEM iteration images",
-		           cxxopts::value<int>(saveIterStep));
-		reconGroup("save_iter_ranges",
-		           "List of iteration ranges to save MLEM iteration images",
-		           cxxopts::value<std::string>(saveIterRanges));
+		    false, IO::TypeOfArgument::STRING, "", reconstructionGroup);
+		registry.registerArgument("psf", "Image-space PSF kernel file", false,
+		                          IO::TypeOfArgument::STRING, "",
+		                          reconstructionGroup);
+		registry.registerArgument("hard_threshold", "Hard Threshold", false,
+		                          IO::TypeOfArgument::FLOAT, 1.0f,
+		                          reconstructionGroup);
+		registry.registerArgument(
+		    "save_iter_step",
+		    "Increment into which to save MLEM iteration images", false,
+		    IO::TypeOfArgument::INT, 0, reconstructionGroup);
+		registry.registerArgument(
+		    "save_iter_ranges",
+		    "List of iteration ranges to save MLEM iteration images", false,
+		    IO::TypeOfArgument::STRING, "", reconstructionGroup);
 
-		auto attenuationGroup =
-		    options.add_options("3.1 Attenuation correction");
-		attenuationGroup("att", "Total attenuation image filename",
-		                 cxxopts::value<std::string>(attImg_fname));
-		attenuationGroup(
+		registry.registerArgument("att", "Total attenuation image filename",
+		                          false, IO::TypeOfArgument::STRING, "",
+		                          attenuationGroup);
+		registry.registerArgument(
 		    "acf", "Total attenuation correction factors histogram filename",
-		    cxxopts::value<std::string>(acf_fname));
-		attenuationGroup(
+		    false, IO::TypeOfArgument::STRING, "", attenuationGroup);
+		registry.registerArgument(
 		    "acf_format",
 		    "Total attenuation correction factors histogram format. Possible "
 		    "values: " +
 		        IO::possibleFormats(Plugin::InputFormatsChoice::ONLYHISTOGRAMS),
-		    cxxopts::value<std::string>(acf_format));
-		attenuationGroup("att_invivo",
-		                 "(Motion correction) In-vivo attenuation "
-		                 "image filename",
-		                 cxxopts::value<std::string>(invivoAttImg_fname));
-		attenuationGroup("acf_invivo",
-		                 "(Motion correction) In-vivo attenuation "
-		                 "correction factors histogram filename",
-		                 cxxopts::value<std::string>(invivoAcf_fname));
-		attenuationGroup(
+		    false, IO::TypeOfArgument::STRING, "", attenuationGroup);
+		registry.registerArgument("att_invivo",
+		                          "(Motion correction) In-vivo attenuation "
+		                          "image filename",
+		                          false, IO::TypeOfArgument::STRING, "",
+		                          attenuationGroup);
+		registry.registerArgument("acf_invivo",
+		                          "(Motion correction) In-vivo attenuation "
+		                          "correction factors histogram filename",
+		                          false, IO::TypeOfArgument::STRING, "",
+		                          attenuationGroup);
+		registry.registerArgument(
 		    "acf_invivo_format",
 		    "(Motion correction) In-vivo attenuation correction factors "
 		    "histogram format. Possible values: " +
 		        IO::possibleFormats(Plugin::InputFormatsChoice::ONLYHISTOGRAMS),
-		    cxxopts::value<std::string>(invivoAcf_fname));
-		attenuationGroup(
+		    false, IO::TypeOfArgument::STRING, "", attenuationGroup);
+		registry.registerArgument(
 		    "att_hardware",
-		    "(Motion correction) Hardware attenuation image filename",
-		    cxxopts::value<std::string>(hardwareAttImg_fname));
-		attenuationGroup(
+		    "(Motion correction) Hardware attenuation image filename", false,
+		    IO::TypeOfArgument::STRING, "", attenuationGroup);
+		registry.registerArgument(
 		    "acf_hardware",
 		    "(Motion correction) Hardware attenuation correction factors",
-		    cxxopts::value<std::string>(hardwareAcf_fname));
-		attenuationGroup(
+		    false, IO::TypeOfArgument::STRING, "", attenuationGroup);
+		registry.registerArgument(
 		    "acf_hardware_format",
 		    "(Motion correction) Hardware attenuation correction factors "
 		    "histogram format. Possible values: " +
 		        IO::possibleFormats(Plugin::InputFormatsChoice::ONLYHISTOGRAMS),
-		    cxxopts::value<std::string>(hardwareAcf_format));
+		    false, IO::TypeOfArgument::STRING, "", attenuationGroup);
 
-		auto projectorGroup = options.add_options("4. Projector");
-		projectorGroup(
+		registry.registerArgument(
 		    "projector",
-		    "Projector to use, choices: Siddon (S), Distance-Driven (D)."
-		    " The default projector is Siddon",
-		    cxxopts::value<std::string>(projector_name));
-		projectorGroup("num_rays",
-		               "Number of rays to use (for Siddon projector only)",
-		               cxxopts::value<int>(numRays));
-		projectorGroup("proj_psf", "Projection-space PSF kernel file",
-		               cxxopts::value<std::string>(projPsf_fname));
-		projectorGroup("tof_width_ps", "TOF Width in Picoseconds",
-		               cxxopts::value<float>(tofWidth_ps));
-		projectorGroup("tof_n_std",
-		               "Number of standard deviations to consider for TOF's "
-		               "Gaussian curve",
-		               cxxopts::value<int>(tofNumStd));
+		    "Projector to use, choices: Siddon (S), Distance-Driven (D). The "
+		    "default projector is Siddon",
+		    false, IO::TypeOfArgument::STRING, "S", projectorGroup);
+		registry.registerArgument(
+		    "num_rays", "Number of rays to use (for Siddon projector only)",
+		    false, IO::TypeOfArgument::INT, 1, projectorGroup);
+		registry.registerArgument(
+		    "proj_psf",
+		    "Projection-space PSF kernel file (for DD projector only)", false,
+		    IO::TypeOfArgument::STRING, "", projectorGroup);
+		registry.registerArgument("tof_width_ps", "TOF Width in picoseconds",
+		                          false, IO::TypeOfArgument::FLOAT, 0.0f,
+		                          projectorGroup);
+		registry.registerArgument("tof_n_std",
+		                          "Number of standard deviations to consider "
+		                          "for TOF's Gaussian curve",
+		                          false, IO::TypeOfArgument::INT, 0,
+		                          projectorGroup);
 
-		options.add_options()("h,help", "Print help");
+		PluginOptionsHelper::addOptionsFromPlugins(
+		    registry, Plugin::InputFormatsChoice::ALL);
 
-		// Add plugin options
-		PluginOptionsHelper::fillOptionsFromPlugins(options);
+		// Load configuration
+		IO::ArgumentReader config{registry, "Reconstruction executable"};
 
-		const auto result = options.parse(argc, argv);
-		if (result.count("help"))
+		if (!config.loadFromCommandLine(argc, argv))
 		{
-			std::cout << options.help() << std::endl;
+			// "--help" requested. Quit
 			return 0;
 		}
 
-		std::vector<std::string> requiredParams = {"scanner"};
-		std::vector<std::string> requiredParamsIfSensOnly = {"out_sens"};
-		std::vector<std::string> requiredParamsIfRecon = {"input", "format",
-		                                                  "out"};
-		std::vector<std::string>& requiredParamsToAdd =
-		    sensOnly ? requiredParamsIfSensOnly : requiredParamsIfRecon;
-		requiredParams.insert(requiredParams.begin(),
-		                      requiredParamsToAdd.begin(),
-		                      requiredParamsToAdd.end());
-		bool missing_args = false;
-		for (auto& p : requiredParams)
+		if (!config.validate())
 		{
-			if (result.count(p) == 0)
-			{
-				std::cerr << "Argument '" << p << "' missing" << std::endl;
-				missing_args = true;
-			}
-		}
-		if (missing_args)
-		{
-			std::cerr << options.help() << std::endl;
+			std::cerr
+			    << "Invalid configuration. Please check required parameters."
+			    << std::endl;
 			return -1;
 		}
 
-		// Parse plugin options
-		pluginOptionsResults =
-		    PluginOptionsHelper::convertPluginResultsToMap(result);
-
-		if (sensOnly && !mustMoveSens)
+		if (config.getValue<bool>("sens_only") &&
+		    !config.getValue<bool>("move_sens"))
 		{
 			ASSERT_MSG(
-			    sensImg_fnames.empty(),
+			    config.getValue<std::vector<std::string>>("sens").empty(),
 			    "Logic error: Sensitivity image generation was requested while "
 			    "pre-existing sensitivity images were provided");
 		}
 
+		Globals::set_num_threads(config.getValue<int>("num_threads"));
 		std::cout << "Initializing scanner..." << std::endl;
-		auto scanner = std::make_unique<Scanner>(scanner_fname);
-		auto projectorType = IO::getProjector(projector_name);
-		std::unique_ptr<OSEM> osem = Util::createOSEM(*scanner, useGPU);
+		auto scanner =
+		    std::make_unique<Scanner>(config.getValue<std::string>("scanner"));
+		auto projectorType =
+		    IO::getProjector(config.getValue<std::string>("projector"));
+		std::unique_ptr<OSEM> osem =
+		    Util::createOSEM(*scanner, config.getValue<bool>("gpu"));
 
-		osem->num_MLEM_iterations = numIterations;
-		osem->num_OSEM_subsets = numSubsets;
-		osem->hardThreshold = hardThreshold;
+		osem->num_MLEM_iterations = config.getValue<int>("num_iterations");
+		osem->num_OSEM_subsets = config.getValue<int>("num_subsets");
+		osem->hardThreshold = config.getValue<float>("hard_threshold");
 		osem->projectorType = projectorType;
-		osem->numRays = numRays;
-		Globals::set_num_threads(numThreads);
+		osem->numRays = config.getValue<int>("num_rays");
 
 		// To make sure the sensitivity image gets generated accordingly
 		const bool useListMode =
-		    !input_format.empty() && IO::isFormatListMode(input_format);
+		    !config.getValue<std::string>("format").empty() &&
+		    IO::isFormatListMode(config.getValue<std::string>("format"));
 		osem->setListModeEnabled(useListMode);
 
 		// Total attenuation image
 		std::unique_ptr<ImageOwned> attImg = nullptr;
 		std::unique_ptr<ProjectionData> acfHisProjData = nullptr;
-		if (!acf_fname.empty())
+		if (!config.getValue<std::string>("acf").empty())
 		{
 			std::cout << "Reading ACF histogram..." << std::endl;
-			ASSERT_MSG(!acf_format.empty(),
+			ASSERT_MSG(!config.getValue<std::string>("acf_format").empty(),
 			           "Unspecified format for ACF histogram");
-			ASSERT_MSG(!IO::isFormatListMode(acf_format),
+			ASSERT_MSG(!IO::isFormatListMode(
+			               config.getValue<std::string>("acf_format")),
 			           "ACF has to be in a histogram format");
 
 			acfHisProjData = IO::openProjectionData(
-			    acf_fname, acf_format, *scanner, pluginOptionsResults);
+			    config.getValue<std::string>("acf"),
+			    config.getValue<std::string>("acf_format"), *scanner,
+			    config.getAllArguments());
 
 			const auto* acfHis =
 			    dynamic_cast<const Histogram*>(acfHisProjData.get());
@@ -301,26 +279,31 @@ int main(int argc, char** argv)
 
 			osem->setACFHistogram(acfHis);
 		}
-		else if (!attImg_fname.empty())
+		else if (!config.getValue<std::string>("att").empty())
 		{
-			attImg = std::make_unique<ImageOwned>(attImg_fname);
+			std::cout << "Reading attenuation image..." << std::endl;
+			attImg = std::make_unique<ImageOwned>(
+			    config.getValue<std::string>("att"));
 			osem->setAttenuationImage(attImg.get());
 		}
 
 		// Hardware attenuation image
 		std::unique_ptr<ImageOwned> hardwareAttImg = nullptr;
 		std::unique_ptr<ProjectionData> hardwareAcfHisProjData = nullptr;
-		if (!hardwareAcf_fname.empty())
+		if (!config.getValue<std::string>("acf_hardware").empty())
 		{
 			std::cout << "Reading hardware ACF histogram..." << std::endl;
-			ASSERT_MSG(!hardwareAcf_format.empty(),
-			           "No format specified for hardware ACF histogram");
-			ASSERT_MSG(!IO::isFormatListMode(hardwareAcf_format),
+			ASSERT_MSG(
+			    !config.getValue<std::string>("acf_hardware_format").empty(),
+			    "No format specified for hardware ACF histogram");
+			ASSERT_MSG(!IO::isFormatListMode(
+			               config.getValue<std::string>("acf_hardware_format")),
 			           "Hardware ACF has to be in a histogram format");
 
-			hardwareAcfHisProjData =
-			    IO::openProjectionData(hardwareAcf_fname, hardwareAcf_format,
-			                           *scanner, pluginOptionsResults);
+			hardwareAcfHisProjData = IO::openProjectionData(
+			    config.getValue<std::string>("acf_hardware"),
+			    config.getValue<std::string>("acf_hardware_format"), *scanner,
+			    config.getAllArguments());
 
 			const auto* hardwareAcfHis =
 			    dynamic_cast<const Histogram*>(hardwareAcfHisProjData.get());
@@ -328,73 +311,84 @@ int main(int argc, char** argv)
 
 			osem->setACFHistogram(hardwareAcfHis);
 		}
-		else if (!hardwareAttImg_fname.empty())
+		else if (!config.getValue<std::string>("att_hardware").empty())
 		{
-			hardwareAttImg = std::make_unique<ImageOwned>(hardwareAttImg_fname);
+			std::cout << "Reading hardware attenuation image..." << std::endl;
+			hardwareAttImg = std::make_unique<ImageOwned>(
+			    config.getValue<std::string>("att_hardware"));
 			osem->setHardwareAttenuationImage(hardwareAttImg.get());
 		}
 
 		// Image-space PSF
-		if (!imagePsf_fname.empty())
+		if (!config.getValue<std::string>("psf").empty())
 		{
-			osem->addImagePSF(imagePsf_fname);
+			osem->addImagePSF(config.getValue<std::string>("psf"));
 		}
 
 		// Projection-space PSF
-		if (!projPsf_fname.empty())
+		if (!config.getValue<std::string>("proj_psf").empty())
 		{
-			osem->addProjPSF(projPsf_fname);
+			osem->addProjPSF(config.getValue<std::string>("proj_psf"));
 		}
 
 		// Sensitivity image(s)
 		std::unique_ptr<ProjectionData> sensitivityProjData = nullptr;
-		if (!sensitivityData_fname.empty())
+		if (!config.getValue<std::string>("sensitivity").empty())
 		{
 			std::cout << "Reading sensitivity histogram..." << std::endl;
-			ASSERT_MSG(!sensitivityData_format.empty(),
-			           "No format specified for sensitivity histogram");
-			ASSERT_MSG(!IO::isFormatListMode(sensitivityData_format),
+			ASSERT_MSG(
+			    !config.getValue<std::string>("sensitivity_format").empty(),
+			    "No format specified for sensitivity histogram");
+			ASSERT_MSG(!IO::isFormatListMode(
+			               config.getValue<std::string>("sensitivity_format")),
 			           "Sensitivity data has to be in a histogram format");
 
 			sensitivityProjData = IO::openProjectionData(
-			    sensitivityData_fname, sensitivityData_format, *scanner,
-			    pluginOptionsResults);
+			    config.getValue<std::string>("sensitivity"),
+			    config.getValue<std::string>("sensitivity_format"), *scanner,
+			    config.getAllArguments());
 
 			const auto* sensitivityHis =
 			    dynamic_cast<const Histogram*>(sensitivityProjData.get());
 			ASSERT(sensitivityHis != nullptr);
 
 			osem->setSensitivityHistogram(sensitivityHis);
-			osem->setInvertSensitivity(invertSensitivity);
+			osem->setInvertSensitivity(
+			    config.getValue<bool>("invert_sensitivity"));
 		}
-		osem->setGlobalScalingFactor(globalScalingFactor);
+		osem->setGlobalScalingFactor(config.getValue<float>("global_scale"));
 
 		std::vector<std::unique_ptr<Image>> sensImages;
 		bool sensImageAlreadyMoved = false;
-		if (sensImg_fnames.empty())
+		if (config.getValue<std::vector<std::string>>("sens").empty())
 		{
-			ASSERT_MSG(!imgParams_fname.empty(),
+			ASSERT_MSG(!config.getValue<std::string>("params").empty(),
 			           "Image parameters file unspecified");
-			ImageParams imgParams{imgParams_fname};
+			ImageParams imgParams{config.getValue<std::string>("params")};
 			osem->setImageParams(imgParams);
 
-			osem->generateSensitivityImages(sensImages, out_sensImg_fname);
+			osem->generateSensitivityImages(
+			    sensImages, config.getValue<std::string>("out_sens"));
 		}
 		else if (osem->getExpectedSensImagesAmount() ==
-		         static_cast<int>(sensImg_fnames.size()))
+		         static_cast<int>(
+		             config.getValue<std::vector<std::string>>("sens").size()))
 		{
 			std::cout << "Reading sensitivity images..." << std::endl;
-			for (auto& sensImg_fname : sensImg_fnames)
+			for (auto& sensImg_fname :
+			     config.getValue<std::vector<std::string>>("sens"))
 			{
 				sensImages.push_back(
 				    std::make_unique<ImageOwned>(sensImg_fname));
 			}
-			sensImageAlreadyMoved = !mustMoveSens;
+			sensImageAlreadyMoved = !config.getValue<bool>("move_sens");
 		}
 		else
 		{
-			std::cerr << "The number of sensitivity images given is "
-			          << sensImg_fnames.size() << std::endl;
+			std::cerr
+			    << "The number of sensitivity images given is "
+			    << config.getValue<std::vector<std::string>>("sens").size()
+			    << std::endl;
 			std::cerr << "The expected number of sensitivity images is "
 			          << osem->getExpectedSensImagesAmount() << std::endl;
 			throw std::invalid_argument(
@@ -404,8 +398,9 @@ int main(int argc, char** argv)
 			    "sensitivity image is required.");
 		}
 
-		// No need to read data input if in sensOnly mode
-		if (sensOnly && input_fname.empty())
+		// No need to read data input if in sens_only mode
+		if (config.getValue<bool>("sens_only") &&
+		    config.getValue<std::string>("input").empty())
 		{
 			std::cout << "Done." << std::endl;
 			return 0;
@@ -414,9 +409,12 @@ int main(int argc, char** argv)
 		// Projection Data Input file
 		std::cout << "Reading input data..." << std::endl;
 		std::unique_ptr<ProjectionData> dataInput;
-		ASSERT_MSG(!input_format.empty(), "No format specified for Data input");
-		dataInput = IO::openProjectionData(input_fname, input_format, *scanner,
-		                                   pluginOptionsResults);
+		ASSERT_MSG(!config.getValue<std::string>("format").empty(),
+		           "No format specified for Data input");
+		dataInput =
+		    IO::openProjectionData(config.getValue<std::string>("input"),
+		                           config.getValue<std::string>("format"),
+		                           *scanner, config.getAllArguments());
 		osem->setDataInput(dataInput.get());
 
 		std::unique_ptr<ImageOwned> movedSensImage = nullptr;
@@ -430,11 +428,12 @@ int main(int argc, char** argv)
 			movedSensImage = Util::timeAverageMoveSensitivityImage(
 			    *dataInput, *unmovedSensImage);
 
-			if (!out_sensImg_fname.empty())
+			if (!config.getValue<std::string>("out_sens").empty())
 			{
 				// Overwrite sensitivity image
 				std::cout << "Saving sensitivity image..." << std::endl;
-				movedSensImage->writeToFile(out_sensImg_fname);
+				movedSensImage->writeToFile(
+				    config.getValue<std::string>("out_sens"));
 			}
 
 			// Since this part is only for list-mode data, there is only one
@@ -449,29 +448,33 @@ int main(int argc, char** argv)
 			osem->setSensitivityImages(sensImages);
 		}
 
-		if (sensOnly)
+		if (config.getValue<bool>("sens_only"))
 		{
 			std::cout << "Done." << std::endl;
 			return 0;
 		}
 
-		if (tofWidth_ps > 0.f)
+		if (config.getValue<float>("tof_width_ps") > 0.f)
 		{
-			osem->addTOF(tofWidth_ps, tofNumStd);
+			osem->addTOF(config.getValue<float>("tof_width_ps"),
+			             config.getValue<int>("tof_n_std"));
 		}
 
 		// Additive histograms
 		std::unique_ptr<ProjectionData> randomsProjData = nullptr;
-		if (!randoms_fname.empty())
+		if (!config.getValue<std::string>("randoms").empty())
 		{
 			std::cout << "Reading randoms histogram..." << std::endl;
-			ASSERT_MSG(!randoms_format.empty(),
+			ASSERT_MSG(!config.getValue<std::string>("randoms_format").empty(),
 			           "No format specified for randoms histogram");
-			ASSERT_MSG(!IO::isFormatListMode(randoms_format),
+			ASSERT_MSG(!IO::isFormatListMode(
+			               config.getValue<std::string>("randoms_format")),
 			           "Randoms must be specified in histogram format");
 
 			randomsProjData = IO::openProjectionData(
-			    randoms_fname, randoms_format, *scanner, pluginOptionsResults);
+			    config.getValue<std::string>("randoms"),
+			    config.getValue<std::string>("randoms_format"), *scanner,
+			    config.getAllArguments());
 			const auto* randomsHis =
 			    dynamic_cast<const Histogram*>(randomsProjData.get());
 			ASSERT_MSG(randomsHis != nullptr,
@@ -480,16 +483,19 @@ int main(int argc, char** argv)
 			osem->setRandomsHistogram(randomsHis);
 		}
 		std::unique_ptr<ProjectionData> scatterProjData = nullptr;
-		if (!scatter_fname.empty())
+		if (!config.getValue<std::string>("scatter").empty())
 		{
 			std::cout << "Reading scatter histogram..." << std::endl;
-			ASSERT_MSG(!scatter_format.empty(),
+			ASSERT_MSG(!config.getValue<std::string>("scatter_format").empty(),
 			           "No format specified for scatter histogram");
-			ASSERT_MSG(!IO::isFormatListMode(scatter_format),
+			ASSERT_MSG(!IO::isFormatListMode(
+			               config.getValue<std::string>("scatter_format")),
 			           "Scatter must be specified in histogram format");
 
 			scatterProjData = IO::openProjectionData(
-			    scatter_fname, scatter_format, *scanner, pluginOptionsResults);
+			    config.getValue<std::string>("scatter"),
+			    config.getValue<std::string>("scatter_format"), *scanner,
+			    config.getAllArguments());
 			const auto* scatterHis =
 			    dynamic_cast<const Histogram*>(scatterProjData.get());
 			ASSERT_MSG(scatterHis != nullptr,
@@ -499,26 +505,31 @@ int main(int argc, char** argv)
 		}
 
 		std::unique_ptr<ImageOwned> invivoAttImg = nullptr;
-		if (!invivoAttImg_fname.empty())
+		if (!config.getValue<std::string>("att_invivo").empty())
 		{
 			ASSERT_MSG_WARNING(dataInput->hasMotion(),
 			                   "An in-vivo attenuation image was provided but "
 			                   "the data input has no motion");
-			invivoAttImg = std::make_unique<ImageOwned>(invivoAttImg_fname);
+			std::cout << "Reading in-vivo attenuation image..." << std::endl;
+			invivoAttImg = std::make_unique<ImageOwned>(
+			    config.getValue<std::string>("att_invivo"));
 			osem->setInVivoAttenuationImage(invivoAttImg.get());
 		}
 		std::unique_ptr<ProjectionData> inVivoAcfProjData = nullptr;
-		if (!invivoAcf_fname.empty())
+		if (!config.getValue<std::string>("acf_invivo").empty())
 		{
 			std::cout << "Reading in-vivo ACF histogram..." << std::endl;
-			ASSERT_MSG(!invivoAcf_format.empty(),
-			           "No format specified for ACF histogram");
-			ASSERT_MSG(!IO::isFormatListMode(invivoAcf_format),
+			ASSERT_MSG(
+			    !config.getValue<std::string>("acf_invivo_format").empty(),
+			    "No format specified for ACF histogram");
+			ASSERT_MSG(!IO::isFormatListMode(
+			               config.getValue<std::string>("acf_invivo_format")),
 			           "In-vivo ACF must be specified in histogram format");
 
-			inVivoAcfProjData =
-			    IO::openProjectionData(invivoAcf_fname, invivoAcf_format,
-			                           *scanner, pluginOptionsResults);
+			inVivoAcfProjData = IO::openProjectionData(
+			    config.getValue<std::string>("acf_invivo"),
+			    config.getValue<std::string>("acf_invivo_format"), *scanner,
+			    config.getAllArguments());
 			const auto* inVivoAcfHis =
 			    dynamic_cast<const Histogram*>(inVivoAcfProjData.get());
 			ASSERT_MSG(
@@ -529,42 +540,47 @@ int main(int argc, char** argv)
 		}
 
 		// Save steps
-		ASSERT_MSG(saveIterStep >= 0, "save_iter_step must be positive.");
+		ASSERT_MSG(config.getValue<int>("save_iter_step") >= 0,
+		           "save_iter_step must be positive.");
 		Util::RangeList ranges;
-		if (saveIterStep > 0)
+		if (config.getValue<int>("save_iter_step") > 0)
 		{
-			if (saveIterStep == 1)
+			if (config.getValue<int>("save_iter_step") == 1)
 			{
-				ranges.insertSorted(0, numIterations - 1);
+				ranges.insertSorted(0,
+				                    config.getValue<int>("num_iterations") - 1);
 			}
 			else
 			{
-				for (int it = 0; it < numIterations; it += saveIterStep)
+				for (int it = 0; it < config.getValue<int>("num_iterations");
+				     it += config.getValue<int>("save_iter_step"))
 				{
 					ranges.insertSorted(it, it);
 				}
 			}
 		}
-		else if (!saveIterRanges.empty())
+		else if (!config.getValue<std::string>("save_iter_ranges").empty())
 		{
-			ranges.readFromString(saveIterRanges);
+			ranges.readFromString(
+			    config.getValue<std::string>("save_iter_ranges"));
 		}
 		if (!ranges.empty())
 		{
-			osem->setSaveIterRanges(ranges, out_fname);
+			osem->setSaveIterRanges(ranges,
+			                        config.getValue<std::string>("out"));
 		}
 
 		// Initial image estimate
 		std::unique_ptr<ImageOwned> initialEstimate = nullptr;
-		if (!initialEstimate_fname.empty())
+		if (!config.getValue<std::string>("initial_estimate").empty())
 		{
-			initialEstimate =
-			    std::make_unique<ImageOwned>(initialEstimate_fname);
+			initialEstimate = std::make_unique<ImageOwned>(
+			    config.getValue<std::string>("initial_estimate"));
 			osem->initialEstimate = initialEstimate.get();
 		}
 
 		std::cout << "Launching reconstruction..." << std::endl;
-		osem->reconstruct(out_fname);
+		osem->reconstruct(config.getValue<std::string>("out"));
 
 		std::cout << "Done." << std::endl;
 		return 0;

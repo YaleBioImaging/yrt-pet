@@ -398,35 +398,53 @@ void ListModeLUTDOIAlias::bind(
 std::unique_ptr<ProjectionData>
     ListModeLUTDOIOwned::create(const Scanner& scanner,
                                 const std::string& filename,
-                                const Plugin::OptionsResult& pluginOptions)
+                                const IO::OptionsResult& options)
 {
-	bool flagTOF = pluginOptions.find("flag_tof") != pluginOptions.end();
+	const auto flagTOFVariant = options.at("flag_tof");
+	bool flagTOF = false;
+	if (!std::holds_alternative<std::monostate>(flagTOFVariant))
+	{
+		ASSERT(std::holds_alternative<bool>(flagTOFVariant));
+		flagTOF = std::get<bool>(flagTOFVariant);
+	}
 
-	const auto numLayers_it = pluginOptions.find("num_layers");
+	const auto numLayersVariant = options.at("num_layers");
+
 	std::unique_ptr<ListModeLUTDOIOwned> lm;
-	if (numLayers_it == pluginOptions.end())
+	if (std::holds_alternative<std::monostate>(numLayersVariant))
 	{
 		lm = std::make_unique<ListModeLUTDOIOwned>(scanner, filename, flagTOF);
 	}
 	else
 	{
-		int numLayers = std::stoi(numLayers_it->second);
+		ASSERT(std::holds_alternative<int>(numLayersVariant));
+		const int numLayers = std::get<int>(numLayersVariant);
+
 		lm = std::make_unique<ListModeLUTDOIOwned>(scanner, filename, flagTOF,
 		                                           numLayers);
 	}
 
-	if (pluginOptions.count("lor_motion"))
+	const auto lorMotionFnameVariant = options.at("lor_motion");
+	if (!std::holds_alternative<std::monostate>(lorMotionFnameVariant))
 	{
-		lm->addLORMotion(pluginOptions.at("lor_motion"));
+		ASSERT(std::holds_alternative<std::string>(lorMotionFnameVariant));
+		const auto lorMotion = std::get<std::string>(lorMotionFnameVariant);
+		lm->addLORMotion(lorMotion);
 	}
+
+	ASSERT(lm != nullptr);
+
 	return lm;
 }
 
 Plugin::OptionsListPerPlugin ListModeLUTDOIOwned::getOptions()
 {
-	return {{"flag_tof", {"Flag for reading TOF column", true}},
-	        {"num_layers", {"Number of layers", false}},
-	        {"lor_motion", {"LOR motion file for motion correction", false}}};
+	return {
+	    {"flag_tof", {"Flag for reading TOF column", IO::TypeOfArgument::BOOL}},
+	    {"num_layers", {"Number of layers", IO::TypeOfArgument::INT}},
+	    {"lor_motion",
+	     {"LOR motion file for motion correction",
+	      IO::TypeOfArgument::STRING}}};
 }
 
 REGISTER_PROJDATA_PLUGIN("LM-DOI", ListModeLUTDOIOwned,

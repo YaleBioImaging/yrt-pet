@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include "datastruct/ArgumentDefinition.hpp"
 #include "datastruct/projection/ProjectionData.hpp"
 #include "datastruct/scanner/Scanner.hpp"
 #include "utils/Utilities.hpp"
@@ -33,18 +34,16 @@ namespace Plugin
 	};
 
 	// Help string, Whether it's bool value (false: no, true: yes)
-	using OptionInfo = std::tuple<std::string, bool>;
+	using OptionInfo = std::tuple<std::string, IO::TypeOfArgument>;
 	// Option name, Option info
 	using OptionPerPlugin = std::pair<std::string, OptionInfo>;
 	// Each format will have a list of options
 	using OptionsListPerPlugin = std::vector<OptionPerPlugin>;
-	// Key: Format name, Value: List of options
+	// Key: format name, value: List of options
 	using OptionsList = std::unordered_map<std::string, OptionsListPerPlugin>;
-	// Map: format name, value
-	using OptionsResult = std::unordered_map<std::string, std::string>;
 
 	using ProjectionDataFactory = std::function<std::unique_ptr<ProjectionData>(
-	    const Scanner&, const std::string&, const OptionsResult&)>;
+	    const Scanner&, const std::string&, const IO::OptionsResult&)>;
 	using OptionsAdder = std::function<OptionsListPerPlugin()>;
 #if BUILD_PYBIND11
 	using Pybind11ModuleAdder = std::function<void(pybind11::module&)>;
@@ -117,10 +116,10 @@ namespace Plugin
 			return keys;
 		}
 
-		std::unique_ptr<ProjectionData> create(const std::string& formatName,
-		                                       const Scanner& scanner,
-		                                       const std::string& filename,
-		                                       const OptionsResult& args) const
+		std::unique_ptr<ProjectionData>
+		    create(const std::string& formatName, const Scanner& scanner,
+		           const std::string& filename,
+		           const IO::OptionsResult& args) const
 		{
 			const auto it = m_factoriesMap.find(formatName);
 			if (it != m_factoriesMap.end())

@@ -18,69 +18,65 @@ int main(int argc, char** argv)
 {
 	try
 	{
-		std::string scanner_fname;
-		std::string input_fname;
-		std::string input_format;
-		std::string out_fname;
-		int numThreads = -1;
+		IO::ArgumentRegistry registry{};
 
-		Plugin::OptionsResult pluginOptionsResults;  // For plugins' options
+		std::string coreGroup = "0. Core";
+		std::string inputGroup = "1. Input";
+		std::string outputGroup = "2. Output";
 
-		// Parse command line arguments
-		cxxopts::Options options(
-		    argv[0], "Accumulate a projection-space input into a "
-		             "map of each detector used. Each value in the"
-		             "map will represent a detector and the amount of"
-		             "times it was used in the projection data. The"
-		             "output file will be a RAWD file");
-		options.positional_help("[optional args]").show_positional_help();
+		// Core parameters
+		registry.registerArgument("scanner", "Scanner parameters file", true,
+								  IO::TypeOfArgument::STRING, "", coreGroup,
+								  "s");
+		registry.registerArgument("num_threads", "Number of threads to use",
+		                          false, IO::TypeOfArgument::INT, -1,
+		                          coreGroup);
 
-		/* clang-format off */
-		options.add_options()
-			("s,scanner", "Scanner parameters file",
-		    cxxopts::value<std::string>(scanner_fname))
-			("i,input", "Input file",
-			cxxopts::value<std::string>(input_fname))
-			("f,format", "Input file format. Possible values: " +
-			IO::possibleFormats(),
-		    cxxopts::value<std::string>(input_format))
-			("o,out", "Output map filename",
-		    cxxopts::value<std::string>(out_fname))
-			("num_threads", "Number of threads to use",
-		    cxxopts::value<int>(numThreads))
-			("h,help", "Print help");
-		/* clang-format on */
+		// Input data parameters
+		registry.registerArgument("input", "Input file", true,
+		                          IO::TypeOfArgument::STRING, "", inputGroup,
+		                          "i");
+		registry.registerArgument(
+		    "format",
+		    "Input file format. Possible values: " + IO::possibleFormats(),
+		    true, IO::TypeOfArgument::STRING, "", inputGroup, "f");
 
-		// Add plugin options
-		PluginOptionsHelper::fillOptionsFromPlugins(options);
+		// Output file
+		registry.registerArgument("out", "Output map filename", true,
+								  IO::TypeOfArgument::STRING, "", outputGroup,
+								  "o");
 
-		auto result = options.parse(argc, argv);
-		if (result.count("help"))
+		PluginOptionsHelper::addOptionsFromPlugins(
+		    registry, Plugin::InputFormatsChoice::ALL);
+
+		// Load configuration
+		IO::ArgumentReader config{
+		    registry, "Accumulate a projection-space input into a "
+		              "map of each detector used. Each value in the"
+		              "map will represent a detector and the amount of"
+		              "times it was used in the projection data. The"
+		              "output file will be a RAWD file"};
+
+		if (!config.loadFromCommandLine(argc, argv))
 		{
-			std::cout << options.help() << std::endl;
+			// "--help" requested. Quit
 			return 0;
 		}
 
-		std::vector<std::string> required_params = {"scanner", "input", "out",
-		                                            "format"};
-		bool missing_args = false;
-		for (auto& p : required_params)
+		if (!config.validate())
 		{
-			if (result.count(p) == 0)
-			{
-				std::cerr << "Argument '" << p << "' missing" << std::endl;
-				missing_args = true;
-			}
-		}
-		if (missing_args)
-		{
-			std::cerr << options.help() << std::endl;
+			std::cerr
+			    << "Invalid configuration. Please check required parameters."
+			    << std::endl;
 			return -1;
 		}
 
-		// Parse plugin options
-		pluginOptionsResults =
-		    PluginOptionsHelper::convertPluginResultsToMap(result);
+		auto scanner_fname = config.getValue<std::string>("scanner");
+		auto input_fname = config.getValue<std::string>("input");
+		auto input_format = config.getValue<std::string>("format");
+		auto out_fname = config.getValue<std::string>("out");
+		auto numThreads = config.getValue<int>("num_threads");
+
 
 		Globals::set_num_threads(numThreads);
 
@@ -89,7 +85,7 @@ int main(int argc, char** argv)
 		std::cout << "Reading input data..." << std::endl;
 
 		std::unique_ptr<ProjectionData> dataInput = IO::openProjectionData(
-		    input_fname, input_format, *scanner, pluginOptionsResults);
+		    input_fname, input_format, *scanner, config.getAllArguments());
 
 		auto map = std::make_unique<Array3D<float>>();
 		map->allocate(scanner->numDOI, scanner->numRings, scanner->detsPerRing);

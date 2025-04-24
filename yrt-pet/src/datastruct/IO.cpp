@@ -27,7 +27,7 @@ void py_setup_io(py::module& m)
 
 std::unique_ptr<ProjectionData> IO::openProjectionData(
     const std::string& input_fname, const std::string& input_format,
-    const Scanner& scanner, const Plugin::OptionsResult& pluginOptions)
+    const Scanner& scanner, const OptionsResult& pluginOptions)
 {
 	const std::string format_upper = Util::toUpper(input_format);
 	return Plugin::PluginRegistry::instance().create(

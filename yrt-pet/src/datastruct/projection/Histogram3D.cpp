@@ -584,9 +584,9 @@ float Histogram3D::getProjectionValueFromHistogramBin(
 std::unique_ptr<ProjectionData>
     Histogram3DOwned::create(const Scanner& scanner,
                              const std::string& filename,
-                             const Plugin::OptionsResult& pluginOptions)
+                             const IO::OptionsResult& options)
 {
-	(void)pluginOptions;  // No use for extra options
+	(void)options;  // No use for extra options
 	return std::make_unique<Histogram3DOwned>(scanner, filename);
 }
 

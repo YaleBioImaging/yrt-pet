@@ -357,14 +357,14 @@ void DetCoordOwned::readFromFile(const std::string& filename,
 		size_t end = fin.tellg();
 		fin.seekg(0, std::ios::beg);
 		size_t begin = fin.tellg();
-		size_t file_size = end - begin;
-		size_t num_bool = file_size / sizeof(bool);
-		if (file_size <= 0 || file_size % sizeof(bool) != 0 ||
-		    num_bool != num_el)
+		size_t fileSizeMask = end - begin;
+		size_t numBool = fileSizeMask / sizeof(bool);
+		if (fileSizeMask <= 0 || fileSizeMask % sizeof(bool) != 0 ||
+		    numBool != numElem)
 		{
 			throw std::logic_error("Error: Input mask file has incorrect size");
 		}
-		fin.read((char*)&mp_Mask->get({0}), num_bool * sizeof(bool));
+		fin.read((char*)&mp_Mask->get({0}), numBool * sizeof(bool));
 		fin.close();
 	}
 }

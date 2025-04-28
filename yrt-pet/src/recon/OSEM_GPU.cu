@@ -10,6 +10,7 @@
 #include "operators/OperatorProjectorDD_GPU.cuh"
 #include "operators/OperatorProjectorSiddon_GPU.cuh"
 #include "operators/OperatorPsfDevice.cuh"
+#include "operators/OperatorVarPsf.h"
 #include "utils/Assert.hpp"
 
 OSEM_GPU::OSEM_GPU(const Scanner& pr_scanner)

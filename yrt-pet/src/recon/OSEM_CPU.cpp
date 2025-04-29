@@ -222,12 +222,6 @@ void OSEM_CPU::allocateForRecon()
 		reinterpret_cast<ImageOwned*>(mp_mlemImageTmpPsf.get())->allocate();
 	}
 
-	if (flagImagePSF)
-	{
-		mp_mlemImageTmpPsf = std::make_unique<ImageOwned>(getImageParams());
-		reinterpret_cast<ImageOwned*>(mp_mlemImageTmpPsf.get())->allocate();
-	}
-
 	// Initialize output image
 	if (initialEstimate != nullptr)
 	{

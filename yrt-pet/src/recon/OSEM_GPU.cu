@@ -10,7 +10,7 @@
 #include "operators/OperatorProjectorDD_GPU.cuh"
 #include "operators/OperatorProjectorSiddon_GPU.cuh"
 #include "operators/OperatorPsfDevice.cuh"
-#include "operators/OperatorVarPsf.h"
+#include "operators/OperatorVarPsf.hpp"
 #include "utils/Assert.hpp"
 
 OSEM_GPU::OSEM_GPU(const Scanner& pr_scanner)
@@ -194,7 +194,7 @@ void OSEM_GPU::allocateForRecon()
 	mpd_sensImageBuffer->allocate(false);
 
 	if (flagImagePSF)
-	{
+	{    
 		mpd_mlemImageTmpPsf = std::make_unique<ImageDeviceOwned>(
 		    getImageParams(), getMainStream());
 		mpd_mlemImageTmpPsf->allocate(false);
@@ -402,7 +402,7 @@ void OSEM_GPU::addImagePSF(const std::string& p_imagePsf_fname)
 	}
 	else
 	{
-		imageVarPsf = std::make_unique<OperatorVarPsfDevice>(p_imagePsf_fname, getMainStream());
+		imageVarPsf = std::make_unique<OperatorVarPsf>(p_imagePsf_fname);
 	}
 	
 	flagImagePSF = true;

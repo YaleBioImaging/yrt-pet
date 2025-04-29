@@ -108,6 +108,7 @@ int main(int argc, char** argv)
 		// End - Read detector mask
 
 		// Create histogram
+		std::cout << "Creating Histogram3D..." << std::endl;
 
 		auto histo = std::make_unique<Histogram3DOwned>(*scanner);
 		histo->allocate();
@@ -116,6 +117,8 @@ int main(int argc, char** argv)
 		const size_t numBins = histo->count();
 		Histogram3D* histo_ptr = histo.get();
 		float* histoValues_ptr = histo->getData().getRawPointer();
+
+		std::cout << "Populating Histogram3D..." << std::endl;
 
 #pragma omp parallel for default(none) \
     firstprivate(numBins, histo_ptr, detMask_ptr, histoValues_ptr)
@@ -129,6 +132,7 @@ int main(int argc, char** argv)
 			}
 		}
 
+		std::cout << "Saving Histogram3D..." << std::endl;
 		histo->writeToFile(out_fname);
 		std::cout << "Done." << std::endl;
 

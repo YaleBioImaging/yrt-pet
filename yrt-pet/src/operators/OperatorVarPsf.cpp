@@ -155,7 +155,7 @@
         temp_y = std::abs((j+0.5) * vy-y_center);
         temp_z = std::abs((k+0.5) * vz-z_center);
         Sigma s = find_nearest_sigma(sigma_lookup, temp_x, temp_y, temp_z);
-        float N_temp = N/(s.sigmax*s.sigmay*s.sigmaz);
+        float N_temp = N/(s.sigmax*s.sigmay*s.sigmaz)*vx*vy*vz;
         kernel_size_x = static_cast<int>(std::floor((s.sigmax*kernel_width_control)/vx))-1;
         kernel_size_y = static_cast<int>(std::floor((s.sigmay*kernel_width_control)/vy))-1;
         kernel_size_z = static_cast<int>(std::floor((s.sigmaz*kernel_width_control)/vz))-1;

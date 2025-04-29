@@ -21,8 +21,6 @@
 #include "utils/Assert.hpp"
 #include "utils/Globals.hpp"
 #include "utils/Tools.hpp"
-#include <cuda_runtime.h>
-#include "datastruct/image/ImageDevice.cuh"
 
 #if BUILD_PYBIND11
 #include <pybind11/numpy.h>
@@ -165,15 +163,7 @@ void OSEM::generateSensitivityImageForLoadedSubset()
 	if (flagImagePSF)
 	{
 		if (imgpsfmode == UNIFORM)imagePsf->applyAH(getSensImageBuffer(), getSensImageBuffer());
-		else 
-		{
-			ImageDevice* deviceImage = getSensImageBuffer();
-			size_t numVoxels = deviceImage->getImageSize();
-			deviceImage->transferToHostMemory(hostData, true);
-			imageVarPsf->applyAH(hostData(), hostData());
-			deviceImage->transferToDeviceMemory(hostData, true);
-			delete[] hostData;
-		}
+		else imageVarPsf->applyAH(getSensImageBuffer(), getSensImageBuffer());
 	}
 
 	std::cout << "Applying threshold..." << std::endl;
@@ -619,17 +609,11 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 				else
 				{
 					// Variant PSF
-					ImageDevice* deviceImage = getMLEMImageBuffer();
-					size_t numVoxels = deviceImage->getImageSize();
-					float* hostData = new float[numVoxels];
-					deviceImage->transferToHostMemory(hostData, true); 
 					imageVarPsf->applyA(
-				    	hostData,
-				    	hostData);
-					getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType::PSF)->transferToDeviceMemory(hostData, true);
-					delete[] hostData;
+				    	getMLEMImageBuffer(),
+				    	getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType::PSF));
 					mlemImage_rp =
-					getMLEMImageBuffer();
+				    	getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType::PSF);
 					//mlemImage_rp->writeToFile(out_fname);
 					//std::cout << "Output written to " << out_fname << ". Halting program." << std::endl;
     				//std::exit(0);  // Halts the program
@@ -656,16 +640,10 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 				}
 				else
 				{
-					ImageDevice* deviceImage = getMLEMImageTmpBuffer(
-						TemporaryImageSpaceBufferType::EM_RATIO);
-					size_t numVoxels = deviceImage->getImageSize();
-					float* hostData = new float[numVoxels];
-					deviceImage->transferToHostMemory(hostData, true); 
-					imageVarPsf->applyAH(
-				    	hostData,
-				    	hostData);
-					deviceImage->transferToDeviceMemory(hostData, true);
-					delete[] hostData;
+					imageVarPsf->applyAH(getMLEMImageTmpBuffer(
+						TemporaryImageSpaceBufferType::EM_RATIO),
+					getMLEMImageTmpBuffer(
+						TemporaryImageSpaceBufferType::EM_RATIO));
 				}
 			}
 

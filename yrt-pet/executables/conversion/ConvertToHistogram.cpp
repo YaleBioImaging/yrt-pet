@@ -47,14 +47,14 @@ int main(int argc, char** argv)
 		                          false, IO::TypeOfArgument::BOOL, false,
 		                          outputGroup);
 
+		PluginOptionsHelper::addOptionsFromPlugins(
+			registry, Plugin::InputFormatsChoice::ALL);
+
 		// Load configuration
 		IO::ArgumentReader config{
 		    registry,
 		    "Convert any input format to a histogram (either fully 3D "
 		    "dense histogram or sparse histogram)"};
-
-		PluginOptionsHelper::addOptionsFromPlugins(
-		    registry, Plugin::InputFormatsChoice::ALL);
 
 		if (!config.loadFromCommandLine(argc, argv))
 		{

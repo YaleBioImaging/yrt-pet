@@ -44,13 +44,14 @@ int main(int argc, char** argv)
 		registry.registerArgument("out", "Output histogram filename", true,
 		                          IO::TypeOfArgument::STRING, "", outputGroup,
 		                          "o");
+
+		PluginOptionsHelper::addOptionsFromPlugins(
+			registry, Plugin::InputFormatsChoice::ONLYLISTMODES);
+
 		// Load configuration
 		IO::ArgumentReader config{
 		    registry, "Convert a list-mode input (of any format, including "
 		              "plugin formats) to a ListModeLUT format"};
-
-		PluginOptionsHelper::addOptionsFromPlugins(
-		    registry, Plugin::InputFormatsChoice::ONLYLISTMODES);
 
 		if (!config.loadFromCommandLine(argc, argv))
 		{

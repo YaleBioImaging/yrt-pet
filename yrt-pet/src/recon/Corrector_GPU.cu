@@ -18,7 +18,7 @@ Corrector_GPU::Corrector_GPU(const Scanner& pr_scanner)
 void Corrector_GPU::precomputeAdditiveCorrectionFactors(
     const ProjectionData& measurements)
 {
-	ASSERT_MSG(hasAdditiveCorrection(), "No additive corrections needed");
+	ASSERT_MSG(hasAdditiveCorrection(measurements), "No additive corrections needed");
 
 	auto additiveCorrections =
 	    std::make_unique<ProjectionListOwned>(&measurements);

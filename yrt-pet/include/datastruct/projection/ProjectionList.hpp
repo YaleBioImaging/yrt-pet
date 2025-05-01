@@ -35,6 +35,7 @@ public:
 	timestamp_t getTimestamp(bin_t id) const override;
 	size_t getNumFrames() const override;
 	bool isUniform() const override;
+	bool hasRandomsEstimates() const override;
 	float getRandomsEstimate(bin_t id) const override;
 	bool hasTOF() const override;
 	float getTOFValue(bin_t id) const override;

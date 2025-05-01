@@ -43,9 +43,6 @@ int main(int argc, char** argv)
 		                          IO::TypeOfArgument::STRING, "", outputGroup,
 		                          "o");
 
-		PluginOptionsHelper::addOptionsFromPlugins(
-		    registry, Plugin::InputFormatsChoice::ALL);
-
 		// Load configuration
 		IO::ArgumentReader config{registry,
 		                          "Temportary executable - Delete me"};

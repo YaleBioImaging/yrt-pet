@@ -155,10 +155,12 @@
         temp_y = std::abs((j+0.5) * vy-y_center);
         temp_z = std::abs((k+0.5) * vz-z_center);
         Sigma s = find_nearest_sigma(sigma_lookup, temp_x, temp_y, temp_z);
-        int kernel_size_x = std::min(5, static_cast<int>(std::floor((s.sigmax * kernel_width_control) / vx)) - 1);
-        int kernel_size_y = std::min(5, static_cast<int>(std::floor((s.sigmay * kernel_width_control) / vy)) - 1);
-        int kernel_size_z = std::min(5, static_cast<int>(std::floor((s.sigmaz * kernel_width_control) / vz)) - 1);
-
+        //int kernel_size_x = std::min(3, static_cast<int>(std::floor((s.sigmax * kernel_width_control) / vx)) - 1);
+        //int kernel_size_y = std::min(3, static_cast<int>(std::floor((s.sigmay * kernel_width_control) / vy)) - 1);
+        //int kernel_size_z = std::min(3, static_cast<int>(std::floor((s.sigmaz * kernel_width_control) / vz)) - 1);
+        int kernel_size_x = 3;
+        int kernel_size_y = 3;
+        int kernel_size_z = 3;
         const int kx_len = kernel_size_x * 2 + 1;
         const int ky_len = kernel_size_y * 2 + 1;
         const int kz_len = kernel_size_z * 2 + 1;
@@ -183,6 +185,7 @@
             kernel_sum += psf_kernel[idx];
         }
         for (auto& val : psf_kernel) val /= kernel_sum;
+        
         float temp1 = inPtr[IDX3(i, j, k, nx, ny)];
         idx = 0;
         for (int x_diff = -kernel_size_x; x_diff <= kernel_size_x; ++x_diff)

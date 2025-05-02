@@ -623,11 +623,11 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 			{
 				mlemImage_rp = getMLEMImageBuffer();
 			}
-
+			std::cout << "ZTY: debug point 1." << std::endl;
 			computeEMUpdateImage(*mlemImage_rp,
 			                     *getMLEMImageTmpBuffer(
 			                         TemporaryImageSpaceBufferType::EM_RATIO));
-
+			std::cout << "ZTY: debug point 2." << std::endl;
 			// PSF
 			if (flagImagePSF)
 			{

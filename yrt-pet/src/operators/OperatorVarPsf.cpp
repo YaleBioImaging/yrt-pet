@@ -142,10 +142,10 @@
      m_buffer_tmp.resize(sizeBuffer);
  
      float xoffset,yoffset,zoffset,temp_x,temp_y,temp_z;
-     int ii,jj,kk,kernel_size_x,kernel_size_y,kernel_size_z;
+     int ii,jj,kk;
      int i,j,k;
      //padding 0
-     #pragma omp parallel for private(temp_x,temp_y,temp_z,i,j,k,ii,jj,kk,kernel_size_x,kernel_size_y,kernel_size_z,xoffset,yoffset,zoffset) shared(outPtr)
+     #pragma omp parallel for private(temp_x,temp_y,temp_z,i,j,k,ii,jj,kk,xoffset,yoffset,zoffset) shared(outPtr)
      for (int pp =0; pp<nx*ny*nz;pp++)
      {
         i = pp % nx;
@@ -155,39 +155,39 @@
         temp_y = std::abs((j+0.5) * vy-y_center);
         temp_z = std::abs((k+0.5) * vz-z_center);
         Sigma s = find_nearest_sigma(sigma_lookup, temp_x, temp_y, temp_z);
-        //float N_temp = N/(s.sigmax*s.sigmay*s.sigmaz)*vx*vy*vz;
-        //kernel_size_x = static_cast<int>(std::floor((s.sigmax*kernel_width_control)/vx))-1;
-        //kernel_size_y = static_cast<int>(std::floor((s.sigmay*kernel_width_control)/vy))-1;
-        //kernel_size_z = static_cast<int>(std::floor((s.sigmaz*kernel_width_control)/vz))-1;
-        kernel_size_x = std::min(5, static_cast<int>(std::floor((s.sigmax * kernel_width_control) / vx)) - 1);
-        kernel_size_y = std::min(5, static_cast<int>(std::floor((s.sigmay * kernel_width_control) / vy)) - 1);
-        kernel_size_z = std::min(5, static_cast<int>(std::floor((s.sigmaz * kernel_width_control) / vz)) - 1);
-        std::vector<std::vector<std::vector<float>>> psf_kernel(kernel_size_x*2+1, std::vector<std::vector<float>>(kernel_size_y*2+1, std::vector<float>(kernel_size_z*2+1, 0.0f))); 
+        int kernel_size_x = std::min(5, static_cast<int>(std::floor((s.sigmax * kernel_width_control) / vx)) - 1);
+        int kernel_size_y = std::min(5, static_cast<int>(std::floor((s.sigmay * kernel_width_control) / vy)) - 1);
+        int kernel_size_z = std::min(5, static_cast<int>(std::floor((s.sigmaz * kernel_width_control) / vz)) - 1);
+
+        const int kx_len = kernel_size_x * 2 + 1;
+        const int ky_len = kernel_size_y * 2 + 1;
+        const int kz_len = kernel_size_z * 2 + 1;
+        std::vector<float> psf_kernel(kx_len * ky_len * kz_len, 0.0f);
+        
         float inv_2_sigmax2 = 1.0f / (2 * s.sigmax * s.sigmax);
         float inv_2_sigmay2 = 1.0f / (2 * s.sigmay * s.sigmay);
         float inv_2_sigmaz2 = 1.0f / (2 * s.sigmaz * s.sigmaz);
         float kernel_sum = 0.0f;
-        for (int x_diff = -kernel_size_x;x_diff<=kernel_size_x;x_diff++)
-        for (int y_diff = -kernel_size_y;y_diff<=kernel_size_y;y_diff++)
-        for (int z_diff = -kernel_size_z;z_diff<=kernel_size_z;z_diff++)
+        int idx = 0;
+        for (int x_diff = -kernel_size_x; x_diff <= kernel_size_x; ++x_diff)
+        for (int y_diff = -kernel_size_y; y_diff <= kernel_size_y; ++y_diff)
+        for (int z_diff = -kernel_size_z; z_diff <= kernel_size_z; ++z_diff, ++idx)
         {
             xoffset = x_diff*vx;
             yoffset = y_diff*vy;
             zoffset = z_diff*vz;
-            float temp;
-            temp = (-xoffset*xoffset*inv_2_sigmax2)+(-yoffset*yoffset*inv_2_sigmay2)+(-zoffset*zoffset*inv_2_sigmaz2);
-            psf_kernel[x_diff + kernel_size_x][y_diff + kernel_size_y][z_diff + kernel_size_z] = exp(temp);
-            kernel_sum += psf_kernel[x_diff + kernel_size_x][y_diff + kernel_size_y][z_diff + kernel_size_z];
+            float temp = -(xoffset * xoffset * inv_2_sigmax2 +
+                yoffset * yoffset * inv_2_sigmay2 +
+                zoffset * zoffset * inv_2_sigmaz2);
+            psf_kernel[idx] = exp(temp);
+            kernel_sum += psf_kernel[idx];
         }
-        for (int x_diff = -kernel_size_x; x_diff <= kernel_size_x; x_diff++)
-        for (int y_diff = -kernel_size_y; y_diff <= kernel_size_y; y_diff++)
-        for (int z_diff = -kernel_size_z; z_diff <= kernel_size_z; z_diff++) {
-            psf_kernel[x_diff + kernel_size_x][y_diff + kernel_size_y][z_diff + kernel_size_z] /= kernel_sum;
-        }
+        for (auto& val : psf_kernel) val /= kernel_sum;
         float temp1 = inPtr[IDX3(i, j, k, nx, ny)];
-        for (int x_diff = -kernel_size_x;x_diff<=kernel_size_x;x_diff++)
-        for (int y_diff = -kernel_size_y;y_diff<=kernel_size_y;y_diff++)
-        for (int z_diff = -kernel_size_z;z_diff<=kernel_size_z;z_diff++)
+        idx = 0;
+        for (int x_diff = -kernel_size_x; x_diff <= kernel_size_x; ++x_diff)
+        for (int y_diff = -kernel_size_y; y_diff <= kernel_size_y; ++y_diff)
+        for (int z_diff = -kernel_size_z; z_diff <= kernel_size_z; ++z_diff, ++idx)
         {
             ii = i+x_diff;
             jj = j+y_diff;
@@ -197,12 +197,12 @@
 		        if constexpr (IS_FWD)
                 {
                     #pragma omp atomic
-                    outPtr[IDX3(i, j, k, nx, ny)] += inPtr[IDX3(ii, jj, kk, nx, ny)]*psf_kernel[x_diff+kernel_size_x][y_diff+kernel_size_y][z_diff+kernel_size_z];
+                    outPtr[IDX3(i, j, k, nx, ny)] += inPtr[IDX3(ii, jj, kk, nx, ny)]*psf_kernel[idx];
                 }
                 else
                 {
                     #pragma omp atomic
-                    outPtr[IDX3(ii, jj, kk, nx, ny)] += temp1*psf_kernel[x_diff+kernel_size_x][y_diff+kernel_size_y][z_diff+kernel_size_z];
+                    outPtr[IDX3(ii, jj, kk, nx, ny)] += temp1 * psf_kernel[idx];
                 }
             }
         }

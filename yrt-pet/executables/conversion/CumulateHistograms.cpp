@@ -48,15 +48,15 @@ int main(int argc, char** argv)
 		                          false, IO::TypeOfArgument::BOOL, false,
 		                          outputGroup);
 
+		PluginOptionsHelper::addOptionsFromPlugins(
+			registry, Plugin::InputFormatsChoice::ONLYHISTOGRAMS);
+
 		// Load configuration
 		IO::ArgumentReader config{
 		    registry,
 		    "Take several histograms (of any format, including plugin formats) "
 		    "and accumulate them into a total histogram (either fully 3D "
 		    "dense histogram or sparse histogram)"};
-
-		PluginOptionsHelper::addOptionsFromPlugins(
-		    registry, Plugin::InputFormatsChoice::ONLYHISTOGRAMS);
 
 		if (!config.loadFromCommandLine(argc, argv))
 		{

@@ -53,9 +53,9 @@
     int y_dim = static_cast<int>(std::floor(y_range / y_gap)) + 1;
     int z_dim = static_cast<int>(std::floor(z_range / z_gap)) + 1;
 
-    int i = static_cast<int>(std::round(x / x_gap));
-    int j = static_cast<int>(std::round(y / y_gap));
-    int k = static_cast<int>(std::round(z / z_gap));
+    int i = static_cast<int>(std::round(abs(x-5) / x_gap));
+    int j = static_cast<int>(std::round(abs(y-5) / y_gap));
+    int k = static_cast<int>(std::round(abs(z-5) / z_gap));
 
     if (i>=x_dim) i = x_dim-1;
     if (j>=y_dim) j = y_dim-1;
@@ -156,9 +156,12 @@
         temp_z = std::abs((k+0.5) * vz-z_center);
         Sigma s = find_nearest_sigma(sigma_lookup, temp_x, temp_y, temp_z);
         float N_temp = N/(s.sigmax*s.sigmay*s.sigmaz)*vx*vy*vz;
-        kernel_size_x = static_cast<int>(std::floor((s.sigmax*kernel_width_control)/vx))-1;
-        kernel_size_y = static_cast<int>(std::floor((s.sigmay*kernel_width_control)/vy))-1;
-        kernel_size_z = static_cast<int>(std::floor((s.sigmaz*kernel_width_control)/vz))-1;
+        //kernel_size_x = static_cast<int>(std::floor((s.sigmax*kernel_width_control)/vx))-1;
+        //kernel_size_y = static_cast<int>(std::floor((s.sigmay*kernel_width_control)/vy))-1;
+        //kernel_size_z = static_cast<int>(std::floor((s.sigmaz*kernel_width_control)/vz))-1;
+        kernel_size_x = std::min(5, static_cast<int>(std::floor((s.sigmax * kernel_width_control) / vx)) - 1);
+        kernel_size_y = std::min(5, static_cast<int>(std::floor((s.sigmay * kernel_width_control) / vy)) - 1);
+        kernel_size_z = std::min(5, static_cast<int>(std::floor((s.sigmaz * kernel_width_control) / vz)) - 1);
         std::vector<std::vector<std::vector<float>>> psf_kernel(kernel_size_x*2+1, std::vector<std::vector<float>>(kernel_size_y*2+1, std::vector<float>(kernel_size_z*2+1, 0.0f))); 
         float inv_2_sigmax2 = 1.0f / (2 * s.sigmax * s.sigmax);
         float inv_2_sigmay2 = 1.0f / (2 * s.sigmay * s.sigmay);

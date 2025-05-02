@@ -155,7 +155,7 @@
         temp_y = std::abs((j+0.5) * vy-y_center);
         temp_z = std::abs((k+0.5) * vz-z_center);
         Sigma s = find_nearest_sigma(sigma_lookup, temp_x, temp_y, temp_z);
-        float N_temp = N/(s.sigmax*s.sigmay*s.sigmaz)*vx*vy*vz;
+        //float N_temp = N/(s.sigmax*s.sigmay*s.sigmaz)*vx*vy*vz;
         //kernel_size_x = static_cast<int>(std::floor((s.sigmax*kernel_width_control)/vx))-1;
         //kernel_size_y = static_cast<int>(std::floor((s.sigmay*kernel_width_control)/vy))-1;
         //kernel_size_z = static_cast<int>(std::floor((s.sigmaz*kernel_width_control)/vz))-1;
@@ -166,6 +166,7 @@
         float inv_2_sigmax2 = 1.0f / (2 * s.sigmax * s.sigmax);
         float inv_2_sigmay2 = 1.0f / (2 * s.sigmay * s.sigmay);
         float inv_2_sigmaz2 = 1.0f / (2 * s.sigmaz * s.sigmaz);
+        float kernel_sum = 0.0f;
         for (int x_diff = -kernel_size_x;x_diff<=kernel_size_x;x_diff++)
         for (int y_diff = -kernel_size_y;y_diff<=kernel_size_y;y_diff++)
         for (int z_diff = -kernel_size_z;z_diff<=kernel_size_z;z_diff++)
@@ -176,6 +177,12 @@
             float temp;
             temp = (-xoffset*xoffset*inv_2_sigmax2)+(-yoffset*yoffset*inv_2_sigmay2)+(-zoffset*zoffset*inv_2_sigmaz2);
             psf_kernel[x_diff + kernel_size_x][y_diff + kernel_size_y][z_diff + kernel_size_z] = exp(temp);
+            kernel_sum += psf_kernel[x_diff + kernel_size_x][y_diff + kernel_size_y][z_diff + kernel_size_z];
+        }
+        for (int x_diff = -kernel_size_x; x_diff <= kernel_size_x; x_diff++)
+        for (int y_diff = -kernel_size_y; y_diff <= kernel_size_y; y_diff++)
+        for (int z_diff = -kernel_size_z; z_diff <= kernel_size_z; z_diff++) {
+            psf_kernel[x_diff + kernel_size_x][y_diff + kernel_size_y][z_diff + kernel_size_z] /= kernel_sum;
         }
         float temp1 = inPtr[IDX3(i, j, k, nx, ny)];
         for (int x_diff = -kernel_size_x;x_diff<=kernel_size_x;x_diff++)
@@ -190,12 +197,12 @@
 		        if constexpr (IS_FWD)
                 {
                     #pragma omp atomic
-                    outPtr[IDX3(i, j, k, nx, ny)] += inPtr[IDX3(ii, jj, kk, nx, ny)]*N_temp*psf_kernel[x_diff+kernel_size_x][y_diff+kernel_size_y][z_diff+kernel_size_z];
+                    outPtr[IDX3(i, j, k, nx, ny)] += inPtr[IDX3(ii, jj, kk, nx, ny)]*psf_kernel[x_diff+kernel_size_x][y_diff+kernel_size_y][z_diff+kernel_size_z];
                 }
                 else
                 {
                     #pragma omp atomic
-                    outPtr[IDX3(ii, jj, kk, nx, ny)] += temp1*N_temp*psf_kernel[x_diff+kernel_size_x][y_diff+kernel_size_y][z_diff+kernel_size_z];
+                    outPtr[IDX3(ii, jj, kk, nx, ny)] += temp1*psf_kernel[x_diff+kernel_size_x][y_diff+kernel_size_y][z_diff+kernel_size_z];
                 }
             }
         }

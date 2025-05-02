@@ -97,7 +97,7 @@ class BinIteratorConstrained
 	BinIteratorConstrained(ProjectionData* pProjData, BinIterator* pBinIterBase,
 	                       int pQueueSizeMax);
 	void addConstraint(Constraint& pConstraint);
-	size_t count() const;
+	size_t count();
 	void produce();
 	const ProjectionProperties& get();
 

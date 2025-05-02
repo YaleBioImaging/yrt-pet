@@ -181,7 +181,7 @@ bool BinIteratorConstrained::isValid(constraint_params info) const
 }
 
 
-size_t BinIteratorConstrained::count() const
+size_t BinIteratorConstrained::count()
 {
 	if (mCount != 0)
 	{

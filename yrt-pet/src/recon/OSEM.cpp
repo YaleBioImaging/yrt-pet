@@ -593,7 +593,8 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 			// SET TMP VARIABLES TO 0
 			getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType::EM_RATIO)
 			    ->setValue(0.0);
-
+			getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType::PSF)
+				->setValue(0.0);
 			ImageBase* mlemImage_rp;
 			if (flagImagePSF)
 			{
@@ -605,6 +606,9 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 				    	getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType::PSF));
 					mlemImage_rp =
 				    	getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType::PSF);
+					//mlemImage_rp->writeToFile(out_fname);
+					//std::cout << "Output PSF result written to " << out_fname << ". Halting program." << std::endl;
+    				//std::exit(0);  // Halts the program
 				}
 				else
 				{
@@ -615,7 +619,7 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 					mlemImage_rp =
 				    	getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType::PSF);
 					//mlemImage_rp->writeToFile(out_fname);
-					//std::cout << "Output written to " << out_fname << ". Halting program." << std::endl;
+					//std::cout << "Output variant PSF result written to " << out_fname << ". Halting program." << std::endl;
     				//std::exit(0);  // Halts the program
 				}
 			}
@@ -629,6 +633,11 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 			                         TemporaryImageSpaceBufferType::EM_RATIO));
 			//std::cout << "ZTY: debug point 2." << std::endl;
 			// PSF
+			//mlemImage_rp =getMLEMImageTmpBuffer(
+			//	TemporaryImageSpaceBufferType::EM_RATIO);
+			//mlemImage_rp->writeToFile(out_fname);
+			//std::cout << "Output after BP result written to " << out_fname << ". Halting program." << std::endl;
+			//std::exit(0);  // Halts the program
 			if (flagImagePSF)
 			{
 				if (imgpsfmode == UNIFORM)
@@ -637,20 +646,44 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 				    	                TemporaryImageSpaceBufferType::EM_RATIO),
 				    	              getMLEMImageTmpBuffer(
 				        	            TemporaryImageSpaceBufferType::EM_RATIO));
+					//mlemImage_rp =getMLEMImageTmpBuffer(
+					//	TemporaryImageSpaceBufferType::EM_RATIO);
+					//mlemImage_rp->writeToFile(out_fname);
+					//std::cout << "Output Transposed PSF result written to " << out_fname << ". Halting program." << std::endl;
+    				//std::exit(0);  // Halts the program
 				}
 				else
 				{
+					getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType::PSF)
+					->setValue(0.0);
+
 					imageVarPsf->applyAH(getMLEMImageTmpBuffer(
 						TemporaryImageSpaceBufferType::EM_RATIO),
 					getMLEMImageTmpBuffer(
-						TemporaryImageSpaceBufferType::EM_RATIO));
+						TemporaryImageSpaceBufferType::PSF));
+					//mlemImage_rp =getMLEMImageTmpBuffer(
+					//	TemporaryImageSpaceBufferType::PSF);
+					//mlemImage_rp->writeToFile(out_fname);
+					//std::cout << "Output Transposed Var PSF result written to " << out_fname << ". Halting program." << std::endl;
+					//std::exit(0);  // Halts the program
 				}
 			}
 
 			// UPDATE
-			getMLEMImageBuffer()->updateEMThreshold(
-			    getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType::EM_RATIO),
-			    getSensImageBuffer(), EPS_FLT);
+			if (imgpsfmode == VARIANT)
+			{
+				getMLEMImageBuffer()->updateEMThreshold(
+					getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType::PSF),
+					getSensImageBuffer(), EPS_FLT);
+			}
+			else
+			{
+				getMLEMImageBuffer()->updateEMThreshold(
+					getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType::EM_RATIO),
+					getSensImageBuffer(), EPS_FLT);
+			}
+
+			
 		}
 		if (saveIterRanges.isIn(iter + 1))
 		{

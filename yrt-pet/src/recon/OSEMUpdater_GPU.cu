@@ -146,7 +146,7 @@ void OSEMUpdater_GPU::computeEMUpdateImage(const ImageDevice& inputImage,
 
 		projector->applyA(&inputImage, tmpBufferDevice, false);
 
-		if (corrector.hasAdditiveCorrection())
+		if (corrector.hasAdditiveCorrection(*measurementsDevice))
 		{
 			corrector.loadAdditiveCorrectionFactorsToTemporaryDeviceBuffer(
 			    {mainStream, false});

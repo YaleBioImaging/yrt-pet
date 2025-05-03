@@ -106,6 +106,11 @@ bool ProjectionList::isUniform() const
 	return false;
 }
 
+bool ProjectionList::hasRandomsEstimates() const
+{
+	return mp_reference->hasRandomsEstimates();
+}
+
 float ProjectionList::getRandomsEstimate(bin_t id) const
 {
 	return mp_reference->getRandomsEstimate(id);

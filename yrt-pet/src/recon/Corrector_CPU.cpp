@@ -16,7 +16,8 @@ Corrector_CPU::Corrector_CPU(const Scanner& pr_scanner) : Corrector(pr_scanner)
 void Corrector_CPU::precomputeAdditiveCorrectionFactors(
     const ProjectionData& measurements)
 {
-	ASSERT_MSG(hasAdditiveCorrection(), "No additive corrections needed");
+	ASSERT_MSG(hasAdditiveCorrection(measurements),
+	           "No additive corrections needed");
 
 	const ProjectionData* measurementsPtr = &measurements;
 

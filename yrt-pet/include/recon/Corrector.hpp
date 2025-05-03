@@ -58,7 +58,7 @@ public:
 	bool doesHardwareACFComeFromHistogram() const;
 
 	// For reconstruction
-	bool hasAdditiveCorrection() const;
+	bool hasAdditiveCorrection(const ProjectionData& measurements) const;
 	bool hasInVivoAttenuation() const;
 	const Image* getInVivoAttenuationImage() const;
 	bool doesTotalACFComeFromHistogram() const;

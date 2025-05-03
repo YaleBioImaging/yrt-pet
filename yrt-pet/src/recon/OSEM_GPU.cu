@@ -262,7 +262,7 @@ void OSEM_GPU::allocateForRecon()
 	// Make sure the corrector buffer is properly defined
 	mp_corrector->initializeTemporaryDeviceBuffer(mpd_dat.get());
 
-	if (mp_corrector->hasAdditiveCorrection())
+	if (mp_corrector->hasAdditiveCorrection(*dataInput))
 	{
 		mp_corrector->precomputeAdditiveCorrectionFactors(*dataInput);
 	}

@@ -63,12 +63,13 @@ void OSEMUpdater_CPU::computeEMUpdateImage(const Image& inputImage,
 	const Image* inputImagePtr = &inputImage;
 	Image* destImagePtr = &destImage;
 
-	const bool hasAdditiveCorrection = corrector.hasAdditiveCorrection();
-	const bool hasInVivoAttenuation = corrector.hasInVivoAttenuation();
-
 	ASSERT(projector != nullptr);
 	ASSERT(binIter != nullptr);
 	ASSERT(measurements != nullptr);
+
+	const bool hasAdditiveCorrection =
+	    corrector.hasAdditiveCorrection(*measurements);
+	const bool hasInVivoAttenuation = corrector.hasInVivoAttenuation();
 
 	if (hasAdditiveCorrection)
 	{

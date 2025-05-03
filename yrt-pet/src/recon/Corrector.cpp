@@ -281,9 +281,10 @@ bool Corrector::hasMultiplicativeCorrection() const
 	return hasHardwareAttenuation() || hasSensitivityHistogram();
 }
 
-bool Corrector::hasAdditiveCorrection() const
+bool Corrector::hasAdditiveCorrection(const ProjectionData& measurements) const
 {
-	return mp_randoms != nullptr || mp_scatter != nullptr;
+	return mp_randoms != nullptr || mp_scatter != nullptr ||
+	       measurements.hasRandomsEstimates();
 }
 
 bool Corrector::mustInvertSensitivity() const

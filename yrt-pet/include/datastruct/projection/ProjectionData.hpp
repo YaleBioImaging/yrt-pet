@@ -43,6 +43,7 @@ public:
 	virtual timestamp_t getTimestamp(bin_t id) const;
 	virtual frame_t getFrame(bin_t id) const;
 	virtual bool isUniform() const;
+	virtual bool hasRandomsEstimates() const;
 	virtual float getRandomsEstimate(bin_t id) const;
 	// Time-of-flight
 	virtual bool hasTOF() const;

@@ -262,7 +262,7 @@ void OSEM_CPU::allocateForRecon()
 	}
 	mp_mlemImageTmp->setValue(0.0f);
 
-	if (mp_corrector->hasAdditiveCorrection())
+	if (mp_corrector->hasAdditiveCorrection(*dataInput))
 	{
 		mp_corrector->precomputeAdditiveCorrectionFactors(*dataInput);
 	}

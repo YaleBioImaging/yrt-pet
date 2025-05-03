@@ -96,6 +96,11 @@ bool ProjectionData::isUniform() const
 	return false;
 }
 
+bool ProjectionData::hasRandomsEstimates() const
+{
+	return false;
+}
+
 bool ProjectionData::hasMotion() const
 {
 	return false;

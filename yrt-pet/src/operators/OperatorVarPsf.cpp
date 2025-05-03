@@ -158,9 +158,9 @@
         //int kernel_size_x = std::min(3, static_cast<int>(std::floor((s.sigmax * kernel_width_control) / vx)) - 1);
         //int kernel_size_y = std::min(3, static_cast<int>(std::floor((s.sigmay * kernel_width_control) / vy)) - 1);
         //int kernel_size_z = std::min(3, static_cast<int>(std::floor((s.sigmaz * kernel_width_control) / vz)) - 1);
-        int kernel_size_x = 3;
-        int kernel_size_y = 3;
-        int kernel_size_z = 3;
+        int kernel_size_x = 2;
+        int kernel_size_y = 2;
+        int kernel_size_z = 2;
         const int kx_len = kernel_size_x * 2 + 1;
         const int ky_len = kernel_size_y * 2 + 1;
         const int kz_len = kernel_size_z * 2 + 1;
@@ -192,21 +192,19 @@
         for (int y_diff = -kernel_size_y; y_diff <= kernel_size_y; ++y_diff)
         for (int z_diff = -kernel_size_z; z_diff <= kernel_size_z; ++z_diff, ++idx)
         {
-            ii = i+x_diff;
-            jj = j+y_diff;
-            kk = k+z_diff;
-            if (ii>=0 && ii<nx && jj>=0 && jj<ny && kk>=0 && kk<nz)
+            ii = Util::circular(nx, i + x_diff);
+            jj = Util::circular(ny, j + y_diff);
+            kk = Util::circular(nz, k + z_diff);
+
+            if constexpr (IS_FWD)
             {
-		        if constexpr (IS_FWD)
-                {
-                    #pragma omp atomic
-                    outPtr[IDX3(i, j, k, nx, ny)] += inPtr[IDX3(ii, jj, kk, nx, ny)]*psf_kernel[idx];
-                }
-                else
-                {
-                    #pragma omp atomic
-                    outPtr[IDX3(ii, jj, kk, nx, ny)] += temp1 * psf_kernel[idx];
-                }
+                #pragma omp atomic
+                outPtr[IDX3(i, j, k, nx, ny)] += inPtr[IDX3(ii, jj, kk, nx, ny)]*psf_kernel[idx];
+            }
+            else
+            {
+                #pragma omp atomic
+                outPtr[IDX3(ii, jj, kk, nx, ny)] += temp1 * psf_kernel[idx];
             }
         }
      }

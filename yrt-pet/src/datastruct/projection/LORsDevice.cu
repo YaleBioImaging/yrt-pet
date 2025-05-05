@@ -29,7 +29,8 @@ LORsDevice::LORsDevice()
 void LORsDevice::precomputeBatchLORs(const BinIterator& binIter,
                                      const GPUBatchSetup& batchSetup,
                                      int subsetId, int batchId,
-                                     const ProjectionData& reference)
+                                     const ProjectionData& reference,
+                                     const Histogram* sensitivityHistogram)
 {
 	if (m_precomputedSubsetId != subsetId || m_precomputedBatchId != batchId ||
 	    m_areLORsPrecomputed == false)
@@ -53,6 +54,7 @@ void LORsDevice::precomputeBatchLORs(const BinIterator& binIter,
 		{
 			m_tempLorTOFValue.reAllocateIfNeeded(batchSize);
 			tempBufferLorTOFValue_ptr = m_tempLorTOFValue.getPointer();
+			ASSERT(tempBufferLorTOFValue_ptr != nullptr);
 		}
 
 		const size_t offset = batchId * batchSetup.getBatchSize(0);
@@ -65,28 +67,56 @@ void LORsDevice::precomputeBatchLORs(const BinIterator& binIter,
     firstprivate(offset, batchSize, binIter_ptr, tempBufferLorDet1Pos_ptr,   \
                      tempBufferLorDet2Pos_ptr, tempBufferLorDet1Orient_ptr,  \
                      tempBufferLorDet2Orient_ptr, tempBufferLorTOFValue_ptr, \
-                     reference_ptr, m_hasTOF)
+                     reference_ptr, m_hasTOF, sensitivityHistogram)
 		for (binIdx = 0; binIdx < batchSize; binIdx++)
 		{
 			binId = binIter_ptr->get(binIdx + offset);
-			auto [lor, tofValue, det1Orient, det2Orient] =
-			    reference_ptr->getProjectionProperties(binId);
 
-			tempBufferLorDet1Pos_ptr[binIdx].x = lor.point1.x;
-			tempBufferLorDet1Pos_ptr[binIdx].y = lor.point1.y;
-			tempBufferLorDet1Pos_ptr[binIdx].z = lor.point1.z;
-			tempBufferLorDet2Pos_ptr[binIdx].x = lor.point2.x;
-			tempBufferLorDet2Pos_ptr[binIdx].y = lor.point2.y;
-			tempBufferLorDet2Pos_ptr[binIdx].z = lor.point2.z;
-			tempBufferLorDet1Orient_ptr[binIdx].x = det1Orient.x;
-			tempBufferLorDet1Orient_ptr[binIdx].y = det1Orient.y;
-			tempBufferLorDet1Orient_ptr[binIdx].z = det1Orient.z;
-			tempBufferLorDet2Orient_ptr[binIdx].x = det2Orient.x;
-			tempBufferLorDet2Orient_ptr[binIdx].y = det2Orient.y;
-			tempBufferLorDet2Orient_ptr[binIdx].z = det2Orient.z;
-			if (m_hasTOF)
+			if (sensitivityHistogram != nullptr)
 			{
-				tempBufferLorTOFValue_ptr[binIdx] = tofValue;
+				auto histogramBin = reference_ptr->getHistogramBin(binId);
+				if (sensitivityHistogram->getProjectionValueFromHistogramBin(
+				        histogramBin) < SMALL_FLT)
+				{
+					tempBufferLorDet1Pos_ptr[binIdx].x = 0.0f;
+					tempBufferLorDet1Pos_ptr[binIdx].y = 0.0f;
+					tempBufferLorDet1Pos_ptr[binIdx].z = 0.0f;
+					tempBufferLorDet2Pos_ptr[binIdx].x = 0.0f;
+					tempBufferLorDet2Pos_ptr[binIdx].y = 0.0f;
+					tempBufferLorDet2Pos_ptr[binIdx].z = 0.0f;
+					tempBufferLorDet1Orient_ptr[binIdx].x = 0.0f;
+					tempBufferLorDet1Orient_ptr[binIdx].y = 0.0f;
+					tempBufferLorDet1Orient_ptr[binIdx].z = 0.0f;
+					tempBufferLorDet2Orient_ptr[binIdx].x = 0.0f;
+					tempBufferLorDet2Orient_ptr[binIdx].y = 0.0f;
+					tempBufferLorDet2Orient_ptr[binIdx].z = 0.0f;
+					if (m_hasTOF)
+					{
+						tempBufferLorTOFValue_ptr[binIdx] = 0.0f;
+					}
+				}
+			}
+			else
+			{
+				auto [lor, tofValue, det1Orient, det2Orient] =
+				    reference_ptr->getProjectionProperties(binId);
+
+				tempBufferLorDet1Pos_ptr[binIdx].x = lor.point1.x;
+				tempBufferLorDet1Pos_ptr[binIdx].y = lor.point1.y;
+				tempBufferLorDet1Pos_ptr[binIdx].z = lor.point1.z;
+				tempBufferLorDet2Pos_ptr[binIdx].x = lor.point2.x;
+				tempBufferLorDet2Pos_ptr[binIdx].y = lor.point2.y;
+				tempBufferLorDet2Pos_ptr[binIdx].z = lor.point2.z;
+				tempBufferLorDet1Orient_ptr[binIdx].x = det1Orient.x;
+				tempBufferLorDet1Orient_ptr[binIdx].y = det1Orient.y;
+				tempBufferLorDet1Orient_ptr[binIdx].z = det1Orient.z;
+				tempBufferLorDet2Orient_ptr[binIdx].x = det2Orient.x;
+				tempBufferLorDet2Orient_ptr[binIdx].y = det2Orient.y;
+				tempBufferLorDet2Orient_ptr[binIdx].z = det2Orient.z;
+				if (m_hasTOF)
+				{
+					tempBufferLorTOFValue_ptr[binIdx] = tofValue;
+				}
 			}
 		}
 
@@ -185,10 +215,9 @@ void LORsDevice::allocateForPrecomputedLORsIfNeeded(
 		                                         {launchConfig.stream, false});
 	}
 
-	if (hasAllocated &&
-	    launchConfig.synchronize)
+	if (hasAllocated && launchConfig.synchronize)
 	{
-		if ( launchConfig.stream != nullptr)
+		if (launchConfig.stream != nullptr)
 		{
 			cudaStreamSynchronize(*launchConfig.stream);
 		}

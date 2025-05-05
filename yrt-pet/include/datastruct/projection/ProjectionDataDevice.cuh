@@ -51,7 +51,8 @@ public:
 	// the projection values buffer
 	void prepareBatchLORs(int subsetId, int batchId,
 	                      GPULaunchConfig launchConfig);
-	void precomputeBatchLORs(int subsetId, int batchId);
+	void precomputeBatchLORs(int subsetId, int batchId,
+	                         const Histogram* sensitivityHistogram = nullptr);
 	void loadPrecomputedLORsToDevice(GPULaunchConfig launchConfig);
 
 	void loadProjValuesFromReference(GPULaunchConfig launchConfig);

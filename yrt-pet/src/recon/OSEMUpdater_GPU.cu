@@ -123,6 +123,7 @@ void OSEMUpdater_GPU::computeEMUpdateImage(const ImageDevice& inputImage,
 	    mp_osem->getMLEMDataTmpDeviceBuffer();
 	const ProjectionDataDevice* correctorTempBuffer =
 	    corrector.getTemporaryDeviceBuffer();
+	const Histogram* sensitivityHistogram = corrector.getSensitivityHistogram();
 
 	ASSERT(projector != nullptr);
 	ASSERT(measurementsDevice != nullptr);
@@ -136,7 +137,8 @@ void OSEMUpdater_GPU::computeEMUpdateImage(const ImageDevice& inputImage,
 	{
 		std::cout << "Batch " << batch + 1 << "/" << numBatchesInCurrentSubset
 		          << "..." << std::endl;
-		measurementsDevice->precomputeBatchLORs(currentSubset, batch);
+		measurementsDevice->precomputeBatchLORs(currentSubset, batch,
+		                                        sensitivityHistogram);
 
 		measurementsDevice->allocateForProjValues({mainStream, false});
 		measurementsDevice->loadPrecomputedLORsToDevice({mainStream, false});

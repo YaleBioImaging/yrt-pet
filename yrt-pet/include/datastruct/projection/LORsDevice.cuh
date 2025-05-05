@@ -12,6 +12,8 @@
 
 #include <memory>
 
+
+class Histogram;
 class ProjectionData;
 class Scanner;
 class ImageParams;
@@ -23,7 +25,8 @@ public:
 
 	void precomputeBatchLORs(const BinIterator& binIter,
 	                         const GPUBatchSetup& batchSetup, int subsetId,
-	                         int batchId, const ProjectionData& reference);
+	                         int batchId, const ProjectionData& reference,
+	                         const Histogram* sensitivityHistogram);
 	void loadPrecomputedLORsToDevice(GPULaunchConfig launchConfig);
 
 	// Gets the size of the last precomputed batch

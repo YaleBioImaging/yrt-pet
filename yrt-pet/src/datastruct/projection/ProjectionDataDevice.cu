@@ -209,11 +209,12 @@ void ProjectionDataDevice::prepareBatchLORs(int subsetId, int batchId,
 	loadPrecomputedLORsToDevice(launchConfig);
 }
 
-void ProjectionDataDevice::precomputeBatchLORs(int subsetId, int batchId)
+void ProjectionDataDevice::precomputeBatchLORs(
+    int subsetId, int batchId, const Histogram* sensitivityHistogram)
 {
 	mp_LORs->precomputeBatchLORs(*mp_binIteratorList.at(subsetId),
 	                             m_batchSetups.at(subsetId), subsetId, batchId,
-	                             *mp_reference);
+	                             *mp_reference, sensitivityHistogram);
 }
 
 void ProjectionDataDevice::loadPrecomputedLORsToDevice(

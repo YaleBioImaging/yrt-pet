@@ -27,21 +27,24 @@ import numpy as np
 
 img_shape = (100, 100, 50)  # in x, y, z dimensions
 img_size_mm = (30, 30, 25)  # in x, y, z dimensions
-params = yrt.ImageParams(*img_shape, *img_size_mm)
+img_params = yrt.ImageParams(*img_shape, *img_size_mm)
 
 # Allocate memory in YRT-PET
-yrt_img = yrt.ImageOwned(params)
-yrt_img.allocate()
+img_yrt = yrt.ImageOwned(img_params)
+img_yrt.allocate()
 
 # Bind to numpy
-np_img = np.array(yrt_img, copy=False) # The "copy=False" is important
+img_np = np.array(img_yrt, copy=False) # The "copy=False" is important
 
 # Whatever is done in the np_img array,
 # it will internally be done in yrt_img's memory
 # and vice-versa
 
-# Example: This will write in yrt_img's memory
-np_img[:] = np.ones_like(np_img) # The "[:]" is important to avoid reassignment
+# Example: This will write in img_yrt's memory
+img_np[:] = 1 # The "[:]" is important to avoid reassignment
+
+# This will write the image into a file
+img_yrt.writeToFile("my_image.nii")
 ```
 
 ### Example usage of `Alias` object
@@ -53,21 +56,24 @@ import numpy as np
 
 img_shape = (100, 100, 50)  # in x, y, z dimensions
 img_size_mm = (30, 30, 25)  # in x, y, z dimensions
-params = yrt.ImageParams(*img_shape, *img_size_mm)
+img_params = yrt.ImageParams(*img_shape, *img_size_mm)
 
 # Allocate memory in numpy
-np_img = np.ones([params.nz, params.ny, params.nx], dtype=np.float32)
+img_np = np.ones([img_params.nz, img_params.ny, img_params.nx], dtype=np.float32)
 
 # Bind to YRT-PET
-yrt_img = yrt.ImageAlias(params)
-yrt_img.bind(np_img)
+img_yrt = yrt.ImageAlias(img_params)
+img_yrt.bind(img_np)
 
 # Whatever is done in the np_img array,
 # it will internally be done in yrt_img's memory,
 # and vice-versa
 
-# Example: This will write the image into a file
-yrt_img.writeToFile("my_image.nii")
+# Example: This will write in img_yrt's memory
+img_np[:, 0, :] = 2
+
+# This will write the image into a file
+img_yrt.writeToFile("my_image.nii")
 ```
 
 ### Example usage of `Alias` object *in GPU*
@@ -78,8 +84,26 @@ demonstrates.
 import torch
 import pyyrtpet as yrt
 
+# %% Use CUDA device 0
+cuda0 = torch.device('cuda:0')
+
+# %% Define image parameters
+img_shape = (100, 100, 50)  # in x, y, z dimensions
+img_size_mm = (100.0, 100.0, 50.0)  # in x, y, z dimensions
+params = yrt.ImageParams(*img_shape, *img_size_mm)
+
+# %% Create Torch array and bind it to an ImageDeviceAlias
+ones_img = torch.zeros([params.nz,params.ny,params.nx], device=cuda0,
+                       dtype=torch.float32, layout=torch.strided)
+img_dev = yrt.ImageDeviceAlias(params)
+# Bind Torch array to YRT-PET Image
+img_dev.setDevicePointer(ones_img.data_ptr())
+
+# Now, the "ones_img" Torch array points to the same memory location
+# as the "img_dev" YRT-PET ImageDevice object
+
 # %% Initialize the scanner
-scanner = yrt.Scanner("./SCANNER.json")
+scanner = yrt.Scanner("./MYSCANNER.json")
 
 # %% Initialize an empty histogram
 his = yrt.Histogram3DOwned(scanner)
@@ -89,47 +113,32 @@ his.clearProjections(1.0)
 # %% Initialize the projector
 
 # Create a bin iterator that uses one subset and iterates on subset 0
-binIter = his.getBinIter(1, 0)
+bin_iter = his.getBinIter(1, 0)
 
 # Define the projector parameters
-projParams = yrt.OperatorProjectorParams(binIter, scanner)
+proj_params = yrt.OperatorProjectorParams(bin_iter, scanner)
 
 # Create the projector
-oper = yrt.OperatorProjectorDD_GPU(projParams)
-
-# %% Use CUDA device 0
-cuda0 = torch.device('cuda:0')
-
-# %% Define image parameters
-img_shape = (100, 100, 100)  # in x, y, z dimensions
-img_size_mm = (100.0, 100.0, 100.0)  # in x, y, z dimensions
-params = yrt.ImageParams(*img_shape, *img_size_mm)
-
-# %% Create Torch array and bind it to an ImageDeviceAlias
-onesImg = torch.zeros([params.nz,params.ny,params.nx], device=cuda0,
-                      dtype=torch.float32, layout=torch.strided)
-imgDev = yrt.ImageDeviceAlias(params)
-# Bind Pytorch array to YRT-PET Image
-imgDev.setDevicePointer(onesImg.data_ptr())
+oper = yrt.OperatorProjectorDD_GPU(proj_params)
 
 # %% Create a projection-space device buffer
 # Use 'his' as a reference to comute LORs and use 1 OSEM subset
-hisDev = yrt.ProjectionDataDeviceAlias(scanner, his, 1)
+his_dev = yrt.ProjectionDataDeviceAlias(scanner, his, 1)
 
-# Important: This is needed to precompute all LORs
+# Important: This is needed to precompute all LORs and load them into the device
 # Arguments: Load events from the batch 0 of the subset 0
-hisDev.loadEventLORs(0, 0)
+his_dev.prepareBatchLORs(0, 0)
 
-# Create a torch array with the appropriate size
-onesProj = torch.ones([hisDev.getCurrentBatchSize()], device=cuda0,
-                      dtype=torch.float32, layout=torch.strided)
+# Create a Torch array with the appropriate size
+ones_proj = torch.ones([his_dev.getLoadedBatchSize()], device=cuda0,
+                       dtype=torch.float32, layout=torch.strided)
 
-# Bind PyTorch array to YRT-PET ProjectionData
-hisDev.setProjValuesDevicePointer(onesProj.data_ptr())
+# Bind Torch array to YRT-PET ProjectionData
+his_dev.setProjValuesDevicePointer(ones_proj.data_ptr())
 
-# Do the backprojection
-oper.applyAH(hisDev, imgDev)
+# Do the backprojection on the image
+oper.applyAH(his_dev, img_dev)
 
 # Save image
-imgDev.writeToFile("./out.nii") # save img
+img_dev.writeToFile("./my_image.nii") # save img
 ```

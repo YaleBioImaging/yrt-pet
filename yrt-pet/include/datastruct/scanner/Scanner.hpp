@@ -45,7 +45,7 @@ public:
 	float collimatorRadius, fwhm, energyLLD;  // Optional, for scatter only
 
 	// dets_per_ring : Number of detectors per ring (not counting DOI)
-	// num_rings : Number of rings in total (not countring DOI)
+	// num_rings : Number of rings in total (not counting DOI)
 	// num_doi : Number of DOI crystals (ex: 2 for SAVANT)
 	// max_ring_diff : Maximum ring difference (number of rings)
 	// min_ang_diff : Minimum angular difference, in terms of detector indices

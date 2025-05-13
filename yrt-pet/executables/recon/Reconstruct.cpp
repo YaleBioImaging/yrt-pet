@@ -145,10 +145,11 @@ int main(int argc, char** argv)
 		        IO::possibleFormats(Plugin::InputFormatsChoice::ONLYHISTOGRAMS),
 		    false, IO::TypeOfArgument::STRING, "", reconstructionGroup);
 		registry.registerArgument("psf", "Image-space PSF kernel file", false,
-		                          IO::TypeOfArgument::STRING, "",
-		reconGroup("varpsf", "Image-space Variant PSF look-up table file",
-					cxxopts::value<std::string>(imageVarPsf_fname));		   
-		                          reconstructionGroup);
+				IO::TypeOfArgument::STRING, "",
+				reconstructionGroup);
+		registry.registerArgument("varpsf", "Image-space Variant PSF look-up table file", false,
+				IO::TypeOfArgument::STRING, "",
+				reconstructionGroup);
 		registry.registerArgument("hard_threshold", "Hard Threshold", false,
 		                          IO::TypeOfArgument::FLOAT, 1.0f,
 		                          reconstructionGroup);
@@ -357,23 +358,17 @@ int main(int argc, char** argv)
 		}
 
 		// Image-space PSF
-		if (!imagePsf_fname.empty() && !imageVarPsf_fname.empty())
-		{
-			ASSERT_MSG(false, ("Got two different image PSF inputs: "
-        "imagePsf_fname = \"" + imagePsf_fname +
-        "\", imageVarPsf_fname = \"" + imageVarPsf_fname + "\"").c_str());
-		}
-		else if (!config.getValue<std::string>("psf").empty())
+		if (!config.getValue<std::string>("psf").empty())
 		{
 			osem->imgpsfmode = UNIFORM;
-			ASSERT_MSG(!imageVarPsf_fname.empty(),
+			ASSERT_MSG(!config.getValue<std::string>("varpsf").empty(),
 			           "Got two different image PSF inputs");
-			osem->addImagePSF(imagePsf_fname);
+			osem->addImagePSF(config.getValue<std::string>("psf"));
 		}
-		else if (!imageVarPsf_fname.empty())
+		else if (!config.getValue<std::string>("varpsf").empty())
 		{
 			osem->imgpsfmode = VARIANT;
-			osem->addImagePSF(imageVarPsf_fname);
+			osem->addImagePSF(config.getValue<std::string>("varpsf"));
 		}
 
 		// Projection-space PSF

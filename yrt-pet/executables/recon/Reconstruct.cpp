@@ -234,6 +234,11 @@ int main(int argc, char** argv)
 			    "Logic error: Sensitivity image generation was requested while "
 			    "pre-existing sensitivity images were provided");
 		}
+		if (!config.getValue<bool>("sens_only"))
+		{
+			ASSERT_MSG(!config.getValue<std::string>("out").empty(),
+			           "Output reconstruction image filename unspecified.");
+		}
 
 		Globals::set_num_threads(config.getValue<int>("num_threads"));
 		std::cout << "Initializing scanner..." << std::endl;

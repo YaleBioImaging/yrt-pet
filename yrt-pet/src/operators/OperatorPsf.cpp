@@ -100,6 +100,15 @@ OperatorPsf::OperatorPsf(const std::string& imagePsf_fname) : OperatorPsf{}
 	readFromFileInternal(imagePsf_fname);
 }
 
+OperatorPsf::OperatorPsf(const std::vector<float>& kernelX,
+	const std::vector<float>& kernelY,
+	const std::vector<float>& kernelZ) : m_kernelX(kernelX), m_kernelY(kernelY), m_kernelZ(kernelZ)
+{
+	m_kernelX_flipped = std::vector<float>(kernelX.rbegin(), kernelX.rend());
+	m_kernelY_flipped = std::vector<float>(kernelY.rbegin(), kernelY.rend());
+	m_kernelZ_flipped = std::vector<float>(kernelZ.rbegin(), kernelZ.rend());
+}
+
 void OperatorPsf::readFromFile(const std::string& imagePsf_fname)
 {
 	readFromFileInternal(imagePsf_fname);
@@ -108,7 +117,7 @@ void OperatorPsf::readFromFile(const std::string& imagePsf_fname)
 void OperatorPsf::readFromFileInternal(const std::string& imagePsf_fname)
 {
 	Array2D<float> kernelsArray2D;
-	std::cout << "Reading single image space PSF kernel csv file..." << std::endl;
+	std::cout << "Reading image space PSF kernel csv file..." << std::endl;
 	Util::readCSV<float>(imagePsf_fname, kernelsArray2D);
 
 	std::array<int, 3> kerSize;

@@ -15,6 +15,10 @@ class OperatorPsf : public Operator
 public:
 	OperatorPsf();
 	explicit OperatorPsf(const std::string& imagePsf_fname);
+	
+	OperatorPsf(const std::vector<float>& kernelX,
+		const std::vector<float>& kernelY,
+		const std::vector<float>& kernelZ);
 	~OperatorPsf() override = default;
 
 	virtual void readFromFile(const std::string& imagePsf_fname);

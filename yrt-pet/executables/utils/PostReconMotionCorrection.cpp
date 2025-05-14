@@ -88,7 +88,7 @@ int main(int argc, char* argv[])
 		    "The number of images provided must match the number of frames "
 		    "defined in the LOR Motion file (One image per frame).");
 
-		for (frame_t i = 0; i < numImages; i++)
+		for (frame_t i = 0; i < static_cast<frame_t>(numImages); i++)
 		{
 			std::cout << "Reading image for frame " << i << std::endl;
 			auto currentImage = std::make_unique<ImageOwned>(images_fname[i]);

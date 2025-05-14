@@ -11,6 +11,8 @@
 #include <ctime>
 #include <random>
 
+// TODO NOW: Test the linear transformations
+
 void checkTwoImages(const Image& img1, const Image& img2)
 {
 	const ImageParams& params1 = img1.getParams();

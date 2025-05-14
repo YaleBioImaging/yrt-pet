@@ -3,19 +3,14 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-/* **************************************************************************************
+/*******************************************************************************
  * Def.: Post-reconstruction correction of motion by warping images obtained by
- *       motion-divided independant reconstruction of a PET acquisition to a
- *frame of
- *       reference.
- * TODO:
- *		- Add verbose to the process.
- *		- Add frame specifier in parser and adapt the code accordingly.
- *		- Add frame disabling in parser and set it in the warper.
- * *************************************************************************************/
+ *       motion-divided independent reconstruction of a PET acquisition to a
+ *		 frame of reference.
+ ******************************************************************************/
 
 #include "datastruct/image/Image.hpp"
-#include "motion/ImageWarperFunction.hpp"
+#include "datastruct/projection/LORMotion.hpp"
 #include "utils/Assert.hpp"
 
 #include <cxxopts.hpp>
@@ -29,23 +24,29 @@ int main(int argc, char* argv[])
 {
 	try
 	{
-		std::vector<std::string> im_fname;
-		std::string warpParamFile;
-		std::string outFile;
-		std::string outParamFile;
+		std::vector<std::string> images_fname;
+		std::string lorMotion_fname;
+		std::string out_fname;
 
 		// Parse command line arguments
-		cxxopts::Options options(argv[0],
-		                         "Post-reconstruction motion correction "
-		                         "executable");
+		cxxopts::Options options(
+		    argv[0],
+		    "Post-reconstruction motion correction "
+		    "executable (alternative to event-by-event motion correction)");
 		options.positional_help("[optional args]").show_positional_help();
 
 		/* clang-format off */
 		options.add_options()
-		("i,im", "Paths to each images", cxxopts::value(im_fname))
-		("p,param", "Image parameters file", cxxopts::value<std::string>(outParamFile))
-		("w,warper", "Path to the warp parameters file", cxxopts::value(warpParamFile))
-		("o,out", "Where the resulting image will be saved", cxxopts::value(outFile))
+		("i,input",
+			"Paths to each image (separated by commas). "
+			"Specify one image per frame",
+			cxxopts::value(images_fname))
+		("lor_motion",
+			"LOR motion file for motion correction",
+			cxxopts::value(lorMotion_fname))
+		("o,out",
+			"Output image filename",
+			cxxopts::value(out_fname))
 		("help", "Print help");
 		/* clang-format on */
 
@@ -56,8 +57,8 @@ int main(int argc, char* argv[])
 			return 0;
 		}
 
-		std::vector<std::string> required_params = {"im", "wFile", "out",
-		                                            "param"};
+		std::vector<std::string> required_params = {"input", "lor_motion",
+		                                            "out"};
 		bool missing_args = false;
 		for (auto& p : required_params)
 		{
@@ -73,41 +74,58 @@ int main(int argc, char* argv[])
 			return -1;
 		}
 
-		// Load the images.
-		ImageParams imgParams(outParamFile);
-		std::vector<std::unique_ptr<ImageOwned>> imageList(im_fname.size());
-		for (size_t i = 0; i < im_fname.size(); i++)
+		// Load the LOR Motion file
+		auto lorMotion = std::make_unique<LORMotion>(lorMotion_fname);
+		size_t numFrames = lorMotion->getNumFrames();
+		float totalDuration = lorMotion->getTotalDuration();
+
+		ImageParams imageParams;
+		std::unique_ptr<ImageOwned> finalImage;
+
+		size_t numImages = images_fname.size();
+		ASSERT_MSG(
+		    numImages == numFrames,
+		    "The number of images provided must match the number of frames "
+		    "defined in the LOR Motion file (One image per frame).");
+
+		for (frame_t i = 0; i < numImages; i++)
 		{
-			std::ifstream f(im_fname[i].c_str());
-			if (f.good())
+			std::cout << "Reading image for frame " << i << std::endl;
+			auto currentImage = std::make_unique<ImageOwned>(images_fname[i]);
+
+			ImageParams currentParams = currentImage->getParams();
+			if (i == 0)
 			{
-				imageList[i] = std::make_unique<ImageOwned>(imgParams);
-				imageList[i]->allocate();
-				imageList[i]->readFromFile(im_fname[i]);
+				// Image parameters not set yet. Use the first image to get
+				//  the parameters
+				imageParams = currentParams;
+				// Use the parameters to initialize the final image
+				finalImage = std::make_unique<ImageOwned>(imageParams);
+				finalImage->allocate();
 			}
 			else
 			{
-				std::cerr << "The file " << im_fname[i] << " does not exist."
-				          << std::endl;
-				return -1;
+				ASSERT_MSG(imageParams.isSameAs(currentParams),
+				           "Image parameters mismatch. Not all images provided "
+				           "have the same properties");
 			}
+			ASSERT(finalImage != nullptr);
+
+			transform_t currentTransform = lorMotion->getTransform(i);
+			float currentFrameWeight =
+			    lorMotion->getDuration(i) / totalDuration;
+
+			// Transform and weight the image
+			currentImage = currentImage->transformImage(currentTransform);
+			currentImage->multWithScalar(currentFrameWeight);
+
+			// Accumulate image
+			currentImage->addFirstImageToSecond(finalImage.get());
 		}
 
-		ImageWarperFunction warper;
-		warper.setImageHyperParam(imgParams);
-		warper.setFramesParamFromFile(warpParamFile);
+		finalImage->writeToFile(out_fname);
 
-		auto postMotionCorrImage = std::make_unique<ImageOwned>(imgParams);
-		postMotionCorrImage->allocate();
-		for (size_t m = 0; m < imageList.size(); m++)
-		{
-			warper.warpImageToRefFrame(imageList[m].get(), m);
-			imageList[m]->addFirstImageToSecond(postMotionCorrImage.get());
-		}
-
-		postMotionCorrImage->writeToFile(outFile);
 		std::cout << "Done." << std::endl;
-
 		return 0;
 	}
 	catch (const cxxopts::exceptions::exception& e)

@@ -76,13 +76,13 @@ void py_setup_image(py::module& m)
 	    py::arg("pt"));
 	c.def("getArray", &Image::getArray);
 	c.def("transformImage",
-	      static_cast<std::unique_ptr<Image> (Image::*)(
+	      static_cast<std::unique_ptr<ImageOwned> (Image::*)(
 	          const Vector3D& rotation, const Vector3D& translation) const>(
 	          &Image::transformImage),
 	      py::arg("rotation"), py::arg("translation"));
 	c.def("transformImage",
-	      static_cast<std::unique_ptr<Image> (Image::*)(const transform_t& t)
-	                      const>(&Image::transformImage),
+	      static_cast<std::unique_ptr<ImageOwned> (Image::*)(
+	          const transform_t& t) const>(&Image::transformImage),
 	      py::arg("transform"));
 	c.def("updateImageNearestNeighbor", &Image::updateImageNearestNeighbor,
 	      py::arg("pt"), py::arg("value"), py::arg("doMultiplication"));
@@ -966,8 +966,9 @@ void Image::transformImage(const Vector3D& rotation,
 	}
 }
 
-std::unique_ptr<Image> Image::transformImage(const Vector3D& rotation,
-                                             const Vector3D& translation) const
+std::unique_ptr<ImageOwned>
+    Image::transformImage(const Vector3D& rotation,
+                          const Vector3D& translation) const
 {
 	auto newImg = std::make_unique<ImageOwned>(getParams());
 	newImg->allocate();
@@ -1010,7 +1011,7 @@ void Image::transformImage(const transform_t& t, Image& dest,
 	}
 }
 
-std::unique_ptr<Image> Image::transformImage(const transform_t& t) const
+std::unique_ptr<ImageOwned> Image::transformImage(const transform_t& t) const
 {
 	auto newImg = std::make_unique<ImageOwned>(getParams());
 	newImg->allocate();

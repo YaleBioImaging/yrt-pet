@@ -231,6 +231,9 @@ def _test_savant_sim_ultra_micro_hotspot_motion_post_recon_mc(keyword: str):
                                                 "ultra_micro_hotspot",
                                                 keyword + ".mot")
     exec_str += " --out " + out_file
+    print("Running: " + exec_str)
+    ret = os.system(exec_str)
+    assert ret == 0
 
     out_img = yrt.ImageOwned(img_params, out_file)
     ref_img = yrt.ImageOwned(img_params, os.path.join(fold_savant_sim,

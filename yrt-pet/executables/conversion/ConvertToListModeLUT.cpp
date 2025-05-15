@@ -41,7 +41,7 @@ int main(int argc, char** argv)
 		        IO::possibleFormats(Plugin::InputFormatsChoice::ONLYLISTMODES),
 		    true, IO::TypeOfArgument::STRING, "", inputGroup, "f");
 
-		registry.registerArgument("out", "Output histogram filename", true,
+		registry.registerArgument("out", "Output listmode filename", true,
 		                          IO::TypeOfArgument::STRING, "", outputGroup,
 		                          "o");
 

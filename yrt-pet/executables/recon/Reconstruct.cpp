@@ -197,13 +197,13 @@ int main(int argc, char** argv)
 		    "proj_psf",
 		    "Projection-space PSF kernel file (for DD projector only)", false,
 		    IO::TypeOfArgument::STRING, "", projectorGroup);
-		registry.registerArgument("tof_width_ps", "TOF Width in picoseconds",
+		registry.registerArgument("tof_width_ps", "TOF width in picoseconds",
 		                          false, IO::TypeOfArgument::FLOAT, 0.0f,
 		                          projectorGroup);
 		registry.registerArgument("tof_n_std",
 		                          "Number of standard deviations to consider "
-		                          "for TOF's Gaussian curve",
-		                          false, IO::TypeOfArgument::INT, 0,
+		                          "for TOF's Gaussian curve. Default: 5",
+		                          false, IO::TypeOfArgument::INT, 5,
 		                          projectorGroup);
 
 		PluginOptionsHelper::addOptionsFromPlugins(
@@ -461,8 +461,19 @@ int main(int argc, char** argv)
 
 		if (config.getValue<float>("tof_width_ps") > 0.f)
 		{
+			ASSERT_MSG(
+			    dataInput->hasTOF(),
+			    "The input file does not have TOF data, yet, TOF configuration "
+			    "was still provided to the reconstruction options");
 			osem->addTOF(config.getValue<float>("tof_width_ps"),
 			             config.getValue<int>("tof_n_std"));
+		}
+		else
+		{
+			ASSERT_MSG_WARNING(
+			    !dataInput->hasTOF(),
+			    "The input file has TOF data, but the TOF width "
+			    "was not provided to the reconstruction options");
 		}
 
 		// Additive histograms

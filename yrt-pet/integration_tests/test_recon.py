@@ -223,9 +223,10 @@ def _test_savant_sim_ultra_micro_hotspot_motion_post_recon_mc(keyword: str):
         file_list.append(file_format.format(idx=(i + 1)))
 
     out_file = os.path.join(fold_out,
-                            "test_savant_sim_ultra_micro_hotspot_" + keyword + "_post_recon_mc.nii.gz")
+                            "test_savant_sim_ultra_micro_hotspot_" +
+                            keyword + "_post_recon_mc.nii.gz")
 
-    exec_str = "yrtpet_post_recon_motion_correction"
+    exec_str = os.path.join(fold_bin, "yrtpet_post_recon_motion_correction")
     exec_str += " --input " + ",".join(file_list)
     exec_str += " --lor_motion " + os.path.join(fold_savant_sim,
                                                 "ultra_micro_hotspot",
@@ -238,7 +239,9 @@ def _test_savant_sim_ultra_micro_hotspot_motion_post_recon_mc(keyword: str):
     out_img = yrt.ImageOwned(img_params, out_file)
     ref_img = yrt.ImageOwned(img_params, os.path.join(fold_savant_sim,
                                                       "ref",
-                                                      "ultra_micro_hotspot_" + keyword + "_post_recon_mc.nii.gz"))
+                                                      "ultra_micro_hotspot_" +
+                                                      keyword +
+                                                      "_post_recon_mc.nii.gz"))
 
     nrmse = _helper.get_nrmse(np.array(out_img, copy=False),
                               np.array(ref_img, copy=False))

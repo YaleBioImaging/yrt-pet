@@ -21,6 +21,7 @@ public:
 	float getDuration(frame_t frame) const;  // In ms
 	size_t getNumFrames() const;
 	void writeToFile(const std::string& filename) const;
+	float getTotalDuration() const;
 
 private:
 	// Setup internal pointers for the transforms and the timestamps

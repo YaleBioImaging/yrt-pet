@@ -43,9 +43,6 @@ void py_setup_detregular(py::module& m);
 void py_setup_io(py::module& m);
 
 void py_setup_srtm(py::module& m);
-void py_setup_imagewarpertemplate(py::module& m);
-void py_setup_imagewarpermatrix(py::module& m);
-void py_setup_imagewarperfunction(py::module& m);
 
 void py_setup_operator(py::module& m);
 void py_setup_operatorpsf(py::module& m);
@@ -101,9 +98,6 @@ PYBIND11_MODULE(pyyrtpet, m)
 	py_setup_io(m);
 
 	py_setup_srtm(m);
-	py_setup_imagewarpertemplate(m);
-	py_setup_imagewarpermatrix(m);
-	py_setup_imagewarperfunction(m);
 	py_setup_utilities(m);
 	py_setup_utilities_rangelist(m);
 

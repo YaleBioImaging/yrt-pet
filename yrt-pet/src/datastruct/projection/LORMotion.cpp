@@ -87,6 +87,13 @@ void LORMotion::writeToFile(const std::string& filename) const
 	m_structure.save_transpose(filename);
 }
 
+float LORMotion::getTotalDuration() const
+{
+	const frame_t lastFrame = getNumFrames() - 1;
+	return mp_startingTimestamps[lastFrame] - mp_startingTimestamps[0] +
+	       getDuration(lastFrame);
+}
+
 void LORMotion::setupPointers()
 {
 	ASSERT_MSG(getNumFrames() > 0, "There has to be at least one frame");

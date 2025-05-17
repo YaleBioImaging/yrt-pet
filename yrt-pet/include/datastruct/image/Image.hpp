@@ -14,6 +14,7 @@
 #include <string>
 
 struct transform_t;
+class ImageOwned;
 
 class Image : public ImageBase
 {
@@ -43,10 +44,11 @@ public:
 
 	void transformImage(const Vector3D& rotation, const Vector3D& translation,
 	                    Image& dest, float weight) const;
-	std::unique_ptr<Image> transformImage(const Vector3D& rotation,
-	                                      const Vector3D& translation) const;
+	std::unique_ptr<ImageOwned>
+	    transformImage(const Vector3D& rotation,
+	                   const Vector3D& translation) const;
 	void transformImage(const transform_t& t, Image& dest, float weight) const;
-	std::unique_ptr<Image> transformImage(const transform_t& t) const;
+	std::unique_ptr<ImageOwned> transformImage(const transform_t& t) const;
 
 	float dotProduct(const Image& y) const;
 	float nearestNeighbor(const Vector3D& pt) const;

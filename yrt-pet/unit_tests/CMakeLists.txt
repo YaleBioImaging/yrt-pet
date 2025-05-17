@@ -33,8 +33,7 @@ set(SOURCES_ALGORITHMS
     ${SOURCES_COMMON}
     operators/test_DD.cpp
     operators/test_SparseProjection.cpp
-    operators/test_Siddon.cpp
-    motion/test_Warper.cpp)
+    operators/test_Siddon.cpp)
 
 if (${USE_CUDA})
     set(SOURCES_ALGORITHMS "${SOURCES_ALGORITHMS};operators/test_Siddon_GPU.cu")

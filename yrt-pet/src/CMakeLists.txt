@@ -31,9 +31,6 @@ set(SOURCES
     geometry/Plane.cpp
     kernel/Kernel.cpp
     kinetic/SRTM.cpp
-    motion/ImageWarperMatrix.cpp
-    motion/ImageWarperTemplate.cpp
-    motion/ImageWarperFunction.cpp
     operators/Operator.cpp
     operators/OperatorProjectorBase.cpp
     operators/OperatorProjector.cpp

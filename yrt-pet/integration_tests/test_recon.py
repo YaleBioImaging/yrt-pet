@@ -218,40 +218,41 @@ def _test_savant_sim_ultra_micro_hotspot_motion_post_recon_mc(keyword: str):
 
     file_format = os.path.join(fold_savant_sim, "images",
                                keyword + "_ground_truth_part_{idx}_of_5.nii")
-    image_list = []
+    file_list = list()
     for i in range(5):
-        image_list.append(yrt.ImageOwned(file_format.format(idx=(i + 1))))
+        file_list.append(file_format.format(idx=(i + 1)))
 
-    warper = yrt.ImageWarperFunction()
-    warper.setImageHyperParam([img_params.nx, img_params.ny, img_params.nz],
-                              [img_params.length_x, img_params.length_y,
-                               img_params.length_z])
-    warper.setFramesParamFromFile(
-        os.path.join(fold_savant_sim, "ultra_micro_hotspot", keyword + ".twp"))
+    out_file = os.path.join(fold_out,
+                            "test_savant_sim_ultra_micro_hotspot_" +
+                            keyword + "_post_recon_mc.nii.gz")
 
-    out_img = yrt.ImageOwned(img_params)
-    out_img.allocate()
-    out_img.setValue(0.0)
-    for i, image in enumerate(image_list):
-        warper.warpImageToRefFrame(image, i)
-        image.addFirstImageToSecond(out_img)
+    exec_str = os.path.join(fold_bin, "yrtpet_post_recon_motion_correction")
+    exec_str += " --input " + ",".join(file_list)
+    exec_str += " --lor_motion " + os.path.join(fold_savant_sim,
+                                                "ultra_micro_hotspot",
+                                                keyword + ".mot")
+    exec_str += " --out " + out_file
+    print("Running: " + exec_str)
+    ret = os.system(exec_str)
+    assert ret == 0
 
-    out_img.writeToFile(os.path.join(fold_out,
-                                     "test_savant_sim_ultra_micro_hotspot_" + keyword + "_post_recon_mc.nii"))
+    out_img = yrt.ImageOwned(img_params, out_file)
     ref_img = yrt.ImageOwned(img_params, os.path.join(fold_savant_sim,
                                                       "ref",
-                                                      "ultra_micro_hotspot_" + keyword + "_post_recon_mc.nii"))
+                                                      "ultra_micro_hotspot_" +
+                                                      keyword +
+                                                      "_post_recon_mc.nii.gz"))
 
     nrmse = _helper.get_nrmse(np.array(out_img, copy=False),
                               np.array(ref_img, copy=False))
     assert nrmse < 10e-6
 
 
-def _test_savant_sim_ultra_micro_hotspot_piston_post_recon_mc():
+def test_savant_sim_ultra_micro_hotspot_piston_post_recon_mc():
     _test_savant_sim_ultra_micro_hotspot_motion_post_recon_mc('piston')
 
 
-def _test_savant_sim_ultra_micro_hotspot_wobble_post_recon_mc():
+def test_savant_sim_ultra_micro_hotspot_wobble_post_recon_mc():
     _test_savant_sim_ultra_micro_hotspot_motion_post_recon_mc('wobble')
 
 

@@ -33,6 +33,7 @@
 #define RNMX (1.0 - EPS)
 
 #define NS_TO_S 1e-9
+#define NS_TO_S_FLT 1e-9f
 
 // macros:
 #define GET_MIN(a, b, c) ((((a > b) ? b : a) > c) ? c : ((a > b) ? b : a))

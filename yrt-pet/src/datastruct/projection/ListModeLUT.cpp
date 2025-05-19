@@ -28,6 +28,8 @@ void py_setup_listmodelut(py::module& m)
 	c.def("setDetectorId1OfEvent", &ListModeLUT::setDetectorId1OfEvent);
 	c.def("setDetectorId2OfEvent", &ListModeLUT::setDetectorId2OfEvent);
 	c.def("setDetectorIdsOfEvent", &ListModeLUT::setDetectorIdsOfEvent);
+	c.def("setTimestampOfEvent", &ListModeLUT::setTimestampOfEvent);
+	c.def("setTOFValueOfEvent", &ListModeLUT::setTOFValueOfEvent);
 
 	c.def("getTimestampArray",
 	      [](const ListModeLUT& self) -> py::array_t<timestamp_t>
@@ -264,6 +266,7 @@ void ListModeLUT::writeToFile(const std::string& listMode_fname) const
 
 void ListModeLUT::addLORMotion(const std::string& lorMotion_fname)
 {
+	// TODO NOW: Warn the user if there is no allocation
 	mp_lorMotion = std::make_unique<LORMotion>(lorMotion_fname);
 	mp_frames = std::make_unique<Array1D<frame_t>>();
 	const size_t numEvents = count();

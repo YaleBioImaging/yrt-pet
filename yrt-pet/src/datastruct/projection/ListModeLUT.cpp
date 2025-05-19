@@ -266,7 +266,7 @@ void ListModeLUT::writeToFile(const std::string& listMode_fname) const
 
 void ListModeLUT::addLORMotion(const std::string& lorMotion_fname)
 {
-	// TODO NOW: Warn the user if there is no allocation
+	ASSERT_MSG(isMemoryValid(), "List-mode data not allocated yet");
 	mp_lorMotion = std::make_unique<LORMotion>(lorMotion_fname);
 	mp_frames = std::make_unique<Array1D<frame_t>>();
 	const size_t numEvents = count();
@@ -303,6 +303,11 @@ void ListModeLUT::addLORMotion(const std::string& lorMotion_fname)
 	{
 		mp_frames->setFlat(evId, currentFrame);
 	}
+}
+
+bool ListModeLUT::isMemoryValid() const
+{
+	return mp_timestamps->getRawPointer() != nullptr;
 }
 
 timestamp_t ListModeLUT::getTimestamp(bin_t eventId) const

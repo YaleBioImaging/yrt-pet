@@ -74,6 +74,7 @@ void py_setup_listmodelut(py::module& m)
 		      return py::array_t<float>(buf_info);
 	      });
 	c.def("addLORMotion", &ListModeLUT::addLORMotion);
+	c.def("isMemoryValid", &ListModeLUT::isMemoryValid);
 
 	c.def("writeToFile", &ListModeLUT::writeToFile);
 	c.def("getNativeLORFromId", &ListModeLUT::getNativeLORFromId);

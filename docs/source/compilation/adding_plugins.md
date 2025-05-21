@@ -9,5 +9,6 @@ Plugins take the form of a folder with source code and a CMakeLists.txt file.
 This folder has to be copied (or symbolically linked in) the `plugins` directory
 of this repository.
 
-See the `yrt-pet-csv` repository for a minimal example of a plugin that adds
-support for a CSV list-mode format.
+See the [`yrt-pet-csv`](https://github.com/YaleBioImaging/yrt-pet-csv)
+repository for a minimal example of a plugin that adds support for a CSV
+list-mode format.

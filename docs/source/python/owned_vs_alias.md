@@ -34,10 +34,11 @@ img_yrt = yrt.ImageOwned(img_params)
 img_yrt.allocate()
 
 # Bind to numpy
-img_np = np.array(img_yrt, copy=False) # The "copy=False" is important
+img_np = np.array(img_yrt, copy=False)
+# Setting "copy=False" is what allows for the memory aliasing.
 
-# Whatever is done in the np_img array,
-# it will internally be done in yrt_img's memory
+# From now on, whatever that is done in the img_np array,
+# it will internally be done in img_yrt's memory
 # and vice-versa
 
 # Example: This will write in img_yrt's memory
@@ -65,8 +66,8 @@ img_np = np.ones([img_params.nz, img_params.ny, img_params.nx], dtype=np.float32
 img_yrt = yrt.ImageAlias(img_params)
 img_yrt.bind(img_np)
 
-# Whatever is done in the np_img array,
-# it will internally be done in yrt_img's memory,
+# Whatever is done in the img_np array,
+# it will internally be done in img_np's memory,
 # and vice-versa
 
 # Example: This will write in img_yrt's memory

@@ -21,15 +21,21 @@
 #include <pybind11/pybind11.h>
 
 namespace py = pybind11;
+using namespace py::literals;
 
 void py_setup_listmodelut(py::module& m)
 {
 	auto c = py::class_<ListModeLUT, ListMode>(m, "ListModeLUT");
-	c.def("setDetectorId1OfEvent", &ListModeLUT::setDetectorId1OfEvent);
-	c.def("setDetectorId2OfEvent", &ListModeLUT::setDetectorId2OfEvent);
-	c.def("setDetectorIdsOfEvent", &ListModeLUT::setDetectorIdsOfEvent);
-	c.def("setTimestampOfEvent", &ListModeLUT::setTimestampOfEvent);
-	c.def("setTOFValueOfEvent", &ListModeLUT::setTOFValueOfEvent);
+	c.def("setDetectorId1OfEvent", &ListModeLUT::setDetectorId1OfEvent,
+	      "event_id"_a, "d1"_a);
+	c.def("setDetectorId2OfEvent", &ListModeLUT::setDetectorId2OfEvent,
+	      "event_id"_a, "d2"_a);
+	c.def("setDetectorIdsOfEvent", &ListModeLUT::setDetectorIdsOfEvent,
+	      "event_id"_a, "d1"_a, "d2"_a);
+	c.def("setTimestampOfEvent", &ListModeLUT::setTimestampOfEvent,
+	      "event_id"_a, "timestamp"_a);
+	c.def("setTOFValueOfEvent", &ListModeLUT::setTOFValueOfEvent, "event_id"_a,
+	      "tof_value"_a);
 
 	c.def("getTimestampArray",
 	      [](const ListModeLUT& self) -> py::array_t<timestamp_t>
@@ -73,11 +79,11 @@ void py_setup_listmodelut(py::module& m)
 		                          {arr->getSizeTotal()}, {sizeof(float)});
 		      return py::array_t<float>(buf_info);
 	      });
-	c.def("addLORMotion", &ListModeLUT::addLORMotion);
+	c.def("addLORMotion", &ListModeLUT::addLORMotion, "lorMotion_fname"_a);
 	c.def("isMemoryValid", &ListModeLUT::isMemoryValid);
 
-	c.def("writeToFile", &ListModeLUT::writeToFile);
-	c.def("getNativeLORFromId", &ListModeLUT::getNativeLORFromId);
+	c.def("writeToFile", &ListModeLUT::writeToFile, "filename"_a);
+	c.def("getNativeLORFromId", &ListModeLUT::getNativeLORFromId, "event_id"_a);
 
 	auto c_alias =
 	    py::class_<ListModeLUTAlias, ListModeLUT>(m, "ListModeLUTAlias");
@@ -110,12 +116,13 @@ void py_setup_listmodelut(py::module& m)
 	c_owned.def(py::init<const Scanner&, const std::string&, bool>(),
 	            py::arg("scanner"), py::arg("listMode_fname"),
 	            py::arg("flag_tof") = false);
-	c_owned.def("readFromFile", &ListModeLUTOwned::readFromFile);
-	c_owned.def("allocate", &ListModeLUTOwned::allocate);
+	c_owned.def("readFromFile", &ListModeLUTOwned::readFromFile, "filename"_a);
+	c_owned.def("allocate", &ListModeLUTOwned::allocate, "num_events"_a);
 	c_owned.def(
 	    "createFromHistogram3D",
 	    [](ListModeLUTOwned* self, const Histogram3D* histo, size_t num_events)
-	    { Util::histogram3DToListModeLUT(histo, self, num_events); });
+	    { Util::histogram3DToListModeLUT(histo, self, num_events); }, "histo"_a,
+	    "num_events"_a);
 }
 
 #endif  // if BUILD_PYBIND11

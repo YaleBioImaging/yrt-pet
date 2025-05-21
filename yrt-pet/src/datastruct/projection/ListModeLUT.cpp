@@ -272,45 +272,10 @@ void ListModeLUT::writeToFile(const std::string& listMode_fname) const
 	file.close();
 }
 
-void ListModeLUT::addLORMotion(const std::string& lorMotion_fname)
+void ListModeLUT::addLORMotion(const std::shared_ptr<LORMotion>& pp_lorMotion)
 {
 	ASSERT_MSG(isMemoryValid(), "List-mode data not allocated yet");
-	mp_lorMotion = std::make_unique<LORMotion>(lorMotion_fname);
-	mp_frames = std::make_unique<Array1D<frame_t>>();
-	const size_t numEvents = count();
-	mp_frames->allocate(numEvents);
-
-	// Populate the frames
-	const frame_t numFrames =
-	    static_cast<frame_t>(mp_lorMotion->getNumFrames());
-	bin_t evId = 0;
-
-	// Skip the events that are before the first frame
-	const timestamp_t firstTimestamp = mp_lorMotion->getStartingTimestamp(0);
-	while (getTimestamp(evId) < firstTimestamp)
-	{
-		mp_frames->setFlat(evId, -1);
-		evId++;
-	}
-
-	// Fill the events in the middle
-	frame_t currentFrame;
-	for (currentFrame = 0; currentFrame < numFrames - 1; currentFrame++)
-	{
-		const timestamp_t endingTimestamp =
-		    mp_lorMotion->getStartingTimestamp(currentFrame + 1);
-		while (evId < numEvents && getTimestamp(evId) < endingTimestamp)
-		{
-			mp_frames->setFlat(evId, currentFrame);
-			evId++;
-		}
-	}
-
-	// Fill the events at the end
-	for (; evId < numEvents; evId++)
-	{
-		mp_frames->setFlat(evId, currentFrame);
-	}
+	ListMode::addLORMotion(pp_lorMotion);
 }
 
 bool ListModeLUT::isMemoryValid() const
@@ -331,51 +296,6 @@ size_t ListModeLUT::count() const
 bool ListModeLUT::isUniform() const
 {
 	return true;
-}
-
-bool ListModeLUT::hasMotion() const
-{
-	return mp_lorMotion != nullptr;
-}
-
-frame_t ListModeLUT::getFrame(bin_t id) const
-{
-	if (mp_lorMotion != nullptr)
-	{
-		return mp_frames->getFlat(id);
-	}
-	return ProjectionData::getFrame(id);
-}
-
-size_t ListModeLUT::getNumFrames() const
-{
-	if (mp_lorMotion != nullptr)
-	{
-		return mp_lorMotion->getNumFrames();
-	}
-	return ProjectionData::getNumFrames();
-}
-
-transform_t ListModeLUT::getTransformOfFrame(frame_t frame) const
-{
-	ASSERT(mp_lorMotion != nullptr);
-	if (frame >= 0)
-	{
-		return mp_lorMotion->getTransform(frame);
-	}
-	// For the events before the beginning of the frame
-	return ProjectionData::getTransformOfFrame(frame);
-}
-
-float ListModeLUT::getDurationOfFrame(frame_t frame) const
-{
-	ASSERT(mp_lorMotion != nullptr);
-	if (frame >= 0)
-	{
-		return mp_lorMotion->getDuration(frame);
-	}
-	// For the events before the beginning of the frame
-	return ProjectionData::getDurationOfFrame(frame);
 }
 
 void ListModeLUT::setTimestampOfEvent(bin_t eventId, timestamp_t ts)
@@ -569,26 +489,13 @@ std::unique_ptr<ProjectionData>
 
 	auto lm = std::make_unique<ListModeLUTOwned>(scanner, filename, flagTOF);
 
-	const auto lorMotionFnameVariant = options.at("lor_motion");
-	if (!std::holds_alternative<std::monostate>(lorMotionFnameVariant))
-	{
-		ASSERT(std::holds_alternative<std::string>(lorMotionFnameVariant));
-		const auto lorMotion = std::get<std::string>(lorMotionFnameVariant);
-		lm->addLORMotion(lorMotion);
-	}
-
-	ASSERT(lm != nullptr);
-
 	return lm;
 }
 
 Plugin::OptionsListPerPlugin ListModeLUTOwned::getOptions()
 {
-	return {
-	    {"flag_tof", {"Flag for reading TOF column", IO::TypeOfArgument::BOOL}},
-	    {"lor_motion",
-	     {"LOR motion file for motion correction",
-	      IO::TypeOfArgument::STRING}}};
+	return {{"flag_tof",
+	         {"Flag for reading TOF column", IO::TypeOfArgument::BOOL}}};
 }
 
 REGISTER_PROJDATA_PLUGIN("LM", ListModeLUTOwned, ListModeLUTOwned::create,

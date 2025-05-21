@@ -19,7 +19,7 @@ using namespace py::literals;
 
 void py_setup_lormotion(py::module& m)
 {
-	auto c = py::class_<LORMotion>(m, "LORMotion");
+	auto c = py::class_<LORMotion, std::shared_ptr<LORMotion>>(m, "LORMotion");
 
 	c.def(py::init<const std::string&>(), py::arg("filename"));
 	c.def(py::init<size_t>(), py::arg("numFrames"));

@@ -10,6 +10,7 @@ set(SOURCES_DATASTRUCT
     datastruct/test_CSV.cpp
     datastruct/test_SparseHistogram.cpp
     datastruct/test_Histogram3D.cpp
+    datastruct/test_LORMotion.cpp
     datastruct/test_Image.cpp
     datastruct/test_ListMode.cpp
     datastruct/test_Scanner.cpp

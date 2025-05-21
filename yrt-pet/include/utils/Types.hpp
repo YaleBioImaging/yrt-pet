@@ -30,6 +30,5 @@ using histo_bin_t = std::variant<det_pair_t, bin_t>;
 // For defining a rotation & translation
 struct transform_t
 {
-	float r00, r01, r02, r10, r11, r12, r20, r21, r22;
-	float tx, ty, tz;
+	float r00, r01, r02, tx, r10, r11, r12, ty, r20, r21, r22, tz;
 };

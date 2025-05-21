@@ -32,10 +32,10 @@ public:
 	float getError(frame_t frame) const;
 
 	size_t getNumFrames() const;
+	// Get the total duration of the motion data (in ms) based on the timestamps
+	float getTotalDuration() const;
 	void readFromFile(const std::string& filename);
 	void writeToFile(const std::string& filename) const;
-	float getTotalDuration() const;
-
 
 	// Safe getters and setters (for python)
 	transform_t getTransformSafe(frame_t frame) const;
@@ -43,9 +43,7 @@ public:
 	void setTransformSafe(frame_t frame, const transform_t& transform);
 	void setStartingTimestampSafe(frame_t frame, timestamp_t timestamp);
 	void setErrorSafe(frame_t frame, float error);
-	float getDurationSafe(frame_t frame) const;  // In ms
 	float getErrorSafe(frame_t frame) const;
-
 
 protected:
 	void resize(size_t newSize);

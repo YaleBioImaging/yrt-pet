@@ -33,11 +33,6 @@ public:
 	transform_t getTransformOfFrame(frame_t frame) const override;
 	float getDurationOfFrame(frame_t frame) const override;
 
-	// TODO NOW:
-	//  Unify the code that computes the frames based on the LORMotion
-	//   (Use the "ListMode" class)
-	//  Make the timeAveraging of the sens image based on LORMotion
-
 protected:
 	explicit ListMode(const Scanner& pr_scanner);
 

@@ -52,10 +52,12 @@ void py_setup_reconstructionutils(pybind11::module& m)
 	    },
 	    "scanner"_a, "useGPU"_a = false);
 
-	m.def("timeAverageMoveSensitivityImage",
-	      &Util::timeAverageMoveSensitivityImage, "dataInput"_a,
-	      "unmovedSensImage"_a, "numFirstFrames"_a = -1,
-	      "scanDuration"_a = 0);
+	m.def(
+	    "timeAverageMoveImage", &Util::timeAverageMoveImage, "lorMotion"_a,
+	    "unmovedSensImage"_a, "numFirstFrames"_a = -1, "duration"_a = 0,
+	    "Blur a given image based on given motion information. Optionally, "
+	    "set \"numFirstFrames\" to only use a given number of the first frames "
+	    "and \"duration\" to force the total duration to a given amount.");
 
 	m.def("generateTORRandomDOI", &Util::generateTORRandomDOI, "scanner"_a,
 	      "d1"_a, "d2"_a, "vmax"_a);
@@ -220,13 +222,14 @@ namespace Util
 		}
 	}
 
-	std::unique_ptr<ImageOwned> timeAverageMoveSensitivityImage(
-	    const ProjectionData& dataInput, const Image& unmovedSensImage,
-	    int numFirstFrames, timestamp_t scanDurationFirstFrames)
+	std::unique_ptr<ImageOwned>
+	    timeAverageMoveImage(const LORMotion& lorMotion,
+	                         const Image& unmovedImage, int numFirstFrames,
+	                         float scanDurationFirstFrames)
 	{
-		const ImageParams& params = unmovedSensImage.getParams();
+		const ImageParams& params = unmovedImage.getParams();
 		ASSERT_MSG(params.isValid(), "Image parameters incomplete");
-		ASSERT_MSG(unmovedSensImage.isMemoryValid(),
+		ASSERT_MSG(unmovedImage.isMemoryValid(),
 		           "Sensitivity image given is not allocated");
 
 		int64_t numFrames;
@@ -234,20 +237,20 @@ namespace Util
 
 		if (numFirstFrames == -1)
 		{
-			numFrames = dataInput.getNumFrames();
+			numFrames = lorMotion.getNumFrames();
 		}
 		else
 		{
 			numFrames = numFirstFrames;
 		}
 
-		if (scanDurationFirstFrames == 0)
+		if (scanDurationFirstFrames <= 0.0f)
 		{
-			scanDuration = static_cast<float>(dataInput.getScanDuration());
+			scanDuration = lorMotion.getTotalDuration();
 		}
 		else
 		{
-			scanDuration = static_cast<float>(scanDurationFirstFrames);
+			scanDuration = scanDurationFirstFrames;
 		}
 
 		ProgressDisplay progress{numFrames};
@@ -258,10 +261,9 @@ namespace Util
 		for (frame_t frame = 0; frame < numFrames; frame++)
 		{
 			progress.progress(frame);
-			transform_t transform = dataInput.getTransformOfFrame(frame);
-			const float weight =
-			    dataInput.getDurationOfFrame(frame) / scanDuration;
-			unmovedSensImage.transformImage(transform, *movedSensImage, weight);
+			transform_t transform = lorMotion.getTransform(frame);
+			const float weight = lorMotion.getDuration(frame) / scanDuration;
+			unmovedImage.transformImage(transform, *movedSensImage, weight);
 		}
 
 		return movedSensImage;

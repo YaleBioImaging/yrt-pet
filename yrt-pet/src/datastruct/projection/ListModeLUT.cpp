@@ -79,7 +79,6 @@ void py_setup_listmodelut(py::module& m)
 		                          {arr->getSizeTotal()}, {sizeof(float)});
 		      return py::array_t<float>(buf_info);
 	      });
-	c.def("addLORMotion", &ListModeLUT::addLORMotion, "lorMotion_fname"_a);
 	c.def("isMemoryValid", &ListModeLUT::isMemoryValid);
 
 	c.def("writeToFile", &ListModeLUT::writeToFile, "filename"_a);

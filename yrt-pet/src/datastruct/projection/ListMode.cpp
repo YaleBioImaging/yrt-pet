@@ -12,14 +12,23 @@
 #if BUILD_PYBIND11
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
+
 namespace py = pybind11;
+
+using namespace py::literals;
 
 void py_setup_listmode(py::module& m)
 {
 	auto c = py::class_<ListMode, ProjectionData>(m, "ListMode");
-	c.def("getProjectionValue", &ListMode::getProjectionValue);
-	c.def("setProjectionValue", &ListMode::setProjectionValue);
-	c.def("getBinIter", &ListMode::getBinIter);
+	c.def("addLORMotion",
+	      static_cast<void (ListMode::*)(const std::string& lorMotion_fname)>(
+	          &ListMode::addLORMotion),
+	      "lorMotion_fname"_a);
+	c.def("addLORMotion",
+	      static_cast<void (ListMode::*)(
+	          const std::shared_ptr<LORMotion>& pp_lorMotion)>(
+	          &ListMode::addLORMotion),
+	      "lorMotion_fname"_a);
 }
 
 #endif  // if BUILD_PYBIND11

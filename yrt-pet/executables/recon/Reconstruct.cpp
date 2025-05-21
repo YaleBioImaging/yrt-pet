@@ -6,6 +6,7 @@
 #include "../ArgumentReader.hpp"
 #include "../PluginOptionsHelper.hpp"
 #include "datastruct/IO.hpp"
+#include "datastruct/projection/ListMode.hpp"
 #include "datastruct/scanner/Scanner.hpp"
 #include "utils/Assert.hpp"
 #include "utils/Globals.hpp"
@@ -100,6 +101,9 @@ int main(int argc, char** argv)
 		    "format",
 		    "Input file format. Possible values: " + IO::possibleFormats(),
 		    false, IO::TypeOfArgument::STRING, "", inputGroup, "f");
+		registry.registerArgument(
+		    "lor_motion", "Motion CSV file for motion correction", false,
+		    IO::TypeOfArgument::STRING, "", inputGroup, "m");
 
 		// Reconstruction parameters
 		registry.registerArgument(
@@ -232,12 +236,16 @@ int main(int argc, char** argv)
 			ASSERT_MSG(
 			    config.getValue<std::vector<std::string>>("sens").empty(),
 			    "Logic error: Sensitivity image generation was requested while "
-			    "pre-existing sensitivity images were provided");
+			    "pre-existing sensitivity image(s) were provided.");
 		}
 		if (!config.getValue<bool>("sens_only"))
 		{
 			ASSERT_MSG(!config.getValue<std::string>("out").empty(),
 			           "Output reconstruction image filename unspecified.");
+			ASSERT_MSG(!config.getValue<std::string>("input").empty(),
+			           "Input data unspecified.");
+			ASSERT_MSG(!config.getValue<std::string>("format").empty(),
+			           "No format specified for input data.");
 		}
 
 		Globals::set_num_threads(config.getValue<int>("num_threads"));
@@ -268,10 +276,10 @@ int main(int argc, char** argv)
 		{
 			std::cout << "Reading ACF histogram..." << std::endl;
 			ASSERT_MSG(!config.getValue<std::string>("acf_format").empty(),
-			           "Unspecified format for ACF histogram");
+			           "Unspecified format for ACF histogram.");
 			ASSERT_MSG(!IO::isFormatListMode(
 			               config.getValue<std::string>("acf_format")),
-			           "ACF has to be in a histogram format");
+			           "ACF has to be in a histogram format.");
 
 			acfHisProjData = IO::openProjectionData(
 			    config.getValue<std::string>("acf"),
@@ -303,7 +311,7 @@ int main(int argc, char** argv)
 			    "No format specified for hardware ACF histogram");
 			ASSERT_MSG(!IO::isFormatListMode(
 			               config.getValue<std::string>("acf_hardware_format")),
-			           "Hardware ACF has to be in a histogram format");
+			           "Hardware ACF has to be in a histogram format.");
 
 			hardwareAcfHisProjData = IO::openProjectionData(
 			    config.getValue<std::string>("acf_hardware"),
@@ -336,17 +344,17 @@ int main(int argc, char** argv)
 			osem->addProjPSF(config.getValue<std::string>("proj_psf"));
 		}
 
-		// Sensitivity image(s)
+		// Sensitivity histogram and global scale factor
 		std::unique_ptr<ProjectionData> sensitivityProjData = nullptr;
 		if (!config.getValue<std::string>("sensitivity").empty())
 		{
 			std::cout << "Reading sensitivity histogram..." << std::endl;
 			ASSERT_MSG(
 			    !config.getValue<std::string>("sensitivity_format").empty(),
-			    "No format specified for sensitivity histogram");
+			    "No format specified for sensitivity histogram.");
 			ASSERT_MSG(!IO::isFormatListMode(
 			               config.getValue<std::string>("sensitivity_format")),
-			           "Sensitivity data has to be in a histogram format");
+			           "Sensitivity data has to be in a histogram format.");
 
 			sensitivityProjData = IO::openProjectionData(
 			    config.getValue<std::string>("sensitivity"),
@@ -363,8 +371,9 @@ int main(int argc, char** argv)
 		}
 		osem->setGlobalScalingFactor(config.getValue<float>("global_scale"));
 
+		// Sensitivity image(s)
 		std::vector<std::unique_ptr<Image>> sensImages;
-		bool sensImageAlreadyMoved = false;
+		bool needToMoveSensImage = true;
 		if (config.getValue<std::vector<std::string>>("sens").empty())
 		{
 			ASSERT_MSG(!config.getValue<std::string>("params").empty(),
@@ -372,6 +381,7 @@ int main(int argc, char** argv)
 			ImageParams imgParams{config.getValue<std::string>("params")};
 			osem->setImageParams(imgParams);
 
+			std::cout << "Generating sensitivity image(s)..." << std::endl;
 			osem->generateSensitivityImages(
 			    sensImages, config.getValue<std::string>("out_sens"));
 		}
@@ -379,14 +389,14 @@ int main(int argc, char** argv)
 		         static_cast<int>(
 		             config.getValue<std::vector<std::string>>("sens").size()))
 		{
-			std::cout << "Reading sensitivity images..." << std::endl;
+			std::cout << "Reading sensitivity image(s)..." << std::endl;
 			for (auto& sensImg_fname :
 			     config.getValue<std::vector<std::string>>("sens"))
 			{
 				sensImages.push_back(
 				    std::make_unique<ImageOwned>(sensImg_fname));
 			}
-			sensImageAlreadyMoved = !config.getValue<bool>("move_sens");
+			needToMoveSensImage = config.getValue<bool>("move_sens");
 		}
 		else
 		{
@@ -403,52 +413,57 @@ int main(int argc, char** argv)
 			    "sensitivity image is required.");
 		}
 
+		const std::string lorMotion_fname =
+		    config.getValue<std::string>("lor_motion");
+
 		// No need to read data input if in sens_only mode
-		if (config.getValue<bool>("sens_only") &&
-		    config.getValue<std::string>("input").empty())
+		if (config.getValue<bool>("sens_only") && lorMotion_fname.empty())
 		{
 			std::cout << "Done." << std::endl;
 			return 0;
 		}
 
-		// Projection Data Input file
-		std::cout << "Reading input data..." << std::endl;
-		std::unique_ptr<ProjectionData> dataInput;
-		ASSERT_MSG(!config.getValue<std::string>("format").empty(),
-		           "No format specified for Data input");
-		dataInput =
-		    IO::openProjectionData(config.getValue<std::string>("input"),
-		                           config.getValue<std::string>("format"),
-		                           *scanner, config.getAllArguments());
-		osem->setDataInput(dataInput.get());
-
+		std::shared_ptr<LORMotion> lorMotion;
 		std::unique_ptr<ImageOwned> movedSensImage = nullptr;
-		if (dataInput->hasMotion() && !sensImageAlreadyMoved)
+		if (!lorMotion_fname.empty())
 		{
-			ASSERT(sensImages.size() == 1);
-			const Image* unmovedSensImage = sensImages[0].get();
-			ASSERT(unmovedSensImage != nullptr);
+			lorMotion = std::make_shared<LORMotion>(lorMotion_fname);
 
-			std::cout << "Moving sensitivity image..." << std::endl;
-			movedSensImage = Util::timeAverageMoveSensitivityImage(
-			    *dataInput, *unmovedSensImage);
-
-			if (!config.getValue<std::string>("out_sens").empty())
+			if (needToMoveSensImage)
 			{
-				// Overwrite sensitivity image
-				std::cout << "Saving sensitivity image..." << std::endl;
-				movedSensImage->writeToFile(
-				    config.getValue<std::string>("out_sens"));
-			}
+				ASSERT(sensImages.size() == 1);
+				const Image* unmovedSensImage = sensImages[0].get();
+				ASSERT(unmovedSensImage != nullptr);
 
-			// Since this part is only for list-mode data, there is only one
-			// sensitivity image
-			osem->setSensitivityImage(movedSensImage.get());
+				std::cout << "Moving sensitivity image..." << std::endl;
+				movedSensImage =
+				    Util::timeAverageMoveImage(*lorMotion, *unmovedSensImage);
+
+				if (!config.getValue<std::string>("out_sens").empty())
+				{
+					// Overwrite sensitivity image
+					std::cout << "Saving sensitivity image..." << std::endl;
+					movedSensImage->writeToFile(
+					    config.getValue<std::string>("out_sens"));
+				}
+
+				// Since this part is only for list-mode data, there is only one
+				// sensitivity image
+				osem->setSensitivityImage(movedSensImage.get());
+			}
+			else
+			{
+				std::cout
+				    << "Sensitivity image(s) already provided. No need to "
+				       "move them."
+				    << std::endl;
+				osem->setSensitivityImages(sensImages);
+			}
 		}
 		else
 		{
 			std::cout
-			    << "No motion in input file. No need to move sensitivity image."
+			    << "No motion file given. No need to move sensitivity image."
 			    << std::endl;
 			osem->setSensitivityImages(sensImages);
 		}
@@ -457,6 +472,37 @@ int main(int argc, char** argv)
 		{
 			std::cout << "Done." << std::endl;
 			return 0;
+		}
+
+		// Projection data Input file
+		std::cout << "Reading input data..." << std::endl;
+		std::unique_ptr<ProjectionData> dataInput;
+		dataInput =
+		    IO::openProjectionData(config.getValue<std::string>("input"),
+		                           config.getValue<std::string>("format"),
+		                           *scanner, config.getAllArguments());
+		osem->setDataInput(dataInput.get());
+
+		if (lorMotion != nullptr)
+		{
+			if (useListMode)
+			{
+				// Input data as listmode
+				auto* dataInput_lm = dynamic_cast<ListMode*>(dataInput.get());
+				ASSERT_MSG(dataInput_lm != nullptr,
+				           "(Unexpected error) Input data has to be in "
+				           "ListMode format to include motion correction");
+
+				// Link input data to LOR motion (to allow event-by-event motion
+				//  correction)
+				dataInput_lm->addLORMotion(lorMotion);
+			}
+			else
+			{
+				std::cerr << "Warning: Event-by-event motion correction is not "
+				             "available for Histogram data"
+				          << std::endl;
+			}
 		}
 
 		if (config.getValue<float>("tof_width_ps") > 0.f)

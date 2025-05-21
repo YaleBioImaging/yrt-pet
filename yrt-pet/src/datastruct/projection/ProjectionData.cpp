@@ -116,7 +116,7 @@ transform_t ProjectionData::getTransformOfFrame(frame_t frame) const
 {
 	(void)frame;
 	// Return identity rotation and null translation
-	return {1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0};
+	return {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0};
 }
 
 float ProjectionData::getDurationOfFrame(frame_t frame) const

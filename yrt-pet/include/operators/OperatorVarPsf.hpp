@@ -38,7 +38,7 @@
      void readFromFileInternal(const std::string& imageVarPsf_fname);
      mutable std::vector<float> m_buffer_tmp;
      std::vector<Sigma> sigma_lookup;
-     const float kernel_width_control = 3.0;
+     const float kernel_width_control = 4.0;
      const float N=0.0634936;//1/sqrt(8*pi*pi*pi)
      //in the futrue, these shold be included in the header of PSF LUT
      float x_range = 200;

@@ -361,7 +361,7 @@ int main(int argc, char** argv)
 		if (!config.getValue<std::string>("psf").empty())
 		{
 			osem->imgpsfmode = UNIFORM;
-			ASSERT_MSG(!config.getValue<std::string>("varpsf").empty(),
+			ASSERT_MSG(config.getValue<std::string>("varpsf").empty(),
 			           "Got two different image PSF inputs");
 			osem->addImagePSF(config.getValue<std::string>("psf"));
 		}

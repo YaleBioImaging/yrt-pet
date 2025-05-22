@@ -46,6 +46,7 @@ void py_setup_srtm(py::module& m);
 
 void py_setup_operator(py::module& m);
 void py_setup_operatorpsf(py::module& m);
+void py_setup_operatorvarpsf(py::module& m);
 void py_setup_operatorprojectorparams(py::module& m);
 void py_setup_operatorprojectorbase(py::module& m);
 void py_setup_operatorprojector(py::module& m);
@@ -103,6 +104,7 @@ PYBIND11_MODULE(pyyrtpet, m)
 
 	py_setup_operator(m);
 	py_setup_operatorpsf(m);
+	py_setup_operatorvarpsf(m);
 	py_setup_operatorprojectorbase(m);
 	py_setup_operatorprojector(m);
 	py_setup_operatorprojectorparams(m);

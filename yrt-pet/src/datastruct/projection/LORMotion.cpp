@@ -199,8 +199,8 @@ void LORMotion::writeToFile(const std::string& filename) const
 		throw std::runtime_error("Failed to open output file: " + filename);
 	}
 
-	// Optional: set fixed float format with 6 decimal places
-	out << std::fixed << std::setprecision(6);
+	// Optional: set fixed float format with 9 decimal places
+	out << std::fixed << std::setprecision(9);
 
 	for (const auto& rec : m_records)
 	{

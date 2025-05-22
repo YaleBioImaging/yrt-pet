@@ -279,6 +279,14 @@ namespace Util
 		auto movedSensImage = std::make_unique<ImageOwned>(params);
 		movedSensImage->allocate();
 
+		// TODO: Consider edge case:
+		//  timeStart precedes the first frame's start time, therefore, we must
+		//  add an *unmoved* image that has a weight scaled by:
+		//  <time between timeStart and lorMotion.getStartingTimestamp(0)>/
+		//  scanDuration
+		//  This would be done in order to take into account the cases
+		//  when the camera has been started after the scan start.
+
 		for (frame_t frame = 0; frame < numFrames; frame++)
 		{
 			progress.progress(frame);

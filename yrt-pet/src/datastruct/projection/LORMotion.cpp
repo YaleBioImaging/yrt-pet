@@ -232,6 +232,7 @@ timestamp_t LORMotion::getStartingTimestampSafe(frame_t frame) const
 {
 	ASSERT_MSG(frame < static_cast<frame_t>(getNumFrames()),
 	           "Frame index out of range");
+	ASSERT_MSG(frame >= 0, "Frame index must be positive");
 	return getStartingTimestamp(frame);
 }
 
@@ -239,6 +240,7 @@ void LORMotion::setTransformSafe(frame_t frame, const transform_t& transform)
 {
 	ASSERT_MSG(frame < static_cast<frame_t>(getNumFrames()),
 	           "Frame index out of range");
+	ASSERT_MSG(frame >= 0, "Frame index must be positive");
 	setTransform(frame, transform);
 }
 
@@ -246,6 +248,7 @@ void LORMotion::setStartingTimestampSafe(frame_t frame, timestamp_t timestamp)
 {
 	ASSERT_MSG(frame < static_cast<frame_t>(getNumFrames()),
 	           "Frame index out of range");
+	ASSERT_MSG(frame >= 0, "Frame index must be positive");
 	setStartingTimestamp(frame, timestamp);
 }
 
@@ -253,6 +256,7 @@ void LORMotion::setErrorSafe(frame_t frame, float error)
 {
 	ASSERT_MSG(frame < static_cast<frame_t>(getNumFrames()),
 	           "Frame index out of range");
+	ASSERT_MSG(frame >= 0, "Frame index must be positive");
 	setError(frame, error);
 }
 
@@ -260,6 +264,7 @@ float LORMotion::getErrorSafe(frame_t frame) const
 {
 	ASSERT_MSG(frame < static_cast<frame_t>(getNumFrames()),
 	           "Frame index out of range");
+	ASSERT_MSG(frame >= 0, "Frame index must be positive");
 	return getError(frame);
 }
 

@@ -24,7 +24,7 @@ void py_setup_lormotion(py::module& m)
 	c.def(py::init<const std::string&>(), py::arg("filename"));
 	c.def(py::init<size_t>(), py::arg("numFrames"));
 
-	c.def("getTransform", &LORMotion::getTransformSafe, "frame"_a);
+	c.def("getTransform", &LORMotion::getTransform, "frame"_a);
 	c.def("getStartingTimestamp", &LORMotion::getStartingTimestampSafe,
 	      "frame"_a);
 	c.def("setTransform", &LORMotion::setTransformSafe, "frame"_a,
@@ -54,6 +54,13 @@ LORMotion::LORMotion(size_t numFrames)
 
 transform_t LORMotion::getTransform(frame_t frame) const
 {
+	if (frame < 0)
+	{
+		// If before frame start, return identity
+		return {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0};
+	}
+	ASSERT_MSG(frame < static_cast<frame_t>(getNumFrames()),
+	           "Frame index out of range");
 	return m_records[frame].transform;
 }
 
@@ -219,13 +226,6 @@ float LORMotion::getTotalDuration() const
 	const frame_t lastFrame = getNumFrames() - 1;
 	return m_records[lastFrame].timestamp - m_records[0].timestamp +
 	       getDuration(lastFrame);
-}
-
-transform_t LORMotion::getTransformSafe(frame_t frame) const
-{
-	ASSERT_MSG(frame < static_cast<frame_t>(getNumFrames()),
-	           "Frame index out of range");
-	return getTransform(frame);
 }
 
 timestamp_t LORMotion::getStartingTimestampSafe(frame_t frame) const

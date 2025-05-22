@@ -20,11 +20,12 @@ namespace Util
 	void histogram3DToListModeLUT(const Histogram3D* histo,
 	                              ListModeLUTOwned* lmOut,
 	                              size_t numEvents = 0);
-
-	std::unique_ptr<ImageOwned>
-	    timeAverageMoveImage(const LORMotion& lorMotion,
-	                         const Image& unmovedImage, int numFirstFrames = -1,
-	                         float scanDurationFirstFrames = 0.0f);
+	std::unique_ptr<ImageOwned> timeAverageMoveImage(const LORMotion& lorMotion,
+	                                                 const Image& unmovedImage);
+	std::unique_ptr<ImageOwned> timeAverageMoveImage(const LORMotion& lorMotion,
+	                                                 const Image& unmovedImage,
+	                                                 timestamp_t timeStart,
+	                                                 timestamp_t timeStop);
 
 
 	template <bool RequiresAtomic>

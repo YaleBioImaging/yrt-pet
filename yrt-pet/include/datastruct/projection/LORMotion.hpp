@@ -38,7 +38,6 @@ public:
 	void writeToFile(const std::string& filename) const;
 
 	// Safe getters and setters (for python)
-	transform_t getTransformSafe(frame_t frame) const;
 	timestamp_t getStartingTimestampSafe(frame_t frame) const;
 	void setTransformSafe(frame_t frame, const transform_t& transform);
 	void setStartingTimestampSafe(frame_t frame, timestamp_t timestamp);

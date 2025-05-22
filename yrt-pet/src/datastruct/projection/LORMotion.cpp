@@ -219,6 +219,7 @@ void LORMotion::writeToFile(const std::string& filename) const
 		    << rec.transform.r21 << ',' << rec.transform.r22 << ','
 		    << rec.transform.tz << ',' << rec.error << '\n';
 	}
+	out << std::flush;
 }
 
 float LORMotion::getTotalDuration() const

@@ -16,6 +16,8 @@
 #include <pybind11/stl.h>
 namespace py = pybind11;
 
+using namespace py::literals;
+
 void py_setup_projectiondata(py::module& m)
 {
 	auto c = py::class_<ProjectionData, Variable>(m, "ProjectionData");
@@ -25,8 +27,6 @@ void py_setup_projectiondata(py::module& m)
 	      py::arg("id"));
 	c.def("setProjectionValue", &ProjectionData::setProjectionValue,
 	      py::arg("id"), py::arg("value"));
-	c.def("getTimestamp", &ProjectionData::getTimestamp, py::arg("id"));
-	c.def("getFrame", &ProjectionData::getFrame, py::arg("id"));
 	c.def("getDetector1", &ProjectionData::getDetector1, py::arg("id"));
 	c.def("getDetector2", &ProjectionData::getDetector2, py::arg("id"));
 	c.def("getDetectorPair",
@@ -38,7 +38,13 @@ void py_setup_projectiondata(py::module& m)
 	c.def("getHistogramBin", &ProjectionData::getHistogramBin, py::arg("id"));
 	c.def("getBinIter", &ProjectionData::getBinIter, py::arg("numSubsets"),
 	      py::arg("idxSubset"));
+	c.def("getTimestamp", &ProjectionData::getTimestamp, py::arg("id"));
+	c.def("getFrame", &ProjectionData::getFrame, py::arg("id"));
 	c.def("isUniform", &ProjectionData::isUniform);
+	c.def("getRandomsEstimate", &ProjectionData::getRandomsEstimate,
+	      py::arg("id"));
+	c.def("hasTOF", &ProjectionData::hasTOF);
+	c.def("getTOFValue", &ProjectionData::getTOFValue, py::arg("id"));
 	c.def("hasMotion", &ProjectionData::hasMotion);
 	c.def("getNumFrames", &ProjectionData::getNumFrames);
 	c.def("getTransformOfFrame", &ProjectionData::getTransformOfFrame,
@@ -46,21 +52,18 @@ void py_setup_projectiondata(py::module& m)
 	c.def("getDurationOfFrame", &ProjectionData::getDurationOfFrame,
 	      py::arg("frame"));
 	c.def("getScanDuration", &ProjectionData::getScanDuration);
-	c.def("hasTOF", &ProjectionData::hasTOF);
-	c.def("getTOFValue", &ProjectionData::getTOFValue, py::arg("id"));
-	c.def("getRandomsEstimate", &ProjectionData::getRandomsEstimate,
-	      py::arg("id"));
-	c.def("clearProjections", &ProjectionData::clearProjections,
-	      py::arg("value"));
 	c.def("hasArbitraryLORs", &ProjectionData::hasArbitraryLORs);
 	c.def("getArbitraryLOR",
 	      [](const ProjectionData& self, bin_t bin)
 	      {
-		      Line3D l = self.getArbitraryLOR(bin);
+		      const Line3D l = self.getArbitraryLOR(bin);
 		      // Return the raw data
 		      return py::make_tuple(l.point1.x, l.point1.y, l.point1.z,
 		                            l.point2.x, l.point2.y, l.point2.z);
 	      });
+	c.def("getLOR", &ProjectionData::getLOR, "bin"_a);
+	c.def("clearProjections", &ProjectionData::clearProjections,
+	      py::arg("value"));
 	c.def("divideMeasurements", &ProjectionData::divideMeasurements,
 	      py::arg("measurements"), py::arg("binIterator"));
 }

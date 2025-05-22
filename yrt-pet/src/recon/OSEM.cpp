@@ -606,9 +606,9 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 				    	getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType::PSF));
 					mlemImage_rp =
 				    	getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType::PSF);
-					//mlemImage_rp->writeToFile(out_fname);
-					//std::cout << "Output PSF result written to " << out_fname << ". Halting program." << std::endl;
-    				//std::exit(0);  // Halts the program
+					mlemImage_rp->writeToFile(out_fname);
+					std::cout << "Output PSF result written to " << out_fname << ". Halting program." << std::endl;
+    				std::exit(0);  // Halts the program
 				}
 				else
 				{
@@ -618,9 +618,9 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 				    	getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType::PSF));
 					mlemImage_rp =
 				    	getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType::PSF);
-					//mlemImage_rp->writeToFile(out_fname);
-					//std::cout << "Output variant PSF result written to " << out_fname << ". Halting program." << std::endl;
-    				//std::exit(0);  // Halts the program
+					mlemImage_rp->writeToFile(out_fname);
+					std::cout << "Output variant PSF result written to " << out_fname << ". Halting program." << std::endl;
+    				std::exit(0);  // Halts the program
 				}
 			}
 			else

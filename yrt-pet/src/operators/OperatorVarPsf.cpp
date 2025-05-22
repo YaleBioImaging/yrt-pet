@@ -18,19 +18,20 @@
  #include <pybind11/stl.h>
  namespace py = pybind11;
  
- void py_setup_operatorpsf(py::module& m)
+ void py_setup_operatorvarpsf(py::module& m)
  {
-     auto c = py::class_<OperatorPsf, Operator>(m, "OperatorPsf");
+     auto c = py::class_<OperatorVarPsf, Operator>(m, "OperatorVarPsf");
      c.def(py::init<>());
      c.def(py::init<const std::string&>());
-     c.def("readFromFile", &OperatorPsf::readFromFile);
-     c.def("convolve", &OperatorPsf::convolve);
+     c.def("readFromFile", &OperatorVarPsf::readFromFile,"Read the variant PSF from CSV LUT");
+     //c.def("varconvolve", static_cast<void (OperatorVarPsf::*)(const Image*, Image*) const>(&OperatorVarPsf::varconvolve<true>));
+     //c.def("varconvolve_transposed", static_cast<void (OperatorVarPsf::*)(const Image*, Image*) const>(&OperatorVarPsf::varconvolve<false>));
      c.def(
-         "applyA", [](OperatorPsf& self, const Image* img_in, Image* img_out)
+         "applyA", [](OperatorVarPsf& self, const Image* img_in, Image* img_out)
          { self.applyA(img_in, img_out); }, py::arg("img_in"),
          py::arg("img_out"));
      c.def(
-         "applyAH", [](OperatorPsf& self, const Image* img_in, Image* img_out)
+         "applyAH", [](OperatorVarPsf& self, const Image* img_in, Image* img_out)
          { self.applyAH(img_in, img_out); }, py::arg("img_in"),
          py::arg("img_out"));
  }
@@ -104,7 +105,6 @@
      auto end = std::chrono::high_resolution_clock::now();
      std::chrono::duration<double> duration = end - start;
      std::cout << "Var PSF execution time: " << duration.count() << " seconds" << std::endl;
-
  }
  
  void OperatorVarPsf::applyAH(const Variable* in, Variable* out)
@@ -126,6 +126,7 @@
      const ImageParams& params = in->getParams();
      ASSERT_MSG(params.isSameDimensionsAs(out->getParams()),
                 "Dimensions mismatch between the two images");
+     ASSERT_MSG(sigma_lookup.size() > 0,"LUT not defined");
      const float* inPtr = in->getRawPointer();
      float* outPtr = out->getRawPointer();
      const int nx = params.nx;
@@ -144,7 +145,7 @@
      float xoffset,yoffset,zoffset,temp_x,temp_y,temp_z;
      int ii,jj,kk;
      int i,j,k;
-     //padding 0
+   
      #pragma omp parallel for private(temp_x,temp_y,temp_z,i,j,k,ii,jj,kk,xoffset,yoffset,zoffset) shared(outPtr)
      for (int pp =0; pp<nx*ny*nz;pp++)
      {
@@ -158,9 +159,7 @@
         int kernel_size_x = std::min(4, static_cast<int>(std::floor((s.sigmax * kernel_width_control) / vx)) - 1);
         int kernel_size_y = std::min(4, static_cast<int>(std::floor((s.sigmay * kernel_width_control) / vy)) - 1);
         int kernel_size_z = std::min(4, static_cast<int>(std::floor((s.sigmaz * kernel_width_control) / vz)) - 1);
-        //int kernel_size_x = 3;
-        //int kernel_size_y = 3;
-        //int kernel_size_z = 3;
+
         const int kx_len = kernel_size_x * 2 + 1;
         const int ky_len = kernel_size_y * 2 + 1;
         const int kz_len = kernel_size_z * 2 + 1;

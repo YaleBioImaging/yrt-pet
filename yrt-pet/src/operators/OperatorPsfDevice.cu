@@ -57,8 +57,7 @@ void py_setup_operatorpsfdevice(py::module& m)
 
 OperatorPsfDevice::OperatorPsfDevice(const cudaStream_t* pp_stream)
     : DeviceSynchronized{pp_stream, pp_stream},
-      OperatorPsf{},
-      mpd_intermediaryImage{nullptr}
+      OperatorPsf{}
 {
 	initDeviceArraysIfNeeded();
 }
@@ -69,6 +68,15 @@ OperatorPsfDevice::OperatorPsfDevice(const std::string& pr_imagePsf_fname,
 {
 	// Constructors should be synchronized
 	readFromFileInternal(pr_imagePsf_fname, true);
+}
+
+OperatorPsfDevice::OperatorPsfDevice(const std::vector<float>& kernelX,
+	const std::vector<float>& kernelY,
+	const std::vector<float>& kernelZ,
+	const cudaStream_t* pp_stream)
+	: DeviceSynchronized{pp_stream, pp_stream}, OperatorPsf(kernelX, kernelY, kernelZ)
+{
+	copyToDevice(true);
 }
 
 void OperatorPsfDevice::readFromFileInternal(

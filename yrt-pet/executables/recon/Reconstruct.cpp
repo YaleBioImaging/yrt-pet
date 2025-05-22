@@ -238,15 +238,21 @@ int main(int argc, char** argv)
 			    "Logic error: Sensitivity image generation was requested while "
 			    "pre-existing sensitivity image(s) were provided.");
 		}
+
+		const std::string dataInputFormat =
+		    config.getValue<std::string>("format");
+		const std::string dataInputFilename =
+		    config.getValue<std::string>("input");
 		if (!config.getValue<bool>("sens_only"))
 		{
 			ASSERT_MSG(!config.getValue<std::string>("out").empty(),
 			           "Output reconstruction image filename unspecified.");
-			ASSERT_MSG(!config.getValue<std::string>("input").empty(),
-			           "Input data unspecified.");
-			ASSERT_MSG(!config.getValue<std::string>("format").empty(),
+			ASSERT_MSG(!dataInputFilename.empty(), "Input data unspecified.");
+			ASSERT_MSG(!dataInputFormat.empty(),
 			           "No format specified for input data.");
 		}
+		ASSERT_MSG(dataInputFilename.empty() == dataInputFormat.empty(),
+		           "Input data must come with a specified format");
 
 		Globals::set_num_threads(config.getValue<int>("num_threads"));
 		std::cout << "Initializing scanner..." << std::endl;
@@ -265,8 +271,7 @@ int main(int argc, char** argv)
 
 		// To make sure the sensitivity image gets generated accordingly
 		const bool useListMode =
-		    !config.getValue<std::string>("format").empty() &&
-		    IO::isFormatListMode(config.getValue<std::string>("format"));
+		    !dataInputFormat.empty() && IO::isFormatListMode(dataInputFormat);
 		osem->setListModeEnabled(useListMode);
 
 		// Total attenuation image
@@ -423,6 +428,17 @@ int main(int argc, char** argv)
 			return 0;
 		}
 
+		std::unique_ptr<ProjectionData> dataInput;
+		if (!dataInputFilename.empty())
+		{
+			// Projection data Input file
+			std::cout << "Reading input data..." << std::endl;
+			dataInput =
+			    IO::openProjectionData(dataInputFilename, dataInputFormat,
+			                           *scanner, config.getAllArguments());
+			osem->setDataInput(dataInput.get());
+		}
+
 		std::shared_ptr<LORMotion> lorMotion;
 		std::unique_ptr<ImageOwned> movedSensImage = nullptr;
 		if (!lorMotion_fname.empty())
@@ -436,8 +452,21 @@ int main(int argc, char** argv)
 				ASSERT(unmovedSensImage != nullptr);
 
 				std::cout << "Moving sensitivity image..." << std::endl;
-				movedSensImage =
-				    Util::timeAverageMoveImage(*lorMotion, *unmovedSensImage);
+				if (dataInput == nullptr)
+				{
+					// Time average move based on all the frames
+					movedSensImage = Util::timeAverageMoveImage(
+					    *lorMotion, *unmovedSensImage);
+				}
+				else
+				{
+					// Time average move based on the frames of the listmode
+					const timestamp_t timeStart = dataInput->getTimestamp(0);
+					const timestamp_t timeStop =
+					    dataInput->getTimestamp(dataInput->count() - 1);
+					movedSensImage = Util::timeAverageMoveImage(
+					    *lorMotion, *unmovedSensImage, timeStart, timeStop);
+				}
 
 				if (!config.getValue<std::string>("out_sens").empty())
 				{
@@ -473,15 +502,6 @@ int main(int argc, char** argv)
 			std::cout << "Done." << std::endl;
 			return 0;
 		}
-
-		// Projection data Input file
-		std::cout << "Reading input data..." << std::endl;
-		std::unique_ptr<ProjectionData> dataInput;
-		dataInput =
-		    IO::openProjectionData(config.getValue<std::string>("input"),
-		                           config.getValue<std::string>("format"),
-		                           *scanner, config.getAllArguments());
-		osem->setDataInput(dataInput.get());
 
 		if (lorMotion != nullptr)
 		{

@@ -230,8 +230,9 @@ int main(int argc, char** argv)
 			return -1;
 		}
 
-		if (config.getValue<bool>("sens_only") &&
-		    !config.getValue<bool>("move_sens"))
+		const bool sensOnly = config.getValue<bool>("sens_only");
+
+		if (sensOnly && !config.getValue<bool>("move_sens"))
 		{
 			ASSERT_MSG(
 			    config.getValue<std::vector<std::string>>("sens").empty(),
@@ -239,11 +240,12 @@ int main(int argc, char** argv)
 			    "pre-existing sensitivity image(s) were provided.");
 		}
 
-		const std::string dataInputFormat =
-		    config.getValue<std::string>("format");
-		const std::string dataInputFilename =
-		    config.getValue<std::string>("input");
-		if (!config.getValue<bool>("sens_only"))
+		const auto dataInputFormat = config.getValue<std::string>("format");
+		const auto dataInputFilename = config.getValue<std::string>("input");
+		ASSERT_MSG(dataInputFilename.empty() == dataInputFormat.empty(),
+		           "Input data must come with a specified format");
+
+		if (!sensOnly)
 		{
 			ASSERT_MSG(!config.getValue<std::string>("out").empty(),
 			           "Output reconstruction image filename unspecified.");
@@ -251,8 +253,6 @@ int main(int argc, char** argv)
 			ASSERT_MSG(!dataInputFormat.empty(),
 			           "No format specified for input data.");
 		}
-		ASSERT_MSG(dataInputFilename.empty() == dataInputFormat.empty(),
-		           "Input data must come with a specified format");
 
 		Globals::set_num_threads(config.getValue<int>("num_threads"));
 		std::cout << "Initializing scanner..." << std::endl;
@@ -422,7 +422,7 @@ int main(int argc, char** argv)
 		    config.getValue<std::string>("lor_motion");
 
 		// No need to read data input if in sens_only mode
-		if (config.getValue<bool>("sens_only") && lorMotion_fname.empty())
+		if (sensOnly && lorMotion_fname.empty())
 		{
 			std::cout << "Done." << std::endl;
 			return 0;
@@ -482,10 +482,9 @@ int main(int argc, char** argv)
 			}
 			else
 			{
-				std::cout
-				    << "Sensitivity image(s) already provided. No need to "
-				       "move them."
-				    << std::endl;
+				std::cout << "Sensitivity image(s) already provided. No need "
+				             "for time-averaging."
+				          << std::endl;
 				osem->setSensitivityImages(sensImages);
 			}
 		}
@@ -497,7 +496,7 @@ int main(int argc, char** argv)
 			osem->setSensitivityImages(sensImages);
 		}
 
-		if (config.getValue<bool>("sens_only"))
+		if (sensOnly)
 		{
 			std::cout << "Done." << std::endl;
 			return 0;

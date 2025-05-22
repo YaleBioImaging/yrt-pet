@@ -52,6 +52,8 @@ public:
 
 	void addLORMotion(const std::string& lorMotion_fname);
 
+	bool isMemoryValid() const;
+
 protected:
 	explicit ListModeLUT(const Scanner& pr_scanner, bool p_flagTOF = false);
 

@@ -28,6 +28,8 @@ void py_setup_listmodelut(py::module& m)
 	c.def("setDetectorId1OfEvent", &ListModeLUT::setDetectorId1OfEvent);
 	c.def("setDetectorId2OfEvent", &ListModeLUT::setDetectorId2OfEvent);
 	c.def("setDetectorIdsOfEvent", &ListModeLUT::setDetectorIdsOfEvent);
+	c.def("setTimestampOfEvent", &ListModeLUT::setTimestampOfEvent);
+	c.def("setTOFValueOfEvent", &ListModeLUT::setTOFValueOfEvent);
 
 	c.def("getTimestampArray",
 	      [](const ListModeLUT& self) -> py::array_t<timestamp_t>
@@ -72,6 +74,7 @@ void py_setup_listmodelut(py::module& m)
 		      return py::array_t<float>(buf_info);
 	      });
 	c.def("addLORMotion", &ListModeLUT::addLORMotion);
+	c.def("isMemoryValid", &ListModeLUT::isMemoryValid);
 
 	c.def("writeToFile", &ListModeLUT::writeToFile);
 	c.def("getNativeLORFromId", &ListModeLUT::getNativeLORFromId);
@@ -264,6 +267,7 @@ void ListModeLUT::writeToFile(const std::string& listMode_fname) const
 
 void ListModeLUT::addLORMotion(const std::string& lorMotion_fname)
 {
+	ASSERT_MSG(isMemoryValid(), "List-mode data not allocated yet");
 	mp_lorMotion = std::make_unique<LORMotion>(lorMotion_fname);
 	mp_frames = std::make_unique<Array1D<frame_t>>();
 	const size_t numEvents = count();
@@ -300,6 +304,11 @@ void ListModeLUT::addLORMotion(const std::string& lorMotion_fname)
 	{
 		mp_frames->setFlat(evId, currentFrame);
 	}
+}
+
+bool ListModeLUT::isMemoryValid() const
+{
+	return mp_timestamps->getRawPointer() != nullptr;
 }
 
 timestamp_t ListModeLUT::getTimestamp(bin_t eventId) const

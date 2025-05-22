@@ -5,12 +5,12 @@
 
 #include "../PluginOptionsHelper.hpp"
 #include "datastruct/IO.hpp"
+#include "datastruct/projection/ListMode.hpp"
 #include "datastruct/scanner/Scanner.hpp"
 #include "operators/OperatorProjector.hpp"
 #include "utils/Assert.hpp"
 #include "utils/Globals.hpp"
 #include "utils/ReconstructionUtils.hpp"
-#include "utils/Tools.hpp"
 
 #include <cxxopts.hpp>
 #include <iostream>
@@ -36,6 +36,9 @@ int main(int argc, char** argv)
 		    "format",
 		    "Input file format. Possible values: " + IO::possibleFormats(),
 		    true, IO::TypeOfArgument::STRING, "", inputGroup, "f");
+		registry.registerArgument(
+		    "lor_motion", "Motion CSV file for motion correction", false,
+		    IO::TypeOfArgument::STRING, "", inputGroup, "m");
 
 #if BUILD_CUDA
 		registry.registerArgument("gpu", "Use GPU acceleration", false,
@@ -118,10 +121,37 @@ int main(int argc, char** argv)
 
 		// Input data
 		std::cout << "Reading input data..." << std::endl;
+		const auto format = config.getValue<std::string>("format");
+		const bool useListMode = IO::isFormatListMode(format);
 		const auto dataInput =
 		    IO::openProjectionData(config.getValue<std::string>("input"),
-		                           config.getValue<std::string>("format"),
-		                           *scanner, config.getAllArguments());
+		                           format, *scanner, config.getAllArguments());
+
+		const auto lorMotion_fname = config.getValue<std::string>("lor_motion");
+
+		if (!lorMotion_fname.empty())
+		{
+			auto lorMotion = std::make_shared<LORMotion>(lorMotion_fname);
+
+			if (useListMode)
+			{
+				// Input data as listmode
+				auto* dataInput_lm = dynamic_cast<ListMode*>(dataInput.get());
+				ASSERT_MSG(dataInput_lm != nullptr,
+				           "(Unexpected error) Input data has to be in "
+				           "ListMode format to include motion correction");
+
+				// Link input data to LOR motion (to allow event-by-event motion
+				//  correction)
+				dataInput_lm->addLORMotion(lorMotion);
+			}
+			else
+			{
+				std::cerr << "Warning: Event-by-event motion correction is not "
+				             "available for Histogram data"
+				          << std::endl;
+			}
+		}
 
 		// Setup forward projection
 		const auto binIter =

@@ -29,7 +29,7 @@ bool compareTransforms(const transform_t& a, const transform_t& b,
 
 TEST_CASE("lor-motion", "[motion]")
 {
-	const std::string tempFilename = "tmp_lormotion.uc";
+	const std::string tempFilename = "tmp_lormotion.vc";
 
 	// Create sample data
 	std::vector<LORMotion::Record> originalRecords = {

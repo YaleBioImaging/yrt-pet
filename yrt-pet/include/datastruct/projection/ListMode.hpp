@@ -4,6 +4,7 @@
  */
 #pragma once
 
+#include "datastruct/projection/LORMotion.hpp"
 #include "datastruct/projection/ProjectionData.hpp"
 
 #include <memory>
@@ -23,6 +24,18 @@ public:
 	std::unique_ptr<BinIterator> getBinIter(int numSubsets,
 	                                        int idxSubset) const override;
 
+	void addLORMotion(const std::string& lorMotion_fname);
+	virtual void addLORMotion(const std::shared_ptr<LORMotion>& pp_lorMotion);
+
+	bool hasMotion() const override;
+	frame_t getFrame(bin_t id) const override;
+	size_t getNumFrames() const override;
+	transform_t getTransformOfFrame(frame_t frame) const override;
+	float getDurationOfFrame(frame_t frame) const override;
+
 protected:
 	explicit ListMode(const Scanner& pr_scanner);
+
+	std::shared_ptr<LORMotion> mp_lorMotion;
+	std::unique_ptr<Array1D<frame_t>> mp_frames;
 };

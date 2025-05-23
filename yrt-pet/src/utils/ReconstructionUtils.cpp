@@ -52,10 +52,19 @@ void py_setup_reconstructionutils(pybind11::module& m)
 	    },
 	    "scanner"_a, "useGPU"_a = false);
 
-	m.def("timeAverageMoveSensitivityImage",
-	      &Util::timeAverageMoveSensitivityImage, "dataInput"_a,
-	      "unmovedSensImage"_a, "numFirstFrames"_a = -1,
-	      "scanDuration"_a = 0);
+	m.def("timeAverageMoveImage",
+	      static_cast<std::unique_ptr<ImageOwned> (*)(
+	          const LORMotion&, const Image&)>(&Util::timeAverageMoveImage),
+	      "lorMotion"_a, "unmovedSensImage"_a,
+	      "Blur a given image based on given motion information");
+
+	m.def("timeAverageMoveImage",
+	      static_cast<std::unique_ptr<ImageOwned> (*)(
+	          const LORMotion&, const Image&, timestamp_t, timestamp_t)>(
+	          &Util::timeAverageMoveImage),
+	      "lorMotion"_a, "unmovedSensImage"_a, "timeStart"_a, "timeStop"_a,
+	      "Blur a given image based on given motion information");
+
 
 	m.def("generateTORRandomDOI", &Util::generateTORRandomDOI, "scanner"_a,
 	      "d1"_a, "d2"_a, "vmax"_a);
@@ -220,48 +229,80 @@ namespace Util
 		}
 	}
 
-	std::unique_ptr<ImageOwned> timeAverageMoveSensitivityImage(
-	    const ProjectionData& dataInput, const Image& unmovedSensImage,
-	    int numFirstFrames, timestamp_t scanDurationFirstFrames)
+	std::unique_ptr<ImageOwned> timeAverageMoveImage(const LORMotion& lorMotion,
+	                                                 const Image& unmovedImage)
 	{
-		const ImageParams& params = unmovedSensImage.getParams();
+		const size_t numFrames = lorMotion.getNumFrames();
+		ASSERT(numFrames > 0);
+		const timestamp_t startingTimestampFirstFrame =
+		    lorMotion.getStartingTimestamp(0);
+
+		if (numFrames == 1)
+		{
+			// If the user provides only one frame, then only one transformation
+			// will be applied. The weight of that frame will be 1 out of 1.
+			return timeAverageMoveImage(lorMotion, unmovedImage,
+			                            startingTimestampFirstFrame,
+			                            startingTimestampFirstFrame + 1);
+		}
+
+		const frame_t lastFrame = numFrames - 1;
+		const timestamp_t startingTimestampLastFrame =
+		    lorMotion.getStartingTimestamp(lastFrame);
+
+		// We add the duration of the second-to-last frame to take into account
+		// the duration of the last frame (which is unknown)
+		const timestamp_t duration2ndToLastFrame =
+		    startingTimestampLastFrame -
+		    lorMotion.getStartingTimestamp(lastFrame - 1);
+
+		return timeAverageMoveImage(
+		    lorMotion, unmovedImage, startingTimestampFirstFrame,
+		    startingTimestampLastFrame + duration2ndToLastFrame);
+	}
+
+	std::unique_ptr<ImageOwned> timeAverageMoveImage(const LORMotion& lorMotion,
+	                                                 const Image& unmovedImage,
+	                                                 timestamp_t timeStart,
+	                                                 timestamp_t timeStop)
+	{
+		const ImageParams& params = unmovedImage.getParams();
 		ASSERT_MSG(params.isValid(), "Image parameters incomplete");
-		ASSERT_MSG(unmovedSensImage.isMemoryValid(),
+		ASSERT_MSG(unmovedImage.isMemoryValid(),
 		           "Sensitivity image given is not allocated");
 
-		int64_t numFrames;
-		float scanDuration;
-
-		if (numFirstFrames == -1)
-		{
-			numFrames = dataInput.getNumFrames();
-		}
-		else
-		{
-			numFrames = numFirstFrames;
-		}
-
-		if (scanDurationFirstFrames == 0)
-		{
-			scanDuration = static_cast<float>(dataInput.getScanDuration());
-		}
-		else
-		{
-			scanDuration = static_cast<float>(scanDurationFirstFrames);
-		}
+		const int64_t numFrames = lorMotion.getNumFrames();
+		const auto scanDuration = static_cast<float>(timeStop - timeStart);
 
 		ProgressDisplay progress{numFrames};
 
 		auto movedSensImage = std::make_unique<ImageOwned>(params);
 		movedSensImage->allocate();
 
+		// TODO: Consider edge case:
+		//  timeStart precedes the first frame's start time, therefore, we must
+		//  add an *unmoved* image that has a weight scaled by:
+		//  <time between timeStart and lorMotion.getStartingTimestamp(0)>/
+		//  scanDuration
+		//  This would be done in order to take into account the cases
+		//  when the camera has been started after the scan start.
+
 		for (frame_t frame = 0; frame < numFrames; frame++)
 		{
 			progress.progress(frame);
-			transform_t transform = dataInput.getTransformOfFrame(frame);
-			const float weight =
-			    dataInput.getDurationOfFrame(frame) / scanDuration;
-			unmovedSensImage.transformImage(transform, *movedSensImage, weight);
+			const timestamp_t startingTimestamp =
+			    lorMotion.getStartingTimestamp(frame);
+			if (startingTimestamp >= timeStart)
+			{
+				if (startingTimestamp > timeStop)
+				{
+					break;
+				}
+				transform_t transform = lorMotion.getTransform(frame);
+				const float weight =
+				    lorMotion.getDuration(frame) / scanDuration;
+				unmovedImage.transformImage(transform, *movedSensImage, weight);
+			}
 		}
 
 		return movedSensImage;

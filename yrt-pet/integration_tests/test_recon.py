@@ -88,7 +88,7 @@ def _test_savant_sim_ultra_micro_hotspot_motion_mlem_gpu_exec(keyword: str,
     exec_str += " -p " + os.path.join(fold_savant_sim, "img_params_500.json")
     exec_str += " --lor_motion " + os.path.join(fold_savant_sim,
                                                 "ultra_micro_hotspot",
-                                                keyword + ".mot")
+                                                keyword + ".vc")
     exec_str += " -o " + out_path
     exec_str += " --projector " + proj_name_upper + " --gpu"
 
@@ -230,7 +230,7 @@ def _test_savant_sim_ultra_micro_hotspot_motion_post_recon_mc(keyword: str):
     exec_str += " --input " + ",".join(file_list)
     exec_str += " --lor_motion " + os.path.join(fold_savant_sim,
                                                 "ultra_micro_hotspot",
-                                                keyword + ".mot")
+                                                keyword + ".vc")
     exec_str += " --out " + out_file
     print("Running: " + exec_str)
     ret = os.system(exec_str)

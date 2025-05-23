@@ -6,7 +6,6 @@
 #pragma once
 
 #include "datastruct/PluginFramework.hpp"
-#include "datastruct/projection/LORMotion.hpp"
 #include "datastruct/projection/ListMode.hpp"
 #include "utils/Array.hpp"
 
@@ -31,11 +30,6 @@ public:
 	float getTOFValue(bin_t id) const override;
 	size_t count() const override;
 	bool isUniform() const override;
-	bool hasMotion() const override;
-	frame_t getFrame(bin_t id) const override;
-	size_t getNumFrames() const override;
-	transform_t getTransformOfFrame(frame_t frame) const override;
-	float getDurationOfFrame(frame_t frame) const override;
 
 	void setTimestampOfEvent(bin_t eventId, timestamp_t ts);
 	void setDetectorId1OfEvent(bin_t eventId, det_id_t d1);
@@ -50,7 +44,7 @@ public:
 
 	virtual void writeToFile(const std::string& listMode_fname) const;
 
-	void addLORMotion(const std::string& lorMotion_fname);
+	void addLORMotion(const std::shared_ptr<LORMotion>& pp_lorMotion) override;
 
 	bool isMemoryValid() const;
 
@@ -65,9 +59,6 @@ protected:
 	bool m_flagTOF;
 	// Time-of-flight: difference of arrival time t2 - t1 in picoseconds
 	std::unique_ptr<Array1DBase<float>> mp_tof_ps;
-
-	std::unique_ptr<LORMotion> mp_lorMotion;
-	std::unique_ptr<Array1D<frame_t>> mp_frames;
 };
 
 

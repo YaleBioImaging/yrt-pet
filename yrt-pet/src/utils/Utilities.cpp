@@ -32,44 +32,50 @@ void py_setup_utilities(py::module& m)
 	c_transform.def(py::init(
 	                    [](const py::tuple& transformTuple)
 	                    {
-		                    ASSERT_MSG(transformTuple.size() == 2,
+		                    ASSERT_MSG(transformTuple.size() == 12,
 		                               "Transform tuple misformed");
-		                    const auto rotationTuple =
-		                        py::cast<py::tuple>(transformTuple[0]);
-		                    ASSERT_MSG(rotationTuple.size() == 9,
-		                               "Transform tuple misformed in rotation");
-		                    const auto translationTuple =
-		                        py::cast<py::tuple>(transformTuple[1]);
-		                    ASSERT_MSG(
-		                        translationTuple.size() == 3,
-		                        "Transform tuple misformed in translation");
 
 		                    transform_t transform{};
-		                    transform.r00 = py::cast<float>(rotationTuple[0]);
-		                    transform.r01 = py::cast<float>(rotationTuple[1]);
-		                    transform.r02 = py::cast<float>(rotationTuple[2]);
-		                    transform.r10 = py::cast<float>(rotationTuple[3]);
-		                    transform.r11 = py::cast<float>(rotationTuple[4]);
-		                    transform.r12 = py::cast<float>(rotationTuple[5]);
-		                    transform.r20 = py::cast<float>(rotationTuple[6]);
-		                    transform.r21 = py::cast<float>(rotationTuple[7]);
-		                    transform.r22 = py::cast<float>(rotationTuple[8]);
-		                    transform.tx = py::cast<float>(translationTuple[0]);
-		                    transform.ty = py::cast<float>(translationTuple[1]);
-		                    transform.tz = py::cast<float>(translationTuple[2]);
+		                    transform.r00 = py::cast<float>(transformTuple[0]);
+		                    transform.r01 = py::cast<float>(transformTuple[1]);
+		                    transform.r02 = py::cast<float>(transformTuple[2]);
+		                    transform.tx = py::cast<float>(transformTuple[3]);
+		                    transform.r10 = py::cast<float>(transformTuple[4]);
+		                    transform.r11 = py::cast<float>(transformTuple[5]);
+		                    transform.r12 = py::cast<float>(transformTuple[6]);
+		                    transform.ty = py::cast<float>(transformTuple[7]);
+		                    transform.r20 = py::cast<float>(transformTuple[8]);
+		                    transform.r21 = py::cast<float>(transformTuple[9]);
+		                    transform.r22 = py::cast<float>(transformTuple[10]);
+		                    transform.tz = py::cast<float>(transformTuple[11]);
 
 		                    return transform;
 	                    }),
-	                "transformTuple"_a);
+	                "transformTuple"_a,
+	                "Initialize transform_t object from tuple. Format: (r00, "
+	                "r01, r02, tx, r10, r11, r12, ty, r20, r21, r22, tz)");
 	c_transform.def("toTuple",
 	                [](const transform_t& self)
 	                {
-		                return py::make_tuple(
-		                    py::make_tuple(self.r00, self.r01, self.r02,
-		                                   self.r10, self.r11, self.r12,
-		                                   self.r20, self.r21, self.r22),
-		                    py::make_tuple(self.tx, self.ty, self.tz));
+		                return py::make_tuple(self.r00, self.r01, self.r02,
+		                                      self.tx, self.r10, self.r11,
+		                                      self.r12, self.ty, self.r20,
+		                                      self.r21, self.r22, self.tz);
 	                });
+	c_transform.def(
+	    "__repr__",
+	    [](const transform_t& self)
+	    {
+		    std::stringstream ss;
+	    	ss << std::fixed << std::setprecision(6);
+		    ss << "rotation matrix:\n";
+		    ss << self.r00 << " " << self.r01 << " " << self.r02 << "\n";
+		    ss << self.r10 << " " << self.r11 << " " << self.r12 << "\n";
+		    ss << self.r20 << " " << self.r21 << " " << self.r22 << "\n";
+		    ss << "translation vector:\n[";
+		    ss << self.tx << " " << self.ty << " " << self.tz << "]\n";
+		    return ss.str();
+	    });
 	c_transform.def("getTranslation", [](const transform_t& self)
 	                { return py::make_tuple(self.tx, self.ty, self.tz); });
 	c_transform.def("getRotationMatrix",

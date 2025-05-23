@@ -11,6 +11,7 @@ YRT-PET documentation
    :caption: Compilation
 
    compilation/building
+   compilation/adding_plugins
 
 .. toctree::
    :maxdepth: 2

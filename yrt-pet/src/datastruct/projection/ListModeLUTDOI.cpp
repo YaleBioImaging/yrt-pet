@@ -424,16 +424,6 @@ std::unique_ptr<ProjectionData>
 		                                           numLayers);
 	}
 
-	const auto lorMotionFnameVariant = options.at("lor_motion");
-	if (!std::holds_alternative<std::monostate>(lorMotionFnameVariant))
-	{
-		ASSERT(std::holds_alternative<std::string>(lorMotionFnameVariant));
-		const auto lorMotion = std::get<std::string>(lorMotionFnameVariant);
-		lm->addLORMotion(lorMotion);
-	}
-
-	ASSERT(lm != nullptr);
-
 	return lm;
 }
 
@@ -441,10 +431,7 @@ Plugin::OptionsListPerPlugin ListModeLUTDOIOwned::getOptions()
 {
 	return {
 	    {"flag_tof", {"Flag for reading TOF column", IO::TypeOfArgument::BOOL}},
-	    {"num_layers", {"Number of layers", IO::TypeOfArgument::INT}},
-	    {"lor_motion",
-	     {"LOR motion file for motion correction",
-	      IO::TypeOfArgument::STRING}}};
+	    {"num_layers", {"Number of layers", IO::TypeOfArgument::INT}}};
 }
 
 REGISTER_PROJDATA_PLUGIN("LM-DOI", ListModeLUTDOIOwned,

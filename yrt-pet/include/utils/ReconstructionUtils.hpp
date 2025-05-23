@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include "datastruct/projection/LORMotion.hpp"
 #include "datastruct/projection/ProjectionData.hpp"
 #include "recon/OSEM.hpp"
 
@@ -19,12 +20,12 @@ namespace Util
 	void histogram3DToListModeLUT(const Histogram3D* histo,
 	                              ListModeLUTOwned* lmOut,
 	                              size_t numEvents = 0);
-
-	std::unique_ptr<ImageOwned>
-	    timeAverageMoveSensitivityImage(const ProjectionData& dataInput,
-	                                    const Image& unmovedSensImage,
-	                                    int numFirstFrames = -1,
-	                                    uint32_t scanDurationFirstFrames = 0);
+	std::unique_ptr<ImageOwned> timeAverageMoveImage(const LORMotion& lorMotion,
+	                                                 const Image& unmovedImage);
+	std::unique_ptr<ImageOwned> timeAverageMoveImage(const LORMotion& lorMotion,
+	                                                 const Image& unmovedImage,
+	                                                 timestamp_t timeStart,
+	                                                 timestamp_t timeStop);
 
 
 	template <bool RequiresAtomic>

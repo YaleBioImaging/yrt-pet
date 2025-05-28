@@ -16,7 +16,6 @@ public:
 	Matrix(const Matrix& v);
 	Matrix();
 	static Matrix identity();
-	static Matrix fromRotationVector(const Vector3D& rotation);
 
 	template <int row, int col>
 	float element() const;

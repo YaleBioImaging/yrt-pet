@@ -8,6 +8,7 @@
 #include "datastruct/image/ImageBase.hpp"
 #include "geometry/Constants.hpp"
 #include "geometry/Matrix.hpp"
+#include "geometry/TransformUtils.hpp"
 #include "utils/Assert.hpp"
 #include "utils/Tools.hpp"
 #include "utils/Types.hpp"
@@ -317,7 +318,7 @@ bool Image::getNearestNeighborIdx(const Vector3D& pt, int* pi, int* pj,
 }
 
 
-// interpolation operation. It does not account for the offset values.
+// interpolation operation.
 float Image::interpolateImage(const Vector3D& pt) const
 {
 	const ImageParams& params = getParams();
@@ -923,16 +924,9 @@ void Image::transformImage(const Vector3D& rotation,
                            const Vector3D& translation, Image& dest,
                            float weight) const
 {
-	const auto rotationMatrix = Matrix::fromRotationVector(rotation);
-	return transformImage(
-	    transform_t{
-	        rotationMatrix.element<0, 0>(), rotationMatrix.element<0, 1>(),
-	        rotationMatrix.element<0, 2>(), translation.x,
-	        rotationMatrix.element<1, 0>(), rotationMatrix.element<1, 1>(),
-	        rotationMatrix.element<1, 2>(), translation.y,
-	        rotationMatrix.element<2, 0>(), rotationMatrix.element<2, 1>(),
-	        rotationMatrix.element<2, 2>(), translation.z},
-	    dest, weight);
+	const auto transform =
+	    Util::fromRotationAndTranslationVectors(rotation, translation);
+	return transformImage(transform, dest, weight);
 }
 
 std::unique_ptr<ImageOwned>
@@ -950,8 +944,11 @@ void Image::transformImage(const transform_t& t, Image& dest,
                            float weight) const
 {
 	const ImageParams params = getParams();
-	const float* rawPtr = getRawPointer();
+	float* destRawPtr = dest.getRawPointer();
 	const int num_xy = params.nx * params.ny;
+
+	const transform_t it = Util::invertTransform(t);
+
 	for (int i = 0; i < params.nz; i++)
 	{
 		const float z = indexToPositionInDimension<0>(i);
@@ -964,17 +961,18 @@ void Image::transformImage(const transform_t& t, Image& dest,
 			{
 				const float x = indexToPositionInDimension<2>(k);
 
-				float newX = x * t.r00 + y * t.r01 + z * t.r02;
-				newX += t.tx;
-				float newY = x * t.r10 + y * t.r11 + z * t.r12;
-				newY += t.ty;
-				float newZ = x * t.r20 + y * t.r21 + z * t.r22;
-				newZ += t.tz;
+				float newX = x * it.r00 + y * it.r01 + z * it.r02;
+				newX += it.tx;
+				float newY = x * it.r10 + y * it.r11 + z * it.r12;
+				newY += it.ty;
+				float newZ = x * it.r20 + y * it.r21 + z * it.r22;
+				newZ += it.tz;
 
-				const float currentValue =
-				    rawPtr[i * num_xy + j * params.nx + k];
-				dest.updateImageInterpolate({newX, newY, newZ},
-				                            weight * currentValue, false);
+				const float valueFromOriginalImage =
+				    weight * interpolateImage({newX, newY, newZ});
+
+				destRawPtr[i * num_xy + j * params.nx + k] =
+				    valueFromOriginalImage;
 			}
 		}
 	}

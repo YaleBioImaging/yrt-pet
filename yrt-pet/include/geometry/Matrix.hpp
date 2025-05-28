@@ -16,6 +16,10 @@ public:
 	Matrix(const Matrix& v);
 	Matrix();
 	static Matrix identity();
+	static Matrix fromRotationVector(const Vector3D& rotation);
+
+	template <int row, int col>
+	float element() const;
 
 	void update(float a00, float a01, float a02, float a10, float a11,
 	            float a12, float a20, float a21, float a22);

@@ -56,6 +56,68 @@ Matrix Matrix::identity()
 	return Matrix{1, 0, 0, 0, 1, 0, 0, 0, 1};
 }
 
+Matrix Matrix::fromRotationVector(const Vector3D& rotation)
+{
+	const float alpha = rotation.z;
+	const float beta = rotation.y;
+	const float gamma = rotation.x;
+
+	// α = yaw (Z), β = pitch (Y), γ = roll (X)
+	const float ca = std::cos(alpha), sa = std::sin(alpha);  // Yaw
+	const float cb = std::cos(beta), sb = std::sin(beta);    // Pitch
+	const float cc = std::cos(gamma), sc = std::sin(gamma);  // Roll
+
+	// Row-major 3x3 matrix for Rz * Ry * Rx (ZYX)
+	const float r00 = ca * cb;
+	const float r01 = ca * sb * sc - sa * cc;
+	const float r02 = ca * sb * cc + sa * sc;
+
+	const float r10 = sa * cb;
+	const float r11 = sa * sb * sc + ca * cc;
+	const float r12 = sa * sb * cc - ca * sc;
+
+	const float r20 = -sb;
+	const float r21 = cb * sc;
+	const float r22 = cb * cc;
+
+	return Matrix{r00, r01, r02, r10, r11, r12, r20, r21, r22};
+}
+
+template <int row, int col>
+float Matrix::element() const
+{
+	static_assert(row >= 0 && col >= 0);
+	static_assert(row < 3 && col < 3);
+	if constexpr (row == 0 && col == 0)
+		return m_a00;
+	if constexpr (row == 0 && col == 1)
+		return m_a01;
+	if constexpr (row == 0 && col == 2)
+		return m_a02;
+	if constexpr (row == 1 && col == 0)
+		return m_a10;
+	if constexpr (row == 1 && col == 1)
+		return m_a11;
+	if constexpr (row == 1 && col == 2)
+		return m_a12;
+	if constexpr (row == 2 && col == 0)
+		return m_a20;
+	if constexpr (row == 2 && col == 1)
+		return m_a21;
+	if constexpr (row == 2 && col == 2)
+		return m_a22;
+	throw std::runtime_error("Unexpected error");
+}
+template float Matrix::element<0, 0>() const;
+template float Matrix::element<0, 1>() const;
+template float Matrix::element<0, 2>() const;
+template float Matrix::element<1, 0>() const;
+template float Matrix::element<1, 1>() const;
+template float Matrix::element<1, 2>() const;
+template float Matrix::element<2, 0>() const;
+template float Matrix::element<2, 1>() const;
+template float Matrix::element<2, 2>() const;
+
 void Matrix::update(float a00, float a01, float a02, float a10, float a11,
                     float a12, float a20, float a21, float a22)
 {
@@ -250,7 +312,8 @@ bool Matrix::operator==(Matrix matrix) const
 
 std::ostream& operator<<(std::ostream& oss, const Matrix& v)
 {
-	oss << "(" << "(" << v.m_a00 << ", " << v.m_a01 << ", " << v.m_a02 << "), ("
+	oss << "("
+	    << "(" << v.m_a00 << ", " << v.m_a01 << ", " << v.m_a02 << "), ("
 	    << v.m_a10 << ", " << v.m_a11 << ", " << v.m_a12 << "), (" << v.m_a20
 	    << ", " << v.m_a21 << ", " << v.m_a22 << ")";
 	return oss;

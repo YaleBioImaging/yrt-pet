@@ -7,6 +7,7 @@
 
 #include "datastruct/image/ImageBase.hpp"
 #include "geometry/Constants.hpp"
+#include "geometry/Matrix.hpp"
 #include "utils/Assert.hpp"
 #include "utils/Tools.hpp"
 #include "utils/Types.hpp"
@@ -922,48 +923,16 @@ void Image::transformImage(const Vector3D& rotation,
                            const Vector3D& translation, Image& dest,
                            float weight) const
 {
-	ImageParams params = getParams();
-	const float* rawPtr = getRawPointer();
-	const int num_xy = params.nx * params.ny;
-	const float alpha = rotation.z;
-	const float beta = rotation.y;
-	const float gamma = rotation.x;
-
-	for (int i = 0; i < params.nz; i++)
-	{
-		const float z = indexToPositionInDimension<0>(i);
-
-		for (int j = 0; j < params.ny; j++)
-		{
-			const float y = indexToPositionInDimension<1>(j);
-
-			for (int k = 0; k < params.nx; k++)
-			{
-				const float x = indexToPositionInDimension<2>(k);
-
-				float newX = x * cos(alpha) * cos(beta) +
-				             y * (-sin(alpha) * cos(gamma) +
-				                  sin(beta) * sin(gamma) * cos(alpha)) +
-				             z * (sin(alpha) * sin(gamma) +
-				                  sin(beta) * cos(alpha) * cos(gamma));
-				newX += translation.x;
-				float newY = x * sin(alpha) * cos(beta) +
-				             y * (sin(alpha) * sin(beta) * sin(gamma) +
-				                  cos(alpha) * cos(gamma)) +
-				             z * (sin(alpha) * sin(beta) * cos(gamma) -
-				                  sin(gamma) * cos(alpha));
-				newY += translation.y;
-				float newZ = -x * sin(beta) + y * sin(gamma) * cos(beta) +
-				             z * cos(beta) * cos(gamma);
-				newZ += translation.z;
-
-				const float currentValue =
-				    rawPtr[i * num_xy + j * params.nx + k];
-				dest.updateImageInterpolate({newX, newY, newZ},
-				                            weight * currentValue, false);
-			}
-		}
-	}
+	const auto rotationMatrix = Matrix::fromRotationVector(rotation);
+	return transformImage(
+	    transform_t{
+	        rotationMatrix.element<0, 0>(), rotationMatrix.element<0, 1>(),
+	        rotationMatrix.element<0, 2>(), translation.x,
+	        rotationMatrix.element<1, 0>(), rotationMatrix.element<1, 1>(),
+	        rotationMatrix.element<1, 2>(), translation.y,
+	        rotationMatrix.element<2, 0>(), rotationMatrix.element<2, 1>(),
+	        rotationMatrix.element<2, 2>(), translation.z},
+	    dest, weight);
 }
 
 std::unique_ptr<ImageOwned>

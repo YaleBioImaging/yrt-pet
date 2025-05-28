@@ -27,9 +27,9 @@ namespace Util
 		                        -(RT[3] * t[0] + RT[4] * t[1] + RT[5] * t[2]),
 		                        -(RT[6] * t[0] + RT[7] * t[1] + RT[8] * t[2])};
 
-		return transform_t{RT[0], RT[1], R[2], t_new[0],   // Row 0
-		                   RT[3], RT[4], R[5], t_new[1],   // Row 1
-		                   RT[6], RT[7], R[8], t_new[2]};  // Row 2
+		return transform_t{RT[0], RT[1], RT[2], t_new[0],   // Row 0
+		                   RT[3], RT[4], RT[5], t_new[1],   // Row 1
+		                   RT[6], RT[7], RT[8], t_new[2]};  // Row 2
 	}
 
 	transform_t fromRotationAndTranslationVectors(const Vector3D& rotation,

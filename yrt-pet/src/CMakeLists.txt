@@ -26,6 +26,7 @@ set(SOURCES
     geometry/Vector3D.cpp
     geometry/Line3D.cpp
     geometry/MultiRayGenerator.cpp
+    geometry/TransformUtils.cpp
     geometry/TubeOfResponse.cpp
     geometry/Cylinder.cpp
     geometry/Plane.cpp

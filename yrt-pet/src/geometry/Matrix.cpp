@@ -56,33 +56,6 @@ Matrix Matrix::identity()
 	return Matrix{1, 0, 0, 0, 1, 0, 0, 0, 1};
 }
 
-Matrix Matrix::fromRotationVector(const Vector3D& rotation)
-{
-	const float alpha = rotation.z;
-	const float beta = rotation.y;
-	const float gamma = rotation.x;
-
-	// α = yaw (Z), β = pitch (Y), γ = roll (X)
-	const float ca = std::cos(alpha), sa = std::sin(alpha);  // Yaw
-	const float cb = std::cos(beta), sb = std::sin(beta);    // Pitch
-	const float cc = std::cos(gamma), sc = std::sin(gamma);  // Roll
-
-	// Row-major 3x3 matrix for Rz * Ry * Rx (ZYX)
-	const float r00 = ca * cb;
-	const float r01 = ca * sb * sc - sa * cc;
-	const float r02 = ca * sb * cc + sa * sc;
-
-	const float r10 = sa * cb;
-	const float r11 = sa * sb * sc + ca * cc;
-	const float r12 = sa * sb * cc - ca * sc;
-
-	const float r20 = -sb;
-	const float r21 = cb * sc;
-	const float r22 = cb * cc;
-
-	return Matrix{r00, r01, r02, r10, r11, r12, r20, r21, r22};
-}
-
 template <int row, int col>
 float Matrix::element() const
 {

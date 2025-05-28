@@ -976,7 +976,7 @@ void Image::transformImage(const transform_t& t, Image& dest,
 				const float valueFromOriginalImage =
 				    weight * interpolateImage({newX, newY, newZ});
 
-				destRawPtr[i * num_xy + j * nx + k] = valueFromOriginalImage;
+				destRawPtr[i * num_xy + j * nx + k] += valueFromOriginalImage;
 			}
 		}
 	}

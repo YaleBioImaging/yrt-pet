@@ -946,33 +946,37 @@ void Image::transformImage(const transform_t& t, Image& dest,
 	const ImageParams params = getParams();
 	float* destRawPtr = dest.getRawPointer();
 	const int num_xy = params.nx * params.ny;
+	const int nx = params.nx;
+	const int ny = params.ny;
+	const int nz = params.nz;
 
-	const transform_t it = Util::invertTransform(t);
+	const transform_t inv = Util::invertTransform(t);
 
-	for (int i = 0; i < params.nz; i++)
+#pragma omp parallel for default(none) \
+    firstprivate(destRawPtr, nx, ny, nz, num_xy, weight, inv)
+	for (int i = 0; i < nz; i++)
 	{
 		const float z = indexToPositionInDimension<0>(i);
 
-		for (int j = 0; j < params.ny; j++)
+		for (int j = 0; j < ny; j++)
 		{
 			const float y = indexToPositionInDimension<1>(j);
 
-			for (int k = 0; k < params.nx; k++)
+			for (int k = 0; k < nx; k++)
 			{
 				const float x = indexToPositionInDimension<2>(k);
 
-				float newX = x * it.r00 + y * it.r01 + z * it.r02;
-				newX += it.tx;
-				float newY = x * it.r10 + y * it.r11 + z * it.r12;
-				newY += it.ty;
-				float newZ = x * it.r20 + y * it.r21 + z * it.r22;
-				newZ += it.tz;
+				float newX = x * inv.r00 + y * inv.r01 + z * inv.r02;
+				newX += inv.tx;
+				float newY = x * inv.r10 + y * inv.r11 + z * inv.r12;
+				newY += inv.ty;
+				float newZ = x * inv.r20 + y * inv.r21 + z * inv.r22;
+				newZ += inv.tz;
 
 				const float valueFromOriginalImage =
 				    weight * interpolateImage({newX, newY, newZ});
 
-				destRawPtr[i * num_xy + j * params.nx + k] =
-				    valueFromOriginalImage;
+				destRawPtr[i * num_xy + j * nx + k] = valueFromOriginalImage;
 			}
 		}
 	}

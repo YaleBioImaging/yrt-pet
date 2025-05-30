@@ -100,7 +100,7 @@
      Image* img_out = dynamic_cast<Image*>(out);
      ASSERT_MSG(img_in != nullptr && img_out != nullptr,
                 "Input parameters must be images");
- 
+     
      varconvolve<true>(img_in, img_out);
      auto end = std::chrono::high_resolution_clock::now();
      std::chrono::duration<double> duration = end - start;
@@ -145,7 +145,7 @@
      float xoffset,yoffset,zoffset,temp_x,temp_y,temp_z;
      int ii,jj,kk;
      int i,j,k;
-   
+
      #pragma omp parallel for private(temp_x,temp_y,temp_z,i,j,k,ii,jj,kk,xoffset,yoffset,zoffset) shared(outPtr)
      for (int pp =0; pp<nx*ny*nz;pp++)
      {
@@ -156,20 +156,20 @@
         temp_y = std::abs((j+0.5) * vy-y_center);
         temp_z = std::abs((k+0.5) * vz-z_center);
         Sigma s = find_nearest_sigma(sigma_lookup, temp_x, temp_y, temp_z);
-        int kernel_size_x = std::min(4, static_cast<int>(std::floor((s.sigmax * kernel_width_control) / vx)) - 1);
-        int kernel_size_y = std::min(4, static_cast<int>(std::floor((s.sigmay * kernel_width_control) / vy)) - 1);
-        int kernel_size_z = std::min(4, static_cast<int>(std::floor((s.sigmaz * kernel_width_control) / vz)) - 1);
+        int kernel_size_x = std::min(4, std::max(1, static_cast<int>(std::floor((s.sigmax * kernel_width_control) / vx)) - 1));
+        int kernel_size_y = std::min(4, std::max(1, static_cast<int>(std::floor((s.sigmay * kernel_width_control) / vy)) - 1));
+        int kernel_size_z = std::min(4, std::max(1, static_cast<int>(std::floor((s.sigmaz * kernel_width_control) / vz)) - 1));
 
         const int kx_len = kernel_size_x * 2 + 1;
         const int ky_len = kernel_size_y * 2 + 1;
         const int kz_len = kernel_size_z * 2 + 1;
         std::vector<float> psf_kernel(kx_len * ky_len * kz_len, 0.0f);
-        
         float inv_2_sigmax2 = 1.0f / (2 * s.sigmax * s.sigmax);
         float inv_2_sigmay2 = 1.0f / (2 * s.sigmay * s.sigmay);
         float inv_2_sigmaz2 = 1.0f / (2 * s.sigmaz * s.sigmaz);
         float kernel_sum = 0.0f;
         int idx = 0;
+        
         for (int x_diff = -kernel_size_x; x_diff <= kernel_size_x; ++x_diff)
         for (int y_diff = -kernel_size_y; y_diff <= kernel_size_y; ++y_diff)
         for (int z_diff = -kernel_size_z; z_diff <= kernel_size_z; ++z_diff, ++idx)

@@ -30,6 +30,8 @@
      void applyAH(const Variable* in, Variable* out) override;
      template <bool IS_FWD>
      void varconvolve(const Image* in, Image* out) const;
+     std::vector<Sigma> sigma_lookup;
+     const float kernel_width_control = 4.0;
  
  protected:
      Sigma find_nearest_sigma(const std::vector<Sigma> &sigma_lookup, float x, float y, float z) const;
@@ -37,8 +39,6 @@
  private:
      void readFromFileInternal(const std::string& imageVarPsf_fname);
      mutable std::vector<float> m_buffer_tmp;
-     std::vector<Sigma> sigma_lookup;
-     const float kernel_width_control = 4.0;
      const float N=0.0634936;//1/sqrt(8*pi*pi*pi)
      //in the futrue, these shold be included in the header of PSF LUT
      float x_range = 200;

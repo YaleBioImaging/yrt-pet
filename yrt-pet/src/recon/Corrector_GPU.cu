@@ -132,9 +132,11 @@ void Corrector_GPU::precomputeInVivoAttenuationFactors(
 		          << std::endl;
 		Util::convertProjectionValuesToACF(*mph_inVivoAttenuationFactors);
 	}
-
-	// Not supposed to reach here
-	ASSERT_MSG(false, "Unexpected error");
+	else
+	{
+		// Not supposed to reach here
+		ASSERT_MSG(false, "Unexpected error");
+	}
 }
 
 void Corrector_GPU::loadAdditiveCorrectionFactorsToTemporaryDeviceBuffer(

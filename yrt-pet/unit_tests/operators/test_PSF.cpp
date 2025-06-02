@@ -347,7 +347,13 @@ TEST_CASE("VarPSF", "[varpsf]")
 	std::vector<float> voxels = {imgParams.vx, imgParams.vy, imgParams.vz};
 	
 	std::vector<float> sigmas1 = {sigmaX1, sigmaY1, sigmaZ1};
+	int kernel_size_x1 = std::min(4, std::max(1, static_cast<int>(std::floor((sigmas1[0] * op_var.kernel_width_control) / imgParams.vx)) - 1));
+	int kernel_size_y1 = std::min(4, std::max(1, static_cast<int>(std::floor((sigmas1[1] * op_var.kernel_width_control) / imgParams.vy)) - 1));
+	int kernel_size_z1 = std::min(4, std::max(1, static_cast<int>(std::floor((sigmas1[2] * op_var.kernel_width_control) / imgParams.vz)) - 1));
 	std::vector<float> sigmas2 = {sigmaX2, sigmaY2, sigmaZ2};
+	int kernel_size_x2 = std::min(4, std::max(1, static_cast<int>(std::floor((sigmas2[0] * op_var.kernel_width_control) / imgParams.vx)) - 1));
+	int kernel_size_y2 = std::min(4, std::max(1, static_cast<int>(std::floor((sigmas2[1] * op_var.kernel_width_control) / imgParams.vy)) - 1));
+	int kernel_size_z2 = std::min(4, std::max(1, static_cast<int>(std::floor((sigmas2[2] * op_var.kernel_width_control) / imgParams.vz)) - 1));
 	std::vector<float> inputData;
 	inputData.resize(image->getData().getSizeTotal());
 	float* inputPtr = image->getRawPointer();
@@ -357,15 +363,9 @@ TEST_CASE("VarPSF", "[varpsf]")
 	SECTION("forward_varpsf") 
 	{
         op_var.applyA(image.get(), img_out.get());
-		int kernel_size_x = std::min(4, std::max(1, static_cast<int>(std::floor((sigmas1[0] * op_var.kernel_width_control) / imgParams.vx)) - 1));
-		int kernel_size_y = std::min(4, std::max(1, static_cast<int>(std::floor((sigmas1[1] * op_var.kernel_width_control) / imgParams.vy)) - 1));
-		int kernel_size_z = std::min(4, std::max(1, static_cast<int>(std::floor((sigmas1[2] * op_var.kernel_width_control) / imgParams.vz)) - 1));
-		std::vector<float> expected = convolve(inputData, dims, voxels, sigmas1, 0, kernel_size_x, kernel_size_y, kernel_size_z);
-
-		kernel_size_x = std::min(4, std::max(1, static_cast<int>(std::floor((sigmas2[0] * op_var.kernel_width_control) / imgParams.vx)) - 1));
-		kernel_size_y = std::min(4, std::max(1, static_cast<int>(std::floor((sigmas2[1] * op_var.kernel_width_control) / imgParams.vy)) - 1));
-		kernel_size_z = std::min(4, std::max(1, static_cast<int>(std::floor((sigmas2[2] * op_var.kernel_width_control) / imgParams.vz)) - 1));
-		std::vector<float> expected1 = convolve(inputData, dims, voxels, sigmas1, 0, kernel_size_x, kernel_size_y, kernel_size_z);
+		
+		std::vector<float> expected1 = convolve(inputData, dims, voxels, sigmas1, 0, kernel_size_x1, kernel_size_y1, kernel_size_z1);
+		std::vector<float> expected2 = convolve(inputData, dims, voxels, sigmas2, 0, kernel_size_x2, kernel_size_y2, kernel_size_z2);
 
 		int size_x_vox = static_cast<int>(threshold / imgParams.vx);
 		int size_y_vox = static_cast<int>(threshold / imgParams.vy);
@@ -399,13 +399,13 @@ TEST_CASE("VarPSF", "[varpsf]")
 						z > center_z+static_cast<int>(threshold+10 / imgParams.vz));
 					if (in_central_box)
 					{
-						if (!(Approx(expected[idx]).epsilon(1e-3) == outputPtr[idx])) {all_close = false;++failed_central;}
-						CHECK(outputPtr[idx] == Approx(expected[idx]).epsilon(1e-3));
+						if (!(Approx(expected1[idx]).epsilon(1e-3) == outputPtr[idx])) {all_close = false;++failed_central;}
+						CHECK(outputPtr[idx] == Approx(expected1[idx]).epsilon(1e-3));
 					}
 					if (in_edge_box)
 					{
-						if (!(Approx(expected1[idx]).epsilon(1e-3) == outputPtr[idx])) {all_close = false;++failed_edge;}
-						CHECK(outputPtr[idx] == Approx(expected1[idx]).epsilon(1e-3));
+						if (!(Approx(expected2[idx]).epsilon(1e-3) == outputPtr[idx])) {all_close = false;++failed_edge;}
+						CHECK(outputPtr[idx] == Approx(expected2[idx]).epsilon(1e-3));
 					}
 				}
 			}
@@ -418,4 +418,80 @@ TEST_CASE("VarPSF", "[varpsf]")
 			std::cout << "  Edge region mismatches: " << failed_edge << std::endl;
 		}
     }
+
+	SECTION("transposed_varpsf") 
+	{
+		op_var.applyAH(image.get(), img_out.get());
+
+		std::vector<float> expected1 = convolve(inputData, dims, voxels, sigmas1, 1, kernel_size_x1, kernel_size_y1, kernel_size_z1);
+		std::vector<float> expected2 = convolve(inputData, dims, voxels, sigmas2, 1, kernel_size_x2, kernel_size_y2, kernel_size_z2);
+		int size_x_vox = static_cast<int>(threshold / imgParams.vx);
+		int size_y_vox = static_cast<int>(threshold / imgParams.vy);
+		int size_z_vox = static_cast<int>(threshold / imgParams.vz);
+		int center_x = imgParams.nx / 2;
+		int center_y = imgParams.ny / 2;
+		int center_z = imgParams.nz / 2;
+		int start_x = center_x - size_x_vox / 2+1;
+		int end_x   = center_x + size_x_vox / 2-1;
+		int start_y = center_y - size_y_vox / 2+1;
+		int end_y   = center_y + size_y_vox / 2-1;
+		int start_z = center_z - size_z_vox / 2+1;
+		int end_z   = center_z + size_z_vox / 2-1;
+		
+		bool all_close = true;
+		int failed_central = 0;
+		int failed_edge = 0;
+
+		for (int z = 0; z < imgParams.nz; ++z) 
+		{
+			for (int y = 0; y < imgParams.ny; ++y) 
+			{
+				for (int x = 0; x < imgParams.nx; ++x) 
+				{
+					size_t idx = x + imgParams.nx * (y + imgParams.ny * z);
+					bool in_central_box = (x >= start_x && x < end_x &&
+						y >= start_y && y < end_y &&
+						z >= start_z && z < end_z);
+					bool in_edge_box = (x > center_x+static_cast<int>(threshold+10 / imgParams.vx) &&
+						y > center_y+static_cast<int>(threshold+10 / imgParams.vy) &&
+						z > center_z+static_cast<int>(threshold+10 / imgParams.vz));
+					if (in_central_box)
+					{
+						if (!(Approx(expected1[idx]).epsilon(1e-3) == outputPtr[idx])) {all_close = false;++failed_central;}
+						CHECK(outputPtr[idx] == Approx(expected1[idx]).epsilon(1e-3));
+					}
+					if (in_edge_box)
+					{
+						if (!(Approx(expected2[idx]).epsilon(1e-3) == outputPtr[idx])) {all_close = false;++failed_edge;}
+						CHECK(outputPtr[idx] == Approx(expected2[idx]).epsilon(1e-3));
+					}
+				}
+			}
+		}
+		if (all_close) {
+			std::cout << "Var PSF Transposed test passed: all voxels matched expected values." << std::endl;
+		} else {
+			std::cout << "Var PSF Transposed test failed" << std::endl;
+			std::cout << "  Central region mismatches: " << failed_central << std::endl;
+			std::cout << "  Edge region mismatches: " << failed_edge << std::endl;
+		}
+	}
+
+	SECTION("adjoint_varpsf") 
+	{
+		//<Ax,y> =? <x,Aty>
+		auto img_out1 = std::make_unique<ImageOwned>(imgParams);
+		img_out1->allocate();
+        op_var.applyA(image.get(), img_out1.get());
+
+		auto image2 = TestUtils::makeImageWithRandomPrism(imgParams);
+		auto img_out2 = std::make_unique<ImageOwned>(imgParams);
+		img_out2->allocate();
+        op_var.applyAH(image2.get(), img_out2.get());
+
+		// Compute dot products
+		float lhs = img_out1->dotProduct(*image2);  // <Ax, y>
+		float rhs = image->dotProduct(*img_out2);   // <x, Aty>
+		CHECK(lhs == Approx(rhs).epsilon(1e-3));
+	}
 }

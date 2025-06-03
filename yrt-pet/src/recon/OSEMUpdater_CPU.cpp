@@ -5,6 +5,8 @@
 
 #include "yrt-pet/recon/OSEMUpdater_CPU.hpp"
 
+#include <thread>
+
 #include "yrt-pet/datastruct/projection/ProjectionData.hpp"
 #include "yrt-pet/recon/Corrector_CPU.hpp"
 #include "yrt-pet/recon/OSEM_CPU.hpp"
@@ -68,9 +70,11 @@ void OSEMUpdater_CPU::computeSensitivityImage(Image& destImage) const
 	    corrector.getSensImgGenProjData();
 	Image* destImagePtr = &destImage;
 	BinIteratorConstrained binIter(sensImgGenProjData, binIterProj, 10);
-	const bin_t numBins = binIter->size();
+	const bin_t numBins = binIter.count();
 	Util::ProgressDisplayMultiThread progressDisplay(Globals::get_num_threads(),
 	                                                 numBins);
+
+	std::thread producerThread(&BinIteratorConstrained::produce, &binIter);
 
 #pragma omp parallel for default(none)                                      \
     firstprivate(sensImgGenProjData, correctorPtr, projector, destImagePtr, \
@@ -79,10 +83,7 @@ void OSEMUpdater_CPU::computeSensitivityImage(Image& destImage) const
 	{
 		progressDisplay.progress(omp_get_thread_num(), 1);
 
-		const bin_t bin = binIter->get(binIdx);
-
-		const ProjectionProperties projectionProperties =
-		    sensImgGenProjData->getProjectionProperties(bin);
+		const ProjectionProperties projectionProperties = binIter.get();
 
 		const float projValue = correctorPtr->getMultiplicativeCorrectionFactor(
 		    *sensImgGenProjData, bin);
@@ -90,6 +91,8 @@ void OSEMUpdater_CPU::computeSensitivityImage(Image& destImage) const
 		projector->backProjection(destImagePtr, projectionProperties,
 		                          projValue);
 	}
+
+	producerThread.join();
 }
 #endif
 

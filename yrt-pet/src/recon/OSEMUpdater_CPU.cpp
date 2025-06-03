@@ -5,6 +5,8 @@
 
 #include "recon/OSEMUpdater_CPU.hpp"
 
+#include <thread>
+
 #include "datastruct/projection/Histogram3D.hpp"
 #include "datastruct/projection/ProjectionData.hpp"
 #include "recon/Corrector_CPU.hpp"
@@ -12,7 +14,7 @@
 #include "utils/Assert.hpp"
 #include "utils/Globals.hpp"
 #include "utils/ProgressDisplayMultiThread.hpp"
-#include "datastruct/BinIteratorConstrained.hpp"
+#include "datastruct/projection/BinIteratorConstrained.hpp"
 
 OSEMUpdater_CPU::OSEMUpdater_CPU(OSEM_CPU* pp_osem) : mp_osem(pp_osem)
 {
@@ -63,9 +65,11 @@ void OSEMUpdater_CPU::computeSensitivityImage(Image& destImage) const
 	    corrector.getSensImgGenProjData();
 	Image* destImagePtr = &destImage;
 	BinIteratorConstrained binIter(sensImgGenProjData, binIterProj, 10);
-	const bin_t numBins = binIter->size();
+	const bin_t numBins = binIter.count();
 	Util::ProgressDisplayMultiThread progressDisplay(Globals::get_num_threads(),
 	                                                 numBins);
+
+	std::thread producerThread(&BinIteratorConstrained::produce, &binIter);
 
 #pragma omp parallel for default(none)                                      \
     firstprivate(sensImgGenProjData, correctorPtr, projector, destImagePtr, \
@@ -74,10 +78,7 @@ void OSEMUpdater_CPU::computeSensitivityImage(Image& destImage) const
 	{
 		progressDisplay.progress(omp_get_thread_num(), 1);
 
-		const bin_t bin = binIter->get(binIdx);
-
-		const ProjectionProperties projectionProperties =
-		    sensImgGenProjData->getProjectionProperties(bin);
+		const ProjectionProperties projectionProperties = binIter.get();
 
 		const float projValue = correctorPtr->getMultiplicativeCorrectionFactor(
 		    *sensImgGenProjData, bin);
@@ -85,6 +86,8 @@ void OSEMUpdater_CPU::computeSensitivityImage(Image& destImage) const
 		projector->backProjection(destImagePtr, projectionProperties,
 		                          projValue);
 	}
+
+	producerThread.join();
 }
 #endif
 

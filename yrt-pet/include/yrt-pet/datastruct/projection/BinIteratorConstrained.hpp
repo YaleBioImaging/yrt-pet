@@ -94,16 +94,17 @@ public:
 
 class BinIteratorConstrained
 {
-	BinIteratorConstrained(ProjectionData* pProjData, BinIterator* pBinIterBase,
-	                       int pQueueSizeMax);
+public:
+	BinIteratorConstrained(const ProjectionData* pProjData,
+	                       const BinIterator* pBinIterBase, int pQueueSizeMax);
 	void addConstraint(Constraint& pConstraint);
 	size_t count();
 	void produce();
 	const ProjectionProperties& get();
 
 private:
-	ProjectionData* mProjData;
-	BinIterator* mBinIterBase;
+	const ProjectionData* mProjData;
+	const BinIterator* mBinIterBase;
 	std::vector<Constraint*> mConstraints;
 	ThreadSafeQueue<ProjectionProperties> mQueue;
 	size_t mCount;

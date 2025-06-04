@@ -17,6 +17,9 @@ public:
 	Matrix();
 	static Matrix identity();
 
+	template <int row, int col>
+	float element() const;
+
 	void update(float a00, float a01, float a02, float a10, float a11,
 	            float a12, float a20, float a21, float a22);
 	void update(const Matrix& v);

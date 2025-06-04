@@ -56,6 +56,41 @@ Matrix Matrix::identity()
 	return Matrix{1, 0, 0, 0, 1, 0, 0, 0, 1};
 }
 
+template <int row, int col>
+float Matrix::element() const
+{
+	static_assert(row >= 0 && col >= 0);
+	static_assert(row < 3 && col < 3);
+	if constexpr (row == 0 && col == 0)
+		return m_a00;
+	if constexpr (row == 0 && col == 1)
+		return m_a01;
+	if constexpr (row == 0 && col == 2)
+		return m_a02;
+	if constexpr (row == 1 && col == 0)
+		return m_a10;
+	if constexpr (row == 1 && col == 1)
+		return m_a11;
+	if constexpr (row == 1 && col == 2)
+		return m_a12;
+	if constexpr (row == 2 && col == 0)
+		return m_a20;
+	if constexpr (row == 2 && col == 1)
+		return m_a21;
+	if constexpr (row == 2 && col == 2)
+		return m_a22;
+	throw std::runtime_error("Unexpected error");
+}
+template float Matrix::element<0, 0>() const;
+template float Matrix::element<0, 1>() const;
+template float Matrix::element<0, 2>() const;
+template float Matrix::element<1, 0>() const;
+template float Matrix::element<1, 1>() const;
+template float Matrix::element<1, 2>() const;
+template float Matrix::element<2, 0>() const;
+template float Matrix::element<2, 1>() const;
+template float Matrix::element<2, 2>() const;
+
 void Matrix::update(float a00, float a01, float a02, float a10, float a11,
                     float a12, float a20, float a21, float a22)
 {
@@ -250,7 +285,8 @@ bool Matrix::operator==(Matrix matrix) const
 
 std::ostream& operator<<(std::ostream& oss, const Matrix& v)
 {
-	oss << "(" << "(" << v.m_a00 << ", " << v.m_a01 << ", " << v.m_a02 << "), ("
+	oss << "("
+	    << "(" << v.m_a00 << ", " << v.m_a01 << ", " << v.m_a02 << "), ("
 	    << v.m_a10 << ", " << v.m_a11 << ", " << v.m_a12 << "), (" << v.m_a20
 	    << ", " << v.m_a21 << ", " << v.m_a22 << ")";
 	return oss;

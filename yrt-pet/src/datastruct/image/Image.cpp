@@ -7,6 +7,8 @@
 
 #include "datastruct/image/ImageBase.hpp"
 #include "geometry/Constants.hpp"
+#include "geometry/Matrix.hpp"
+#include "geometry/TransformUtils.hpp"
 #include "utils/Assert.hpp"
 #include "utils/Tools.hpp"
 #include "utils/Types.hpp"
@@ -316,7 +318,7 @@ bool Image::getNearestNeighborIdx(const Vector3D& pt, int* pi, int* pj,
 }
 
 
-// interpolation operation. It does not account for the offset values.
+// interpolation operation.
 float Image::interpolateImage(const Vector3D& pt) const
 {
 	const ImageParams& params = getParams();
@@ -349,10 +351,10 @@ float Image::interpolateImage(const Vector3D& pt) const
 	// parameters of the x interpolation:
 	int ix1, ix2, iy1, iy2, iz1, iz2;
 	float dx1, dy1, dz1;
-	if (delta_x < 0.5)
+	if (delta_x < 0.5f)
 	{
 		ix1 = ix;
-		dx1 = 0.5 - delta_x;
+		dx1 = 0.5f - delta_x;
 		if (ix != 0)
 			ix2 = ix - 1;
 		else
@@ -361,17 +363,17 @@ float Image::interpolateImage(const Vector3D& pt) const
 	else
 	{
 		ix1 = ix;
-		dx1 = delta_x - 0.5;
+		dx1 = delta_x - 0.5f;
 		if (ix != (params.nx - 1))
 			ix2 = ix + 1;
 		else
 			ix2 = ix1;
 	}
 	// parameters of the y interpolation:
-	if (delta_y < 0.5)
+	if (delta_y < 0.5f)
 	{
 		iy1 = iy;
-		dy1 = 0.5 - delta_y;
+		dy1 = 0.5f - delta_y;
 		if (iy != 0)
 			iy2 = iy - 1;
 		else
@@ -380,17 +382,17 @@ float Image::interpolateImage(const Vector3D& pt) const
 	else
 	{
 		iy1 = iy;
-		dy1 = delta_y - 0.5;
+		dy1 = delta_y - 0.5f;
 		if (iy != (params.ny - 1))
 			iy2 = iy + 1;
 		else
 			iy2 = iy1;
 	}
 	// parameters of the z interpolation:
-	if (delta_z < 0.5)
+	if (delta_z < 0.5f)
 	{
 		iz1 = iz;
-		dz1 = 0.5 - delta_z;
+		dz1 = 0.5f - delta_z;
 		if (iz != 0)
 			iz2 = iz - 1;
 		else
@@ -399,7 +401,7 @@ float Image::interpolateImage(const Vector3D& pt) const
 	else
 	{
 		iz1 = iz;
-		dz1 = delta_z - 0.5;
+		dz1 = delta_z - 0.5f;
 		if (iz != (params.nz - 1))
 			iz2 = iz + 1;
 		else
@@ -460,10 +462,10 @@ float Image::interpolateImage(const Vector3D& pt, const Image& sens) const
 	// parameters of the x interpolation:
 	int ix1, ix2, iy1, iy2, iz1, iz2;
 	float dx1, dy1, dz1;
-	if (delta_x < 0.5)
+	if (delta_x < 0.5f)
 	{
 		ix1 = ix;
-		dx1 = 0.5 - delta_x;
+		dx1 = 0.5f - delta_x;
 		if (ix != 0)
 			ix2 = ix - 1;
 		else
@@ -472,17 +474,17 @@ float Image::interpolateImage(const Vector3D& pt, const Image& sens) const
 	else
 	{
 		ix1 = ix;
-		dx1 = delta_x - 0.5;
+		dx1 = delta_x - 0.5f;
 		if (ix != (params.nx - 1))
 			ix2 = ix + 1;
 		else
 			ix2 = ix1;
 	}
 	// parameters of the y interpolation:
-	if (delta_y < 0.5)
+	if (delta_y < 0.5f)
 	{
 		iy1 = iy;
-		dy1 = 0.5 - delta_y;
+		dy1 = 0.5f - delta_y;
 		if (iy != 0)
 			iy2 = iy - 1;
 		else
@@ -491,17 +493,17 @@ float Image::interpolateImage(const Vector3D& pt, const Image& sens) const
 	else
 	{
 		iy1 = iy;
-		dy1 = delta_y - 0.5;
+		dy1 = delta_y - 0.5f;
 		if (iy != (params.ny - 1))
 			iy2 = iy + 1;
 		else
 			iy2 = iy1;
 	}
 	// parameters of the z interpolation:
-	if (delta_z < 0.5)
+	if (delta_z < 0.5f)
 	{
 		iz1 = iz;
-		dz1 = 0.5 - delta_z;
+		dz1 = 0.5f - delta_z;
 		if (iz != 0)
 			iz2 = iz - 1;
 		else
@@ -510,7 +512,7 @@ float Image::interpolateImage(const Vector3D& pt, const Image& sens) const
 	else
 	{
 		iz1 = iz;
-		dz1 = delta_z - 0.5;
+		dz1 = delta_z - 0.5f;
 		if (iz != (params.nz - 1))
 			iz2 = iz + 1;
 		else
@@ -577,10 +579,10 @@ void Image::updateImageInterpolate(const Vector3D& point, float value,
 	// parameters of the x interpolation:
 	int ix1, ix2, iy1, iy2, iz1, iz2;
 	float dx1, dy1, dz1;
-	if (delta_x < 0.5)
+	if (delta_x < 0.5f)
 	{
 		ix1 = ix;
-		dx1 = 0.5 - delta_x;
+		dx1 = 0.5f - delta_x;
 		if (ix != 0)
 			ix2 = ix - 1;
 		else
@@ -589,7 +591,7 @@ void Image::updateImageInterpolate(const Vector3D& point, float value,
 	else
 	{
 		ix1 = ix;
-		dx1 = delta_x - 0.5;
+		dx1 = delta_x - 0.5f;
 		if (ix != (params.nx - 1))
 			ix2 = ix + 1;
 		else
@@ -597,10 +599,10 @@ void Image::updateImageInterpolate(const Vector3D& point, float value,
 	}
 
 	// parameters of the y interpolation:
-	if (delta_y < 0.5)
+	if (delta_y < 0.5f)
 	{
 		iy1 = iy;
-		dy1 = 0.5 - delta_y;
+		dy1 = 0.5f - delta_y;
 		if (iy != 0)
 			iy2 = iy - 1;
 		else
@@ -609,7 +611,7 @@ void Image::updateImageInterpolate(const Vector3D& point, float value,
 	else
 	{
 		iy1 = iy;
-		dy1 = delta_y - 0.5;
+		dy1 = delta_y - 0.5f;
 		if (iy != (params.ny - 1))
 			iy2 = iy + 1;
 		else
@@ -617,10 +619,10 @@ void Image::updateImageInterpolate(const Vector3D& point, float value,
 	}
 
 	// parameters of the z interpolation:
-	if (delta_z < 0.5)
+	if (delta_z < 0.5f)
 	{
 		iz1 = iz;
-		dz1 = 0.5 - delta_z;
+		dz1 = 0.5f - delta_z;
 		if (iz != 0)
 			iz2 = iz - 1;
 		else
@@ -629,7 +631,7 @@ void Image::updateImageInterpolate(const Vector3D& point, float value,
 	else
 	{
 		iz1 = iz;
-		dz1 = delta_z - 0.5;
+		dz1 = delta_z - 0.5f;
 		if (iz != (params.nz - 1))
 			iz2 = iz + 1;
 		else
@@ -698,10 +700,10 @@ void Image::assignImageInterpolate(const Vector3D& point, float value)
 	// parameters of the x interpolation:
 	float dx1, dy1, dz1;
 	int ix1, ix2, iy1, iy2, iz1, iz2;
-	if (delta_x < 0.5)
+	if (delta_x < 0.5f)
 	{
 		ix1 = ix;
-		dx1 = 0.5 - delta_x;
+		dx1 = 0.5f - delta_x;
 		if (ix != 0)
 			ix2 = ix - 1;
 		else
@@ -710,7 +712,7 @@ void Image::assignImageInterpolate(const Vector3D& point, float value)
 	else
 	{
 		ix1 = ix;
-		dx1 = delta_x - 0.5;
+		dx1 = delta_x - 0.5f;
 		if (ix != (params.nx - 1))
 			ix2 = ix + 1;
 		else
@@ -718,10 +720,10 @@ void Image::assignImageInterpolate(const Vector3D& point, float value)
 	}
 
 	// parameters of the y interpolation:
-	if (delta_y < 0.5)
+	if (delta_y < 0.5f)
 	{
 		iy1 = iy;
-		dy1 = 0.5 - delta_y;
+		dy1 = 0.5f - delta_y;
 		if (iy != 0)
 			iy2 = iy - 1;
 		else
@@ -730,7 +732,7 @@ void Image::assignImageInterpolate(const Vector3D& point, float value)
 	else
 	{
 		iy1 = iy;
-		dy1 = delta_y - 0.5;
+		dy1 = delta_y - 0.5f;
 		if (iy != (params.ny - 1))
 			iy2 = iy + 1;
 		else
@@ -738,10 +740,10 @@ void Image::assignImageInterpolate(const Vector3D& point, float value)
 	}
 
 	// parameters of the z interpolation:
-	if (delta_z < 0.5)
+	if (delta_z < 0.5f)
 	{
 		iz1 = iz;
-		dz1 = 0.5 - delta_z;
+		dz1 = 0.5f - delta_z;
 		if (iz != 0)
 			iz2 = iz - 1;
 		else
@@ -750,7 +752,7 @@ void Image::assignImageInterpolate(const Vector3D& point, float value)
 	else
 	{
 		iz1 = iz;
-		dz1 = delta_z - 0.5;
+		dz1 = delta_z - 0.5f;
 		if (iz != (params.nz - 1))
 			iz2 = iz + 1;
 		else
@@ -922,48 +924,9 @@ void Image::transformImage(const Vector3D& rotation,
                            const Vector3D& translation, Image& dest,
                            float weight) const
 {
-	ImageParams params = getParams();
-	const float* rawPtr = getRawPointer();
-	const int num_xy = params.nx * params.ny;
-	const float alpha = rotation.z;
-	const float beta = rotation.y;
-	const float gamma = rotation.x;
-
-	for (int i = 0; i < params.nz; i++)
-	{
-		const float z = indexToPositionInDimension<0>(i);
-
-		for (int j = 0; j < params.ny; j++)
-		{
-			const float y = indexToPositionInDimension<1>(j);
-
-			for (int k = 0; k < params.nx; k++)
-			{
-				const float x = indexToPositionInDimension<2>(k);
-
-				float newX = x * cos(alpha) * cos(beta) +
-				             y * (-sin(alpha) * cos(gamma) +
-				                  sin(beta) * sin(gamma) * cos(alpha)) +
-				             z * (sin(alpha) * sin(gamma) +
-				                  sin(beta) * cos(alpha) * cos(gamma));
-				newX += translation.x;
-				float newY = x * sin(alpha) * cos(beta) +
-				             y * (sin(alpha) * sin(beta) * sin(gamma) +
-				                  cos(alpha) * cos(gamma)) +
-				             z * (sin(alpha) * sin(beta) * cos(gamma) -
-				                  sin(gamma) * cos(alpha));
-				newY += translation.y;
-				float newZ = -x * sin(beta) + y * sin(gamma) * cos(beta) +
-				             z * cos(beta) * cos(gamma);
-				newZ += translation.z;
-
-				const float currentValue =
-				    rawPtr[i * num_xy + j * params.nx + k];
-				dest.updateImageInterpolate({newX, newY, newZ},
-				                            weight * currentValue, false);
-			}
-		}
-	}
+	const auto transform =
+	    Util::fromRotationAndTranslationVectors(rotation, translation);
+	return transformImage(transform, dest, weight);
 }
 
 std::unique_ptr<ImageOwned>
@@ -981,31 +944,39 @@ void Image::transformImage(const transform_t& t, Image& dest,
                            float weight) const
 {
 	const ImageParams params = getParams();
-	const float* rawPtr = getRawPointer();
+	float* destRawPtr = dest.getRawPointer();
 	const int num_xy = params.nx * params.ny;
-	for (int i = 0; i < params.nz; i++)
+	const int nx = params.nx;
+	const int ny = params.ny;
+	const int nz = params.nz;
+
+	const transform_t inv = Util::invertTransform(t);
+
+#pragma omp parallel for default(none) \
+    firstprivate(destRawPtr, nx, ny, nz, num_xy, weight, inv)
+	for (int i = 0; i < nz; i++)
 	{
 		const float z = indexToPositionInDimension<0>(i);
 
-		for (int j = 0; j < params.ny; j++)
+		for (int j = 0; j < ny; j++)
 		{
 			const float y = indexToPositionInDimension<1>(j);
 
-			for (int k = 0; k < params.nx; k++)
+			for (int k = 0; k < nx; k++)
 			{
 				const float x = indexToPositionInDimension<2>(k);
 
-				float newX = x * t.r00 + y * t.r01 + z * t.r02;
-				newX += t.tx;
-				float newY = x * t.r10 + y * t.r11 + z * t.r12;
-				newY += t.ty;
-				float newZ = x * t.r20 + y * t.r21 + z * t.r22;
-				newZ += t.tz;
+				float newX = x * inv.r00 + y * inv.r01 + z * inv.r02;
+				newX += inv.tx;
+				float newY = x * inv.r10 + y * inv.r11 + z * inv.r12;
+				newY += inv.ty;
+				float newZ = x * inv.r20 + y * inv.r21 + z * inv.r22;
+				newZ += inv.tz;
 
-				const float currentValue =
-				    rawPtr[i * num_xy + j * params.nx + k];
-				dest.updateImageInterpolate({newX, newY, newZ},
-				                            weight * currentValue, false);
+				const float valueFromOriginalImage =
+				    weight * interpolateImage({newX, newY, newZ});
+
+				destRawPtr[i * num_xy + j * nx + k] += valueFromOriginalImage;
 			}
 		}
 	}

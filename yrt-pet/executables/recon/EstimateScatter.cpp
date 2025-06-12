@@ -105,6 +105,11 @@ int main(int argc, char** argv)
 		    "Tail fitting mask width. By default, uses 1/10th of "
 		    "the histogram \'r\' dimension",
 		    false, IO::TypeOfArgument::INT, -1, tailFittingGroup);
+		registry.registerArgument(
+		    "denormalize",
+		    "Denormalize the scatter estimate (Multiply the resulting scatter "
+		    "histogram by the sensitivity)",
+		    false, IO::TypeOfArgument::BOOL, false, tailFittingGroup);
 
 		// Load configuration
 		IO::ArgumentReader config{registry, "Scatter estimation executable"};
@@ -144,6 +149,7 @@ int main(int argc, char** argv)
 		float acfThreshold = config.getValue<float>("acf_threshold");
 		bool useGPU = config.getValue<bool>("gpu");
 		int seed = config.getValue<int>("seed");
+		bool denormalize = config.getValue<bool>("denormalize");
 
 		if (useGPU)
 		{
@@ -246,7 +252,8 @@ int main(int argc, char** argv)
 		                                           saveIntermediary_dir};
 
 		auto scatterEstimate =
-		    scatterEstimator.computeTailFittedScatterEstimate(nZ, nPhi, nR);
+		    scatterEstimator.computeTailFittedScatterEstimate(nZ, nPhi, nR,
+		                                                      denormalize);
 
 		scatterEstimate->writeToFile(scatterOut_fname);
 	}

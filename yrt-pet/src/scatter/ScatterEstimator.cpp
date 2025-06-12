@@ -35,7 +35,7 @@ void py_setup_scatterestimator(py::module& m)
 
 	c.def("computeTailFittedScatterEstimate",
 	      &Scatter::ScatterEstimator::computeTailFittedScatterEstimate,
-	      "num_z"_a, "num_phi"_a, "num_r"_a);
+	      "num_z"_a, "num_phi"_a, "num_r"_a, "denormalize"_a = false);
 	c.def("computeScatterEstimate",
 	      &Scatter::ScatterEstimator::computeScatterEstimate, "num_z"_a,
 	      "num_phi"_a, "num_r"_a);
@@ -82,7 +82,8 @@ namespace Scatter
 	std::unique_ptr<Histogram3DOwned>
 	    ScatterEstimator::computeTailFittedScatterEstimate(size_t numberZ,
 	                                                       size_t numberPhi,
-	                                                       size_t numberR)
+	                                                       size_t numberR,
+	                                                       bool denormalize)
 	{
 		auto scatterEstimate =
 		    computeScatterEstimate(numberZ, numberPhi, numberR);
@@ -100,7 +101,7 @@ namespace Scatter
 		std::cout << "Applying tail-fit factor..." << std::endl;
 		scatterEstimate->getData() *= fac;
 
-		if (mp_sensitivityHis != nullptr)
+		if (mp_sensitivityHis != nullptr && denormalize)
 		{
 			// Since the scatter estimate was tail-fitted using the sensitivity
 			//  as a denominator to prompts and randoms, it is necessary to

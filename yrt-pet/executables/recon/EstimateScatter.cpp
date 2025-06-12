@@ -40,9 +40,9 @@ int main(int argc, char** argv)
 		    "save_intermediary",
 		    "Directory where to save intermediary histograms (leave "
 		    "blank to not save any)",
-		    false, IO::TypeOfArgument::STRING, false, coreGroup);
+		    false, IO::TypeOfArgument::STRING, "", coreGroup);
 		registry.registerArgument("num_threads", "Number of threads to use",
-		                          false, IO::TypeOfArgument::INT, false,
+		                          false, IO::TypeOfArgument::INT, -1,
 		                          coreGroup);
 		registry.registerArgument("seed", "Random number generator seed to use",
 		                          false, IO::TypeOfArgument::INT,
@@ -87,7 +87,7 @@ int main(int argc, char** argv)
 		    "invert_sensitivity",
 		    "Invert the sensitivity histogram values (sensitivity -> "
 		    "1/sensitivity)",
-		    false, IO::TypeOfArgument::BOOL, "", tailFittingGroup);
+		    false, IO::TypeOfArgument::BOOL, false, tailFittingGroup);
 		registry.registerArgument(
 		    "acf",
 		    "ACF histogram file (optional). Will be computed from "
@@ -98,12 +98,13 @@ int main(int argc, char** argv)
 		    "Tail fitting ACF threshold for the scatter tails mask (Default: " +
 		        std::to_string(Scatter::ScatterEstimator::DefaultACFThreshold) +
 		        ")",
-		    false, IO::TypeOfArgument::FLOAT, "", tailFittingGroup);
+		    false, IO::TypeOfArgument::FLOAT,
+		    Scatter::ScatterEstimator::DefaultACFThreshold, tailFittingGroup);
 		registry.registerArgument(
 		    "mask_width",
 		    "Tail fitting mask width. By default, uses 1/10th of "
 		    "the histogram \'r\' dimension",
-		    false, IO::TypeOfArgument::INT, "", tailFittingGroup);
+		    false, IO::TypeOfArgument::INT, -1, tailFittingGroup);
 
 		// Load configuration
 		IO::ArgumentReader config{registry, "Scatter estimation executable"};
@@ -155,6 +156,7 @@ int main(int argc, char** argv)
 		}
 
 		Globals::set_num_threads(numThreads);
+		std::cout << "Initializing scanner..." << std::endl;
 		auto scanner = std::make_unique<Scanner>(scanner_fname);
 
 		// Check if scanner parameters have been set properly for scatter

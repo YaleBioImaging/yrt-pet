@@ -152,6 +152,7 @@ void OSEMUpdater_GPU::computeEMUpdateImage(const ImageDevice& inputImage,
 			std::cout << "Applying additive factors..." << std::endl;
 			corrector.loadAdditiveCorrectionFactorsToTemporaryDeviceBuffer(
 			    {mainStream, false});
+			// Maybe put corrector.hasInVivoAttenuation() in "synchronize" bool
 			tmpBufferDevice->addProjValues(correctorTempBuffer,
 			                               {mainStream, true});
 		}

@@ -106,10 +106,9 @@ int main(int argc, char** argv)
 		    "the histogram \'r\' dimension",
 		    false, IO::TypeOfArgument::INT, -1, tailFittingGroup);
 		registry.registerArgument(
-		    "denormalize",
-		    "Denormalize the scatter estimate (Multiply the resulting scatter "
-		    "histogram by the sensitivity)",
-		    false, IO::TypeOfArgument::BOOL, false, tailFittingGroup);
+		    "no_denorm",
+		    "Do not affect the scatter estimate by the sensitivity", false,
+		    IO::TypeOfArgument::BOOL, false, tailFittingGroup);
 
 		// Load configuration
 		IO::ArgumentReader config{registry, "Scatter estimation executable"};
@@ -149,7 +148,7 @@ int main(int argc, char** argv)
 		float acfThreshold = config.getValue<float>("acf_threshold");
 		bool useGPU = config.getValue<bool>("gpu");
 		int seed = config.getValue<int>("seed");
-		bool denormalize = config.getValue<bool>("denormalize");
+		bool denormalize = !config.getValue<bool>("no_denorm");
 
 		if (useGPU)
 		{

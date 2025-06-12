@@ -54,9 +54,9 @@ void Corrector_GPU::precomputeAdditiveCorrectionFactors(
 
 	const ProjectionData* measurementsPtr = &measurements;
 
-#pragma omp parallel for default(none)                                         \
-    firstprivate(additiveCorrectionsPtr, mp_attenuationImage, measurementsPtr, \
-                     histogrammedACFs, numBins)
+//#pragma omp parallel for default(none)                                         \
+//    firstprivate(additiveCorrectionsPtr, mp_attenuationImage, measurementsPtr, \
+//                     histogrammedACFs, numBins)
 	for (bin_t bin = 0; bin < numBins; bin++)
 	{
 		const histo_bin_t histoBin = measurementsPtr->getHistogramBin(bin);

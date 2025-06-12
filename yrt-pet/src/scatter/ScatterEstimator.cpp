@@ -35,7 +35,7 @@ void py_setup_scatterestimator(py::module& m)
 
 	c.def("computeTailFittedScatterEstimate",
 	      &Scatter::ScatterEstimator::computeTailFittedScatterEstimate,
-	      "num_z"_a, "num_phi"_a, "num_r"_a, "denormalize"_a = false);
+	      "num_z"_a, "num_phi"_a, "num_r"_a, "denormalize"_a = true);
 	c.def("computeScatterEstimate",
 	      &Scatter::ScatterEstimator::computeScatterEstimate, "num_z"_a,
 	      "num_phi"_a, "num_r"_a);

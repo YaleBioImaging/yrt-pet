@@ -49,8 +49,8 @@ int main(int argc, char** argv)
 		                          Scatter::ScatterEstimator::DefaultSeed,
 		                          coreGroup);
 		registry.registerArgument(
-		    "o,out", "Output scatter estimate histogram filename", true,
-		    IO::TypeOfArgument::STRING, "", coreGroup);
+		    "out", "Output scatter estimate histogram filename", true,
+		    IO::TypeOfArgument::STRING, "o", coreGroup);
 		registry.registerArgument(
 		    "out_acf",
 		    "Output ACF histogram filename (if it needs to be calculated from "

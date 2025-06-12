@@ -148,21 +148,28 @@ void OSEMUpdater_GPU::computeEMUpdateImage(const ImageDevice& inputImage,
 
 		if (corrector.hasAdditiveCorrection(*measurementsDevice))
 		{
-			// TODO NOW: DEBUG, remove this and remove synchronization too
-			std::cout << "Applying additive factors..." << std::endl;
 			corrector.loadAdditiveCorrectionFactorsToTemporaryDeviceBuffer(
 			    {mainStream, false});
-			// Maybe put corrector.hasInVivoAttenuation() in "synchronize" bool
+
+			// We need to synchronize the stream here if we want to apply both
+			// the additive corrections AND the pre-correction. This is because
+			// they both use the same buffer. If this is not done, and the GPU
+			// forward projection takes longer than both
+			// `loadAdditiveCorrectionFactorsToTemporaryDeviceBuffer(...)` and
+			// `loadInVivoAttenuationFactorsToTemporaryDeviceBuffer(...)`, the
+			// code would end up treating the precorrection factors as additive
+			// factors...
+			const bool synchronize = corrector.hasInVivoAttenuation();
+
 			tmpBufferDevice->addProjValues(correctorTempBuffer,
-			                               {mainStream, true});
+			                               {mainStream, synchronize});
 		}
 		if (corrector.hasInVivoAttenuation())
 		{
-			std::cout << "Applying precorrection..." << std::endl;
 			corrector.loadInVivoAttenuationFactorsToTemporaryDeviceBuffer(
 			    {mainStream, false});
 			tmpBufferDevice->multiplyProjValues(correctorTempBuffer,
-			                                    {mainStream, true});
+			                                    {mainStream, false});
 		}
 
 		tmpBufferDevice->divideMeasurementsDevice(measurementsDevice,

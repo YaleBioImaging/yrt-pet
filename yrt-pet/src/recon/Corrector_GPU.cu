@@ -112,8 +112,7 @@ void Corrector_GPU::precomputeInVivoAttenuationFactors(
 		float* inVivoAttenuationFactorsPtr =
 		    mph_inVivoAttenuationFactors->getRawPointer();
 
-		std::cout << "Gathering in-vivo ACFs to prepare "
-		             "for precorrection..."
+		std::cout << "Gathering in-vivo ACFs to prepare for precorrection..."
 		          << std::endl;
 
 #pragma omp parallel for default(none) \

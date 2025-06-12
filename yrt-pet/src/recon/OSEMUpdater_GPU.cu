@@ -148,6 +148,8 @@ void OSEMUpdater_GPU::computeEMUpdateImage(const ImageDevice& inputImage,
 
 		if (corrector.hasAdditiveCorrection(*measurementsDevice))
 		{
+			// TODO NOW: DEBUG, remove this
+			std::cout << "Applying additive factors..." << std::endl;
 			corrector.loadAdditiveCorrectionFactorsToTemporaryDeviceBuffer(
 			    {mainStream, false});
 			tmpBufferDevice->addProjValues(correctorTempBuffer,
@@ -155,6 +157,7 @@ void OSEMUpdater_GPU::computeEMUpdateImage(const ImageDevice& inputImage,
 		}
 		if (corrector.hasInVivoAttenuation())
 		{
+			std::cout << "Applying precorrection..." << std::endl;
 			corrector.loadInVivoAttenuationFactorsToTemporaryDeviceBuffer(
 			    {mainStream, false});
 			tmpBufferDevice->multiplyProjValues(correctorTempBuffer,

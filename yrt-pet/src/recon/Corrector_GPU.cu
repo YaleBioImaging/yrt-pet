@@ -18,7 +18,8 @@ Corrector_GPU::Corrector_GPU(const Scanner& pr_scanner)
 void Corrector_GPU::precomputeAdditiveCorrectionFactors(
     const ProjectionData& measurements)
 {
-	ASSERT_MSG(hasAdditiveCorrection(measurements), "No additive corrections needed");
+	ASSERT_MSG(hasAdditiveCorrection(measurements),
+	           "No additive corrections needed");
 
 	auto additiveCorrections =
 	    std::make_unique<ProjectionListOwned>(&measurements);
@@ -111,6 +112,9 @@ void Corrector_GPU::precomputeInVivoAttenuationFactors(
 		float* inVivoAttenuationFactorsPtr =
 		    mph_inVivoAttenuationFactors->getRawPointer();
 
+		std::cout << "Gathering in-vivo ACFs to prepare for precorrection..."
+		          << std::endl;
+
 #pragma omp parallel for default(none) \
     firstprivate(numBins, measurements, inVivoAttenuationFactorsPtr)
 		for (bin_t bin = 0; bin < numBins; bin++)
@@ -122,6 +126,9 @@ void Corrector_GPU::precomputeInVivoAttenuationFactors(
 	}
 	else if (mp_inVivoAttenuationImage != nullptr)
 	{
+		std::cout << "Forward-projecting in-vivo attenuation image to prepare "
+		             "for precorrection..."
+		          << std::endl;
 		Util::forwProject(measurements.getScanner(), *mp_inVivoAttenuationImage,
 		                  *mph_inVivoAttenuationFactors,
 		                  OperatorProjector::SIDDON, true);

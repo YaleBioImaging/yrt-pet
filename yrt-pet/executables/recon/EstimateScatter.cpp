@@ -50,7 +50,7 @@ int main(int argc, char** argv)
 		                          coreGroup);
 		registry.registerArgument(
 		    "out", "Output scatter estimate histogram filename", true,
-		    IO::TypeOfArgument::STRING, "o", coreGroup);
+		    IO::TypeOfArgument::STRING, "", coreGroup, "o");
 		registry.registerArgument(
 		    "out_acf",
 		    "Output ACF histogram filename (if it needs to be calculated from "

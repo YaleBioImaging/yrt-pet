@@ -225,6 +225,10 @@ int main(int argc, char** argv)
 				acfHis->writeToFile(acfOutHis_fname);
 			}
 		}
+		else
+		{
+			acfHis = std::make_unique<Histogram3DOwned>(*scanner, acfHis_fname);
+		}
 
 		auto sourceImage = std::make_unique<ImageOwned>(sourceImage_fname);
 

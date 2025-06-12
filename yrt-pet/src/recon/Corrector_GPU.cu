@@ -81,6 +81,12 @@ void Corrector_GPU::precomputeAdditiveCorrectionFactors(
 			acf = additiveCorrectionsPtr[bin];
 		}
 
+		// TODO NOW: This debug, remove this
+		std::cout << "Scatter: " << scatterEstimate << "\n";
+		std::cout << "Randoms: " << randomsEstimate << "\n";
+		std::cout << "Sensitivity: " << sensitivity << "\n";
+		std::cout << "ACF: " << acf << "\n";
+
 		if (acf > StabilityEpsilon && sensitivity > StabilityEpsilon)
 		{
 			additiveCorrectionsPtr[bin] =

@@ -34,7 +34,7 @@ int main(int argc, char** argv)
 #if BUILD_CUDA
 		registry.registerArgument(
 		    "gpu", "Use GPU to compute the ACF histogram (if needed)", false,
-		    IO::TypeOfArgument::STRING, false, coreGroup);
+		    IO::TypeOfArgument::BOOL, false, coreGroup);
 #endif
 		registry.registerArgument(
 		    "save_intermediary",
@@ -87,7 +87,7 @@ int main(int argc, char** argv)
 		    "invert_sensitivity",
 		    "Invert the sensitivity histogram values (sensitivity -> "
 		    "1/sensitivity)",
-		    false, IO::TypeOfArgument::STRING, "", tailFittingGroup);
+		    false, IO::TypeOfArgument::BOOL, "", tailFittingGroup);
 		registry.registerArgument(
 		    "acf",
 		    "ACF histogram file (optional). Will be computed from "
@@ -103,7 +103,7 @@ int main(int argc, char** argv)
 		    "mask_width",
 		    "Tail fitting mask width. By default, uses 1/10th of "
 		    "the histogram \'r\' dimension",
-		    false, IO::TypeOfArgument::FLOAT, "", tailFittingGroup);
+		    false, IO::TypeOfArgument::INT, "", tailFittingGroup);
 
 		// Load configuration
 		IO::ArgumentReader config{registry, "Scatter estimation executable"};
@@ -132,7 +132,7 @@ int main(int argc, char** argv)
 		auto crystalMaterial_name = config.getValue<std::string>("crystal_mat");
 		size_t nZ = config.getValue<int>("n_z");
 		size_t nPhi = config.getValue<int>("n_phi");
-		size_t nR = config.getValue<int>("n_z");
+		size_t nR = config.getValue<int>("n_r");
 		std::string scatterOut_fname = config.getValue<std::string>("out");
 		std::string acfOutHis_fname = config.getValue<std::string>("out_acf");
 		std::string saveIntermediary_dir =

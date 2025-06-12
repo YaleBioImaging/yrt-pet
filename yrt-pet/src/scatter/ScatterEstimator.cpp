@@ -191,6 +191,7 @@ namespace Scatter
 	{
 		const size_t numBins = acfHis.count();
 		ASSERT(mask.isMemoryValid());
+		ASSERT(acfHis.isMemoryValid());
 		mask.clearProjections(0.0f);
 
 		for (bin_t binId = 0; binId < numBins; binId++)

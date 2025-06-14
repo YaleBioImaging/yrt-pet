@@ -135,4 +135,9 @@ namespace Util
 		return bytesRead;
 	}
 
+	void FileReaderContiguous::advanceReadPos(std::streamsize bytesToAdvance)
+	{
+		m_readPos += bytesToAdvance;
+	}
+
 }  // namespace Util

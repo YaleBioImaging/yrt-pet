@@ -225,6 +225,8 @@ int main(int argc, char** argv)
 			Util::forwProject(*scanner, *attImage, *acfHis,
 			                  OperatorProjector::ProjectorType::SIDDON, useGPU);
 
+			Util::convertProjectionValuesToACF(*acfHis);
+
 			if (!acfOutHis_fname.empty())
 			{
 				acfHis->writeToFile(acfOutHis_fname);

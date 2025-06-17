@@ -18,15 +18,17 @@ class PageLockedBuffer
 public:
 	PageLockedBuffer();
 
-	explicit PageLockedBuffer(size_t size, unsigned int flags = 0u);
+	explicit PageLockedBuffer(size_t size,
+	                          unsigned int flags = cudaHostAllocDefault);
 
 	virtual ~PageLockedBuffer();
 
-	void allocate(size_t size, unsigned int flags = 0u);
+	void allocate(size_t size, unsigned int flags = cudaHostAllocDefault);
 
 	void deallocate();
 
-	bool reAllocateIfNeeded(size_t newSize, unsigned int flags = 0u);
+	bool reAllocateIfNeeded(size_t newSize,
+	                        unsigned int flags = cudaHostAllocDefault);
 
 	T* getPointer();
 	const T* getPointer() const;

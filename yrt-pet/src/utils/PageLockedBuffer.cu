@@ -30,6 +30,7 @@ PageLockedBuffer<T>::PageLockedBuffer(const size_t size,
 template <typename T>
 void PageLockedBuffer<T>::allocate(const size_t size, const unsigned int flags)
 {
+	deallocate();
 	cudaHostAlloc(reinterpret_cast<void**>(&mph_dataPointer), size * sizeof(T),
 	              flags);
 	const cudaError_t cudaError = cudaGetLastError();
@@ -43,8 +44,8 @@ void PageLockedBuffer<T>::allocate(const size_t size, const unsigned int flags)
 	else
 	{
 		m_isPageLocked = true;
-		m_currentFlags = flags;
 	}
+	m_currentFlags = flags;
 	m_size = size;
 }
 
@@ -54,12 +55,12 @@ bool PageLockedBuffer<T>::reAllocateIfNeeded(const size_t newSize,
 {
 	if (newSize > m_size || m_currentFlags != flags)
 	{
-		deallocate();
 		allocate(newSize, flags);
 		return true;
 	}
 	return false;
 }
+
 template <typename T>
 void PageLockedBuffer<T>::deallocate()
 {
@@ -74,16 +75,13 @@ void PageLockedBuffer<T>::deallocate()
 				std::cerr << "CUDA Error while freeing: "
 				          << cudaGetErrorString(cudaError) << std::endl;
 			}
-			else
-			{
-				m_size = 0ull;
-			}
 		}
 		else
 		{
 			delete[] mph_dataPointer;
-			m_size = 0ull;
 		}
+		m_size = 0ull;
+		mph_dataPointer = nullptr;
 	}
 }
 

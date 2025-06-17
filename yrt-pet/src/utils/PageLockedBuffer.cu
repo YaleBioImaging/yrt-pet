@@ -79,13 +79,6 @@ void PageLockedBuffer<T>::deallocate()
 				          << ". Falling back to regular delete." << std::endl;
 				delete[] mph_dataPointer;
 			}
-			else
-			{
-				// Page-locked free succeeded
-				mph_dataPointer = nullptr;
-				m_size = 0ull;
-				return;
-			}
 		}
 		else
 		{

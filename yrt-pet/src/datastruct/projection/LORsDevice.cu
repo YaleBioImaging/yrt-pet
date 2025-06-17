@@ -26,6 +26,15 @@ LORsDevice::LORsDevice()
 	initializeDeviceArrays();
 }
 
+LORsDevice::~LORsDevice()
+{
+	m_tempLorDet1Pos.deallocate();
+	m_tempLorDet2Pos.deallocate();
+	m_tempLorDet1Orient.deallocate();
+	m_tempLorDet2Orient.deallocate();
+	m_tempLorTOFValue.deallocate();
+}
+
 void LORsDevice::precomputeBatchLORs(const BinIterator& binIter,
                                      const GPUBatchSetup& batchSetup,
                                      int subsetId, int batchId,
@@ -185,10 +194,9 @@ void LORsDevice::allocateForPrecomputedLORsIfNeeded(
 		                                         {launchConfig.stream, false});
 	}
 
-	if (hasAllocated &&
-	    launchConfig.synchronize)
+	if (hasAllocated && launchConfig.synchronize)
 	{
-		if ( launchConfig.stream != nullptr)
+		if (launchConfig.stream != nullptr)
 		{
 			cudaStreamSynchronize(*launchConfig.stream);
 		}

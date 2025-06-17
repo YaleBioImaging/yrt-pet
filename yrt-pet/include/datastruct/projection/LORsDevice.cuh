@@ -20,6 +20,7 @@ class LORsDevice
 {
 public:
 	LORsDevice();
+	~LORsDevice();
 
 	void precomputeBatchLORs(const BinIterator& binIter,
 	                         const GPUBatchSetup& batchSetup, int subsetId,

@@ -54,6 +54,7 @@ bool PageLockedBuffer<T>::reAllocateIfNeeded(const size_t newSize,
 {
 	if (newSize > m_size || m_currentFlags != flags)
 	{
+		deallocate();
 		allocate(newSize, flags);
 		return true;
 	}

@@ -45,6 +45,8 @@ void PageLockedBuffer<T>::allocate(const size_t size, const unsigned int flags)
 	}
 	else
 	{
+		// TODO NOW: remove this debug print
+		std::cout << "Page-locked memory allocation succeeded" << std::endl;
 		m_isPageLocked = true;
 	}
 	m_currentFlags = flags;

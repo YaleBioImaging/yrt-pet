@@ -32,23 +32,25 @@ void PageLockedBuffer<T>::allocate(const size_t size, const unsigned int flags)
 {
 	deallocate();
 
-	cudaHostAlloc(reinterpret_cast<void**>(&mph_dataPointer), size * sizeof(T),
-	              flags);
-	const cudaError_t cudaError = cudaGetLastError();
+	// TODO NOW: Fix this mess
+	// cudaHostAlloc(reinterpret_cast<void**>(&mph_dataPointer), size *
+	// sizeof(T),
+	//               flags);
+	// const cudaError_t cudaError = cudaGetLastError();
 
-	if (cudaError != 0)
+	// if (cudaError != 0)
 	{
-		std::cerr << "CUDA Error while allocating: "
-		          << cudaGetErrorString(cudaError) << std::endl;
+		// std::cerr << "CUDA Error while allocating: "
+		//           << cudaGetErrorString(cudaError) << std::endl;
 		mph_dataPointer = new T[size];
 		m_isPageLocked = false;
 	}
-	else
-	{
-		// TODO NOW: remove this debug print
-		std::cout << "Page-locked memory allocation succeeded" << std::endl;
-		m_isPageLocked = true;
-	}
+	// else
+	//{
+	//	// TODO NOW: remove this debug print
+	//	std::cout << "Page-locked memory allocation succeeded" << std::endl;
+	//	m_isPageLocked = true;
+	// }
 	m_currentFlags = flags;
 	m_size = size;
 }

@@ -59,8 +59,12 @@ namespace Scatter
 	      m_sss(pr_scanner, pr_mu, pr_lambda, p_crystalMaterial, seedi)
 	{
 		mp_promptsHis = pp_promptsHis;
-		mp_randomsHis = pp_randomsHis;
 		mp_acfHis = pp_acfHis;
+		ASSERT_MSG(mp_promptsHis != nullptr,
+		           "Prompts histogram provided is null");
+		ASSERT_MSG(mp_acfHis != nullptr, "ACF histogram provided is null");
+
+		mp_randomsHis = pp_randomsHis;
 		mp_sensitivityHis = pp_sensitivityHis;
 		if (maskWidth > 0)
 		{
@@ -191,6 +195,7 @@ namespace Scatter
 	{
 		const size_t numBins = acfHis.count();
 		ASSERT(mask.isMemoryValid());
+		ASSERT(acfHis.isMemoryValid());
 		mask.clearProjections(0.0f);
 
 		for (bin_t binId = 0; binId < numBins; binId++)

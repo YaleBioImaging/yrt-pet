@@ -47,6 +47,8 @@ namespace Util
 		std::streamsize read(char* receivingBuffer,
 		                     std::streamsize bytesToRead);
 
+		void advanceReadPos(std::streamsize bytesToAdvance);
+
 		bool finishedReading() const;
 
 	private:

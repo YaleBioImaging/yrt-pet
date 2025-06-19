@@ -33,7 +33,8 @@ namespace Scatter
 
 		std::unique_ptr<Histogram3DOwned>
 		    computeTailFittedScatterEstimate(size_t numberZ, size_t numberPhi,
-		                                     size_t numberR);
+		                                     size_t numberR,
+		                                     bool denormalize = true);
 
 		std::unique_ptr<Histogram3DOwned>
 		    computeScatterEstimate(size_t numberZ, size_t numberPhi,

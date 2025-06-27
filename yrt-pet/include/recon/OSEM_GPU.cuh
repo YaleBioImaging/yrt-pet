@@ -64,7 +64,7 @@ public:
 
 	// Common methods
 	void loadSubset(int subsetId, bool forRecon) override;
-	void addImagePSF(const std::string& p_imagePsf_fname) override;
+	void addImagePSF(const std::string& p_imagePsf_fname, ImagePSFMode p_imagePSFMode) override;
 
 private:
 

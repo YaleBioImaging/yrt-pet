@@ -23,7 +23,7 @@ public:
 
 	// Getters for operators
 	const OperatorProjector* getProjector() const;
-	OperatorPsf* getOperatorPsf() const;  // Image-space PSF
+	//OperatorPsf* getOperatorPsf() const;  // Image-space PSF
 
 protected:
 	// Sens Image generator driver

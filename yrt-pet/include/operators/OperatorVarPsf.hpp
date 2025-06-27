@@ -20,12 +20,12 @@ struct Sigma
 class OperatorVarPsf : public Operator
 {
 public:
-	OperatorVarPsf();
-	explicit OperatorVarPsf(const std::string& imageVarPsf_fname);
+	OperatorVarPsf(const ImageParams& imgParams);
+	OperatorVarPsf(const std::string& imageVarPsf_fname, const ImageParams& imgParams);
 	// second constructor, use sigma as input
 	~OperatorVarPsf() override = default;
 
-	virtual void readFromFile(const std::string& imageVarPsf_fname);
+	void readFromFile(const std::string& imageVarPsf_fname);
 
 	void applyA(const Variable* in, Variable* out) override;
 	void applyAH(const Variable* in, Variable* out) override;
@@ -39,8 +39,7 @@ protected:
 	                         float y, float z) const;
 
 private:
-	void readFromFileInternal(const std::string& imageVarPsf_fname, const ImageParams& imgParams);
-	void precalculateKernels();
+	ImageParams imageParams;
 	mutable std::vector<float> m_buffer_tmp;
 	const float N = 0.0634936;  // 1/sqrt(8*pi*pi*pi)
 	// in the futrue, these shold be included in the header of PSF LUT

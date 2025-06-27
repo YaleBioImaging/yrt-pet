@@ -360,15 +360,13 @@ int main(int argc, char** argv)
 		// Image-space PSF
 		if (!config.getValue<std::string>("psf").empty())
 		{
-			osem->imgpsfmode = UNIFORM;
 			ASSERT_MSG(config.getValue<std::string>("varpsf").empty(),
 			           "Got two different image PSF inputs");
-			osem->addImagePSF(config.getValue<std::string>("psf"));
+			osem->addImagePSF(config.getValue<std::string>("psf"), ImagePSFMode::UNIFORM);
 		}
 		else if (!config.getValue<std::string>("varpsf").empty())
 		{
-			osem->imgpsfmode = VARIANT;
-			osem->addImagePSF(config.getValue<std::string>("varpsf"));
+			osem->addImagePSF(config.getValue<std::string>("varpsf"), ImagePSFMode::VARIANT);
 		}
 
 		// Projection-space PSF

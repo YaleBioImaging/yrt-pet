@@ -46,18 +46,13 @@ void py_setup_operatorvarpsf(py::module& m)
 }
 #endif
 
-OperatorVarPsf::OperatorVarPsf() : Operator{} {}
+OperatorVarPsf::OperatorVarPsf(const ImageParams& imgParams) : Operator{}, imageParams(imgParams)
+{}
 
-OperatorVarPsf::OperatorVarPsf(const std::string& imageVarPsf_fname)
-    : OperatorVarPsf{}
+OperatorVarPsf::OperatorVarPsf(const std::string& imageVarPsf_fname, const ImageParams& imgParams)
+    : OperatorVarPsf{imgParams}
 {
-	ImageParams imgParams;
-	readFromFileInternal(imageVarPsf_fname, imgParams);
-}
-
-void OperatorVarPsf::readFromFile(const std::string& imageVarPsf_fname)
-{
-	readFromFileInternal(imageVarPsf_fname, imgParams);
+	readFromFile(imageVarPsf_fname);
 }
 
 Sigma OperatorVarPsf::find_nearest_sigma(const std::vector<Sigma>& sigma_lookup,
@@ -84,7 +79,7 @@ Sigma OperatorVarPsf::find_nearest_sigma(const std::vector<Sigma>& sigma_lookup,
 	return nearest_sigma;
 }
 
-void OperatorVarPsf::readFromFileInternal(const std::string& imageVarPsf_fname, const ImageParams& imgParams)
+void OperatorVarPsf::readFromFile(const std::string& imageVarPsf_fname)
 {
 	std::cout << "Reading image space Variant PSF sigma lookup table file..."
 	          << std::endl;
@@ -109,9 +104,9 @@ void OperatorVarPsf::readFromFileInternal(const std::string& imageVarPsf_fname, 
 		s.sigmay = data[i][4];
 		s.sigmaz = data[i][5];
 		// Pre-calculate kernel
-        int kernel_size_x = std::min(4, std::max(1, static_cast<int>(std::floor((s.sigmax * kernel_width_control) / imgParams.vx)) - 1));
-        int kernel_size_y = std::min(4, std::max(1, static_cast<int>(std::floor((s.sigmay * kernel_width_control) / imgParams.vy)) - 1));
-        int kernel_size_z = std::min(4, std::max(1, static_cast<int>(std::floor((s.sigmaz * kernel_width_control) / imgParams.vz)) - 1));
+        int kernel_size_x = std::min(4, std::max(1, static_cast<int>(std::floor((s.sigmax * kernel_width_control) / imageParams.vx)) - 1));
+        int kernel_size_y = std::min(4, std::max(1, static_cast<int>(std::floor((s.sigmay * kernel_width_control) / imageParams.vy)) - 1));
+        int kernel_size_z = std::min(4, std::max(1, static_cast<int>(std::floor((s.sigmaz * kernel_width_control) / imageParams.vz)) - 1));
 
         const int kx_len = kernel_size_x * 2 + 1;
         const int ky_len = kernel_size_y * 2 + 1;
@@ -128,9 +123,9 @@ void OperatorVarPsf::readFromFileInternal(const std::string& imageVarPsf_fname, 
             for (int y_diff = -kernel_size_y; y_diff <= kernel_size_y; ++y_diff)
                 for (int z_diff = -kernel_size_z; z_diff <= kernel_size_z; ++z_diff, ++idx)
                 {
-                    float xoffset = x_diff * imgParams.vx;
-                    float yoffset = y_diff * imgParams.vy;
-                    float zoffset = z_diff * imgParams.vz;
+                    float xoffset = x_diff * imageParams.vx;
+                    float yoffset = y_diff * imageParams.vy;
+                    float zoffset = z_diff * imageParams.vz;
                     float temp = -(xoffset * xoffset * inv_2_sigmax2 +
                                    yoffset * yoffset * inv_2_sigmay2 +
                                    zoffset * zoffset * inv_2_sigmaz2);

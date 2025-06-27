@@ -391,17 +391,17 @@ void OSEM_GPU::loadSubset(int subsetId, bool forRecon)
 	}
 }
 
-void OSEM_GPU::addImagePSF(const std::string& p_imagePsf_fname)
+void OSEM_GPU::addImagePSF(const std::string& p_imagePsf_fname, ImagePSFMode p_imagePSFMode)
 {
 	ASSERT_MSG(!p_imagePsf_fname.empty(), "Empty filename for Image-space PSF");
-	if (imgpsfmode == UNIFORM)
+	if (p_imagePSFMode == UNIFORM)
 	{
 		imagePsf =
 	    std::make_unique<OperatorPsfDevice>(p_imagePsf_fname, getMainStream());
 	}
 	else
 	{
-		imageVarPsf = std::make_unique<OperatorVarPsf>(p_imagePsf_fname);
+		ASSERT_MSG(false, "Spatially variant PSF not implemented in GPU yet");
 	}
 	
 	flagImagePSF = true;

@@ -266,7 +266,7 @@ TEST_CASE("VarPSF", "[varpsf]")
 			}
 		}
 	}
-	OperatorVarPsf op_var;
+	OperatorVarPsf op_var(imgParams);
 	float threshold = 100.0f;
 	for (size_t i = 0; i < positions.size(); ++i)
 	{

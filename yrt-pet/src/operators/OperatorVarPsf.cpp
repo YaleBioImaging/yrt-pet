@@ -3,6 +3,9 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
+ //constructor: calculate all the kernel value;
+ //np array input for python
+ //try to be fast, if we can avoid atomic operation
 #include "operators/OperatorVarPsf.hpp"
 
 #include "utils/Assert.hpp"
@@ -48,13 +51,15 @@ OperatorVarPsf::OperatorVarPsf() : Operator{} {}
 OperatorVarPsf::OperatorVarPsf(const std::string& imageVarPsf_fname)
     : OperatorVarPsf{}
 {
-	readFromFileInternal(imageVarPsf_fname);
+	ImageParams imgParams;
+	readFromFileInternal(imageVarPsf_fname, imgParams);
 }
 
 void OperatorVarPsf::readFromFile(const std::string& imageVarPsf_fname)
 {
-	readFromFileInternal(imageVarPsf_fname);
+	readFromFileInternal(imageVarPsf_fname, imgParams);
 }
+
 Sigma OperatorVarPsf::find_nearest_sigma(const std::vector<Sigma>& sigma_lookup,
                                          float x, float y, float z) const
 {
@@ -78,7 +83,8 @@ Sigma OperatorVarPsf::find_nearest_sigma(const std::vector<Sigma>& sigma_lookup,
 
 	return nearest_sigma;
 }
-void OperatorVarPsf::readFromFileInternal(const std::string& imageVarPsf_fname)
+
+void OperatorVarPsf::readFromFileInternal(const std::string& imageVarPsf_fname, const ImageParams& imgParams)
 {
 	std::cout << "Reading image space Variant PSF sigma lookup table file..."
 	          << std::endl;
@@ -102,8 +108,41 @@ void OperatorVarPsf::readFromFileInternal(const std::string& imageVarPsf_fname)
 		s.sigmax = data[i][3];
 		s.sigmay = data[i][4];
 		s.sigmaz = data[i][5];
+		// Pre-calculate kernel
+        int kernel_size_x = std::min(4, std::max(1, static_cast<int>(std::floor((s.sigmax * kernel_width_control) / imgParams.vx)) - 1));
+        int kernel_size_y = std::min(4, std::max(1, static_cast<int>(std::floor((s.sigmay * kernel_width_control) / imgParams.vy)) - 1));
+        int kernel_size_z = std::min(4, std::max(1, static_cast<int>(std::floor((s.sigmaz * kernel_width_control) / imgParams.vz)) - 1));
+
+        const int kx_len = kernel_size_x * 2 + 1;
+        const int ky_len = kernel_size_y * 2 + 1;
+        const int kz_len = kernel_size_z * 2 + 1;
+        s.psf_kernel.resize(kx_len * ky_len * kz_len, 0.0f);
+
+        float inv_2_sigmax2 = 1.0f / (2 * s.sigmax * s.sigmax);
+        float inv_2_sigmay2 = 1.0f / (2 * s.sigmay * s.sigmay);
+        float inv_2_sigmaz2 = 1.0f / (2 * s.sigmaz * s.sigmaz);
+        float kernel_sum = 0.0f;
+        int idx = 0;
+
+        for (int x_diff = -kernel_size_x; x_diff <= kernel_size_x; ++x_diff)
+            for (int y_diff = -kernel_size_y; y_diff <= kernel_size_y; ++y_diff)
+                for (int z_diff = -kernel_size_z; z_diff <= kernel_size_z; ++z_diff, ++idx)
+                {
+                    float xoffset = x_diff * imgParams.vx;
+                    float yoffset = y_diff * imgParams.vy;
+                    float zoffset = z_diff * imgParams.vz;
+                    float temp = -(xoffset * xoffset * inv_2_sigmax2 +
+                                   yoffset * yoffset * inv_2_sigmay2 +
+                                   zoffset * zoffset * inv_2_sigmaz2);
+                    s.psf_kernel[idx] = exp(temp);
+                    kernel_sum += s.psf_kernel[idx];
+                }
+        for (auto& val : s.psf_kernel)
+            val /= kernel_sum;
+
 		sigma_lookup.push_back(s);
 	}
+	std::cout << "Done reading and computing kernels for image space Variant PSF." << std::endl;
 }
 
 void OperatorVarPsf::applyA(const Variable* in, Variable* out)
@@ -158,8 +197,7 @@ void OperatorVarPsf::varconvolve(const Image* in, Image* out) const
 	m_buffer_tmp.resize(sizeBuffer);
 
 	float xoffset, yoffset, zoffset, temp_x, temp_y, temp_z;
-	int ii, jj, kk;
-	int i, j, k;
+	int i, j, k, ii, jj, kk;
 
 #pragma omp parallel for private(temp_x, temp_y, temp_z, i, j, k, ii, jj, kk, \
                                      xoffset, yoffset, zoffset) shared(outPtr)
@@ -185,35 +223,10 @@ void OperatorVarPsf::varconvolve(const Image* in, Image* out) const
 		                       (s.sigmaz * kernel_width_control) / vz)) -
 		                       1));
 
-		const int kx_len = kernel_size_x * 2 + 1;
-		const int ky_len = kernel_size_y * 2 + 1;
-		const int kz_len = kernel_size_z * 2 + 1;
-		std::vector<float> psf_kernel(kx_len * ky_len * kz_len, 0.0f);
-		float inv_2_sigmax2 = 1.0f / (2 * s.sigmax * s.sigmax);
-		float inv_2_sigmay2 = 1.0f / (2 * s.sigmay * s.sigmay);
-		float inv_2_sigmaz2 = 1.0f / (2 * s.sigmaz * s.sigmaz);
-		float kernel_sum = 0.0f;
+		auto& psf_kernel = s.psf_kernel;
 		int idx = 0;
-
-		for (int x_diff = -kernel_size_x; x_diff <= kernel_size_x; ++x_diff)
-			for (int y_diff = -kernel_size_y; y_diff <= kernel_size_y; ++y_diff)
-				for (int z_diff = -kernel_size_z; z_diff <= kernel_size_z;
-				     ++z_diff, ++idx)
-				{
-					xoffset = x_diff * vx;
-					yoffset = y_diff * vy;
-					zoffset = z_diff * vz;
-					float temp = -(xoffset * xoffset * inv_2_sigmax2 +
-					               yoffset * yoffset * inv_2_sigmay2 +
-					               zoffset * zoffset * inv_2_sigmaz2);
-					psf_kernel[idx] = exp(temp);
-					kernel_sum += psf_kernel[idx];
-				}
-		for (auto& val : psf_kernel)
-			val /= kernel_sum;
-
 		float temp1 = inPtr[IDX3(i, j, k, nx, ny)];
-		idx = 0;
+
 		for (int x_diff = -kernel_size_x; x_diff <= kernel_size_x; ++x_diff)
 			for (int y_diff = -kernel_size_y; y_diff <= kernel_size_y; ++y_diff)
 				for (int z_diff = -kernel_size_z; z_diff <= kernel_size_z;
@@ -225,7 +238,6 @@ void OperatorVarPsf::varconvolve(const Image* in, Image* out) const
 
 					if constexpr (IS_FWD)
 					{
-#pragma omp atomic
 						outPtr[IDX3(i, j, k, nx, ny)] +=
 						    inPtr[IDX3(ii, jj, kk, nx, ny)] * psf_kernel[idx];
 					}

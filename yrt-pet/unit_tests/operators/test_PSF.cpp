@@ -142,201 +142,98 @@ std::vector<float>
 
 TEST_CASE("PSF", "[psf]")
 {
-	ImageParams imgParams{30, 30, 15, 30.0f, 31.0f, 15.0f, 0.0f, 0.0f, 0.0f};
-	auto image = TestUtils::makeImageWithRandomPrism(imgParams);
+	for (int mode = 1; mode <= 2; ++mode)
+	{	
+		bool isGPU = (mode == 2);
+		std::string modeName = isGPU ? "GPU" : "CPU";
+		ImageParams imgParams{isGPU ? 50 : 30,
+			isGPU ? 50 : 30,
+			isGPU ? 25 : 15,
+			isGPU ? 60.0f : 30.0f,
+			isGPU ? 59.0f : 31.0f,
+			isGPU ? 23.0f : 15.0f,
+			0.0f,
+			0.0f,
+			0.0f};
+		auto image = TestUtils::makeImageWithRandomPrism(imgParams);
+		
+		// Generate random sigma and Gaussian kernels
+		std::mt19937 gen(static_cast<unsigned int>(std::time(0)));
+		std::uniform_real_distribution<float> sigma_dist(0.5f, 2.0f);
+		float sigmaX = sigma_dist(gen);
+		float sigmaY = sigma_dist(gen);
+		float sigmaZ = sigma_dist(gen);
+		std::vector<float> kernelX =
+		    generateSymmetricGaussianKernel(5, sigmaX / imgParams.vx);
+		std::vector<float> kernelY =
+		    generateSymmetricGaussianKernel(5, sigmaY / imgParams.vy);
+		std::vector<float> kernelZ =
+		    generateSymmetricGaussianKernel(3, sigmaZ / imgParams.vz);
+		std::unique_ptr<OperatorPsf> op;
 
-	// Random sigma generator
-	std::mt19937 gen(static_cast<unsigned int>(std::time(0)));
-	std::uniform_real_distribution<float> sigma_dist(0.5f, 2.0f);
-
-	float sigmaX = sigma_dist(gen);
-	float sigmaY = sigma_dist(gen);
-	float sigmaZ = sigma_dist(gen);
-
-	// Manually generate random PSF kernels
-	std::vector<float> kernelX =
-	    generateSymmetricGaussianKernel(5, sigmaX / imgParams.vx);
-	std::vector<float> kernelY =
-	    generateSymmetricGaussianKernel(5, sigmaY / imgParams.vy);
-	std::vector<float> kernelZ =
-	    generateSymmetricGaussianKernel(3, sigmaZ / imgParams.vz);
-
-	OperatorPsf op(kernelX, kernelY, kernelZ);
-	auto img_out = std::make_unique<ImageOwned>(imgParams);
-	img_out->allocate();
-	std::vector<int64_t> dims = {imgParams.nx, imgParams.ny, imgParams.nz};
-	std::vector<float> voxels = {imgParams.vx, imgParams.vy, imgParams.vz};
-	std::vector<float> sigmas = {sigmaX, sigmaY, sigmaZ};
-	std::vector<float> inputData;
-	inputData.resize(image->getData().getSizeTotal());
-	float* inputPtr = image->getRawPointer();
-	float* outputPtr = img_out->getRawPointer();
-	std::memcpy(inputData.data(), inputPtr,
-	            image->getData().getSizeTotal() * sizeof(float));
-
-	SECTION("forward_psf")
-	{
-		op.applyA(image.get(), img_out.get());
-		std::vector<float> expected =
-		    convolve(inputData, dims, voxels, sigmas, false);
-
-		// Compare to output of op.applyA
-		for (size_t i = 0; i < expected.size(); ++i)
+		if (isGPU)
 		{
-			CHECK(outputPtr[i] == Approx(expected[i]).epsilon(1e-3));
+			op = std::make_unique<OperatorPsfDevice>(kernelX, kernelY, kernelZ);
 		}
-	}
-
-	SECTION("transpose_psf")
-	{
-		op.applyAH(image.get(), img_out.get());
-		std::vector<float> expected =
-		    convolve(inputData, dims, voxels, sigmas, true);
-
-		// Compare to output of op.applyAH
-		for (size_t i = 0; i < expected.size(); ++i)
+		else
 		{
-			CHECK(outputPtr[i] == Approx(expected[i]).epsilon(1e-3));
-		}
-	}
-
-	SECTION("adjoint_test_psf")
-	{
-		//<Ax,y> =? <x,Aty>
-		auto img_out1 = std::make_unique<ImageOwned>(imgParams);
-		img_out1->allocate();
-		op.applyA(image.get(), img_out1.get());
-
-		auto image2 = TestUtils::makeImageWithRandomPrism(imgParams);
-		auto img_out2 = std::make_unique<ImageOwned>(imgParams);
-		img_out2->allocate();
-		op.applyAH(image2.get(), img_out2.get());
-
-		// Compute dot products
-		float lhs = img_out1->dotProduct(*image2);  // <Ax, y>
-		float rhs = image->dotProduct(*img_out2);   // <x, Aty>
-		CHECK(lhs == Approx(rhs).epsilon(1e-3));
-	}
-}
-
-TEST_CASE("PSF_GPU", "[psfgpu]")
-{
-	ImageParams imgParams{50, 50, 25, 60.0f, 59.0f, 23.0f, 0.0f, 0.0f, 0.0f};
-	auto image = TestUtils::makeImageWithRandomPrism(imgParams);
-
-	// Random sigma generator
-	std::mt19937 gen(static_cast<unsigned int>(std::time(0)));
-	std::uniform_real_distribution<float> sigma_dist(0.5f, 2.0f);
-
-	float sigmaX = sigma_dist(gen);
-	float sigmaY = sigma_dist(gen);
-	float sigmaZ = sigma_dist(gen);
-
-	// Manually generate random PSF kernels
-	std::vector<float> kernelX =
-	    generateSymmetricGaussianKernel(5, sigmaX / imgParams.vx);
-	std::vector<float> kernelY =
-	    generateSymmetricGaussianKernel(5, sigmaY / imgParams.vy);
-	std::vector<float> kernelZ =
-	    generateSymmetricGaussianKernel(3, sigmaZ / imgParams.vz);
-
-	OperatorPsfDevice op_gpu(kernelX, kernelY, kernelZ);
-	auto img_out = std::make_unique<ImageOwned>(imgParams);
-	img_out->allocate();
-	std::vector<int64_t> dims = {imgParams.nx, imgParams.ny, imgParams.nz};
-	std::vector<float> voxels = {imgParams.vx, imgParams.vy, imgParams.vz};
-	std::vector<float> sigmas = {sigmaX, sigmaY, sigmaZ};
-	std::vector<float> inputData;
-	inputData.resize(image->getData().getSizeTotal());
-	float* inputPtr = image->getRawPointer();
-	float* outputPtr = img_out->getRawPointer();
-	std::memcpy(inputData.data(), inputPtr,
-	            image->getData().getSizeTotal() * sizeof(float));
-
-	SECTION("forward_psf_gpu")
-	{
-		op_gpu.applyA(image.get(), img_out.get());
-		std::vector<float> expected =
-		    convolve(inputData, dims, voxels, sigmas, false);
-
-		// Compare to output of op.applyA
-		 for (size_t i = 0; i < expected.size(); ++i) {
-			CHECK(outputPtr[i] == Approx(expected[i]).epsilon(1e-3));
+			op = std::make_unique<OperatorPsf>(kernelX, kernelY, kernelZ);
 		}
 
-		/*bool all_close = true;
-		for (size_t i = 0; i < expected.size(); ++i)
+		auto img_out = std::make_unique<ImageOwned>(imgParams);
+		img_out->allocate();
+
+		std::vector<int64_t> dims = {imgParams.nx, imgParams.ny, imgParams.nz};
+		std::vector<float> voxels = {imgParams.vx, imgParams.vy, imgParams.vz};
+		std::vector<float> sigmas = {sigmaX, sigmaY, sigmaZ};
+
+		std::vector<float> inputData(image->getData().getSizeTotal());
+		std::memcpy(inputData.data(),
+		            image->getRawPointer(),
+		            inputData.size() * sizeof(float));
+		float* outputPtr = img_out->getRawPointer();
+
+		SECTION("forward_psf_" + modeName)
 		{
-			if (!(Approx(expected[i]).epsilon(1e-3) == outputPtr[i]))
+			op->applyA(image.get(), img_out.get());
+			std::vector<float> expected = convolve(inputData, dims, voxels, sigmas, false);
+			for (size_t i = 0; i < expected.size(); ++i)
 			{
-				all_close = false;
-				CHECK(outputPtr[i] ==
-				      Approx(expected[i]).epsilon(1e-3));  // still log failure
-			}
-		}
-
-		if (all_close)
-		{
-			std::cout << "PSF forward GPU test passed!" << std::endl;
-		}*/
-	}
-
-	SECTION("transpose_psf_gpu")
-	{
-		op_gpu.applyAH(image.get(), img_out.get());
-		std::vector<float> expected =
-		    convolve(inputData, dims, voxels, sigmas, true);
-
-		// Compare to output of op.applyAH
-		for (size_t i = 0; i < expected.size(); ++i) {
-			CHECK(outputPtr[i] == Approx(expected[i]).epsilon(1e-3));
-		}
-
-		/*bool all_close = true;
-		for (size_t i = 0; i < expected.size(); ++i)
-		{
-			if (!(Approx(expected[i]).epsilon(1e-3) == outputPtr[i]))
-			{
-				all_close = false;
 				CHECK(outputPtr[i] == Approx(expected[i]).epsilon(1e-3));
 			}
 		}
 
-		if (all_close)
+		SECTION("transpose_psf_" + modeName)
 		{
-			std::cout << "PSF Transposed GPU test passed!" << std::endl;
-		}*/
-	}
+			op->applyAH(image.get(), img_out.get());
+			std::vector<float> expected = convolve(inputData, dims, voxels, sigmas, true);
+			for (size_t i = 0; i < expected.size(); ++i)
+			{
+				CHECK(outputPtr[i] == Approx(expected[i]).epsilon(1e-3));
+			}
+		}
 
-	SECTION("adjoint_test_psf_gpu")
-	{
-		//<Ax,y> =? <x,Aty>
-		auto img_out1 = std::make_unique<ImageOwned>(imgParams);
-		img_out1->allocate();
-		op_gpu.applyA(image.get(), img_out1.get());
-
-		auto image2 = TestUtils::makeImageWithRandomPrism(imgParams);
-		auto img_out2 = std::make_unique<ImageOwned>(imgParams);
-		img_out2->allocate();
-		op_gpu.applyAH(image2.get(), img_out2.get());
-
-		// Compute dot products
-		float lhs = img_out1->dotProduct(*image2);  // <Ax, y>
-		float rhs = image->dotProduct(*img_out2);   // <x, Aty>
-		// CHECK(lhs == Approx(rhs).epsilon(1e-3));
-		bool pass = Approx(lhs).epsilon(1e-3) == rhs;
-		CHECK(pass);
-		if (pass)
+		SECTION("adjoint_test_psf_" + modeName)
 		{
-			std::cout << "PSF adjoint GPU test passed: <Ax, y> = <x, Aty>"
-			          << std::endl;
+			auto img_out1 = std::make_unique<ImageOwned>(imgParams);
+			img_out1->allocate();
+			op->applyA(image.get(), img_out1.get());
+
+			auto image2 = TestUtils::makeImageWithRandomPrism(imgParams);
+			auto img_out2 = std::make_unique<ImageOwned>(imgParams);
+			img_out2->allocate();
+			op->applyAH(image2.get(), img_out2.get());
+
+			float lhs = img_out1->dotProduct(*image2);   // <Ax, y>
+			float rhs = image->dotProduct(*img_out2);    // <x, Aty>
+			CHECK(lhs == Approx(rhs).epsilon(1e-3));
 		}
 	}
 }
 
 TEST_CASE("VarPSF", "[varpsf]")
 {
-	ImageParams imgParams{100,    100,  51,   400.0f, 401.0f,
+	ImageParams imgParams{100, 100, 51, 400.0f, 401.0f,
 	                      421.0f, 0.0f, 0.0f, 0.0f};
 	auto image = TestUtils::makeImageWithRandomPrism(imgParams);
 
@@ -382,14 +279,6 @@ TEST_CASE("VarPSF", "[varpsf]")
 
 		op_var.sigma_lookup.push_back(s);
 	}
-	/*std::cout << "Sigma Lookup Table:\n";
-	for (const auto& s : op_var.sigma_lookup)
-	{
-	    std::cout << std::fixed << std::setprecision(2)
-	            << "Pos (" << s.x << ", " << s.y << ", " << s.z << ") --> "
-	            << "Sigma (" << s.sigmax << ", " << s.sigmay << ", " << s.sigmaz
-	<< ")\n";
-	}*/
 
 	auto img_out = std::make_unique<ImageOwned>(imgParams);
 	img_out->allocate();
@@ -434,6 +323,21 @@ TEST_CASE("VarPSF", "[varpsf]")
 	float* outputPtr = img_out->getRawPointer();
 	std::memcpy(inputData.data(), inputPtr,
 	            image->getData().getSizeTotal() * sizeof(float));
+	
+	Vector3D center_pt = {-imgParams.vx/2, -imgParams.vy/2, -imgParams.vz/2};
+	Vector3D test_pt1 = {threshold-imgParams.vx, 0, 0};
+	Vector3D test_pt2 = {threshold+imgParams.vx, -threshold-imgParams.vx, threshold+imgParams.vx};
+	Vector3D test_pt3 = {(imgParams.nx-1)*imgParams.vx/2, (imgParams.ny-1)*imgParams.vy/2, 
+			-(imgParams.nz-1)*imgParams.vx/2};
+	int center_x, center_y, center_z;
+	int tp1_x, tp1_y, tp1_z;
+	int tp2_x, tp2_y, tp2_z;
+	int tp3_x, tp3_y, tp3_z;
+
+	image->getNearestNeighborIdx(center_pt, &center_x, &center_y, &center_z);
+	image->getNearestNeighborIdx(test_pt1, &tp1_x, &tp1_y, &tp1_z);
+	image->getNearestNeighborIdx(test_pt2, &tp2_x, &tp2_y, &tp2_z);
+	image->getNearestNeighborIdx(test_pt3, &tp3_x, &tp3_y, &tp3_z);
 
 	SECTION("forward_varpsf")
 	{
@@ -445,80 +349,19 @@ TEST_CASE("VarPSF", "[varpsf]")
 		std::vector<float> expected2 =
 		    convolve(inputData, dims, voxels, sigmas2, false, kernel_size_x2,
 		             kernel_size_y2, kernel_size_z2);
-
-		int size_x_vox = static_cast<int>(threshold / imgParams.vx);
-		int size_y_vox = static_cast<int>(threshold / imgParams.vy);
-		int size_z_vox = static_cast<int>(threshold / imgParams.vz);
-		int center_x = imgParams.nx / 2;//change the definition
-		int center_y = imgParams.ny / 2;
-		int center_z = imgParams.nz / 2;
-		int start_x = center_x - size_x_vox / 2 + 1;
-		int end_x = center_x + size_x_vox / 2 - 1;
-		int start_y = center_y - size_y_vox / 2 + 1;
-		int end_y = center_y + size_y_vox / 2 - 1;
-		int start_z = center_z - size_z_vox / 2 + 1;
-		int end_z = center_z + size_z_vox / 2 - 1;
-
-		bool all_close = true;
-		int failed_central = 0;
-		int failed_edge = 0;
-
-		for (int z = 0; z < imgParams.nz; ++z)
-		{
-			for (int y = 0; y < imgParams.ny; ++y)
-			{
-				for (int x = 0; x < imgParams.nx; ++x)
-				{
-					size_t idx = x + imgParams.nx * (y + imgParams.ny * z);
-					bool in_central_box =
-					    (x >= start_x && x < end_x && y >= start_y &&
-					     y < end_y && z >= start_z && z < end_z);
-					bool in_edge_box =
-					    (x > center_x + static_cast<int>(threshold +
-					                                     10 / imgParams.vx) &&
-					     y > center_y + static_cast<int>(threshold +
-					                                     10 / imgParams.vy) &&
-					     z > center_z + static_cast<int>(threshold +
-					                                     10 / imgParams.vz));
-					if (in_central_box)
-					{
-						if (!(Approx(expected1[idx]).epsilon(1e-3) ==
-						      outputPtr[idx]))
-						{
-							all_close = false;
-							++failed_central;
-						}
-						CHECK(outputPtr[idx] ==
-						      Approx(expected1[idx]).epsilon(1e-3));
-					}
-					else if (in_edge_box)
-					{
-						if (!(Approx(expected2[idx]).epsilon(1e-3) ==
-						      outputPtr[idx]))
-						{
-							all_close = false;
-							++failed_edge;
-						}
-						CHECK(outputPtr[idx] ==
-						      Approx(expected2[idx]).epsilon(1e-3));
-					}
-				}
-			}
-		}
-		if (all_close)
-		{
-			std::cout
-			    << "Var PSF test passed: all voxels matched expected values."
-			    << std::endl;
-		}
-		else
-		{
-			std::cout << "Var PSF test failed" << std::endl;
-			std::cout << "  Central region mismatches: " << failed_central
-			          << std::endl;
-			std::cout << "  Edge region mismatches: " << failed_edge
-			          << std::endl;
-		}
+		
+		size_t idx = center_x + imgParams.nx * (center_y + imgParams.ny * center_z);
+		CHECK(outputPtr[idx] ==
+			Approx(expected1[idx]).epsilon(1e-3));
+		idx = tp1_x + imgParams.nx * (tp1_y + imgParams.ny * tp1_z);
+		CHECK(outputPtr[idx] ==
+			Approx(expected1[idx]).epsilon(1e-3));
+		idx = tp2_x + imgParams.nx * (tp2_y + imgParams.ny * tp2_z);
+		CHECK(outputPtr[idx] ==
+			Approx(expected2[idx]).epsilon(1e-3));
+		idx = tp3_x + imgParams.nx * (tp3_y + imgParams.ny * tp3_z);
+		CHECK(outputPtr[idx] ==
+			Approx(expected2[idx]).epsilon(1e-3));
 	}
 
 	SECTION("transpose_varpsf")
@@ -531,79 +374,19 @@ TEST_CASE("VarPSF", "[varpsf]")
 		std::vector<float> expected2 =
 		    convolve(inputData, dims, voxels, sigmas2, true, kernel_size_x2,
 		             kernel_size_y2, kernel_size_z2);
-		int size_x_vox = static_cast<int>(threshold / imgParams.vx);
-		int size_y_vox = static_cast<int>(threshold / imgParams.vy);
-		int size_z_vox = static_cast<int>(threshold / imgParams.vz);
-		int center_x = imgParams.nx / 2;
-		int center_y = imgParams.ny / 2;
-		int center_z = imgParams.nz / 2;
-		int start_x = center_x - size_x_vox / 2 + 1;
-		int end_x = center_x + size_x_vox / 2 - 1;
-		int start_y = center_y - size_y_vox / 2 + 1;
-		int end_y = center_y + size_y_vox / 2 - 1;
-		int start_z = center_z - size_z_vox / 2 + 1;
-		int end_z = center_z + size_z_vox / 2 - 1;
 
-		bool all_close = true;
-		int failed_central = 0;
-		int failed_edge = 0;
-
-		for (int z = 0; z < imgParams.nz; ++z)
-		{
-			for (int y = 0; y < imgParams.ny; ++y)
-			{
-				for (int x = 0; x < imgParams.nx; ++x)
-				{
-					size_t idx = x + imgParams.nx * (y + imgParams.ny * z);
-					bool in_central_box =
-					    (x >= start_x && x < end_x && y >= start_y &&
-					     y < end_y && z >= start_z && z < end_z);
-					bool in_edge_box =
-					    (x > center_x + static_cast<int>(threshold +
-					                                     10 / imgParams.vx) &&
-					     y > center_y + static_cast<int>(threshold +
-					                                     10 / imgParams.vy) &&
-					     z > center_z + static_cast<int>(threshold +
-					                                     10 / imgParams.vz));
-					if (in_central_box)
-					{
-						if (!(Approx(expected1[idx]).epsilon(1e-3) ==
-						      outputPtr[idx]))
-						{
-							all_close = false;
-							++failed_central;
-						}
-						CHECK(outputPtr[idx] ==
-						      Approx(expected1[idx]).epsilon(1e-3));
-					}
-					if (in_edge_box)
-					{
-						if (!(Approx(expected2[idx]).epsilon(1e-3) ==
-						      outputPtr[idx]))
-						{
-							all_close = false;
-							++failed_edge;
-						}
-						CHECK(outputPtr[idx] ==
-						      Approx(expected2[idx]).epsilon(1e-3));
-					}
-				}
-			}
-		}
-		if (all_close)
-		{
-			std::cout << "Var PSF Transposed test passed: all voxels matched "
-			             "expected values."
-			          << std::endl;
-		}
-		else
-		{
-			std::cout << "Var PSF Transposed test failed" << std::endl;
-			std::cout << "  Central region mismatches: " << failed_central
-			          << std::endl;
-			std::cout << "  Edge region mismatches: " << failed_edge
-			          << std::endl;
-		}
+		size_t idx = center_x + imgParams.nx * (center_y + imgParams.ny * center_z);
+		CHECK(outputPtr[idx] ==
+			Approx(expected1[idx]).epsilon(1e-3));
+		idx = tp1_x + imgParams.nx * (tp1_y + imgParams.ny * tp1_z);
+		CHECK(outputPtr[idx] ==
+			Approx(expected1[idx]).epsilon(1e-3));
+		idx = tp2_x + imgParams.nx * (tp2_y + imgParams.ny * tp2_z);
+		CHECK(outputPtr[idx] ==
+			Approx(expected2[idx]).epsilon(1e-3));
+		idx = tp3_x + imgParams.nx * (tp3_y + imgParams.ny * tp3_z);
+		CHECK(outputPtr[idx] ==
+			Approx(expected2[idx]).epsilon(1e-3));
 	}
 
 	SECTION("adjoint_test_varpsf")

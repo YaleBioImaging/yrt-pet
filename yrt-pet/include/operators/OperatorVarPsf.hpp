@@ -14,6 +14,7 @@ struct Sigma
 {
 	float x, y, z;
 	float sigmax, sigmay, sigmaz;
+	std::vector<float> psf_kernel;
 };
 
 class OperatorVarPsf : public Operator
@@ -38,7 +39,8 @@ protected:
 	                         float y, float z) const;
 
 private:
-	void readFromFileInternal(const std::string& imageVarPsf_fname);
+	void readFromFileInternal(const std::string& imageVarPsf_fname, const ImageParams& imgParams);
+	void precalculateKernels();
 	mutable std::vector<float> m_buffer_tmp;
 	const float N = 0.0634936;  // 1/sqrt(8*pi*pi*pi)
 	// in the futrue, these shold be included in the header of PSF LUT

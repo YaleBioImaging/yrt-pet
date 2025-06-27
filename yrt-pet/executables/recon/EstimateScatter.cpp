@@ -107,7 +107,7 @@ int main(int argc, char** argv)
 		    false, IO::TypeOfArgument::INT, -1, tailFittingGroup);
 		registry.registerArgument(
 		    "no_denorm",
-		    "Do not affect the scatter estimate by the sensitivity", false,
+		    "Skip multiplication of the scatter estimate by the sensitivity", false,
 		    IO::TypeOfArgument::BOOL, false, tailFittingGroup);
 
 		// Load configuration

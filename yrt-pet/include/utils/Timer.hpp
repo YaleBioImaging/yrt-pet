@@ -20,11 +20,12 @@ namespace Util
 		Timer();
 
 		void reset();
-		void start();
+		void run();
 		void pause();
-		void resume();
 
 		duration_t getElapsedTime() const;
+		double getElapsedMilliseconds() const;
+		bool isRunning() const;
 
 	private:
 		bool m_running;

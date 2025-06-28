@@ -4,10 +4,11 @@
  */
 
 #include "utils/Timer.hpp"
+#include "utils/Assert.hpp"
 
 namespace Util
 {
-	Timer::Timer() : m_running{false}
+	Timer::Timer()
 	{
 		reset();
 	}
@@ -15,25 +16,27 @@ namespace Util
 	void Timer::reset()
 	{
 		m_elapsedTime = duration_t::zero();
+		m_running = false;
 	}
 
-	void Timer::start()
+	void Timer::run()
 	{
-		reset();
-		resume();
+		ASSERT_MSG(!m_running, "Timer already running");
+		m_latestTime = std::chrono::high_resolution_clock::now();
+		m_running = true;
 	}
 
 	void Timer::pause()
 	{
+		ASSERT_MSG(m_running, "Timer already paused");
 		m_elapsedTime +=
 		    std::chrono::high_resolution_clock::now() - m_latestTime;
 		m_running = false;
 	}
 
-	void Timer::resume()
+	bool Timer::isRunning() const
 	{
-		m_latestTime = std::chrono::high_resolution_clock::now();
-		m_running = true;
+		return m_running;
 	}
 
 	Timer::duration_t Timer::getElapsedTime() const
@@ -43,6 +46,13 @@ namespace Util
 			return std::chrono::high_resolution_clock::now() - m_latestTime;
 		}
 		return m_elapsedTime;
+	}
+
+	double Timer::getElapsedMilliseconds() const
+	{
+		return std::chrono::duration_cast<
+		           std::chrono::duration<double, std::milli>>(getElapsedTime())
+		    .count();
 	}
 
 }  // namespace Util

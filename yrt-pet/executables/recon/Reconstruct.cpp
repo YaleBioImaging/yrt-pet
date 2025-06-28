@@ -12,9 +12,10 @@
 #include "utils/Globals.hpp"
 #include "utils/ProgressDisplay.hpp"
 #include "utils/ReconstructionUtils.hpp"
-#include "utils/Utilities.hpp"
+#include "utils/Timer.hpp"
 
 #include <cxxopts.hpp>
+#include <ctime>
 #include <iostream>
 
 int main(int argc, char** argv)
@@ -254,6 +255,10 @@ int main(int argc, char** argv)
 			           "No format specified for input data.");
 		}
 
+		Util::Timer ioTimer, sensTimer, reconTimer;
+
+		ioTimer.run();
+
 		Globals::set_num_threads(config.getValue<int>("num_threads"));
 		std::cout << "Initializing scanner..." << std::endl;
 		auto scanner =
@@ -386,9 +391,15 @@ int main(int argc, char** argv)
 			ImageParams imgParams{config.getValue<std::string>("params")};
 			osem->setImageParams(imgParams);
 
+			ioTimer.pause();
+			sensTimer.run();
+
 			std::cout << "Generating sensitivity image(s)..." << std::endl;
 			osem->generateSensitivityImages(
 			    sensImages, config.getValue<std::string>("out_sens"));
+
+			sensTimer.pause();
+			ioTimer.run();
 		}
 		else if (osem->getExpectedSensImagesAmount() ==
 		         static_cast<int>(
@@ -451,6 +462,9 @@ int main(int argc, char** argv)
 				const Image* unmovedSensImage = sensImages[0].get();
 				ASSERT(unmovedSensImage != nullptr);
 
+				ioTimer.pause();
+				sensTimer.run();
+
 				std::cout << "Moving sensitivity image..." << std::endl;
 				if (dataInput == nullptr)
 				{
@@ -467,6 +481,9 @@ int main(int argc, char** argv)
 					movedSensImage = Util::timeAverageMoveImage(
 					    *lorMotion, *unmovedSensImage, timeStart, timeStop);
 				}
+
+				sensTimer.pause();
+				ioTimer.run();
 
 				if (!config.getValue<std::string>("out_sens").empty())
 				{
@@ -660,8 +677,20 @@ int main(int argc, char** argv)
 			osem->initialEstimate = initialEstimate.get();
 		}
 
+		ioTimer.pause();
+		reconTimer.run();
+
 		std::cout << "Launching reconstruction..." << std::endl;
 		osem->reconstruct(config.getValue<std::string>("out"));
+
+		reconTimer.pause();
+
+		std::cout << "I/O time: " << ioTimer.getElapsedMilliseconds() << "ms"
+		          << std::endl;
+		std::cout << "Sensitivity generation time: "
+		          << sensTimer.getElapsedMilliseconds() << "ms" << std::endl;
+		std::cout << "Reconstruction time: "
+		          << reconTimer.getElapsedMilliseconds() << "ms" << std::endl;
 
 		std::cout << "Done." << std::endl;
 		return 0;

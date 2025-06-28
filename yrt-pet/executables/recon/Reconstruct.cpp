@@ -14,9 +14,21 @@
 #include "utils/ReconstructionUtils.hpp"
 #include "utils/Timer.hpp"
 
-#include <cxxopts.hpp>
 #include <ctime>
+#include <cxxopts.hpp>
 #include <iostream>
+
+void printTimingStatistics(const Util::Timer& ioTimer,
+                           const Util::Timer& sensTimer,
+                           const Util::Timer& reconTimer)
+{
+	std::cout << "I/O time: " << ioTimer.getElapsedMilliseconds() << "ms"
+	          << std::endl;
+	std::cout << "Sensitivity generation time: "
+	          << sensTimer.getElapsedMilliseconds() << "ms" << std::endl;
+	std::cout << "Reconstruction time: " << reconTimer.getElapsedMilliseconds()
+	          << "ms" << std::endl;
+}
 
 int main(int argc, char** argv)
 {
@@ -435,6 +447,7 @@ int main(int argc, char** argv)
 		// No need to read data input if in sens_only mode
 		if (sensOnly && lorMotion_fname.empty())
 		{
+			printTimingStatistics(ioTimer, sensTimer, reconTimer);
 			std::cout << "Done." << std::endl;
 			return 0;
 		}
@@ -515,6 +528,7 @@ int main(int argc, char** argv)
 
 		if (sensOnly)
 		{
+			printTimingStatistics(ioTimer, sensTimer, reconTimer);
 			std::cout << "Done." << std::endl;
 			return 0;
 		}
@@ -685,12 +699,7 @@ int main(int argc, char** argv)
 
 		reconTimer.pause();
 
-		std::cout << "I/O time: " << ioTimer.getElapsedMilliseconds() << "ms"
-		          << std::endl;
-		std::cout << "Sensitivity generation time: "
-		          << sensTimer.getElapsedMilliseconds() << "ms" << std::endl;
-		std::cout << "Reconstruction time: "
-		          << reconTimer.getElapsedMilliseconds() << "ms" << std::endl;
+		printTimingStatistics(ioTimer, sensTimer, reconTimer);
 
 		std::cout << "Done." << std::endl;
 		return 0;

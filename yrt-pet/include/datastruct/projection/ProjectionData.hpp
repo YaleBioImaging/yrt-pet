@@ -18,6 +18,7 @@ class BinIterator;
 
 struct ProjectionProperties
 {
+	bin_t bin;
 	Line3D lor;
 	float tofValue;
 	Vector3D det1Orient;

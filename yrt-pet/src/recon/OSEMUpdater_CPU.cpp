@@ -51,7 +51,7 @@ void OSEMUpdater_CPU::computeSensitivityImage(Image& destImage) const
 		    sensImgGenProjData->getProjectionProperties(bin);
 
 		const float projValue = correctorPtr->getMultiplicativeCorrectionFactor(
-		    *sensImgGenProjData, bin);
+			*sensImgGenProjData, bin);
 
 		projector->backProjection(destImagePtr, projectionProperties,
 		                          projValue);
@@ -76,7 +76,7 @@ void OSEMUpdater_CPU::computeSensitivityImage(Image& destImage) const
 
 #pragma omp parallel for default(none)                                      \
     firstprivate(sensImgGenProjData, correctorPtr, projector, destImagePtr, \
-                     binIter, numBins) shared(progressDisplay)
+                 numBins) shared(progressDisplay, binIter)
 	for (bin_t binIdx = 0; binIdx < numBins; binIdx++)
 	{
 		progressDisplay.progress(omp_get_thread_num(), 1);
@@ -84,7 +84,7 @@ void OSEMUpdater_CPU::computeSensitivityImage(Image& destImage) const
 		const ProjectionProperties projectionProperties = binIter.get();
 
 		const float projValue = correctorPtr->getMultiplicativeCorrectionFactor(
-		    *sensImgGenProjData, bin);
+			*sensImgGenProjData, projectionProperties.bin);
 
 		projector->backProjection(destImagePtr, projectionProperties,
 		                          projValue);

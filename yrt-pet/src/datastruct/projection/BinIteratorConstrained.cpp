@@ -215,12 +215,16 @@ void BinIteratorConstrained::produce()
 		{
 			// TODO get properties
 			const Line3D lor = mProjData->getLOR(bin);
-			float tofValue = mProjData->getTOFValue(bin);;
+			float tofValue = 0.f;
+			if (mProjData->hasTOF())
+			{
+				tofValue = mProjData->getTOFValue(bin);
+			}
 			const Vector3D det1Orient = mProjData->getScanner().getDetectorOrient(info["det1"]);
 			const Vector3D det2Orient = mProjData->getScanner().getDetectorOrient(info["det2"]);
 			// TODO check size
-			mQueue.wait_and_push(
-			    ProjectionProperties({lor, tofValue, det1Orient, det2Orient}));
+			mQueue.wait_and_push(ProjectionProperties(
+			    {bin, lor, tofValue, det1Orient, det2Orient}));
 		}
 	}
 }

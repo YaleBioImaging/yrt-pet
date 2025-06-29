@@ -60,16 +60,18 @@ void LORsDevice::precomputeBatchLORs(const BinIterator& binIter,
 		auto* binIter_ptr = &binIter;
 		const ProjectionData* reference_ptr = &reference;
 
-		util::parallelForChunked(
-		    batchSize, globals::getNumThreads(),
-		    [binIter_ptr, offset, reference_ptr, tempBufferLorDet1Pos_ptr,
-		     tempBufferLorDet2Pos_ptr, tempBufferLorDet1Orient_ptr,
-		     tempBufferLorDet2Orient_ptr, tempBufferLorTOFValue_ptr,
-		     this](size_t binIdx, size_t /*tid*/)
-		    {
-			    bin_t binId = binIter_ptr->get(binIdx + offset);
-			    auto [lor, tofValue, det1Orient, det2Orient] =
-			        reference_ptr->getProjectionProperties(binId);
+		bin_t binId;
+		size_t binIdx;
+#pragma omp parallel for default(none) private(binIdx, binId)                \
+    firstprivate(offset, batchSize, binIter_ptr, tempBufferLorDet1Pos_ptr,   \
+                     tempBufferLorDet2Pos_ptr, tempBufferLorDet1Orient_ptr,  \
+                     tempBufferLorDet2Orient_ptr, tempBufferLorTOFValue_ptr, \
+                     reference_ptr, m_hasTOF)
+		for (binIdx = 0; binIdx < batchSize; binIdx++)
+		{
+			binId = binIter_ptr->get(binIdx + offset);
+			auto [bin, lor, tofValue, det1Orient, det2Orient] =
+			    reference_ptr->getProjectionProperties(binId);
 
 			    tempBufferLorDet1Pos_ptr[binIdx].x = lor.point1.x;
 			    tempBufferLorDet1Pos_ptr[binIdx].y = lor.point1.y;

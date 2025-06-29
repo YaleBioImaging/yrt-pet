@@ -181,7 +181,7 @@ ProjectionProperties ProjectionData::getProjectionProperties(
 
 	const Vector3D det1Orient = mr_scanner.getDetectorOrient(d1);
 	const Vector3D det2Orient = mr_scanner.getDetectorOrient(d2);
-	return ProjectionProperties{lor, tofValue, det1Orient, det2Orient};
+	return ProjectionProperties{bin, lor, tofValue, det1Orient, det2Orient};
 }
 
 Line3D ProjectionData::getLOR(bin_t bin) const

@@ -41,18 +41,19 @@ set(SOURCES
     operators/ProjectionPsfManager.cpp
     operators/SparseProjection.cpp
     operators/TimeOfFlight.cpp
+    operators/Variable.cpp
     recon/Corrector.cpp
     recon/Corrector_CPU.cpp
     recon/OSEMUpdater_CPU.cpp
     recon/OSEM.cpp
     recon/OSEM_CPU.cpp
-    operators/Variable.cpp
     scatter/ScatterEstimator.cpp
     scatter/SingleScatterSimulator.cpp
     scatter/Crystal.cpp
     utils/Assert.cpp
     utils/Utilities.cpp
     utils/RangeList.cpp
+    utils/Timer.cpp
     utils/Tools.cpp
     utils/ProgressDisplay.cpp
     utils/ProgressDisplayMultiThread.cpp

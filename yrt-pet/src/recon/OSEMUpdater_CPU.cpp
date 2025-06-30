@@ -5,6 +5,7 @@
 
 #include "yrt-pet/recon/OSEMUpdater_CPU.hpp"
 
+#include <omp.h>
 #include <thread>
 
 #include "yrt-pet/datastruct/projection/ProjectionData.hpp"
@@ -70,14 +71,15 @@ void OSEMUpdater_CPU::computeSensitivityImage(Image& destImage) const
 	Image* destImagePtr = &destImage;
 	BinIteratorConstrained binIter(sensImgGenProjData, binIterProj, 10);
 	const bin_t numBins = binIter.count();
+	int numThreads = Globals::get_num_threads();
 	Util::ProgressDisplayMultiThread progressDisplay(Globals::get_num_threads(),
 	                                                 numBins);
 
 	std::thread producerThread(&BinIteratorConstrained::produce, &binIter);
 
-#pragma omp parallel for default(none)                                      \
+#pragma omp parallel for default(none) num_threads(numThreads - 1)          \
     firstprivate(sensImgGenProjData, correctorPtr, projector, destImagePtr, \
-                 numBins) shared(progressDisplay, binIter)
+                 numBins) shared(progressDisplay, binIter, std::cout)
 	for (bin_t binIdx = 0; binIdx < numBins; binIdx++)
 	{
 		progressDisplay.progress(omp_get_thread_num(), 1);

@@ -74,7 +74,10 @@ std::vector<std::string> ConstraintDetectorMask::getVariables() const
 BinIteratorConstrained::BinIteratorConstrained(const ProjectionData* pProjData,
                                                const BinIterator* pBinIterBase,
                                                int pQueueSizeMax)
-	: mProjData(pProjData), mBinIterBase(pBinIterBase), mQueue(pQueueSizeMax)
+    : mProjData(pProjData),
+      mBinIterBase(pBinIterBase),
+      mQueue(pQueueSizeMax),
+      mCount(0)
 {
 }
 

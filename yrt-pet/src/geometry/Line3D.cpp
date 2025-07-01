@@ -12,6 +12,7 @@
 #include <sstream>
 
 namespace py = pybind11;
+using namespace py::literals;
 
 template <typename TFloat>
 void py_setup_line3dbase(py::module& m)
@@ -34,7 +35,7 @@ void py_setup_line3dbase(py::module& m)
 	    {
 		    return std::unique_ptr<Line3DBase<TFloat>>(
 		        new Line3DBase<TFloat>{point1, point2});
-	    }));
+	    }), "p1"_a, "p2"_a);
 	c.def("getNorm", &Line3DBase<TFloat>::getNorm);
 	c.def("isEqual", &Line3DBase<TFloat>::isEqual);
 	c.def("isParallel", &Line3DBase<TFloat>::isParallel);

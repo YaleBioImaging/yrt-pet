@@ -10,11 +10,12 @@
 #if BUILD_PYBIND11
 #include <pybind11/pybind11.h>
 namespace py = pybind11;
+using namespace py::literals;
 
 void py_setup_timeofflight(py::module& m)
 {
 	auto c = py::class_<TimeOfFlightHelper>(m, "TimeOfFlightHelper");
-	c.def(py::init<float, int>());
+	c.def(py::init<float, int>(), "tof_width_ps"_a, "tof_n_std"_a);
 	c.def("getAlphaRange", &TimeOfFlightHelper::getAlphaRange);
 	c.def("getWeight", &TimeOfFlightHelper::getWeight);
 	c.def("getSigma", &TimeOfFlightHelper::getSigma);

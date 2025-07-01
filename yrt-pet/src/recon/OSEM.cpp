@@ -440,6 +440,11 @@ bool OSEM::isListModeEnabled() const
 	return usingListModeInput;
 }
 
+bool OSEM::hasImagePSF() const
+{
+	return flagImagePSF;
+}
+
 void OSEM::enableNeedToMakeCopyOfSensImage()
 {
 	needToMakeCopyOfSensImage = true;

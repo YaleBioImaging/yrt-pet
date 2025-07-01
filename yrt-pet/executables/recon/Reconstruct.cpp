@@ -30,6 +30,23 @@ void printTimingStatistics(const Util::Timer& ioTimer,
 	          << "ms" << std::endl;
 }
 
+void addImagePSFtoReconIfNeeded(OSEM& osem, std::string psf_fname, std::string varpsf_fname)
+{
+	if (!osem.hasImagePSF())
+	{
+		if (!psf_fname.empty())
+		{
+			ASSERT_MSG(varpsf_fname.empty(),
+						"Got two different image PSF inputs");
+			osem.addImagePSF(psf_fname, ImagePSFMode::UNIFORM);
+		}
+		else if (!varpsf_fname.empty())
+		{
+			osem.addImagePSF(varpsf_fname, ImagePSFMode::VARIANT);
+		}
+	}
+}
+
 int main(int argc, char** argv)
 {
 	try
@@ -357,18 +374,6 @@ int main(int argc, char** argv)
 			osem->setHardwareAttenuationImage(hardwareAttImg.get());
 		}
 
-		// Image-space PSF
-		if (!config.getValue<std::string>("psf").empty())
-		{
-			ASSERT_MSG(config.getValue<std::string>("varpsf").empty(),
-			           "Got two different image PSF inputs");
-			osem->addImagePSF(config.getValue<std::string>("psf"), ImagePSFMode::UNIFORM);
-		}
-		else if (!config.getValue<std::string>("varpsf").empty())
-		{
-			osem->addImagePSF(config.getValue<std::string>("varpsf"), ImagePSFMode::VARIANT);
-		}
-
 		// Projection-space PSF
 		if (!config.getValue<std::string>("proj_psf").empty())
 		{
@@ -411,6 +416,8 @@ int main(int argc, char** argv)
 			           "Image parameters file unspecified");
 			ImageParams imgParams{config.getValue<std::string>("params")};
 			osem->setImageParams(imgParams);
+
+			addImagePSFtoReconIfNeeded(*osem, config.getValue<std::string>("psf"), config.getValue<std::string>("varpsf"));
 
 			ioTimer.pause();
 			sensTimer.run();
@@ -541,6 +548,8 @@ int main(int argc, char** argv)
 			std::cout << "Done." << std::endl;
 			return 0;
 		}
+
+		addImagePSFtoReconIfNeeded(*osem, config.getValue<std::string>("psf"), config.getValue<std::string>("varpsf"));
 
 		if (lorMotion != nullptr)
 		{

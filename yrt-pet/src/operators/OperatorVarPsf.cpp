@@ -44,7 +44,7 @@ void py_setup_operatorvarpsf(py::module& m)
 }
 #endif
 
-OperatorVarPsf::OperatorVarPsf(const ImageParams& imgParams) : Operator{}, imageParams(imgParams)
+OperatorVarPsf::OperatorVarPsf(const ImageParams& imgParams) : Operator{}, m_imageParams(imgParams)
 {}
 
 OperatorVarPsf::OperatorVarPsf(const std::string& imageVarPsf_fname, const ImageParams& imgParams)
@@ -110,9 +110,9 @@ void OperatorVarPsf::readFromFile(const std::string& imageVarPsf_fname)
 
 void OperatorVarPsf::precalculateKernel(Sigma& s)
 {
-    int kernel_size_x = std::min(4, std::max(1, static_cast<int>(std::floor((s.sigmax * kernel_width_control) / imageParams.vx)) - 1));
-    int kernel_size_y = std::min(4, std::max(1, static_cast<int>(std::floor((s.sigmay * kernel_width_control) / imageParams.vy)) - 1));
-    int kernel_size_z = std::min(4, std::max(1, static_cast<int>(std::floor((s.sigmaz * kernel_width_control) / imageParams.vz)) - 1));
+    int kernel_size_x = std::min(4, std::max(1, static_cast<int>(std::floor((s.sigmax * kernel_width_control) / m_imageParams.vx)) - 1));
+    int kernel_size_y = std::min(4, std::max(1, static_cast<int>(std::floor((s.sigmay * kernel_width_control) / m_imageParams.vy)) - 1));
+    int kernel_size_z = std::min(4, std::max(1, static_cast<int>(std::floor((s.sigmaz * kernel_width_control) / m_imageParams.vz)) - 1));
 
     const int kx_len = kernel_size_x * 2 + 1;
     const int ky_len = kernel_size_y * 2 + 1;
@@ -129,9 +129,9 @@ void OperatorVarPsf::precalculateKernel(Sigma& s)
         for (int y_diff = -kernel_size_y; y_diff <= kernel_size_y; ++y_diff)
             for (int z_diff = -kernel_size_z; z_diff <= kernel_size_z; ++z_diff, ++idx)
             {
-                float xoffset = x_diff * imageParams.vx;
-                float yoffset = y_diff * imageParams.vy;
-                float zoffset = z_diff * imageParams.vz;
+                float xoffset = x_diff * m_imageParams.vx;
+                float yoffset = y_diff * m_imageParams.vy;
+                float zoffset = z_diff * m_imageParams.vz;
                 float temp = -(xoffset * xoffset * inv_2_sigmax2 +
                                yoffset * yoffset * inv_2_sigmay2 +
                                zoffset * zoffset * inv_2_sigmaz2);
@@ -192,15 +192,11 @@ void OperatorVarPsf::varconvolve(const Image* in, Image* out) const
 	float z_center = nz * vz / 2.0f;
 
 	bool same_image = (in == out); // Check if in and out are the same
-	std::vector<float> temp_out;
 	if (same_image) 
 	{
-		temp_out.resize(nx * ny * nz, 0.0f);
-		outPtr = temp_out.data(); // Use the temporary buffer
+		m_tempOut.resize(nx * ny * nz, 0.0f);
+		outPtr = m_tempOut.data(); // Use the temporary buffer
 	}
-
-	const size_t sizeBuffer = std::max(std::max(nx, ny), nz);
-	m_buffer_tmp.resize(sizeBuffer);
 
 	float temp_x, temp_y, temp_z;
 	int i, j, k, ii, jj, kk;

@@ -40,8 +40,8 @@ protected:
 	                         float y, float z) const;
 
 private:
-	ImageParams imageParams;
-	mutable std::vector<float> m_buffer_tmp;
+	ImageParams m_imageParams;
+	//mutable std::vector<float> m_tempBuffer;
 	const float N = 0.0634936;  // 1/sqrt(8*pi*pi*pi)
 	// in the futrue, these shold be included in the header of PSF LUT
 	float x_range = 200;
@@ -52,4 +52,5 @@ private:
 	float z_gap = 50;
 	// declare x_dim here, put the calculation in the constructor
 	float x_dim = x_range / x_gap;
+	mutable std::vector<float> m_tempOut;
 };

@@ -69,6 +69,7 @@ public:
 	void setListModeEnabled(bool enabled);
 	void setProjector(const std::string& projectorName);  // Helper
 	bool isListModeEnabled() const;
+	bool hasImagePSF() const;
 	void enableNeedToMakeCopyOfSensImage();
 	ImageParams getImageParams() const;
 	void setImageParams(const ImageParams& params);
@@ -109,9 +110,7 @@ protected:
 	// ---------- Protected members ----------
 	bool flagImagePSF;
 	std::string imagePsf_fname;
-	//std::string imageVarPsf_fname;
 	std::unique_ptr<Operator> imagePsf;
-	//std::unique_ptr<OperatorVarPsf> imageVarPsf;
 	bool flagProjPSF;
 	std::string projPsf_fname;
 	bool flagProjTOF;

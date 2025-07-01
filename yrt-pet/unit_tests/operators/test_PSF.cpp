@@ -276,6 +276,7 @@ TEST_CASE("VarPSF", "[varpsf]")
 		s.sigmax = (s.x > threshold) ? sigmaX2 : sigmaX1;
 		s.sigmay = (s.y > threshold) ? sigmaY2 : sigmaY1;
 		s.sigmaz = (s.z > threshold) ? sigmaZ2 : sigmaZ1;
+		op_var.precalculateKernel(s);
 
 		op_var.sigma_lookup.push_back(s);
 	}

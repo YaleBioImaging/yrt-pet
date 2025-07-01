@@ -618,31 +618,19 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 			                     *getMLEMImageTmpBuffer(
 			                         TemporaryImageSpaceBufferType::EM_RATIO));
 
-			getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType::PSF)
-					->setValue(0.0);
+			// PSF					
 			if (flagImagePSF)
 			{
-				getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType::PSF)
-				->setValue(0.0);
 				imagePsf->applyAH(getMLEMImageTmpBuffer(
 					TemporaryImageSpaceBufferType::EM_RATIO),
 				getMLEMImageTmpBuffer(
-					TemporaryImageSpaceBufferType::PSF));
+					TemporaryImageSpaceBufferType::EM_RATIO));
 			}
 
 			// UPDATE
-			if (flagImagePSF)
-			{
-				getMLEMImageBuffer()->updateEMThreshold(
-					getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType::PSF),
-					getSensImageBuffer(), EPS_FLT);
-			}
-			else
-			{
-				getMLEMImageBuffer()->updateEMThreshold(
-					getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType::EM_RATIO),
-					getSensImageBuffer(), EPS_FLT);
-			}
+			getMLEMImageBuffer()->updateEMThreshold(
+				getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType::EM_RATIO),
+				getSensImageBuffer(), EPS_FLT);
 		}
 		if (saveIterRanges.isIn(iter + 1))
 		{

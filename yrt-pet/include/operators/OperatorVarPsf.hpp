@@ -33,6 +33,7 @@ public:
 	void varconvolve(const Image* in, Image* out) const;
 	std::vector<Sigma> sigma_lookup;
 	const float kernel_width_control = 4.0;
+	void precalculateKernel(Sigma& s);
 
 protected:
 	Sigma find_nearest_sigma(const std::vector<Sigma>& sigma_lookup, float x,

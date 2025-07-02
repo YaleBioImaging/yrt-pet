@@ -7,7 +7,7 @@
 
 // Constraints
 
-bool Constraint::isValid(constraint_params info) const
+bool Constraint::isValid(ConstraintParams& info) const
 {
 	return mConstraintFcn(info);
 }
@@ -19,7 +19,7 @@ std::vector<std::string> Constraint::getVariables() const
 // Minimum angle difference constraint (index)
 ConstraintAngleDiffIndex::ConstraintAngleDiffIndex(size_t pMinAngleDiffIdx)
 {
-	mConstraintFcn = [pMinAngleDiffIdx](constraint_params info)
+	mConstraintFcn = [pMinAngleDiffIdx](ConstraintParams& info)
 	{
 		return info["abs_delta_angle_idx"] >= pMinAngleDiffIdx;
 	};
@@ -32,7 +32,7 @@ std::vector<std::string> ConstraintAngleDiffIndex::getVariables() const
 // Minimum angle difference constraint (angle)
 ConstraintAngleDiffDeg::ConstraintAngleDiffDeg(size_t pMinAngleDiffDeg)
 {
-	mConstraintFcn = [pMinAngleDiffDeg](constraint_params info)
+	mConstraintFcn = [pMinAngleDiffDeg](ConstraintParams& info)
 	{
 		return info["abs_delta_angle_deg"] >= pMinAngleDiffDeg;
 	};
@@ -45,7 +45,7 @@ std::vector<std::string> ConstraintAngleDiffDeg::getVariables() const
 // Minimum angle difference constraint (index)
 ConstraintBlockDiffIndex::ConstraintBlockDiffIndex(size_t pMinBlockDiffIdx)
 {
-	mConstraintFcn = [pMinBlockDiffIdx](constraint_params info)
+	mConstraintFcn = [pMinBlockDiffIdx](ConstraintParams& info)
 	{
 		return info["abs_delta_block_idx"] >= pMinBlockDiffIdx;
 	};
@@ -58,7 +58,7 @@ std::vector<std::string> ConstraintBlockDiffIndex::getVariables() const
 // Detector mask
 ConstraintDetectorMask::ConstraintDetectorMask(Scanner* scanner)
 {
-	mConstraintFcn = [scanner](constraint_params info)
+	mConstraintFcn = [scanner](ConstraintParams& info)
 	{
 		return (scanner->isDetectorAllowed(info["det1"]) &&
 		        scanner->isDetectorAllowed(info["det2"]));
@@ -102,12 +102,10 @@ std::set<std::string> BinIteratorConstrained::collectVariables() const
 	return variables;
 }
 
-constraint_params
-    BinIteratorConstrained::collectInfo(
-	    bin_t bin, std::set<std::string> variables) const
+void BinIteratorConstrained::collectInfo(bin_t bin,
+                                         std::set<std::string>& variables,
+                                         ConstraintParams& info) const
 {
-	constraint_params info;
-
 	auto [d1, d2] = mProjData->getDetectorPair(bin);
 	info["det1"] = d1;
 	info["det2"] = d2;
@@ -167,11 +165,9 @@ constraint_params
 		info["abs_delta_block_idx"] = Util::periodicDiff(
 			d1bi, d2bi, scanner->detsPerBlock);
 	}
-
-	return info;
 }
 
-bool BinIteratorConstrained::isValid(constraint_params info) const
+bool BinIteratorConstrained::isValid(ConstraintParams& info) const
 {
 	for (auto constraint : mConstraints)
 	{
@@ -194,10 +190,12 @@ size_t BinIteratorConstrained::count()
 	{
 		auto variables = collectVariables();
 		size_t count = 0;
+#pragma omp parallel for reduction (+ : count)
 		for (size_t binIdx = 0; binIdx < mBinIterBase->size(); binIdx++)
 		{
+			ConstraintParams info;
 			bin_t bin = mBinIterBase->get(binIdx);
-			auto info = collectInfo(bin, variables);
+			collectInfo(bin, variables, info);
 			if (isValid(info))
 			{
 				count++;
@@ -207,32 +205,48 @@ size_t BinIteratorConstrained::count()
 	}
 }
 
-void BinIteratorConstrained::produce()
+void BinIteratorConstrained::prepare()
 {
-	auto variables = collectVariables();
-	for (size_t binIdx = 0; binIdx < mBinIterBase->size(); binIdx++)
+	mVariables = collectVariables();
+	count();
+	mBinIdx = 0;
+}
+
+void BinIteratorConstrained::produceNext(ConstraintParams& info)
+{
+	bin_t bin = mBinIterBase->get(mBinIdx);
+	collectInfo(bin, mVariables, info);
+	if (isValid(info))
 	{
-		bin_t bin = mBinIterBase->get(binIdx);
-		auto info = collectInfo(bin, variables);
-		if (isValid(info))
+		// TODO get properties
+		const Line3D lor = mProjData->getLOR(bin);
+		float tofValue = 0.f;
+		if (mProjData->hasTOF())
 		{
-			// TODO get properties
-			const Line3D lor = mProjData->getLOR(bin);
-			float tofValue = 0.f;
-			if (mProjData->hasTOF())
-			{
-				tofValue = mProjData->getTOFValue(bin);
-			}
-			const Vector3D det1Orient = mProjData->getScanner().getDetectorOrient(info["det1"]);
-			const Vector3D det2Orient = mProjData->getScanner().getDetectorOrient(info["det2"]);
-			// TODO check size
-			mQueue.wait_and_push(ProjectionProperties(
-			    {bin, lor, tofValue, det1Orient, det2Orient}));
+			tofValue = mProjData->getTOFValue(bin);
 		}
+		const Vector3D det1Orient =
+		    mProjData->getScanner().getDetectorOrient(info["det1"]);
+		const Vector3D det2Orient =
+		    mProjData->getScanner().getDetectorOrient(info["det2"]);
+		// TODO check size
+		mQueue.wait_and_push(
+		    ProjectionProperties({bin, lor, tofValue, det1Orient, det2Orient}));
 	}
+	mBinIdx++;
 }
 
 const ProjectionProperties& BinIteratorConstrained::get()
 {
 	return mQueue.wait_and_pop();
+}
+
+bool BinIteratorConstrained::nextTaskProduce() const
+{
+	return mQueue.size() < 0.5f * mQueue.GetSizeMax();
+}
+
+bool BinIteratorConstrained::done() const
+{
+	return mBinIdx >= mBinIterBase->size();
 }

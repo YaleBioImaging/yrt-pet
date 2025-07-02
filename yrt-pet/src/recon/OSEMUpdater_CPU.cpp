@@ -70,30 +70,51 @@ void OSEMUpdater_CPU::computeSensitivityImage(Image& destImage) const
 	    corrector.getSensImgGenProjData();
 	Image* destImagePtr = &destImage;
 	BinIteratorConstrained binIter(sensImgGenProjData, binIterProj, 10);
+	binIter.prepare();
 	const bin_t numBins = binIter.count();
 	int numThreads = Globals::get_num_threads();
 	Util::ProgressDisplayMultiThread progressDisplay(Globals::get_num_threads(),
 	                                                 numBins);
 
-	std::thread producerThread(&BinIteratorConstrained::produce, &binIter);
-
-#pragma omp parallel for default(none) num_threads(numThreads - 1)          \
-    firstprivate(sensImgGenProjData, correctorPtr, projector, destImagePtr, \
-                 numBins) shared(progressDisplay, binIter, std::cout)
-	for (bin_t binIdx = 0; binIdx < numBins; binIdx++)
+	std::vector<std::thread> workers;
+	std::vector<ConstraintParams> info;
+	std::set<std::string> variables = binIter.collectVariables();
+	ConstraintParams infoTest;
+	binIter.collectInfo(0, variables, infoTest);
+	info.resize(numThreads);
+	for (int i = 0; i < numThreads; i++)
 	{
-		progressDisplay.progress(omp_get_thread_num(), 1);
-
-		const ProjectionProperties projectionProperties = binIter.get();
-
-		const float projValue = correctorPtr->getMultiplicativeCorrectionFactor(
-			*sensImgGenProjData, projectionProperties.bin);
-
-		projector->backProjection(destImagePtr, projectionProperties,
-		                          projValue);
+		info[i].reserve(infoTest.size());
+		auto& infoT = info[i];
+		workers.emplace_back(std::thread(
+		    [&binIter, projector, correctorPtr, sensImgGenProjData,
+		     destImagePtr, &progressDisplay, &infoT, i]()
+		    {
+			    while (!binIter.done())
+			    {
+				    if (binIter.nextTaskProduce())
+				    {
+					    binIter.produceNext(infoT);
+				    }
+				    else
+				    {
+					    progressDisplay.progress(i, 1);
+					    const ProjectionProperties projectionProperties =
+					        binIter.get();
+					    const float projValue =
+					        correctorPtr->getMultiplicativeCorrectionFactor(
+					            *sensImgGenProjData, projectionProperties.bin);
+					    projector->backProjection(
+					        destImagePtr, projectionProperties, projValue);
+				    }
+			    }
+		    }));
 	}
 
-	producerThread.join();
+	for (auto& worker : workers)
+	{
+		worker.join();
+	}
 }
 #endif
 

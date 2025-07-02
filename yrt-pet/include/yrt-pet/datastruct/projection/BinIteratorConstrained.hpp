@@ -7,6 +7,7 @@
 #include <mutex>
 #include <optional>
 #include <queue>
+#include <atomic>
 
 #include "yrt-pet/datastruct/projection/ProjectionData.hpp"
 
@@ -49,6 +50,11 @@ public:
 		return queue.size();
 	}
 
+	size_t GetSizeMax() const
+	{
+		return sizeMax;
+	}
+
 private:
 	mutable std::mutex mtx;
 	std::condition_variable cv_push;
@@ -57,14 +63,14 @@ private:
 	size_t sizeMax;
 };
 
-using constraint_params = std::unordered_map<std::string, size_t>;
+using ConstraintParams = std::unordered_map<std::string, size_t>;
 class Constraint
 {
 public:
-	bool isValid(constraint_params info) const;
+	bool isValid(ConstraintParams& info) const;
 	virtual std::vector<std::string> getVariables() const = 0;
 protected:
-	std::function<bool(constraint_params)> mConstraintFcn;
+	std::function<bool(ConstraintParams&)> mConstraintFcn;
 };
 
 class ConstraintAngleDiffIndex : public Constraint
@@ -99,8 +105,15 @@ public:
 	                       const BinIterator* pBinIterBase, int pQueueSizeMax);
 	void addConstraint(Constraint& pConstraint);
 	size_t count();
-	void produce();
+	void prepare();
 	const ProjectionProperties& get();
+	void produceNext(ConstraintParams& info);
+	bool nextTaskProduce() const; // Whether the task task should be a producer
+	bool done() const;
+
+	std::set<std::string> collectVariables() const;
+	void collectInfo(bin_t bin, std::set<std::string>& variables,
+	                 ConstraintParams& info) const;
 
 private:
 	const ProjectionData* mProjData;
@@ -109,10 +122,12 @@ private:
 	ThreadSafeQueue<ProjectionProperties> mQueue;
 	size_t mCount;
 
-	std::set<std::string> collectVariables() const;
-	constraint_params collectInfo(bin_t bin,
-	                              std::set<std::string> variables) const;
-	bool isValid(constraint_params info) const;
+	bool isValid(ConstraintParams& info) const;
+
+	// Loop variables
+	std::set<std::string> mVariables;
+	std::atomic<size_t> mBinIdx;
+
 };
 
 }  // namespace yrt

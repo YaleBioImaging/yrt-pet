@@ -52,5 +52,4 @@ private:
 	float z_gap = 50;
 	// declare x_dim here, put the calculation in the constructor
 	float x_dim = x_range / x_gap;
-	mutable std::vector<float> m_tempOut;
 };

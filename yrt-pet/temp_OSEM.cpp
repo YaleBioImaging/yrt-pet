@@ -164,7 +164,6 @@ void OSEM::generateSensitivityImageForLoadedSubset()
 
 	computeSensitivityImage(*getSensImageBuffer());
 
-	//need to fix
 	if (flagImagePSF)
 	{
 		imagePsf->applyAH(getSensImageBuffer(), getSensImageBuffer());
@@ -441,11 +440,6 @@ bool OSEM::isListModeEnabled() const
 	return usingListModeInput;
 }
 
-bool OSEM::hasImagePSF() const
-{
-	return flagImagePSF;
-}
-
 void OSEM::enableNeedToMakeCopyOfSensImage()
 {
 	needToMakeCopyOfSensImage = true;
@@ -603,12 +597,11 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 			// SET TMP VARIABLES TO 0
 			getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType::EM_RATIO)
 			    ->setValue(0.0);
-
+			getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType::PSF)
+				->setValue(0.0);
 			ImageBase* mlemImage_rp;
 			if (flagImagePSF)
 			{
-				getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType::PSF)
-					->setValue(0.0);
 				// PSF
 				imagePsf->applyA(
 					getMLEMImageBuffer(),
@@ -625,11 +618,12 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 			                     *getMLEMImageTmpBuffer(
 			                         TemporaryImageSpaceBufferType::EM_RATIO));
 
-			// PSF					
+			getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType::PSF)
+					->setValue(0.0);
 			if (flagImagePSF)
 			{
 				getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType::PSF)
-                                        ->setValue(0.0);
+				->setValue(0.0);
 				imagePsf->applyAH(getMLEMImageTmpBuffer(
 					TemporaryImageSpaceBufferType::EM_RATIO),
 				getMLEMImageTmpBuffer(
@@ -639,15 +633,15 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 			// UPDATE
 			if (flagImagePSF)
 			{
-					getMLEMImageBuffer()->updateEMThreshold(
-							getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType::PSF),
-							getSensImageBuffer(), EPS_FLT);
+				getMLEMImageBuffer()->updateEMThreshold(
+					getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType::PSF),
+					getSensImageBuffer(), EPS_FLT);
 			}
 			else
 			{
-					getMLEMImageBuffer()->updateEMThreshold(
-							getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType::EM_RATIO),
-							getSensImageBuffer(), EPS_FLT);
+				getMLEMImageBuffer()->updateEMThreshold(
+					getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType::EM_RATIO),
+					getSensImageBuffer(), EPS_FLT);
 			}
 		}
 		if (saveIterRanges.isIn(iter + 1))

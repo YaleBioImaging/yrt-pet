@@ -83,7 +83,8 @@ void py_setup_osem(pybind11::module& m)
 	c.def("setDataInput", &OSEM::setDataInput, "proj_data"_a);
 	c.def("addTOF", &OSEM::addTOF, "tof_width_ps"_a, "tof_num_std"_a);
 	c.def("addProjPSF", &OSEM::addProjPSF, "proj_psf_fname"_a);
-	c.def("addImagePSF", &OSEM::addImagePSF, "image_psf_fname"_a, "image_psf_mode"_a = ImagePSFMode::UNIFORM);
+	c.def("addImagePSF", &OSEM::addImagePSF, "image_psf_fname"_a,
+	      "image_psf_mode"_a = ImagePSFMode::UNIFORM);
 	c.def("setSaveIterRanges", &OSEM::setSaveIterRanges, "range_list"_a,
 	      "path"_a);
 	c.def("setListModeEnabled", &OSEM::setListModeEnabled, "enabled"_a);
@@ -164,15 +165,22 @@ void OSEM::generateSensitivityImageForLoadedSubset()
 
 	computeSensitivityImage(*getSensImageBuffer());
 
-	//need to fix
+	ImageBase* sensImage_rp;
 	if (flagImagePSF)
 	{
-		imagePsf->applyAH(getSensImageBuffer(), getSensImageBuffer());
+		imagePsf->applyAH(
+		    getSensImageBuffer(),
+		    getImageTmpBuffer(TemporaryImageSpaceBufferType::PSF));
+		sensImage_rp = getImageTmpBuffer(TemporaryImageSpaceBufferType::PSF);
+	}
+	else
+	{
+		sensImage_rp = getSensImageBuffer();
 	}
 
 	std::cout << "Applying threshold..." << std::endl;
-	getSensImageBuffer()->applyThreshold(getSensImageBuffer(), hardThreshold,
-	                                     0.0, 0.0, 1.0, 0.0);
+	getSensImageBuffer()->applyThreshold(sensImage_rp, hardThreshold, 0.0, 0.0,
+	                                     1.0, 0.0);
 }
 
 void OSEM::generateSensitivityImagesCore(
@@ -404,7 +412,8 @@ void OSEM::addProjPSF(const std::string& pr_projPsf_fname)
 	flagProjPSF = !projPsf_fname.empty();
 }
 
-void OSEM::addImagePSF(const std::string& p_imagePsf_fname, ImagePSFMode p_imagePSFMode)
+void OSEM::addImagePSF(const std::string& p_imagePsf_fname,
+                       ImagePSFMode p_imagePSFMode)
 {
 	ASSERT_MSG(!p_imagePsf_fname.empty(), "Empty filename for Image-space PSF");
 	if (p_imagePSFMode == UNIFORM)
@@ -413,8 +422,11 @@ void OSEM::addImagePSF(const std::string& p_imagePsf_fname, ImagePSFMode p_image
 	}
 	else
 	{
-		ASSERT_MSG(imageParams.isValid(), "For spatially variant PSF, image parameters have to be set before calling addImagePSF");
-		imagePsf = std::make_unique<OperatorVarPsf>(p_imagePsf_fname, imageParams);
+		ASSERT_MSG(imageParams.isValid(),
+		           "For spatially variant PSF, image parameters have to be set "
+		           "before calling addImagePSF");
+		imagePsf =
+		    std::make_unique<OperatorVarPsf>(p_imagePsf_fname, imageParams);
 	}
 	flagImagePSF = true;
 }
@@ -601,53 +613,52 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 			loadSubsetInternal(subsetId, true);
 
 			// SET TMP VARIABLES TO 0
-			getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType::EM_RATIO)
+			getImageTmpBuffer(TemporaryImageSpaceBufferType::EM_RATIO)
 			    ->setValue(0.0);
 
 			ImageBase* mlemImage_rp;
 			if (flagImagePSF)
 			{
-				getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType::PSF)
-					->setValue(0.0);
+				getImageTmpBuffer(TemporaryImageSpaceBufferType::PSF)
+				    ->setValue(0.0);
 				// PSF
 				imagePsf->applyA(
-					getMLEMImageBuffer(),
-					getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType::PSF));
+				    getMLEMImageBuffer(),
+				    getImageTmpBuffer(TemporaryImageSpaceBufferType::PSF));
 				mlemImage_rp =
-					getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType::PSF);
+				    getImageTmpBuffer(TemporaryImageSpaceBufferType::PSF);
 			}
 			else
 			{
 				mlemImage_rp = getMLEMImageBuffer();
 			}
 
-			computeEMUpdateImage(*mlemImage_rp,
-			                     *getMLEMImageTmpBuffer(
-			                         TemporaryImageSpaceBufferType::EM_RATIO));
+			computeEMUpdateImage(
+			    *mlemImage_rp,
+			    *getImageTmpBuffer(TemporaryImageSpaceBufferType::EM_RATIO));
 
-			// PSF					
+			// PSF
 			if (flagImagePSF)
 			{
-				getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType::PSF)
-                                        ->setValue(0.0);
-				imagePsf->applyAH(getMLEMImageTmpBuffer(
-					TemporaryImageSpaceBufferType::EM_RATIO),
-				getMLEMImageTmpBuffer(
-					TemporaryImageSpaceBufferType::PSF));
+				getImageTmpBuffer(TemporaryImageSpaceBufferType::PSF)
+				    ->setValue(0.0);
+				imagePsf->applyAH(
+				    getImageTmpBuffer(TemporaryImageSpaceBufferType::EM_RATIO),
+				    getImageTmpBuffer(TemporaryImageSpaceBufferType::PSF));
 			}
 
 			// UPDATE
 			if (flagImagePSF)
 			{
-					getMLEMImageBuffer()->updateEMThreshold(
-							getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType::PSF),
-							getSensImageBuffer(), EPS_FLT);
+				getMLEMImageBuffer()->updateEMThreshold(
+				    getImageTmpBuffer(TemporaryImageSpaceBufferType::PSF),
+				    getSensImageBuffer(), EPS_FLT);
 			}
 			else
 			{
-					getMLEMImageBuffer()->updateEMThreshold(
-							getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType::EM_RATIO),
-							getSensImageBuffer(), EPS_FLT);
+				getMLEMImageBuffer()->updateEMThreshold(
+				    getImageTmpBuffer(TemporaryImageSpaceBufferType::EM_RATIO),
+				    getSensImageBuffer(), EPS_FLT);
 			}
 		}
 		if (saveIterRanges.isIn(iter + 1))
@@ -712,8 +723,10 @@ void OSEM::summary() const
 
 	if (flagImagePSF)
 	{
-		if (dynamic_cast<OperatorVarPsf*>(imagePsf.get()) == nullptr) std::cout << "Uses Image-space PSF" << std::endl;
-		else std::cout << "Uses Image-space variant PSF" << std::endl;
+		if (dynamic_cast<OperatorVarPsf*>(imagePsf.get()) == nullptr)
+			std::cout << "Uses Image-space PSF" << std::endl;
+		else
+			std::cout << "Uses Image-space variant PSF" << std::endl;
 	}
 	if (flagProjPSF)
 	{

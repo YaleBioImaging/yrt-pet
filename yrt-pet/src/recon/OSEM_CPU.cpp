@@ -16,7 +16,7 @@
 OSEM_CPU::OSEM_CPU(const Scanner& pr_scanner)
     : OSEM(pr_scanner),
       mp_tempSensImageBuffer{nullptr},
-      mp_mlemImageTmp{nullptr},
+      mp_mlemImageTmpEMRatio{nullptr},
       mp_datTmp{nullptr},
       m_current_OSEM_subset{-1}
 {
@@ -52,6 +52,12 @@ void OSEM_CPU::allocateForSensImgGen()
 	auto tempSensImageBuffer = std::make_unique<ImageOwned>(getImageParams());
 	tempSensImageBuffer->allocate();
 	mp_tempSensImageBuffer = std::move(tempSensImageBuffer);
+
+	if (flagImagePSF)
+	{
+		mp_imageTmpPsf = std::make_unique<ImageOwned>(getImageParams());
+		reinterpret_cast<ImageOwned*>(mp_imageTmpPsf.get())->allocate();
+	}
 }
 
 void OSEM_CPU::setupOperatorsForSensImgGen()
@@ -137,15 +143,15 @@ ImageBase* OSEM_CPU::getMLEMImageBuffer()
 	return outImage.get();
 }
 
-ImageBase* OSEM_CPU::getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType type)
+ImageBase* OSEM_CPU::getImageTmpBuffer(TemporaryImageSpaceBufferType type)
 {
 	if (type == TemporaryImageSpaceBufferType::EM_RATIO)
 	{
-		return mp_mlemImageTmp.get();
+		return mp_mlemImageTmpEMRatio.get();
 	}
 	if (type == TemporaryImageSpaceBufferType::PSF)
 	{
-		return mp_mlemImageTmpPsf.get();
+		return mp_imageTmpPsf.get();
 	}
 	throw std::runtime_error("Unknown Temporary image type");
 }
@@ -168,10 +174,10 @@ const OperatorProjector* OSEM_CPU::getProjector() const
 	return hostProjector;
 }
 
-//OperatorPsf* OSEM_CPU::getOperatorPsf() const
+// OperatorPsf* OSEM_CPU::getOperatorPsf() const
 //{
 //	return imagePsf.get();
-//}
+// }
 
 void OSEM_CPU::setupOperatorsForRecon()
 {
@@ -214,12 +220,12 @@ void OSEM_CPU::allocateForRecon()
 	reinterpret_cast<ProjectionListOwned*>(mp_datTmp.get())->allocate();
 
 	// Allocate for image-space buffers
-	mp_mlemImageTmp = std::make_unique<ImageOwned>(getImageParams());
-	reinterpret_cast<ImageOwned*>(mp_mlemImageTmp.get())->allocate();
+	mp_mlemImageTmpEMRatio = std::make_unique<ImageOwned>(getImageParams());
+	reinterpret_cast<ImageOwned*>(mp_mlemImageTmpEMRatio.get())->allocate();
 	if (flagImagePSF)
-	{    
-		mp_mlemImageTmpPsf = std::make_unique<ImageOwned>(getImageParams());    
-		reinterpret_cast<ImageOwned*>(mp_mlemImageTmpPsf.get())->allocate();
+	{
+		mp_imageTmpPsf = std::make_unique<ImageOwned>(getImageParams());
+		reinterpret_cast<ImageOwned*>(mp_imageTmpPsf.get())->allocate();
 	}
 
 	// Initialize output image
@@ -242,15 +248,15 @@ void OSEM_CPU::allocateForRecon()
 	if (maskImage != nullptr)
 	{
 		applyMask(maskImage);
-		//std::cout << "Mask zty test5"
-		//          << std::endl;
+		// std::cout << "Mask zty test5"
+		//           << std::endl;
 	}
 	else if (num_OSEM_subsets == 1 || usingListModeInput)
 	{
 		// No need to sum all sensitivity images, just use the only one
 		applyMask(getSensitivityImage(0));
-		//std::cout << "Mask zty test4"
-		//         << std::endl;
+		// std::cout << "Mask zty test4"
+		//          << std::endl;
 	}
 	else
 	{
@@ -259,11 +265,11 @@ void OSEM_CPU::allocateForRecon()
 		for (int i = 0; i < num_OSEM_subsets; ++i)
 		{
 			getSensitivityImage(i)->addFirstImageToSecond(
-			    mp_mlemImageTmp.get());
+			    mp_mlemImageTmpEMRatio.get());
 		}
-		applyMask(mp_mlemImageTmp.get());
+		applyMask(mp_mlemImageTmpEMRatio.get());
 	}
-	mp_mlemImageTmp->setValue(0.0f);
+	mp_mlemImageTmpEMRatio->setValue(0.0f);
 
 	if (mp_corrector->hasAdditiveCorrection(*dataInput))
 	{
@@ -278,7 +284,7 @@ void OSEM_CPU::allocateForRecon()
 void OSEM_CPU::endRecon()
 {
 	// Clear temporary buffers
-	mp_mlemImageTmp = nullptr;
+	mp_mlemImageTmpEMRatio = nullptr;
 	mp_datTmp = nullptr;
 }
 

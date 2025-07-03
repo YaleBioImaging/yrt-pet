@@ -63,12 +63,21 @@ private:
 	size_t sizeMax;
 };
 
-using ConstraintParams = std::unordered_map<std::string, size_t>;
+enum class ConstraintVariable
+{
+	Det1,
+	Det2,
+	AbsDeltaAngleDeg,
+	AbsDeltaAngleIdx,
+	AbsDeltaBlockIdx
+};
+
+using ConstraintParams = std::unordered_map<ConstraintVariable, size_t>;
 class Constraint
 {
 public:
 	bool isValid(ConstraintParams& info) const;
-	virtual std::vector<std::string> getVariables() const = 0;
+	virtual std::vector<ConstraintVariable> getVariables() const = 0;
 protected:
 	std::function<bool(ConstraintParams&)> mConstraintFcn;
 };
@@ -77,32 +86,33 @@ class ConstraintAngleDiffIndex : public Constraint
 {
 public:
 	ConstraintAngleDiffIndex(size_t pMinAngleDiffIdx);
-	std::vector<std::string> getVariables() const override;
+	std::vector<ConstraintVariable> getVariables() const override;
 };
 class ConstraintAngleDiffDeg : public Constraint
 {
 public:
 	ConstraintAngleDiffDeg(size_t pMinAngleDiffDeg);
-	std::vector<std::string> getVariables() const override;
+	std::vector<ConstraintVariable> getVariables() const override;
 };
 class ConstraintBlockDiffIndex : public Constraint
 {
 public:
 	ConstraintBlockDiffIndex(size_t pMinBlockDiffIdx);
-	std::vector<std::string> getVariables() const override;
+	std::vector<ConstraintVariable> getVariables() const override;
 };
 class ConstraintDetectorMask : public Constraint
 {
 public:
 	ConstraintDetectorMask(Scanner* scanner);
-	std::vector<std::string> getVariables() const override;
+	std::vector<ConstraintVariable> getVariables() const override;
 };
 
 class BinIteratorConstrained
 {
 public:
 	BinIteratorConstrained(const ProjectionData* pProjData,
-	                       const BinIterator* pBinIterBase, int pQueueSizeMax);
+	                       const BinIterator* pBinIterBase, int pQueueSizeMax,
+	                       float pQueueFrac);
 	void addConstraint(Constraint& pConstraint);
 	size_t count();
 	void prepare();
@@ -111,8 +121,8 @@ public:
 	bool nextTaskProduce() const; // Whether the task task should be a producer
 	bool done() const;
 
-	std::set<std::string> collectVariables() const;
-	void collectInfo(bin_t bin, std::set<std::string>& variables,
+	std::set<ConstraintVariable> collectVariables() const;
+	void collectInfo(bin_t bin, std::set<ConstraintVariable>& variables,
 	                 ConstraintParams& info) const;
 
 private:
@@ -121,11 +131,12 @@ private:
 	std::vector<Constraint*> mConstraints;
 	ThreadSafeQueue<ProjectionProperties> mQueue;
 	size_t mCount;
+	float mQueueFrac;
 
 	bool isValid(ConstraintParams& info) const;
 
 	// Loop variables
-	std::set<std::string> mVariables;
+	std::set<ConstraintVariable> mVariables;
 	std::atomic<size_t> mBinIdx;
 
 };

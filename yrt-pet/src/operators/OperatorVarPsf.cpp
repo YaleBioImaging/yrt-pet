@@ -22,9 +22,9 @@ namespace py = pybind11;
 void py_setup_operatorvarpsf(py::module& m)
 {
 	auto c = py::class_<OperatorVarPsf, Operator>(m, "OperatorVarPsf");
-	c.def(py::init<>());
-	c.def(py::init<const std::string&>());
-	c.def("readFromFile", &OperatorVarPsf::readFromFile,
+	c.def(py::init<const ImageParams&>());
+	c.def(py::init<const std::string&, const ImageParams&>());
+	c.def("readFromFile", &OperatorVarPsf::readFromFile, py::arg("fname"),
 	      "Read the variant PSF from CSV LUT");
 	// c.def("varconvolve", static_cast<void (OperatorVarPsf::*)(const Image*,
 	// Image*) const>(&OperatorVarPsf::varconvolve<true>));
@@ -191,13 +191,6 @@ void OperatorVarPsf::varconvolve(const Image* in, Image* out) const
 	float y_center = ny * vy / 2.0f;
 	float z_center = nz * vz / 2.0f;
 
-	bool same_image = (in == out); // Check if in and out are the same
-	if (same_image) 
-	{
-		m_tempOut.resize(nx * ny * nz, 0.0f);
-		outPtr = m_tempOut.data(); // Use the temporary buffer
-	}
-
 	float temp_x, temp_y, temp_z;
 	int i, j, k, ii, jj, kk;
 
@@ -249,11 +242,5 @@ void OperatorVarPsf::varconvolve(const Image* in, Image* out) const
 						    temp1 * psf_kernel[idx];
 					}
 				}
-	}
-	if (same_image) 
-	{
-		for (int idx = 0; idx < nx * ny * nz; ++idx) {
-			out->getRawPointer()[idx] = outPtr[idx];
-		}
 	}
 }

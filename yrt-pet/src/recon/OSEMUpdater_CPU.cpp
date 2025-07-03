@@ -84,16 +84,15 @@ void OSEMUpdater_CPU::computeSensitivityImage(Image& destImage) const
 	for (int i = 0; i < numThreads; i++)
 	{
 		info[i].reserve(infoTest.size());
-		auto& infoT = info[i];
 		workers.emplace_back(std::thread(
 		    [&binIter, projector, correctorPtr, sensImgGenProjData,
-		     destImagePtr, &progressDisplay, &infoT, i]()
+		     destImagePtr, &progressDisplay, i](ConstraintParams* infoT)
 		    {
 			    while (!binIter.done())
 			    {
 				    if (binIter.nextTaskProduce())
 				    {
-					    binIter.produceNext(infoT);
+					    binIter.produceNext(*infoT);
 				    }
 				    else
 				    {
@@ -107,7 +106,7 @@ void OSEMUpdater_CPU::computeSensitivityImage(Image& destImage) const
 					        destImagePtr, projectionProperties, projValue);
 				    }
 			    }
-		    }));
+		    }, &info[i]));
 	}
 
 	for (auto& worker : workers)

@@ -21,7 +21,8 @@ class OperatorVarPsf : public Operator
 {
 public:
 	OperatorVarPsf(const ImageParams& imgParams);
-	OperatorVarPsf(const std::string& imageVarPsf_fname, const ImageParams& imgParams);
+	OperatorVarPsf(const std::string& imageVarPsf_fname,
+	               const ImageParams& imgParams);
 	// second constructor, use sigma as input
 	~OperatorVarPsf() override = default;
 
@@ -41,7 +42,7 @@ protected:
 
 private:
 	ImageParams m_imageParams;
-	//mutable std::vector<float> m_tempBuffer;
+	// mutable std::vector<float> m_tempBuffer;
 	const float N = 0.0634936;  // 1/sqrt(8*pi*pi*pi)
 	// in the futrue, these shold be included in the header of PSF LUT
 	float x_range = 200;

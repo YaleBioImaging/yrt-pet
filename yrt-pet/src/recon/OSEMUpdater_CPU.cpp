@@ -68,8 +68,11 @@ void OSEMUpdater_CPU::computeSensitivityImage(Image& destImage) const
 	const Corrector_CPU* correctorPtr = &corrector;
 	const ProjectionData* sensImgGenProjData =
 	    corrector.getSensImgGenProjData();
+	int queueSize = 1000;
+	float queueSizeFrac = 0.75;
 	Image* destImagePtr = &destImage;
-	BinIteratorConstrained binIter(sensImgGenProjData, binIterProj, 10);
+	BinIteratorConstrained binIter(sensImgGenProjData, binIterProj, queueSize,
+	                               queueSizeFrac);
 	binIter.prepare();
 	const bin_t numBins = binIter.count();
 	int numThreads = Globals::get_num_threads();
@@ -78,7 +81,7 @@ void OSEMUpdater_CPU::computeSensitivityImage(Image& destImage) const
 
 	std::vector<std::thread> workers;
 	std::vector<ConstraintParams> info;
-	std::set<std::string> variables = binIter.collectVariables();
+	std::set<ConstraintVariable> variables = binIter.collectVariables();
 	ConstraintParams infoTest;
 	binIter.collectInfo(0, variables, infoTest);
 	info.resize(numThreads);

@@ -17,7 +17,11 @@
 #include <pybind11/pybind11.h>
 #endif
 
-enum ImagePSFMode {UNIFORM = 0, VARIANT};
+enum ImagePSFMode
+{
+	UNIFORM = 0,
+	VARIANT
+};
 
 class OSEM
 {
@@ -63,7 +67,9 @@ public:
 	void setDataInput(const ProjectionData* pp_dataInput);
 	void addTOF(float p_tofWidth_ps, int p_tofNumStd);
 	void addProjPSF(const std::string& pr_projPsf_fname);
-	virtual void addImagePSF(const std::string& p_imagePsf_fname, ImagePSFMode p_imagePSFMode = ImagePSFMode::UNIFORM);
+	virtual void
+	    addImagePSF(const std::string& p_imagePsf_fname,
+	                ImagePSFMode p_imagePSFMode = ImagePSFMode::UNIFORM);
 	void setSaveIterRanges(Util::RangeList p_saveIterList,
 	                       const std::string& p_saveIterPath);
 	void setListModeEnabled(bool enabled);
@@ -146,7 +152,7 @@ protected:
 	virtual ImageBase* getSensImageBuffer() = 0;
 	virtual ImageBase* getMLEMImageBuffer() = 0;
 	virtual ImageBase*
-	    getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType type) = 0;
+	    getImageTmpBuffer(TemporaryImageSpaceBufferType type) = 0;
 	virtual const ProjectionData* getMLEMDataBuffer() = 0;
 	virtual ProjectionData* getMLEMDataTmpBuffer() = 0;
 	virtual Corrector& getCorrector() = 0;

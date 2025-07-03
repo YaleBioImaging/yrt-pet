@@ -17,7 +17,7 @@ OSEM_GPU::OSEM_GPU(const Scanner& pr_scanner)
       mpd_sensImageBuffer(nullptr),
       mpd_mlemImage(nullptr),
       mpd_mlemImageTmpEMRatio(nullptr),
-      mpd_mlemImageTmpPsf(nullptr),
+      mpd_imageTmpPsf(nullptr),
       mpd_tempSensDataInput(nullptr),
       mpd_dat(nullptr),
       mpd_datTmp(nullptr),
@@ -194,9 +194,9 @@ void OSEM_GPU::allocateForRecon()
 
 	if (flagImagePSF)
 	{    
-		mpd_mlemImageTmpPsf = std::make_unique<ImageDeviceOwned>(
+		mpd_imageTmpPsf = std::make_unique<ImageDeviceOwned>(
 		    getImageParams(), getMainStream());
-		mpd_mlemImageTmpPsf->allocate(false);
+		mpd_imageTmpPsf->allocate(false);
 	}
 
 	// Initialize the MLEM image values to non-zero
@@ -282,7 +282,7 @@ void OSEM_GPU::endRecon()
 	// Clear temporary buffers
 	mpd_mlemImage = nullptr;
 	mpd_mlemImageTmpEMRatio = nullptr;
-	mpd_mlemImageTmpPsf = nullptr;
+	mpd_imageTmpPsf = nullptr;
 	mpd_sensImageBuffer = nullptr;
 	mp_corrector->clearTemporaryDeviceBuffer();
 	mpd_dat = nullptr;
@@ -310,7 +310,7 @@ ImageBase* OSEM_GPU::getMLEMImageBuffer()
 	return mpd_mlemImage.get();
 }
 
-ImageBase* OSEM_GPU::getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType type)
+ImageBase* OSEM_GPU::getImageTmpBuffer(TemporaryImageSpaceBufferType type)
 {
 	if (type == TemporaryImageSpaceBufferType::EM_RATIO)
 	{
@@ -319,7 +319,7 @@ ImageBase* OSEM_GPU::getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType type)
 	if (type == TemporaryImageSpaceBufferType::PSF)
 	{
 		ASSERT(flagImagePSF);
-		return mpd_mlemImageTmpPsf.get();
+		return mpd_imageTmpPsf.get();
 	}
 	throw std::runtime_error("Unknown Temporary image type");
 }

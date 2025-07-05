@@ -112,7 +112,13 @@ void BinIteratorConstrained::collectInfo(
 	info[ConstraintVariable::Det1] = d1;
 	info[ConstraintVariable::Det2] = d2;
 
-	Line3D lor = mProjData->getLOR(bin);
+	bool needsLOR =
+	    variables.find(ConstraintVariable::AbsDeltaAngleDeg) != variables.end();
+	Line3D lor;
+	if (needsLOR)
+	{
+		lor = mProjData->getLOR(bin);
+	}
 	const Scanner* scanner = &mProjData->getScanner();
 
 	if (variables.find(ConstraintVariable::AbsDeltaAngleDeg) != variables.end())

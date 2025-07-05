@@ -124,6 +124,7 @@ public:
 	std::set<ConstraintVariable> collectVariables() const;
 	void collectInfo(bin_t bin, std::set<ConstraintVariable>& variables,
 	                 ConstraintParams& info) const;
+	bool isValid(ConstraintParams& info) const;
 
 private:
 	const ProjectionData* mProjData;
@@ -133,7 +134,6 @@ private:
 	size_t mCount;
 	float mQueueFrac;
 
-	bool isValid(ConstraintParams& info) const;
 
 	// Loop variables
 	std::set<ConstraintVariable> mVariables;

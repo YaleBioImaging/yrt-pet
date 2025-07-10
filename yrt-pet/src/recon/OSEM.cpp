@@ -609,13 +609,13 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 		{
 			std::cout << "OSEM subset " << subsetId + 1 << "/"
 			          << num_OSEM_subsets << "..." << std::endl;
-
+			
 			loadSubsetInternal(subsetId, true);
 
 			// SET TMP VARIABLES TO 0
 			getImageTmpBuffer(TemporaryImageSpaceBufferType::EM_RATIO)
 			    ->setValue(0.0);
-
+			
 			ImageBase* mlemImage_rp;
 			if (flagImagePSF)
 			{
@@ -632,7 +632,7 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 			{
 				mlemImage_rp = getMLEMImageBuffer();
 			}
-
+			
 			computeEMUpdateImage(
 			    *mlemImage_rp,
 			    *getImageTmpBuffer(TemporaryImageSpaceBufferType::EM_RATIO));

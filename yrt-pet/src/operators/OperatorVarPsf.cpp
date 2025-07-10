@@ -3,7 +3,6 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-// np array input for python
 #include "operators/OperatorVarPsf.hpp"
 
 #include "utils/Assert.hpp"

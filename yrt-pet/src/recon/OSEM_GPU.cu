@@ -101,6 +101,10 @@ void OSEM_GPU::allocateForSensImgGen()
 		//  device memory for the projection-space buffers below
 		imagePsfDevice->allocateTemporaryDeviceImageIfNeeded(
 		    getImageParams(), {getMainStream(), true});
+
+		mpd_imageTmpPsf = std::make_unique<ImageDeviceOwned>(
+		    getImageParams(), getMainStream());
+		mpd_imageTmpPsf->allocate(false);
 	}
 
 	if (mp_corrector->hasHardwareAttenuationImage())

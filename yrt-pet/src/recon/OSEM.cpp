@@ -165,21 +165,17 @@ void OSEM::generateSensitivityImageForLoadedSubset()
 
 	computeSensitivityImage(*getSensImageBuffer());
 
-	ImageBase* sensImage_rp;
 	if (flagImagePSF)
 	{
-		imagePsf->applyAH(
-		    getSensImageBuffer(),
-		    getImageTmpBuffer(TemporaryImageSpaceBufferType::PSF));
-		sensImage_rp = getImageTmpBuffer(TemporaryImageSpaceBufferType::PSF);
-	}
-	else
-	{
-		sensImage_rp = getSensImageBuffer();
+		std::cout<<"PSF debug 1"<<std::endl;
+		ImageBase* tmpPSFImage = getImageTmpBuffer(TemporaryImageSpaceBufferType::PSF);
+		imagePsf->applyAH(getSensImageBuffer(), tmpPSFImage);
+		std::cout<<"PSF debug 2"<<std::endl;
+		getSensImageBuffer()->copyFromImage(tmpPSFImage);
 	}
 
 	std::cout << "Applying threshold..." << std::endl;
-	getSensImageBuffer()->applyThreshold(sensImage_rp, hardThreshold, 0.0, 0.0,
+	getSensImageBuffer()->applyThreshold(getSensImageBuffer(), hardThreshold, 0.0, 0.0,
 	                                     1.0, 0.0);
 }
 
@@ -201,7 +197,6 @@ void OSEM::generateSensitivityImagesCore(
 	}
 
 	corrector.setup();
-
 	initializeForSensImgGen();
 
 	sensImages.clear();

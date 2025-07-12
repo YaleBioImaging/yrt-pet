@@ -27,21 +27,26 @@ void py_setup_projectiondatadevice(py::module& m)
 	    m, "ProjectionDataDevice");
 	c.def(
 	    "prepareBatchLORs",
-	    [](ProjectionDataDevice& self, size_t subsetId, size_t batchId)
-	    { self.prepareBatchLORs(subsetId, batchId, {nullptr, true}); },
+	    [](ProjectionDataDevice& self, size_t subsetId, size_t batchId) {
+		    self.prepareBatchLORs(subsetId, batchId, {nullptr, true});
+	    },
 	    "Load the LORs of a specific batch in a specific subset", "subsetId"_a,
 	    "batchId"_a);
 	c.def("transferProjValuesToHost",
 	      [](const ProjectionDataDevice& self, ProjectionData* dest)
 	      { self.transferProjValuesToHost(dest); });
 	c.def("loadProjValuesFromHost",
-	      [](ProjectionDataDevice& self, const ProjectionData* src)
-	      { self.loadProjValuesFromHost(src, {nullptr, true}); });
+	      [](ProjectionDataDevice& self, const ProjectionData* src) {
+		      self.loadProjValuesFromHost(src, {nullptr, true});
+	      });
 	c.def("loadProjValuesFromHost",
-	      [](ProjectionDataDevice& self, const Histogram* histo)
-	      { self.loadProjValuesFromHostHistogram(histo, {nullptr, true}); });
-	c.def("loadProjValuesFromReference", [](ProjectionDataDeviceOwned& self)
-	      { self.loadProjValuesFromReference({nullptr, true}); });
+	      [](ProjectionDataDevice& self, const Histogram* histo) {
+		      self.loadProjValuesFromHostHistogram(histo, {nullptr, true});
+	      });
+	c.def("loadProjValuesFromReference",
+	      [](ProjectionDataDeviceOwned& self) {
+		      self.loadProjValuesFromReference({nullptr, true});
+	      });
 	c.def("getLoadedBatchSize", &ProjectionDataDevice::getLoadedBatchSize);
 	c.def("getLoadedBatchId", &ProjectionDataDevice::getLoadedBatchId);
 	c.def("getLoadedSubsetId", &ProjectionDataDevice::getLoadedSubsetId);
@@ -60,8 +65,10 @@ void py_setup_projectiondatadevice(py::module& m)
 	            "Create a ProjectionDataDevice from an existing one. They will "
 	            "share the LORs",
 	            "orig"_a);
-	c_owned.def("allocateForProjValues", [](ProjectionDataDeviceOwned& self)
-	            { self.allocateForProjValues({nullptr, true}); });
+	c_owned.def("allocateForProjValues",
+	            [](ProjectionDataDeviceOwned& self) {
+		            self.allocateForProjValues({nullptr, true});
+	            });
 
 	auto c_alias = py::class_<ProjectionDataDeviceAlias, ProjectionDataDevice>(
 	    m, "ProjectionDataDeviceAlias");

@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -21,6 +22,7 @@ namespace Util
 	std::string getDatetime();
 	std::string join(const std::vector<std::string>& vectorOfStrings,
 	                 const std::string& delimiter);
+	std::optional<std::string> getEnv(const std::string& name);
 
 
 	std::vector<std::string> split(const std::string str,

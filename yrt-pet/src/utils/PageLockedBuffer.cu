@@ -5,6 +5,8 @@
 
 #include "utils/PageLockedBuffer.cuh"
 
+#include "utils/Assert.hpp"
+
 #if BUILD_CUDA
 
 #include <cuda.h>
@@ -30,9 +32,15 @@ PageLockedBuffer<T>::PageLockedBuffer(const size_t size,
 template <typename T>
 void PageLockedBuffer<T>::allocate(const size_t size, const unsigned int flags)
 {
-	cudaHostAlloc(reinterpret_cast<void**>(&mph_dataPointer), size * sizeof(T),
+	ASSERT_MSG(
+	    mph_dataPointer == nullptr,
+	    "Memory already allocated, cannot allocate twice on the same pointer");
+	const size_t size_bytes = size * sizeof(T);
+
+	cudaHostAlloc(reinterpret_cast<void**>(&mph_dataPointer), size_bytes,
 	              flags);
 	const cudaError_t cudaError = cudaGetLastError();
+
 	if (cudaError != 0)
 	{
 		std::cerr << "CUDA Error while allocating: "
@@ -54,6 +62,7 @@ bool PageLockedBuffer<T>::reAllocateIfNeeded(const size_t newSize,
 {
 	if (newSize > m_size || m_currentFlags != flags)
 	{
+		deallocate();
 		allocate(newSize, flags);
 		return true;
 	}
@@ -83,6 +92,7 @@ void PageLockedBuffer<T>::deallocate()
 			delete[] mph_dataPointer;
 			m_size = 0ull;
 		}
+		mph_dataPointer = nullptr;
 	}
 }
 

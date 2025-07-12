@@ -67,7 +67,7 @@ void py_setup_utilities(py::module& m)
 	    [](const transform_t& self)
 	    {
 		    std::stringstream ss;
-	    	ss << std::fixed << std::setprecision(6);
+		    ss << std::fixed << std::setprecision(6);
 		    ss << "rotation matrix:\n";
 		    ss << self.r00 << " " << self.r01 << " " << self.r02 << "\n";
 		    ss << self.r10 << " " << self.r11 << " " << self.r12 << "\n";
@@ -144,6 +144,15 @@ namespace Util
 			}
 		}
 		return oss.str();
+	}
+
+	std::optional<std::string> getEnv(const std::string& name)
+	{
+		if (const char* val = std::getenv(name.c_str()))
+		{
+			return std::string(val);
+		}
+		return std::nullopt;
 	}
 
 	/*

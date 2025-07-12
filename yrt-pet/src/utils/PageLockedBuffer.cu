@@ -6,6 +6,7 @@
 #include "utils/PageLockedBuffer.cuh"
 
 #include "utils/Assert.hpp"
+#include "utils/Globals.hpp"
 
 #if BUILD_CUDA
 
@@ -35,21 +36,35 @@ void PageLockedBuffer<T>::allocate(const size_t size, const unsigned int flags)
 	ASSERT_MSG(
 	    mph_dataPointer == nullptr,
 	    "Memory already allocated, cannot allocate twice on the same pointer");
-	const size_t size_bytes = size * sizeof(T);
 
-	cudaHostAlloc(reinterpret_cast<void**>(&mph_dataPointer), size_bytes,
-	              flags);
-	const cudaError_t cudaError = cudaGetLastError();
+	cudaError_t cudaError{};
+	bool canPageLockMemory = false;  // Cannot page-lock until proven otherwise
 
-	if (cudaError != 0)
+	if (GlobalsCuda::isPinnedMemoryEnabled())
 	{
-		std::cerr << "CUDA Error while allocating: "
-		          << cudaGetErrorString(cudaError) << std::endl;
+		const size_t size_bytes = size * sizeof(T);
+		cudaHostAlloc(reinterpret_cast<void**>(&mph_dataPointer), size_bytes,
+		              flags);
+		cudaError = cudaGetLastError();
+
+		canPageLockMemory = cudaError == 0;  // No problem
+	}
+
+	if (!canPageLockMemory)
+	{
+		if (cudaError != 0)
+		{
+			// There was a problem
+			std::cerr << "CUDA Error while allocating: "
+			          << cudaGetErrorString(cudaError) << std::endl;
+		}
+		// Use regular memory
 		mph_dataPointer = new T[size];
 		m_isPageLocked = false;
 	}
 	else
 	{
+		// No problem, use page-locked memory
 		m_isPageLocked = true;
 		m_currentFlags = flags;
 	}

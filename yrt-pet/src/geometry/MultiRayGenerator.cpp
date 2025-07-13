@@ -12,6 +12,19 @@
 #include <utility>
 #include <vector>
 
+#if BUILD_PYBIND11
+#include <pybind11/pybind11.h>
+void py_setup_multiraygenerator(pybind11::module& m)
+{
+	auto c = pybind11::class_<MultiRayGenerator>(m, "MultiRayGenerator");
+	c.def(pybind11::init<float, float, bool>(), pybind11::arg("thickness_z_i"),
+	      pybind11::arg("thickness_trans_i"),
+	      pybind11::arg("is_parallel") = MultiRayGenerator::USE_PARALLEL_LINES);
+	c.def("setupGenerator", &MultiRayGenerator::setupGenerator);
+	c.def("getRandomLine", &MultiRayGenerator::getRandomLine);
+}
+#endif
+
 MultiRayGenerator::MultiRayGenerator(float thickness_z_i,
                                      float thickness_trans_i, bool isParallel_i)
     : thickness_z(thickness_z_i),

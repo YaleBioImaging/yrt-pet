@@ -16,6 +16,7 @@ void py_setup_vector3dall(py::module&);
 void py_setup_line3dall(py::module&);
 void py_setup_tubeofresponse(py::module& m);
 void py_setup_timeofflight(py::module& m);
+void py_setup_multiraygenerator(py::module& m);
 void py_setup_utilities(py::module& m);
 void py_setup_utilities_rangelist(py::module& m);
 
@@ -75,6 +76,7 @@ PYBIND11_MODULE(pyyrtpet, m)
 	py_setup_line3dall(m);
 	py_setup_tubeofresponse(m);
 	py_setup_timeofflight(m);
+	py_setup_multiraygenerator(m);
 
 	py_setup_variable(m);
 	py_setup_imagebase(m);

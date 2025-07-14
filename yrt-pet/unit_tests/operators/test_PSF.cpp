@@ -5,8 +5,12 @@
 
 #include "../unit_tests/test_utils.hpp"
 #include "operators/OperatorPsf.hpp"
-#include "operators/OperatorPsfDevice.cuh"
 #include "operators/OperatorVarPsf.hpp"
+#include "utils/Assert.hpp"
+
+#if BUILD_CUDA
+#include "operators/OperatorPsfDevice.cuh"
+#endif
 
 #include "catch.hpp"
 #include <cmath>
@@ -142,7 +146,12 @@ std::vector<float>
 
 TEST_CASE("PSF", "[psf]")
 {
-	for (int mode = 1; mode <= 2; ++mode)
+#if BUILD_CUDA
+	int numModes = 2;
+#else
+	int numModes = 1;
+#endif
+	for (int mode = 1; mode <= numModes; ++mode)
 	{
 		bool isGPU = (mode == 2);
 		std::string modeName = isGPU ? "GPU" : "CPU";
@@ -173,7 +182,11 @@ TEST_CASE("PSF", "[psf]")
 
 		if (isGPU)
 		{
+#if BUILD_CUDA
 			op = std::make_unique<OperatorPsfDevice>(kernelX, kernelY, kernelZ);
+#else
+			ASSERT_MSG(false, "Uknown error");
+#endif
 		}
 		else
 		{

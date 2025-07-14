@@ -102,8 +102,8 @@ void OSEM_GPU::allocateForSensImgGen()
 		imagePsfDevice->allocateTemporaryDeviceImageIfNeeded(
 		    getImageParams(), {getMainStream(), true});
 
-		mpd_imageTmpPsf = std::make_unique<ImageDeviceOwned>(
-		    getImageParams(), getMainStream());
+		mpd_imageTmpPsf = std::make_unique<ImageDeviceOwned>(getImageParams(),
+		                                                     getMainStream());
 		mpd_imageTmpPsf->allocate(false);
 	}
 
@@ -197,9 +197,9 @@ void OSEM_GPU::allocateForRecon()
 	mpd_sensImageBuffer->allocate(false);
 
 	if (flagImagePSF)
-	{    
-		mpd_imageTmpPsf = std::make_unique<ImageDeviceOwned>(
-		    getImageParams(), getMainStream());
+	{
+		mpd_imageTmpPsf = std::make_unique<ImageDeviceOwned>(getImageParams(),
+		                                                     getMainStream());
 		mpd_imageTmpPsf->allocate(false);
 	}
 
@@ -395,19 +395,20 @@ void OSEM_GPU::loadSubset(int subsetId, bool forRecon)
 	}
 }
 
-void OSEM_GPU::addImagePSF(const std::string& p_imagePsf_fname, ImagePSFMode p_imagePSFMode)
+void OSEM_GPU::addImagePSF(const std::string& p_imagePsf_fname,
+                           ImagePSFMode p_imagePSFMode)
 {
 	ASSERT_MSG(!p_imagePsf_fname.empty(), "Empty filename for Image-space PSF");
 	if (p_imagePSFMode == UNIFORM)
 	{
-		imagePsf =
-	    std::make_unique<OperatorPsfDevice>(p_imagePsf_fname, getMainStream());
+		imagePsf = std::make_unique<OperatorPsfDevice>(p_imagePsf_fname,
+		                                               getMainStream());
 	}
 	else
 	{
 		ASSERT_MSG(false, "Spatially variant PSF not implemented in GPU yet");
 	}
-	
+
 	flagImagePSF = true;
 }
 

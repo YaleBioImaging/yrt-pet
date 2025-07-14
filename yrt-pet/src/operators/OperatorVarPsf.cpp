@@ -25,19 +25,16 @@ void py_setup_operatorvarpsf(py::module& m)
 	c.def(py::init<const std::string&, const ImageParams&>());
 	c.def("readFromFile", &OperatorVarPsf::readFromFile, py::arg("fname"),
 	      "Read the variant PSF from CSV LUT");
-	// c.def("varconvolve", static_cast<void (OperatorVarPsf::*)(const Image*,
-	// Image*) const>(&OperatorVarPsf::varconvolve<true>));
-	// c.def("varconvolve_transposed", static_cast<void
-	// (OperatorVarPsf::*)(const Image*, Image*)
-	// const>(&OperatorVarPsf::varconvolve<false>));
 	c.def(
-	    "applyA", [](OperatorVarPsf& self, const Image* img_in, Image* img_out)
-	    { self.applyA(img_in, img_out); }, py::arg("img_in"),
-	    py::arg("img_out"));
+	    "applyA",
+	    [](OperatorVarPsf& self, const Image* img_in, Image* img_out)
+	    { self.applyA(img_in, img_out); },
+	    py::arg("img_in"), py::arg("img_out"));
 	c.def(
-	    "applyAH", [](OperatorVarPsf& self, const Image* img_in, Image* img_out)
-	    { self.applyAH(img_in, img_out); }, py::arg("img_in"),
-	    py::arg("img_out"));
+	    "applyAH",
+	    [](OperatorVarPsf& self, const Image* img_in, Image* img_out)
+	    { self.applyAH(img_in, img_out); },
+	    py::arg("img_in"), py::arg("img_out"));
 }
 #endif
 
@@ -73,7 +70,6 @@ Sigma OperatorVarPsf::find_nearest_sigma(const std::vector<Sigma>& sigma_lookup,
 
 	int index = IDX3(i, j, k, x_dim, y_dim);
 	Sigma nearest_sigma = sigma_lookup[index];
-
 	return nearest_sigma;
 }
 
@@ -165,7 +161,6 @@ void OperatorVarPsf::applyA(const Variable* in, Variable* out)
 	Image* img_out = dynamic_cast<Image*>(out);
 	ASSERT_MSG(img_in != nullptr && img_out != nullptr,
 	           "Input parameters must be images");
-
 	varconvolve<true>(img_in, img_out);
 	auto end = std::chrono::high_resolution_clock::now();
 	std::chrono::duration<double> duration = end - start;
@@ -205,7 +200,6 @@ void OperatorVarPsf::varconvolve(const Image* in, Image* out) const
 	float x_center = nx * vx / 2.0f;
 	float y_center = ny * vy / 2.0f;
 	float z_center = nz * vz / 2.0f;
-
 	float temp_x, temp_y, temp_z;
 	int i, j, k, ii, jj, kk;
 

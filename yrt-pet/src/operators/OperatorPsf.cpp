@@ -9,8 +9,8 @@
 #include "utils/Tools.hpp"
 
 #if BUILD_PYBIND11
-#include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
+#include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 namespace py = pybind11;
 
@@ -22,13 +22,15 @@ void py_setup_operatorpsf(py::module& m)
 	c.def("readFromFile", &OperatorPsf::readFromFile);
 	c.def("convolve", &OperatorPsf::convolve);
 	c.def(
-	    "applyA", [](OperatorPsf& self, const Image* img_in, Image* img_out)
-	    { self.applyA(img_in, img_out); }, py::arg("img_in"),
-	    py::arg("img_out"));
+	    "applyA",
+	    [](OperatorPsf& self, const Image* img_in, Image* img_out)
+	    { self.applyA(img_in, img_out); },
+	    py::arg("img_in"), py::arg("img_out"));
 	c.def(
-	    "applyAH", [](OperatorPsf& self, const Image* img_in, Image* img_out)
-	    { self.applyAH(img_in, img_out); }, py::arg("img_in"),
-	    py::arg("img_out"));
+	    "applyAH",
+	    [](OperatorPsf& self, const Image* img_in, Image* img_out)
+	    { self.applyAH(img_in, img_out); },
+	    py::arg("img_in"), py::arg("img_out"));
 
 	c.def("getKernelX",
 	      [](const OperatorPsf& self) -> py::array_t<float>
@@ -101,8 +103,9 @@ OperatorPsf::OperatorPsf(const std::string& imagePsf_fname) : OperatorPsf{}
 }
 
 OperatorPsf::OperatorPsf(const std::vector<float>& kernelX,
-	const std::vector<float>& kernelY,
-	const std::vector<float>& kernelZ) : m_kernelX(kernelX), m_kernelY(kernelY), m_kernelZ(kernelZ)
+                         const std::vector<float>& kernelY,
+                         const std::vector<float>& kernelZ)
+    : m_kernelX(kernelX), m_kernelY(kernelY), m_kernelZ(kernelZ)
 {
 	m_kernelX_flipped = std::vector<float>(kernelX.rbegin(), kernelX.rend());
 	m_kernelY_flipped = std::vector<float>(kernelY.rbegin(), kernelY.rend());

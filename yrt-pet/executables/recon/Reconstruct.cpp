@@ -30,14 +30,15 @@ void printTimingStatistics(const Util::Timer& ioTimer,
 	          << "ms" << std::endl;
 }
 
-void addImagePSFtoReconIfNeeded(OSEM& osem, std::string psf_fname, std::string varpsf_fname)
+void addImagePSFtoReconIfNeeded(OSEM& osem, std::string psf_fname,
+                                std::string varpsf_fname)
 {
 	if (!osem.hasImagePSF())
 	{
 		if (!psf_fname.empty())
 		{
 			ASSERT_MSG(varpsf_fname.empty(),
-						"Got two different image PSF inputs");
+			           "Got two different image PSF inputs");
 			osem.addImagePSF(psf_fname, ImagePSFMode::UNIFORM);
 		}
 		else if (!varpsf_fname.empty())
@@ -162,11 +163,11 @@ int main(int argc, char** argv)
 		        IO::possibleFormats(Plugin::InputFormatsChoice::ONLYHISTOGRAMS),
 		    false, IO::TypeOfArgument::STRING, "", reconstructionGroup);
 		registry.registerArgument("psf", "Image-space PSF kernel file", false,
-				IO::TypeOfArgument::STRING, "",
-				reconstructionGroup);
-		registry.registerArgument("varpsf", "Image-space Variant PSF look-up table file", false,
-				IO::TypeOfArgument::STRING, "",
-				reconstructionGroup);
+		                          IO::TypeOfArgument::STRING, "",
+		                          reconstructionGroup);
+		registry.registerArgument(
+		    "varpsf", "Image-space Variant PSF look-up table file", false,
+		    IO::TypeOfArgument::STRING, "", reconstructionGroup);
 		registry.registerArgument("hard_threshold", "Hard Threshold", false,
 		                          IO::TypeOfArgument::FLOAT, 1.0f,
 		                          reconstructionGroup);
@@ -417,7 +418,9 @@ int main(int argc, char** argv)
 			ImageParams imgParams{config.getValue<std::string>("params")};
 			osem->setImageParams(imgParams);
 
-			addImagePSFtoReconIfNeeded(*osem, config.getValue<std::string>("psf"), config.getValue<std::string>("varpsf"));
+			addImagePSFtoReconIfNeeded(*osem,
+			                           config.getValue<std::string>("psf"),
+			                           config.getValue<std::string>("varpsf"));
 
 			ioTimer.pause();
 			sensTimer.run();
@@ -549,7 +552,8 @@ int main(int argc, char** argv)
 			return 0;
 		}
 
-		addImagePSFtoReconIfNeeded(*osem, config.getValue<std::string>("psf"), config.getValue<std::string>("varpsf"));
+		addImagePSFtoReconIfNeeded(*osem, config.getValue<std::string>("psf"),
+		                           config.getValue<std::string>("varpsf"));
 
 		if (lorMotion != nullptr)
 		{

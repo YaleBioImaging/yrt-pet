@@ -167,16 +167,15 @@ void OSEM::generateSensitivityImageForLoadedSubset()
 
 	if (flagImagePSF)
 	{
-		std::cout<<"PSF debug 1"<<std::endl;
-		ImageBase* tmpPSFImage = getImageTmpBuffer(TemporaryImageSpaceBufferType::PSF);
+		ImageBase* tmpPSFImage =
+		    getImageTmpBuffer(TemporaryImageSpaceBufferType::PSF);
 		imagePsf->applyAH(getSensImageBuffer(), tmpPSFImage);
-		std::cout<<"PSF debug 2"<<std::endl;
 		getSensImageBuffer()->copyFromImage(tmpPSFImage);
 	}
 
 	std::cout << "Applying threshold..." << std::endl;
-	getSensImageBuffer()->applyThreshold(getSensImageBuffer(), hardThreshold, 0.0, 0.0,
-	                                     1.0, 0.0);
+	getSensImageBuffer()->applyThreshold(getSensImageBuffer(), hardThreshold,
+	                                     0.0, 0.0, 1.0, 0.0);
 }
 
 void OSEM::generateSensitivityImagesCore(
@@ -604,13 +603,13 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 		{
 			std::cout << "OSEM subset " << subsetId + 1 << "/"
 			          << num_OSEM_subsets << "..." << std::endl;
-			
+
 			loadSubsetInternal(subsetId, true);
 
 			// SET TMP VARIABLES TO 0
 			getImageTmpBuffer(TemporaryImageSpaceBufferType::EM_RATIO)
 			    ->setValue(0.0);
-			
+
 			ImageBase* mlemImage_rp;
 			if (flagImagePSF)
 			{
@@ -627,7 +626,7 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 			{
 				mlemImage_rp = getMLEMImageBuffer();
 			}
-			
+
 			computeEMUpdateImage(
 			    *mlemImage_rp,
 			    *getImageTmpBuffer(TemporaryImageSpaceBufferType::EM_RATIO));

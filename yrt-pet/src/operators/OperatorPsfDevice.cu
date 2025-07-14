@@ -35,13 +35,13 @@ void py_setup_operatorpsfdevice(py::module& m)
 	c.def(
 	    "applyA",
 	    [](OperatorPsfDevice& self, const Image* img_in, Image* img_out)
-	    { self.applyA(img_in, img_out); }, py::arg("img_in"),
-	    py::arg("img_out"));
+	    { self.applyA(img_in, img_out); },
+	    py::arg("img_in"), py::arg("img_out"));
 	c.def(
 	    "applyAH",
 	    [](OperatorPsfDevice& self, const Image* img_in, Image* img_out)
-	    { self.applyAH(img_in, img_out); }, py::arg("img_in"),
-	    py::arg("img_out"));
+	    { self.applyAH(img_in, img_out); },
+	    py::arg("img_in"), py::arg("img_out"));
 	c.def(
 	    "applyA",
 	    [](OperatorPsfDevice& self, const ImageDevice* img_in,
@@ -56,8 +56,7 @@ void py_setup_operatorpsfdevice(py::module& m)
 #endif
 
 OperatorPsfDevice::OperatorPsfDevice(const cudaStream_t* pp_stream)
-    : DeviceSynchronized{pp_stream, pp_stream},
-      OperatorPsf{}
+    : DeviceSynchronized{pp_stream, pp_stream}, OperatorPsf{}
 {
 	initDeviceArraysIfNeeded();
 }
@@ -71,10 +70,11 @@ OperatorPsfDevice::OperatorPsfDevice(const std::string& pr_imagePsf_fname,
 }
 
 OperatorPsfDevice::OperatorPsfDevice(const std::vector<float>& kernelX,
-	const std::vector<float>& kernelY,
-	const std::vector<float>& kernelZ,
-	const cudaStream_t* pp_stream)
-	: DeviceSynchronized{pp_stream, pp_stream}, OperatorPsf(kernelX, kernelY, kernelZ)
+                                     const std::vector<float>& kernelY,
+                                     const std::vector<float>& kernelZ,
+                                     const cudaStream_t* pp_stream)
+    : DeviceSynchronized{pp_stream, pp_stream},
+      OperatorPsf(kernelX, kernelY, kernelZ)
 {
 	copyToDevice(true);
 }

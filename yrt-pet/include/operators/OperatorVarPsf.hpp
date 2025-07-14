@@ -23,7 +23,6 @@ public:
 	OperatorVarPsf(const ImageParams& imgParams);
 	OperatorVarPsf(const std::string& imageVarPsf_fname,
 	               const ImageParams& imgParams);
-	// second constructor, use sigma as input
 	~OperatorVarPsf() override = default;
 
 	void readFromFile(const std::string& imageVarPsf_fname);
@@ -42,15 +41,10 @@ protected:
 
 private:
 	ImageParams m_imageParams;
-	// mutable std::vector<float> m_tempBuffer;
-	const float N = 0.0634936;  // 1/sqrt(8*pi*pi*pi)
-	// in the futrue, these shold be included in the header of PSF LUT
 	float x_range = 200;
 	float x_gap = 50;
 	float y_range = 200;
 	float y_gap = 50;
 	float z_range = 200;  // in mm
 	float z_gap = 50;
-	// declare x_dim here, put the calculation in the constructor
-	float x_dim = x_range / x_gap;
 };

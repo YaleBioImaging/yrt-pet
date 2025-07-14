@@ -143,20 +143,20 @@ std::vector<float>
 TEST_CASE("PSF", "[psf]")
 {
 	for (int mode = 1; mode <= 2; ++mode)
-	{	
+	{
 		bool isGPU = (mode == 2);
 		std::string modeName = isGPU ? "GPU" : "CPU";
 		ImageParams imgParams{isGPU ? 50 : 30,
-			isGPU ? 50 : 30,
-			isGPU ? 25 : 15,
-			isGPU ? 60.0f : 30.0f,
-			isGPU ? 59.0f : 31.0f,
-			isGPU ? 23.0f : 15.0f,
-			0.0f,
-			0.0f,
-			0.0f};
+		                      isGPU ? 50 : 30,
+		                      isGPU ? 25 : 15,
+		                      isGPU ? 60.0f : 30.0f,
+		                      isGPU ? 59.0f : 31.0f,
+		                      isGPU ? 23.0f : 15.0f,
+		                      0.0f,
+		                      0.0f,
+		                      0.0f};
 		auto image = TestUtils::makeImageWithRandomPrism(imgParams);
-		
+
 		// Generate random sigma and Gaussian kernels
 		std::mt19937 gen(static_cast<unsigned int>(std::time(0)));
 		std::uniform_real_distribution<float> sigma_dist(0.5f, 2.0f);
@@ -188,15 +188,15 @@ TEST_CASE("PSF", "[psf]")
 		std::vector<float> sigmas = {sigmaX, sigmaY, sigmaZ};
 
 		std::vector<float> inputData(image->getData().getSizeTotal());
-		std::memcpy(inputData.data(),
-		            image->getRawPointer(),
+		std::memcpy(inputData.data(), image->getRawPointer(),
 		            inputData.size() * sizeof(float));
 		float* outputPtr = img_out->getRawPointer();
 
 		SECTION("forward_psf_" + modeName)
 		{
 			op->applyA(image.get(), img_out.get());
-			std::vector<float> expected = convolve(inputData, dims, voxels, sigmas, false);
+			std::vector<float> expected =
+			    convolve(inputData, dims, voxels, sigmas, false);
 			for (size_t i = 0; i < expected.size(); ++i)
 			{
 				CHECK(outputPtr[i] == Approx(expected[i]).epsilon(1e-3));
@@ -206,7 +206,8 @@ TEST_CASE("PSF", "[psf]")
 		SECTION("transpose_psf_" + modeName)
 		{
 			op->applyAH(image.get(), img_out.get());
-			std::vector<float> expected = convolve(inputData, dims, voxels, sigmas, true);
+			std::vector<float> expected =
+			    convolve(inputData, dims, voxels, sigmas, true);
 			for (size_t i = 0; i < expected.size(); ++i)
 			{
 				CHECK(outputPtr[i] == Approx(expected[i]).epsilon(1e-3));
@@ -224,8 +225,8 @@ TEST_CASE("PSF", "[psf]")
 			img_out2->allocate();
 			op->applyAH(image2.get(), img_out2.get());
 
-			float lhs = img_out1->dotProduct(*image2);   // <Ax, y>
-			float rhs = image->dotProduct(*img_out2);    // <x, Aty>
+			float lhs = img_out1->dotProduct(*image2);  // <Ax, y>
+			float rhs = image->dotProduct(*img_out2);   // <x, Aty>
 			CHECK(lhs == Approx(rhs).epsilon(1e-3));
 		}
 	}
@@ -233,7 +234,7 @@ TEST_CASE("PSF", "[psf]")
 
 TEST_CASE("VarPSF", "[varpsf]")
 {
-	ImageParams imgParams{100, 100, 51, 400.0f, 401.0f,
+	ImageParams imgParams{100,    100,  51,   400.0f, 401.0f,
 	                      421.0f, 0.0f, 0.0f, 0.0f};
 	auto image = TestUtils::makeImageWithRandomPrism(imgParams);
 
@@ -324,12 +325,15 @@ TEST_CASE("VarPSF", "[varpsf]")
 	float* outputPtr = img_out->getRawPointer();
 	std::memcpy(inputData.data(), inputPtr,
 	            image->getData().getSizeTotal() * sizeof(float));
-	
-	Vector3D center_pt = {-imgParams.vx/2, -imgParams.vy/2, -imgParams.vz/2};
-	Vector3D test_pt1 = {threshold-imgParams.vx, 0, 0};
-	Vector3D test_pt2 = {threshold+imgParams.vx, -threshold-imgParams.vx, threshold+imgParams.vx};
-	Vector3D test_pt3 = {(imgParams.nx-1)*imgParams.vx/2, (imgParams.ny-1)*imgParams.vy/2, 
-			-(imgParams.nz-1)*imgParams.vx/2};
+
+	Vector3D center_pt = {-imgParams.vx / 2, -imgParams.vy / 2,
+	                      -imgParams.vz / 2};
+	Vector3D test_pt1 = {threshold - imgParams.vx, 0, 0};
+	Vector3D test_pt2 = {threshold + imgParams.vx, -threshold - imgParams.vx,
+	                     threshold + imgParams.vx};
+	Vector3D test_pt3 = {(imgParams.nx - 1) * imgParams.vx / 2,
+	                     (imgParams.ny - 1) * imgParams.vy / 2,
+	                     -(imgParams.nz - 1) * imgParams.vx / 2};
 	int center_x, center_y, center_z;
 	int tp1_x, tp1_y, tp1_z;
 	int tp2_x, tp2_y, tp2_z;
@@ -350,19 +354,16 @@ TEST_CASE("VarPSF", "[varpsf]")
 		std::vector<float> expected2 =
 		    convolve(inputData, dims, voxels, sigmas2, false, kernel_size_x2,
 		             kernel_size_y2, kernel_size_z2);
-		
-		size_t idx = center_x + imgParams.nx * (center_y + imgParams.ny * center_z);
-		CHECK(outputPtr[idx] ==
-			Approx(expected1[idx]).epsilon(1e-3));
+
+		size_t idx =
+		    center_x + imgParams.nx * (center_y + imgParams.ny * center_z);
+		CHECK(outputPtr[idx] == Approx(expected1[idx]).epsilon(1e-3));
 		idx = tp1_x + imgParams.nx * (tp1_y + imgParams.ny * tp1_z);
-		CHECK(outputPtr[idx] ==
-			Approx(expected1[idx]).epsilon(1e-3));
+		CHECK(outputPtr[idx] == Approx(expected1[idx]).epsilon(1e-3));
 		idx = tp2_x + imgParams.nx * (tp2_y + imgParams.ny * tp2_z);
-		CHECK(outputPtr[idx] ==
-			Approx(expected2[idx]).epsilon(1e-3));
+		CHECK(outputPtr[idx] == Approx(expected2[idx]).epsilon(1e-3));
 		idx = tp3_x + imgParams.nx * (tp3_y + imgParams.ny * tp3_z);
-		CHECK(outputPtr[idx] ==
-			Approx(expected2[idx]).epsilon(1e-3));
+		CHECK(outputPtr[idx] == Approx(expected2[idx]).epsilon(1e-3));
 	}
 
 	SECTION("transpose_varpsf")
@@ -376,18 +377,15 @@ TEST_CASE("VarPSF", "[varpsf]")
 		    convolve(inputData, dims, voxels, sigmas2, true, kernel_size_x2,
 		             kernel_size_y2, kernel_size_z2);
 
-		size_t idx = center_x + imgParams.nx * (center_y + imgParams.ny * center_z);
-		CHECK(outputPtr[idx] ==
-			Approx(expected1[idx]).epsilon(1e-3));
+		size_t idx =
+		    center_x + imgParams.nx * (center_y + imgParams.ny * center_z);
+		CHECK(outputPtr[idx] == Approx(expected1[idx]).epsilon(1e-3));
 		idx = tp1_x + imgParams.nx * (tp1_y + imgParams.ny * tp1_z);
-		CHECK(outputPtr[idx] ==
-			Approx(expected1[idx]).epsilon(1e-3));
+		CHECK(outputPtr[idx] == Approx(expected1[idx]).epsilon(1e-3));
 		idx = tp2_x + imgParams.nx * (tp2_y + imgParams.ny * tp2_z);
-		CHECK(outputPtr[idx] ==
-			Approx(expected2[idx]).epsilon(1e-3));
+		CHECK(outputPtr[idx] == Approx(expected2[idx]).epsilon(1e-3));
 		idx = tp3_x + imgParams.nx * (tp3_y + imgParams.ny * tp3_z);
-		CHECK(outputPtr[idx] ==
-			Approx(expected2[idx]).epsilon(1e-3));
+		CHECK(outputPtr[idx] == Approx(expected2[idx]).epsilon(1e-3));
 	}
 
 	SECTION("adjoint_test_varpsf")

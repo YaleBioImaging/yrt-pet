@@ -174,11 +174,6 @@ const OperatorProjector* OSEM_CPU::getProjector() const
 	return hostProjector;
 }
 
-// OperatorPsf* OSEM_CPU::getOperatorPsf() const
-//{
-//	return imagePsf.get();
-// }
-
 void OSEM_CPU::setupOperatorsForRecon()
 {
 	getBinIterators().clear();

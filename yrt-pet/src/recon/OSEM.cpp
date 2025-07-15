@@ -718,9 +718,13 @@ void OSEM::summary() const
 	if (flagImagePSF)
 	{
 		if (dynamic_cast<OperatorVarPsf*>(imagePsf.get()) == nullptr)
+		{
 			std::cout << "Uses Image-space PSF" << std::endl;
+		}
 		else
+		{
 			std::cout << "Uses Image-space variant PSF" << std::endl;
+		}
 	}
 	if (flagProjPSF)
 	{

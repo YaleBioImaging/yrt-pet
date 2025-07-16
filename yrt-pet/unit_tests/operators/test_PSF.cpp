@@ -51,7 +51,6 @@ std::vector<float>
              const int kernel_size_x = 2, const int kernel_size_y = 2,
              const int kernel_size_z = 1)
 {
-	// const float PI = 3.1415926f;
 	//  Ensure the dimensions are provided and valid
 	if (dims.size() != 3)
 	{
@@ -105,15 +104,19 @@ std::vector<float>
 
 	// padding 0
 	for (int i = 0; i < x_dim; i++)
+	{
 		for (int j = 0; j < y_dim; j++)
+		{
 			for (int k = 0; k < z_dim; k++)
 			{
-				for (int x_diff = -kernel_size_x; x_diff <= kernel_size_x;
-				     x_diff++)
+				for (int z_diff = -kernel_size_z; z_diff <= kernel_size_z;
+				     z_diff++)
+				{
 					for (int y_diff = -kernel_size_y; y_diff <= kernel_size_y;
 					     y_diff++)
-						for (int z_diff = -kernel_size_z;
-						     z_diff <= kernel_size_z; z_diff++)
+					{
+						for (int x_diff = -kernel_size_x;
+						     x_diff <= kernel_size_x; x_diff++)
 						{
 							int ii = (i + x_diff + x_dim) % x_dim;
 							int jj = (j + y_diff + y_dim) % y_dim;
@@ -140,7 +143,11 @@ std::vector<float>
 								              [-z_diff + kernel_size_z];
 							}
 						}
+					}
+				}
 			}
+		}
+	}
 	return Img_PSF;
 }
 
@@ -265,7 +272,7 @@ TEST_CASE("VarPSF", "[varpsf]")
 	float sigmaZ2 = sigma_dist2(gen);
 
 	// Generate sigma_lookup on the fly using fixed (x,y,z) values
-	std::vector<Sigma> random_sigma_lookup;
+	OperatorVarPsf::ConvolutionKernelCollection random_sigma_lookup;
 	std::vector<std::tuple<float, float, float>> positions;
 	std::vector<float> xvals = {5.1f, 54.9f, 105.3f, 155.1f, 205.5f};
 	std::vector<float> yvals = {5.1f, 54.9f, 105.3f, 155.1f, 204.9f};
@@ -291,7 +298,6 @@ TEST_CASE("VarPSF", "[varpsf]")
 		s.sigmay = (s.y > threshold) ? sigmaY2 : sigmaY1;
 		s.sigmaz = (s.z > threshold) ? sigmaZ2 : sigmaZ1;
 		op_var.precalculateKernel(s);
-
 		op_var.sigma_lookup.push_back(s);
 	}
 

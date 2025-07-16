@@ -10,19 +10,48 @@
 
 #include <vector>
 
-struct Sigma
+class ConvolutionKernel
 {
+public:
+	using KernelArray = Array3D<float>;
+
+	// Coordinates within positive octant of volume
 	float x, y, z;
-	float sigmax, sigmay, sigmaz;
-	std::vector<float> psf_kernel;
+	// Sizes are assumed to be odd
+	size_t getHalfSizeX() const;
+	size_t getHalfSizeY() const;
+	size_t getHalfSizeZ() const;
+	const KernelArray& getArray() const;
+protected:
+	ConvolutionKernel(float p_x, float p_y, float p_z);
+
+	KernelArray psfKernel;
+};
+
+class ConvolutionKernelGaussian : public ConvolutionKernel
+{
+public:
+	ConvolutionKernelGaussian(float p_x, float p_y, float p_z, float p_sigmaX,
+	                          float p_sigmaY, float p_sigmaZ, float p_nStdX,
+	                          float p_nStdY, float p_nStdZ,
+	                          const ImageParams& pr_imageParams);
+	void setSigmas(float p_sigmaX, float p_sigmaY, float p_sigmaZ,
+	               float p_nStdX, float p_nStdY, float p_nStdZ,
+	               const ImageParams& pr_imageParams);
+private:
+	float m_sigmaX, m_sigmaY, m_sigmaZ;
+	float m_nStdX, m_nStdY, m_nStdZ;
 };
 
 class OperatorVarPsf : public Operator
 {
 public:
-	OperatorVarPsf(const ImageParams& imgParams);
+	using ConvolutionKernelCollection =
+	    std::vector<std::unique_ptr<ConvolutionKernel>>;
+
+	OperatorVarPsf(const ImageParams& p_imageParams);
 	OperatorVarPsf(const std::string& imageVarPsf_fname,
-	               const ImageParams& imgParams);
+	               const ImageParams& p_imageParams);
 	~OperatorVarPsf() override = default;
 
 	void readFromFile(const std::string& imageVarPsf_fname);
@@ -31,20 +60,18 @@ public:
 	void applyAH(const Variable* in, Variable* out) override;
 	template <bool IS_FWD>
 	void varconvolve(const Image* in, Image* out) const;
-	std::vector<Sigma> sigma_lookup;
-	const float kernel_width_control = 4.0;
-	void precalculateKernel(Sigma& s);
 
 protected:
-	Sigma find_nearest_sigma(const std::vector<Sigma>& sigma_lookup, float x,
-	                         float y, float z) const;
+	const ConvolutionKernel& findNearestKernel(float x, float y, float z) const;
 
 private:
+	ConvolutionKernelCollection m_kernelLUT;
 	ImageParams m_imageParams;
-	float x_range = 200;
-	float x_gap = 50;
-	float y_range = 200;
-	float y_gap = 50;
-	float z_range = 200;  // in mm
-	float z_gap = 50;
+	// Ranges and gaps in mm
+	float m_xRange;
+	float m_xGap;
+	float m_yRange;
+	float m_yGap;
+	float m_zRange;
+	float m_zGap;
 };

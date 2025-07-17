@@ -72,14 +72,10 @@ std::vector<ConstraintVariable> ConstraintDetectorMask::getVariables() const
 
 // Constrained bin iterator
 BinIteratorConstrained::BinIteratorConstrained(const ProjectionData* pProjData,
-                                               const BinIterator* pBinIterBase,
-                                               int pQueueSizeMax,
-                                               float pQueueFrac)
+                                               const BinIterator* pBinIterBase)
     : mProjData(pProjData),
       mBinIterBase(pBinIterBase),
-      mQueue(pQueueSizeMax),
-      mCount(0),
-      mQueueFrac(pQueueFrac)
+      mCount(0)
 {
 }
 
@@ -199,54 +195,4 @@ size_t BinIteratorConstrained::count()
 		}
 		return count;
 	}
-}
-
-void BinIteratorConstrained::prepare()
-{
-	mVariables = collectVariables();
-	count();
-	mBinIdx = 0;
-}
-
-void BinIteratorConstrained::produceNext(ConstraintParams& info)
-{
-	if (done())
-	{
-		return;
-	}
-	bin_t bin = mBinIterBase->get(mBinIdx);
-	collectInfo(bin, mVariables, info);
-	if (isValid(info))
-	{
-		// TODO get properties
-		const Line3D lor = mProjData->getLOR(bin);
-		float tofValue = 0.f;
-		if (mProjData->hasTOF())
-		{
-			tofValue = mProjData->getTOFValue(bin);
-		}
-		const Vector3D det1Orient =
-		    mProjData->getScanner().getDetectorOrient(info[ConstraintVariable::Det1]);
-		const Vector3D det2Orient =
-		    mProjData->getScanner().getDetectorOrient(info[ConstraintVariable::Det2]);
-		// TODO check size
-		mQueue.wait_and_push(
-		    ProjectionProperties({bin, lor, tofValue, det1Orient, det2Orient}));
-	}
-	mBinIdx++;
-}
-
-const ProjectionProperties& BinIteratorConstrained::get()
-{
-	return mQueue.wait_and_pop();
-}
-
-bool BinIteratorConstrained::nextTaskProduce() const
-{
-	return mQueue.size() < mQueueFrac * mQueue.GetSizeMax();
-}
-
-bool BinIteratorConstrained::done() const
-{
-	return mBinIdx >= mBinIterBase->size();
 }

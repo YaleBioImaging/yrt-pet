@@ -59,65 +59,6 @@ void OSEMUpdater_CPU::computeSensitivityImage(Image& destImage) const
 		                              projValue, tid);
 	    });
 }
-#elif 0
-void OSEMUpdater_CPU::computeSensitivityImage(Image& destImage) const
-{
-	const OperatorProjector* projector = mp_osem->getProjector();
-	const BinIterator* binIterProj = projector->getBinIter();
-	const Corrector_CPU& corrector = mp_osem->getCorrector_CPU();
-	const Corrector_CPU* correctorPtr = &corrector;
-	const ProjectionData* sensImgGenProjData =
-	    corrector.getSensImgGenProjData();
-	int queueSize = 1000;
-	float queueSizeFrac = 0.75;
-	Image* destImagePtr = &destImage;
-	BinIteratorConstrained binIter(sensImgGenProjData, binIterProj, queueSize,
-	                               queueSizeFrac);
-	binIter.prepare();
-	const bin_t numBins = binIter.count();
-	int numThreads = Globals::get_num_threads();
-	Util::ProgressDisplayMultiThread progressDisplay(Globals::get_num_threads(),
-	                                                 numBins);
-
-	std::vector<std::thread> workers;
-	std::vector<ConstraintParams> info;
-	std::set<ConstraintVariable> variables = binIter.collectVariables();
-	ConstraintParams infoTest;
-	binIter.collectInfo(0, variables, infoTest);
-	info.resize(numThreads);
-	for (int i = 0; i < numThreads; i++)
-	{
-		info[i].reserve(infoTest.size());
-		workers.emplace_back(std::thread(
-		    [&binIter, projector, correctorPtr, sensImgGenProjData,
-		     destImagePtr, &progressDisplay, i](ConstraintParams* infoT)
-		    {
-			    while (!binIter.done())
-			    {
-				    if (binIter.nextTaskProduce())
-				    {
-					    binIter.produceNext(*infoT);
-				    }
-				    else
-				    {
-					    progressDisplay.progress(i, 1);
-					    const ProjectionProperties projectionProperties =
-					        binIter.get();
-					    const float projValue =
-					        correctorPtr->getMultiplicativeCorrectionFactor(
-					            *sensImgGenProjData, projectionProperties.bin);
-					    projector->backProjection(
-					        destImagePtr, projectionProperties, projValue);
-				    }
-			    }
-		    }, &info[i]));
-	}
-
-	for (auto& worker : workers)
-	{
-		worker.join();
-	}
-}
 #else
 void OSEMUpdater_CPU::computeSensitivityImage(Image& destImage) const
 {
@@ -127,11 +68,8 @@ void OSEMUpdater_CPU::computeSensitivityImage(Image& destImage) const
 	const Corrector_CPU* correctorPtr = &corrector;
 	const ProjectionData* sensImgGenProjData =
 	    corrector.getSensImgGenProjData();
-	int queueSize = 0;
-	float queueSizeFrac = 0.f;
 	Image* destImagePtr = &destImage;
-	BinIteratorConstrained binIter(sensImgGenProjData, binIterProj, queueSize,
-	                               queueSizeFrac);
+	BinIteratorConstrained binIter(sensImgGenProjData, binIterProj);
 	//binIter.prepare();
 	const bin_t numBinsMax = binIterProj->size();
 	int numThreads = Globals::get_num_threads();

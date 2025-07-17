@@ -102,7 +102,6 @@ std::vector<float>
 				          [z_diff + kernel_size_z] /= kernel_sum;
 			}
 
-	// padding 0
 	for (int i = 0; i < x_dim; i++)
 	{
 		for (int j = 0; j < y_dim; j++)

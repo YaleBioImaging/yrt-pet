@@ -254,7 +254,7 @@ TEST_CASE("PSF", "[psf]")
 
 TEST_CASE("VarPSF", "[varpsf]")
 {
-	ImageParams imgParams{100,    100,  51,   400.0f, 401.0f,
+	ImageParams imgParams{100, 100, 51, 400.0f, 401.0f,
 	                      421.0f, 0.0f, 0.0f, 0.0f};
 	auto image = TestUtils::makeImageWithRandomPrism(imgParams);
 
@@ -288,17 +288,20 @@ TEST_CASE("VarPSF", "[varpsf]")
 		}
 	}
 	OperatorVarPsf op_var(imgParams);
+	op_var.setRangeAndGap(200,50,200,50,200,50);
 	float threshold = 100.0f;
+	float tempx, tempy, tempz, sigmax, sigmay, sigmaz, nstdx = 4.0, nstdy = 4.0, nstdz = 4.0;
 	for (size_t i = 0; i < positions.size(); ++i)
 	{
-		Sigma s;
-		std::tie(s.x, s.y, s.z) = positions[i];
-
-		s.sigmax = (s.x > threshold) ? sigmaX2 : sigmaX1;
-		s.sigmay = (s.y > threshold) ? sigmaY2 : sigmaY1;
-		s.sigmaz = (s.z > threshold) ? sigmaZ2 : sigmaZ1;
-		op_var.precalculateKernel(s);
-		op_var.sigma_lookup.push_back(s);
+		std::tie(tempx, tempy, tempz) = positions[i];
+		sigmax = (tempx > threshold) ? sigmaX2 : sigmaX1;
+		sigmay = (tempy > threshold) ? sigmaY2 : sigmaY1;
+		sigmaz = (tempz > threshold) ? sigmaZ2 : sigmaZ1;
+		auto kernel = std::make_unique<ConvolutionKernelGaussian>(
+		    tempx, tempy, tempz,
+		    sigmax, sigmay, sigmaz,
+		    nstdx, nstdy, nstdz, imgParams);
+		op_var.m_kernelLUT.push_back(std::move(kernel));
 	}
 
 	auto img_out = std::make_unique<ImageOwned>(imgParams);
@@ -308,36 +311,30 @@ TEST_CASE("VarPSF", "[varpsf]")
 
 	std::vector<float> sigmas1 = {sigmaX1, sigmaY1, sigmaZ1};
 	int kernel_size_x1 =
-	    std::min(4, std::max(1, static_cast<int>(std::floor(
-	                                (sigmas1[0] * op_var.kernel_width_control) /
-	                                imgParams.vx)) -
-	                                1));
+	    std::max(1, static_cast<int>(std::floor(
+	                                (sigmas1[0] * nstdx) /
+	                                imgParams.vx)) - 1);
 	int kernel_size_y1 =
-	    std::min(4, std::max(1, static_cast<int>(std::floor(
-	                                (sigmas1[1] * op_var.kernel_width_control) /
-	                                imgParams.vy)) -
-	                                1));
+	    std::max(1, static_cast<int>(std::floor(
+	                                (sigmas1[1] * nstdy) /
+	                                imgParams.vy)) - 1);
 	int kernel_size_z1 =
-	    std::min(4, std::max(1, static_cast<int>(std::floor(
-	                                (sigmas1[2] * op_var.kernel_width_control) /
-	                                imgParams.vz)) -
-	                                1));
+	    std::max(1, static_cast<int>(std::floor(
+	                                (sigmas1[2] * nstdz) /
+	                                imgParams.vz)) - 1);
 	std::vector<float> sigmas2 = {sigmaX2, sigmaY2, sigmaZ2};
 	int kernel_size_x2 =
-	    std::min(4, std::max(1, static_cast<int>(std::floor(
-	                                (sigmas2[0] * op_var.kernel_width_control) /
-	                                imgParams.vx)) -
-	                                1));
+	    std::max(1, static_cast<int>(std::floor(
+	                                (sigmas2[0] * nstdx) /
+	                                imgParams.vx)) - 1);
 	int kernel_size_y2 =
-	    std::min(4, std::max(1, static_cast<int>(std::floor(
-	                                (sigmas2[1] * op_var.kernel_width_control) /
-	                                imgParams.vy)) -
-	                                1));
+	    std::max(1, static_cast<int>(std::floor(
+	                                (sigmas2[1] * nstdy) /
+	                                imgParams.vy)) - 1);
 	int kernel_size_z2 =
-	    std::min(4, std::max(1, static_cast<int>(std::floor(
-	                                (sigmas2[2] * op_var.kernel_width_control) /
-	                                imgParams.vz)) -
-	                                1));
+	    std::max(1, static_cast<int>(std::floor(
+	                                (sigmas2[2] * nstdz) /
+	                                imgParams.vz)) - 1);
 	std::vector<float> inputData;
 	inputData.resize(image->getData().getSizeTotal());
 	float* inputPtr = image->getRawPointer();

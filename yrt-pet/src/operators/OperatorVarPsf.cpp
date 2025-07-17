@@ -131,9 +131,7 @@ void ConvolutionKernelGaussian::setSigmas(float p_sigmaX, float p_sigmaY,
 	{
 		psfKernel.getFlat(i) /= kernel_sum;
 	}
-
 }
-
 
 OperatorVarPsf::OperatorVarPsf(const ImageParams& pr_imageParams)
     : Operator{}, m_imageParams(pr_imageParams)
@@ -199,7 +197,7 @@ void OperatorVarPsf::readFromFile(const std::string& imageVarPsf_fname)
 
 	int numKernelsX = static_cast<int>(std::rintf((m_xRange / m_xGap) + 1));
 	int numKernelsY = static_cast<int>(std::rintf((m_yRange / m_yGap) + 1));
-	int numKernelsZ = static_cast<int>(std::rintf((m_zRange / m_zGap) + 1));
+	//int numKernelsZ = static_cast<int>(std::rintf((m_zRange / m_zGap) + 1));
 	for (size_t i = 3; i < dims[0]; ++i)
 	{
 		int idx = i - 3;
@@ -312,4 +310,16 @@ void OperatorVarPsf::varconvolve(const Image* in, Image* out) const
 			}
 		}
 	}
+}
+
+void OperatorVarPsf::setRangeAndGap(float xRange, float xGap,
+                                    float yRange, float yGap,
+                                    float zRange, float zGap)
+{
+	m_xRange = xRange;
+	m_xGap = xGap;
+	m_yRange = yRange;
+	m_yGap = yGap;
+	m_zRange = zRange;
+	m_zGap = zGap;
 }

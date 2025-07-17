@@ -60,12 +60,16 @@ public:
 	void applyAH(const Variable* in, Variable* out) override;
 	template <bool IS_FWD>
 	void varconvolve(const Image* in, Image* out) const;
+	void setRangeAndGap(float xRange, float xGap,
+                    float yRange, float yGap,
+                    float zRange, float zGap);
+	ConvolutionKernelCollection m_kernelLUT;
 
 protected:
 	const ConvolutionKernel& findNearestKernel(float x, float y, float z) const;
 
 private:
-	ConvolutionKernelCollection m_kernelLUT;
+	//?ConvolutionKernelCollection m_kernelLUT;
 	ImageParams m_imageParams;
 	// Ranges and gaps in mm
 	float m_xRange;

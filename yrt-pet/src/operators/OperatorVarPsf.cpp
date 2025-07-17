@@ -11,6 +11,7 @@
 #include <chrono>
 #include <fstream>
 #include <iostream>
+#include <memory>
 #include <sstream>
 #include <stdexcept>
 
@@ -39,11 +40,6 @@ void py_setup_operatorvarpsf(py::module& m)
 }
 #endif
 
-ConvolutionKernel::ConvolutionKernel(float p_x, float p_y, float p_z)
-	: x(p_x), y(p_y), z(p_z)
-{
-}
-
 size_t ConvolutionKernel::getHalfSizeX() const
 {
 	return (psfKernel.getSize(2) - 1) / 2;
@@ -59,17 +55,24 @@ size_t ConvolutionKernel::getHalfSizeZ() const
 	return (psfKernel.getSize(0) - 1) / 2;
 }
 
+ConvolutionKernel::ConvolutionKernel(const ConvolutionKernel& p_kernel)
+{
+	auto& p_array = p_kernel.getArray();
+	auto dims = p_array.getDims();
+	psfKernel.allocate(dims[0], dims[1], dims[2]);
+	psfKernel.copy(p_kernel.getArray());
+}
+
 const ConvolutionKernel::KernelArray& ConvolutionKernel::getArray() const
 {
 	return psfKernel;
 }
 
 ConvolutionKernelGaussian::ConvolutionKernelGaussian(
-	float p_x, float p_y, float p_z,
 	float p_sigmaX, float p_sigmaY, float p_sigmaZ,
 	float p_nStdX, float p_nStdY, float p_nStdZ,
     const ImageParams& pr_imageParams)
-	: ConvolutionKernel(p_x, p_y, p_z)
+	: ConvolutionKernel()
 {
 	setSigmas(p_sigmaX, p_sigmaY, p_sigmaZ, p_nStdX, p_nStdY, p_nStdZ,
 	          pr_imageParams);
@@ -195,23 +198,22 @@ void OperatorVarPsf::readFromFile(const std::string& imageVarPsf_fname)
 	float nStdY = data[2][1];
 	float nStdZ = data[2][2];
 
-	int numKernelsX = static_cast<int>(std::rintf((m_xRange / m_xGap) + 1));
-	int numKernelsY = static_cast<int>(std::rintf((m_yRange / m_yGap) + 1));
-	//int numKernelsZ = static_cast<int>(std::rintf((m_zRange / m_zGap) + 1));
 	for (size_t i = 3; i < dims[0]; ++i)
 	{
-		int idx = i - 3;
-		int indexZ = idx / (numKernelsY * numKernelsX);
-		int remZ = idx - indexZ * numKernelsY * numKernelsX;
-		int indexY = remZ / numKernelsX;
-		int remY = remZ - indexY * numKernelsX;
-		int indexX = remY % numKernelsX;
-
 		auto kernel = std::make_unique<ConvolutionKernelGaussian>(
-		    indexX * m_xGap, indexY * m_yGap, indexZ * m_zGap,
 		    data[i][0], data[i][1], data[i][2],
 		    nStdX, nStdY, nStdZ, m_imageParams);
 		m_kernelLUT.push_back(std::move(kernel));
+	}
+}
+
+void OperatorVarPsf::setKernelCollection(
+    const ConvolutionKernelCollection& p_kernelLUT)
+{
+	m_kernelLUT.clear();
+	for (auto& kernel : p_kernelLUT)
+	{
+		m_kernelLUT.push_back(std::make_unique<ConvolutionKernel>(*kernel));
 	}
 }
 

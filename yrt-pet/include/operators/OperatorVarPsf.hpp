@@ -14,16 +14,14 @@ class ConvolutionKernel
 {
 public:
 	using KernelArray = Array3D<float>;
-
-	// Coordinates within positive octant of volume
-	float x, y, z;
 	// Sizes are assumed to be odd
 	size_t getHalfSizeX() const;
 	size_t getHalfSizeY() const;
 	size_t getHalfSizeZ() const;
 	const KernelArray& getArray() const;
+	ConvolutionKernel(const ConvolutionKernel& p_kernel);
 protected:
-	ConvolutionKernel(float p_x, float p_y, float p_z);
+	ConvolutionKernel() = default;
 
 	KernelArray psfKernel;
 };
@@ -31,9 +29,8 @@ protected:
 class ConvolutionKernelGaussian : public ConvolutionKernel
 {
 public:
-	ConvolutionKernelGaussian(float p_x, float p_y, float p_z, float p_sigmaX,
-	                          float p_sigmaY, float p_sigmaZ, float p_nStdX,
-	                          float p_nStdY, float p_nStdZ,
+	ConvolutionKernelGaussian(float p_sigmaX, float p_sigmaY, float p_sigmaZ,
+	                          float p_nStdX, float p_nStdY, float p_nStdZ,
 	                          const ImageParams& pr_imageParams);
 	void setSigmas(float p_sigmaX, float p_sigmaY, float p_sigmaZ,
 	               float p_nStdX, float p_nStdY, float p_nStdZ,
@@ -61,15 +58,15 @@ public:
 	template <bool IS_FWD>
 	void varconvolve(const Image* in, Image* out) const;
 	void setRangeAndGap(float xRange, float xGap,
-                    float yRange, float yGap,
-                    float zRange, float zGap);
-	ConvolutionKernelCollection m_kernelLUT;
+	                    float yRange, float yGap,
+	                    float zRange, float zGap);
+	void setKernelCollection(const ConvolutionKernelCollection& p_kernelLUT);
 
 protected:
 	const ConvolutionKernel& findNearestKernel(float x, float y, float z) const;
 
 private:
-	//?ConvolutionKernelCollection m_kernelLUT;
+	ConvolutionKernelCollection m_kernelLUT;
 	ImageParams m_imageParams;
 	// Ranges and gaps in mm
 	float m_xRange;

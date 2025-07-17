@@ -289,7 +289,10 @@ TEST_CASE("VarPSF", "[varpsf]")
 	OperatorVarPsf op_var(imgParams);
 	op_var.setRangeAndGap(200,50,200,50,200,50);
 	float threshold = 100.0f;
-	float tempx, tempy, tempz, sigmax, sigmay, sigmaz, nstdx = 4.0, nstdy = 4.0, nstdz = 4.0;
+	float tempx, tempy, tempz;
+	float sigmax, sigmay, sigmaz;
+	float nstdx = 4.0, nstdy = 4.0, nstdz = 4.0;
+	OperatorVarPsf::ConvolutionKernelCollection kernels;
 	for (size_t i = 0; i < positions.size(); ++i)
 	{
 		std::tie(tempx, tempy, tempz) = positions[i];
@@ -297,11 +300,11 @@ TEST_CASE("VarPSF", "[varpsf]")
 		sigmay = (tempy > threshold) ? sigmaY2 : sigmaY1;
 		sigmaz = (tempz > threshold) ? sigmaZ2 : sigmaZ1;
 		auto kernel = std::make_unique<ConvolutionKernelGaussian>(
-		    tempx, tempy, tempz,
 		    sigmax, sigmay, sigmaz,
 		    nstdx, nstdy, nstdz, imgParams);
-		op_var.m_kernelLUT.push_back(std::move(kernel));
+		kernels.push_back(std::move(kernel));
 	}
+	op_var.setKernelCollection(kernels);
 
 	auto img_out = std::make_unique<ImageOwned>(imgParams);
 	img_out->allocate();

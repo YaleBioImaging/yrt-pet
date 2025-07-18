@@ -78,17 +78,25 @@ For:
 - XYZ range = 50 mm  
 - XYZ gap = 50 mm  
 - XYZ kernel size control = 4  
-
+Kernel location coding:
+(0,0,0)
+(50,0,0)
+(0,50,0)
+(50,50,0)
+(0,0,50)
+(50,0,50)
+(0,50,50)
+(50,50,50)
 ```
 50,50,50
 50,50,50
 4,4,4
-sigmaX1,sigmaY1,sigmaZ1  # (0,0,0)
-sigmaX2,sigmaY2,sigmaZ2  # (50,0,0)
-sigmaX3,sigmaY3,sigmaZ3  # (0,50,0)
-sigmaX4,sigmaY4,sigmaZ4  # (50,50,0)
-sigmaX5,sigmaY5,sigmaZ5  # (0,0,50)
-sigmaX6,sigmaY6,sigmaZ6  # (50,0,50)
-sigmaX7,sigmaY7,sigmaZ7  # (0,50,50)
-sigmaX8,sigmaY8,sigmaZ8  # (50,50,50)
+sigmaX1,sigmaY1,sigmaZ1  
+sigmaX2,sigmaY2,sigmaZ2   
+sigmaX3,sigmaY3,sigmaZ3   
+sigmaX4,sigmaY4,sigmaZ4   
+sigmaX5,sigmaY5,sigmaZ5   
+sigmaX6,sigmaY6,sigmaZ6   
+sigmaX7,sigmaY7,sigmaZ7   
+sigmaX8,sigmaY8,sigmaZ8   
 ```

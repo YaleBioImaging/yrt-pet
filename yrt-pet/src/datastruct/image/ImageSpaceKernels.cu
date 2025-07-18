@@ -4,9 +4,12 @@
  */
 
 #include "yrt-pet/datastruct/image/ImageSpaceKernels.cuh"
+#include "yrt-pet/datastruct/image/ImageSpaceKernels.cuh"
+#include "yrt-pet/geometry/TransformUtils.hpp"
 
 namespace yrt
 {
+
 __global__ void updateEM_kernel(const float* pd_imgIn, float* pd_imgOut,
                                 const float* pd_sensImg, const int nx,
                                 const int ny, const int nz,
@@ -75,6 +78,35 @@ __global__ void addFirstImageToSecond_kernel(const float* pd_imgIn,
 	{
 		const long pixelId = id_z * nx * ny + id_y * nx + id_x;
 		pd_imgOut[pixelId] = pd_imgOut[pixelId] + pd_imgIn[pixelId];
+	}
+}
+
+__global__ void timeAverageMoveImage_kernel(const float* d_imgIn,
+                                            float* d_imgOut, int nx, int ny,
+                                            int nz, transform_t* transforms,
+                                            float* weights, int numTransforms)
+{
+	const long id_z = blockIdx.z * blockDim.z + threadIdx.z;
+	const long id_y = blockIdx.y * blockDim.y + threadIdx.y;
+	const long id_x = blockIdx.x * blockDim.x + threadIdx.x;
+
+	if (id_z < nz && id_y < ny && id_x < nx)
+	{
+		const long pixelId = id_z * nx * ny + id_y * nx + id_x;
+
+		for (int transform_i = 0; transform_i < numTransforms; transform_i++)
+		{
+			// TODO: if weights pointer is null, use 1.0 everywhere
+			float weight = 1.0f;
+			if (weights != nullptr)
+			{
+				weight = weights[transform_i];
+			}
+
+			transform_t invTransform =
+			    util::invertTransform(transforms[transform_i]);
+
+		}
 	}
 }
 
@@ -159,4 +191,5 @@ template __global__ void convolve3DSeparable_kernel<2>(const float* input,
                                                        const float* kernel,
                                                        int kernelSize, int nx,
                                                        int ny, int nz);
+
 }  // namespace yrt

@@ -5,8 +5,11 @@
 
 #pragma once
 
+#include "yrt-pet/utils/Types.hpp"
+
 namespace yrt
 {
+
 __global__ void updateEM_kernel(const float* d_imgIn, float* d_imgOut,
                                 const float* d_sensImg, int nx, int ny, int nz,
                                 float EM_threshold);
@@ -22,6 +25,11 @@ __global__ void setValue_kernel(float* d_imgIn, float value, int nx, int ny,
 __global__ void addFirstImageToSecond_kernel(const float* d_imgIn,
                                              float* d_imgOut, int nx, int ny,
                                              int nz);
+
+__global__ void timeAverageMoveImage_kernel(const float* d_imgIn,
+                                            float* d_imgOut, int nx, int ny,
+                                            int nz, transform_t* transforms,
+                                            int numTransforms);
 
 template <int Axis>
 __global__ void convolve3DSeparable_kernel(const float* input, float* output,

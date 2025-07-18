@@ -62,4 +62,5 @@ transform_t fromRotationAndTranslationVectors(const Vector3D& rotation,
 	                   r10, r11, r12, translation.y,
 	                   r20, r21, r22, translation.z};
 }
+
 }  // namespace yrt::util

@@ -92,5 +92,3 @@ sigmaX6,sigmaY6,sigmaZ6  # (50,0,50)
 sigmaX7,sigmaY7,sigmaZ7  # (0,50,50)
 sigmaX8,sigmaY8,sigmaZ8  # (50,50,50)
 ```
-
----

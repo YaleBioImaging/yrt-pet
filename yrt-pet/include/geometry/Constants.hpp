@@ -6,34 +6,35 @@
 #pragma once
 
 // constants:
-#define PIHALF 1.57079632679489661923
-#define PI 3.14159265358979
-#define TWOPI 6.28318530717959
-#define SPEED_OF_LIGHT_MM_PS 0.299792458
-#define DOUBLE_PRECISION 10e-25
-#define LARGE_VALUE 10e25
-#define SIZE_STRING_BUFFER 1024
-#define GOLD 1.618034
-#define GLIMIT 100.0
-#define TINY 1e-20
-#define ITMAX 10000
-#define EPS 1.0e-8
-#define EPS_FLT 1.0e-8f
-#define SIGMA_TO_FWHM 2.354820045031
-#define SMALL 1.0e-6
-#define SMALL_FLT 1.0e-6f
-#define MAX_ARRAY 1000
-#define IA 16807
-#define IM 2147483647
-#define AM (1.0 / IM)
-#define IQ 127773
-#define IR 2836
-#define NTAB 32
-#define NDIV (1 + (IM - 1) / NTAB)
-#define RNMX (1.0 - EPS)
-
-#define NS_TO_S 1e-9
-#define NS_TO_S_FLT 1e-9f
+constexpr double PIHALF = 1.57079632679489661923;
+constexpr double PI = 3.14159265358979;
+constexpr double TWOPI = 6.28318530717959;
+constexpr float PIHALF_FLT = 1.57079632679489661923f;
+constexpr float PI_FLT = 3.14159265358979f;
+constexpr float TWOPI_FLT = 6.28318530717959f;
+constexpr double SPEED_OF_LIGHT_MM_PS = 0.299792458;
+constexpr double DOUBLE_PRECISION = 10e-25;
+constexpr double LARGE_VALUE = 10e25;
+constexpr double SIZE_STRING_BUFFER = 1024;
+constexpr double GOLD = 1.618034;
+constexpr double GLIMIT = 100.0;
+constexpr double TINY = 1e-20;
+constexpr double ITMAX = 10000;
+constexpr double EPS = 1.0e-8;
+constexpr float EPS_FLT = 1.0e-8f;
+constexpr double SIGMA_TO_FWHM = 2.354820045031;
+constexpr double SMALL = 1.0e-6;
+constexpr float SMALL_FLT = 1.0e-6f;
+constexpr int IA = 16807;
+constexpr int IM = 2147483647;
+constexpr double AM = (1.0 / IM);
+constexpr int IQ = 127773;
+constexpr int IR = 2836;
+constexpr int NTAB = 32;
+constexpr int NDIV = (1 + (IM - 1) / NTAB);
+constexpr double RNMX = (1.0 - EPS);
+constexpr double NS_TO_S = 1e-9;
+constexpr float NS_TO_S_FLT = 1e-9f;
 
 // macros:
 #define GET_MIN(a, b, c) ((((a > b) ? b : a) > c) ? c : ((a > b) ? b : a))

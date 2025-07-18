@@ -17,7 +17,7 @@ OSEM_GPU::OSEM_GPU(const Scanner& pr_scanner)
       mpd_sensImageBuffer(nullptr),
       mpd_mlemImage(nullptr),
       mpd_mlemImageTmpEMRatio(nullptr),
-      mpd_mlemImageTmpPsf(nullptr),
+      mpd_imageTmpPsf(nullptr),
       mpd_tempSensDataInput(nullptr),
       mpd_dat(nullptr),
       mpd_datTmp(nullptr),
@@ -101,6 +101,10 @@ void OSEM_GPU::allocateForSensImgGen()
 		//  device memory for the projection-space buffers below
 		imagePsfDevice->allocateTemporaryDeviceImageIfNeeded(
 		    getImageParams(), {getMainStream(), true});
+
+		mpd_imageTmpPsf = std::make_unique<ImageDeviceOwned>(getImageParams(),
+		                                                     getMainStream());
+		mpd_imageTmpPsf->allocate(false);
 	}
 
 	if (mp_corrector->hasHardwareAttenuationImage())
@@ -194,9 +198,9 @@ void OSEM_GPU::allocateForRecon()
 
 	if (flagImagePSF)
 	{
-		mpd_mlemImageTmpPsf = std::make_unique<ImageDeviceOwned>(
-		    getImageParams(), getMainStream());
-		mpd_mlemImageTmpPsf->allocate(false);
+		mpd_imageTmpPsf = std::make_unique<ImageDeviceOwned>(getImageParams(),
+		                                                     getMainStream());
+		mpd_imageTmpPsf->allocate(false);
 	}
 
 	// Initialize the MLEM image values to non-zero
@@ -282,7 +286,7 @@ void OSEM_GPU::endRecon()
 	// Clear temporary buffers
 	mpd_mlemImage = nullptr;
 	mpd_mlemImageTmpEMRatio = nullptr;
-	mpd_mlemImageTmpPsf = nullptr;
+	mpd_imageTmpPsf = nullptr;
 	mpd_sensImageBuffer = nullptr;
 	mp_corrector->clearTemporaryDeviceBuffer();
 	mpd_dat = nullptr;
@@ -310,7 +314,7 @@ ImageBase* OSEM_GPU::getMLEMImageBuffer()
 	return mpd_mlemImage.get();
 }
 
-ImageBase* OSEM_GPU::getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType type)
+ImageBase* OSEM_GPU::getImageTmpBuffer(TemporaryImageSpaceBufferType type)
 {
 	if (type == TemporaryImageSpaceBufferType::EM_RATIO)
 	{
@@ -319,7 +323,7 @@ ImageBase* OSEM_GPU::getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType type)
 	if (type == TemporaryImageSpaceBufferType::PSF)
 	{
 		ASSERT(flagImagePSF);
-		return mpd_mlemImageTmpPsf.get();
+		return mpd_imageTmpPsf.get();
 	}
 	throw std::runtime_error("Unknown Temporary image type");
 }
@@ -391,11 +395,20 @@ void OSEM_GPU::loadSubset(int subsetId, bool forRecon)
 	}
 }
 
-void OSEM_GPU::addImagePSF(const std::string& p_imagePsf_fname)
+void OSEM_GPU::addImagePSF(const std::string& p_imagePsf_fname,
+                           ImagePSFMode p_imagePSFMode)
 {
 	ASSERT_MSG(!p_imagePsf_fname.empty(), "Empty filename for Image-space PSF");
-	imagePsf =
-	    std::make_unique<OperatorPsfDevice>(p_imagePsf_fname, getMainStream());
+	if (p_imagePSFMode == UNIFORM)
+	{
+		imagePsf = std::make_unique<OperatorPsfDevice>(p_imagePsf_fname,
+		                                               getMainStream());
+	}
+	else
+	{
+		ASSERT_MSG(false, "Spatially variant PSF not implemented in GPU yet");
+	}
+
 	flagImagePSF = true;
 }
 

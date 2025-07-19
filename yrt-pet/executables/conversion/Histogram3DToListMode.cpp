@@ -62,7 +62,7 @@ int main(int argc, char** argv)
 			return -1;
 		}
 
-		Globals::set_num_threads(numThreads);
+		Globals::setNumThreads(numThreads);
 
 		const auto scanner = std::make_unique<Scanner>(scanner_fname);
 		const auto histo =

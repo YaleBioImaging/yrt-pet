@@ -673,7 +673,7 @@ void OSEM::summary() const
 		std::cout << "Projector type: Distance-Driven" << std::endl;
 	}
 
-	std::cout << "Number of threads used: " << Globals::get_num_threads()
+	std::cout << "Number of threads used: " << Globals::getNumThreads()
 	          << std::endl;
 	std::cout << "Scanner name: " << scanner.scannerName << std::endl;
 

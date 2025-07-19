@@ -271,7 +271,7 @@ int main(int argc, char** argv)
 
 		ioTimer.run();
 
-		Globals::set_num_threads(config.getValue<int>("num_threads"));
+		Globals::setNumThreads(config.getValue<int>("num_threads"));
 		std::cout << "Initializing scanner..." << std::endl;
 		auto scanner =
 		    std::make_unique<Scanner>(config.getValue<std::string>("scanner"));

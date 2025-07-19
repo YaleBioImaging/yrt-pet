@@ -78,7 +78,7 @@ int main(int argc, char** argv)
 		auto numThreads = config.getValue<int>("num_threads");
 
 
-		Globals::set_num_threads(numThreads);
+		Globals::setNumThreads(numThreads);
 
 		auto scanner = std::make_unique<Scanner>(scanner_fname);
 

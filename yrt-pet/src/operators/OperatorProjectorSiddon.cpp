@@ -92,7 +92,7 @@ OperatorProjectorSiddon::OperatorProjectorSiddon(
 	if (m_numRays > 1)
 	{
 		mp_lineGen = std::make_unique<std::vector<MultiRayGenerator>>(
-		    Globals::get_num_threads(),
+		    Globals::getNumThreads(),
 		    MultiRayGenerator{scanner.crystalSize_z,
 		                      scanner.crystalSize_trans});
 	}

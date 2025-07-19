@@ -160,7 +160,7 @@ int main(int argc, char** argv)
 #endif
 		}
 
-		Globals::set_num_threads(numThreads);
+		Globals::setNumThreads(numThreads);
 		std::cout << "Initializing scanner..." << std::endl;
 		auto scanner = std::make_unique<Scanner>(scanner_fname);
 

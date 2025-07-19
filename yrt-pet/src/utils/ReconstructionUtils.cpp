@@ -156,7 +156,7 @@ namespace Util
 		// Allocate list-mode data
 		lmOut->allocate(sumInt);
 
-		int numThreads = Globals::get_num_threads();
+		int numThreads = Globals::getNumThreads();
 		if (numThreads > 1)
 		{
 			size_t numBinsPerThread =
@@ -314,7 +314,7 @@ namespace Util
 		float* histoDataPointer = histoOut.getData().getRawPointer();
 		const size_t numDatBins = dat.count();
 
-		ProgressDisplayMultiThread progressBar(Globals::get_num_threads(),
+		ProgressDisplayMultiThread progressBar(Globals::getNumThreads(),
 		                                       numDatBins, 5);
 
 		const Histogram3D* histoOut_constptr = &histoOut;

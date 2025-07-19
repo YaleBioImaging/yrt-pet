@@ -220,7 +220,7 @@ namespace scatter
 
 		// Only used for printing purposes
 		const int64_t progressMax = num_i_z * num_i_phi * num_i_r;
-		const int numThreads = Globals::get_num_threads();
+		const int numThreads = Globals::getNumThreads();
 		Util::ProgressDisplayMultiThread progressBar{numThreads, progressMax,
 		                                             5};
 

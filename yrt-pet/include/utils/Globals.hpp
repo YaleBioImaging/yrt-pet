@@ -23,12 +23,12 @@ namespace Globals
 		return s_num_threads;
 	}
 
-	inline int get_num_threads()
+	inline int getNumThreads()
 	{
 		return num_threads();
 	}
 
-	inline void set_num_threads(int t)
+	inline void setNumThreads(int t)
 	{
 		if (t <= 0)
 		{
@@ -49,7 +49,6 @@ namespace GlobalsCuda
 	// TODO NOW: Document this
 	static constexpr char DisablePinnedMemoryEnvVar[] =
 	    "YRTPET_DISABLE_PINNED_MEMORY";
-	static constexpr char MaxVRAMEnvVar[] = "YRTPET_MAX_VRAM";
 
 	inline bool& usePinnedMemory()
 	{
@@ -86,50 +85,7 @@ namespace GlobalsCuda
 		return usePinnedMemory();
 	}
 
-	inline long long& maxVRAM()
-	{
-		static long long s_maxVRAM = []()
-		{
-			long long maxVRAM = -1;
-
-			const auto maxVRAMValue_opt = Util::getEnv(MaxVRAMEnvVar);
-			if (maxVRAMValue_opt.has_value())
-			{
-				const std::string& maxVRAMValue = maxVRAMValue_opt.value();
-				try
-				{
-					const long long maxVRAM_candidate =
-					    std::stoll(maxVRAMValue);
-					if (maxVRAM_candidate <= 0)
-					{
-						throw std::logic_error("");
-					}
-					maxVRAM = maxVRAM_candidate;
-				}
-				catch (const std::logic_error&)
-				{
-					std::cerr
-					    << "Error: " << MaxVRAMEnvVar
-					    << " environment variable does not contain a valid "
-					       "number. Value given: "
-					    << maxVRAMValue << "\n";
-				}
-			}
-			return maxVRAM;
-		}();
-
-		return s_maxVRAM;
-	}
-
-	inline long long getMaxVRAM()
-	{
-		return maxVRAM();
-	}
-
-	inline void setMaxVRAM(long long val)
-	{
-		maxVRAM() = val;
-	}
+	// TODO: Add an option to set the max VRAM
 
 	static constexpr size_t ThreadsPerBlockData = 256;
 	static constexpr size_t ThreadsPerBlockImg3d = 8;

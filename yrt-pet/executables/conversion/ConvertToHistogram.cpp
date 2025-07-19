@@ -77,7 +77,7 @@ int main(int argc, char** argv)
 		bool toSparseHistogram = config.getValue<bool>("sparse");
 		int numThreads = config.getValue<int>("num_threads");
 
-		Globals::set_num_threads(numThreads);
+		Globals::setNumThreads(numThreads);
 		std::cout << "Initializing scanner..." << std::endl;
 		auto scanner = std::make_unique<Scanner>(scanner_fname);
 

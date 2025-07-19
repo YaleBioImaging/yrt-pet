@@ -174,13 +174,6 @@ void ProjectionDataDevice::createBatchSetups(float shareOfMemoryToUse)
 {
 	size_t memAvailable = getDeviceInfo(true);
 
-	// Shrink the memory based on pre-defined maximum
-	const long long maxVRAM = GlobalsCuda::getMaxVRAM();
-	if (maxVRAM > 0)
-	{
-		memAvailable = std::min(memAvailable, static_cast<size_t>(maxVRAM));
-	}
-
 	// Shrink memory according to the portion we want to use
 	memAvailable = static_cast<size_t>(static_cast<float>(memAvailable) *
 	                                   shareOfMemoryToUse);

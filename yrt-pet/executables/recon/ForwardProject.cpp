@@ -109,7 +109,7 @@ int main(int argc, char** argv)
 		bool toSparseHistogram = config.getValue<bool>("sparse");
 
 		auto scanner = std::make_unique<Scanner>(scanner_fname);
-		Globals::set_num_threads(numThreads);
+		Globals::setNumThreads(numThreads);
 
 		// Input file
 		auto inputImage = std::make_unique<ImageOwned>(inputImage_fname);

@@ -28,7 +28,7 @@ void OSEMUpdater_CPU::computeSensitivityImage(Image& destImage) const
 	const ProjectionData* sensImgGenProjData =
 	    corrector.getSensImgGenProjData();
 	Image* destImagePtr = &destImage;
-	Util::ProgressDisplayMultiThread progressDisplay(Globals::get_num_threads(),
+	Util::ProgressDisplayMultiThread progressDisplay(Globals::getNumThreads(),
 	                                                 numBins);
 
 #pragma omp parallel for default(none)                                      \

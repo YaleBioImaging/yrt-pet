@@ -110,7 +110,7 @@ int main(int argc, char** argv)
 
 		const auto scanner =
 		    std::make_unique<Scanner>(config.getValue<std::string>("scanner"));
-		Globals::set_num_threads(config.getValue<int>("num_threads"));
+		Globals::setNumThreads(config.getValue<int>("num_threads"));
 
 		// Output image
 		std::cout << "Preparing output image..." << std::endl;

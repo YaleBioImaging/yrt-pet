@@ -16,17 +16,17 @@ namespace py = pybind11;
 
 void py_setup_crystal(py::module& m)
 {
-	py::enum_<Scatter::CrystalMaterial>(m, "CrystalMaterial")
-	    .value("LSO", Scatter::CrystalMaterial::LSO)
-	    .value("LYSO", Scatter::CrystalMaterial::LYSO)
+	py::enum_<scatter::CrystalMaterial>(m, "CrystalMaterial")
+	    .value("LSO", scatter::CrystalMaterial::LSO)
+	    .value("LYSO", scatter::CrystalMaterial::LYSO)
 	    .export_values();
-	m.def("getMuDet", &Scatter::getMuDet);
-	m.def("getCrystalMaterialFromName", &Scatter::getCrystalMaterialFromName);
-	m.def("getCrystal", &Scatter::getCrystalMaterialFromName);  // alias
+	m.def("getMuDet", &scatter::getMuDet);
+	m.def("getCrystalMaterialFromName", &scatter::getCrystalMaterialFromName);
+	m.def("getCrystal", &scatter::getCrystalMaterialFromName);  // alias
 }
 #endif
 
-namespace Scatter
+namespace scatter
 {
 	double getMuDet(double energy, CrystalMaterial crystalMat)
 	{
@@ -61,4 +61,4 @@ namespace Scatter
 		return crystalMaterial;
 	}
 
-}  // namespace Scatter
+}  // namespace scatter

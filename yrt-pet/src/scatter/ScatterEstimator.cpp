@@ -20,34 +20,34 @@ using namespace pybind11::literals;
 
 void py_setup_scatterestimator(py::module& m)
 {
-	auto c = py::class_<Scatter::ScatterEstimator>(m, "ScatterEstimator");
+	auto c = py::class_<scatter::ScatterEstimator>(m, "ScatterEstimator");
 	c.def(py::init<const Scanner&, const Image&, const Image&,
 	               const Histogram3D*, const Histogram3D*, const Histogram3D*,
-	               const Histogram3D*, Scatter::CrystalMaterial, int, int,
+	               const Histogram3D*, scatter::CrystalMaterial, int, int,
 	               float, const std::string&>(),
 	      "scanner"_a, "source_image"_a, "attenuation_image"_a, "prompts_his"_a,
 	      "randoms_his"_a, "acf_his"_a, "sensitivity_his"_a,
-	      "crystal_material"_a = Scatter::ScatterEstimator::DefaultCrystal,
-	      "seed"_a = Scatter::ScatterEstimator::DefaultSeed,
+	      "crystal_material"_a = scatter::ScatterEstimator::DefaultCrystal,
+	      "seed"_a = scatter::ScatterEstimator::DefaultSeed,
 	      "mask_width"_a = -1,
-	      "mask_threshold"_a = Scatter::ScatterEstimator::DefaultACFThreshold,
+	      "mask_threshold"_a = scatter::ScatterEstimator::DefaultACFThreshold,
 	      "save_intermediary"_a = "");
 
 	c.def("computeTailFittedScatterEstimate",
-	      &Scatter::ScatterEstimator::computeTailFittedScatterEstimate,
+	      &scatter::ScatterEstimator::computeTailFittedScatterEstimate,
 	      "num_z"_a, "num_phi"_a, "num_r"_a, "denormalize"_a = true);
 	c.def("computeScatterEstimate",
-	      &Scatter::ScatterEstimator::computeScatterEstimate, "num_z"_a,
+	      &scatter::ScatterEstimator::computeScatterEstimate, "num_z"_a,
 	      "num_phi"_a, "num_r"_a);
 	c.def("generateScatterTailsMask",
-	      &Scatter::ScatterEstimator::generateScatterTailsMask);
+	      &scatter::ScatterEstimator::generateScatterTailsMask);
 	c.def("computeTailFittingFactor",
-	      &Scatter::ScatterEstimator::computeTailFittingFactor,
+	      &scatter::ScatterEstimator::computeTailFittingFactor,
 	      "scatter_histogram"_a, "scatter_tails_mask"_a);
 }
 #endif
 
-namespace Scatter
+namespace scatter
 {
 	ScatterEstimator::ScatterEstimator(
 	    const Scanner& pr_scanner, const Image& pr_lambda, const Image& pr_mu,
@@ -274,4 +274,4 @@ namespace Scatter
 			}
 		}
 	}
-}  // namespace Scatter
+}  // namespace scatter

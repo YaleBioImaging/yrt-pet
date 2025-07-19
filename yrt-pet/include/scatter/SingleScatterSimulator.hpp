@@ -15,7 +15,7 @@ class Histogram3D;
 class Scanner;
 class Image;
 
-namespace Scatter
+namespace scatter
 {
 	class SingleScatterSimulator
 	{
@@ -56,4 +56,4 @@ namespace Scatter
 		Cylinder m_cyl1, m_cyl2;
 		Plane m_endPlate1, m_endPlate2;
 	};
-}  // namespace Scatter
+}  // namespace scatter

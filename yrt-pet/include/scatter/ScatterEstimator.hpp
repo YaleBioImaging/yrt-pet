@@ -12,7 +12,7 @@
 class Scanner;
 class Image;
 
-namespace Scatter
+namespace scatter
 {
 	class ScatterEstimator
 	{
@@ -69,4 +69,4 @@ namespace Scatter
 		float m_maskThreshold;
 		size_t m_scatterTailsMaskWidth;
 	};
-}  // namespace Scatter
+}  // namespace scatter

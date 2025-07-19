@@ -27,26 +27,26 @@ using namespace pybind11::literals;
 
 void py_setup_singlescattersimulator(py::module& m)
 {
-	auto c = py::class_<Scatter::SingleScatterSimulator>(
+	auto c = py::class_<scatter::SingleScatterSimulator>(
 	    m, "SingleScatterSimulator");
 	c.def(py::init<const Scanner&, const Image&, const Image&,
-	               Scatter::CrystalMaterial, int>(),
+	               scatter::CrystalMaterial, int>(),
 	      "scanner"_a, "attenuation_image"_a, "source_image"_a,
 	      "crystal_material"_a, "seed"_a);
-	c.def("runSSS", &Scatter::SingleScatterSimulator::runSSS, "num_z"_a,
+	c.def("runSSS", &scatter::SingleScatterSimulator::runSSS, "num_z"_a,
 	      "num_phi"_a, "num_r"_a, "scatter_histo"_a);
 	c.def("computeSingleScatterInLOR",
-	      &Scatter::SingleScatterSimulator::computeSingleScatterInLOR, "lor"_a,
+	      &scatter::SingleScatterSimulator::computeSingleScatterInLOR, "lor"_a,
 	      "n1"_a, "n2"_a);
-	c.def("getSamplePoint", &Scatter::SingleScatterSimulator::getSamplePoint,
+	c.def("getSamplePoint", &scatter::SingleScatterSimulator::getSamplePoint,
 	      "i"_a);
-	c.def("getNumSamples", &Scatter::SingleScatterSimulator::getNumSamples);
-	c.def("passCollimator", &Scatter::SingleScatterSimulator::passCollimator,
+	c.def("getNumSamples", &scatter::SingleScatterSimulator::getNumSamples);
+	c.def("passCollimator", &scatter::SingleScatterSimulator::passCollimator,
 	      "lor"_a);
 }
 #endif
 
-namespace Scatter
+namespace scatter
 {
 	SingleScatterSimulator::SingleScatterSimulator(
 	    const Scanner& pr_scanner, const Image& pr_mu, const Image& pr_lambda,
@@ -585,4 +585,4 @@ namespace Scatter
 		return res;
 	}
 
-}  // namespace Scatter
+}  // namespace scatter

@@ -46,7 +46,7 @@ int main(int argc, char** argv)
 		                          coreGroup);
 		registry.registerArgument("seed", "Random number generator seed to use",
 		                          false, IO::TypeOfArgument::INT,
-		                          Scatter::ScatterEstimator::DefaultSeed,
+		                          scatter::ScatterEstimator::DefaultSeed,
 		                          coreGroup);
 		registry.registerArgument(
 		    "out", "Output scatter estimate histogram filename", true,
@@ -96,10 +96,10 @@ int main(int argc, char** argv)
 		registry.registerArgument(
 		    "acf_threshold",
 		    "Tail fitting ACF threshold for the scatter tails mask (Default: " +
-		        std::to_string(Scatter::ScatterEstimator::DefaultACFThreshold) +
+		        std::to_string(scatter::ScatterEstimator::DefaultACFThreshold) +
 		        ")",
 		    false, IO::TypeOfArgument::FLOAT,
-		    Scatter::ScatterEstimator::DefaultACFThreshold, tailFittingGroup);
+		    scatter::ScatterEstimator::DefaultACFThreshold, tailFittingGroup);
 		registry.registerArgument(
 		    "mask_width",
 		    "Tail fitting mask width. By default, uses 1/10th of "
@@ -176,8 +176,8 @@ int main(int argc, char** argv)
 			return -1;
 		}
 
-		Scatter::CrystalMaterial crystalMaterial =
-		    Scatter::getCrystalMaterialFromName(crystalMaterial_name);
+		scatter::CrystalMaterial crystalMaterial =
+		    scatter::getCrystalMaterialFromName(crystalMaterial_name);
 
 		std::cout << "Reading prompts histogram..." << std::endl;
 		auto promptsHis =
@@ -239,7 +239,7 @@ int main(int argc, char** argv)
 
 		auto sourceImage = std::make_unique<ImageOwned>(sourceImage_fname);
 
-		Scatter::ScatterEstimator scatterEstimator{*scanner,
+		scatter::ScatterEstimator scatterEstimator{*scanner,
 		                                           *sourceImage,
 		                                           *attImage,
 		                                           promptsHis.get(),

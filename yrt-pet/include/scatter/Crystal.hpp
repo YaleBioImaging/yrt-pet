@@ -7,7 +7,7 @@
 
 #include <string>
 
-namespace Scatter
+namespace scatter
 {
 	enum class CrystalMaterial
 	{
@@ -425,4 +425,4 @@ namespace Scatter
 	CrystalMaterial
 	    getCrystalMaterialFromName(const std::string& crystalMaterial_name);
 
-}  // namespace Scatter
+}  // namespace scatter

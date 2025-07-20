@@ -191,7 +191,7 @@ TEST_CASE("PSF", "[psf]")
 #if BUILD_CUDA
 			op = std::make_unique<OperatorPsfDevice>(kernelX, kernelY, kernelZ);
 #else
-			ASSERT_MSG(false, "Uknown error");
+			ASSERT_MSG(false, "Attempting GPU run with non-CUDA build");
 #endif
 		}
 		else

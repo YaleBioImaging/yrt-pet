@@ -31,6 +31,7 @@ YRT-PET documentation
    usage/histogram3d_format
    usage/rawd_file
    usage/sparse-histogram
+   usage/ImagePSF_file
 
 .. toctree::
    :maxdepth: 2

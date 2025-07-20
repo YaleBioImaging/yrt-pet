@@ -17,6 +17,10 @@ public:
 	explicit OperatorPsfDevice(const cudaStream_t* pp_stream = nullptr);
 	explicit OperatorPsfDevice(const std::string& pr_imagePsf_fname,
 	                           const cudaStream_t* pp_stream = nullptr);
+	explicit OperatorPsfDevice(const std::vector<float>& kernelX,
+	                           const std::vector<float>& kernelY,
+	                           const std::vector<float>& kernelZ,
+	                           const cudaStream_t* pp_stream = nullptr);
 
 	void readFromFile(const std::string& pr_imagePsf_fname) override;
 	void readFromFile(const std::string& pr_imagePsf_fname, bool p_synchronize);

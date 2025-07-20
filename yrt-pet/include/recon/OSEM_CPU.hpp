@@ -23,7 +23,6 @@ public:
 
 	// Getters for operators
 	const OperatorProjector* getProjector() const;
-	OperatorPsf* getOperatorPsf() const;  // Image-space PSF
 
 protected:
 	// Sens Image generator driver
@@ -44,8 +43,7 @@ protected:
 	ImageBase* getSensImageBuffer() override;
 	const ProjectionData* getSensitivityBuffer() const;
 	ImageBase* getMLEMImageBuffer() override;
-	ImageBase*
-	    getMLEMImageTmpBuffer(TemporaryImageSpaceBufferType type) override;
+	ImageBase* getImageTmpBuffer(TemporaryImageSpaceBufferType type) override;
 	const ProjectionData* getMLEMDataBuffer() override;
 	ProjectionData* getMLEMDataTmpBuffer() override;
 
@@ -58,8 +56,8 @@ private:
 	// For sensitivity image generation
 	std::unique_ptr<Image> mp_tempSensImageBuffer;
 	// For reconstruction
-	std::unique_ptr<Image> mp_mlemImageTmp;
-	std::unique_ptr<Image> mp_mlemImageTmpPsf;
+	std::unique_ptr<Image> mp_mlemImageTmpEMRatio;
+	std::unique_ptr<Image> mp_imageTmpPsf;
 	std::unique_ptr<ProjectionData> mp_datTmp;
 
 	std::unique_ptr<Corrector_CPU> mp_corrector;

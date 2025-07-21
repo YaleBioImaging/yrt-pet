@@ -104,6 +104,10 @@ function(define_yrtpet_lib SOURCES)
     target_compile_options(${YRTPET_LIB_NAME} PRIVATE
         $<$<COMPILE_LANGUAGE:CXX>:-fPIC>
         "$<$<COMPILE_LANGUAGE:CUDA>:--compiler-options=-fPIC>")
+    install(TARGETS ${YRTPET_LIB_NAME}
+        ARCHIVE DESTINATION lib
+        INCLUDES DESTINATION include)
+    install(DIRECTORY ${CMAKE_SOURCE_DIR}/include/ DESTINATION include/yrt-pet)
 endfunction()
 
 # Add plugin sources to library
@@ -122,6 +126,7 @@ function(define_target_exe TARGET)
         -Wl,--whole-archive $<TARGET_FILE:${YRTPET_LIB_NAME}> -Wl,--no-whole-archive
     )
     target_link_libraries(${TARGET} PUBLIC ${YRTPET_LIB_NAME})
+    install(TARGETS ${TARGET} RUNTIME DESTINATION bin)
 endfunction()
 
 if (BUILD_PYBIND11)

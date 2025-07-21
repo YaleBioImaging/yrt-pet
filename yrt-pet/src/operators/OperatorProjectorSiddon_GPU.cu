@@ -3,27 +3,33 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "operators/OperatorProjectorSiddon_GPU.cuh"
+#include "yrt-pet/operators/OperatorProjectorSiddon_GPU.cuh"
 
-#include "datastruct/image/Image.hpp"
-#include "datastruct/image/ImageDevice.cuh"
-#include "datastruct/projection/ProjectionDataDevice.cuh"
-#include "operators/OperatorProjectorSiddon_GPUKernels.cuh"
-#include "utils/Assert.hpp"
-#include "utils/GPUUtils.cuh"
+#include "yrt-pet/datastruct/image/Image.hpp"
+#include "yrt-pet/datastruct/image/ImageDevice.cuh"
+#include "yrt-pet/datastruct/projection/ProjectionDataDevice.cuh"
+#include "yrt-pet/operators/OperatorProjectorSiddon_GPUKernels.cuh"
+#include "yrt-pet/utils/Assert.hpp"
+#include "yrt-pet/utils/GPUUtils.cuh"
 
 #if BUILD_PYBIND11
 #include <pybind11/pybind11.h>
 namespace py = pybind11;
 
+namespace yrt
+{
 void py_setup_operatorprojectorsiddon_gpu(py::module& m)
 {
 	auto c = py::class_<OperatorProjectorSiddon_GPU, OperatorProjectorDevice>(
 	    m, "OperatorProjectorSiddon_GPU");
 	c.def(py::init<const OperatorProjectorParams&>(), py::arg("projParams"));
 }
+}  // namespace yrt
+
 #endif
 
+namespace yrt
+{
 OperatorProjectorSiddon_GPU::OperatorProjectorSiddon_GPU(
     const OperatorProjectorParams& projParams, const cudaStream_t* mainStream,
     const cudaStream_t* auxStream)
@@ -153,3 +159,4 @@ void OperatorProjectorSiddon_GPU::launchKernel(
 	}
 	cudaCheckError();
 }
+}  // namespace yrt

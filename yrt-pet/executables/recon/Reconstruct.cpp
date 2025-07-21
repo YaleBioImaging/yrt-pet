@@ -5,22 +5,24 @@
 
 #include "../ArgumentReader.hpp"
 #include "../PluginOptionsHelper.hpp"
-#include "datastruct/IO.hpp"
-#include "datastruct/projection/ListMode.hpp"
-#include "datastruct/scanner/Scanner.hpp"
-#include "utils/Assert.hpp"
-#include "utils/Globals.hpp"
-#include "utils/ProgressDisplay.hpp"
-#include "utils/ReconstructionUtils.hpp"
-#include "utils/Timer.hpp"
+#include "yrt-pet/datastruct/IO.hpp"
+#include "yrt-pet/datastruct/projection/ListMode.hpp"
+#include "yrt-pet/datastruct/scanner/Scanner.hpp"
+#include "yrt-pet/utils/Assert.hpp"
+#include "yrt-pet/utils/Globals.hpp"
+#include "yrt-pet/utils/ProgressDisplay.hpp"
+#include "yrt-pet/utils/ReconstructionUtils.hpp"
+#include "yrt-pet/utils/Timer.hpp"
 
 #include <ctime>
 #include <cxxopts.hpp>
 #include <iostream>
 
-void printTimingStatistics(const Util::Timer& ioTimer,
-                           const Util::Timer& sensTimer,
-                           const Util::Timer& reconTimer)
+using namespace yrt;
+
+void printTimingStatistics(const util::Timer& ioTimer,
+                           const util::Timer& sensTimer,
+                           const util::Timer& reconTimer)
 {
 	std::cout << "I/O time: " << ioTimer.getElapsedMilliseconds() << "ms"
 	          << std::endl;
@@ -52,7 +54,7 @@ int main(int argc, char** argv)
 {
 	try
 	{
-		IO::ArgumentRegistry registry{};
+		io::ArgumentRegistry registry{};
 
 		std::string coreGroup = "0. Core";
 		std::string sensitivityGroup = "1. Sensitivity";
@@ -62,7 +64,7 @@ int main(int argc, char** argv)
 		std::string projectorGroup = "4. Projector";
 
 		registry.registerArgument("scanner", "Scanner parameters file", true,
-		                          IO::TypeOfArgument::STRING, "", coreGroup,
+		                          io::TypeOfArgument::STRING, "", coreGroup,
 		                          "s");
 
 		registry.registerArgument(
@@ -70,30 +72,30 @@ int main(int argc, char** argv)
 		    "Image parameters file. Note: If sensitivity image(s) are "
 		    "provided, "
 		    "the image parameters will be determined from them",
-		    false, IO::TypeOfArgument::STRING, "", coreGroup, "p");
+		    false, io::TypeOfArgument::STRING, "", coreGroup, "p");
 
 		registry.registerArgument(
 		    "sens_only",
 		    "Only generate sensitivity image(s). Do not launch reconstruction",
-		    false, IO::TypeOfArgument::BOOL, false, coreGroup);
+		    false, io::TypeOfArgument::BOOL, false, coreGroup);
 
 #if BUILD_CUDA
 		registry.registerArgument("gpu", "Use GPU acceleration", false,
-		                          IO::TypeOfArgument::BOOL, false, coreGroup);
+		                          io::TypeOfArgument::BOOL, false, coreGroup);
 #endif
 		registry.registerArgument("num_threads", "Number of threads to use",
-		                          false, IO::TypeOfArgument::INT, -1,
+		                          false, io::TypeOfArgument::INT, -1,
 		                          coreGroup);
 
 		registry.registerArgument("out", "Output image filename", false,
-		                          IO::TypeOfArgument::STRING, "", coreGroup,
+		                          io::TypeOfArgument::STRING, "", coreGroup,
 		                          "o");
 
 		registry.registerArgument(
 		    "out_sens",
 		    "Sensitivity image output filename (if it needs to be computed). "
 		    "Leave blank to not save it",
-		    false, IO::TypeOfArgument::STRING, "", coreGroup);
+		    false, io::TypeOfArgument::STRING, "", coreGroup);
 
 		// Sensitivity parameters
 		registry.registerArgument(
@@ -102,153 +104,153 @@ int main(int argc, char** argv)
 		    "input is a List-mode, one sensitivity image is required. When the "
 		    "input is a histogram, one sensitivity image *per subset* is "
 		    "required (Ordered by subset id)",
-		    false, IO::TypeOfArgument::VECTOR_OF_STRINGS,
+		    false, io::TypeOfArgument::VECTOR_OF_STRINGS,
 		    std::vector<std::string>{}, sensitivityGroup);
 		registry.registerArgument("sensitivity", "Sensitivity histogram file",
-		                          false, IO::TypeOfArgument::STRING, "",
+		                          false, io::TypeOfArgument::STRING, "",
 		                          sensitivityGroup);
 		registry.registerArgument(
 		    "sensitivity_format",
 		    "Sensitivity histogram format. Possible values: " +
-		        IO::possibleFormats(Plugin::InputFormatsChoice::ONLYHISTOGRAMS),
-		    false, IO::TypeOfArgument::STRING, "", sensitivityGroup);
+		        io::possibleFormats(plugin::InputFormatsChoice::ONLYHISTOGRAMS),
+		    false, io::TypeOfArgument::STRING, "", sensitivityGroup);
 		registry.registerArgument("invert_sensitivity",
 		                          "Invert the sensitivity histogram values "
 		                          "(sensitivity -> 1/sensitivity)",
-		                          false, IO::TypeOfArgument::BOOL, false,
+		                          false, io::TypeOfArgument::BOOL, false,
 		                          sensitivityGroup);
 		registry.registerArgument(
 		    "global_scale", "Global scaling factor to apply on the sensitivity",
-		    false, IO::TypeOfArgument::FLOAT, 1.0f, sensitivityGroup);
+		    false, io::TypeOfArgument::FLOAT, 1.0f, sensitivityGroup);
 		registry.registerArgument(
 		    "move_sens", "Move the provided sensitivity image based on motion",
-		    false, IO::TypeOfArgument::BOOL, false, sensitivityGroup);
+		    false, io::TypeOfArgument::BOOL, false, sensitivityGroup);
 
 		// Input data parameters
 		registry.registerArgument("input", "Input file", false,
-		                          IO::TypeOfArgument::STRING, "", inputGroup,
+		                          io::TypeOfArgument::STRING, "", inputGroup,
 		                          "i");
 		registry.registerArgument(
 		    "format",
-		    "Input file format. Possible values: " + IO::possibleFormats(),
-		    false, IO::TypeOfArgument::STRING, "", inputGroup, "f");
+		    "Input file format. Possible values: " + io::possibleFormats(),
+		    false, io::TypeOfArgument::STRING, "", inputGroup, "f");
 		registry.registerArgument(
 		    "lor_motion", "Motion CSV file for motion correction", false,
-		    IO::TypeOfArgument::STRING, "", inputGroup, "m");
+		    io::TypeOfArgument::STRING, "", inputGroup, "m");
 
 		// Reconstruction parameters
 		registry.registerArgument(
 		    "num_iterations", "Number of MLEM iterations (Default: 10)", false,
-		    IO::TypeOfArgument::INT, 10, reconstructionGroup);
+		    io::TypeOfArgument::INT, 10, reconstructionGroup);
 		registry.registerArgument(
 		    "num_subsets", "Number of OSEM subsets (Default: 1)", false,
-		    IO::TypeOfArgument::INT, 1, reconstructionGroup);
+		    io::TypeOfArgument::INT, 1, reconstructionGroup);
 		registry.registerArgument(
 		    "initial_estimate", "Initial image estimate for the MLEM", false,
-		    IO::TypeOfArgument::STRING, "", reconstructionGroup);
+		    io::TypeOfArgument::STRING, "", reconstructionGroup);
 		registry.registerArgument(
 		    "randoms", "Randoms estimate histogram filename", false,
-		    IO::TypeOfArgument::STRING, "", reconstructionGroup);
+		    io::TypeOfArgument::STRING, "", reconstructionGroup);
 		registry.registerArgument(
 		    "randoms_format",
 		    "Randoms estimate histogram format. Possible values: " +
-		        IO::possibleFormats(Plugin::InputFormatsChoice::ONLYHISTOGRAMS),
-		    false, IO::TypeOfArgument::STRING, "", reconstructionGroup);
+		        io::possibleFormats(plugin::InputFormatsChoice::ONLYHISTOGRAMS),
+		    false, io::TypeOfArgument::STRING, "", reconstructionGroup);
 		registry.registerArgument(
 		    "scatter", "Scatter estimate histogram filename", false,
-		    IO::TypeOfArgument::STRING, "", reconstructionGroup);
+		    io::TypeOfArgument::STRING, "", reconstructionGroup);
 		registry.registerArgument(
 		    "scatter_format",
 		    "Scatter estimate histogram format. Possible values: " +
-		        IO::possibleFormats(Plugin::InputFormatsChoice::ONLYHISTOGRAMS),
-		    false, IO::TypeOfArgument::STRING, "", reconstructionGroup);
+		        io::possibleFormats(plugin::InputFormatsChoice::ONLYHISTOGRAMS),
+		    false, io::TypeOfArgument::STRING, "", reconstructionGroup);
 		registry.registerArgument("psf", "Image-space PSF kernel file", false,
-		                          IO::TypeOfArgument::STRING, "",
+		                          io::TypeOfArgument::STRING, "",
 		                          reconstructionGroup);
 		registry.registerArgument(
 		    "varpsf", "Image-space Variant PSF look-up table file", false,
-		    IO::TypeOfArgument::STRING, "", reconstructionGroup);
+		    io::TypeOfArgument::STRING, "", reconstructionGroup);
 		registry.registerArgument("hard_threshold", "Hard Threshold", false,
-		                          IO::TypeOfArgument::FLOAT, 1.0f,
+		                          io::TypeOfArgument::FLOAT, 1.0f,
 		                          reconstructionGroup);
 		registry.registerArgument(
 		    "save_iter_step",
 		    "Increment into which to save MLEM iteration images", false,
-		    IO::TypeOfArgument::INT, 0, reconstructionGroup);
+		    io::TypeOfArgument::INT, 0, reconstructionGroup);
 		registry.registerArgument(
 		    "save_iter_ranges",
 		    "List of iteration ranges to save MLEM iteration images", false,
-		    IO::TypeOfArgument::STRING, "", reconstructionGroup);
+		    io::TypeOfArgument::STRING, "", reconstructionGroup);
 
 		registry.registerArgument("att", "Total attenuation image filename",
-		                          false, IO::TypeOfArgument::STRING, "",
+		                          false, io::TypeOfArgument::STRING, "",
 		                          attenuationGroup);
 		registry.registerArgument(
 		    "acf", "Total attenuation correction factors histogram filename",
-		    false, IO::TypeOfArgument::STRING, "", attenuationGroup);
+		    false, io::TypeOfArgument::STRING, "", attenuationGroup);
 		registry.registerArgument(
 		    "acf_format",
 		    "Total attenuation correction factors histogram format. Possible "
 		    "values: " +
-		        IO::possibleFormats(Plugin::InputFormatsChoice::ONLYHISTOGRAMS),
-		    false, IO::TypeOfArgument::STRING, "", attenuationGroup);
+		        io::possibleFormats(plugin::InputFormatsChoice::ONLYHISTOGRAMS),
+		    false, io::TypeOfArgument::STRING, "", attenuationGroup);
 		registry.registerArgument("att_invivo",
 		                          "(Motion correction) In-vivo attenuation "
 		                          "image filename",
-		                          false, IO::TypeOfArgument::STRING, "",
+		                          false, io::TypeOfArgument::STRING, "",
 		                          attenuationGroup);
 		registry.registerArgument("acf_invivo",
 		                          "(Motion correction) In-vivo attenuation "
 		                          "correction factors histogram filename",
-		                          false, IO::TypeOfArgument::STRING, "",
+		                          false, io::TypeOfArgument::STRING, "",
 		                          attenuationGroup);
 		registry.registerArgument(
 		    "acf_invivo_format",
 		    "(Motion correction) In-vivo attenuation correction factors "
 		    "histogram format. Possible values: " +
-		        IO::possibleFormats(Plugin::InputFormatsChoice::ONLYHISTOGRAMS),
-		    false, IO::TypeOfArgument::STRING, "", attenuationGroup);
+		        io::possibleFormats(plugin::InputFormatsChoice::ONLYHISTOGRAMS),
+		    false, io::TypeOfArgument::STRING, "", attenuationGroup);
 		registry.registerArgument(
 		    "att_hardware",
 		    "(Motion correction) Hardware attenuation image filename", false,
-		    IO::TypeOfArgument::STRING, "", attenuationGroup);
+		    io::TypeOfArgument::STRING, "", attenuationGroup);
 		registry.registerArgument(
 		    "acf_hardware",
 		    "(Motion correction) Hardware attenuation correction factors",
-		    false, IO::TypeOfArgument::STRING, "", attenuationGroup);
+		    false, io::TypeOfArgument::STRING, "", attenuationGroup);
 		registry.registerArgument(
 		    "acf_hardware_format",
 		    "(Motion correction) Hardware attenuation correction factors "
 		    "histogram format. Possible values: " +
-		        IO::possibleFormats(Plugin::InputFormatsChoice::ONLYHISTOGRAMS),
-		    false, IO::TypeOfArgument::STRING, "", attenuationGroup);
+		        io::possibleFormats(plugin::InputFormatsChoice::ONLYHISTOGRAMS),
+		    false, io::TypeOfArgument::STRING, "", attenuationGroup);
 
 		registry.registerArgument(
 		    "projector",
 		    "Projector to use, choices: Siddon (S), Distance-Driven (D). The "
 		    "default projector is Siddon",
-		    false, IO::TypeOfArgument::STRING, "S", projectorGroup);
+		    false, io::TypeOfArgument::STRING, "S", projectorGroup);
 		registry.registerArgument(
 		    "num_rays", "Number of rays to use (for Siddon projector only)",
-		    false, IO::TypeOfArgument::INT, 1, projectorGroup);
+		    false, io::TypeOfArgument::INT, 1, projectorGroup);
 		registry.registerArgument(
 		    "proj_psf",
 		    "Projection-space PSF kernel file (for DD projector only)", false,
-		    IO::TypeOfArgument::STRING, "", projectorGroup);
+		    io::TypeOfArgument::STRING, "", projectorGroup);
 		registry.registerArgument("tof_width_ps", "TOF width in picoseconds",
-		                          false, IO::TypeOfArgument::FLOAT, 0.0f,
+		                          false, io::TypeOfArgument::FLOAT, 0.0f,
 		                          projectorGroup);
 		registry.registerArgument("tof_n_std",
 		                          "Number of standard deviations to consider "
 		                          "for TOF's Gaussian curve. Default: 5",
-		                          false, IO::TypeOfArgument::INT, 5,
+		                          false, io::TypeOfArgument::INT, 5,
 		                          projectorGroup);
 
-		PluginOptionsHelper::addOptionsFromPlugins(
-		    registry, Plugin::InputFormatsChoice::ALL);
+		plugin::addOptionsFromPlugins(registry,
+		                              plugin::InputFormatsChoice::ALL);
 
 		// Load configuration
-		IO::ArgumentReader config{registry, "Reconstruction executable"};
+		io::ArgumentReader config{registry, "Reconstruction executable"};
 
 		if (!config.loadFromCommandLine(argc, argv))
 		{
@@ -288,18 +290,18 @@ int main(int argc, char** argv)
 			           "No format specified for input data.");
 		}
 
-		Util::Timer ioTimer, sensTimer, reconTimer;
+		util::Timer ioTimer, sensTimer, reconTimer;
 
 		ioTimer.run();
 
-		Globals::set_num_threads(config.getValue<int>("num_threads"));
+		globals::setNumThreads(config.getValue<int>("num_threads"));
 		std::cout << "Initializing scanner..." << std::endl;
 		auto scanner =
 		    std::make_unique<Scanner>(config.getValue<std::string>("scanner"));
 		auto projectorType =
-		    IO::getProjector(config.getValue<std::string>("projector"));
+		    io::getProjector(config.getValue<std::string>("projector"));
 		std::unique_ptr<OSEM> osem =
-		    Util::createOSEM(*scanner, config.getValue<bool>("gpu"));
+		    util::createOSEM(*scanner, config.getValue<bool>("gpu"));
 
 		osem->num_MLEM_iterations = config.getValue<int>("num_iterations");
 		osem->num_OSEM_subsets = config.getValue<int>("num_subsets");
@@ -309,7 +311,7 @@ int main(int argc, char** argv)
 
 		// To make sure the sensitivity image gets generated accordingly
 		const bool useListMode =
-		    !dataInputFormat.empty() && IO::isFormatListMode(dataInputFormat);
+		    !dataInputFormat.empty() && io::isFormatListMode(dataInputFormat);
 		osem->setListModeEnabled(useListMode);
 
 		// Total attenuation image
@@ -320,11 +322,11 @@ int main(int argc, char** argv)
 			std::cout << "Reading ACF histogram..." << std::endl;
 			ASSERT_MSG(!config.getValue<std::string>("acf_format").empty(),
 			           "Unspecified format for ACF histogram.");
-			ASSERT_MSG(!IO::isFormatListMode(
+			ASSERT_MSG(!io::isFormatListMode(
 			               config.getValue<std::string>("acf_format")),
 			           "ACF has to be in a histogram format.");
 
-			acfHisProjData = IO::openProjectionData(
+			acfHisProjData = io::openProjectionData(
 			    config.getValue<std::string>("acf"),
 			    config.getValue<std::string>("acf_format"), *scanner,
 			    config.getAllArguments());
@@ -352,11 +354,11 @@ int main(int argc, char** argv)
 			ASSERT_MSG(
 			    !config.getValue<std::string>("acf_hardware_format").empty(),
 			    "No format specified for hardware ACF histogram");
-			ASSERT_MSG(!IO::isFormatListMode(
+			ASSERT_MSG(!io::isFormatListMode(
 			               config.getValue<std::string>("acf_hardware_format")),
 			           "Hardware ACF has to be in a histogram format.");
 
-			hardwareAcfHisProjData = IO::openProjectionData(
+			hardwareAcfHisProjData = io::openProjectionData(
 			    config.getValue<std::string>("acf_hardware"),
 			    config.getValue<std::string>("acf_hardware_format"), *scanner,
 			    config.getAllArguments());
@@ -389,11 +391,11 @@ int main(int argc, char** argv)
 			ASSERT_MSG(
 			    !config.getValue<std::string>("sensitivity_format").empty(),
 			    "No format specified for sensitivity histogram.");
-			ASSERT_MSG(!IO::isFormatListMode(
+			ASSERT_MSG(!io::isFormatListMode(
 			               config.getValue<std::string>("sensitivity_format")),
 			           "Sensitivity data has to be in a histogram format.");
 
-			sensitivityProjData = IO::openProjectionData(
+			sensitivityProjData = io::openProjectionData(
 			    config.getValue<std::string>("sensitivity"),
 			    config.getValue<std::string>("sensitivity_format"), *scanner,
 			    config.getAllArguments());
@@ -477,7 +479,7 @@ int main(int argc, char** argv)
 			// Projection data Input file
 			std::cout << "Reading input data..." << std::endl;
 			dataInput =
-			    IO::openProjectionData(dataInputFilename, dataInputFormat,
+			    io::openProjectionData(dataInputFilename, dataInputFormat,
 			                           *scanner, config.getAllArguments());
 			osem->setDataInput(dataInput.get());
 		}
@@ -501,7 +503,7 @@ int main(int argc, char** argv)
 				if (dataInput == nullptr)
 				{
 					// Time average move based on all the frames
-					movedSensImage = Util::timeAverageMoveImage(
+					movedSensImage = util::timeAverageMoveImage(
 					    *lorMotion, *unmovedSensImage);
 				}
 				else
@@ -510,7 +512,7 @@ int main(int argc, char** argv)
 					const timestamp_t timeStart = dataInput->getTimestamp(0);
 					const timestamp_t timeStop =
 					    dataInput->getTimestamp(dataInput->count() - 1);
-					movedSensImage = Util::timeAverageMoveImage(
+					movedSensImage = util::timeAverageMoveImage(
 					    *lorMotion, *unmovedSensImage, timeStart, timeStop);
 				}
 
@@ -601,11 +603,11 @@ int main(int argc, char** argv)
 			std::cout << "Reading randoms histogram..." << std::endl;
 			ASSERT_MSG(!config.getValue<std::string>("randoms_format").empty(),
 			           "No format specified for randoms histogram");
-			ASSERT_MSG(!IO::isFormatListMode(
+			ASSERT_MSG(!io::isFormatListMode(
 			               config.getValue<std::string>("randoms_format")),
 			           "Randoms must be specified in histogram format");
 
-			randomsProjData = IO::openProjectionData(
+			randomsProjData = io::openProjectionData(
 			    config.getValue<std::string>("randoms"),
 			    config.getValue<std::string>("randoms_format"), *scanner,
 			    config.getAllArguments());
@@ -622,11 +624,11 @@ int main(int argc, char** argv)
 			std::cout << "Reading scatter histogram..." << std::endl;
 			ASSERT_MSG(!config.getValue<std::string>("scatter_format").empty(),
 			           "No format specified for scatter histogram");
-			ASSERT_MSG(!IO::isFormatListMode(
+			ASSERT_MSG(!io::isFormatListMode(
 			               config.getValue<std::string>("scatter_format")),
 			           "Scatter must be specified in histogram format");
 
-			scatterProjData = IO::openProjectionData(
+			scatterProjData = io::openProjectionData(
 			    config.getValue<std::string>("scatter"),
 			    config.getValue<std::string>("scatter_format"), *scanner,
 			    config.getAllArguments());
@@ -656,11 +658,11 @@ int main(int argc, char** argv)
 			ASSERT_MSG(
 			    !config.getValue<std::string>("acf_invivo_format").empty(),
 			    "No format specified for ACF histogram");
-			ASSERT_MSG(!IO::isFormatListMode(
+			ASSERT_MSG(!io::isFormatListMode(
 			               config.getValue<std::string>("acf_invivo_format")),
 			           "In-vivo ACF must be specified in histogram format");
 
-			inVivoAcfProjData = IO::openProjectionData(
+			inVivoAcfProjData = io::openProjectionData(
 			    config.getValue<std::string>("acf_invivo"),
 			    config.getValue<std::string>("acf_invivo_format"), *scanner,
 			    config.getAllArguments());
@@ -676,7 +678,7 @@ int main(int argc, char** argv)
 		// Save steps
 		ASSERT_MSG(config.getValue<int>("save_iter_step") >= 0,
 		           "save_iter_step must be positive.");
-		Util::RangeList ranges;
+		util::RangeList ranges;
 		if (config.getValue<int>("save_iter_step") > 0)
 		{
 			if (config.getValue<int>("save_iter_step") == 1)
@@ -733,7 +735,7 @@ int main(int argc, char** argv)
 	}
 	catch (const std::exception& e)
 	{
-		Util::printExceptionMessage(e);
+		util::printExceptionMessage(e);
 		return -1;
 	}
 }

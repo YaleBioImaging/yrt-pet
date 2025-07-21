@@ -1,14 +1,17 @@
 #include "test_utils.hpp"
 
-#include "datastruct/image/Image.hpp"
-#include "datastruct/projection/ProjectionList.hpp"
-#include "datastruct/scanner/DetRegular.hpp"
-#include "utils/Assert.hpp"
+#include "yrt-pet/datastruct/image/Image.hpp"
+#include "yrt-pet/datastruct/projection/ProjectionList.hpp"
+#include "yrt-pet/datastruct/scanner/DetRegular.hpp"
+#include "yrt-pet/utils/Assert.hpp"
 
 #include <algorithm>
 #include <random>
 
-double TestUtils::getRMSE(const Image& imgRef, const Image& img)
+namespace yrt::util::test
+{
+
+double getRMSE(const Image& imgRef, const Image& img)
 {
 	const ImageParams& params = imgRef.getParams();
 	const size_t numPixels =
@@ -30,8 +33,8 @@ double TestUtils::getRMSE(const Image& imgRef, const Image& img)
 	return rmse;
 }
 
-double TestUtils::getRMSE(const ProjectionList& projListRef,
-                          const ProjectionList& projList)
+double getRMSE(const ProjectionList& projListRef,
+               const ProjectionList& projList)
 {
 	const size_t numBins = projListRef.count();
 	ASSERT(numBins == projList.count());
@@ -51,9 +54,8 @@ double TestUtils::getRMSE(const ProjectionList& projListRef,
 }
 
 template <bool EQUAL_NAN>
-bool TestUtils::allclose(const ProjectionList& projValuesRef,
-                         const ProjectionList& projValues, float rtol,
-                         float atol)
+bool allclose(const ProjectionList& projValuesRef,
+              const ProjectionList& projValues, float rtol, float atol)
 {
 	const size_t numBins = projValuesRef.count();
 	ASSERT(projValues.count() == numBins);
@@ -61,19 +63,17 @@ bool TestUtils::allclose(const ProjectionList& projValuesRef,
 	const float* valuesRef = projValuesRef.getRawPointer();
 	const float* values = projValues.getRawPointer();
 
-	return TestUtils::allclose<float, EQUAL_NAN>(valuesRef, values, numBins,
-	                                             rtol, atol);
+	return allclose<float, EQUAL_NAN>(valuesRef, values, numBins, rtol, atol);
 }
-template bool TestUtils::allclose<true>(const ProjectionList& projListRef,
-                                        const ProjectionList& projList,
-                                        float rtol, float atol);
-template bool TestUtils::allclose<false>(const ProjectionList& projListRef,
-                                         const ProjectionList& projList,
-                                         float rtol, float atol);
+template bool allclose<true>(const ProjectionList& projListRef,
+                             const ProjectionList& projList, float rtol,
+                             float atol);
+template bool allclose<false>(const ProjectionList& projListRef,
+                              const ProjectionList& projList, float rtol,
+                              float atol);
 
 template <bool EQUAL_NAN>
-bool TestUtils::allclose(const Image& imageRef, const Image& image, float rtol,
-                         float atol)
+bool allclose(const Image& imageRef, const Image& image, float rtol, float atol)
 {
 	const auto params = imageRef.getParams();
 	ASSERT(image.getParams().isSameDimensionsAs(params));
@@ -82,20 +82,16 @@ bool TestUtils::allclose(const Image& imageRef, const Image& image, float rtol,
 	const float* valuesRef = imageRef.getRawPointer();
 	const float* values = image.getRawPointer();
 
-	return TestUtils::allclose<float, EQUAL_NAN>(valuesRef, values, numVoxels,
-	                                             rtol, atol);
+	return allclose<float, EQUAL_NAN>(valuesRef, values, numVoxels, rtol, atol);
 }
-template bool TestUtils::allclose<true>(const Image& imageRef,
-                                        const Image& image, float rtol,
-                                        float atol);
-template bool TestUtils::allclose<false>(const Image& imageRef,
-                                         const Image& image, float rtol,
-                                         float atol);
-
+template bool allclose<true>(const Image& imageRef, const Image& image,
+                             float rtol, float atol);
+template bool allclose<false>(const Image& imageRef, const Image& image,
+                              float rtol, float atol);
 
 template <typename TFloat, bool EQUAL_NAN>
-bool TestUtils::allclose(const TFloat* valuesRef, const TFloat* values,
-                         size_t numValues, TFloat rtol, TFloat atol)
+bool allclose(const TFloat* valuesRef, const TFloat* values, size_t numValues,
+              TFloat rtol, TFloat atol)
 {
 	for (bin_t i = 0; i < numValues; ++i)
 	{
@@ -135,25 +131,19 @@ bool TestUtils::allclose(const TFloat* valuesRef, const TFloat* values,
 	}
 	return true;
 }
-template bool TestUtils::allclose<float, false>(const float* valuesRef,
-                                                const float* values,
-                                                size_t numValues, float rtol,
-                                                float atol);
-template bool TestUtils::allclose<double, false>(const double* valuesRef,
-                                                 const double* values,
-                                                 size_t numValues, double rtol,
-                                                 double atol);
-template bool TestUtils::allclose<float, true>(const float* valuesRef,
-                                               const float* values,
-                                               size_t numValues, float rtol,
-                                               float atol);
-template bool TestUtils::allclose<double, true>(const double* valuesRef,
-                                                const double* values,
-                                                size_t numValues, double rtol,
-                                                double atol);
+template bool allclose<float, false>(const float* valuesRef,
+                                     const float* values, size_t numValues,
+                                     float rtol, float atol);
+template bool allclose<double, false>(const double* valuesRef,
+                                      const double* values, size_t numValues,
+                                      double rtol, double atol);
+template bool allclose<float, true>(const float* valuesRef, const float* values,
+                                    size_t numValues, float rtol, float atol);
+template bool allclose<double, true>(const double* valuesRef,
+                                     const double* values, size_t numValues,
+                                     double rtol, double atol);
 
-std::unique_ptr<ImageOwned>
-    TestUtils::makeImageWithRandomPrism(const ImageParams& params)
+std::unique_ptr<ImageOwned> makeImageWithRandomPrism(const ImageParams& params)
 {
 	std::default_random_engine engine(
 	    static_cast<unsigned int>(std::time(nullptr)));
@@ -224,7 +214,7 @@ std::unique_ptr<ImageOwned>
 	return image;
 }
 
-std::unique_ptr<Scanner> TestUtils::makeScanner()
+std::unique_ptr<yrt::Scanner> makeScanner()
 {
 	// Fake small scanner
 	auto scanner = std::make_unique<Scanner>("FakeScanner", 200, 1, 1, 10, 200,
@@ -236,8 +226,11 @@ std::unique_ptr<Scanner> TestUtils::makeScanner()
 	// Sanity check
 	if (!scanner->isValid())
 	{
-		throw std::runtime_error("Unknown error in TestUtils::makeScanner");
+		throw std::runtime_error(
+		    "Unknown error in yrt::util::test::makeScanner");
 	}
 
 	return scanner;
 }
+
+}  // namespace yrt::util::test

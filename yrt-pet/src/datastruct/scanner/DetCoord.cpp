@@ -3,9 +3,9 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "datastruct/scanner/DetCoord.hpp"
+#include "yrt-pet/datastruct/scanner/DetCoord.hpp"
 
-#include "utils/Array.hpp"
+#include "yrt-pet/utils/Array.hpp"
 #include <memory>
 
 #if BUILD_PYBIND11
@@ -17,6 +17,10 @@ namespace py = pybind11;
 #include <fstream>
 
 #if BUILD_PYBIND11
+
+namespace yrt
+{
+
 void py_setup_detcoord(py::module& m)
 {
 	auto c =
@@ -169,7 +173,12 @@ void py_setup_detcoord(py::module& m)
 		               zorient_info.shape[0]);
 	    });
 }
+}  // namespace yrt
+
 #endif
+
+namespace yrt
+{
 
 DetCoord::DetCoord() = default;
 
@@ -382,3 +391,4 @@ size_t DetCoord::getNumDets() const
 {
 	return this->mp_Xpos->getSize(0);
 }
+}  // namespace yrt

@@ -6,34 +6,34 @@
 #include "catch.hpp"
 #include <vector>
 
-#include "utils/RangeList.hpp"
-#include "utils/Utilities.hpp"
+#include "yrt-pet/utils/RangeList.hpp"
+#include "yrt-pet/utils/Utilities.hpp"
 
 TEST_CASE("String", "[string]")
 {
 	SECTION("whitespace_test")
 	{
-		REQUIRE(Util::beginWithNonWhitespace("string"));
-		REQUIRE_FALSE(Util::beginWithNonWhitespace(" string"));
+		REQUIRE(yrt::util::beginWithNonWhitespace("string"));
+		REQUIRE_FALSE(yrt::util::beginWithNonWhitespace(" string"));
 	}
 	SECTION("strip")
 	{
-		REQUIRE(Util::stripWhitespaces(" ab cd  ") == "ab cd");
+		REQUIRE(yrt::util::stripWhitespaces(" ab cd  ") == "ab cd");
 	}
 	SECTION("case")
 	{
-		REQUIRE(Util::toLower("AB Cd") == "ab cd");
-		REQUIRE(Util::toUpper("aB Cd") == "AB CD");
+		REQUIRE(yrt::util::toLower("AB Cd") == "ab cd");
+		REQUIRE(yrt::util::toUpper("aB Cd") == "AB CD");
 	}
 	SECTION("split")
 	{
-		REQUIRE(Util::split("ab/cd", "/") ==
+		REQUIRE(yrt::util::split("ab/cd", "/") ==
 		        std::vector<std::string>{"ab", "cd"});
-		REQUIRE(Util::split("ab", "/") == std::vector<std::string>{"ab"});
+		REQUIRE(yrt::util::split("ab", "/") == std::vector<std::string>{"ab"});
 	}
 	SECTION("ranges-insert")
 	{
-		Util::RangeList ranges;
+		yrt::util::RangeList ranges;
 		REQUIRE(ranges.empty());
 		// Test 1: Inserting into an empty vector
 		ranges.readFromString("3-4");
@@ -62,13 +62,13 @@ TEST_CASE("String", "[string]")
 	}
 	SECTION("ranges-parse")
 	{
-		Util::RangeList ranges("1-3, 5-10, 15-15, 17-20");
+		yrt::util::RangeList ranges("1-3, 5-10, 15-15, 17-20");
 		REQUIRE(ranges.get().size() == 4);
 		REQUIRE(ranges.getSizeTotal() == 14);
 	}
 	SECTION("ranges-parse-red")
 	{
-		Util::RangeList ranges("1-3, 5-16, 15-15, 17-20");
+		yrt::util::RangeList ranges("1-3, 5-16, 15-15, 17-20");
 		REQUIRE(ranges.get().size() == 2);
 		REQUIRE(ranges.getSizeTotal() == 19);
 	}

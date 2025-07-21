@@ -3,10 +3,10 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "operators/OperatorPsf.hpp"
+#include "yrt-pet/operators/OperatorPsf.hpp"
 
-#include "utils/Assert.hpp"
-#include "utils/Tools.hpp"
+#include "yrt-pet/utils/Assert.hpp"
+#include "yrt-pet/utils/Tools.hpp"
 
 #if BUILD_PYBIND11
 #include <pybind11/numpy.h>
@@ -14,6 +14,8 @@
 #include <pybind11/stl.h>
 namespace py = pybind11;
 
+namespace yrt
+{
 void py_setup_operatorpsf(py::module& m)
 {
 	auto c = py::class_<OperatorPsf, Operator>(m, "OperatorPsf");
@@ -93,8 +95,11 @@ void py_setup_operatorpsf(py::module& m)
 		      return pybind11::array_t<float>(buf_info);
 	      });
 }
+}  // namespace yrt
 #endif
 
+namespace yrt
+{
 OperatorPsf::OperatorPsf() : Operator{} {}
 
 OperatorPsf::OperatorPsf(const std::string& imagePsf_fname) : OperatorPsf{}
@@ -121,7 +126,7 @@ void OperatorPsf::readFromFileInternal(const std::string& imagePsf_fname)
 {
 	Array2D<float> kernelsArray2D;
 	std::cout << "Reading image space PSF kernel csv file..." << std::endl;
-	Util::readCSV<float>(imagePsf_fname, kernelsArray2D);
+	util::readCSV<float>(imagePsf_fname, kernelsArray2D);
 
 	std::array<int, 3> kerSize;
 	kerSize[0] = kernelsArray2D[3][0];
@@ -228,7 +233,7 @@ void OperatorPsf::convolve(const Image* in, Image* out,
 				float sum = 0.0;
 				for (int kk = -kerIndexCenteredX; kk <= kerIndexCenteredX; kk++)
 				{
-					const int r = Util::circular(nx, i - kk);
+					const int r = util::circular(nx, i - kk);
 					sum += kernelX[kk + kerIndexCenteredX] * m_buffer_tmp[r];
 				}
 				outPtr[IDX3(i, j, k, nx, ny)] = sum;
@@ -249,7 +254,7 @@ void OperatorPsf::convolve(const Image* in, Image* out,
 				float sum = 0.0;
 				for (int kk = -kerIndexCenteredY; kk <= kerIndexCenteredY; kk++)
 				{
-					const int r = Util::circular(ny, j - kk);
+					const int r = util::circular(ny, j - kk);
 					sum += kernelY[kk + kerIndexCenteredY] * m_buffer_tmp[r];
 				}
 				outPtr[IDX3(i, j, k, nx, ny)] = sum;
@@ -270,7 +275,7 @@ void OperatorPsf::convolve(const Image* in, Image* out,
 				float sum = 0.0;
 				for (int kk = -kerIndexCenteredZ; kk <= kerIndexCenteredZ; kk++)
 				{
-					const int r = Util::circular(nz, k - kk);
+					const int r = util::circular(nz, k - kk);
 					sum += kernelZ[kk + kerIndexCenteredZ] * m_buffer_tmp[r];
 				}
 				outPtr[IDX3(i, j, k, nx, ny)] = sum;
@@ -308,3 +313,4 @@ const std::vector<float>& OperatorPsf::getKernelZFlipped() const
 {
 	return m_kernelZ_flipped;
 }
+}  // namespace yrt

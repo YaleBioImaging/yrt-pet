@@ -3,15 +3,17 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "datastruct/projection/Histogram3D.hpp"
-#include "datastruct/projection/ListModeLUT.hpp"
-#include "datastruct/scanner/Scanner.hpp"
-#include "utils/Assert.hpp"
-#include "utils/Globals.hpp"
-#include "utils/ReconstructionUtils.hpp"
+#include "yrt-pet/datastruct/projection/Histogram3D.hpp"
+#include "yrt-pet/datastruct/projection/ListModeLUT.hpp"
+#include "yrt-pet/datastruct/scanner/Scanner.hpp"
+#include "yrt-pet/utils/Assert.hpp"
+#include "yrt-pet/utils/Globals.hpp"
+#include "yrt-pet/utils/ReconstructionUtils.hpp"
 
 #include <cxxopts.hpp>
 #include <iostream>
+
+using namespace yrt;
 
 int main(int argc, char** argv)
 {
@@ -62,14 +64,14 @@ int main(int argc, char** argv)
 			return -1;
 		}
 
-		Globals::set_num_threads(numThreads);
+		globals::setNumThreads(numThreads);
 
 		const auto scanner = std::make_unique<Scanner>(scanner_fname);
 		const auto histo =
 		    std::make_unique<Histogram3DOwned>(*scanner, input_fname);
 		const auto lm = std::make_unique<ListModeLUTOwned>(*scanner);
 
-		Util::histogram3DToListModeLUT(histo.get(), lm.get(), numEvents);
+		util::histogram3DToListModeLUT(histo.get(), lm.get(), numEvents);
 
 		lm->writeToFile(out_fname);
 
@@ -83,7 +85,7 @@ int main(int argc, char** argv)
 	}
 	catch (const std::exception& e)
 	{
-		Util::printExceptionMessage(e);
+		util::printExceptionMessage(e);
 		return -1;
 	}
 }

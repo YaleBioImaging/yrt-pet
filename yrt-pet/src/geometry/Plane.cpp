@@ -3,15 +3,17 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "geometry/Plane.hpp"
+#include "yrt-pet/geometry/Plane.hpp"
 
-#include "geometry/Constants.hpp"
+#include "yrt-pet/geometry/Constants.hpp"
 
 #include <cmath>
 #include <cstdlib>
 #include <iostream>
 #include <stdio.h>
 
+namespace yrt
+{
 Plane::Plane() {}
 
 
@@ -146,3 +148,4 @@ Vector3D Plane::findInterLine(const Line3D& line) const
 	}
 	return tmp;
 }
+}  // namespace yrt

@@ -3,9 +3,9 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "scatter/Crystal.hpp"
-#include "utils/Assert.hpp"
-#include "utils/Utilities.hpp"
+#include "yrt-pet/scatter/Crystal.hpp"
+#include "yrt-pet/utils/Assert.hpp"
+#include "yrt-pet/utils/Utilities.hpp"
 
 #include <stdexcept>
 #include <string>
@@ -14,51 +14,59 @@
 #include <pybind11/pybind11.h>
 namespace py = pybind11;
 
+namespace yrt
+{
 void py_setup_crystal(py::module& m)
 {
-	py::enum_<Scatter::CrystalMaterial>(m, "CrystalMaterial")
-	    .value("LSO", Scatter::CrystalMaterial::LSO)
-	    .value("LYSO", Scatter::CrystalMaterial::LYSO)
+	py::enum_<scatter::CrystalMaterial>(m, "CrystalMaterial")
+	    .value("LSO", scatter::CrystalMaterial::LSO)
+	    .value("LYSO", scatter::CrystalMaterial::LYSO)
 	    .export_values();
-	m.def("getMuDet", &Scatter::getMuDet);
-	m.def("getCrystalMaterialFromName", &Scatter::getCrystalMaterialFromName);
-	m.def("getCrystal", &Scatter::getCrystalMaterialFromName);  // alias
+	m.def("getMuDet", &scatter::getMuDet);
+	m.def("getCrystalMaterialFromName", &scatter::getCrystalMaterialFromName);
+	m.def("getCrystal", &scatter::getCrystalMaterialFromName);  // alias
 }
+}  // namespace yrt
+
 #endif
 
-namespace Scatter
+namespace yrt
 {
-	double getMuDet(double energy, CrystalMaterial crystalMat)
+namespace scatter
+{
+
+double getMuDet(double energy, CrystalMaterial crystalMat)
+{
+	const int e = static_cast<int>(energy) - 1;
+	ASSERT(e >= 0 && e < 1000);
+	if (crystalMat == CrystalMaterial::LSO)
 	{
-		const int e = static_cast<int>(energy) - 1;
-		ASSERT(e >= 0 && e < 1000);
-		if (crystalMat == CrystalMaterial::LSO)
-		{
-			return MuLSO[e];
-		}
-		return MuLYSO[e];
+		return MuLSO[e];
 	}
+	return MuLYSO[e];
+}
 
-	CrystalMaterial
-	    getCrystalMaterialFromName(const std::string& crystalMaterial_name)
+CrystalMaterial
+    getCrystalMaterialFromName(const std::string& crystalMaterial_name)
+{
+	const std::string crystalMaterial_uppercaseName =
+	    util::toUpper(crystalMaterial_name);
+
+	CrystalMaterial crystalMaterial;
+	if (crystalMaterial_uppercaseName == "LYSO")
 	{
-		const std::string crystalMaterial_uppercaseName =
-		    Util::toUpper(crystalMaterial_name);
-
-		CrystalMaterial crystalMaterial;
-		if (crystalMaterial_uppercaseName == "LYSO")
-		{
-			crystalMaterial = CrystalMaterial::LYSO;
-		}
-		else if (crystalMaterial_uppercaseName == "LSO")
-		{
-			crystalMaterial = CrystalMaterial::LSO;
-		}
-		else
-		{
-			throw std::invalid_argument("Error: energy out of range");
-		}
-		return crystalMaterial;
+		crystalMaterial = CrystalMaterial::LYSO;
 	}
+	else if (crystalMaterial_uppercaseName == "LSO")
+	{
+		crystalMaterial = CrystalMaterial::LSO;
+	}
+	else
+	{
+		throw std::invalid_argument("Error: energy out of range");
+	}
+	return crystalMaterial;
+}
 
-}  // namespace Scatter
+}  // namespace scatter
+}  // namespace yrt

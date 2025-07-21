@@ -3,10 +3,10 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "datastruct/projection/ListModeLUTDOI.hpp"
+#include "yrt-pet/datastruct/projection/ListModeLUTDOI.hpp"
 
-#include "datastruct/scanner/Scanner.hpp"
-#include "utils/Assert.hpp"
+#include "yrt-pet/datastruct/scanner/Scanner.hpp"
+#include "yrt-pet/utils/Assert.hpp"
 
 #include <cmath>
 #include <cstring>
@@ -17,6 +17,8 @@
 #include <pybind11/pybind11.h>
 namespace py = pybind11;
 
+namespace yrt
+{
 void py_setup_listmodelutdoi(py::module& m)
 {
 	auto c = py::class_<ListModeLUTDOI, ListModeLUT>(m, "ListModeLUTDOI");
@@ -63,10 +65,12 @@ void py_setup_listmodelutdoi(py::module& m)
 	c_owned.def("readFromFile", &ListModeLUTDOIOwned::readFromFile);
 	c_owned.def("allocate", &ListModeLUTDOIOwned::allocate);
 }
-
+}  // namespace yrt
 #endif  // if BUILD_PYBIND11
 
 
+namespace yrt
+{
 ListModeLUTDOI::ListModeLUTDOI(const Scanner& pr_scanner, bool p_flagTOF,
                                int numLayers)
     : ListModeLUT(pr_scanner, p_flagTOF), m_numLayers(numLayers)
@@ -398,7 +402,7 @@ void ListModeLUTDOIAlias::bind(
 std::unique_ptr<ProjectionData>
     ListModeLUTDOIOwned::create(const Scanner& scanner,
                                 const std::string& filename,
-                                const IO::OptionsResult& options)
+                                const io::OptionsResult& options)
 {
 	const auto flagTOFVariant = options.at("flag_tof");
 	bool flagTOF = false;
@@ -427,13 +431,16 @@ std::unique_ptr<ProjectionData>
 	return lm;
 }
 
-Plugin::OptionsListPerPlugin ListModeLUTDOIOwned::getOptions()
+plugin::OptionsListPerPlugin ListModeLUTDOIOwned::getOptions()
 {
 	return {
-	    {"flag_tof", {"Flag for reading TOF column", IO::TypeOfArgument::BOOL}},
-	    {"num_layers", {"Number of layers", IO::TypeOfArgument::INT}}};
+	    {"flag_tof", {"Flag for reading TOF column", io::TypeOfArgument::BOOL}},
+	    {"num_layers", {"Number of layers", io::TypeOfArgument::INT}}};
 }
+
 
 REGISTER_PROJDATA_PLUGIN("LM-DOI", ListModeLUTDOIOwned,
                          ListModeLUTDOIOwned::create,
                          ListModeLUTDOIOwned::getOptions)
+
+}  // namespace yrt

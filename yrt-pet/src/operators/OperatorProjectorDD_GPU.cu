@@ -3,30 +3,37 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "operators/OperatorProjectorDD_GPU.cuh"
+#include "yrt-pet/operators/OperatorProjectorDD_GPU.cuh"
 
-#include "datastruct/image/Image.hpp"
-#include "datastruct/image/ImageDevice.cuh"
-#include "datastruct/projection/ProjectionDataDevice.cuh"
-#include "operators/OperatorProjectorDD_GPUKernels.cuh"
-#include "utils/Assert.hpp"
-#include "utils/GPUUtils.cuh"
+#include "yrt-pet/datastruct/image/Image.hpp"
+#include "yrt-pet/datastruct/image/ImageDevice.cuh"
+#include "yrt-pet/datastruct/projection/ProjectionDataDevice.cuh"
+#include "yrt-pet/operators/OperatorProjectorDD_GPUKernels.cuh"
+#include "yrt-pet/utils/Assert.hpp"
+#include "yrt-pet/utils/GPUUtils.cuh"
 
 #if BUILD_PYBIND11
 #include <pybind11/pybind11.h>
 namespace py = pybind11;
 
+namespace yrt
+{
 void py_setup_operatorprojectordd_gpu(py::module& m)
 {
 	auto c = py::class_<OperatorProjectorDD_GPU, OperatorProjectorDevice>(
 	    m, "OperatorProjectorDD_GPU");
 	c.def(py::init<const OperatorProjectorParams&>(), py::arg("projParams"));
 }
+}  // namespace yrt
+
 #endif
 
+namespace yrt
+{
+
 OperatorProjectorDD_GPU::OperatorProjectorDD_GPU(
-    const OperatorProjectorParams& projParams,
-    const cudaStream_t* mainStream, const cudaStream_t* auxStream)
+    const OperatorProjectorParams& projParams, const cudaStream_t* mainStream,
+    const cudaStream_t* auxStream)
     : OperatorProjectorDevice(projParams, mainStream, auxStream)
 {
 }
@@ -46,7 +53,8 @@ void OperatorProjectorDD_GPU::applyAHOnLoadedBatch(ProjectionDataDevice& dat,
 
 template <bool IsForward>
 void OperatorProjectorDD_GPU::applyOnLoadedBatch(ProjectionDataDevice& dat,
-                                                 ImageDevice& img, bool synchronize)
+                                                 ImageDevice& img,
+                                                 bool synchronize)
 {
 	setBatchSize(dat.getLoadedBatchSize());
 	const auto cuScannerParams = getCUScannerParams(getScanner());
@@ -163,3 +171,4 @@ void OperatorProjectorDD_GPU::launchKernel(
 	}
 	cudaCheckError();
 }
+}  // namespace yrt

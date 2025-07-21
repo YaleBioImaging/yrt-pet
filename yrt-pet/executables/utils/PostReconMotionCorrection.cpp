@@ -9,9 +9,9 @@
  *		 frame of reference.
  ******************************************************************************/
 
-#include "datastruct/image/Image.hpp"
-#include "datastruct/projection/LORMotion.hpp"
-#include "utils/Assert.hpp"
+#include "yrt-pet/datastruct/image/Image.hpp"
+#include "yrt-pet/datastruct/projection/LORMotion.hpp"
+#include "yrt-pet/utils/Assert.hpp"
 
 #include <cxxopts.hpp>
 
@@ -19,6 +19,7 @@
 #include <string>
 #include <vector>
 
+using namespace yrt;
 
 int main(int argc, char* argv[])
 {
@@ -135,7 +136,7 @@ int main(int argc, char* argv[])
 	}
 	catch (const std::exception& e)
 	{
-		Util::printExceptionMessage(e);
+		util::printExceptionMessage(e);
 		return -1;
 	}
 }

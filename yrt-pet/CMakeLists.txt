@@ -74,7 +74,7 @@ function(setup_target TARGET JSON CXXOPTS PYBIND11)
     target_link_libraries(${TARGET} PRIVATE ${LINK_EXTRA})
     target_include_directories(${TARGET} PUBLIC ${YRTPET_INCLUDE_DIRECTORIES}
         $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include/>
-        $<INSTALL_INTERFACE:include/${CMAKE_PROJECT_NAME}>)
+        $<INSTALL_INTERFACE:include/>)
     target_link_libraries(${TARGET} PUBLIC ${YRTPET_LINK_LIBRARIES})
     target_compile_options(${TARGET} PRIVATE
         $<$<COMPILE_LANGUAGE:CXX>:-pedantic>
@@ -107,7 +107,7 @@ function(define_yrtpet_lib SOURCES)
     install(TARGETS ${YRTPET_LIB_NAME}
         ARCHIVE DESTINATION lib
         INCLUDES DESTINATION include)
-    install(DIRECTORY ${CMAKE_SOURCE_DIR}/include/ DESTINATION include/yrt-pet)
+    install(DIRECTORY ${CMAKE_SOURCE_DIR}/include/ DESTINATION include)
 endfunction()
 
 # Add plugin sources to library

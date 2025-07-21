@@ -3,9 +3,9 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "datastruct/projection/SparseHistogram.hpp"
-#include "utils/Assert.hpp"
-#include "utils/ProgressDisplay.hpp"
+#include "yrt-pet/datastruct/projection/SparseHistogram.hpp"
+#include "yrt-pet/utils/Assert.hpp"
+#include "yrt-pet/utils/ProgressDisplay.hpp"
 
 #include <cstring>
 #include <filesystem>
@@ -19,6 +19,8 @@ namespace fs = std::filesystem;
 using namespace pybind11::literals;
 namespace py = pybind11;
 
+namespace yrt
+{
 void py_setup_sparsehistogram(py::module& m)
 {
 	auto c = py::class_<SparseHistogram, Histogram>(m, "SparseHistogram");
@@ -53,8 +55,12 @@ void py_setup_sparsehistogram(py::module& m)
 	c.def("readFromFile", &SparseHistogram::readFromFile, "filename"_a);
 	c.def("writeToFile", &SparseHistogram::writeToFile, "filename"_a);
 }
+}  // namespace yrt
+
 #endif
 
+namespace yrt
+{
 SparseHistogram::SparseHistogram(const Scanner& pr_scanner)
     : Histogram(pr_scanner)
 {
@@ -88,7 +94,7 @@ void SparseHistogram::accumulate(const ProjectionData& projData)
 
 	allocate(count() + numBins);
 
-	Util::ProgressDisplay progress{static_cast<int64_t>(numBins), 5};
+	util::ProgressDisplay progress{static_cast<int64_t>(numBins), 5};
 
 	for (bin_t binId = 0; binId < numBins; binId++)
 	{
@@ -312,13 +318,13 @@ void SparseHistogram::readFromFile(const std::string& filename)
 
 std::unique_ptr<ProjectionData>
     SparseHistogram::create(const Scanner& scanner, const std::string& filename,
-                            const IO::OptionsResult& options)
+                            const io::OptionsResult& options)
 {
 	(void)options;
 	return std::make_unique<SparseHistogram>(scanner, filename);
 }
 
-Plugin::OptionsListPerPlugin SparseHistogram::getOptions()
+plugin::OptionsListPerPlugin SparseHistogram::getOptions()
 {
 	return {};
 }
@@ -331,3 +337,4 @@ det_pair_t SparseHistogram::SwapDetectorPairIfNeeded(det_pair_t detPair)
 
 REGISTER_PROJDATA_PLUGIN("SH", SparseHistogram, SparseHistogram::create,
                          SparseHistogram::getOptions)
+}  // namespace yrt

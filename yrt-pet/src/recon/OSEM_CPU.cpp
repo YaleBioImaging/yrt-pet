@@ -3,16 +3,18 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "recon/OSEM_CPU.hpp"
+#include "yrt-pet/recon/OSEM_CPU.hpp"
 
-#include "datastruct/projection/ProjectionList.hpp"
-#include "operators/OperatorProjectorDD.hpp"
-#include "operators/OperatorProjectorSiddon.hpp"
-#include "recon/Corrector_CPU.hpp"
-#include "utils/Assert.hpp"
+#include "yrt-pet/datastruct/projection/ProjectionList.hpp"
+#include "yrt-pet/operators/OperatorProjectorDD.hpp"
+#include "yrt-pet/operators/OperatorProjectorSiddon.hpp"
+#include "yrt-pet/recon/Corrector_CPU.hpp"
+#include "yrt-pet/utils/Assert.hpp"
 
 #include <utility>
 
+namespace yrt
+{
 OSEM_CPU::OSEM_CPU(const Scanner& pr_scanner)
     : OSEM(pr_scanner),
       mp_tempSensImageBuffer{nullptr},
@@ -294,3 +296,5 @@ void OSEM_CPU::computeEMUpdateImage(const ImageBase& inputImage,
 }
 
 void OSEM_CPU::completeMLEMIteration() {}
+
+}  // namespace yrt

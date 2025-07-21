@@ -32,7 +32,7 @@ IndentWrappedFunctionNames: 'true'
 KeepEmptyLinesAtTheStartOfBlocks: 'true'
 Language: Cpp
 MaxEmptyLinesToKeep: '2'
-NamespaceIndentation: All
+NamespaceIndentation: None
 PointerAlignment: Left
 SpaceAfterCStyleCast: 'false'
 SpaceBeforeAssignmentOperators: 'true'

@@ -6,19 +6,19 @@
 #include "catch.hpp"
 
 #include "../test_utils.hpp"
-#include "datastruct/projection/Histogram3D.hpp"
-#include "datastruct/scanner/DetRegular.hpp"
-#include "datastruct/scanner/Scanner.hpp"
-#include "utils/Array.hpp"
+#include "yrt-pet/datastruct/projection/Histogram3D.hpp"
+#include "yrt-pet/datastruct/scanner/DetRegular.hpp"
+#include "yrt-pet/datastruct/scanner/Scanner.hpp"
+#include "yrt-pet/utils/Array.hpp"
 
 
 TEST_CASE("scanner", "[createLUT]")
 {
-	auto scanner = TestUtils::makeScanner();
+	auto scanner = yrt::util::test::makeScanner();
 
-	auto histo3d = std::make_unique<Histogram3DOwned>(*scanner);
+	auto histo3d = std::make_unique<yrt::Histogram3DOwned>(*scanner);
 
-	Array2D<float> lut;
+	yrt::Array2D<float> lut;
 	scanner->createLUT(lut);
 
 	SECTION("lut-size")
@@ -30,7 +30,7 @@ TEST_CASE("scanner", "[createLUT]")
 	SECTION("lut-det_pos")
 	{
 		size_t bin_id = 100;
-		Vector3D pos = scanner->getDetectorPos(bin_id);
+		yrt::Vector3D pos = scanner->getDetectorPos(bin_id);
 		REQUIRE(lut[bin_id][0] == pos.x);
 		REQUIRE(lut[bin_id][1] == pos.y);
 		REQUIRE(lut[bin_id][2] == pos.z);

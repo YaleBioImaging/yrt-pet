@@ -3,9 +3,9 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "datastruct/projection/ProjectionList.hpp"
+#include "yrt-pet/datastruct/projection/ProjectionList.hpp"
 
-#include "utils/Assert.hpp"
+#include "yrt-pet/utils/Assert.hpp"
 
 #if BUILD_PYBIND11
 #include <pybind11/numpy.h>
@@ -14,6 +14,8 @@
 
 namespace py = pybind11;
 
+namespace yrt
+{
 void py_setup_projectionlist(pybind11::module& m)
 {
 	auto c = pybind11::class_<ProjectionList, ProjectionData>(
@@ -62,9 +64,12 @@ void py_setup_projectionlist(pybind11::module& m)
 		        ->bind(reinterpret_cast<float*>(buffer.ptr), buffer.size);
 	    });
 }
+}  // namespace yrt
 
 #endif  // if BUILD_PYBIND11
 
+namespace yrt
+{
 ProjectionList::ProjectionList(const ProjectionData* r)
     : ProjectionData(r->getScanner()), mp_reference(r)
 {
@@ -224,3 +229,4 @@ std::unique_ptr<BinIterator> ProjectionList::getBinIter(int numSubsets,
 {
 	return mp_reference->getBinIter(numSubsets, idxSubset);
 }
+}  // namespace yrt

@@ -3,13 +3,13 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "datastruct/projection/ListModeLUT.hpp"
+#include "yrt-pet/datastruct/projection/ListModeLUT.hpp"
 
-#include "datastruct/projection/Histogram3D.hpp"
-#include "datastruct/scanner/Scanner.hpp"
-#include "utils/Assert.hpp"
-#include "utils/Globals.hpp"
-#include "utils/ReconstructionUtils.hpp"
+#include "yrt-pet/datastruct/projection/Histogram3D.hpp"
+#include "yrt-pet/datastruct/scanner/Scanner.hpp"
+#include "yrt-pet/utils/Assert.hpp"
+#include "yrt-pet/utils/Globals.hpp"
+#include "yrt-pet/utils/ReconstructionUtils.hpp"
 
 #include <cmath>
 #include <cstring>
@@ -23,6 +23,8 @@
 namespace py = pybind11;
 using namespace py::literals;
 
+namespace yrt
+{
 void py_setup_listmodelut(py::module& m)
 {
 	auto c = py::class_<ListModeLUT, ListMode>(m, "ListModeLUT");
@@ -120,13 +122,14 @@ void py_setup_listmodelut(py::module& m)
 	c_owned.def(
 	    "createFromHistogram3D",
 	    [](ListModeLUTOwned* self, const Histogram3D* histo, size_t num_events)
-	    { Util::histogram3DToListModeLUT(histo, self, num_events); }, "histo"_a,
+	    { util::histogram3DToListModeLUT(histo, self, num_events); }, "histo"_a,
 	    "num_events"_a);
 }
-
+}  // namespace yrt
 #endif  // if BUILD_PYBIND11
 
-
+namespace yrt
+{
 ListModeLUT::ListModeLUT(const Scanner& pr_scanner, bool p_flagTOF)
     : ListMode(pr_scanner), m_flagTOF(p_flagTOF)
 {
@@ -346,7 +349,7 @@ Array1DBase<float>* ListModeLUT::getTOFArrayPtr() const
 
 Line3D ListModeLUT::getNativeLORFromId(bin_t id) const
 {
-	return Util::getNativeLOR(mr_scanner, *this, id);
+	return util::getNativeLOR(mr_scanner, *this, id);
 }
 
 bool ListModeLUT::hasTOF() const
@@ -476,7 +479,7 @@ void ListModeLUTAlias::bind(
 std::unique_ptr<ProjectionData>
     ListModeLUTOwned::create(const Scanner& scanner,
                              const std::string& filename,
-                             const IO::OptionsResult& options)
+                             const io::OptionsResult& options)
 {
 	const auto flagTOFVariant = options.at("flag_tof");
 	bool flagTOF = false;
@@ -491,11 +494,14 @@ std::unique_ptr<ProjectionData>
 	return lm;
 }
 
-Plugin::OptionsListPerPlugin ListModeLUTOwned::getOptions()
+plugin::OptionsListPerPlugin ListModeLUTOwned::getOptions()
 {
 	return {{"flag_tof",
-	         {"Flag for reading TOF column", IO::TypeOfArgument::BOOL}}};
+	         {"Flag for reading TOF column", io::TypeOfArgument::BOOL}}};
 }
 
 REGISTER_PROJDATA_PLUGIN("LM", ListModeLUTOwned, ListModeLUTOwned::create,
                          ListModeLUTOwned::getOptions)
+
+}  // namespace yrt
+

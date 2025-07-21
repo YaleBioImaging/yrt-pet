@@ -5,7 +5,10 @@
 
 #include <iostream>
 
-#include "utils/Assert.hpp"
+#include "yrt-pet/utils/Assert.hpp"
+
+namespace yrt
+{
 
 void assertion_failed(char const* expr, char const* function, char const* file,
                       long line, bool critical)
@@ -52,7 +55,7 @@ void assertion_failed_msg(char const* expr, char const* msg,
 	}
 }
 
-void Util::printExceptionMessage(const std::exception& e)
+void util::printExceptionMessage(const std::exception& e)
 {
 	constexpr auto delim = "===================";
 	std::cerr << "Exception caught:\n"
@@ -60,3 +63,5 @@ void Util::printExceptionMessage(const std::exception& e)
 	          << e.what() << "\n"
 	          << delim << std::endl;
 }
+
+}  // namespace yrt

@@ -6,14 +6,14 @@
 #include "catch.hpp"
 
 #include "../test_utils.hpp"
-#include "datastruct/image/Image.hpp"
-#include "datastruct/projection/ListModeLUT.hpp"
-#include "utils/ReconstructionUtils.hpp"
+#include "yrt-pet/datastruct/image/Image.hpp"
+#include "yrt-pet/datastruct/projection/ListModeLUT.hpp"
+#include "yrt-pet/utils/ReconstructionUtils.hpp"
 
 TEST_CASE("siddon_gpu_vs_cpu", "[siddon-gpu]")
 {
 	// Create Scanner
-	const auto scanner = TestUtils::makeScanner();
+	const auto scanner = yrt::util::test::makeScanner();
 
 	const size_t numDets = scanner->getNumDets();
 
@@ -27,58 +27,58 @@ TEST_CASE("siddon_gpu_vs_cpu", "[siddon-gpu]")
 	const float sx = scanner->scannerRadius * 2.0f / sqrt(2.0f);
 	const float sy = scanner->scannerRadius * 2.0f / sqrt(2.0f) - oy * 2.0f;
 	const float sz = scanner->axialFOV;
-	ImageParams imgParams{nx, ny, nz, sx, sy, sz, ox, oy, oz};
+	yrt::ImageParams imgParams{nx, ny, nz, sx, sy, sz, ox, oy, oz};
 
-	auto data = std::make_unique<ListModeLUTOwned>(*scanner);
+	auto data = std::make_unique<yrt::ListModeLUTOwned>(*scanner);
 	constexpr size_t numEvents = 10000;
 	data->allocate(numEvents);
 
-	for (bin_t binId = 0; binId < numEvents; binId++)
+	for (yrt::bin_t binId = 0; binId < numEvents; binId++)
 	{
-		const det_id_t d1 = rand() % numDets;
-		const det_id_t d2 = rand() % numDets;
+		const yrt::det_id_t d1 = rand() % numDets;
+		const yrt::det_id_t d2 = rand() % numDets;
 		data->setDetectorIdsOfEvent(binId, d1, d2);
 	}
 
 	SECTION("bwd-project")
 	{
-		auto img_cpu = std::make_unique<ImageOwned>(imgParams);
+		auto img_cpu = std::make_unique<yrt::ImageOwned>(imgParams);
 		img_cpu->allocate();
 		img_cpu->setValue(0.0);
-		Util::backProject(*scanner, *img_cpu, *data, OperatorProjector::SIDDON,
+		yrt::util::backProject(*scanner, *img_cpu, *data, yrt::OperatorProjector::SIDDON,
 		                  false);
 
 		REQUIRE(img_cpu->voxelSum() > 0.0f);
 
-		auto img_gpu = std::make_unique<ImageOwned>(imgParams);
+		auto img_gpu = std::make_unique<yrt::ImageOwned>(imgParams);
 		img_gpu->allocate();
 		img_gpu->setValue(0.0);
-		Util::backProject(*scanner, *img_gpu, *data, OperatorProjector::SIDDON,
+		yrt::util::backProject(*scanner, *img_gpu, *data, yrt::OperatorProjector::SIDDON,
 		                  true);
 
-		double rmseCpuGpu = TestUtils::getRMSE(*img_gpu, *img_cpu);
+		double rmseCpuGpu = yrt::util::test::getRMSE(*img_gpu, *img_cpu);
 
 		REQUIRE(img_gpu->voxelSum() > 0.0f);
 		CHECK(rmseCpuGpu < 0.000007);
 	}
 
-	auto imgToFwdProj = TestUtils::makeImageWithRandomPrism(imgParams);
+	auto imgToFwdProj = yrt::util::test::makeImageWithRandomPrism(imgParams);
 
 	SECTION("fwd-project")
 	{
-		auto projList_cpu = std::make_unique<ProjectionListOwned>(data.get());
+		auto projList_cpu = std::make_unique<yrt::ProjectionListOwned>(data.get());
 		projList_cpu->allocate();
 		projList_cpu->clearProjections(0.0f);
-		Util::forwProject(*scanner, *imgToFwdProj, *projList_cpu,
-		                  OperatorProjector::SIDDON, false);
+		yrt::util::forwProject(*scanner, *imgToFwdProj, *projList_cpu,
+		                  yrt::OperatorProjector::SIDDON, false);
 
-		auto projList_gpu = std::make_unique<ProjectionListOwned>(data.get());
+		auto projList_gpu = std::make_unique<yrt::ProjectionListOwned>(data.get());
 		projList_gpu->allocate();
 		projList_gpu->clearProjections(0.0f);
-		Util::forwProject(*scanner, *imgToFwdProj, *projList_gpu,
-		                  OperatorProjector::SIDDON, true);
+		yrt::util::forwProject(*scanner, *imgToFwdProj, *projList_gpu,
+		                  yrt::OperatorProjector::SIDDON, true);
 
-		double rmseCpuGpu = TestUtils::getRMSE(*projList_cpu, *projList_gpu);
+		double rmseCpuGpu = yrt::util::test::getRMSE(*projList_cpu, *projList_gpu);
 
 		CHECK(rmseCpuGpu < 0.0003);
 	}

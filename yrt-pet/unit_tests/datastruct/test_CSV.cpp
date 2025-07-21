@@ -7,12 +7,12 @@
 #include <cstdio>
 #include <fstream>
 
-#include "utils/Tools.hpp"
+#include "yrt-pet/utils/Tools.hpp"
 
 // #define REQUIRE(x) (std::cout << "test-> " << (x) << std::endl);
 
 template <typename T>
-bool compArray(Array2D<T>& x, Array2D<T>& y)
+bool compArray(yrt::Array2D<T>& x, yrt::Array2D<T>& y)
 {
 	bool pass = true;
 	for (size_t row = 0; row < x.getSize(0) && pass; row++)
@@ -26,7 +26,7 @@ bool compArray(Array2D<T>& x, Array2D<T>& y)
 }
 
 template <typename T>
-void writeCSV(Array2D<T>& dat, std::string fname)
+void writeCSV(yrt::Array2D<T>& dat, std::string fname)
 {
 	std::ofstream myfile;
 	myfile.open(fname);
@@ -71,7 +71,7 @@ void test_helper(int num_rows_max, int num_cols_max)
 	{
 		for (int num_cols = 1; num_cols < num_cols_max; num_cols++)
 		{
-			Array2D<int> dat_in;
+			yrt::Array2D<int> dat_in;
 			dat_in.allocate(num_rows, num_cols);
 			for (size_t row = 0; row < dat_in.getSize(0); row++)
 			{
@@ -88,8 +88,8 @@ void test_helper(int num_rows_max, int num_cols_max)
 			writeCSV(dat_in, fname);
 
 			// Read CSV file from disk
-			Array2D<int> dat_out;
-			Util::readCSV(fname, dat_out);
+			yrt::Array2D<int> dat_out;
+			yrt::util::readCSV(fname, dat_out);
 			if (dat_in.getSizeTotal() > 0)
 			{
 				REQUIRE(dat_in.getSize(0) == dat_out.getSize(0));

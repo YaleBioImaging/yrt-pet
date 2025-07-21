@@ -3,21 +3,26 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "datastruct/projection/UniformHistogram.hpp"
+#include "yrt-pet/datastruct/projection/UniformHistogram.hpp"
 
 #if BUILD_PYBIND11
 #include <pybind11/pybind11.h>
 namespace py = pybind11;
 
+namespace yrt
+{
 void py_setup_uniformhistogram(py::module& m)
 {
 	auto c = py::class_<UniformHistogram, Histogram3D>(m, "UniformHistogram");
 	c.def(py::init<const Scanner&, float>(), py::arg("scanner"),
 	      py::arg("value") = 1.0f);
 }
+}  // namespace yrt
+
 #endif
 
-
+namespace yrt
+{
 UniformHistogram::UniformHistogram(const Scanner& pr_scanner, float p_value)
     : Histogram3D(pr_scanner), m_value(p_value)
 {
@@ -86,3 +91,4 @@ bool UniformHistogram::isUniform() const
 {
 	return true;
 }
+}  // namespace yrt

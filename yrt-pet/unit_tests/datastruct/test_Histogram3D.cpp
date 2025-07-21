@@ -5,11 +5,14 @@
 
 #include "catch.hpp"
 
-#include "datastruct/projection/Histogram3D.hpp"
-#include "datastruct/projection/ListModeLUT.hpp"
-#include "datastruct/scanner/DetRegular.hpp"
+#include "yrt-pet/datastruct/projection/Histogram3D.hpp"
+#include "yrt-pet/datastruct/projection/ListModeLUT.hpp"
+#include "yrt-pet/datastruct/scanner/DetRegular.hpp"
 #include "test_utils.hpp"
-#include "utils/ReconstructionUtils.hpp"
+#include "yrt-pet/utils/ReconstructionUtils.hpp"
+
+namespace yrt
+{
 
 bool check_coords(std::array<coord_t, 3> c1, std::array<coord_t, 3> c2)
 {
@@ -110,6 +113,8 @@ auto getDetectorPositionInScanner(const Scanner& scanner, det_id_t d)
 	return std::make_tuple(doi, ring, posInRing);
 }
 
+}  // namespace yrt
+
 TEST_CASE("histo3d", "[histo]")
 {
 	std::default_random_engine engine(
@@ -144,39 +149,41 @@ TEST_CASE("histo3d", "[histo]")
 		}
 
 		// Create scanner
-		auto scanner = std::make_unique<Scanner>(
+		auto scanner = std::make_unique<yrt::Scanner>(
 		    "FakeScanner", 200, 1, 1, 10, 200, detsPerRing, numRings, numDOI,
 		    maxRingDiff, minAngDiff, 2);
-		const auto detRegular = std::make_shared<DetRegular>(scanner.get());
+		const auto detRegular =
+		    std::make_shared<yrt::DetRegular>(scanner.get());
 		detRegular->generateLUT();
 		scanner->setDetectorSetup(detRegular);
 
 		size_t numDets =
 		    scanner->numDOI * scanner->numRings * scanner->detsPerRing;
-		auto histo3d = std::make_unique<Histogram3DOwned>(*scanner);
+		auto histo3d = std::make_unique<yrt::Histogram3DOwned>(*scanner);
 
 		SECTION("histo3d-binIds-trial-" + std::to_string(trial + 1))
 		{
-			for (bin_t binId = 0; binId < histo3d->count(); binId++)
+			for (yrt::bin_t binId = 0; binId < histo3d->count(); binId++)
 			{
-				coord_t r, phi, z_bin;
+				yrt::coord_t r, phi, z_bin;
 				histo3d->getCoordsFromBinId(binId, r, phi, z_bin);
-				bin_t supposedBin = histo3d->getBinIdFromCoords(r, phi, z_bin);
+				yrt::bin_t supposedBin =
+				    histo3d->getBinIdFromCoords(r, phi, z_bin);
 				REQUIRE(supposedBin == binId);
 			}
 		}
 
 		SECTION("histo3d-coords-binning-trial-" + std::to_string(trial + 1))
 		{
-			coord_t r, phi, z_bin;
+			yrt::coord_t r, phi, z_bin;
 			for (r = 0; r < histo3d->numR; r++)
 			{
 				for (phi = 0; phi < histo3d->numPhi; phi++)
 				{
 					for (z_bin = 0; z_bin < histo3d->numZBin; z_bin++)
 					{
-						det_id_t d1, d2;
-						coord_t r_supp, phi_supp, z_bin_supp;
+						yrt::det_id_t d1, d2;
+						yrt::coord_t r_supp, phi_supp, z_bin_supp;
 						histo3d->getDetPairFromCoords(r, phi, z_bin, d1, d2);
 						if (d1 == 0 && d2 == 0)
 						{
@@ -185,7 +192,7 @@ TEST_CASE("histo3d", "[histo]")
 						}
 						histo3d->getCoordsFromDetPair(d1, d2, r_supp, phi_supp,
 						                              z_bin_supp);
-						det_id_t d1_supp, d2_supp;
+						yrt::det_id_t d1_supp, d2_supp;
 						histo3d->getDetPairFromCoords(
 						    r_supp, phi_supp, z_bin_supp, d1_supp, d2_supp);
 
@@ -201,15 +208,15 @@ TEST_CASE("histo3d", "[histo]")
 
 		SECTION("histo3d-detector-swap-trial-" + std::to_string(trial + 1))
 		{
-			coord_t r, phi, z_bin;
+			yrt::coord_t r, phi, z_bin;
 			for (r = 0; r < histo3d->numR; r++)
 			{
 				for (phi = 0; phi < histo3d->numPhi; phi++)
 				{
 					for (z_bin = 0; z_bin < histo3d->numZBin; z_bin++)
 					{
-						det_id_t d1, d2;
-						coord_t r_supp, phi_supp, z_bin_supp;
+						yrt::det_id_t d1, d2;
+						yrt::coord_t r_supp, phi_supp, z_bin_supp;
 						histo3d->getDetPairFromCoords(r, phi, z_bin, d1, d2);
 						if (d1 == 0 && d2 == 0)
 						{
@@ -228,11 +235,11 @@ TEST_CASE("histo3d", "[histo]")
 
 		SECTION("histo3d-coords-uniqueness-trial-" + std::to_string(trial + 1))
 		{
-			std::vector<std::array<coord_t, 3>> all_coords;
+			std::vector<std::array<yrt::coord_t, 3>> all_coords;
 
-			for (det_id_t d1 = 0; d1 < numDets; d1++)
+			for (yrt::det_id_t d1 = 0; d1 < numDets; d1++)
 			{
-				for (det_id_t d2 = d1 + 1; d2 < numDets; d2++)
+				for (yrt::det_id_t d2 = d1 + 1; d2 < numDets; d2++)
 				{
 					int d1_ring = d1 % (scanner->detsPerRing);
 					int d2_ring = d2 % (scanner->detsPerRing);
@@ -253,15 +260,15 @@ TEST_CASE("histo3d", "[histo]")
 						continue;
 					}
 
-					coord_t r, phi, z_bin;
+					yrt::coord_t r, phi, z_bin;
 					histo3d->getCoordsFromDetPair(d1, d2, r, phi, z_bin);
 					all_coords.push_back({r, phi, z_bin});
 				}
 			}
 			std::sort(std::begin(all_coords), std::end(all_coords),
-			          compare_coords);
+			          yrt::compare_coords);
 			auto u = std::unique(std::begin(all_coords), std::end(all_coords),
-			                     check_coords);
+			                     yrt::check_coords);
 			bool containsDuplicate = u != std::end(all_coords);
 			REQUIRE(!containsDuplicate);
 		}
@@ -269,14 +276,14 @@ TEST_CASE("histo3d", "[histo]")
 		SECTION("histo3d-detector-pairs-uniqueness-trial-" +
 		        std::to_string(trial + 1))
 		{
-			std::vector<det_pair_t> allDetPairs;
+			std::vector<yrt::det_pair_t> allDetPairs;
 
 			const size_t numBins = histo3d->count();
 			allDetPairs.reserve(numBins);
 
-			for (bin_t binId = 0; binId < numBins; binId++)
+			for (yrt::bin_t binId = 0; binId < numBins; binId++)
 			{
-				det_pair_t currPair = histo3d->getDetectorPair(binId);
+				yrt::det_pair_t currPair = histo3d->getDetectorPair(binId);
 
 				if (currPair.d1 == 0 && currPair.d2 == 0)
 				{
@@ -287,9 +294,9 @@ TEST_CASE("histo3d", "[histo]")
 			}
 
 			std::sort(std::begin(allDetPairs), std::end(allDetPairs),
-			          compare_det_pairs);
+			          yrt::compare_det_pairs);
 			auto u = std::unique(std::begin(allDetPairs), std::end(allDetPairs),
-			                     check_det_pairs);
+			                     yrt::check_det_pairs);
 			bool containsDuplicate = u != std::end(allDetPairs);
 			REQUIRE(!containsDuplicate);
 		}
@@ -303,11 +310,11 @@ TEST_CASE("histo3d", "[histo]")
 				auto binIter = histo3d->getBinIter(num_subsets, subset);
 				CHECK(binIter->size() == histo3d->count() / num_subsets);
 				CHECK(binIter->size() == histo3d->numR * histo3d->numZBin);
-				coord_t r0, phi0, z_bin0;
+				yrt::coord_t r0, phi0, z_bin0;
 				histo3d->getCoordsFromBinId(binIter->get(0), r0, phi0, z_bin0);
-				for (bin_t bin = 1; bin < binIter->size(); bin++)
+				for (yrt::bin_t bin = 1; bin < binIter->size(); bin++)
 				{
-					coord_t r, phi, z_bin;
+					yrt::coord_t r, phi, z_bin;
 					histo3d->getCoordsFromBinId(binIter->get(bin), r, phi,
 					                            z_bin);
 					REQUIRE(phi == phi0);
@@ -317,20 +324,20 @@ TEST_CASE("histo3d", "[histo]")
 
 		SECTION("histo3d-get-lor-id-trial-" + std::to_string(trial + 1))
 		{
-			bin_t binId = 12;
+			yrt::bin_t binId = 12;
 			auto [d1_ref, d2_ref] = histo3d->getDetectorPair(binId);
-			histo_bin_t lorId = histo3d->getHistogramBin(binId);
-			auto newBin = std::get<bin_t>(lorId);
-			det_pair_t detPair = histo3d->getDetectorPair(newBin);
+			yrt::histo_bin_t lorId = histo3d->getHistogramBin(binId);
+			auto newBin = std::get<yrt::bin_t>(lorId);
+			yrt::det_pair_t detPair = histo3d->getDetectorPair(newBin);
 			CHECK(d1_ref == detPair.d1);
 			CHECK(d2_ref == detPair.d2);
 		}
 
 		SECTION("histo3d-allowed-lors-trial-" + std::to_string(trial + 1))
 		{
-			for (det_id_t d1 = 0; d1 < numDets; d1++)
+			for (yrt::det_id_t d1 = 0; d1 < numDets; d1++)
 			{
-				for (det_id_t d2 = d1 + 1; d2 < numDets; d2++)
+				for (yrt::det_id_t d2 = d1 + 1; d2 < numDets; d2++)
 				{
 					auto [doi_d1, ring_d1, posInRing_d1] =
 					    getDetectorPositionInScanner(*scanner, d1);
@@ -345,20 +352,21 @@ TEST_CASE("histo3d", "[histo]")
 					}
 
 					// Check difference in ring (angle difference)
-					if (std::min(
-					        Util::positiveModulo(posInRing_d1 - posInRing_d2,
-					                             scanner->detsPerRing),
-					        Util::positiveModulo(posInRing_d2 - posInRing_d1,
-					                             scanner->detsPerRing)) <
+					if (std::min(yrt::util::positiveModulo(
+					                 posInRing_d1 - posInRing_d2,
+					                 scanner->detsPerRing),
+					             yrt::util::positiveModulo(
+					                 posInRing_d2 - posInRing_d1,
+					                 scanner->detsPerRing)) <
 					    static_cast<int64_t>(scanner->minAngDiff))
 					{
 						continue;
 					}
 
-					coord_t r, phi, z_bin;
+					yrt::coord_t r, phi, z_bin;
 					histo3d->getCoordsFromDetPair(d1, d2, r, phi, z_bin);
 
-					det_pair_t detPair2;
+					yrt::det_pair_t detPair2;
 					histo3d->getDetPairFromCoords(r, phi, z_bin, detPair2.d1,
 					                              detPair2.d2);
 

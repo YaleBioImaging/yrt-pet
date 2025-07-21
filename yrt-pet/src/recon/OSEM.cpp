@@ -3,24 +3,24 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "recon/OSEM.hpp"
+#include "yrt-pet/recon/OSEM.hpp"
 
-#include "datastruct/IO.hpp"
-#include "datastruct/image/Image.hpp"
-#include "datastruct/projection/Histogram3D.hpp"
-#include "datastruct/projection/ListMode.hpp"
-#include "datastruct/projection/ProjectionData.hpp"
-#include "datastruct/projection/ProjectionList.hpp"
-#include "datastruct/projection/UniformHistogram.hpp"
-#include "datastruct/scanner/Scanner.hpp"
-#include "operators/OperatorProjector.hpp"
-#include "operators/OperatorProjectorDD.hpp"
-#include "operators/OperatorProjectorSiddon.hpp"
-#include "operators/OperatorPsf.hpp"
-#include "operators/OperatorVarPsf.hpp"
-#include "utils/Assert.hpp"
-#include "utils/Globals.hpp"
-#include "utils/Tools.hpp"
+#include "yrt-pet/datastruct/IO.hpp"
+#include "yrt-pet/datastruct/image/Image.hpp"
+#include "yrt-pet/datastruct/projection/Histogram3D.hpp"
+#include "yrt-pet/datastruct/projection/ListMode.hpp"
+#include "yrt-pet/datastruct/projection/ProjectionData.hpp"
+#include "yrt-pet/datastruct/projection/ProjectionList.hpp"
+#include "yrt-pet/datastruct/projection/UniformHistogram.hpp"
+#include "yrt-pet/datastruct/scanner/Scanner.hpp"
+#include "yrt-pet/operators/OperatorProjector.hpp"
+#include "yrt-pet/operators/OperatorProjectorDD.hpp"
+#include "yrt-pet/operators/OperatorProjectorSiddon.hpp"
+#include "yrt-pet/operators/OperatorPsf.hpp"
+#include "yrt-pet/operators/OperatorVarPsf.hpp"
+#include "yrt-pet/utils/Assert.hpp"
+#include "yrt-pet/utils/Globals.hpp"
+#include "yrt-pet/utils/Tools.hpp"
 
 #if BUILD_PYBIND11
 #include <pybind11/numpy.h>
@@ -29,6 +29,8 @@ namespace py = pybind11;
 
 using namespace pybind11::literals;
 
+namespace yrt
+{
 void py_setup_osem(pybind11::module& m)
 {
 	py::enum_<ImagePSFMode>(m, "ImagePSFMode")
@@ -113,7 +115,12 @@ void py_setup_osem(pybind11::module& m)
 	c.def_readwrite("maskImage", &OSEM::maskImage);
 	c.def_readwrite("initialEstimate", &OSEM::initialEstimate);
 }
+}  // namespace yrt
+
 #endif
+
+namespace yrt
+{
 
 OSEM::OSEM(const Scanner& pr_scanner)
     : num_MLEM_iterations(DEFAULT_NUM_ITERATIONS),
@@ -201,7 +208,7 @@ void OSEM::generateSensitivityImagesCore(
 	sensImages.clear();
 
 	const int numDigitsInFilename =
-	    num_OSEM_subsets > 1 ? Util::numberOfDigits(num_OSEM_subsets - 1) : 1;
+	    num_OSEM_subsets > 1 ? util::numberOfDigits(num_OSEM_subsets - 1) : 1;
 
 	for (int subsetId = 0; subsetId < num_OSEM_subsets; subsetId++)
 	{
@@ -224,10 +231,10 @@ void OSEM::generateSensitivityImagesCore(
 			std::string outFileName = out_fname;
 			if (num_OSEM_subsets != 1)
 			{
-				outFileName = Util::addBeforeExtension(
+				outFileName = util::addBeforeExtension(
 				    out_fname,
 				    std::string("_subset") +
-				        Util::padZeros(subsetId, numDigitsInFilename));
+				        util::padZeros(subsetId, numDigitsInFilename));
 			}
 			generatedImage->writeToFile(outFileName);
 		}
@@ -425,7 +432,7 @@ void OSEM::addImagePSF(const std::string& p_imagePsf_fname,
 	flagImagePSF = true;
 }
 
-void OSEM::setSaveIterRanges(Util::RangeList p_saveIterList,
+void OSEM::setSaveIterRanges(util::RangeList p_saveIterList,
                              const std::string& p_saveIterPath)
 {
 	saveIterRanges = p_saveIterList;
@@ -439,7 +446,7 @@ void OSEM::setListModeEnabled(bool enabled)
 
 void OSEM::setProjector(const std::string& projectorName)
 {
-	projectorType = IO::getProjector(projectorName);
+	projectorType = io::getProjector(projectorName);
 }
 
 bool OSEM::isListModeEnabled() const
@@ -590,7 +597,7 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 
 	initializeForRecon();
 
-	const int numDigitsInFilename = Util::numberOfDigits(num_MLEM_iterations);
+	const int numDigitsInFilename = util::numberOfDigits(num_MLEM_iterations);
 
 	// MLEM iterations
 	for (int iter = 0; iter < num_MLEM_iterations; iter++)
@@ -658,8 +665,8 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 		if (saveIterRanges.isIn(iter + 1))
 		{
 			std::string iteration_name =
-			    Util::padZeros(iter + 1, numDigitsInFilename);
-			std::string outIteration_fname = Util::addBeforeExtension(
+			    util::padZeros(iter + 1, numDigitsInFilename);
+			std::string outIteration_fname = util::addBeforeExtension(
 			    saveIterPath, std::string("_iteration") + iteration_name);
 			getMLEMImageBuffer()->writeToFile(outIteration_fname);
 		}
@@ -711,7 +718,7 @@ void OSEM::summary() const
 		std::cout << "Projector type: Distance-Driven" << std::endl;
 	}
 
-	std::cout << "Number of threads used: " << Globals::get_num_threads()
+	std::cout << "Number of threads used: " << globals::getNumThreads()
 	          << std::endl;
 	std::cout << "Scanner name: " << scanner.scannerName << std::endl;
 
@@ -742,3 +749,5 @@ void OSEM::summary() const
 		          << std::endl;
 	}
 }
+
+}  // namespace yrt

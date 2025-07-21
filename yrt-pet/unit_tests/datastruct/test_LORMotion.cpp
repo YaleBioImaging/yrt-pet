@@ -6,10 +6,11 @@
 #include "catch.hpp"
 
 #include "../test_utils.hpp"
-#include "datastruct/projection/LORMotion.hpp"
+#include "yrt-pet/datastruct/projection/LORMotion.hpp"
+#include "yrt-pet/geometry/Constants.hpp"
 
-#include <geometry/Constants.hpp>
-
+namespace yrt
+{
 // Compare two transform_t
 bool compareTransforms(const transform_t& a, const transform_t& b,
                        float epsilon = 1e-5)
@@ -26,13 +27,14 @@ bool compareTransforms(const transform_t& a, const transform_t& b,
 	}
 	return true;
 }
+}  // namespace yrt
 
 TEST_CASE("lor-motion", "[motion]")
 {
 	const std::string tempFilename = "tmp_lormotion.vc";
 
 	// Create sample data
-	std::vector<LORMotion::Record> originalRecords = {
+	std::vector<yrt::LORMotion::Record> originalRecords = {
 	    {1000,
 	     {1.0f, 0.0f, 0.0f, 10.0f, 0.0f, 1.0f, 0.0f, 20.0f, 0.0f, 0.0f, 1.0f,
 	      30.0f},
@@ -43,10 +45,11 @@ TEST_CASE("lor-motion", "[motion]")
 	     1.0f}};
 
 	// Populate LORMotion
-	const auto lorMot = std::make_unique<LORMotion>(originalRecords.size());
+	const auto lorMot =
+	    std::make_unique<yrt::LORMotion>(originalRecords.size());
 	for (size_t frame_i = 0; frame_i < originalRecords.size(); frame_i++)
 	{
-		const LORMotion::Record record = originalRecords[frame_i];
+		const yrt::LORMotion::Record record = originalRecords[frame_i];
 		lorMot->setStartingTimestamp(frame_i, record.timestamp);
 		lorMot->setTransform(frame_i, record.transform);
 		lorMot->setError(frame_i, record.error);
@@ -56,19 +59,20 @@ TEST_CASE("lor-motion", "[motion]")
 	lorMot->writeToFile(tempFilename);
 
 	// Read the file just written
-	auto lorMot2 = std::make_unique<LORMotion>(tempFilename);
+	auto lorMot2 = std::make_unique<yrt::LORMotion>(tempFilename);
 
 	// Compare
 	REQUIRE(lorMot2->getNumFrames() == originalRecords.size());
 	for (size_t frame_i = 0; frame_i < originalRecords.size(); frame_i++)
 	{
-		const LORMotion::Record originalRecord = originalRecords[frame_i];
+		const yrt::LORMotion::Record originalRecord = originalRecords[frame_i];
 		CHECK(compareTransforms(originalRecord.transform,
-		                        lorMot2->getTransform(frame_i), SMALL_FLT));
+		                        lorMot2->getTransform(frame_i),
+		                        yrt::SMALL_FLT));
 		CHECK(originalRecord.timestamp ==
 		      lorMot2->getStartingTimestamp(frame_i));
 		CHECK(std::fabs(originalRecord.error - lorMot2->getError(frame_i) <
-		                SMALL_FLT));
+		                yrt::SMALL_FLT));
 	}
 
 	// Clean up

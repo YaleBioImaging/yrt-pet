@@ -3,8 +3,8 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "geometry/TubeOfResponse.hpp"
-#include "geometry/Cylinder.hpp"
+#include "yrt-pet/geometry/TubeOfResponse.hpp"
+#include "yrt-pet/geometry/Cylinder.hpp"
 
 #include <cmath>
 #include <cstdlib>
@@ -13,6 +13,9 @@
 #include <pybind11/pybind11.h>
 #include <sstream>
 namespace py = pybind11;
+
+namespace yrt
+{
 
 void py_setup_tubeofresponse(py::module& m)
 {
@@ -37,8 +40,12 @@ void py_setup_tubeofresponse(py::module& m)
 	c.def_readwrite("isMoreHorizontalThanVertical",
 	                &TubeOfResponse::isMoreHorizontalThanVertical);
 }
+}  // namespace yrt
 
 #endif
+
+namespace yrt
+{
 
 void TubeOfResponse::setLeftLine(const Line3D& l)
 {
@@ -149,3 +156,4 @@ bool TubeOfResponse::clip(const Cylinder& cyl)
 	updateAvgLine();
 	return allIntersect;
 }
+}  // namespace yrt

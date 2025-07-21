@@ -3,8 +3,8 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "geometry/Line3D.hpp"
-#include "geometry/Constants.hpp"
+#include "yrt-pet/geometry/Line3D.hpp"
+#include "yrt-pet/geometry/Constants.hpp"
 
 #if BUILD_PYBIND11
 #include <pybind11/operators.h>
@@ -12,6 +12,10 @@
 #include <sstream>
 
 namespace py = pybind11;
+using namespace py::literals;
+
+namespace yrt
+{
 
 template <typename TFloat>
 void py_setup_line3dbase(py::module& m)
@@ -30,11 +34,12 @@ void py_setup_line3dbase(py::module& m)
 		        new Line3DBase<TFloat>{Line3DBase<TFloat>::nullLine()});
 	    }));
 	c.def(py::init(
-	    [](Vector3DBase<TFloat> point1, Vector3DBase<TFloat> point2)
-	    {
-		    return std::unique_ptr<Line3DBase<TFloat>>(
-		        new Line3DBase<TFloat>{point1, point2});
-	    }));
+	          [](Vector3DBase<TFloat> point1, Vector3DBase<TFloat> point2)
+	          {
+		          return std::unique_ptr<Line3DBase<TFloat>>(
+		              new Line3DBase<TFloat>{point1, point2});
+	          }),
+	      "p1"_a, "p2"_a);
 	c.def("getNorm", &Line3DBase<TFloat>::getNorm);
 	c.def("isEqual", &Line3DBase<TFloat>::isEqual);
 	c.def("isParallel", &Line3DBase<TFloat>::isParallel);
@@ -57,7 +62,11 @@ void py_setup_line3dall(py::module& m)
 	py_setup_line3dbase<double>(m);
 }
 
+}  // namespace yrt
 #endif
+
+namespace yrt
+{
 
 template <typename TFloat>
 TFloat Line3DBase<TFloat>::getNorm() const
@@ -174,3 +183,5 @@ static_assert(std::is_trivially_copy_assignable<Line3DBase<float>>());
 static_assert(std::is_trivially_default_constructible<Line3DBase<float>>());
 static_assert(std::is_trivially_move_assignable<Line3DBase<float>>());
 static_assert(std::is_trivially_move_constructible<Line3DBase<float>>());
+
+}  // namespace yrt

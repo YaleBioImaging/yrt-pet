@@ -3,15 +3,18 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "recon/OSEMUpdater_CPU.hpp"
+#include "yrt-pet/recon/OSEMUpdater_CPU.hpp"
 
-#include "datastruct/projection/ProjectionData.hpp"
-#include "recon/Corrector_CPU.hpp"
-#include "recon/OSEM_CPU.hpp"
-#include "utils/Assert.hpp"
-#include "utils/Globals.hpp"
-#include "utils/ProgressDisplayMultiThread.hpp"
+#include "yrt-pet/datastruct/projection/ProjectionData.hpp"
+#include "yrt-pet/recon/Corrector_CPU.hpp"
+#include "yrt-pet/recon/OSEM_CPU.hpp"
+#include "yrt-pet/utils/Assert.hpp"
+#include "yrt-pet/utils/Globals.hpp"
+#include "yrt-pet/utils/ProgressDisplayMultiThread.hpp"
 
+
+namespace yrt
+{
 
 OSEMUpdater_CPU::OSEMUpdater_CPU(OSEM_CPU* pp_osem) : mp_osem(pp_osem)
 {
@@ -28,7 +31,7 @@ void OSEMUpdater_CPU::computeSensitivityImage(Image& destImage) const
 	const ProjectionData* sensImgGenProjData =
 	    corrector.getSensImgGenProjData();
 	Image* destImagePtr = &destImage;
-	Util::ProgressDisplayMultiThread progressDisplay(Globals::get_num_threads(),
+	util::ProgressDisplayMultiThread progressDisplay(globals::getNumThreads(),
 	                                                 numBins);
 
 #pragma omp parallel for default(none)                                      \
@@ -122,3 +125,4 @@ void OSEMUpdater_CPU::computeEMUpdateImage(const Image& inputImage,
 		}
 	}
 }
+}  // namespace yrt

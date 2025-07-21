@@ -3,10 +3,10 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "geometry/MultiRayGenerator.hpp"
+#include "yrt-pet/geometry/MultiRayGenerator.hpp"
 
-#include "datastruct/scanner/Scanner.hpp"
-#include "geometry/Constants.hpp"
+#include "yrt-pet/datastruct/scanner/Scanner.hpp"
+#include "yrt-pet/geometry/Constants.hpp"
 
 #include <cmath>
 #include <utility>
@@ -14,6 +14,9 @@
 
 #if BUILD_PYBIND11
 #include <pybind11/pybind11.h>
+
+namespace yrt
+{
 void py_setup_multiraygenerator(pybind11::module& m)
 {
 	auto c = pybind11::class_<MultiRayGenerator>(m, "MultiRayGenerator");
@@ -23,7 +26,12 @@ void py_setup_multiraygenerator(pybind11::module& m)
 	c.def("setupGenerator", &MultiRayGenerator::setupGenerator);
 	c.def("getRandomLine", &MultiRayGenerator::getRandomLine);
 }
+}  // namespace yrt
+
 #endif
+
+namespace yrt
+{
 
 MultiRayGenerator::MultiRayGenerator(float thickness_z_i,
                                      float thickness_trans_i, bool isParallel_i)
@@ -82,3 +90,4 @@ Line3D MultiRayGenerator::getRandomLine(unsigned int& seed) const
 
 	return Line3D{pt1, pt2};
 }
+}  // namespace yrt

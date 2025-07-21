@@ -3,13 +3,13 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "datastruct/scanner/Scanner.hpp"
+#include "yrt-pet/datastruct/scanner/Scanner.hpp"
 
-#include "datastruct/scanner/DetRegular.hpp"
-#include "datastruct/scanner/DetectorSetup.hpp"
-#include "geometry/Constants.hpp"
-#include "utils/Assert.hpp"
-#include "utils/JSONUtils.hpp"
+#include "yrt-pet/datastruct/scanner/DetRegular.hpp"
+#include "yrt-pet/datastruct/scanner/DetectorSetup.hpp"
+#include "yrt-pet/geometry/Constants.hpp"
+#include "yrt-pet/utils/Assert.hpp"
+#include "yrt-pet/utils/JSONUtils.hpp"
 
 #if BUILD_PYBIND11
 #include <pybind11/numpy.h>
@@ -20,6 +20,8 @@
 namespace py = pybind11;
 using namespace py::literals;
 
+namespace yrt
+{
 void py_setup_scanner(pybind11::module& m)
 {
 	auto c = py::class_<Scanner>(m, "Scanner");
@@ -76,8 +78,11 @@ void py_setup_scanner(pybind11::module& m)
 	      [](Scanner& s, const std::shared_ptr<DetectorSetup>& detCoords)
 	      { s.setDetectorSetup(detCoords); });
 }
+}  // namespace yrt
 #endif
 
+namespace yrt
+{
 Scanner::Scanner(std::string pr_scannerName, float p_axialFOV,
                  float p_crystalSize_z, float p_crystalSize_trans,
                  float p_crystalDepth, float p_scannerRadius,
@@ -177,46 +182,46 @@ void Scanner::readFromString(const std::string& fileContents)
 	}
 
 	float scannerFileVersion = 0.0;
-	Util::getParam<float>(&j, &scannerFileVersion, "VERSION", 0.0, true,
+	util::getParam<float>(&j, &scannerFileVersion, "VERSION", 0.0, true,
 	                      "Missing VERSION in scanner definition file");
 
-	Util::getParam<std::string>(
+	util::getParam<std::string>(
 	    &j, &scannerName, "scannerName", "", true,
 	    "Missing scanner name in scanner definition file");
 
 	std::string detCoord;
 	const bool isDetCoordGiven =
-	    Util::getParam<std::string>(&j, &detCoord, "detCoord", "", false);
+	    util::getParam<std::string>(&j, &detCoord, "detCoord", "", false);
 
-	Util::getParam<float>(
+	util::getParam<float>(
 	    &j, &axialFOV, "axialFOV", 0.0, true,
 	    "Missing Axial Field Of View value in scanner definition file");
-	Util::getParam<float>(
+	util::getParam<float>(
 	    &j, &crystalSize_trans, "crystalSize_trans", 0.0, true,
 	    "Missing transaxial crystal size in scanner definition file");
-	Util::getParam<float>(
+	util::getParam<float>(
 	    &j, &crystalSize_z, "crystalSize_z", 0.0, true,
 	    "Missing z-axis crystal size in scanner definition file");
 
 	// Optional values for Scatter estimation only
-	Util::getParam<float>(&j, &collimatorRadius, "collimatorRadius", -1.0,
+	util::getParam<float>(&j, &collimatorRadius, "collimatorRadius", -1.0,
 	                      false);
-	Util::getParam<float>(&j, &fwhm, "fwhm", -1.0, false);
-	Util::getParam<float>(&j, &energyLLD, "energyLLD", -1.0, false);
+	util::getParam<float>(&j, &fwhm, "fwhm", -1.0, false);
+	util::getParam<float>(&j, &energyLLD, "energyLLD", -1.0, false);
 
-	Util::getParam<float>(&j, &crystalDepth, "crystalDepth", 0.0, true,
+	util::getParam<float>(&j, &crystalDepth, "crystalDepth", 0.0, true,
 	                      "Missing crystal depth in scanner definition file");
-	Util::getParam<float>(&j, &scannerRadius, "scannerRadius", 0.0, true,
+	util::getParam<float>(&j, &scannerRadius, "scannerRadius", 0.0, true,
 	                      "Missing scanner radius in scanner definition file");
-	Util::getParam<size_t>(&j, &detsPerRing, {"dets_per_ring", "detsPerRing"},
+	util::getParam<size_t>(&j, &detsPerRing, {"dets_per_ring", "detsPerRing"},
 	                       0, true);
-	Util::getParam<size_t>(&j, &numRings, {"num_rings", "numRings"}, 0, true);
-	Util::getParam<size_t>(&j, &numDOI, {"num_doi", "numDOI"}, 0, true);
-	Util::getParam<size_t>(&j, &maxRingDiff, {"max_ring_diff", "maxRingDiff"},
+	util::getParam<size_t>(&j, &numRings, {"num_rings", "numRings"}, 0, true);
+	util::getParam<size_t>(&j, &numDOI, {"num_doi", "numDOI"}, 0, true);
+	util::getParam<size_t>(&j, &maxRingDiff, {"max_ring_diff", "maxRingDiff"},
 	                       0, true);
-	Util::getParam<size_t>(&j, &minAngDiff, {"min_ang_diff", "minAngDiff"}, 0,
+	util::getParam<size_t>(&j, &minAngDiff, {"min_ang_diff", "minAngDiff"}, 0,
 	                       true);
-	Util::getParam<size_t>(&j, &detsPerBlock,
+	util::getParam<size_t>(&j, &detsPerBlock,
 	                       {"dets_per_block", "detsPerBlock"}, 1, false);
 
 	// Check for errors
@@ -273,3 +278,4 @@ void Scanner::readFromFile(const std::string& p_definitionFile)
 	std::string fileContents = ss.str();
 	readFromString(fileContents);
 }
+}  // namespace yrt

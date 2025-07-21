@@ -5,26 +5,28 @@
 
 #include "../ArgumentReader.hpp"
 
-#include "datastruct/IO.hpp"
-#include "datastruct/projection/Histogram3D.hpp"
-#include "datastruct/projection/SparseHistogram.hpp"
-#include "datastruct/scanner/Scanner.hpp"
-#include "operators/OperatorProjector.hpp"
-#include "operators/OperatorProjectorDD.hpp"
-#include "operators/OperatorProjectorSiddon.hpp"
-#include "operators/SparseProjection.hpp"
-#include "utils/Assert.hpp"
-#include "utils/Globals.hpp"
-#include "utils/ReconstructionUtils.hpp"
+#include "yrt-pet/datastruct/IO.hpp"
+#include "yrt-pet/datastruct/projection/Histogram3D.hpp"
+#include "yrt-pet/datastruct/projection/SparseHistogram.hpp"
+#include "yrt-pet/datastruct/scanner/Scanner.hpp"
+#include "yrt-pet/operators/OperatorProjector.hpp"
+#include "yrt-pet/operators/OperatorProjectorDD.hpp"
+#include "yrt-pet/operators/OperatorProjectorSiddon.hpp"
+#include "yrt-pet/operators/SparseProjection.hpp"
+#include "yrt-pet/utils/Assert.hpp"
+#include "yrt-pet/utils/Globals.hpp"
+#include "yrt-pet/utils/ReconstructionUtils.hpp"
 
 #include <cxxopts.hpp>
 #include <iostream>
+
+using namespace yrt;
 
 int main(int argc, char** argv)
 {
 	try
 	{
-		IO::ArgumentRegistry registry{};
+		io::ArgumentRegistry registry{};
 
 		std::string coreGroup = "0. Core";
 		std::string inputGroup = "1. Input";
@@ -32,52 +34,52 @@ int main(int argc, char** argv)
 		std::string outputGroup = "3. Output";
 
 		registry.registerArgument("scanner", "Scanner parameters file", true,
-		                          IO::TypeOfArgument::STRING, "", coreGroup,
+		                          io::TypeOfArgument::STRING, "", coreGroup,
 		                          "s");
 #if BUILD_CUDA
 		registry.registerArgument("gpu", "Use GPU acceleration", false,
-		                          IO::TypeOfArgument::BOOL, false, coreGroup);
+		                          io::TypeOfArgument::BOOL, false, coreGroup);
 #endif
 		registry.registerArgument("num_threads", "Number of threads to use",
-		                          false, IO::TypeOfArgument::INT, -1,
+		                          false, io::TypeOfArgument::INT, -1,
 		                          coreGroup);
 
 		registry.registerArgument("input", "Input image file", false,
-		                          IO::TypeOfArgument::STRING, "", inputGroup,
+		                          io::TypeOfArgument::STRING, "", inputGroup,
 		                          "i");
 		registry.registerArgument("psf", "Image-space PSF kernel file", false,
-		                          IO::TypeOfArgument::STRING, "", inputGroup);
+		                          io::TypeOfArgument::STRING, "", inputGroup);
 		registry.registerArgument("num_subsets",
 		                          "Number of OSEM subsets (Default: 1)", false,
-		                          IO::TypeOfArgument::INT, 1, inputGroup);
+		                          io::TypeOfArgument::INT, 1, inputGroup);
 		registry.registerArgument("subset_id",
 		                          "Subset to backproject (Default: 0)", false,
-		                          IO::TypeOfArgument::INT, 0, inputGroup);
+		                          io::TypeOfArgument::INT, 0, inputGroup);
 
 		registry.registerArgument(
 		    "projector",
 		    "Projector to use, choices: Siddon (S), Distance-Driven (D). The "
 		    "default projector is Siddon",
-		    false, IO::TypeOfArgument::STRING, "S", projectorGroup);
+		    false, io::TypeOfArgument::STRING, "S", projectorGroup);
 		registry.registerArgument(
 		    "proj_psf",
 		    "Projection-space PSF kernel file (for DD projector only)", false,
-		    IO::TypeOfArgument::STRING, "", projectorGroup);
+		    io::TypeOfArgument::STRING, "", projectorGroup);
 		registry.registerArgument(
 		    "num_rays", "Number of rays to use (for Siddon projector only)",
-		    false, IO::TypeOfArgument::INT, 1, projectorGroup);
+		    false, io::TypeOfArgument::INT, 1, projectorGroup);
 
 		registry.registerArgument("out", "Output histogram filename", false,
-		                          IO::TypeOfArgument::STRING, "", outputGroup,
+		                          io::TypeOfArgument::STRING, "", outputGroup,
 		                          "o");
 		registry.registerArgument("to_acf", "Generate ACF histogram", false,
-		                          IO::TypeOfArgument::BOOL, false, outputGroup);
+		                          io::TypeOfArgument::BOOL, false, outputGroup);
 		registry.registerArgument(
 		    "sparse", "Forward project to a sparse histogram", false,
-		    IO::TypeOfArgument::BOOL, false, outputGroup);
+		    io::TypeOfArgument::BOOL, false, outputGroup);
 
 		// Load configuration
-		IO::ArgumentReader config{
+		io::ArgumentReader config{
 		    registry, "Forward project an image into a Histogram3D"};
 
 		if (!config.loadFromCommandLine(argc, argv))
@@ -109,7 +111,7 @@ int main(int argc, char** argv)
 		bool toSparseHistogram = config.getValue<bool>("sparse");
 
 		auto scanner = std::make_unique<Scanner>(scanner_fname);
-		Globals::set_num_threads(numThreads);
+		globals::setNumThreads(numThreads);
 
 		// Input file
 		auto inputImage = std::make_unique<ImageOwned>(inputImage_fname);
@@ -122,7 +124,7 @@ int main(int argc, char** argv)
 			imagePsf->applyA(inputImage.get(), inputImage.get());
 		}
 
-		auto projectorType = IO::getProjector(projector_name);
+		auto projectorType = io::getProjector(projector_name);
 
 		if (!toSparseHistogram)
 		{
@@ -134,14 +136,14 @@ int main(int argc, char** argv)
 			OperatorProjectorParams projParams(binIter.get(), *scanner, 0, 0,
 			                                   projPsf_fname, numRays);
 
-			Util::forwProject(*inputImage, *his, projParams, projectorType,
+			util::forwProject(*inputImage, *his, projParams, projectorType,
 			                  useGPU);
 
 			if (convertToAcf)
 			{
 				std::cout << "Computing attenuation coefficient factors..."
 				          << std::endl;
-				Util::convertProjectionValuesToACF(*his);
+				util::convertProjectionValuesToACF(*his);
 			}
 
 			std::cout << "Writing histogram to file..." << std::endl;
@@ -174,14 +176,14 @@ int main(int argc, char** argv)
 
 			sparseHistogram->allocate(params.nx * params.ny);
 
-			Util::forwProjectToSparseHistogram(*inputImage, *projector,
+			util::forwProjectToSparseHistogram(*inputImage, *projector,
 			                                   *sparseHistogram);
 
 			if (convertToAcf)
 			{
 				std::cout << "Computing attenuation coefficient factors..."
 				          << std::endl;
-				Util::convertProjectionValuesToACF(*sparseHistogram);
+				util::convertProjectionValuesToACF(*sparseHistogram);
 			}
 
 			sparseHistogram->writeToFile(outHis_fname);
@@ -197,7 +199,7 @@ int main(int argc, char** argv)
 	}
 	catch (const std::exception& e)
 	{
-		Util::printExceptionMessage(e);
+		util::printExceptionMessage(e);
 		return -1;
 	}
 }

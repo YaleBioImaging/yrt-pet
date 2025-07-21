@@ -3,14 +3,17 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "operators/OperatorPsfDevice.cuh"
+#include "yrt-pet/operators/OperatorPsfDevice.cuh"
 
-#include <datastruct/image/ImageSpaceKernels.cuh>
+#include "yrt-pet/datastruct/image/ImageSpaceKernels.cuh"
 
 #if BUILD_PYBIND11
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 namespace py = pybind11;
+
+namespace yrt
+{
 
 void py_setup_operatorpsfdevice(py::module& m)
 {
@@ -53,7 +56,12 @@ void py_setup_operatorpsfdevice(py::module& m)
 	       ImageDevice* img_out) { self.applyAH(img_in, img_out); },
 	    py::arg("img_in"), py::arg("img_out"));
 }
+}  // namespace yrt
+
 #endif
+
+namespace yrt
+{
 
 OperatorPsfDevice::OperatorPsfDevice(const cudaStream_t* pp_stream)
     : DeviceSynchronized{pp_stream, pp_stream}, OperatorPsf{}
@@ -432,3 +440,5 @@ void OperatorPsfDevice::convolveDevice(const ImageDevice& inputImage,
 
 	cudaCheckError();
 }
+
+}  // namespace yrt

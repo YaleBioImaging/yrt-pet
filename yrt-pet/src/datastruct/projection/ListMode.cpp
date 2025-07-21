@@ -3,9 +3,9 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "datastruct/projection/ListMode.hpp"
-#include "utils/Assert.hpp"
-#include "utils/Types.hpp"
+#include "yrt-pet/datastruct/projection/ListMode.hpp"
+#include "yrt-pet/utils/Assert.hpp"
+#include "yrt-pet/utils/Types.hpp"
 
 #include <stdexcept>
 
@@ -17,6 +17,8 @@ namespace py = pybind11;
 
 using namespace py::literals;
 
+namespace yrt
+{
 void py_setup_listmode(py::module& m)
 {
 	auto c = py::class_<ListMode, ProjectionData>(m, "ListMode");
@@ -30,9 +32,11 @@ void py_setup_listmode(py::module& m)
 	          &ListMode::addLORMotion),
 	      "lorMotion_fname"_a);
 }
-
+}  // namespace yrt
 #endif  // if BUILD_PYBIND11
 
+namespace yrt
+{
 ListMode::ListMode(const Scanner& pr_scanner) : ProjectionData{pr_scanner} {}
 
 float ListMode::getProjectionValue(bin_t id) const
@@ -159,3 +163,4 @@ float ListMode::getDurationOfFrame(frame_t frame) const
 	// For the events before the beginning of the frame
 	return ProjectionData::getDurationOfFrame(frame);
 }
+}  // namespace yrt

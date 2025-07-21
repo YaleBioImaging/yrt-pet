@@ -5,7 +5,7 @@
 
 #include "catch.hpp"
 
-#include "utils/GPUUtils.cuh"
+#include "yrt-pet/utils/GPUUtils.cuh"
 #include <iostream>
 #include <memory>
 
@@ -35,25 +35,25 @@ TEST_CASE("cuda", "[cuda]")
 			c_ref[i] = a[i] + b[i];
 		}
 		float* a_g = nullptr;
-		gpuErrchk(cudaMalloc(&a_g, n * sizeof(float)));
+		yrt::gpuErrchk(cudaMalloc(&a_g, n * sizeof(float)));
 		float* b_g = nullptr;
-		gpuErrchk(cudaMalloc(&b_g, n * sizeof(float)));
+		yrt::gpuErrchk(cudaMalloc(&b_g, n * sizeof(float)));
 		float* c_g = nullptr;
-		gpuErrchk(cudaMalloc(&c_g, n * sizeof(float)));
+		yrt::gpuErrchk(cudaMalloc(&c_g, n * sizeof(float)));
 
-		gpuErrchk(cudaMemcpy((char*)a_g, (char*)a, n * sizeof(float),
-		                     cudaMemcpyHostToDevice));
-		gpuErrchk(cudaMemcpy((char*)b_g, (char*)b, n * sizeof(float),
-		                     cudaMemcpyHostToDevice));
+		yrt::gpuErrchk(cudaMemcpy((char*)a_g, (char*)a, n * sizeof(float),
+		                          cudaMemcpyHostToDevice));
+		yrt::gpuErrchk(cudaMemcpy((char*)b_g, (char*)b, n * sizeof(float),
+		                          cudaMemcpyHostToDevice));
 
 		int block_size = 32;
 		int num_blocks = n / block_size + 1;
 		cudaSum<<<num_blocks, block_size>>>(a_g, b_g, c_g, n);
-		gpuErrchk(cudaPeekAtLastError());
-		gpuErrchk(cudaDeviceSynchronize());
+		yrt::gpuErrchk(cudaPeekAtLastError());
+		yrt::gpuErrchk(cudaDeviceSynchronize());
 
-		gpuErrchk(cudaMemcpy((char*)c, (char*)c_g, n * sizeof(float),
-		                     cudaMemcpyDeviceToHost));
+		yrt::gpuErrchk(cudaMemcpy((char*)c, (char*)c_g, n * sizeof(float),
+		                          cudaMemcpyDeviceToHost));
 
 		float max_err = 0.f;
 		for (int i = 0; i < n; i++)
@@ -63,9 +63,9 @@ TEST_CASE("cuda", "[cuda]")
 
 		REQUIRE(max_err < 1e-6);
 
-		gpuErrchk(cudaFree(a_g));
-		gpuErrchk(cudaFree(b_g));
-		gpuErrchk(cudaFree(c_g));
+		yrt::gpuErrchk(cudaFree(a_g));
+		yrt::gpuErrchk(cudaFree(b_g));
+		yrt::gpuErrchk(cudaFree(c_g));
 		delete[] a;
 		delete[] b;
 		delete[] c;

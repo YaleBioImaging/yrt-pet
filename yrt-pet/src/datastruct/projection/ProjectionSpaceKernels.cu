@@ -3,11 +3,13 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "datastruct/projection/ProjectionSpaceKernels.cuh"
-#include "geometry/Constants.hpp"
+#include "yrt-pet/datastruct/projection/ProjectionSpaceKernels.cuh"
+#include "yrt-pet/geometry/Constants.hpp"
 
 #include <complex>
 
+namespace yrt
+{
 __global__ void divideMeasurements_kernel(const float* d_dataIn,
                                           float* d_dataOut,
                                           const int maxNumberOfEvents)
@@ -90,3 +92,4 @@ __global__ void clearProjections_kernel(float* d_dataIn, float value,
 		d_dataIn[eventId] = value;
 	}
 }
+}  // namespace yrt

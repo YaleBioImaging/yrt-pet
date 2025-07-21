@@ -3,7 +3,7 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "operators/Variable.hpp"
+#include "yrt-pet/operators/Variable.hpp"
 
 #if BUILD_PYBIND11
 
@@ -11,10 +11,12 @@
 
 namespace py = pybind11;
 
+namespace yrt
+{
 void py_setup_variable(py::module& m)
 {
 	// Variable is added here because the class is empty
 	auto c = py::class_<Variable>(m, "Variable");
 }
-
+}  // namespace yrt
 #endif

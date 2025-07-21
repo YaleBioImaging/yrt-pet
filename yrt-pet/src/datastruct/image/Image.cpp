@@ -3,16 +3,16 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "datastruct/image/Image.hpp"
+#include "yrt-pet/datastruct/image/Image.hpp"
 
-#include "datastruct/image/ImageBase.hpp"
-#include "geometry/Constants.hpp"
-#include "geometry/Matrix.hpp"
-#include "geometry/TransformUtils.hpp"
-#include "utils/Assert.hpp"
-#include "utils/Tools.hpp"
-#include "utils/Types.hpp"
-#include "utils/Utilities.hpp"
+#include "yrt-pet/datastruct/image/ImageBase.hpp"
+#include "yrt-pet/geometry/Constants.hpp"
+#include "yrt-pet/geometry/Matrix.hpp"
+#include "yrt-pet/geometry/TransformUtils.hpp"
+#include "yrt-pet/utils/Assert.hpp"
+#include "yrt-pet/utils/Tools.hpp"
+#include "yrt-pet/utils/Types.hpp"
+#include "yrt-pet/utils/Utilities.hpp"
 
 #include <cmath>
 #include <cstring>
@@ -25,6 +25,8 @@
 #include <pybind11/pybind11.h>
 namespace py = pybind11;
 
+namespace yrt
+{
 void py_setup_image(py::module& m)
 {
 	auto c = py::class_<Image, ImageBase>(m, "Image", py::buffer_protocol());
@@ -138,8 +140,11 @@ void py_setup_image(py::module& m)
 	c_owned.def("allocate", &ImageOwned::allocate);
 	c_owned.def("readFromFile", &ImageOwned::readFromFile, py::arg("filename"));
 }
-
+}  // namespace yrt
 #endif  // if BUILD_PYBIND11
+
+namespace yrt
+{
 
 Image::Image() : ImageBase{} {}
 
@@ -807,7 +812,7 @@ void Image::writeToFile(const std::string& fname) const
 {
 	ASSERT(!fname.empty());
 	ASSERT_MSG_WARNING(
-	    Util::endsWith(fname, ".nii") || Util::endsWith(fname, ".nii.gz"),
+	    util::endsWith(fname, ".nii") || util::endsWith(fname, ".nii.gz"),
 	    "The NIfTI image file extension should be either .nii or .nii.gz");
 
 	const ImageParams& params = getParams();
@@ -925,7 +930,7 @@ void Image::transformImage(const Vector3D& rotation,
                            float weight) const
 {
 	const auto transform =
-	    Util::fromRotationAndTranslationVectors(rotation, translation);
+	    util::fromRotationAndTranslationVectors(rotation, translation);
 	return transformImage(transform, dest, weight);
 }
 
@@ -950,7 +955,7 @@ void Image::transformImage(const transform_t& t, Image& dest,
 	const int ny = params.ny;
 	const int nz = params.nz;
 
-	const transform_t inv = Util::invertTransform(t);
+	const transform_t inv = util::invertTransform(t);
 
 #pragma omp parallel for default(none) \
     firstprivate(destRawPtr, nx, ny, nz, num_xy, weight, inv)
@@ -1162,63 +1167,63 @@ void ImageOwned::readNIfTIData(int datatype, void* data, float slope,
 	{
 		for (int i = 0; i < numVoxels; i++)
 			imgData[i] =
-			    (Util::reinterpretAndCast<double, float>(data, i) * slope) +
+			    (util::reinterpretAndCast<double, float>(data, i) * slope) +
 			    intercept;
 	}
 	else if (datatype == NIFTI_TYPE_INT8)
 	{
 		for (int i = 0; i < numVoxels; i++)
 			imgData[i] =
-			    (Util::reinterpretAndCast<int8_t, float>(data, i) * slope) +
+			    (util::reinterpretAndCast<int8_t, float>(data, i) * slope) +
 			    intercept;
 	}
 	else if (datatype == NIFTI_TYPE_INT16)
 	{
 		for (int i = 0; i < numVoxels; i++)
 			imgData[i] =
-			    (Util::reinterpretAndCast<int16_t, float>(data, i) * slope) +
+			    (util::reinterpretAndCast<int16_t, float>(data, i) * slope) +
 			    intercept;
 	}
 	else if (datatype == NIFTI_TYPE_INT32)
 	{
 		for (int i = 0; i < numVoxels; i++)
 			imgData[i] =
-			    (Util::reinterpretAndCast<int32_t, float>(data, i) * slope) +
+			    (util::reinterpretAndCast<int32_t, float>(data, i) * slope) +
 			    intercept;
 	}
 	else if (datatype == NIFTI_TYPE_INT64)
 	{
 		for (int i = 0; i < numVoxels; i++)
 			imgData[i] =
-			    (Util::reinterpretAndCast<int64_t, float>(data, i) * slope) +
+			    (util::reinterpretAndCast<int64_t, float>(data, i) * slope) +
 			    intercept;
 	}
 	else if (datatype == NIFTI_TYPE_UINT8)
 	{
 		for (int i = 0; i < numVoxels; i++)
 			imgData[i] =
-			    (Util::reinterpretAndCast<uint8_t, float>(data, i) * slope) +
+			    (util::reinterpretAndCast<uint8_t, float>(data, i) * slope) +
 			    intercept;
 	}
 	else if (datatype == NIFTI_TYPE_UINT16)
 	{
 		for (int i = 0; i < numVoxels; i++)
 			imgData[i] =
-			    (Util::reinterpretAndCast<uint16_t, float>(data, i) * slope) +
+			    (util::reinterpretAndCast<uint16_t, float>(data, i) * slope) +
 			    intercept;
 	}
 	else if (datatype == NIFTI_TYPE_UINT32)
 	{
 		for (int i = 0; i < numVoxels; i++)
 			imgData[i] =
-			    (Util::reinterpretAndCast<uint32_t, float>(data, i) * slope) +
+			    (util::reinterpretAndCast<uint32_t, float>(data, i) * slope) +
 			    intercept;
 	}
 	else if (datatype == NIFTI_TYPE_UINT64)
 	{
 		for (int i = 0; i < numVoxels; i++)
 			imgData[i] =
-			    (Util::reinterpretAndCast<uint64_t, float>(data, i) * slope) +
+			    (util::reinterpretAndCast<uint64_t, float>(data, i) * slope) +
 			    intercept;
 	}
 }
@@ -1318,6 +1323,7 @@ float Image::indexToPositionInDimension(int index) const
 	return static_cast<float>(index) * voxelSize - 0.5f * length + offset +
 	       0.5f * voxelSize;
 }
+
 template float Image::indexToPositionInDimension<0>(int index) const;
 template float Image::indexToPositionInDimension<1>(int index) const;
 template float Image::indexToPositionInDimension<2>(int index) const;
@@ -1335,3 +1341,4 @@ void ImageAlias::bind(Array3DBase<float>& p_data)
 		throw std::runtime_error("An error occured during Image binding");
 	}
 }
+}  // namespace yrt

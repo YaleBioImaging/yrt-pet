@@ -12,7 +12,7 @@ fold_py = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.append(os.path.join(fold_py))
 import pyyrtpet as yrt
 
-yrt.Globals.set_num_threads(-1)
+yrt.setNumThreads(-1)
 
 import helper as _helper
 
@@ -30,10 +30,10 @@ fold_bin = _helper.fold_bin
 # %% Tests
 
 def test_omp_multithreading():
-    yrt.Globals.set_num_threads(8)
-    num_threads = yrt.Globals.get_num_threads()
+    yrt.setNumThreads(8)
+    num_threads = yrt.getNumThreads()
     assert (num_threads == 8)
-    yrt.Globals.set_num_threads(-1)
+    yrt.setNumThreads(-1)
 
 
 def test_savant_sim_ultra_micro_hotspot_nomotion_mlem():

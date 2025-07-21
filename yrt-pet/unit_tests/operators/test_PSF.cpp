@@ -4,12 +4,12 @@
  */
 
 #include "../unit_tests/test_utils.hpp"
-#include "operators/OperatorPsf.hpp"
-#include "operators/OperatorVarPsf.hpp"
-#include "utils/Assert.hpp"
+#include "yrt-pet/operators/OperatorPsf.hpp"
+#include "yrt-pet/operators/OperatorVarPsf.hpp"
+#include "yrt-pet/utils/Assert.hpp"
 
 #if BUILD_CUDA
-#include "operators/OperatorPsfDevice.cuh"
+#include "yrt-pet/operators/OperatorPsfDevice.cuh"
 #endif
 
 #include "catch.hpp"
@@ -19,8 +19,8 @@
 #include <iostream>
 #include <random>
 
-using namespace TestUtils;
-
+namespace yrt::util::test
+{
 std::vector<float> generateSymmetricGaussianKernel(int size, float sigma)
 {
 	std::vector<float> kernel(size);
@@ -170,7 +170,7 @@ TEST_CASE("PSF", "[psf]")
 		                      0.0f,
 		                      0.0f,
 		                      0.0f};
-		auto image = TestUtils::makeImageWithRandomPrism(imgParams);
+		auto image = makeImageWithRandomPrism(imgParams);
 
 		// Generate random sigma and Gaussian kernels
 		std::mt19937 gen(static_cast<unsigned int>(std::time(0)));
@@ -239,7 +239,7 @@ TEST_CASE("PSF", "[psf]")
 			img_out1->allocate();
 			op->applyA(image.get(), img_out1.get());
 
-			auto image2 = TestUtils::makeImageWithRandomPrism(imgParams);
+			auto image2 = makeImageWithRandomPrism(imgParams);
 			auto img_out2 = std::make_unique<ImageOwned>(imgParams);
 			img_out2->allocate();
 			op->applyAH(image2.get(), img_out2.get());
@@ -253,9 +253,9 @@ TEST_CASE("PSF", "[psf]")
 
 TEST_CASE("VarPSF", "[varpsf]")
 {
-	ImageParams imgParams{100, 100, 51, 400.0f, 401.0f,
+	ImageParams imgParams{100,    100,  51,   400.0f, 401.0f,
 	                      421.0f, 0.0f, 0.0f, 0.0f};
-	auto image = TestUtils::makeImageWithRandomPrism(imgParams);
+	auto image = makeImageWithRandomPrism(imgParams);
 
 	// Random sigma generator
 	std::mt19937 gen(static_cast<unsigned int>(std::time(0)));
@@ -287,7 +287,7 @@ TEST_CASE("VarPSF", "[varpsf]")
 		}
 	}
 	OperatorVarPsf op_var(imgParams);
-	op_var.setRangeAndGap(200,50,200,50,200,50);
+	op_var.setRangeAndGap(200, 50, 200, 50, 200, 50);
 	float threshold = 100.0f;
 	float tempx, tempy, tempz;
 	float sigmax, sigmay, sigmaz;
@@ -300,8 +300,7 @@ TEST_CASE("VarPSF", "[varpsf]")
 		sigmay = (tempy > threshold) ? sigmaY2 : sigmaY1;
 		sigmaz = (tempz > threshold) ? sigmaZ2 : sigmaZ1;
 		auto kernel = std::make_unique<ConvolutionKernelGaussian>(
-		    sigmax, sigmay, sigmaz,
-		    nstdx, nstdy, nstdz, imgParams);
+		    sigmax, sigmay, sigmaz, nstdx, nstdy, nstdz, imgParams);
 		kernels.push_back(std::move(kernel));
 	}
 	op_var.setKernelCollection(kernels);
@@ -312,31 +311,25 @@ TEST_CASE("VarPSF", "[varpsf]")
 	std::vector<float> voxels = {imgParams.vx, imgParams.vy, imgParams.vz};
 
 	std::vector<float> sigmas1 = {sigmaX1, sigmaY1, sigmaZ1};
-	int kernel_size_x1 =
-	    std::max(1, static_cast<int>(std::floor(
-	                                (sigmas1[0] * nstdx) /
-	                                imgParams.vx)) - 1);
-	int kernel_size_y1 =
-	    std::max(1, static_cast<int>(std::floor(
-	                                (sigmas1[1] * nstdy) /
-	                                imgParams.vy)) - 1);
-	int kernel_size_z1 =
-	    std::max(1, static_cast<int>(std::floor(
-	                                (sigmas1[2] * nstdz) /
-	                                imgParams.vz)) - 1);
+	int kernel_size_x1 = std::max(
+	    1,
+	    static_cast<int>(std::floor((sigmas1[0] * nstdx) / imgParams.vx)) - 1);
+	int kernel_size_y1 = std::max(
+	    1,
+	    static_cast<int>(std::floor((sigmas1[1] * nstdy) / imgParams.vy)) - 1);
+	int kernel_size_z1 = std::max(
+	    1,
+	    static_cast<int>(std::floor((sigmas1[2] * nstdz) / imgParams.vz)) - 1);
 	std::vector<float> sigmas2 = {sigmaX2, sigmaY2, sigmaZ2};
-	int kernel_size_x2 =
-	    std::max(1, static_cast<int>(std::floor(
-	                                (sigmas2[0] * nstdx) /
-	                                imgParams.vx)) - 1);
-	int kernel_size_y2 =
-	    std::max(1, static_cast<int>(std::floor(
-	                                (sigmas2[1] * nstdy) /
-	                                imgParams.vy)) - 1);
-	int kernel_size_z2 =
-	    std::max(1, static_cast<int>(std::floor(
-	                                (sigmas2[2] * nstdz) /
-	                                imgParams.vz)) - 1);
+	int kernel_size_x2 = std::max(
+	    1,
+	    static_cast<int>(std::floor((sigmas2[0] * nstdx) / imgParams.vx)) - 1);
+	int kernel_size_y2 = std::max(
+	    1,
+	    static_cast<int>(std::floor((sigmas2[1] * nstdy) / imgParams.vy)) - 1);
+	int kernel_size_z2 = std::max(
+	    1,
+	    static_cast<int>(std::floor((sigmas2[2] * nstdz) / imgParams.vz)) - 1);
 	std::vector<float> inputData;
 	inputData.resize(image->getData().getSizeTotal());
 	float* inputPtr = image->getRawPointer();
@@ -413,7 +406,7 @@ TEST_CASE("VarPSF", "[varpsf]")
 		img_out1->allocate();
 		op_var.applyA(image.get(), img_out1.get());
 
-		auto image2 = TestUtils::makeImageWithRandomPrism(imgParams);
+		auto image2 = makeImageWithRandomPrism(imgParams);
 		auto img_out2 = std::make_unique<ImageOwned>(imgParams);
 		img_out2->allocate();
 		op_var.applyAH(image2.get(), img_out2.get());
@@ -424,3 +417,4 @@ TEST_CASE("VarPSF", "[varpsf]")
 		CHECK(lhs == Approx(rhs).epsilon(1e-3));
 	}
 }
+}  // namespace yrt::util::test

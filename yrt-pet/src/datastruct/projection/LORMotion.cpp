@@ -3,8 +3,8 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "datastruct/projection/LORMotion.hpp"
-#include "utils/Assert.hpp"
+#include "yrt-pet/datastruct/projection/LORMotion.hpp"
+#include "yrt-pet/utils/Assert.hpp"
 
 #include <charconv>
 #include <iomanip>
@@ -17,6 +17,8 @@
 namespace py = pybind11;
 using namespace py::literals;
 
+namespace yrt
+{
 void py_setup_lormotion(py::module& m)
 {
 	auto c = py::class_<LORMotion, std::shared_ptr<LORMotion>>(m, "LORMotion");
@@ -39,9 +41,12 @@ void py_setup_lormotion(py::module& m)
 	c.def("writeToFile", &LORMotion::writeToFile, "filename"_a);
 	c.def("getTotalDuration", &LORMotion::getTotalDuration);
 }
+}  // namespace yrt
 
 #endif
 
+namespace yrt
+{
 LORMotion::LORMotion(const std::string& filename)
 {
 	readFromFile(filename);
@@ -283,3 +288,4 @@ void LORMotion::resize(size_t newSize)
 {
 	m_records.resize(newSize);
 }
+}  // namespace yrt

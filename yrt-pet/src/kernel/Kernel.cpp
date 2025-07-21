@@ -3,10 +3,10 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "kernel/Kernel.hpp"
-#include "utils/Array.hpp"
-#include "utils/Assert.hpp"
-#include "utils/Tools.hpp"
+#include "yrt-pet/kernel/Kernel.hpp"
+#include "yrt-pet/utils/Array.hpp"
+#include "yrt-pet/utils/Assert.hpp"
+#include "yrt-pet/utils/Tools.hpp"
 
 #include <cmath>
 #include <cstdio>
@@ -16,7 +16,9 @@
 
 #include "omp.h"
 
-void Kernel::build_K_neighbors(float* x, float* k, int* k_i, int* k_j,
+namespace yrt
+{
+void kernel::build_K_neighbors(float* x, float* k, int* k_i, int* k_j,
                                size_t nz, size_t ny, size_t nx, int W,
                                float sigma2, int numThreads)
 {
@@ -53,7 +55,7 @@ void Kernel::build_K_neighbors(float* x, float* k, int* k_i, int* k_j,
 	}
 }
 
-void Kernel::build_K_knn_neighbors(float* x, float* k, int* k_i, int* k_j,
+void kernel::build_K_knn_neighbors(float* x, float* k, int* k_i, int* k_j,
                                    size_t nz, size_t ny, size_t nx, int W,
                                    int P, int num_k, float sigma2,
                                    int numThreads)
@@ -96,16 +98,16 @@ void Kernel::build_K_knn_neighbors(float* x, float* k, int* k_i, int* k_j,
 					float d = 0.f;
 					for (int pz = -P; pz <= P; pz++)
 					{
-						int v0_z = Util::reflect(nz, iz + pz);
-						int v1_z = Util::reflect(nz, jz + pz);
+						int v0_z = util::reflect(nz, iz + pz);
+						int v1_z = util::reflect(nz, jz + pz);
 						for (int py = -P; py <= P; py++)
 						{
-							int v0_y = Util::reflect(ny, iy + py);
-							int v1_y = Util::reflect(ny, jy + py);
+							int v0_y = util::reflect(ny, iy + py);
+							int v1_y = util::reflect(ny, jy + py);
 							for (int px = -P; px <= P; px++)
 							{
-								int v0_x = Util::reflect(nx, ix + px);
-								int v1_x = Util::reflect(nx, jx + px);
+								int v0_x = util::reflect(nx, ix + px);
+								int v1_x = util::reflect(nx, jx + px);
 								float v0 = x[IDX3(v0_x, v0_y, v0_z, nx, ny)];
 								float v1 = x[IDX3(v1_x, v1_y, v1_z, nx, ny)];
 								d += (v0 - v1) * (v0 - v1);
@@ -151,8 +153,7 @@ void Kernel::build_K_knn_neighbors(float* x, float* k, int* k_i, int* k_j,
 	}
 }
 
-
-void Kernel::build_K_full(float* x, float* k, int* k_i, int* k_j, size_t nz,
+void kernel::build_K_full(float* x, float* k, int* k_i, int* k_j, size_t nz,
                           size_t ny, size_t nx, int num_k, float sigma2,
                           int numThreads)
 {
@@ -205,3 +206,4 @@ void Kernel::build_K_full(float* x, float* k, int* k_i, int* k_j, size_t nz,
 		}
 	}
 }
+}  // namespace yrt

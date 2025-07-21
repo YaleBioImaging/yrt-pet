@@ -3,15 +3,18 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "datastruct/scanner/DetectorSetup.hpp"
+#include "yrt-pet/datastruct/scanner/DetectorSetup.hpp"
 
 #if BUILD_PYBIND11
 #include <pybind11/pybind11.h>
 namespace py = pybind11;
+
+namespace yrt
+{
 void py_setup_detectorsetup(pybind11::module& m)
 {
 	auto c = py::class_<DetectorSetup, std::shared_ptr<DetectorSetup>>(
-	    m, "DetectorSetup");
+		m, "DetectorSetup");
 	c.def("getNumDets", &DetectorSetup::getNumDets);
 	c.def("getXpos", &DetectorSetup::getXpos);
 	c.def("getYpos", &DetectorSetup::getYpos);
@@ -23,8 +26,11 @@ void py_setup_detectorsetup(pybind11::module& m)
 	c.def("getOrient", &DetectorSetup::getOrient);
 	c.def("writeToFile", &DetectorSetup::writeToFile);
 }
+}
 #endif
 
+namespace yrt
+{
 Vector3D DetectorSetup::getPos(det_id_t id) const
 {
 	return {getXpos(id), getYpos(id), getZpos(id)};
@@ -33,4 +39,5 @@ Vector3D DetectorSetup::getPos(det_id_t id) const
 Vector3D DetectorSetup::getOrient(det_id_t id) const
 {
 	return {getXorient(id), getYorient(id), getZorient(id)};
+}
 }

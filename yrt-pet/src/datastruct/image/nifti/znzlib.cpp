@@ -21,8 +21,8 @@ NB: seeks for writable files with compression are quite restricted
 
  */
 
-#include "datastruct/image/nifti/znzlib.h"
-#include "datastruct/image/nifti/znzlib_version.h"
+#include "yrt-pet/datastruct/image/nifti/znzlib.h"
+#include "yrt-pet/datastruct/image/nifti/znzlib_version.h"
 
 /*
 znzlib.c  (zipped or non-zipped library)

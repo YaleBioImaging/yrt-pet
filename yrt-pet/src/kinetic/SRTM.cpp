@@ -3,7 +3,7 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "kinetic/SRTM.hpp"
+#include "yrt-pet/kinetic/SRTM.hpp"
 
 #include "omp.h"
 
@@ -11,10 +11,12 @@
 #include <memory>
 
 #if BUILD_PYBIND11
-
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 #include <sstream>
+
+namespace yrt
+{
 
 pybind11::array_t<double> fit_srtm_basis(
     pybind11::array_t<double> tac_all, pybind11::array_t<double> kin_p,
@@ -47,24 +49,24 @@ pybind11::array_t<double> fit_srtm_basis(
 	    buf_A_all.shape[2] != 2)
 	{
 		std::stringstream err;
-		err << "A matrix should have shape [K, T, 2] " << "([" << num_kappa
-		    << ", " << num_frames << ", 2])";
+		err << "A matrix should have shape [K, T, 2] "
+		    << "([" << num_kappa << ", " << num_frames << ", 2])";
 		throw std::runtime_error(err.str());
 	}
 	if (buf_B_all.shape[0] != num_kappa || buf_B_all.shape[1] != num_k ||
 	    buf_B_all.shape[2] != 2)
 	{
 		std::stringstream err;
-		err << "B matrix should have shape [K, P, 2] " << "([" << num_kappa
-		    << ", " << num_k << ", 2])";
+		err << "B matrix should have shape [K, P, 2] "
+		    << "([" << num_kappa << ", " << num_k << ", 2])";
 		throw std::runtime_error(err.str());
 	}
 	if (buf_Rinv_Qt_all.shape[0] != num_kappa ||
 	    buf_Rinv_Qt_all.shape[1] != 2 || buf_Rinv_Qt_all.shape[2] != 2)
 	{
 		std::stringstream err;
-		err << "Rinv_Qt matrix should have shape [K, 2, 2] " << "(["
-		    << num_kappa << ", 2, 2])";
+		err << "Rinv_Qt matrix should have shape [K, 2, 2] "
+		    << "([" << num_kappa << ", 2, 2])";
 		throw std::runtime_error(err.str());
 	}
 	if (buf_W.size != num_frames)
@@ -134,24 +136,24 @@ pybind11::array_t<double> fit_srtm_basis_joint(
 	    buf_A_all.shape[1] != 2 * num_frames || buf_A_all.shape[2] != 4)
 	{
 		std::stringstream err;
-		err << "A matrix should have shape [K, 2T, 4] " << "([" << num_kappa
-		    << ", " << 2 * num_frames << ", 4])";
+		err << "A matrix should have shape [K, 2T, 4] "
+		    << "([" << num_kappa << ", " << 2 * num_frames << ", 4])";
 		throw std::runtime_error(err.str());
 	}
 	if (buf_B_all.shape[0] != num_kappa || buf_B_all.shape[1] != num_k ||
 	    buf_B_all.shape[2] != 4)
 	{
 		std::stringstream err;
-		err << "B matrix should have shape [K, P, 4] " << "([" << num_kappa
-		    << ", " << num_k << ", 4])";
+		err << "B matrix should have shape [K, P, 4] "
+		    << "([" << num_kappa << ", " << num_k << ", 4])";
 		throw std::runtime_error(err.str());
 	}
 	if (buf_Rinv_Qt_all.shape[0] != num_kappa ||
 	    buf_Rinv_Qt_all.shape[1] != 4 || buf_Rinv_Qt_all.shape[2] != 4)
 	{
 		std::stringstream err;
-		err << "Rinv_Qt matrix should have shape [K, 4, 4] " << "(["
-		    << num_kappa << ", 4, 4])";
+		err << "Rinv_Qt matrix should have shape [K, 4, 4] "
+		    << "([" << num_kappa << ", 4, 4])";
 		throw std::runtime_error(err.str());
 	}
 	if (buf_W.size != 2 * num_frames)
@@ -198,7 +200,12 @@ void py_setup_srtm(pybind11::module& m)
 	      "Fit joint SRTM model using bases");
 }
 
+}  // namespace yrt
+
 #endif  // if BUILD_PYBIND11
+
+namespace yrt
+{
 
 template <typename T>
 void solveSRTMBasis(const T* tac_all, T* kin_out, const T* kin_p,
@@ -476,3 +483,4 @@ template void solveSRTMBasisJoint(const double* tac_all, double* kin_out,
                                   const double* kappa_list, const int num_kappa,
                                   const size_t num_pix, const int num_frames,
                                   const int num_threads);
+}  // namespace yrt

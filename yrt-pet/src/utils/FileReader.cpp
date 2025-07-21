@@ -2,12 +2,15 @@
  * This file is subject to the terms and conditions defined in
  * file 'LICENSE.txt', which is part of this source code package.
  */
-#include "utils/FileReader.hpp"
+#include "yrt-pet/utils/FileReader.hpp"
 
 #include <algorithm>
 
-namespace Util
+namespace yrt
 {
+namespace util
+{
+
 	FileReader::FileReader(std::istream& pr_istream, bool p_useCache,
 	                       size_t p_cacheSize)
 	    : m_cacheStart(-1),
@@ -140,4 +143,5 @@ namespace Util
 		m_readPos += bytesToAdvance;
 	}
 
-}  // namespace Util
+}  // namespace util
+}

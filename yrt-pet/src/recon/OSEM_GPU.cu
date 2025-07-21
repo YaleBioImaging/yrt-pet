@@ -3,15 +3,17 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "recon/OSEM_GPU.cuh"
+#include "yrt-pet/recon/OSEM_GPU.cuh"
 
-#include "datastruct/image/ImageDevice.cuh"
-#include "datastruct/projection/ProjectionDataDevice.cuh"
-#include "operators/OperatorProjectorDD_GPU.cuh"
-#include "operators/OperatorProjectorSiddon_GPU.cuh"
-#include "operators/OperatorPsfDevice.cuh"
-#include "utils/Assert.hpp"
+#include "yrt-pet/datastruct/image/ImageDevice.cuh"
+#include "yrt-pet/datastruct/projection/ProjectionDataDevice.cuh"
+#include "yrt-pet/operators/OperatorProjectorDD_GPU.cuh"
+#include "yrt-pet/operators/OperatorProjectorSiddon_GPU.cuh"
+#include "yrt-pet/operators/OperatorPsfDevice.cuh"
+#include "yrt-pet/utils/Assert.hpp"
 
+namespace yrt
+{
 OSEM_GPU::OSEM_GPU(const Scanner& pr_scanner)
     : OSEM(pr_scanner),
       mpd_sensImageBuffer(nullptr),
@@ -431,3 +433,4 @@ const cudaStream_t* OSEM_GPU::getMainStream() const
 {
 	return &m_mainStream.getStream();
 }
+}  // namespace yrt

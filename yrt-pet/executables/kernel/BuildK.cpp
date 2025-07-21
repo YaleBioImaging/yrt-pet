@@ -1,6 +1,6 @@
-#include "kernel/Kernel.hpp"
-#include "utils/Array.hpp"
-#include "utils/Assert.hpp"
+#include "yrt-pet/kernel/Kernel.hpp"
+#include "yrt-pet/utils/Array.hpp"
+#include "yrt-pet/utils/Assert.hpp"
 
 #include "omp.h"
 #include <cxxopts.hpp>
@@ -64,7 +64,7 @@ int main(int argc, char** argv)
 		}
 
 		// Read input data
-		Array3D<float> x_in;
+		yrt::Array3D<float> x_in;
 		x_in.readFromFile(img_in_fname);
 		size_t shape[3];
 		x_in.getDims(shape);
@@ -81,31 +81,31 @@ int main(int argc, char** argv)
 		}
 
 		// Prepare output
-		Array2D<float> k_out;
+		yrt::Array2D<float> k_out;
 		k_out.allocate(num_pixels, num_cols);
-		Array2D<int> k_i_out;
+		yrt::Array2D<int> k_i_out;
 		k_i_out.allocate(num_pixels, num_cols);
-		Array2D<int> k_j_out;
+		yrt::Array2D<int> k_j_out;
 		k_j_out.allocate(num_pixels, num_cols);
 
 		// Build K matrix
 		if (mode.compare("full") == 0)
 		{
-			Kernel::build_K_full(x_in.getRawPointer(), k_out.getRawPointer(),
+			yrt::kernel::build_K_full(x_in.getRawPointer(), k_out.getRawPointer(),
 			                     k_i_out.getRawPointer(),
 			                     k_j_out.getRawPointer(), shape[0], shape[1],
 			                     shape[2], num_k, sigma2, num_threads);
 		}
 		else if (mode.compare("knn") == 0)
 		{
-			Kernel::build_K_knn_neighbors(
+			yrt::kernel::build_K_knn_neighbors(
 			    x_in.getRawPointer(), k_out.getRawPointer(),
 			    k_i_out.getRawPointer(), k_j_out.getRawPointer(), shape[0],
 			    shape[1], shape[2], W, P, num_k, sigma2, num_threads);
 		}
 		else if (mode.compare("neighbors") == 0)
 		{
-			Kernel::build_K_neighbors(
+			yrt::kernel::build_K_neighbors(
 			    x_in.getRawPointer(), k_out.getRawPointer(),
 			    k_i_out.getRawPointer(), k_j_out.getRawPointer(), shape[0],
 			    shape[1], shape[2], W, sigma2, num_threads);
@@ -125,7 +125,7 @@ int main(int argc, char** argv)
 	}
 	catch (const std::exception& e)
 	{
-		Util::printExceptionMessage(e);
+		yrt::util::printExceptionMessage(e);
 		return -1;
 	}
 }

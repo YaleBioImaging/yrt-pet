@@ -4,22 +4,24 @@
  */
 
 #include "../PluginOptionsHelper.hpp"
-#include "datastruct/IO.hpp"
-#include "datastruct/projection/ListMode.hpp"
-#include "datastruct/scanner/Scanner.hpp"
-#include "operators/OperatorProjector.hpp"
-#include "utils/Assert.hpp"
-#include "utils/Globals.hpp"
-#include "utils/ReconstructionUtils.hpp"
+#include "yrt-pet/datastruct/IO.hpp"
+#include "yrt-pet/datastruct/projection/ListMode.hpp"
+#include "yrt-pet/datastruct/scanner/Scanner.hpp"
+#include "yrt-pet/operators/OperatorProjector.hpp"
+#include "yrt-pet/utils/Assert.hpp"
+#include "yrt-pet/utils/Globals.hpp"
+#include "yrt-pet/utils/ReconstructionUtils.hpp"
 
 #include <cxxopts.hpp>
 #include <iostream>
+
+using namespace yrt;
 
 int main(int argc, char** argv)
 {
 	try
 	{
-		IO::ArgumentRegistry registry{};
+		io::ArgumentRegistry registry{};
 
 		const std::string coreGroup = "0. Core";
 		const std::string inputGroup = "1. Input";
@@ -27,71 +29,71 @@ int main(int argc, char** argv)
 		const std::string outputGroup = "3. Output";
 
 		registry.registerArgument("scanner", "Scanner parameters file", true,
-		                          IO::TypeOfArgument::STRING, "", coreGroup,
+		                          io::TypeOfArgument::STRING, "", coreGroup,
 		                          "s");
 		registry.registerArgument("input", "Input file", true,
-		                          IO::TypeOfArgument::STRING, "", inputGroup,
+		                          io::TypeOfArgument::STRING, "", inputGroup,
 		                          "i");
 		registry.registerArgument(
 		    "format",
-		    "Input file format. Possible values: " + IO::possibleFormats(),
-		    true, IO::TypeOfArgument::STRING, "", inputGroup, "f");
+		    "Input file format. Possible values: " + io::possibleFormats(),
+		    true, io::TypeOfArgument::STRING, "", inputGroup, "f");
 		registry.registerArgument(
 		    "lor_motion", "Motion CSV file for motion correction", false,
-		    IO::TypeOfArgument::STRING, "", inputGroup, "m");
+		    io::TypeOfArgument::STRING, "", inputGroup, "m");
 
 #if BUILD_CUDA
 		registry.registerArgument("gpu", "Use GPU acceleration", false,
-		                          IO::TypeOfArgument::BOOL, false, coreGroup);
+		                          io::TypeOfArgument::BOOL, false, coreGroup);
 #endif
 		registry.registerArgument("num_threads", "Number of threads to use",
-		                          false, IO::TypeOfArgument::INT, -1,
+		                          false, io::TypeOfArgument::INT, -1,
 		                          coreGroup);
 
 		registry.registerArgument("out", "Output image filename", true,
-		                          IO::TypeOfArgument::STRING, "", outputGroup,
+		                          io::TypeOfArgument::STRING, "", outputGroup,
 		                          "o");
 		registry.registerArgument("params", "Image parameters file", true,
-		                          IO::TypeOfArgument::STRING, "", outputGroup,
+		                          io::TypeOfArgument::STRING, "", outputGroup,
 		                          "p");
 
 		registry.registerArgument(
 		    "projector",
 		    "Projector to use, choices: Siddon (S), Distance-Driven (D). The "
 		    "default projector is Siddon",
-		    false, IO::TypeOfArgument::STRING, "S", projectorGroup);
+		    false, io::TypeOfArgument::STRING, "S", projectorGroup);
 		registry.registerArgument(
 		    "psf",
 		    "Image-space PSF kernel file (Applied after the backprojection)",
-		    false, IO::TypeOfArgument::STRING, "", outputGroup);
+		    false, io::TypeOfArgument::STRING, "", outputGroup);
 		registry.registerArgument(
 		    "proj_psf",
 		    "Projection-space PSF kernel file (for DD projector only)", false,
-		    IO::TypeOfArgument::STRING, "", projectorGroup);
+		    io::TypeOfArgument::STRING, "", projectorGroup);
 		registry.registerArgument(
 		    "num_rays", "Number of rays to use (for Siddon projector only)",
-		    false, IO::TypeOfArgument::INT, 1, projectorGroup);
+		    false, io::TypeOfArgument::INT, 1, projectorGroup);
 		registry.registerArgument("tof_width_ps", "TOF Width in Picoseconds",
-		                          false, IO::TypeOfArgument::FLOAT, 0.0f,
+		                          false, io::TypeOfArgument::FLOAT, 0.0f,
 		                          projectorGroup);
 		registry.registerArgument("tof_n_std",
 		                          "Number of standard deviations to consider "
 		                          "for TOF's Gaussian curve",
-		                          false, IO::TypeOfArgument::INT, 0,
+		                          false, io::TypeOfArgument::INT, 0,
 		                          projectorGroup);
 		registry.registerArgument("num_subsets",
 		                          "Number of OSEM subsets (Default: 1)", false,
-		                          IO::TypeOfArgument::INT, 1, inputGroup);
+		                          io::TypeOfArgument::INT, 1, inputGroup);
 		registry.registerArgument("subset_id",
 		                          "Subset to backproject (Default: 0)", false,
-		                          IO::TypeOfArgument::INT, 0, inputGroup);
+		                          io::TypeOfArgument::INT, 0, inputGroup);
 
 		// Add plugin options
-		PluginOptionsHelper::addOptionsFromPlugins(
-		    registry, Plugin::InputFormatsChoice::ALL);
+		plugin::addOptionsFromPlugins(
+		    registry, plugin::InputFormatsChoice::ALL);
 
 		// Load configuration
-		IO::ArgumentReader config{registry,
+		io::ArgumentReader config{registry,
 		                          "Backproject projection data into an image"};
 
 		if (!config.loadFromCommandLine(argc, argv))
@@ -110,7 +112,7 @@ int main(int argc, char** argv)
 
 		const auto scanner =
 		    std::make_unique<Scanner>(config.getValue<std::string>("scanner"));
-		Globals::set_num_threads(config.getValue<int>("num_threads"));
+		globals::setNumThreads(config.getValue<int>("num_threads"));
 
 		// Output image
 		std::cout << "Preparing output image..." << std::endl;
@@ -122,9 +124,9 @@ int main(int argc, char** argv)
 		// Input data
 		std::cout << "Reading input data..." << std::endl;
 		const auto format = config.getValue<std::string>("format");
-		const bool useListMode = IO::isFormatListMode(format);
+		const bool useListMode = io::isFormatListMode(format);
 		const auto dataInput =
-		    IO::openProjectionData(config.getValue<std::string>("input"),
+		    io::openProjectionData(config.getValue<std::string>("input"),
 		                           format, *scanner, config.getAllArguments());
 
 		const auto lorMotion_fname = config.getValue<std::string>("lor_motion");
@@ -164,9 +166,9 @@ int main(int argc, char** argv)
 		    config.getValue<int>("num_rays"));
 
 		const auto projectorType =
-		    IO::getProjector(config.getValue<std::string>("projector"));
+		    io::getProjector(config.getValue<std::string>("projector"));
 
-		Util::backProject(*outputImage, *dataInput, projParams, projectorType,
+		util::backProject(*outputImage, *dataInput, projParams, projectorType,
 		                  config.getValue<bool>("gpu"));
 
 		// Image-space PSF
@@ -190,7 +192,7 @@ int main(int argc, char** argv)
 	}
 	catch (const std::exception& e)
 	{
-		Util::printExceptionMessage(e);
+		util::printExceptionMessage(e);
 		return -1;
 	}
 }

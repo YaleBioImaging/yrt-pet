@@ -3,10 +3,13 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "datastruct/projection/ProjectionDataDevice.cuh"
-#include "operators/OperatorProjectorDevice.cuh"
-#include "recon/OSEMUpdater_GPU.cuh"
-#include "recon/OSEM_GPU.cuh"
+#include "yrt-pet/datastruct/projection/ProjectionDataDevice.cuh"
+#include "yrt-pet/operators/OperatorProjectorDevice.cuh"
+#include "yrt-pet/recon/OSEMUpdater_GPU.cuh"
+#include "yrt-pet/recon/OSEM_GPU.cuh"
+
+namespace yrt
+{
 
 OSEMUpdater_GPU::OSEMUpdater_GPU(OSEM_GPU* pp_osem) : mp_osem(pp_osem)
 {
@@ -188,3 +191,4 @@ void OSEMUpdater_GPU::computeEMUpdateImage(const ImageDevice& inputImage,
 		cudaStreamSynchronize(*mainStream);
 	}
 }
+}  // namespace yrt

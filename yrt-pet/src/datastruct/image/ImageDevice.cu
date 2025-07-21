@@ -3,15 +3,15 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "datastruct/image/ImageDevice.cuh"
+#include "yrt-pet/datastruct/image/ImageDevice.cuh"
 
-#include "datastruct/image/Image.hpp"
-#include "datastruct/image/ImageSpaceKernels.cuh"
-#include "operators/OperatorProjectorDevice.cuh"
-#include "utils/Assert.hpp"
-#include "utils/GPUMemory.cuh"
-#include "utils/GPUTypes.cuh"
-#include "utils/GPUUtils.cuh"
+#include "yrt-pet/datastruct/image/Image.hpp"
+#include "yrt-pet/datastruct/image/ImageSpaceKernels.cuh"
+#include "yrt-pet/operators/OperatorProjectorDevice.cuh"
+#include "yrt-pet/utils/Assert.hpp"
+#include "yrt-pet/utils/GPUMemory.cuh"
+#include "yrt-pet/utils/GPUTypes.cuh"
+#include "yrt-pet/utils/GPUUtils.cuh"
 
 #if BUILD_PYBIND11
 #include <pybind11/numpy.h>
@@ -19,7 +19,8 @@
 
 namespace py = pybind11;
 using namespace pybind11::literals;
-
+namespace yrt
+{
 void py_setup_imagedevice(py::module& m)
 {
 	auto c = py::class_<ImageDevice, ImageBase>(m, "ImageDevice");
@@ -141,8 +142,7 @@ void py_setup_imagedevice(py::module& m)
 	    "Create ImageDevice using filename", "filename"_a);
 	c_owned.def(
 	    py::init(
-	        [](const ImageParams& imgParams, const std::string& filename)
-	        {
+	        [](const ImageParams& imgParams, const std::string& filename) {
 		        return std::make_unique<ImageDeviceOwned>(imgParams, filename,
 		                                                  nullptr);
 	        }),
@@ -174,10 +174,12 @@ void py_setup_imagedevice(py::module& m)
 	c_alias.def("isDevicePointerSet", &ImageDeviceAlias::isDevicePointerSet,
 	            "Returns true if the device pointer is not null");
 }
+}  // namespace yrt
 
 #endif  // if BUILD_PYBIND11
 
-
+namespace yrt
+{
 ImageDevice::ImageDevice(const cudaStream_t* stream_ptr)
     : ImageBase{}, mp_stream(stream_ptr)
 {
@@ -192,7 +194,7 @@ ImageDevice::ImageDevice(const ImageParams& imgParams,
 
 void ImageDevice::setDeviceParams(const ImageParams& params)
 {
-	m_launchParams = Util::initiateDeviceParameters(params);
+	m_launchParams = util::initiateDeviceParameters(params);
 	m_imgSize = params.nx * params.ny * params.nz;
 }
 
@@ -215,7 +217,7 @@ void ImageDevice::transferToDeviceMemory(const float* ph_img_ptr,
                                          bool p_synchronize)
 {
 	ASSERT_MSG(getDevicePointer() != nullptr, "Device Image not allocated yet");
-	Util::copyHostToDevice(getDevicePointer(), ph_img_ptr, m_imgSize,
+	util::copyHostToDevice(getDevicePointer(), ph_img_ptr, m_imgSize,
 	                       {mp_stream, p_synchronize});
 }
 
@@ -234,7 +236,7 @@ void ImageDevice::transferToHostMemory(float* ph_img_ptr,
 {
 	ASSERT_MSG(getDevicePointer() != nullptr, "Device Image not allocated");
 	ASSERT_MSG(ph_img_ptr != nullptr, "Host image not allocated");
-	Util::copyDeviceToHost(ph_img_ptr, getDevicePointer(), m_imgSize,
+	util::copyDeviceToHost(ph_img_ptr, getDevicePointer(), m_imgSize,
 	                       {mp_stream, p_synchronize});
 }
 
@@ -322,7 +324,7 @@ void ImageDevice::copyFromDeviceImage(const ImageDevice* imSrc,
 	float* pd_dest = getDevicePointer();
 	ASSERT(pd_src != nullptr);
 	ASSERT(pd_dest != nullptr);
-	Util::copyDeviceToDevice(pd_dest, pd_src, m_imgSize,
+	util::copyDeviceToDevice(pd_dest, pd_src, m_imgSize,
 	                         {mp_stream, p_synchronize});
 }
 
@@ -500,7 +502,7 @@ ImageDeviceOwned::~ImageDeviceOwned()
 	if (mpd_devicePointer != nullptr)
 	{
 		std::cout << "Freeing image device buffer..." << std::endl;
-		Util::deallocateDevice(mpd_devicePointer, {nullptr, true});
+		util::deallocateDevice(mpd_devicePointer, {nullptr, true});
 	}
 }
 
@@ -511,10 +513,10 @@ void ImageDeviceOwned::allocate(bool synchronize, bool initializeToZero)
 	          << "[" << params.nz << ", " << params.ny << ", " << params.nx
 	          << "]..." << std::endl;
 
-	Util::allocateDevice(&mpd_devicePointer, m_imgSize, {mp_stream, false});
+	util::allocateDevice(&mpd_devicePointer, m_imgSize, {mp_stream, false});
 	if (initializeToZero)
 	{
-		Util::memsetDevice(mpd_devicePointer, 0, m_imgSize,
+		util::memsetDevice(mpd_devicePointer, 0, m_imgSize,
 		                   {mp_stream, synchronize});
 	}
 }
@@ -584,3 +586,4 @@ bool ImageDeviceAlias::isDevicePointerSet() const
 {
 	return mpd_devicePointer != nullptr;
 }
+}  // namespace yrt

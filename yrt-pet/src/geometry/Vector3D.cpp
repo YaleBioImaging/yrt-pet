@@ -3,9 +3,9 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "geometry/Vector3D.hpp"
+#include "yrt-pet/geometry/Vector3D.hpp"
 
-#include "geometry/Constants.hpp"
+#include "yrt-pet/geometry/Constants.hpp"
 
 #include <cmath>
 
@@ -17,6 +17,8 @@
 namespace py = pybind11;
 using namespace pybind11::literals;
 
+namespace yrt
+{
 template <typename TFloat>
 void py_setup_vector3dbase(py::module& m)
 {
@@ -105,9 +107,12 @@ void py_setup_vector3dall(py::module& m)
 	py_setup_vector3dbase<float>(m);
 	py_setup_vector3dbase<double>(m);
 }
+}  // namespace yrt
 
 #endif
 
+namespace yrt
+{
 template <typename TFloat>
 TFloat Vector3DBase<TFloat>::getNorm() const
 {
@@ -346,3 +351,5 @@ static_assert(std::is_trivially_copy_assignable<Vector3DBase<float>>());
 static_assert(std::is_trivially_default_constructible<Vector3DBase<float>>());
 static_assert(std::is_trivially_move_assignable<Vector3DBase<float>>());
 static_assert(std::is_trivially_move_constructible<Vector3DBase<float>>());
+
+}  // namespace yrt

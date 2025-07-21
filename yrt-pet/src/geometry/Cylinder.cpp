@@ -3,12 +3,15 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "geometry/Cylinder.hpp"
+#include "yrt-pet/geometry/Cylinder.hpp"
 
-#include "geometry/Constants.hpp"
-#include "geometry/Vector3D.hpp"
+#include "yrt-pet/geometry/Constants.hpp"
+#include "yrt-pet/geometry/Vector3D.hpp"
 
 #include <cmath>
+
+namespace yrt
+{
 
 Cylinder::Cylinder() : center{}, length_z{0.}, radius{0.} {}
 
@@ -85,3 +88,4 @@ bool Cylinder::clipLineInfinite(Line3D& l) const
 	l.update(p1, p2);
 	return true;
 }
+}  // namespace yrt

@@ -3,18 +3,21 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "utils/Globals.hpp"
-
-int Globals::num_threads = omp_get_max_threads();
+#include "yrt-pet/utils/Globals.hpp"
 
 #if BUILD_PYBIND11
 #include <pybind11/pybind11.h>
 
+namespace yrt
+{
 void py_setup_globals(pybind11::module& m)
 {
-	auto c = pybind11::class_<Globals>(m, "Globals");
-	c.def_static("set_num_threads", &Globals::set_num_threads);
-	c.def_static("get_num_threads", &Globals::get_num_threads);
+	m.def("setNumThreads", &globals::setNumThreads);
+	m.def("getNumThreads", &globals::getNumThreads);
+
+	m.def("isPinnedMemoryEnabled", &globals::isPinnedMemoryEnabled);
+	m.def("setPinnedMemoryEnabled", &globals::setPinnedMemoryEnabled);
 }
+}  // namespace yrt
 
 #endif  // if BUILD_PYBIND11

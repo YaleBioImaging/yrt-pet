@@ -264,7 +264,6 @@ if __name__ == "__main__":
         f.write(current_script_content)
 
     # General config
-    yrt.Globals.set_num_threads(20)
     device_number = 0
     torch.cuda.set_device(device_number)
     assert torch.cuda.is_available()

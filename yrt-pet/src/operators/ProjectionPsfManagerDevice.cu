@@ -3,10 +3,12 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "operators/ProjectionPsfManagerDevice.cuh"
+#include "yrt-pet/operators/ProjectionPsfManagerDevice.cuh"
 
 #include <cuda_runtime.h>
 
+namespace yrt
+{
 ProjectionPsfManagerDevice::ProjectionPsfManagerDevice(
     const std::string& psfFilename, const cudaStream_t* pp_stream)
     : ProjectionPsfManager{}
@@ -72,3 +74,4 @@ void ProjectionPsfManagerDevice::copyKernelsToDevice(
 	mpd_kernelsFlipped->copyFromHost(m_kernelsFlipped.getRawPointer(),
 	                                 kernelSize, launchConfig);
 }
+}  // namespace yrt

@@ -3,8 +3,8 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "datastruct/image/Image.hpp"
-#include "operators/OperatorProjectorSiddon.hpp"
+#include "yrt-pet/datastruct/image/Image.hpp"
+#include "yrt-pet/operators/OperatorProjectorSiddon.hpp"
 
 #include "catch.hpp"
 #include <cmath>
@@ -12,6 +12,8 @@
 #include <ctime>
 #include <memory>
 
+namespace yrt
+{
 /** Helper function for adjoint test
  *
  * Compute the backprojection of the line of response into img_bp, and return
@@ -33,6 +35,7 @@ double bp_dot_slow(const Line3D& lor, Image* img_bp, const Image* img,
 	                                                             proj_val);
 	return img->dotProduct(*img_bp);
 }
+}  // namespace yrt
 
 TEST_CASE("Siddon-simple", "[siddon]")
 {
@@ -50,11 +53,11 @@ TEST_CASE("Siddon-simple", "[siddon]")
 	float ox = 0.0;
 	float oy = 0.0;
 	float oz = 0.0;
-	ImageParams img_params(nx, ny, nz, sx, sy, sz, ox, oy, oz);
-	auto img = std::make_unique<ImageOwned>(img_params);
+	yrt::ImageParams img_params(nx, ny, nz, sx, sy, sz, ox, oy, oz);
+	auto img = std::make_unique<yrt::ImageOwned>(img_params);
 	img->allocate();
 	img->setValue(1.0);
-	auto img_bp = std::make_unique<ImageOwned>(img_params);
+	auto img_bp = std::make_unique<yrt::ImageOwned>(img_params);
 	img_bp->allocate();
 	img_bp->setValue(0.0);
 	float fov_radius = img->getRadius();
@@ -66,12 +69,13 @@ TEST_CASE("Siddon-simple", "[siddon]")
 		{
 			double beta = 2 * M_PI * i / (double)(num_tests - 1);
 			// Single line of response (through isocenter)
-			Vector3D p1{-sx * cosf(beta), -sx * sinf(beta), oz};
-			Vector3D p2{sx * cosf(beta), sx * sinf(beta), oz};
-			Line3D lor{p1, p2};
+			yrt::Vector3D p1{-sx * cosf(beta), -sx * sinf(beta), oz};
+			yrt::Vector3D p2{sx * cosf(beta), sx * sinf(beta), oz};
+			yrt::Line3D lor{p1, p2};
 			INFO(rseed_str + " i=" + std::to_string(i));
-			double proj_val = OperatorProjectorSiddon::singleForwardProjection(
-			    img.get(), lor);
+			double proj_val =
+			    yrt::OperatorProjectorSiddon::singleForwardProjection(img.get(),
+			                                                          lor);
 			REQUIRE(proj_val == Approx(2 * fov_radius));
 
 			// Adjoint
@@ -82,7 +86,7 @@ TEST_CASE("Siddon-simple", "[siddon]")
 
 			// Slow version of ray tracing
 			float proj_val_slow;
-			OperatorProjectorSiddon::project_helper<true, false, false>(
+			yrt::OperatorProjectorSiddon::project_helper<true, false, false>(
 			    img.get(), lor, proj_val_slow);
 			REQUIRE(proj_val == Approx(proj_val_slow));
 			double dot_x_Aty_slow =
@@ -101,12 +105,13 @@ TEST_CASE("Siddon-simple", "[siddon]")
 			float rad_1 = rand() / (double)RAND_MAX * 0.8 * fov_radius;
 			float rad_2 = rand() / (double)RAND_MAX * 0.8 * fov_radius;
 			// Single line of response (through isocenter)
-			Vector3D p1{rad_1 * cosf(beta_1), rad_1 * sinf(beta_1), oz};
-			Vector3D p2{rad_2 * cosf(beta_2), rad_2 * sinf(beta_2), oz};
-			Line3D lor{p1, p2};
+			yrt::Vector3D p1{rad_1 * cosf(beta_1), rad_1 * sinf(beta_1), oz};
+			yrt::Vector3D p2{rad_2 * cosf(beta_2), rad_2 * sinf(beta_2), oz};
+			yrt::Line3D lor{p1, p2};
 			INFO(rseed_str + " i=" + std::to_string(i));
-			double proj_val = OperatorProjectorSiddon::singleForwardProjection(
-			    img.get(), lor);
+			double proj_val =
+			    yrt::OperatorProjectorSiddon::singleForwardProjection(img.get(),
+			                                                          lor);
 			REQUIRE(proj_val == Approx((p1 - p2).getNorm()));
 
 			// Adjoint
@@ -117,7 +122,7 @@ TEST_CASE("Siddon-simple", "[siddon]")
 
 			// Slow version of ray tracing
 			float proj_val_slow;
-			OperatorProjectorSiddon::project_helper<true, false, false>(
+			yrt::OperatorProjectorSiddon::project_helper<true, false, false>(
 			    img.get(), lor, proj_val_slow);
 			REQUIRE(proj_val == Approx(proj_val_slow));
 			double dot_x_Aty_slow =
@@ -133,14 +138,15 @@ TEST_CASE("Siddon-simple", "[siddon]")
 		{
 			float y0 = sy * i / static_cast<float>(num_tests - 1) - sy / 2;
 			// Single line of response (parallel to y-axis)
-			Vector3D p1{-sx, y0, oz};
-			Vector3D p2{sx, y0, p1.z};
-			Line3D lor{p1, p2};
+			yrt::Vector3D p1{-sx, y0, oz};
+			yrt::Vector3D p2{sx, y0, p1.z};
+			yrt::Line3D lor{p1, p2};
 			float integral_ref =
 			    2 * sqrtf(std::max(0.0f, fov_radius * fov_radius - y0 * y0));
 			INFO(rseed_str + " i=" + std::to_string(i));
-			float proj_val = OperatorProjectorSiddon::singleForwardProjection(
-			    img.get(), lor);
+			float proj_val =
+			    yrt::OperatorProjectorSiddon::singleForwardProjection(img.get(),
+			                                                          lor);
 			REQUIRE(proj_val == Approx(integral_ref));
 			// Adjoint
 			double proj_val_t = rand() / (double)RAND_MAX * proj_val;
@@ -150,7 +156,7 @@ TEST_CASE("Siddon-simple", "[siddon]")
 
 			// Slow version of ray tracing
 			float proj_val_slow;
-			OperatorProjectorSiddon::project_helper<true, false, false>(
+			yrt::OperatorProjectorSiddon::project_helper<true, false, false>(
 			    img.get(), lor, proj_val_slow);
 			REQUIRE(proj_val == Approx(proj_val_slow));
 			double dot_x_Aty_slow =
@@ -163,11 +169,12 @@ TEST_CASE("Siddon-simple", "[siddon]")
 	{
 		// Lines of response outside of the field of view
 		{
-			Vector3D p1{sx, oy, oz};
-			Vector3D p2{2 * sx, p1.y, p1.z};
-			Line3D lor{p1, p2};
-			double proj_val = OperatorProjectorSiddon::singleForwardProjection(
-			    img.get(), lor);
+			yrt::Vector3D p1{sx, oy, oz};
+			yrt::Vector3D p2{2 * sx, p1.y, p1.z};
+			yrt::Line3D lor{p1, p2};
+			double proj_val =
+			    yrt::OperatorProjectorSiddon::singleForwardProjection(img.get(),
+			                                                          lor);
 			REQUIRE(proj_val == Approx(0.f));
 			// Adjoint
 			double proj_val_t = rand() / (double)RAND_MAX * proj_val;
@@ -177,7 +184,7 @@ TEST_CASE("Siddon-simple", "[siddon]")
 
 			// Slow version of ray tracing
 			float proj_val_slow;
-			OperatorProjectorSiddon::project_helper<true, false, false>(
+			yrt::OperatorProjectorSiddon::project_helper<true, false, false>(
 			    img.get(), lor, proj_val_slow);
 			REQUIRE(proj_val == Approx(proj_val_slow));
 			double dot_x_Aty_slow =
@@ -185,11 +192,12 @@ TEST_CASE("Siddon-simple", "[siddon]")
 			REQUIRE(dot_x_Aty == Approx(dot_x_Aty_slow));
 		}
 		{
-			Vector3D p1{2 * sx, oy, oz};
-			Vector3D p2{2 * sx, sy, p1.z};
-			Line3D lor{p1, p2};
-			double proj_val = OperatorProjectorSiddon::singleForwardProjection(
-			    img.get(), lor);
+			yrt::Vector3D p1{2 * sx, oy, oz};
+			yrt::Vector3D p2{2 * sx, sy, p1.z};
+			yrt::Line3D lor{p1, p2};
+			double proj_val =
+			    yrt::OperatorProjectorSiddon::singleForwardProjection(img.get(),
+			                                                          lor);
 			REQUIRE(proj_val == Approx(0.f));
 			// Adjoint
 			double proj_val_t = rand() / (double)RAND_MAX * proj_val;
@@ -199,7 +207,7 @@ TEST_CASE("Siddon-simple", "[siddon]")
 
 			// Slow version of ray tracing
 			float proj_val_slow;
-			OperatorProjectorSiddon::project_helper<true, false, false>(
+			yrt::OperatorProjectorSiddon::project_helper<true, false, false>(
 			    img.get(), lor, proj_val_slow);
 			REQUIRE(proj_val == Approx(proj_val_slow));
 			double dot_x_Aty_slow =
@@ -209,11 +217,12 @@ TEST_CASE("Siddon-simple", "[siddon]")
 		for (int i = 0; i < 2; i++)
 		{
 			float delta_z = (i == 0) ? 0 : rand() / (double)RAND_MAX * 0.00001;
-			Vector3D p1{-sx, 0.0f, 1.0001f * sz / 2.0f};
-			Vector3D p2{sx, 0.0f, p1.z + delta_z};
-			Line3D lor{p1, p2};
-			float proj_val = OperatorProjectorSiddon::singleForwardProjection(
-			    img.get(), lor);
+			yrt::Vector3D p1{-sx, 0.0f, 1.0001f * sz / 2.0f};
+			yrt::Vector3D p2{sx, 0.0f, p1.z + delta_z};
+			yrt::Line3D lor{p1, p2};
+			float proj_val =
+			    yrt::OperatorProjectorSiddon::singleForwardProjection(img.get(),
+			                                                          lor);
 			REQUIRE(proj_val == Approx(0.f));
 			// Adjoint
 			double proj_val_t = rand() / (double)RAND_MAX * proj_val;
@@ -223,7 +232,7 @@ TEST_CASE("Siddon-simple", "[siddon]")
 
 			// Slow version of ray tracing
 			float proj_val_slow;
-			OperatorProjectorSiddon::project_helper<true, false, false>(
+			yrt::OperatorProjectorSiddon::project_helper<true, false, false>(
 			    img.get(), lor, proj_val_slow);
 			REQUIRE(proj_val == Approx(proj_val_slow));
 			double dot_x_Aty_slow =
@@ -240,14 +249,15 @@ TEST_CASE("Siddon-simple", "[siddon]")
 			// Line of response along diameter of FOV (varying z)
 			float z1 = rand() / (double)RAND_MAX * sz - sz / 2;
 			float z2 = rand() / (double)RAND_MAX * sz - sz / 2;
-			Vector3D p1{0.0f, -fov_radius, z1};
-			Vector3D p2{0.0f, fov_radius, z2};
-			Line3D lor{p1, p2};
+			yrt::Vector3D p1{0.0f, -fov_radius, z1};
+			yrt::Vector3D p2{0.0f, fov_radius, z2};
+			yrt::Line3D lor{p1, p2};
 			double integral_ref =
 			    sqrtf(4.f * fov_radius * fov_radius + (z2 - z1) * (z2 - z1));
 			INFO(rseed_str + " i=" + std::to_string(i));
-			double proj_val = OperatorProjectorSiddon::singleForwardProjection(
-			    img.get(), lor);
+			double proj_val =
+			    yrt::OperatorProjectorSiddon::singleForwardProjection(img.get(),
+			                                                          lor);
 			REQUIRE(proj_val == Approx(integral_ref));
 			// Adjoint
 			double proj_val_t = rand() / (double)RAND_MAX * proj_val;
@@ -257,7 +267,7 @@ TEST_CASE("Siddon-simple", "[siddon]")
 
 			// Slow version of ray tracing
 			float proj_val_slow;
-			OperatorProjectorSiddon::project_helper<true, false, false>(
+			yrt::OperatorProjectorSiddon::project_helper<true, false, false>(
 			    img.get(), lor, proj_val_slow);
 			REQUIRE(proj_val == Approx(proj_val_slow));
 			double dot_x_Aty_slow =
@@ -266,8 +276,8 @@ TEST_CASE("Siddon-simple", "[siddon]")
 		}
 		for (int i = 0; i < 4; i++)
 		{
-			Vector3D p1;
-			Vector3D p2;
+			yrt::Vector3D p1;
+			yrt::Vector3D p2;
 			double l_ref;
 			switch (i)
 			{
@@ -308,10 +318,11 @@ TEST_CASE("Siddon-simple", "[siddon]")
 				l_ref = 2 * fov_radius;
 				break;
 			}
-			Line3D lor{p1, p2};
+			yrt::Line3D lor{p1, p2};
 			INFO("axis i=" + std::to_string(i));
-			double proj_val = OperatorProjectorSiddon::singleForwardProjection(
-			    img.get(), lor);
+			double proj_val =
+			    yrt::OperatorProjectorSiddon::singleForwardProjection(img.get(),
+			                                                          lor);
 			REQUIRE(proj_val == Approx(l_ref));
 			// Adjoint
 			double proj_val_t = rand() / (double)RAND_MAX * proj_val;
@@ -321,7 +332,7 @@ TEST_CASE("Siddon-simple", "[siddon]")
 
 			// Slow version of ray tracing
 			float proj_val_slow;
-			OperatorProjectorSiddon::project_helper<true, false, false>(
+			yrt::OperatorProjectorSiddon::project_helper<true, false, false>(
 			    img.get(), lor, proj_val_slow);
 			REQUIRE(proj_val == Approx(proj_val_slow));
 			double dot_x_Aty_slow =
@@ -347,12 +358,12 @@ TEST_CASE("Siddon-random", "[siddon]")
 	double ox = 0.0;
 	double oy = 0.0;
 	double oz = 0.0;
-	ImageParams img_params(nx, ny, nz, sx, sy, sz, ox, oy, oz);
-	auto img = std::make_unique<ImageOwned>(img_params);
+	yrt::ImageParams img_params(nx, ny, nz, sx, sy, sz, ox, oy, oz);
+	auto img = std::make_unique<yrt::ImageOwned>(img_params);
 	img->allocate();
 	img->setValue(1.0);
 	// Randomize image content
-	Array3DAlias<float> img_arr = img->getArray();
+	yrt::Array3DAlias<float> img_arr = img->getArray();
 	for (size_t k = 0; k < nz; k++)
 	{
 		for (size_t j = 0; j < ny; j++)
@@ -364,7 +375,7 @@ TEST_CASE("Siddon-random", "[siddon]")
 			}
 		}
 	}
-	auto img_bp = std::make_unique<ImageOwned>(img_params);
+	auto img_bp = std::make_unique<yrt::ImageOwned>(img_params);
 	img_bp->allocate();
 	img_bp->setValue(0.0);
 	double fov_radius = img->getRadius();
@@ -385,13 +396,14 @@ TEST_CASE("Siddon-random", "[siddon]")
 			float z1 = rand() / static_cast<float>(RAND_MAX) * 2.0 * sz - sz;
 			float z2 = rand() / static_cast<float>(RAND_MAX) * 2.0 * sz - sz;
 
-			Vector3D p1{x1, y1, z1};
-			Vector3D p2{x2, y2, z2};
-			Line3D lor{p1, p2};
+			yrt::Vector3D p1{x1, y1, z1};
+			yrt::Vector3D p2{x2, y2, z2};
+			yrt::Line3D lor{p1, p2};
 
 			// Use Siddon implementation to compute projection
-			double proj_val = OperatorProjectorSiddon::singleForwardProjection(
-			    img.get(), lor);
+			double proj_val =
+			    yrt::OperatorProjectorSiddon::singleForwardProjection(img.get(),
+			                                                          lor);
 			// Compute reference
 			double proj_ref = 0.0;
 			double t1;
@@ -474,7 +486,7 @@ TEST_CASE("Siddon-random", "[siddon]")
 
 			// Slow version of ray tracing
 			float proj_val_slow;
-			OperatorProjectorSiddon::project_helper<true, false, false>(
+			yrt::OperatorProjectorSiddon::project_helper<true, false, false>(
 			    img.get(), lor, proj_val_slow);
 			REQUIRE(proj_val == Approx(proj_val_slow).epsilon(0.001));
 			double dot_x_Aty_slow =
@@ -498,17 +510,17 @@ TEST_CASE("Siddon-bugs", "[siddon]")
 		double sx = 38.4;
 		double sy = 38.4;
 		double sz = 25;
-		ImageParams img_params(nx, ny, nz, sx, sy, sz);
-		auto img = std::make_unique<ImageOwned>(img_params);
+		yrt::ImageParams img_params(nx, ny, nz, sx, sy, sz);
+		auto img = std::make_unique<yrt::ImageOwned>(img_params);
 		img->allocate();
 		double v = rand() / (double)RAND_MAX * 1000.0;
 		img->setValue(v);
 
-		Vector3D p1{0, 0, 26.4843};
-		Vector3D p2{0, 0, -26.4292};
-		Line3D lor{p1, p2};
-		double proj_val =
-		    OperatorProjectorSiddon::singleForwardProjection(img.get(), lor);
+		yrt::Vector3D p1{0, 0, 26.4843};
+		yrt::Vector3D p2{0, 0, -26.4292};
+		yrt::Line3D lor{p1, p2};
+		double proj_val = yrt::OperatorProjectorSiddon::singleForwardProjection(
+		    img.get(), lor);
 		REQUIRE(proj_val == Approx(v * sz));
 	}
 
@@ -524,21 +536,21 @@ TEST_CASE("Siddon-bugs", "[siddon]")
 		double sx = 25.0;
 		double sy = 25.0;
 		double sz = 23.5;
-		ImageParams img_params(nx, ny, nz, sx, sy, sz);
-		auto img = std::make_unique<ImageOwned>(img_params);
+		yrt::ImageParams img_params(nx, ny, nz, sx, sy, sz);
+		auto img = std::make_unique<yrt::ImageOwned>(img_params);
 		img->allocate();
 		double v = rand() / (double)RAND_MAX * 1000.0;
 		img->setValue(v);
 
-		Vector3D p1{-15.998346, -11.563760, 10.800007};
-		Vector3D p2{19.74, 0.0, 13.200009};
-		Line3D lor{p1, p2};
-		double proj_val =
-		    OperatorProjectorSiddon::singleForwardProjection(img.get(), lor);
+		yrt::Vector3D p1{-15.998346, -11.563760, 10.800007};
+		yrt::Vector3D p2{19.74, 0.0, 13.200009};
+		yrt::Line3D lor{p1, p2};
+		double proj_val = yrt::OperatorProjectorSiddon::singleForwardProjection(
+		    img.get(), lor);
 		REQUIRE(proj_val > 0.0f);
 
 		float proj_val_slow;
-		OperatorProjectorSiddon::project_helper<true, false, false>(
+		yrt::OperatorProjectorSiddon::project_helper<true, false, false>(
 		    img.get(), lor, proj_val_slow);
 		REQUIRE(proj_val == Approx(proj_val_slow));
 	}
@@ -555,11 +567,11 @@ TEST_CASE("Siddon-bugs", "[siddon]")
 		double sx = 4.0;
 		double sy = 4.0;
 		double sz = 4.0;
-		ImageParams img_params(nx, ny, nz, sx, sy, sz);
-		auto img = std::make_unique<ImageOwned>(img_params);
+		yrt::ImageParams img_params(nx, ny, nz, sx, sy, sz);
+		auto img = std::make_unique<yrt::ImageOwned>(img_params);
 		img->allocate();
 		// Randomize image content
-		Array3DAlias<float> img_arr = img->getArray();
+		yrt::Array3DAlias<float> img_arr = img->getArray();
 		for (size_t k = 0; k < nz; k++)
 		{
 			for (size_t j = 0; j < ny; j++)
@@ -573,52 +585,56 @@ TEST_CASE("Siddon-bugs", "[siddon]")
 
 		// xy
 		{
-			Vector3D p1{-2.0, -1.0, 0.0};
-			Vector3D p2{2.0, 1.0, 0.0};
-			Line3D lor{p1, p2};
-			double proj_val = OperatorProjectorSiddon::singleForwardProjection(
-			    img.get(), lor);
+			yrt::Vector3D p1{-2.0, -1.0, 0.0};
+			yrt::Vector3D p2{2.0, 1.0, 0.0};
+			yrt::Line3D lor{p1, p2};
+			double proj_val =
+			    yrt::OperatorProjectorSiddon::singleForwardProjection(img.get(),
+			                                                          lor);
 			float proj_val_slow;
-			OperatorProjectorSiddon::project_helper<true, false, false>(
+			yrt::OperatorProjectorSiddon::project_helper<true, false, false>(
 			    img.get(), lor, proj_val_slow);
 			REQUIRE(proj_val == Approx(proj_val_slow));
 		}
 
 		// xz
 		{
-			Vector3D p1{-2.0, 0.0, -1.0};
-			Vector3D p2{2.0, 0.0, 1.0};
-			Line3D lor{p1, p2};
-			double proj_val = OperatorProjectorSiddon::singleForwardProjection(
-			    img.get(), lor);
+			yrt::Vector3D p1{-2.0, 0.0, -1.0};
+			yrt::Vector3D p2{2.0, 0.0, 1.0};
+			yrt::Line3D lor{p1, p2};
+			double proj_val =
+			    yrt::OperatorProjectorSiddon::singleForwardProjection(img.get(),
+			                                                          lor);
 			float proj_val_slow;
-			OperatorProjectorSiddon::project_helper<true, false, false>(
+			yrt::OperatorProjectorSiddon::project_helper<true, false, false>(
 			    img.get(), lor, proj_val_slow);
 			REQUIRE(proj_val == Approx(proj_val_slow));
 		}
 
 		// yz
 		{
-			Vector3D p1{0.0, -2.0, -1.0};
-			Vector3D p2{0.0, 2.0, 1.0};
-			Line3D lor{p1, p2};
-			double proj_val = OperatorProjectorSiddon::singleForwardProjection(
-			    img.get(), lor);
+			yrt::Vector3D p1{0.0, -2.0, -1.0};
+			yrt::Vector3D p2{0.0, 2.0, 1.0};
+			yrt::Line3D lor{p1, p2};
+			double proj_val =
+			    yrt::OperatorProjectorSiddon::singleForwardProjection(img.get(),
+			                                                          lor);
 			float proj_val_slow;
-			OperatorProjectorSiddon::project_helper<true, false, false>(
+			yrt::OperatorProjectorSiddon::project_helper<true, false, false>(
 			    img.get(), lor, proj_val_slow);
 			REQUIRE(proj_val == Approx(proj_val_slow));
 		}
 
 		// xyz
 		{
-			Vector3D p1{-2.0, -2.0, -2.0};
-			Vector3D p2{2.0, 2.0, 2.0};
-			Line3D lor{p1, p2};
-			double proj_val = OperatorProjectorSiddon::singleForwardProjection(
-			    img.get(), lor);
+			yrt::Vector3D p1{-2.0, -2.0, -2.0};
+			yrt::Vector3D p2{2.0, 2.0, 2.0};
+			yrt::Line3D lor{p1, p2};
+			double proj_val =
+			    yrt::OperatorProjectorSiddon::singleForwardProjection(img.get(),
+			                                                          lor);
 			float proj_val_slow;
-			OperatorProjectorSiddon::project_helper<true, false, false>(
+			yrt::OperatorProjectorSiddon::project_helper<true, false, false>(
 			    img.get(), lor, proj_val_slow);
 			REQUIRE(proj_val == Approx(proj_val_slow));
 		}

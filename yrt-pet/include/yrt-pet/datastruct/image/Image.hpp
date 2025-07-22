@@ -55,17 +55,11 @@ public:
 	float dotProduct(const Image& y) const;
 	float nearestNeighbor(const Vector3D& pt) const;
 	float nearestNeighbor(const Vector3D& pt, int* pi, int* pj, int* pk) const;
-	void updateImageNearestNeighbor(const Vector3D& pt, float value,
-	                                bool mult_flag);
-	void assignImageNearestNeighbor(const Vector3D& pt, float value);
 	bool getNearestNeighborIdx(const Vector3D& pt, int* pi, int* pj,
 	                           int* pk) const;
 
-	float interpolateImage(const Vector3D& pt) const;
+	float interpolateImage(const Vector3D& pos) const;
 	float interpolateImage(const Vector3D& pt, const Image& sens) const;
-	void updateImageInterpolate(const Vector3D& point, float value,
-	                            bool mult_flag);
-	void assignImageInterpolate(const Vector3D& point, float value);
 
 	template <int Dimension>
 	float indexToPositionInDimension(int index) const;

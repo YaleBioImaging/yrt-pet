@@ -32,6 +32,7 @@ With `[ON/OFF]` being replaced by the desired configuration
 
 - (optional) To run unit tests, run `ctest -V` from the build folder.
 - Install YRT-PET by running `cmake --install . --prefix <installation path>`
+  from the build folder.
     - This will install YRT-PET's header files, library, and binary executables
     in `<installation path>`
     - A file named `install_manifest.txt` will be created in the build folder

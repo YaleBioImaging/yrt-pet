@@ -354,10 +354,10 @@ float Image::interpolateImage(const Vector3D& pt) const
 	float weights[8];
 	int indices[8];
 
-	trilinearInterpolate(pt.x, pt.y, pt.z, params.nx, params.ny, params.nz,
-	                     params.length_x, params.length_y, params.length_z,
-	                     params.off_x, params.off_y, params.off_z, indices,
-	                     weights);
+	util::trilinearInterpolate(pt.x, pt.y, pt.z, params.nx, params.ny,
+	                           params.nz, params.length_x, params.length_y,
+	                           params.length_z, params.off_x, params.off_y,
+	                           params.off_z, indices, weights);
 
 	const float* rawPtr = getRawPointer();
 	float total = 0.0f;
@@ -379,10 +379,10 @@ float Image::interpolateImage(const Vector3D& pt, const Image& sens) const
 	float weights[8];
 	int indices[8];
 
-	trilinearInterpolate(pt.x, pt.y, pt.z, params.nx, params.ny, params.nz,
-	                     params.length_x, params.length_y, params.length_z,
-	                     params.off_x, params.off_y, params.off_z, indices,
-	                     weights);
+	util::trilinearInterpolate(pt.x, pt.y, pt.z, params.nx, params.ny,
+	                           params.nz, params.length_x, params.length_y,
+	                           params.length_z, params.off_x, params.off_y,
+	                           params.off_z, indices, weights);
 
 	const float* rawPtr = getRawPointer();
 	const float* sensRawPtr = sens.getRawPointer();
@@ -408,10 +408,10 @@ void Image::operationImageInterpolate(const Vector3D& pt, float value)
 	float weights[8];
 	int indices[8];
 
-	trilinearInterpolate(pt.x, pt.y, pt.z, params.nx, params.ny, params.nz,
-	                     params.length_x, params.length_y, params.length_z,
-	                     params.off_x, params.off_y, params.off_z, indices,
-	                     weights);
+	util::trilinearInterpolate(pt.x, pt.y, pt.z, params.nx, params.ny,
+	                           params.nz, params.length_x, params.length_y,
+	                           params.length_z, params.off_x, params.off_y,
+	                           params.off_z, indices, weights);
 
 	float* rawPtr = getRawPointer();
 
@@ -990,8 +990,7 @@ float Image::indexToPositionInDimension(int index) const
 	{
 		throw std::runtime_error("Unknown error");
 	}
-	return static_cast<float>(index) * voxelSize - 0.5f * length + offset +
-	       0.5f * voxelSize;
+	return util::indexToPosition(index, voxelSize, length, offset);
 }
 
 template float Image::indexToPositionInDimension<0>(int index) const;

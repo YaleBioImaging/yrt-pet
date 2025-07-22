@@ -7,7 +7,7 @@
 
 #include "yrt-pet/utils/GPUUtils.cuh"
 
-namespace yrt
+namespace yrt::util
 {
 
 inline HOST_DEVICE_CALLABLE void
@@ -70,6 +70,13 @@ inline HOST_DEVICE_CALLABLE void
 			indices[i] = 0;
 		}
 	}
+}
+
+inline HOST_DEVICE_CALLABLE float indexToPosition(int index, float voxelSize,
+                                                  float length, float offset)
+{
+	return static_cast<float>(index) * voxelSize - 0.5f * length + offset +
+	       0.5f * voxelSize;
 }
 
 }  // namespace yrt

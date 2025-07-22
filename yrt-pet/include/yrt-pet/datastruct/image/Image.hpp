@@ -63,6 +63,9 @@ public:
 
 	float interpolateImage(const Vector3D& pt) const;
 	float interpolateImage(const Vector3D& pt, const Image& sens) const;
+	template<bool MULT_FLAG>
+	void updateImageInterpolate(const Vector3D& pt, float value);
+	void assignImageInterpolate(const Vector3D& pt, float value);
 
 	template <int Dimension>
 	float indexToPositionInDimension(int index) const;
@@ -81,6 +84,11 @@ protected:
 	Image();
 	explicit Image(const ImageParams& imgParams);
 	std::unique_ptr<Array3DBase<float>> mp_array;
+
+private:
+	// Helper
+	template <int OPERATION> // operations 0: assign, 1: multiply, 2: add
+	void operationImageInterpolate(const Vector3D& pt, float value);
 };
 
 class ImageOwned : public Image

@@ -62,6 +62,22 @@ void py_setup_image(py::module& m)
 	          &Image::interpolateImage),
 	      py::arg("pt"));
 	c.def(
+	    "updateImageInterpolate",
+	    [](Image& img, const Vector3D& pt, float value, bool mult_flag)
+	    {
+		    if (mult_flag)
+		    {
+			    img.updateImageInterpolate<true>(pt, value);
+		    }
+		    else
+		    {
+			    img.updateImageInterpolate<false>(pt, value);
+		    }
+	    },
+	    py::arg("pt"), py::arg("value"), py::arg("mult_flag") = false);
+	c.def("assignImageInterpolate", &Image::assignImageInterpolate,
+	      py::arg("pt"), py::arg("value"));
+	c.def(
 	    "nearestNeighbor",
 	    [](const Image& img, const Vector3D& pt) -> py::tuple
 	    {
@@ -83,7 +99,7 @@ void py_setup_image(py::module& m)
 			    img.updateImageNearestNeighbor<false>(pt, value);
 		    }
 	    },
-	    py::arg("pt"), py::arg("value"), py::arg("doMultiplication"));
+	    py::arg("pt"), py::arg("value"), py::arg("mult_flag") = false);
 	c.def("assignImageNearestNeighbor", &Image::assignImageNearestNeighbor,
 	      py::arg("pt"), py::arg("value"));
 	c.def(
@@ -330,7 +346,6 @@ bool Image::getNearestNeighborIdx(const Vector3D& pt, int* pi, int* pj,
 	return true;
 }
 
-
 // interpolation operation.
 float Image::interpolateImage(const Vector3D& pt) const
 {
@@ -379,6 +394,62 @@ float Image::interpolateImage(const Vector3D& pt, const Image& sens) const
 	}
 
 	return total;
+}
+
+// update image with "value" using trilinear interpolation:
+template <int OPERATION>  // 0: assign, 1: multiply, 2: add
+void Image::operationImageInterpolate(const Vector3D& pt, float value)
+{
+	// Only allow defined operations
+	static_assert(OPERATION >= 0 && OPERATION <= 2);
+
+	const ImageParams& params = getParams();
+
+	float weights[8];
+	int indices[8];
+
+	trilinearInterpolate(pt.x, pt.y, pt.z, params.nx, params.ny, params.nz,
+	                     params.length_x, params.length_y, params.length_z,
+	                     params.off_x, params.off_y, params.off_z, indices,
+	                     weights);
+
+	float* rawPtr = getRawPointer();
+
+	for (size_t i = 0; i < 8; i++)
+	{
+		if (OPERATION == 0)
+		{
+			rawPtr[indices[i]] = weights[i] * value;
+		}
+		else if constexpr (OPERATION == 1)
+		{
+			rawPtr[indices[i]] *= weights[i] * value;
+		}
+		else
+		{
+			rawPtr[indices[i]] += weights[i] * value;
+		}
+	}
+}
+
+// assign image with "value" using trilinear interpolation:
+template <bool MULT_FLAG>
+void Image::updateImageInterpolate(const Vector3D& pt, float value)
+{
+	if (MULT_FLAG)
+	{
+		operationImageInterpolate<1>(pt, value);
+	}
+	else
+	{
+		operationImageInterpolate<2>(pt, value);
+	}
+}
+
+// assign image with "value" using trilinear interpolation:
+void Image::assignImageInterpolate(const Vector3D& pt, float value)
+{
+	operationImageInterpolate<0>(pt, value);
 }
 
 void Image::operationOnEachVoxel(const std::function<float(size_t)>& func)

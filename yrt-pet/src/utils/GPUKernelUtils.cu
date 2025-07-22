@@ -3,8 +3,10 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "utils/GPUKernelUtils.cuh"
+#include "yrt-pet/utils/GPUKernelUtils.cuh"
 
+namespace yrt
+{
 __global__ void applyAttenuationFactors_kernel(const float* pd_attImgProjData,
                                                const float* pd_imgProjData,
                                                float* pd_destProjData,
@@ -19,3 +21,4 @@ __global__ void applyAttenuationFactors_kernel(const float* pd_attImgProjData,
 		    pd_imgProjData[eventId] * exp(-attProj * unitFactor);
 	}
 }
+}  // namespace yrt

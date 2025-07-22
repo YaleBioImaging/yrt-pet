@@ -3,16 +3,16 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "operators/OperatorProjector.hpp"
+#include "yrt-pet/operators/OperatorProjector.hpp"
 
-#include "datastruct/image/Image.hpp"
-#include "datastruct/projection/BinIterator.hpp"
-#include "datastruct/projection/Histogram3D.hpp"
-#include "geometry/Constants.hpp"
-#include "utils/Assert.hpp"
-#include "utils/Globals.hpp"
-#include "utils/ReconstructionUtils.hpp"
-#include "utils/Tools.hpp"
+#include "yrt-pet/datastruct/image/Image.hpp"
+#include "yrt-pet/datastruct/projection/BinIterator.hpp"
+#include "yrt-pet/datastruct/projection/Histogram3D.hpp"
+#include "yrt-pet/geometry/Constants.hpp"
+#include "yrt-pet/utils/Assert.hpp"
+#include "yrt-pet/utils/Globals.hpp"
+#include "yrt-pet/utils/ReconstructionUtils.hpp"
+#include "yrt-pet/utils/Tools.hpp"
 
 #include "omp.h"
 
@@ -23,7 +23,8 @@
 #include <utility>
 namespace py = pybind11;
 
-
+namespace yrt
+{
 void py_setup_operatorprojector(py::module& m)
 {
 	auto c = py::class_<OperatorProjector, OperatorProjectorBase>(
@@ -46,8 +47,12 @@ void py_setup_operatorprojector(py::module& m)
 	    .value("DD", OperatorProjector::ProjectorType::DD)
 	    .export_values();
 }
+}  // namespace yrt
 
 #endif
+
+namespace yrt
+{
 
 OperatorProjector::OperatorProjector(const Scanner& pr_scanner,
                                      float tofWidth_ps, int tofNumStd,
@@ -160,3 +165,4 @@ const ProjectionPsfManager* OperatorProjector::getProjectionPsfManager() const
 {
 	return mp_projPsfManager.get();
 }
+}  // namespace yrt

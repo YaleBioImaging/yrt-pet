@@ -3,8 +3,10 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "utils/GPUStream.cuh"
+#include "yrt-pet/utils/GPUStream.cuh"
 
+namespace yrt
+{
 GPUStream::GPUStream(unsigned int flags)
 {
 	cudaStreamCreateWithFlags(&m_stream, flags);
@@ -19,3 +21,4 @@ GPUStream::~GPUStream()
 {
 	cudaStreamDestroy(m_stream);
 }
+}  // namespace yrt

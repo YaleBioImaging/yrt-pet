@@ -3,11 +3,11 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "datastruct/projection/ProjectionData.hpp"
-#include "geometry/Constants.hpp"
+#include "yrt-pet/datastruct/projection/ProjectionData.hpp"
+#include "yrt-pet/geometry/Constants.hpp"
 
-#include "geometry/Matrix.hpp"
-#include "utils/Globals.hpp"
+#include "yrt-pet/geometry/Matrix.hpp"
+#include "yrt-pet/utils/Globals.hpp"
 
 #include <stdexcept>
 
@@ -18,6 +18,8 @@ namespace py = pybind11;
 
 using namespace py::literals;
 
+namespace yrt
+{
 void py_setup_projectiondata(py::module& m)
 {
 	auto c = py::class_<ProjectionData, Variable>(m, "ProjectionData");
@@ -67,9 +69,12 @@ void py_setup_projectiondata(py::module& m)
 	c.def("divideMeasurements", &ProjectionData::divideMeasurements,
 	      py::arg("measurements"), py::arg("binIterator"));
 }
+}  // namespace yrt
 
 #endif  // if BUILD_PYBIND11
 
+namespace yrt
+{
 ProjectionData::ProjectionData(const Scanner& pr_scanner)
     : mr_scanner(pr_scanner)
 {
@@ -267,3 +272,4 @@ void ProjectionData::divideMeasurements(const ProjectionData* measurements,
 		}
 	}
 }
+}  // namespace yrt

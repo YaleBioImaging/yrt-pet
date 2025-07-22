@@ -3,14 +3,16 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "datastruct/projection/Histogram3D.hpp"
-#include "utils/Assert.hpp"
+#include "yrt-pet/datastruct/projection/Histogram3D.hpp"
+#include "yrt-pet/utils/Assert.hpp"
 
 #if BUILD_PYBIND11
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 namespace py = pybind11;
 
+namespace yrt
+{
 void py_setup_histogram3d(pybind11::module& m)
 {
 	auto c = py::class_<Histogram3D, Histogram>(m, "Histogram3D",
@@ -151,8 +153,11 @@ void py_setup_histogram3d(pybind11::module& m)
 		              dims[2]);
 	    });
 }
+}  // namespace yrt
 #endif
 
+namespace yrt
+{
 Histogram3D::Histogram3D(const Scanner& pr_scanner)
     : Histogram{pr_scanner}, mp_data(nullptr)
 {
@@ -584,13 +589,13 @@ float Histogram3D::getProjectionValueFromHistogramBin(
 std::unique_ptr<ProjectionData>
     Histogram3DOwned::create(const Scanner& scanner,
                              const std::string& filename,
-                             const IO::OptionsResult& options)
+                             const io::OptionsResult& options)
 {
 	(void)options;  // No use for extra options
 	return std::make_unique<Histogram3DOwned>(scanner, filename);
 }
 
-Plugin::OptionsListPerPlugin Histogram3DOwned::getOptions()
+plugin::OptionsListPerPlugin Histogram3DOwned::getOptions()
 {
 	// No extra options
 	return {};
@@ -598,3 +603,5 @@ Plugin::OptionsListPerPlugin Histogram3DOwned::getOptions()
 
 REGISTER_PROJDATA_PLUGIN("H", Histogram3DOwned, Histogram3DOwned::create,
                          Histogram3DOwned::getOptions)
+
+}  // namespace yrt

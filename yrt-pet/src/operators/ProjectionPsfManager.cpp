@@ -3,10 +3,13 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "operators/ProjectionPsfManager.hpp"
+#include "yrt-pet/operators/ProjectionPsfManager.hpp"
 
-#include "geometry/ProjectorUtils.hpp"
-#include "utils/Tools.hpp"
+#include "yrt-pet/geometry/ProjectorUtils.hpp"
+#include "yrt-pet/utils/Tools.hpp"
+
+namespace yrt
+{
 
 ProjectionPsfManager::ProjectionPsfManager() : m_sStep(0.f), m_kSpacing(0.f) {}
 
@@ -23,7 +26,7 @@ void ProjectionPsfManager::readFromFile(const std::string& psfFilename)
 
 void ProjectionPsfManager::readFromFileInternal(const std::string& psfFilename)
 {
-	Util::readCSV<float>(psfFilename, m_kernelDataRaw);
+	util::readCSV<float>(psfFilename, m_kernelDataRaw);
 	m_sStep = m_kernelDataRaw[0][0];
 	m_kSpacing = m_kernelDataRaw[0][1];
 	const int kernel_size = m_kernelDataRaw[0][2];
@@ -95,6 +98,8 @@ float ProjectionPsfManager::getWeight(const float* kernel, const float x0,
 	{
 		return 0.f;
 	}
-	return Util::calculateIntegral(kernel, m_kernels.getSize(1), m_kSpacing, x0,
+	return util::calculateIntegral(kernel, m_kernels.getSize(1), m_kSpacing, x0,
 	                               x1);
 }
+
+}  // namespace yrt

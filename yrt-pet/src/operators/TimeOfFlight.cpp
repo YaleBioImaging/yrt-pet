@@ -3,25 +3,33 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "operators/TimeOfFlight.hpp"
+#include "yrt-pet/operators/TimeOfFlight.hpp"
 
-#include "utils/Tools.hpp"
+#include "yrt-pet/utils/Tools.hpp"
 
 #if BUILD_PYBIND11
 #include <pybind11/pybind11.h>
 namespace py = pybind11;
+using namespace py::literals;
 
+namespace yrt
+{
 void py_setup_timeofflight(py::module& m)
 {
 	auto c = py::class_<TimeOfFlightHelper>(m, "TimeOfFlightHelper");
-	c.def(py::init<float, int>());
+	c.def(py::init<float, int>(), "tof_width_ps"_a, "tof_n_std"_a);
 	c.def("getAlphaRange", &TimeOfFlightHelper::getAlphaRange);
 	c.def("getWeight", &TimeOfFlightHelper::getWeight);
 	c.def("getSigma", &TimeOfFlightHelper::getSigma);
 	c.def("getTruncWidth", &TimeOfFlightHelper::getTruncWidth);
 	c.def("getNorm", &TimeOfFlightHelper::getNorm);
 }
+}  // namespace yrt
+
 #endif
+
+namespace yrt
+{
 
 TimeOfFlightHelper::TimeOfFlightHelper(float tof_width_ps, int tof_n_std)
 {
@@ -53,3 +61,4 @@ float TimeOfFlightHelper::getNorm() const
 {
 	return m_norm;
 }
+}  // namespace yrt

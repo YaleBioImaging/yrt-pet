@@ -3,56 +3,59 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "utils/Timer.hpp"
-#include "utils/Assert.hpp"
+#include "yrt-pet/utils/Timer.hpp"
+#include "yrt-pet/utils/Assert.hpp"
 
-namespace Util
+namespace yrt
 {
-	Timer::Timer()
-	{
-		reset();
-	}
+namespace util
+{
 
-	void Timer::reset()
-	{
-		m_elapsedTime = duration_t::zero();
-		m_running = false;
-	}
+Timer::Timer()
+{
+	reset();
+}
 
-	void Timer::run()
-	{
-		ASSERT_MSG(!m_running, "Timer already running");
-		m_latestTime = std::chrono::high_resolution_clock::now();
-		m_running = true;
-	}
+void Timer::reset()
+{
+	m_elapsedTime = duration_t::zero();
+	m_running = false;
+}
 
-	void Timer::pause()
-	{
-		ASSERT_MSG(m_running, "Timer already paused");
-		m_elapsedTime +=
-		    std::chrono::high_resolution_clock::now() - m_latestTime;
-		m_running = false;
-	}
+void Timer::run()
+{
+	ASSERT_MSG(!m_running, "Timer already running");
+	m_latestTime = std::chrono::high_resolution_clock::now();
+	m_running = true;
+}
 
-	bool Timer::isRunning() const
-	{
-		return m_running;
-	}
+void Timer::pause()
+{
+	ASSERT_MSG(m_running, "Timer already paused");
+	m_elapsedTime += std::chrono::high_resolution_clock::now() - m_latestTime;
+	m_running = false;
+}
 
-	Timer::duration_t Timer::getElapsedTime() const
-	{
-		if (m_running)
-		{
-			return std::chrono::high_resolution_clock::now() - m_latestTime;
-		}
-		return m_elapsedTime;
-	}
+bool Timer::isRunning() const
+{
+	return m_running;
+}
 
-	double Timer::getElapsedMilliseconds() const
+Timer::duration_t Timer::getElapsedTime() const
+{
+	if (m_running)
 	{
-		return std::chrono::duration_cast<
-		           std::chrono::duration<double, std::milli>>(getElapsedTime())
-		    .count();
+		return std::chrono::high_resolution_clock::now() - m_latestTime;
 	}
+	return m_elapsedTime;
+}
 
-}  // namespace Util
+double Timer::getElapsedMilliseconds() const
+{
+	return std::chrono::duration_cast<
+	           std::chrono::duration<double, std::milli>>(getElapsedTime())
+	    .count();
+}
+
+}  // namespace util
+}  // namespace yrt

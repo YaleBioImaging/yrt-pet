@@ -3,11 +3,11 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "operators/OperatorVarPsf.hpp"
+#include "yrt-pet/operators/OperatorVarPsf.hpp"
 
-#include "datastruct/image/ImageBase.hpp"
-#include "utils/Assert.hpp"
-#include "utils/Tools.hpp"
+#include "yrt-pet/datastruct/image/ImageBase.hpp"
+#include "yrt-pet/utils/Assert.hpp"
+#include "yrt-pet/utils/Tools.hpp"
 #include <chrono>
 #include <fstream>
 #include <iostream>
@@ -20,6 +20,8 @@
 #include <pybind11/stl.h>
 namespace py = pybind11;
 
+namespace yrt
+{
 void py_setup_operatorvarpsf(py::module& m)
 {
 	auto c = py::class_<OperatorVarPsf, Operator>(m, "OperatorVarPsf");
@@ -28,18 +30,19 @@ void py_setup_operatorvarpsf(py::module& m)
 	c.def("readFromFile", &OperatorVarPsf::readFromFile, py::arg("fname"),
 	      "Read the variant PSF from CSV LUT");
 	c.def(
-	    "applyA",
-	    [](OperatorVarPsf& self, const Image* img_in, Image* img_out)
-	    { self.applyA(img_in, img_out); },
-	    py::arg("img_in"), py::arg("img_out"));
+	    "applyA", [](OperatorVarPsf& self, const Image* img_in, Image* img_out)
+	    { self.applyA(img_in, img_out); }, py::arg("img_in"),
+	    py::arg("img_out"));
 	c.def(
-	    "applyAH",
-	    [](OperatorVarPsf& self, const Image* img_in, Image* img_out)
-	    { self.applyAH(img_in, img_out); },
-	    py::arg("img_in"), py::arg("img_out"));
+	    "applyAH", [](OperatorVarPsf& self, const Image* img_in, Image* img_out)
+	    { self.applyAH(img_in, img_out); }, py::arg("img_in"),
+	    py::arg("img_out"));
 }
+}  // namespace yrt
 #endif
 
+namespace yrt
+{
 size_t ConvolutionKernel::getHalfSizeX() const
 {
 	return (psfKernel.getSize(2) - 1) / 2;
@@ -69,10 +72,9 @@ const ConvolutionKernel::KernelArray& ConvolutionKernel::getArray() const
 }
 
 ConvolutionKernelGaussian::ConvolutionKernelGaussian(
-	float p_sigmaX, float p_sigmaY, float p_sigmaZ,
-	float p_nStdX, float p_nStdY, float p_nStdZ,
-    const ImageParams& pr_imageParams)
-	: ConvolutionKernel()
+    float p_sigmaX, float p_sigmaY, float p_sigmaZ, float p_nStdX,
+    float p_nStdY, float p_nStdZ, const ImageParams& pr_imageParams)
+    : ConvolutionKernel()
 {
 	setSigmas(p_sigmaX, p_sigmaY, p_sigmaZ, p_nStdX, p_nStdY, p_nStdZ,
 	          pr_imageParams);
@@ -91,14 +93,17 @@ void ConvolutionKernelGaussian::setSigmas(float p_sigmaX, float p_sigmaY,
 	m_nStdZ = p_nStdZ;
 
 	int kernel_size_x = std::max(
-	    1, static_cast<int>(std::floor((m_sigmaX * m_nStdX) /
-	                                   pr_imageParams.vx)) - 1);
+	    1,
+	    static_cast<int>(std::floor((m_sigmaX * m_nStdX) / pr_imageParams.vx)) -
+	        1);
 	int kernel_size_y = std::max(
-	    1, static_cast<int>(std::floor((m_sigmaY * m_nStdY) /
-	                                   pr_imageParams.vy)) - 1);
+	    1,
+	    static_cast<int>(std::floor((m_sigmaY * m_nStdY) / pr_imageParams.vy)) -
+	        1);
 	int kernel_size_z = std::max(
-	    1, static_cast<int>(std::floor((m_sigmaZ * m_nStdZ) /
-	                                   pr_imageParams.vz)) - 1);
+	    1,
+	    static_cast<int>(std::floor((m_sigmaZ * m_nStdZ) / pr_imageParams.vz)) -
+	        1);
 
 	const int kx_len = kernel_size_x * 2 + 1;
 	const int ky_len = kernel_size_y * 2 + 1;
@@ -181,7 +186,7 @@ void OperatorVarPsf::readFromFile(const std::string& imageVarPsf_fname)
 	std::cout << "Reading image space Variant PSF sigma lookup table file..."
 	          << std::endl;
 	Array2D<float> data;
-	Util::readCSV<float>(imageVarPsf_fname, data);
+	util::readCSV<float>(imageVarPsf_fname, data);
 	size_t dims[2];
 	data.getDims(dims);
 
@@ -201,8 +206,8 @@ void OperatorVarPsf::readFromFile(const std::string& imageVarPsf_fname)
 	for (size_t i = 3; i < dims[0]; ++i)
 	{
 		auto kernel = std::make_unique<ConvolutionKernelGaussian>(
-		    data[i][0], data[i][1], data[i][2],
-		    nStdX, nStdY, nStdZ, m_imageParams);
+		    data[i][0], data[i][1], data[i][2], nStdX, nStdY, nStdZ,
+		    m_imageParams);
 		m_kernelLUT.push_back(std::move(kernel));
 	}
 }
@@ -293,14 +298,15 @@ void OperatorVarPsf::varconvolve(const Image* in, Image* out) const
 				for (int x_diff = -kernel_size_x; x_diff <= kernel_size_x;
 				     ++x_diff, ++idx)
 				{
-					ii = Util::circular(nx, i + x_diff);
-					jj = Util::circular(ny, j + y_diff);
-					kk = Util::circular(nz, k + z_diff);
+					ii = util::circular(nx, i + x_diff);
+					jj = util::circular(ny, j + y_diff);
+					kk = util::circular(nz, k + z_diff);
 
 					if constexpr (IS_FWD)
 					{
 						outPtr[IDX3(i, j, k, nx, ny)] +=
-						    inPtr[IDX3(ii, jj, kk, nx, ny)] * psf_kernel.getFlat(idx);
+						    inPtr[IDX3(ii, jj, kk, nx, ny)] *
+						    psf_kernel.getFlat(idx);
 					}
 					else
 					{
@@ -314,9 +320,8 @@ void OperatorVarPsf::varconvolve(const Image* in, Image* out) const
 	}
 }
 
-void OperatorVarPsf::setRangeAndGap(float xRange, float xGap,
-                                    float yRange, float yGap,
-                                    float zRange, float zGap)
+void OperatorVarPsf::setRangeAndGap(float xRange, float xGap, float yRange,
+                                    float yGap, float zRange, float zGap)
 {
 	m_xRange = xRange;
 	m_xGap = xGap;
@@ -325,3 +330,5 @@ void OperatorVarPsf::setRangeAndGap(float xRange, float xGap,
 	m_zRange = zRange;
 	m_zGap = zGap;
 }
+
+}  // namespace yrt

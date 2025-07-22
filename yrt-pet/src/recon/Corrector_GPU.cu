@@ -4,11 +4,13 @@
  */
 
 
-#include "recon/Corrector_GPU.cuh"
+#include "yrt-pet/recon/Corrector_GPU.cuh"
 
-#include "operators/OperatorProjectorDD_GPU.cuh"
-#include "utils/ReconstructionUtils.hpp"
+#include "yrt-pet/operators/OperatorProjectorDD_GPU.cuh"
+#include "yrt-pet/utils/ReconstructionUtils.hpp"
 
+namespace yrt
+{
 Corrector_GPU::Corrector_GPU(const Scanner& pr_scanner)
     : Corrector{pr_scanner}, mph_lastCopiedHostImage{nullptr}
 {
@@ -36,7 +38,7 @@ void Corrector_GPU::precomputeAdditiveCorrectionFactors(
 		             "additive corrections..."
 		          << std::endl;
 
-		Util::forwProject(measurements.getScanner(), *mp_attenuationImage,
+		util::forwProject(measurements.getScanner(), *mp_attenuationImage,
 		                  *mph_additiveCorrections, OperatorProjector::SIDDON,
 		                  true);
 
@@ -44,7 +46,7 @@ void Corrector_GPU::precomputeAdditiveCorrectionFactors(
 		//  kernel)
 		std::cout << "Computing attenuation coefficient factors..."
 		          << std::endl;
-		Util::convertProjectionValuesToACF(*mph_additiveCorrections);
+		util::convertProjectionValuesToACF(*mph_additiveCorrections);
 	}
 
 	float* additiveCorrectionsPtr = mph_additiveCorrections->getRawPointer();
@@ -129,7 +131,7 @@ void Corrector_GPU::precomputeInVivoAttenuationFactors(
 		std::cout << "Forward-projecting in-vivo attenuation image to prepare "
 		             "for precorrection..."
 		          << std::endl;
-		Util::forwProject(measurements.getScanner(), *mp_inVivoAttenuationImage,
+		util::forwProject(measurements.getScanner(), *mp_inVivoAttenuationImage,
 		                  *mph_inVivoAttenuationFactors,
 		                  OperatorProjector::SIDDON, true);
 
@@ -137,7 +139,7 @@ void Corrector_GPU::precomputeInVivoAttenuationFactors(
 		//  kernel)
 		std::cout << "Computing attenuation coefficient factors..."
 		          << std::endl;
-		Util::convertProjectionValuesToACF(*mph_inVivoAttenuationFactors);
+		util::convertProjectionValuesToACF(*mph_inVivoAttenuationFactors);
 	}
 	else
 	{
@@ -267,3 +269,5 @@ void Corrector_GPU::clearTemporaryDeviceBuffer()
 {
 	mpd_temporaryCorrectionFactors = nullptr;
 }
+
+}  // namespace yrt

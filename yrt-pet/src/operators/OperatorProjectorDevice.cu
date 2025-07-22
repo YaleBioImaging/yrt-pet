@@ -3,16 +3,18 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "operators/OperatorProjectorDevice.cuh"
+#include "yrt-pet/operators/OperatorProjectorDevice.cuh"
 
-#include "datastruct/image/Image.hpp"
-#include "datastruct/scanner/Scanner.hpp"
-#include "utils/GPUUtils.cuh"
+#include "yrt-pet/datastruct/image/Image.hpp"
+#include "yrt-pet/datastruct/scanner/Scanner.hpp"
+#include "yrt-pet/utils/GPUUtils.cuh"
 
 #if BUILD_PYBIND11
 #include <pybind11/pybind11.h>
 namespace py = pybind11;
 
+namespace yrt
+{
 void py_setup_operatorprojectordevice(py::module& m)
 {
 	auto c = py::class_<OperatorProjectorDevice, OperatorProjectorBase>(
@@ -59,8 +61,12 @@ void py_setup_operatorprojectordevice(py::module& m)
 	       ImageDevice* img) { self.applyAH(proj, img); },
 	    py::arg("proj"), py::arg("img"));
 }
+}  // namespace yrt
+
 #endif
 
+namespace yrt
+{
 OperatorProjectorDevice::OperatorProjectorDevice(
     const OperatorProjectorParams& pr_projParams,
     const cudaStream_t* pp_mainStream, const cudaStream_t* pp_auxStream)
@@ -306,7 +312,7 @@ unsigned int OperatorProjectorDevice::getBlockSize() const
 void OperatorProjectorDevice::setBatchSize(size_t newBatchSize)
 {
 	m_batchSize = newBatchSize;
-	m_launchParams = Util::initiateDeviceParameters(m_batchSize);
+	m_launchParams = util::initiateDeviceParameters(m_batchSize);
 }
 
 size_t OperatorProjectorDevice::getBatchSize() const
@@ -352,3 +358,4 @@ const float*
 	}
 	return nullptr;
 }
+}  // namespace yrt

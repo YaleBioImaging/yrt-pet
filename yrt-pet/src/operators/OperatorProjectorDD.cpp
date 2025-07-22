@@ -3,13 +3,13 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "operators/OperatorProjectorDD.hpp"
+#include "yrt-pet/operators/OperatorProjectorDD.hpp"
 
-#include "datastruct/image/Image.hpp"
-#include "datastruct/projection/ProjectionData.hpp"
-#include "datastruct/scanner/Scanner.hpp"
-#include "geometry/ProjectorUtils.hpp"
-#include "utils/ReconstructionUtils.hpp"
+#include "yrt-pet/datastruct/image/Image.hpp"
+#include "yrt-pet/datastruct/projection/ProjectionData.hpp"
+#include "yrt-pet/datastruct/scanner/Scanner.hpp"
+#include "yrt-pet/geometry/ProjectorUtils.hpp"
+#include "yrt-pet/utils/ReconstructionUtils.hpp"
 
 #include <algorithm>
 
@@ -17,6 +17,10 @@
 #include <pybind11/pybind11.h>
 namespace py = pybind11;
 using namespace py::literals;
+
+namespace yrt
+{
+
 
 void py_setup_operatorprojectordd(py::module& m)
 {
@@ -54,9 +58,12 @@ void py_setup_operatorprojectordd(py::module& m)
 
 	c.def_static("get_overlap", &OperatorProjectorDD::get_overlap);
 }
+}  // namespace yrt
+
 #endif
 
-
+namespace yrt
+{
 OperatorProjectorDD::OperatorProjectorDD(const Scanner& pr_scanner,
                                          float tofWidth_ps, int tofNumStd,
                                          const std::string& projPsf_fname)
@@ -197,13 +204,13 @@ void OperatorProjectorDD::dd_project_ref(
 	const float inv_d12_z = (d1.z == d2.z) ? 0.0f : 1.0f / (d2.z - d1.z);
 
 	float ax_min, ax_max, ay_min, ay_max, az_min, az_max;
-	Util::get_alpha(-0.5f * (params.length_x - dx),
+	util::get_alpha(-0.5f * (params.length_x - dx),
 	                0.5f * (params.length_x - dx), d1.x, d2.x, inv_d12_x,
 	                ax_min, ax_max);
-	Util::get_alpha(-0.5f * (params.length_y - dy),
+	util::get_alpha(-0.5f * (params.length_y - dy),
 	                0.5f * (params.length_y - dy), d1.y, d2.y, inv_d12_y,
 	                ay_min, ay_max);
-	Util::get_alpha(-0.5f * (params.length_z - dz),
+	util::get_alpha(-0.5f * (params.length_z - dz),
 	                0.5f * (params.length_z - dz), d1.z, d2.z, inv_d12_z,
 	                az_min, az_max);
 	float amin = std::max({0.0f, ax_min, ay_min, az_min});
@@ -454,3 +461,5 @@ template void OperatorProjectorDD::dd_project_ref<true, true>(
 template void OperatorProjectorDD::dd_project_ref<false, true>(
     Image*, const Line3D&, const Vector3D&, const Vector3D&, float&,
     const TimeOfFlightHelper*, float, const ProjectionPsfManager*) const;
+
+}  // namespace yrt

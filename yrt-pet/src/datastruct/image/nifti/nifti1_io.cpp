@@ -1,7 +1,7 @@
 #define NIFTI1_IO_C
 
-#include "datastruct/image/nifti/nifti1_io.h" /* typedefs, prototypes, macros, etc. */
-#include "datastruct/image/nifti/nifti1_io_version.h"
+#include "yrt-pet/datastruct/image/nifti/nifti1_io.h" /* typedefs, prototypes, macros, etc. */
+#include "yrt-pet/datastruct/image/nifti/nifti1_io_version.h"
 #include <assert.h>
 #include <stdint.h>
 

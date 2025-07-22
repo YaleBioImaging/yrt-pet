@@ -5,31 +5,35 @@
 
 #pragma once
 
-#include "datastruct/image/Image.hpp"
-#include "datastruct/scanner/Scanner.hpp"
+#include "yrt-pet/datastruct/image/Image.hpp"
+#include "yrt-pet/datastruct/scanner/Scanner.hpp"
 
+namespace yrt
+{
 class Image;
 class ProjectionList;
 
-namespace TestUtils
+namespace util::test
 {
-	std::unique_ptr<Scanner> makeScanner();
-	double getRMSE(const Image& imgRef, const Image& img);
-	double getRMSE(const ProjectionList& projListRef,
-	               const ProjectionList& projList);
 
-	template <bool EQUAL_NAN = false>
-	bool allclose(const ProjectionList& projValuesRef,
-	              const ProjectionList& projValues, float rtol = 1e-5,
-	              float atol = 1e-8);
-	template <bool EQUAL_NAN = false>
-	bool allclose(const Image& imageRef, const Image& image, float rtol = 1e-5,
-	              float atol = 1e-8);
+std::unique_ptr<Scanner> makeScanner();
+double getRMSE(const Image& imgRef, const Image& img);
+double getRMSE(const ProjectionList& projListRef,
+               const ProjectionList& projList);
 
-	template <typename TFloat, bool EQUAL_NAN = false>
-	bool allclose(const TFloat* valuesRef, const TFloat* values,
-	              size_t numValues, TFloat rtol = 1e-5, TFloat atol = 1e-8);
+template <bool EQUAL_NAN = false>
+bool allclose(const ProjectionList& projValuesRef,
+              const ProjectionList& projValues, float rtol = 1e-5,
+              float atol = 1e-8);
+template <bool EQUAL_NAN = false>
+bool allclose(const Image& imageRef, const Image& image, float rtol = 1e-5,
+              float atol = 1e-8);
 
-	std::unique_ptr<ImageOwned>
-	    makeImageWithRandomPrism(const ImageParams& params);
-}  // namespace TestUtils
+template <typename TFloat, bool EQUAL_NAN = false>
+bool allclose(const TFloat* valuesRef, const TFloat* values, size_t numValues,
+              TFloat rtol = 1e-5, TFloat atol = 1e-8);
+
+std::unique_ptr<ImageOwned> makeImageWithRandomPrism(const ImageParams& params);
+
+}  // namespace util::test
+}  // namespace yrt

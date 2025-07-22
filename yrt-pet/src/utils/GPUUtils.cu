@@ -3,7 +3,10 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "utils/GPUUtils.cuh"
+#include "yrt-pet/utils/GPUUtils.cuh"
+
+namespace yrt
+{
 
 bool cudaCheckError()
 {
@@ -71,3 +74,11 @@ void gpuAssert(cudaError_t code, const char* file, int line, bool abort)
 			exit(code);
 	}
 }
+
+void gpuErrchk(cudaError_t code)
+{
+	gpuAssert(code, __FILE__, __LINE__);
+}
+
+
+}  // namespace yrt

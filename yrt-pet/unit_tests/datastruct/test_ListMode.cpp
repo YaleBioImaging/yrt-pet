@@ -6,12 +6,14 @@
 #include "catch.hpp"
 
 #include "../test_utils.hpp"
-#include "datastruct/projection/ListModeLUT.hpp"
-#include "utils/Array.hpp"
+#include "yrt-pet/datastruct/projection/ListModeLUT.hpp"
+#include "yrt-pet/utils/Array.hpp"
 
 #include <cmath>
 #include <cstdio>
 
+namespace yrt
+{
 std::unique_ptr<ListModeLUTOwned> getListMode(const Scanner& scanner)
 {
 	auto listMode = std::make_unique<ListModeLUTOwned>(scanner);
@@ -20,11 +22,12 @@ std::unique_ptr<ListModeLUTOwned> getListMode(const Scanner& scanner)
 	listMode->setDetectorIdsOfEvent(13, 1, 60);
 	return listMode;
 }
+}  // namespace yrt
 
 TEST_CASE("listmode", "[list-mode]")
 {
-	const auto scanner = TestUtils::makeScanner();
-	auto listMode = getListMode(*scanner);
+	const auto scanner = yrt::util::test::makeScanner();
+	auto listMode = yrt::getListMode(*scanner);
 
 	SECTION("listmode-data")
 	{
@@ -36,7 +39,7 @@ TEST_CASE("listmode", "[list-mode]")
 
 	SECTION("listmode-binding")
 	{
-		ListModeLUTAlias listMode_alias(*scanner);
+		yrt::ListModeLUTAlias listMode_alias(*scanner);
 		listMode_alias.bind(listMode.get());
 		CHECK(listMode->getTimestamp(0) == listMode_alias.getTimestamp(0));
 		CHECK(listMode->getTimestamp(13) == listMode_alias.getTimestamp(13));
@@ -50,7 +53,7 @@ TEST_CASE("listmode", "[list-mode]")
 	{
 		listMode->writeToFile("listmode1");
 
-		auto listMode2 = std::make_unique<ListModeLUTOwned>(*scanner);
+		auto listMode2 = std::make_unique<yrt::ListModeLUTOwned>(*scanner);
 		listMode2->readFromFile("listmode1");
 
 		CHECK(listMode->getTimestamp(0) == listMode2->getTimestamp(0));
@@ -65,17 +68,19 @@ TEST_CASE("listmode", "[list-mode]")
 
 	SECTION("listmode-get-lor-id")
 	{
-		histo_bin_t histoBin = listMode->getHistogramBin(0);
-		auto detPair = std::get<det_pair_t>(histoBin);
+		yrt::histo_bin_t histoBin = listMode->getHistogramBin(0);
+		auto detPair = std::get<yrt::det_pair_t>(histoBin);
 		CHECK(listMode->getDetector1(0) == detPair.d1);
 		CHECK(listMode->getDetector2(0) == detPair.d2);
 	}
 }
 
-void makeArraysDOI(Array1D<float>& ts, Array1D<float>& tof,
-                   Array1D<det_id_t>& d1, Array1D<det_id_t>& d2,
-                   Array1D<unsigned char>& z1, Array1D<unsigned char>& z2,
-                   int numDOI, det_id_t d1_i, det_id_t d2_i)
+void makeArraysDOI(yrt::Array1D<float>& ts, yrt::Array1D<float>& tof,
+                   yrt::Array1D<yrt::det_id_t>& d1,
+                   yrt::Array1D<yrt::det_id_t>& d2,
+                   yrt::Array1D<unsigned char>& z1,
+                   yrt::Array1D<unsigned char>& z2, int numDOI,
+                   yrt::det_id_t d1_i, yrt::det_id_t d2_i)
 {
 	ts.allocate(numDOI);
 	tof.allocate(numDOI);

@@ -3,8 +3,10 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "datastruct/image/ImageSpaceKernels.cuh"
+#include "yrt-pet/datastruct/image/ImageSpaceKernels.cuh"
 
+namespace yrt
+{
 __global__ void updateEM_kernel(const float* pd_imgIn, float* pd_imgOut,
                                 const float* pd_sensImg, const int nx,
                                 const int ny, const int nz,
@@ -157,3 +159,4 @@ template __global__ void convolve3DSeparable_kernel<2>(const float* input,
                                                        const float* kernel,
                                                        int kernelSize, int nx,
                                                        int ny, int nz);
+}  // namespace yrt

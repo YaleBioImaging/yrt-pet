@@ -5,11 +5,13 @@
 
 #include "catch.hpp"
 
-#include "datastruct/image/Image.hpp"
+#include "yrt-pet/datastruct/image/Image.hpp"
 
 #include <ctime>
 #include <random>
 
+namespace yrt
+{
 void checkTwoImages(const Image& img1, const Image& img2)
 {
 	const ImageParams& params1 = img1.getParams();
@@ -24,6 +26,7 @@ void checkTwoImages(const Image& img1, const Image& img2)
 		CHECK(i1_ptr[i] == Approx(i2_ptr[i]));
 	}
 }
+}  // namespace yrt
 
 TEST_CASE("image-readwrite", "[image]")
 {
@@ -50,9 +53,9 @@ TEST_CASE("image-readwrite", "[image]")
 	float off_y = imageOffsetDistribution(engine);
 	float off_z = imageOffsetDistribution(engine);
 
-	ImageParams params1{nx,       ny,    nz,    length_x, length_y,
-	                    length_z, off_x, off_y, off_z};
-	ImageOwned img1{params1};
+	yrt::ImageParams params1{nx,       ny,    nz,    length_x, length_y,
+	                         length_z, off_x, off_y, off_z};
+	yrt::ImageOwned img1{params1};
 	img1.allocate();
 
 	// Fill the image with random values
@@ -66,21 +69,21 @@ TEST_CASE("image-readwrite", "[image]")
 	img1.writeToFile(tmpImage_fname);
 	img1.writeToFile(tmpCompressedImage_fname);
 
-	ImageOwned img2{tmpImage_fname};
-	ImageParams params2 = img2.getParams();
+	yrt::ImageOwned img2{tmpImage_fname};
+	yrt::ImageParams params2 = img2.getParams();
 	REQUIRE(params2.isSameAs(params1));
 
 	checkTwoImages(img1, img2);
 
 	params1.serialize(tmpParams_fname);
-	ImageParams params3{tmpParams_fname};
+	yrt::ImageParams params3{tmpParams_fname};
 	REQUIRE(params1.isSameAs(params3));
 
-	ImageOwned img3{params3, tmpImage_fname};
+	yrt::ImageOwned img3{params3, tmpImage_fname};
 	REQUIRE(params1.isSameAs(img3.getParams()));
 	checkTwoImages(img1, img3);
 
-	ImageOwned img4{tmpCompressedImage_fname};
+	yrt::ImageOwned img4{tmpCompressedImage_fname};
 	REQUIRE(params1.isSameAs(img4.getParams()));
 	checkTwoImages(img1, img4);
 	REQUIRE(std::filesystem::file_size(tmpCompressedImage_fname) <

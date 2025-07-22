@@ -3,7 +3,7 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "datastruct/projection/BinIterator.hpp"
+#include "yrt-pet/datastruct/projection/BinIterator.hpp"
 
 #include <stdexcept>
 
@@ -12,7 +12,8 @@
 #include <pybind11/stl.h>
 namespace py = pybind11;
 using namespace pybind11::literals;
-
+namespace yrt
+{
 void py_setup_biniterator(py::module& m)
 {
 	auto c = py::class_<BinIterator>(m, "BinIterator");
@@ -43,7 +44,11 @@ void py_setup_biniterator(py::module& m)
 	c_chronological.def(py::init<bin_t, bin_t, bin_t>(), "numSubsets"_a,
 	                    "numEvents"_a, "idxSubset"_a);
 }
+}  // namespace yrt
 #endif
+
+namespace yrt
+{
 
 bin_t BinIterator::get(bin_t idx) const
 {
@@ -212,7 +217,6 @@ size_t BinIteratorVector::size() const
 	return m_idxList->size();
 }
 
-
 BinIteratorChronological::BinIteratorChronological(bin_t p_numSubsets,
                                                    bin_t p_numEvents,
                                                    bin_t p_idxSubset)
@@ -246,3 +250,4 @@ std::tuple<bin_t, bin_t, bin_t>
 	}
 	return std::make_tuple(idxStart, idxEnd, 1);
 }
+}  // namespace yrt

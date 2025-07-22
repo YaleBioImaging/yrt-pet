@@ -3,12 +3,18 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "utils/PageLockedBuffer.cuh"
+#include "yrt-pet/utils/PageLockedBuffer.cuh"
+
+#include "yrt-pet/utils/Assert.hpp"
+#include "yrt-pet/utils/Globals.hpp"
 
 #if BUILD_CUDA
 
 #include <cuda.h>
 #include <iostream>
+
+namespace yrt
+{
 
 template <typename T>
 PageLockedBuffer<T>::PageLockedBuffer()
@@ -30,18 +36,38 @@ PageLockedBuffer<T>::PageLockedBuffer(const size_t size,
 template <typename T>
 void PageLockedBuffer<T>::allocate(const size_t size, const unsigned int flags)
 {
-	cudaHostAlloc(reinterpret_cast<void**>(&mph_dataPointer), size * sizeof(T),
-	              flags);
-	const cudaError_t cudaError = cudaGetLastError();
-	if (cudaError != 0)
+	ASSERT_MSG(
+	    mph_dataPointer == nullptr,
+	    "Memory already allocated, cannot allocate twice on the same pointer");
+
+	cudaError_t cudaError{};
+	bool canPageLockMemory = false;  // Cannot page-lock until proven otherwise
+
+	if (globals::isPinnedMemoryEnabled())
 	{
-		std::cerr << "CUDA Error while allocating: "
-		          << cudaGetErrorString(cudaError) << std::endl;
+		const size_t size_bytes = size * sizeof(T);
+		cudaHostAlloc(reinterpret_cast<void**>(&mph_dataPointer), size_bytes,
+		              flags);
+		cudaError = cudaGetLastError();
+
+		canPageLockMemory = cudaError == 0;  // No problem
+	}
+
+	if (!canPageLockMemory)
+	{
+		if (cudaError != 0)
+		{
+			// There was a problem
+			std::cerr << "CUDA Error while allocating: "
+			          << cudaGetErrorString(cudaError) << std::endl;
+		}
+		// Use regular memory
 		mph_dataPointer = new T[size];
 		m_isPageLocked = false;
 	}
 	else
 	{
+		// No problem, use page-locked memory
 		m_isPageLocked = true;
 		m_currentFlags = flags;
 	}
@@ -54,6 +80,7 @@ bool PageLockedBuffer<T>::reAllocateIfNeeded(const size_t newSize,
 {
 	if (newSize > m_size || m_currentFlags != flags)
 	{
+		deallocate();
 		allocate(newSize, flags);
 		return true;
 	}
@@ -83,6 +110,7 @@ void PageLockedBuffer<T>::deallocate()
 			delete[] mph_dataPointer;
 			m_size = 0ull;
 		}
+		mph_dataPointer = nullptr;
 	}
 }
 
@@ -118,5 +146,7 @@ template class PageLockedBuffer<int>;
 template class PageLockedBuffer<uint2>;
 template class PageLockedBuffer<short>;
 template class PageLockedBuffer<char>;
+
+}  // namespace yrt
 
 #endif

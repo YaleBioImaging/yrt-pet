@@ -4,114 +4,115 @@
  */
 
 #include "../ArgumentReader.hpp"
-#include "datastruct/IO.hpp"
-#include "datastruct/projection/Histogram3D.hpp"
-#include "datastruct/scanner/Scanner.hpp"
-#include "geometry/Constants.hpp"
-#include "scatter/ScatterEstimator.hpp"
-#include "utils/Assert.hpp"
-#include "utils/Globals.hpp"
-#include "utils/ReconstructionUtils.hpp"
-#include "utils/Tools.hpp"
+#include "yrt-pet/datastruct/IO.hpp"
+#include "yrt-pet/datastruct/projection/Histogram3D.hpp"
+#include "yrt-pet/datastruct/scanner/Scanner.hpp"
+#include "yrt-pet/geometry/Constants.hpp"
+#include "yrt-pet/scatter/ScatterEstimator.hpp"
+#include "yrt-pet/utils/Assert.hpp"
+#include "yrt-pet/utils/Globals.hpp"
+#include "yrt-pet/utils/ReconstructionUtils.hpp"
+#include "yrt-pet/utils/Tools.hpp"
 
 #include <cxxopts.hpp>
 #include <iostream>
 
+using namespace yrt;
 
 int main(int argc, char** argv)
 {
 	try
 	{
-		IO::ArgumentRegistry registry{};
+		io::ArgumentRegistry registry{};
 
 		std::string coreGroup = "0. Core";
 		std::string sssGroup = "1. Single Scatter Simulation";
 		std::string tailFittingGroup = "2. Tail fitting";
 
 		registry.registerArgument("scanner", "Scanner parameters file", true,
-		                          IO::TypeOfArgument::STRING, "", coreGroup,
+		                          io::TypeOfArgument::STRING, "", coreGroup,
 		                          "s");
 #if BUILD_CUDA
 		registry.registerArgument(
 		    "gpu", "Use GPU to compute the ACF histogram (if needed)", false,
-		    IO::TypeOfArgument::BOOL, false, coreGroup);
+		    io::TypeOfArgument::BOOL, false, coreGroup);
 #endif
 		registry.registerArgument(
 		    "save_intermediary",
 		    "Directory where to save intermediary histograms (leave "
 		    "blank to not save any)",
-		    false, IO::TypeOfArgument::STRING, "", coreGroup);
+		    false, io::TypeOfArgument::STRING, "", coreGroup);
 		registry.registerArgument("num_threads", "Number of threads to use",
-		                          false, IO::TypeOfArgument::INT, -1,
+		                          false, io::TypeOfArgument::INT, -1,
 		                          coreGroup);
 		registry.registerArgument("seed", "Random number generator seed to use",
-		                          false, IO::TypeOfArgument::INT,
-		                          Scatter::ScatterEstimator::DefaultSeed,
+		                          false, io::TypeOfArgument::INT,
+		                          scatter::ScatterEstimator::DefaultSeed,
 		                          coreGroup);
 		registry.registerArgument(
 		    "out", "Output scatter estimate histogram filename", true,
-		    IO::TypeOfArgument::STRING, "", coreGroup, "o");
+		    io::TypeOfArgument::STRING, "", coreGroup, "o");
 		registry.registerArgument(
 		    "out_acf",
 		    "Output ACF histogram filename (if it needs to be calculated from "
 		    "the attenuation image)",
-		    false, IO::TypeOfArgument::STRING, "", coreGroup);
+		    false, io::TypeOfArgument::STRING, "", coreGroup);
 
 		registry.registerArgument("att", "Attenuation image file", true,
-		                          IO::TypeOfArgument::STRING, "", sssGroup);
+		                          io::TypeOfArgument::STRING, "", sssGroup);
 		registry.registerArgument("source", "Input source image", true,
-		                          IO::TypeOfArgument::STRING, "", sssGroup);
+		                          io::TypeOfArgument::STRING, "", sssGroup);
 		registry.registerArgument("n_z",
 		                          "Number of Z planes to consider for SSS",
-		                          true, IO::TypeOfArgument::INT, -1, sssGroup);
+		                          true, io::TypeOfArgument::INT, -1, sssGroup);
 		registry.registerArgument("n_phi",
 		                          "Number of Phi angles to consider for SSS",
-		                          true, IO::TypeOfArgument::INT, -1, sssGroup);
+		                          true, io::TypeOfArgument::INT, -1, sssGroup);
 		registry.registerArgument("n_r",
 		                          "Number of R distances to consider for SSS",
-		                          true, IO::TypeOfArgument::INT, -1, sssGroup);
+		                          true, io::TypeOfArgument::INT, -1, sssGroup);
 		registry.registerArgument(
 		    "crystal_mat", "Crystal material name (default: LYSO)", false,
-		    IO::TypeOfArgument::STRING, "LYSO", sssGroup);
+		    io::TypeOfArgument::STRING, "LYSO", sssGroup);
 
 		registry.registerArgument("prompts", "Prompts histogram file", true,
-		                          IO::TypeOfArgument::STRING, "",
+		                          io::TypeOfArgument::STRING, "",
 		                          tailFittingGroup);
 		registry.registerArgument(
 		    "randoms", "Randoms histogram file (optional)", false,
-		    IO::TypeOfArgument::STRING, "", tailFittingGroup);
+		    io::TypeOfArgument::STRING, "", tailFittingGroup);
 		registry.registerArgument(
 		    "sensitivity", "Sensitivity histogram file (optional)", false,
-		    IO::TypeOfArgument::STRING, "", tailFittingGroup);
+		    io::TypeOfArgument::STRING, "", tailFittingGroup);
 		registry.registerArgument(
 		    "invert_sensitivity",
 		    "Invert the sensitivity histogram values (sensitivity -> "
 		    "1/sensitivity)",
-		    false, IO::TypeOfArgument::BOOL, false, tailFittingGroup);
+		    false, io::TypeOfArgument::BOOL, false, tailFittingGroup);
 		registry.registerArgument(
 		    "acf",
 		    "ACF histogram file (optional). Will be computed from "
 		    "attenuation image if not provided",
-		    false, IO::TypeOfArgument::STRING, "", tailFittingGroup);
+		    false, io::TypeOfArgument::STRING, "", tailFittingGroup);
 		registry.registerArgument(
 		    "acf_threshold",
 		    "Tail fitting ACF threshold for the scatter tails mask (Default: " +
-		        std::to_string(Scatter::ScatterEstimator::DefaultACFThreshold) +
+		        std::to_string(scatter::ScatterEstimator::DefaultACFThreshold) +
 		        ")",
-		    false, IO::TypeOfArgument::FLOAT,
-		    Scatter::ScatterEstimator::DefaultACFThreshold, tailFittingGroup);
+		    false, io::TypeOfArgument::FLOAT,
+		    scatter::ScatterEstimator::DefaultACFThreshold, tailFittingGroup);
 		registry.registerArgument(
 		    "mask_width",
 		    "Tail fitting mask width. By default, uses 1/10th of "
 		    "the histogram \'r\' dimension",
-		    false, IO::TypeOfArgument::INT, -1, tailFittingGroup);
+		    false, io::TypeOfArgument::INT, -1, tailFittingGroup);
 		registry.registerArgument(
 		    "no_denorm",
 		    "Skip multiplication of the scatter estimate by the sensitivity", false,
-		    IO::TypeOfArgument::BOOL, false, tailFittingGroup);
+		    io::TypeOfArgument::BOOL, false, tailFittingGroup);
 
 		// Load configuration
-		IO::ArgumentReader config{registry, "Scatter estimation executable"};
+		io::ArgumentReader config{registry, "Scatter estimation executable"};
 
 		if (!config.loadFromCommandLine(argc, argv))
 		{
@@ -160,7 +161,7 @@ int main(int argc, char** argv)
 #endif
 		}
 
-		Globals::set_num_threads(numThreads);
+		globals::setNumThreads(numThreads);
 		std::cout << "Initializing scanner..." << std::endl;
 		auto scanner = std::make_unique<Scanner>(scanner_fname);
 
@@ -176,8 +177,8 @@ int main(int argc, char** argv)
 			return -1;
 		}
 
-		Scatter::CrystalMaterial crystalMaterial =
-		    Scatter::getCrystalMaterialFromName(crystalMaterial_name);
+		scatter::CrystalMaterial crystalMaterial =
+		    scatter::getCrystalMaterialFromName(crystalMaterial_name);
 
 		std::cout << "Reading prompts histogram..." << std::endl;
 		auto promptsHis =
@@ -222,10 +223,10 @@ int main(int argc, char** argv)
 			acfHis = std::make_unique<Histogram3DOwned>(*scanner);
 			acfHis->allocate();
 
-			Util::forwProject(*scanner, *attImage, *acfHis,
+			util::forwProject(*scanner, *attImage, *acfHis,
 			                  OperatorProjector::ProjectorType::SIDDON, useGPU);
 
-			Util::convertProjectionValuesToACF(*acfHis);
+			util::convertProjectionValuesToACF(*acfHis);
 
 			if (!acfOutHis_fname.empty())
 			{
@@ -239,7 +240,7 @@ int main(int argc, char** argv)
 
 		auto sourceImage = std::make_unique<ImageOwned>(sourceImage_fname);
 
-		Scatter::ScatterEstimator scatterEstimator{*scanner,
+		scatter::ScatterEstimator scatterEstimator{*scanner,
 		                                           *sourceImage,
 		                                           *attImage,
 		                                           promptsHis.get(),

@@ -3,13 +3,15 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "geometry/ProjectorUtils.hpp"
-#include "operators/OperatorProjectorDD_GPUKernels.cuh"
-#include "operators/ProjectionPsfManagerDevice.cuh"
-#include "operators/ProjectionPsfUtils.cuh"
+#include "yrt-pet/geometry/ProjectorUtils.hpp"
+#include "yrt-pet/operators/OperatorProjectorDD_GPUKernels.cuh"
+#include "yrt-pet/operators/ProjectionPsfManagerDevice.cuh"
+#include "yrt-pet/operators/ProjectionPsfUtils.cuh"
 
 #include <cuda_runtime.h>
 
+namespace yrt
+{
 __global__ void gatherLORs_kernel(const uint2* pd_lorDetsIds,
                                   const float4* pd_detsPos,
                                   const float4* pd_detsOrient,
@@ -51,7 +53,7 @@ __device__ inline float
                      const float d1, const float* psfKernel,
                      const ProjectionPsfProperties& projectionPsfProperties)
 {
-	return Util::getWeight(psfKernel, projectionPsfProperties, p0 - d1,
+	return util::getWeight(psfKernel, projectionPsfProperties, p0 - d1,
 	                       p1 - d0);
 }
 
@@ -108,7 +110,7 @@ __global__ void OperatorProjectorDDCU_kernel(
 		if constexpr (HasProjPSF)
 		{
 			psfKernel =
-			    Util::getKernel(pd_projPsfKernels, projectionPsfProperties,
+			    util::getKernel(pd_projPsfKernels, projectionPsfProperties,
 			                    d1.x, d1.y, d2.x, d2.y);
 			detFootprintExt = projectionPsfProperties.halfWidth;
 		}
@@ -130,11 +132,11 @@ __global__ void OperatorProjectorDDCU_kernel(
 		const float inv_d12_z = (d1.z == d2.z) ? 0.0f : 1.0f / (d2.z - d1.z);
 
 		float ax_min, ax_max, ay_min, ay_max, az_min, az_max;
-		Util::get_alpha(-0.5f * (imgLength_x - dx), 0.5f * (imgLength_x - dx),
+		util::get_alpha(-0.5f * (imgLength_x - dx), 0.5f * (imgLength_x - dx),
 		                d1.x, d2.x, inv_d12_x, ax_min, ax_max);
-		Util::get_alpha(-0.5f * (imgLength_y - dy), 0.5f * (imgLength_y - dy),
+		util::get_alpha(-0.5f * (imgLength_y - dy), 0.5f * (imgLength_y - dy),
 		                d1.y, d2.y, inv_d12_y, ay_min, ay_max);
-		Util::get_alpha(-0.5f * (imgLength_z - dz), 0.5f * (imgLength_z - dz),
+		util::get_alpha(-0.5f * (imgLength_z - dz), 0.5f * (imgLength_z - dz),
 		                d1.z, d2.z, inv_d12_z, az_min, az_max);
 
 		float amin = fmaxf(0.0f, ax_min);
@@ -468,3 +470,5 @@ template __global__ void OperatorProjectorDDCU_kernel<false, false, true>(
     const TimeOfFlightHelper* pd_tofHelper, const float* pd_projPsfKernels,
     ProjectionPsfProperties projectionPsfProperties,
     CUScannerParams scannerParams, CUImageParams imgParams, size_t batchSize);
+
+}  // namespace yrt

@@ -3,16 +3,17 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "datastruct/projection/LORsDevice.cuh"
+#include "yrt-pet/datastruct/projection/LORsDevice.cuh"
 
-#include "datastruct/projection/ProjectionData.hpp"
-#include "operators/OperatorProjectorDevice.cuh"
-#include "utils/PageLockedBuffer.cuh"
-#include "utils/ReconstructionUtils.hpp"
+#include "yrt-pet/datastruct/projection/ProjectionData.hpp"
+#include "yrt-pet/operators/OperatorProjectorDevice.cuh"
+#include "yrt-pet/utils/PageLockedBuffer.cuh"
+#include "yrt-pet/utils/ReconstructionUtils.hpp"
 
 #include "omp.h"
 
-
+namespace yrt
+{
 LORsDevice::LORsDevice()
     : m_hasTOF(false),
       m_precomputedBatchSize(0ull),
@@ -185,10 +186,9 @@ void LORsDevice::allocateForPrecomputedLORsIfNeeded(
 		                                         {launchConfig.stream, false});
 	}
 
-	if (hasAllocated &&
-	    launchConfig.synchronize)
+	if (hasAllocated && launchConfig.synchronize)
 	{
-		if ( launchConfig.stream != nullptr)
+		if (launchConfig.stream != nullptr)
 		{
 			cudaStreamSynchronize(*launchConfig.stream);
 		}
@@ -268,3 +268,5 @@ int LORsDevice::getLoadedSubsetId() const
 {
 	return m_loadedSubsetId;
 }
+
+}  // namespace yrt

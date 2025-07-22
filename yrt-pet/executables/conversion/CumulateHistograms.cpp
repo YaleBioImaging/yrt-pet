@@ -4,55 +4,56 @@
  */
 
 #include "../PluginOptionsHelper.hpp"
-#include "datastruct/IO.hpp"
-#include "datastruct/projection/Histogram3D.hpp"
-#include "datastruct/projection/SparseHistogram.hpp"
-#include "datastruct/scanner/Scanner.hpp"
-#include "utils/Assert.hpp"
-#include "utils/Globals.hpp"
-#include "utils/ReconstructionUtils.hpp"
+#include "yrt-pet/datastruct/IO.hpp"
+#include "yrt-pet/datastruct/projection/Histogram3D.hpp"
+#include "yrt-pet/datastruct/projection/SparseHistogram.hpp"
+#include "yrt-pet/datastruct/scanner/Scanner.hpp"
+#include "yrt-pet/utils/Assert.hpp"
+#include "yrt-pet/utils/Globals.hpp"
+#include "yrt-pet/utils/ReconstructionUtils.hpp"
 
 #include <cxxopts.hpp>
 #include <iostream>
 
+using namespace yrt;
 
 int main(int argc, char** argv)
 {
 	try
 	{
-		IO::ArgumentRegistry registry{};
+		io::ArgumentRegistry registry{};
 
 		std::string coreGroup = "0. Core";
 		std::string inputGroup = "1. Input";
 		std::string outputGroup = "2. Output";
 
 		registry.registerArgument("scanner", "Scanner parameters file", true,
-		                          IO::TypeOfArgument::STRING, "", coreGroup,
+		                          io::TypeOfArgument::STRING, "", coreGroup,
 		                          "s");
 		registry.registerArgument("num_threads", "Number of threads to use",
-		                          false, IO::TypeOfArgument::INT, -1,
+		                          false, io::TypeOfArgument::INT, -1,
 		                          coreGroup);
 		registry.registerArgument(
 		    "input",
 		    "Input histogram files (separated by commas, without spaces)", true,
-		    IO::TypeOfArgument::VECTOR_OF_STRINGS, "", inputGroup, "i");
+		    io::TypeOfArgument::VECTOR_OF_STRINGS, "", inputGroup, "i");
 		registry.registerArgument(
 		    "format",
-		    "Input file format. Possible values: " + IO::possibleFormats(),
-		    true, IO::TypeOfArgument::STRING, "", inputGroup, "f");
+		    "Input file format. Possible values: " + io::possibleFormats(),
+		    true, io::TypeOfArgument::STRING, "", inputGroup, "f");
 
 		registry.registerArgument("out", "Output histogram filename", true,
-		                          IO::TypeOfArgument::STRING, "", outputGroup,
+		                          io::TypeOfArgument::STRING, "", outputGroup,
 		                          "o");
 		registry.registerArgument("sparse", "Convert to a sparse histogram",
-		                          false, IO::TypeOfArgument::BOOL, false,
+		                          false, io::TypeOfArgument::BOOL, false,
 		                          outputGroup);
 
-		PluginOptionsHelper::addOptionsFromPlugins(
-			registry, Plugin::InputFormatsChoice::ONLYHISTOGRAMS);
+		plugin::addOptionsFromPlugins(
+		    registry, plugin::InputFormatsChoice::ONLYHISTOGRAMS);
 
 		// Load configuration
-		IO::ArgumentReader config{
+		io::ArgumentReader config{
 		    registry,
 		    "Take several histograms (of any format, including plugin formats) "
 		    "and accumulate them into a total histogram (either fully 3D "
@@ -79,7 +80,7 @@ int main(int argc, char** argv)
 		bool toSparseHistogram = config.getValue<bool>("sparse");
 		int numThreads = config.getValue<int>("num_threads");
 
-		Globals::set_num_threads(numThreads);
+		globals::setNumThreads(numThreads);
 		std::cout << "Initializing scanner..." << std::endl;
 		auto scanner = std::make_unique<Scanner>(scanner_fname);
 
@@ -102,7 +103,7 @@ int main(int argc, char** argv)
 		{
 			std::cout << "Reading input data..." << std::endl;
 
-			std::unique_ptr<ProjectionData> dataInput = IO::openProjectionData(
+			std::unique_ptr<ProjectionData> dataInput = io::openProjectionData(
 			    input_fname, input_format, *scanner, config.getAllArguments());
 
 			if (toSparseHistogram)
@@ -130,7 +131,7 @@ int main(int argc, char** argv)
 				{
 					std::cout << "Accumulating Histogram into Histogram3D..."
 					          << std::endl;
-					Util::convertToHistogram3D<false>(*dataInput, *histo3DOut);
+					util::convertToHistogram3D<false>(*dataInput, *histo3DOut);
 				}
 			}
 		}
@@ -160,7 +161,7 @@ int main(int argc, char** argv)
 	}
 	catch (const std::exception& e)
 	{
-		Util::printExceptionMessage(e);
+		util::printExceptionMessage(e);
 		return -1;
 	}
 }

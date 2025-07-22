@@ -3,14 +3,16 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "geometry/Matrix.hpp"
+#include "yrt-pet/geometry/Matrix.hpp"
 
-#include "geometry/Constants.hpp"
+#include "yrt-pet/geometry/Constants.hpp"
 
 #include <cmath>
 #include <iostream>
 
 
+namespace yrt
+{
 Matrix::Matrix(float a00, float a01, float a02, float a10, float a11, float a12,
                float a20, float a21, float a22)
     : m_a00(a00),
@@ -291,3 +293,4 @@ std::ostream& operator<<(std::ostream& oss, const Matrix& v)
 	    << ", " << v.m_a21 << ", " << v.m_a22 << ")";
 	return oss;
 }
+}  // namespace yrt

@@ -3,9 +3,9 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "datastruct/scanner/DetRegular.hpp"
+#include "yrt-pet/datastruct/scanner/DetRegular.hpp"
 
-#include "geometry/Constants.hpp"
+#include "yrt-pet/geometry/Constants.hpp"
 
 #include <cstdlib>
 #include <fstream>
@@ -15,6 +15,9 @@
 #include <pybind11/pybind11.h>
 namespace py = pybind11;
 #endif
+
+namespace yrt
+{
 
 DetRegular::DetRegular(Scanner* pp_scanner) : mp_scanner(pp_scanner)
 {
@@ -182,8 +185,13 @@ size_t DetRegular::getNumDets() const
 	return this->mp_Xpos->getSize(0);
 }
 
+}  // namespace yrt
 
 #if BUILD_PYBIND11
+
+namespace yrt
+{
+
 void py_setup_detregular(py::module& m)
 {
 	auto c = pybind11::class_<DetRegular, DetectorSetup,
@@ -260,4 +268,6 @@ void py_setup_detregular(py::module& m)
 		      return py::array_t<float>(buf_info);
 	      });
 }
+}  // namespace yrt
+
 #endif

@@ -3,14 +3,14 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "operators/OperatorProjectorSiddon.hpp"
+#include "yrt-pet/operators/OperatorProjectorSiddon.hpp"
 
-#include "datastruct/image/Image.hpp"
-#include "datastruct/scanner/Scanner.hpp"
-#include "geometry/ProjectorUtils.hpp"
-#include "utils/Assert.hpp"
-#include "utils/Globals.hpp"
-#include "utils/ReconstructionUtils.hpp"
+#include "yrt-pet/datastruct/image/Image.hpp"
+#include "yrt-pet/datastruct/scanner/Scanner.hpp"
+#include "yrt-pet/geometry/ProjectorUtils.hpp"
+#include "yrt-pet/utils/Assert.hpp"
+#include "yrt-pet/utils/Globals.hpp"
+#include "yrt-pet/utils/ReconstructionUtils.hpp"
 
 #include <algorithm>
 
@@ -18,6 +18,8 @@
 #include <pybind11/pybind11.h>
 namespace py = pybind11;
 
+namespace yrt
+{
 void py_setup_operatorprojectorsiddon(py::module& m)
 {
 	auto c = py::class_<OperatorProjectorSiddon, OperatorProjector>(
@@ -74,8 +76,12 @@ void py_setup_operatorprojectorsiddon(py::module& m)
 	    py::arg("in_image"), py::arg("lor"), py::arg("tofHelper") = nullptr,
 	    py::arg("tofValue") = 0.0f);
 }
+}  // namespace yrt
+
 #endif
 
+namespace yrt
+{
 OperatorProjectorSiddon::OperatorProjectorSiddon(const Scanner& pr_scanner,
                                                  int numRays, float tofWidth_ps,
                                                  int tofNumStd)
@@ -91,7 +97,7 @@ OperatorProjectorSiddon::OperatorProjectorSiddon(
 	if (m_numRays > 1)
 	{
 		mp_lineGen = std::make_unique<std::vector<MultiRayGenerator>>(
-		    Globals::get_num_threads(),
+		    globals::getNumThreads(),
 		    MultiRayGenerator{scanner.crystalSize_z,
 		                      scanner.crystalSize_trans});
 	}
@@ -222,8 +228,16 @@ float OperatorProjectorSiddon::singleForwardProjection(
     float tofValue)
 {
 	float v;
-	project_helper<true, true, false>(const_cast<Image*>(img), lor, v,
-	                                  tofHelper, tofValue);
+	if (tofHelper != nullptr)
+	{
+		project_helper<true, true, true>(const_cast<Image*>(img), lor, v,
+		                                 tofHelper, tofValue);
+	}
+	else
+	{
+		project_helper<true, true, false>(const_cast<Image*>(img), lor, v,
+		                                  tofHelper, tofValue);
+	}
 	return v;
 }
 
@@ -231,8 +245,16 @@ void OperatorProjectorSiddon::singleBackProjection(
     Image* img, const Line3D& lor, float projValue,
     const TimeOfFlightHelper* tofHelper, float tofValue)
 {
-	project_helper<false, true, false>(img, lor, projValue, tofHelper,
-	                                   tofValue);
+	if (tofHelper != nullptr)
+	{
+		project_helper<false, true, true>(img, lor, projValue, tofHelper,
+		                                  tofValue);
+	}
+	else
+	{
+		project_helper<false, true, false>(img, lor, projValue, tofHelper,
+		                                   tofValue);
+	}
 }
 
 
@@ -314,11 +336,11 @@ void OperatorProjectorSiddon::project_helper(
 	float z0 = -params.length_z * 0.5f;
 	float z1 = params.length_z * 0.5f;
 	float ax_min, ax_max, ay_min, ay_max, az_min, az_max;
-	Util::get_alpha(-0.5f * params.length_x, 0.5f * params.length_x, p1.x, p2.x,
+	util::get_alpha(-0.5f * params.length_x, 0.5f * params.length_x, p1.x, p2.x,
 	                inv_p12_x, ax_min, ax_max);
-	Util::get_alpha(-0.5f * params.length_y, 0.5f * params.length_y, p1.y, p2.y,
+	util::get_alpha(-0.5f * params.length_y, 0.5f * params.length_y, p1.y, p2.y,
 	                inv_p12_y, ay_min, ay_max);
-	Util::get_alpha(-0.5f * params.length_z, 0.5f * params.length_z, p1.z, p2.z,
+	util::get_alpha(-0.5f * params.length_z, 0.5f * params.length_z, p1.z, p2.z,
 	                inv_p12_z, az_min, az_max);
 	float amin = std::max({0.0f, t0, ax_min, ay_min, az_min});
 	float amax = std::min({1.0f, t1, ax_max, ay_max, az_max});
@@ -523,3 +545,4 @@ template void OperatorProjectorSiddon::project_helper<true, false, false>(
     Image* img, const Line3D&, float&, const TimeOfFlightHelper*, float);
 template void OperatorProjectorSiddon::project_helper<false, false, false>(
     Image* img, const Line3D&, float&, const TimeOfFlightHelper*, float);
+}  // namespace yrt

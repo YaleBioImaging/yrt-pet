@@ -18,6 +18,7 @@ YRT-PET documentation
    :caption: Usage
 
    usage/index
+   usage/config
 
 .. toctree::
    :maxdepth: 2

@@ -3,70 +3,74 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "operators/DeviceSynchronized.cuh"
+#include "yrt-pet/operators/DeviceSynchronized.cuh"
 
-#include "datastruct/image/Image.hpp"
-#include "utils/GPUUtils.cuh"
-#include "utils/Globals.hpp"
+#include "yrt-pet/datastruct/image/Image.hpp"
+#include "yrt-pet/utils/GPUUtils.cuh"
+#include "yrt-pet/utils/Globals.hpp"
 
 
-namespace Util
+namespace yrt
 {
-	GPULaunchParams3D initiateDeviceParameters(const ImageParams& params)
+namespace util
+{
+
+GPULaunchParams3D initiateDeviceParameters(const ImageParams& params)
+{
+	GPULaunchParams3D launchParams;
+	if (params.nz > 1)
 	{
-		GPULaunchParams3D launchParams;
-		if (params.nz > 1)
-		{
-			const size_t threadsPerBlockDimImage =
-			    GlobalsCuda::ThreadsPerBlockImg3d;
-			const auto threadsPerBlockDimImage_float =
-			    static_cast<float>(threadsPerBlockDimImage);
-			const auto threadsPerBlockDimImage_uint =
-			    static_cast<unsigned int>(threadsPerBlockDimImage);
+		const size_t threadsPerBlockDimImage =
+		    globals::ThreadsPerBlockImg3d;
+		const auto threadsPerBlockDimImage_float =
+		    static_cast<float>(threadsPerBlockDimImage);
+		const auto threadsPerBlockDimImage_uint =
+		    static_cast<unsigned int>(threadsPerBlockDimImage);
 
-			launchParams.gridSize = {
-			    static_cast<unsigned int>(
-			        std::ceil(params.nx / threadsPerBlockDimImage_float)),
-			    static_cast<unsigned int>(
-			        std::ceil(params.ny / threadsPerBlockDimImage_float)),
-			    static_cast<unsigned int>(
-			        std::ceil(params.nz / threadsPerBlockDimImage_float))};
+		launchParams.gridSize = {
+		    static_cast<unsigned int>(
+		        std::ceil(params.nx / threadsPerBlockDimImage_float)),
+		    static_cast<unsigned int>(
+		        std::ceil(params.ny / threadsPerBlockDimImage_float)),
+		    static_cast<unsigned int>(
+		        std::ceil(params.nz / threadsPerBlockDimImage_float))};
 
-			launchParams.blockSize = {threadsPerBlockDimImage_uint,
-			                          threadsPerBlockDimImage_uint,
-			                          threadsPerBlockDimImage_uint};
-		}
-		else
-		{
-			const size_t threadsPerBlockDimImage =
-			    GlobalsCuda::ThreadsPerBlockImg2d;
-			const auto threadsPerBlockDimImage_float =
-			    static_cast<float>(threadsPerBlockDimImage);
-			const auto threadsPerBlockDimImage_uint =
-			    static_cast<unsigned int>(threadsPerBlockDimImage);
-
-			launchParams.gridSize = {
-			    static_cast<unsigned int>(
-			        std::ceil(params.nx / threadsPerBlockDimImage_float)),
-			    static_cast<unsigned int>(
-			        std::ceil(params.ny / threadsPerBlockDimImage_float)),
-			    1};
-
-			launchParams.blockSize = {threadsPerBlockDimImage_uint,
-			                          threadsPerBlockDimImage_uint, 1};
-		}
-		return launchParams;
+		launchParams.blockSize = {threadsPerBlockDimImage_uint,
+		                          threadsPerBlockDimImage_uint,
+		                          threadsPerBlockDimImage_uint};
 	}
-
-	GPULaunchParams initiateDeviceParameters(size_t batchSize)
+	else
 	{
-		GPULaunchParams launchParams{};
-		launchParams.gridSize = static_cast<unsigned int>(std::ceil(
-		    batchSize / static_cast<float>(GlobalsCuda::ThreadsPerBlockData)));
-		launchParams.blockSize = GlobalsCuda::ThreadsPerBlockData;
-		return launchParams;
+		const size_t threadsPerBlockDimImage =
+		    globals::ThreadsPerBlockImg2d;
+		const auto threadsPerBlockDimImage_float =
+		    static_cast<float>(threadsPerBlockDimImage);
+		const auto threadsPerBlockDimImage_uint =
+		    static_cast<unsigned int>(threadsPerBlockDimImage);
+
+		launchParams.gridSize = {
+		    static_cast<unsigned int>(
+		        std::ceil(params.nx / threadsPerBlockDimImage_float)),
+		    static_cast<unsigned int>(
+		        std::ceil(params.ny / threadsPerBlockDimImage_float)),
+		    1};
+
+		launchParams.blockSize = {threadsPerBlockDimImage_uint,
+		                          threadsPerBlockDimImage_uint, 1};
 	}
-}  // namespace Util
+	return launchParams;
+}
+
+GPULaunchParams initiateDeviceParameters(size_t batchSize)
+{
+	GPULaunchParams launchParams{};
+	launchParams.gridSize = static_cast<unsigned int>(std::ceil(
+	    batchSize / static_cast<float>(globals::ThreadsPerBlockData)));
+	launchParams.blockSize = globals::ThreadsPerBlockData;
+	return launchParams;
+}
+
+}  // namespace util
 
 const cudaStream_t* DeviceSynchronized::getMainStream() const
 {
@@ -118,3 +122,5 @@ DeviceSynchronized::DeviceSynchronized(const cudaStream_t* pp_mainStream,
 	mp_mainStream = pp_mainStream;
 	mp_auxStream = pp_auxStream;
 }
+
+}  // namespace yrt

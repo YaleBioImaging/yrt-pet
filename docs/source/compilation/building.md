@@ -31,7 +31,12 @@ With `[ON/OFF]` being replaced by the desired configuration
 ### Post-compilation steps
 
 - (optional) To run unit tests, run `ctest -V` from the build folder.
-- Add the `executables` folder to the `PATH` environment variable
+- Install YRT-PET by running `cmake --install . --prefix <installation path>`
+  from the build folder.
+    - This will install YRT-PET's header files, library, and binary executables
+    in `<installation path>`
+    - A file named `install_manifest.txt` will be created in the build folder
+    - To uninstall, run `xargs rm < ./install_manifest.txt`
 - To check if GPU was successfully enabled for the project, run
   `yrtpet_reconstruct --help`. If the `--gpu` option appears, the program was
   compiled with GPU acceleration.

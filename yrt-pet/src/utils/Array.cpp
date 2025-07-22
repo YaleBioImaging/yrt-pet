@@ -3,13 +3,16 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "utils/Array.hpp"
+#include "yrt-pet/utils/Array.hpp"
 #include <vector>
 
 #if BUILD_PYBIND11
-#include "utils/pybind11.hpp"
+#include "yrt-pet/utils/pybind11.hpp"
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
+
+namespace yrt
+{
 
 template <class T, typename U, int ndim>
 void declare_array(pybind11::module& m, std::string type_str)
@@ -67,5 +70,7 @@ void py_setup_array(pybind11::module& m)
 	PY_DECLARE_ARRAY(int, 2);
 	PY_DECLARE_ARRAY(int, 3);
 }
+
+}  // namespace yrt
 
 #endif  // if BUILD_PYBIND11

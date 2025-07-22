@@ -3,12 +3,15 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "geometry/ProjectorUtils.hpp"
-#include "operators/OperatorProjectorSiddon_GPUKernels.cuh"
+#include "yrt-pet/geometry/ProjectorUtils.hpp"
+#include "yrt-pet/operators/OperatorProjectorSiddon_GPUKernels.cuh"
 
 #include <cfloat>
 #include <cuda_runtime.h>
 #include <curand_kernel.h>
+
+namespace yrt
+{
 
 enum SIDDON_DIR
 {
@@ -195,11 +198,11 @@ __global__ void OperatorProjectorSiddonCU_kernel(
 			float z0 = -imgLength_z * 0.5f;
 			float z1 = imgLength_z * 0.5f;
 			float ax_min, ax_max, ay_min, ay_max, az_min, az_max;
-			Util::get_alpha(-0.5f * imgLength_x, 0.5f * imgLength_x, p1.x, p2.x,
+			util::get_alpha(-0.5f * imgLength_x, 0.5f * imgLength_x, p1.x, p2.x,
 			                inv_p12_x, ax_min, ax_max);
-			Util::get_alpha(-0.5f * imgLength_y, 0.5f * imgLength_y, p1.y, p2.y,
+			util::get_alpha(-0.5f * imgLength_y, 0.5f * imgLength_y, p1.y, p2.y,
 			                inv_p12_y, ay_min, ay_max);
-			Util::get_alpha(-0.5f * imgLength_z, 0.5f * imgLength_z, p1.z, p2.z,
+			util::get_alpha(-0.5f * imgLength_z, 0.5f * imgLength_z, p1.z, p2.z,
 			                inv_p12_z, az_min, az_max);
 			float amin = max(0.0f, t0, ax_min, ay_min, az_min);
 			float amax = min(1.0f, t1, ax_max, ay_max, az_max);
@@ -528,3 +531,5 @@ template __global__ void
         const float4* pd_lorDet2Orient, const float* pd_lorTOFValue,
         const TimeOfFlightHelper* pd_tofHelper, CUScannerParams scannerParams,
         CUImageParams imgParams, int p_numRays, size_t batchSize);
+
+}  // namespace yrt

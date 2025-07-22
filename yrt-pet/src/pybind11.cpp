@@ -3,7 +3,7 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "datastruct/PluginFramework.hpp"
+#include "yrt-pet/datastruct/PluginFramework.hpp"
 
 #if BUILD_PYBIND11
 
@@ -11,6 +11,8 @@
 
 namespace py = pybind11;
 
+namespace yrt
+{
 void py_setup_array(py::module&);
 void py_setup_vector3dall(py::module&);
 void py_setup_line3dall(py::module&);
@@ -131,7 +133,9 @@ PYBIND11_MODULE(pyyrtpet, m)
 #endif
 
 	// Add the plugins
-	Plugin::PluginRegistry::instance().addAllPybind11Modules(m);
+	plugin::PluginRegistry::instance().addAllPybind11Modules(m);
 }
+
+}  // namespace yrt
 
 #endif  // if BUILD_PYBIND11

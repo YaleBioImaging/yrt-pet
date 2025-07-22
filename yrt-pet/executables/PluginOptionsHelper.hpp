@@ -6,11 +6,13 @@
 #pragma once
 
 #include "ArgumentReader.hpp"
-#include "datastruct/PluginFramework.hpp"
+#include "yrt-pet/datastruct/PluginFramework.hpp"
 
-namespace PluginOptionsHelper
+namespace yrt
 {
-	void addOptionsFromPlugins(
-	    IO::ArgumentRegistry& registry,
-	    Plugin::InputFormatsChoice choice = Plugin::InputFormatsChoice::ALL);
-}  // namespace PluginOptionsHelper
+namespace plugin
+{
+void addOptionsFromPlugins(io::ArgumentRegistry& registry,
+                           InputFormatsChoice choice = InputFormatsChoice::ALL);
+}  // namespace plugin
+}  // namespace yrt

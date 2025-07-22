@@ -3,12 +3,15 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "operators/OperatorProjectorBase.hpp"
+#include "yrt-pet/operators/OperatorProjectorBase.hpp"
 
 #if BUILD_PYBIND11
 #include <pybind11/pybind11.h>
 
 namespace py = pybind11;
+
+namespace yrt
+{
 
 void py_setup_operatorprojectorparams(py::module& m)
 {
@@ -31,9 +34,12 @@ void py_setup_operatorprojectorbase(py::module& m)
 	c.def("getBinIter", &OperatorProjectorBase::getBinIter);
 	c.def("getScanner", &OperatorProjectorBase::getScanner);
 }
+}  // namespace yrt
 
 #endif
 
+namespace yrt
+{
 
 OperatorProjectorParams::OperatorProjectorParams(
     const BinIterator* pp_binIter, const Scanner& pr_scanner,
@@ -73,3 +79,4 @@ void OperatorProjectorBase::setBinIter(const BinIterator* p_binIter)
 {
 	binIter = p_binIter;
 }
+}  // namespace yrt

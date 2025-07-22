@@ -4,52 +4,54 @@
  */
 
 #include "../PluginOptionsHelper.hpp"
-#include "datastruct/IO.hpp"
-#include "datastruct/projection/ListModeLUT.hpp"
-#include "datastruct/projection/SparseHistogram.hpp"
-#include "datastruct/scanner/Scanner.hpp"
-#include "utils/Assert.hpp"
-#include "utils/Globals.hpp"
-#include "utils/ReconstructionUtils.hpp"
+#include "yrt-pet/datastruct/IO.hpp"
+#include "yrt-pet/datastruct/projection/ListModeLUT.hpp"
+#include "yrt-pet/datastruct/projection/SparseHistogram.hpp"
+#include "yrt-pet/datastruct/scanner/Scanner.hpp"
+#include "yrt-pet/utils/Assert.hpp"
+#include "yrt-pet/utils/Globals.hpp"
+#include "yrt-pet/utils/ReconstructionUtils.hpp"
 
 #include "omp.h"
 #include <cxxopts.hpp>
 #include <iostream>
 
+using namespace yrt;
+
 int main(int argc, char** argv)
 {
 	try
 	{
-		IO::ArgumentRegistry registry{};
+		io::ArgumentRegistry registry{};
 
 		std::string coreGroup = "0. Core";
 		std::string inputGroup = "1. Input";
 		std::string outputGroup = "2. Output";
 
 		registry.registerArgument("scanner", "Scanner parameters file", true,
-		                          IO::TypeOfArgument::STRING, "", coreGroup,
+		                          io::TypeOfArgument::STRING, "", coreGroup,
 		                          "s");
 		registry.registerArgument("num_threads", "Number of threads to use",
-		                          false, IO::TypeOfArgument::INT, -1,
+		                          false, io::TypeOfArgument::INT, -1,
 		                          coreGroup);
 		registry.registerArgument("input", "Input listmdde file", true,
-		                          IO::TypeOfArgument::STRING, "", inputGroup,
+		                          io::TypeOfArgument::STRING, "", inputGroup,
 		                          "i");
 		registry.registerArgument(
 		    "format",
 		    "Input listmode file format. Possible values: " +
-		        IO::possibleFormats(Plugin::InputFormatsChoice::ONLYLISTMODES),
-		    true, IO::TypeOfArgument::STRING, "", inputGroup, "f");
+		        io::possibleFormats(plugin::InputFormatsChoice::ONLYLISTMODES),
+		    true, io::TypeOfArgument::STRING, "", inputGroup, "f");
 
 		registry.registerArgument("out", "Output listmode filename", true,
-		                          IO::TypeOfArgument::STRING, "", outputGroup,
+		                          io::TypeOfArgument::STRING, "", outputGroup,
 		                          "o");
 
-		PluginOptionsHelper::addOptionsFromPlugins(
-			registry, Plugin::InputFormatsChoice::ONLYLISTMODES);
+		plugin::addOptionsFromPlugins(
+		    registry, plugin::InputFormatsChoice::ONLYLISTMODES);
 
 		// Load configuration
-		IO::ArgumentReader config{
+		io::ArgumentReader config{
 		    registry, "Convert a list-mode input (of any format, including "
 		              "plugin formats) to a ListModeLUT format"};
 
@@ -73,12 +75,12 @@ int main(int argc, char** argv)
 		auto out_fname = config.getValue<std::string>("out");
 		int numThreads = config.getValue<int>("num_threads");
 
-		Globals::set_num_threads(numThreads);
+		globals::setNumThreads(numThreads);
 		std::cout << "Initializing scanner..." << std::endl;
 		auto scanner = std::make_unique<Scanner>(scanner_fname);
 
 		std::cout << "Reading input data..." << std::endl;
-		std::unique_ptr<ProjectionData> dataInput = IO::openProjectionData(
+		std::unique_ptr<ProjectionData> dataInput = io::openProjectionData(
 		    input_fname, input_format, *scanner, config.getAllArguments());
 
 		std::cout << "Generating output ListModeLUT..." << std::endl;
@@ -118,7 +120,7 @@ int main(int argc, char** argv)
 	}
 	catch (const std::exception& e)
 	{
-		Util::printExceptionMessage(e);
+		util::printExceptionMessage(e);
 		return -1;
 	}
 }

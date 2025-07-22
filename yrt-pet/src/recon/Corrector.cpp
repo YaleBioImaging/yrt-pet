@@ -3,11 +3,13 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "recon/Corrector.hpp"
+#include "yrt-pet/recon/Corrector.hpp"
 
-#include "utils/Assert.hpp"
-#include "utils/Tools.hpp"
+#include "yrt-pet/utils/Assert.hpp"
+#include "yrt-pet/utils/Tools.hpp"
 
+namespace yrt
+{
 
 Corrector::Corrector(const Scanner& pr_scanner)
     : mr_scanner(pr_scanner),
@@ -369,3 +371,5 @@ bool Corrector::doesHardwareACFComeFromHistogram() const
 {
 	return mp_hardwareAcf != nullptr;
 }
+
+}  // namespace yrt

@@ -3,11 +3,14 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "recon/Corrector_CPU.hpp"
+#include "yrt-pet/recon/Corrector_CPU.hpp"
 
-#include "operators/OperatorProjectorSiddon.hpp"
-#include "utils/Assert.hpp"
-#include "utils/Tools.hpp"
+#include "yrt-pet/operators/OperatorProjectorSiddon.hpp"
+#include "yrt-pet/utils/Assert.hpp"
+#include "yrt-pet/utils/Tools.hpp"
+
+namespace yrt
+{
 
 Corrector_CPU::Corrector_CPU(const Scanner& pr_scanner) : Corrector(pr_scanner)
 {
@@ -200,5 +203,7 @@ float Corrector_CPU::getAttenuationFactorFromAttenuationImage(
 	const float att = OperatorProjectorSiddon::singleForwardProjection(
 	    &attenuationImage, lor, mp_tofHelper.get(), tofValue);
 
-	return Util::getAttenuationCoefficientFactor(att);
+	return util::getAttenuationCoefficientFactor(att);
 }
+
+}  // namespace yrt

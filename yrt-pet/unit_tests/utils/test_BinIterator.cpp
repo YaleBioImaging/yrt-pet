@@ -7,9 +7,9 @@
 #include <cmath>
 #include <vector>
 
-#include "datastruct/projection/BinIterator.hpp"
+#include "yrt-pet/datastruct/projection/BinIterator.hpp"
 
-bool test_iter(BinIterator* iter, size_t begin, size_t second, size_t end_t)
+bool test_iter(yrt::BinIterator* iter, size_t begin, size_t second, size_t end_t)
 {
 	if (iter->size() == 1)
 	{
@@ -33,7 +33,7 @@ TEST_CASE("biniterator_range", "[iterator]")
 		{
 			end_t += stride;
 		}
-		auto iter = BinIteratorRange(begin, end, stride);
+		auto iter = yrt::BinIteratorRange(begin, end, stride);
 		REQUIRE(test_iter(&iter, begin, begin + stride, end_t));
 	}
 
@@ -43,7 +43,7 @@ TEST_CASE("biniterator_range", "[iterator]")
 		size_t stride = 1 + rand() % 20;
 		size_t end = begin + stride - 1;
 		size_t end_t = begin;
-		auto iter = BinIteratorRange(begin, end, stride);
+		auto iter = yrt::BinIteratorRange(begin, end, stride);
 		REQUIRE(test_iter(&iter, begin, begin + stride, end_t));
 		REQUIRE(iter.size() == 1);
 	}
@@ -58,7 +58,7 @@ TEST_CASE("biniterator_range", "[iterator]")
 		{
 			end_t += stride;
 		}
-		auto iter = BinIteratorRange(begin, end, stride);
+		auto iter = yrt::BinIteratorRange(begin, end, stride);
 		REQUIRE(test_iter(&iter, begin, begin + stride, end_t));
 	}
 }
@@ -69,7 +69,7 @@ TEST_CASE("biniterator_vector", "[iterator]")
 	{
 		std::vector<size_t> vec{1, 2, 3, 4, 5};
 		auto vec_ptr = std::make_unique<std::vector<size_t>>(vec);
-		auto iter = BinIteratorVector(vec_ptr);
+		auto iter = yrt::BinIteratorVector(vec_ptr);
 		REQUIRE(test_iter(&iter, 1, 2, 5));
 		REQUIRE(iter.size() == 5);
 	}
@@ -82,14 +82,14 @@ TEST_CASE("biniterator_chronological", "[iterator]")
 	SECTION("chronological-indxsubset = 0")
 	{
 		size_t idxSubset = 0;
-		auto iter = BinIteratorChronological(numSubsets, numEvents, idxSubset);
+		auto iter = yrt::BinIteratorChronological(numSubsets, numEvents, idxSubset);
 		REQUIRE(test_iter(&iter, 0, 1, 3));
 		REQUIRE(iter.size() == 4);
 	}
 	SECTION("chronological-indxsubset = numsubset-1")
 	{
 		size_t idxSubset = numSubsets - 1;
-		auto iter = BinIteratorChronological(numSubsets, numEvents, idxSubset);
+		auto iter = yrt::BinIteratorChronological(numSubsets, numEvents, idxSubset);
 		REQUIRE(test_iter(&iter, 8, 9, 12));
 		REQUIRE(iter.size() == 5);
 	}
@@ -98,7 +98,7 @@ TEST_CASE("biniterator_chronological", "[iterator]")
 		size_t numSubsets = 3;
 		size_t numEvents = 12;
 		size_t idxSubset = numSubsets - 1;
-		auto iter = BinIteratorChronological(numSubsets, numEvents, idxSubset);
+		auto iter = yrt::BinIteratorChronological(numSubsets, numEvents, idxSubset);
 		REQUIRE(test_iter(&iter, 8, 9, 11));
 		REQUIRE(iter.size() == 4);
 	}

@@ -3,11 +3,13 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "datastruct/scanner/ScannerDevice.cuh"
+#include "yrt-pet/datastruct/scanner/ScannerDevice.cuh"
 
-#include "datastruct/scanner/Scanner.hpp"
-#include "utils/PageLockedBuffer.cuh"
+#include "yrt-pet/datastruct/scanner/Scanner.hpp"
+#include "yrt-pet/utils/PageLockedBuffer.cuh"
 
+namespace yrt
+{
 ScannerDevice::ScannerDevice(const Scanner& pr_scanner,
                              const cudaStream_t* pp_stream)
     : mr_scanner(pr_scanner), isAllocated(false), isLoaded(false)
@@ -72,3 +74,4 @@ const Scanner& ScannerDevice::getScanner() const
 {
 	return mr_scanner;
 }
+}  // namespace yrt

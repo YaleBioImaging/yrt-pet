@@ -3,13 +3,13 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "datastruct/projection/ListMode.hpp"
-#include "datastruct/projection/ProjectionDataDevice.cuh"
-#include "datastruct/projection/ProjectionSpaceKernels.cuh"
-#include "datastruct/projection/UniformHistogram.hpp"
-#include "operators/OperatorProjectorDevice.cuh"
-#include "utils/Assert.hpp"
-#include "utils/Globals.hpp"
+#include "yrt-pet/datastruct/projection/ListMode.hpp"
+#include "yrt-pet/datastruct/projection/ProjectionDataDevice.cuh"
+#include "yrt-pet/datastruct/projection/ProjectionSpaceKernels.cuh"
+#include "yrt-pet/datastruct/projection/UniformHistogram.hpp"
+#include "yrt-pet/operators/OperatorProjectorDevice.cuh"
+#include "yrt-pet/utils/Assert.hpp"
+#include "yrt-pet/utils/Globals.hpp"
 
 #include "omp.h"
 #include <utility>
@@ -21,27 +21,35 @@
 namespace py = pybind11;
 using namespace pybind11::literals;
 
+namespace yrt
+{
+
 void py_setup_projectiondatadevice(py::module& m)
 {
 	auto c = py::class_<ProjectionDataDevice, ProjectionList>(
 	    m, "ProjectionDataDevice");
 	c.def(
 	    "prepareBatchLORs",
-	    [](ProjectionDataDevice& self, size_t subsetId, size_t batchId)
-	    { self.prepareBatchLORs(subsetId, batchId, {nullptr, true}); },
+	    [](ProjectionDataDevice& self, size_t subsetId, size_t batchId) {
+		    self.prepareBatchLORs(subsetId, batchId, {nullptr, true});
+	    },
 	    "Load the LORs of a specific batch in a specific subset", "subsetId"_a,
 	    "batchId"_a);
 	c.def("transferProjValuesToHost",
 	      [](const ProjectionDataDevice& self, ProjectionData* dest)
 	      { self.transferProjValuesToHost(dest); });
 	c.def("loadProjValuesFromHost",
-	      [](ProjectionDataDevice& self, const ProjectionData* src)
-	      { self.loadProjValuesFromHost(src, {nullptr, true}); });
+	      [](ProjectionDataDevice& self, const ProjectionData* src) {
+		      self.loadProjValuesFromHost(src, {nullptr, true});
+	      });
 	c.def("loadProjValuesFromHost",
-	      [](ProjectionDataDevice& self, const Histogram* histo)
-	      { self.loadProjValuesFromHostHistogram(histo, {nullptr, true}); });
-	c.def("loadProjValuesFromReference", [](ProjectionDataDeviceOwned& self)
-	      { self.loadProjValuesFromReference({nullptr, true}); });
+	      [](ProjectionDataDevice& self, const Histogram* histo) {
+		      self.loadProjValuesFromHostHistogram(histo, {nullptr, true});
+	      });
+	c.def("loadProjValuesFromReference",
+	      [](ProjectionDataDeviceOwned& self) {
+		      self.loadProjValuesFromReference({nullptr, true});
+	      });
 	c.def("getLoadedBatchSize", &ProjectionDataDevice::getLoadedBatchSize);
 	c.def("getLoadedBatchId", &ProjectionDataDevice::getLoadedBatchId);
 	c.def("getLoadedSubsetId", &ProjectionDataDevice::getLoadedSubsetId);
@@ -60,8 +68,10 @@ void py_setup_projectiondatadevice(py::module& m)
 	            "Create a ProjectionDataDevice from an existing one. They will "
 	            "share the LORs",
 	            "orig"_a);
-	c_owned.def("allocateForProjValues", [](ProjectionDataDeviceOwned& self)
-	            { self.allocateForProjValues({nullptr, true}); });
+	c_owned.def("allocateForProjValues",
+	            [](ProjectionDataDeviceOwned& self) {
+		            self.allocateForProjValues({nullptr, true});
+	            });
 
 	auto c_alias = py::class_<ProjectionDataDeviceAlias, ProjectionDataDevice>(
 	    m, "ProjectionDataDeviceAlias");
@@ -90,7 +100,12 @@ void py_setup_projectiondatadevice(py::module& m)
 	            "Returns true if the device pointer is not null");
 }
 
+}  // namespace yrt
+
 #endif  // if BUILD_PYBIND11
+
+namespace yrt
+{
 
 ProjectionDataDevice::ProjectionDataDevice(const ProjectionDataDevice* orig)
     : ProjectionList(orig->mp_reference),
@@ -166,6 +181,7 @@ void ProjectionDataDevice::createBinIterators(int num_OSEM_subsets)
 void ProjectionDataDevice::createBatchSetups(float shareOfMemoryToUse)
 {
 	size_t memAvailable = getDeviceInfo(true);
+
 	// Shrink memory according to the portion we want to use
 	memAvailable = static_cast<size_t>(static_cast<float>(memAvailable) *
 	                                   shareOfMemoryToUse);
@@ -176,9 +192,8 @@ void ProjectionDataDevice::createBatchSetups(float shareOfMemoryToUse)
 	const size_t memoryUsagePerEvent = memoryUsagePerLOR + sizeof(float);
 
 	const size_t possibleEventsPerBatch =
-	    memAvailable /
-	    (GlobalsCuda::ThreadsPerBlockData * memoryUsagePerEvent) *
-	    GlobalsCuda::ThreadsPerBlockData;
+	    memAvailable / (globals::ThreadsPerBlockData * memoryUsagePerEvent) *
+	    globals::ThreadsPerBlockData;
 
 	const size_t numSubsets = mp_binIteratorList.size();
 	m_batchSetups.reserve(numSubsets);
@@ -296,7 +311,7 @@ void ProjectionDataDevice::loadProjValuesFromHostInternal(
 			}
 		}
 
-		Util::copyHostToDevice(getProjValuesDevicePointer(), projValuesBuffer,
+		util::copyHostToDevice(getProjValuesDevicePointer(), projValuesBuffer,
 		                       batchSize, launchConfig);
 	}
 }
@@ -310,7 +325,7 @@ void ProjectionDataDevice::transferProjValuesToHost(
 
 	m_tempBuffer.reAllocateIfNeeded(batchSize);
 	float* projValuesBuffer = m_tempBuffer.getPointer();
-	Util::copyDeviceToHost(projValuesBuffer, getProjValuesDevicePointer(),
+	util::copyDeviceToHost(projValuesBuffer, getProjValuesDevicePointer(),
 	                       batchSize, {stream, true});
 
 	auto* binIter = mp_binIteratorList.at(getLoadedSubsetId());
@@ -411,7 +426,7 @@ void ProjectionDataDevice::clearProjectionsDevice(float value,
 		return;
 	}
 	const size_t batchSize = getPrecomputedBatchSize();
-	const auto launchParams = Util::initiateDeviceParameters(batchSize);
+	const auto launchParams = util::initiateDeviceParameters(batchSize);
 
 	ASSERT(getProjValuesDevicePointer() != nullptr);
 
@@ -477,7 +492,7 @@ void ProjectionDataDevice::divideMeasurementsDevice(
 	const auto* measurements_device =
 	    dynamic_cast<const ProjectionDataDevice*>(measurements);
 	const size_t batchSize = getLoadedBatchSize();
-	const auto launchParams = Util::initiateDeviceParameters(batchSize);
+	const auto launchParams = util::initiateDeviceParameters(batchSize);
 
 	ASSERT(getProjValuesDevicePointer() != nullptr);
 	ASSERT(measurements_device->getProjValuesDevicePointer() != nullptr);
@@ -511,7 +526,7 @@ void ProjectionDataDevice::divideMeasurementsDevice(
 void ProjectionDataDevice::invertProjValuesDevice(GPULaunchConfig launchConfig)
 {
 	const size_t batchSize = getLoadedBatchSize();
-	const auto launchParams = Util::initiateDeviceParameters(batchSize);
+	const auto launchParams = util::initiateDeviceParameters(batchSize);
 
 	ASSERT(getProjValuesDevicePointer() != nullptr);
 
@@ -544,7 +559,7 @@ void ProjectionDataDevice::addProjValues(const ProjectionDataDevice* projValues,
                                          GPULaunchConfig launchConfig)
 {
 	const size_t batchSize = getLoadedBatchSize();
-	const auto launchParams = Util::initiateDeviceParameters(batchSize);
+	const auto launchParams = util::initiateDeviceParameters(batchSize);
 
 	ASSERT(projValues->getProjValuesDevicePointer() != nullptr);
 	ASSERT(getProjValuesDevicePointer() != nullptr);
@@ -576,7 +591,7 @@ void ProjectionDataDevice::addProjValues(const ProjectionDataDevice* projValues,
 void ProjectionDataDevice::convertToACFsDevice(GPULaunchConfig launchConfig)
 {
 	const size_t batchSize = getLoadedBatchSize();
-	const auto launchParams = Util::initiateDeviceParameters(batchSize);
+	const auto launchParams = util::initiateDeviceParameters(batchSize);
 
 	ASSERT(getProjValuesDevicePointer() != nullptr);
 
@@ -608,7 +623,7 @@ void ProjectionDataDevice::multiplyProjValues(
     const ProjectionDataDevice* projValues, GPULaunchConfig launchConfig)
 {
 	const size_t batchSize = getLoadedBatchSize();
-	const auto launchParams = Util::initiateDeviceParameters(batchSize);
+	const auto launchParams = util::initiateDeviceParameters(batchSize);
 
 	ASSERT(getProjValuesDevicePointer() != nullptr);
 
@@ -642,7 +657,7 @@ void ProjectionDataDevice::multiplyProjValues(float scalar,
                                               GPULaunchConfig launchConfig)
 {
 	const size_t batchSize = getLoadedBatchSize();
-	const auto launchParams = Util::initiateDeviceParameters(batchSize);
+	const auto launchParams = util::initiateDeviceParameters(batchSize);
 
 	ASSERT(getProjValuesDevicePointer() != nullptr);
 
@@ -835,3 +850,5 @@ bool ProjectionDataDeviceAlias::isDevicePointerSet() const
 {
 	return mpd_devicePointer != nullptr;
 }
+
+}  // namespace yrt

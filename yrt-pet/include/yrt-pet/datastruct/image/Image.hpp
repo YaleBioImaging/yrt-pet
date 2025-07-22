@@ -58,7 +58,7 @@ public:
 	bool getNearestNeighborIdx(const Vector3D& pt, int* pi, int* pj,
 	                           int* pk) const;
 
-	float interpolateImage(const Vector3D& pos) const;
+	float interpolateImage(const Vector3D& pt) const;
 	float interpolateImage(const Vector3D& pt, const Image& sens) const;
 
 	template <int Dimension>

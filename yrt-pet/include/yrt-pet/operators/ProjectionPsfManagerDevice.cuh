@@ -25,9 +25,9 @@ struct ProjectionPsfProperties
 class ProjectionPsfManagerDevice : public ProjectionPsfManager
 {
 public:
-	explicit
-	    ProjectionPsfManagerDevice(const std::string& psfFilename,
-	                               const cudaStream_t* pp_stream = nullptr);
+	explicit ProjectionPsfManagerDevice(
+	    const std::string& psfFilename,
+	    const cudaStream_t* pp_stream = nullptr);
 	void readFromFile(const std::string& psfFilename) override;
 	void readFromFile(const std::string& psfFilename,
 	                  GPULaunchConfig launchConfig);

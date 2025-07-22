@@ -25,7 +25,7 @@ public:
 	// Pre-implemented functions
 	timestamp_t getScanDuration() const override;
 	std::unique_ptr<BinIterator> getBinIter(int numSubsets,
-						int idxSubset) const override;
+	                                        int idxSubset) const override;
 
 	void addLORMotion(const std::string& lorMotion_fname);
 	virtual void addLORMotion(const std::shared_ptr<LORMotion>& pp_lorMotion);

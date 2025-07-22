@@ -24,8 +24,8 @@ public:
 	LORsDevice();
 
 	void precomputeBatchLORs(const BinIterator& binIter,
-				 const GPUBatchSetup& batchSetup, int subsetId,
-				 int batchId, const ProjectionData& reference);
+	                         const GPUBatchSetup& batchSetup, int subsetId,
+	                         int batchId, const ProjectionData& reference);
 	void loadPrecomputedLORsToDevice(GPULaunchConfig launchConfig);
 
 	// Gets the size of the last precomputed batch

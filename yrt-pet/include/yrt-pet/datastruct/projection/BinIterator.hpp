@@ -51,7 +51,7 @@ class BinIteratorRange2D : public BinIterator
 {
 public:
 	BinIteratorRange2D(bin_t p_idxStart, bin_t p_numSlices, bin_t p_sliceSize,
-			   bin_t p_idxStride);
+	                   bin_t p_idxStride);
 	bin_t begin() const override;
 	bin_t end() const override;
 	size_t size() const override;
@@ -70,8 +70,8 @@ class BinIteratorRangeHistogram3D : public BinIterator
 {
 public:
 	BinIteratorRangeHistogram3D(size_t p_numZBin, size_t p_numPhi,
-				    size_t p_numR, int p_numSubsets,
-				    int p_idxSubset);
+	                            size_t p_numR, int p_numSubsets,
+	                            int p_idxSubset);
 	bin_t begin() const override;
 	bin_t end() const override;
 	size_t size() const override;
@@ -103,7 +103,7 @@ class BinIteratorChronological : public BinIteratorRange
 {
 public:
 	BinIteratorChronological(bin_t p_numSubsets, bin_t p_numEvents,
-				 bin_t p_idxSubset);
+	                         bin_t p_idxSubset);
 
 private:
 	static std::tuple<bin_t, bin_t, bin_t>

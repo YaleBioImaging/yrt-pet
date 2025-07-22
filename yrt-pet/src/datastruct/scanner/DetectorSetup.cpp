@@ -14,7 +14,7 @@ namespace yrt
 void py_setup_detectorsetup(pybind11::module& m)
 {
 	auto c = py::class_<DetectorSetup, std::shared_ptr<DetectorSetup>>(
-		m, "DetectorSetup");
+	    m, "DetectorSetup");
 	c.def("getNumDets", &DetectorSetup::getNumDets);
 	c.def("getXpos", &DetectorSetup::getXpos);
 	c.def("getYpos", &DetectorSetup::getYpos);
@@ -26,7 +26,7 @@ void py_setup_detectorsetup(pybind11::module& m)
 	c.def("getOrient", &DetectorSetup::getOrient);
 	c.def("writeToFile", &DetectorSetup::writeToFile);
 }
-}
+}  // namespace yrt
 #endif
 
 namespace yrt
@@ -40,4 +40,4 @@ Vector3D DetectorSetup::getOrient(det_id_t id) const
 {
 	return {getXorient(id), getYorient(id), getZorient(id)};
 }
-}
+}  // namespace yrt

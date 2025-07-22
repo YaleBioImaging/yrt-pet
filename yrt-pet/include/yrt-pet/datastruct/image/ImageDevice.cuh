@@ -23,22 +23,22 @@ public:
 	size_t getImageSize() const;
 	const cudaStream_t* getStream() const;
 	void transferToDeviceMemory(const float* ph_img_ptr,
-				    bool p_synchronize = true);
+	                            bool p_synchronize = true);
 	void transferToDeviceMemory(const Image* ph_img_ptr,
-				    bool p_synchronize = true);
+	                            bool p_synchronize = true);
 	void transferToHostMemory(float* ph_img_ptr,
-				  bool p_synchronize = true) const;
+	                          bool p_synchronize = true) const;
 	void transferToHostMemory(Image* ph_img_ptr,
-				  bool p_synchronize = true) const;
+	                          bool p_synchronize = true) const;
 	GPULaunchParams3D getLaunchParams() const;
 	void setValue(float initValue) override;
 	void copyFromImage(const ImageBase* imSrc) override;
 	void addFirstImageToSecond(ImageBase* imgOut) const override;
 	void applyThreshold(const ImageBase* maskImg, float threshold,
-			    float val_le_scale, float val_le_off,
-			    float val_gt_scale, float val_gt_off) override;
+	                    float val_le_scale, float val_le_off,
+	                    float val_gt_scale, float val_gt_off) override;
 	void updateEMThreshold(ImageBase* updateImg, const ImageBase* normImg,
-			       float threshold) override;
+	                       float threshold) override;
 	void writeToFile(const std::string& image_fname) const override;
 
 	void copyFromHostImage(const Image* imSrc, bool synchronize);
@@ -46,19 +46,19 @@ public:
 
 	void setValueDevice(float initValue, bool synchronize);
 	void updateEMThresholdDevice(ImageDevice* updateImg,
-				     const ImageDevice* normImg, float threshold,
-				     bool synchronize);
+	                             const ImageDevice* normImg, float threshold,
+	                             bool synchronize);
 	void addFirstImageToSecondDevice(ImageDevice* imgOut,
-					 bool synchronize) const;
+	                                 bool synchronize) const;
 	void applyThresholdDevice(const ImageDevice* maskImg, float threshold,
-				  float val_le_scale, float val_le_off,
-				  float val_gt_scale, float val_gt_off,
-				  bool synchronize);
+	                          float val_le_scale, float val_le_off,
+	                          float val_gt_scale, float val_gt_off,
+	                          bool synchronize);
 
 protected:
 	explicit ImageDevice(const cudaStream_t* stream_ptr = nullptr);
 	explicit ImageDevice(const ImageParams& imgParams,
-			     const cudaStream_t* stream_ptr = nullptr);
+	                     const cudaStream_t* stream_ptr = nullptr);
 	void setDeviceParams(const ImageParams& params);
 
 	size_t m_imgSize;
@@ -72,13 +72,13 @@ class ImageDeviceOwned : public ImageDevice
 {
 public:
 	explicit ImageDeviceOwned(const ImageParams& imgParams,
-				  const cudaStream_t* stream_ptr = nullptr);
+	                          const cudaStream_t* stream_ptr = nullptr);
 	explicit ImageDeviceOwned(const Image* img_ptr,
-				  const cudaStream_t* stream_ptr = nullptr);
+	                          const cudaStream_t* stream_ptr = nullptr);
 	explicit ImageDeviceOwned(const std::string& filename,
-				  const cudaStream_t* stream_ptr = nullptr);
+	                          const cudaStream_t* stream_ptr = nullptr);
 	ImageDeviceOwned(const ImageParams& imgParams, const std::string& filename,
-			 const cudaStream_t* stream_ptr = nullptr);
+	                 const cudaStream_t* stream_ptr = nullptr);
 	~ImageDeviceOwned() override;
 	void allocate(bool synchronize = true, bool initializeToZero = true);
 	void readFromFile(const ImageParams& params, const std::string& filename);
@@ -94,7 +94,7 @@ class ImageDeviceAlias : public ImageDevice
 {
 public:
 	ImageDeviceAlias(const ImageParams& imgParams,
-			 const cudaStream_t* stream_ptr = nullptr);
+	                 const cudaStream_t* stream_ptr = nullptr);
 	float* getDevicePointer() override;
 	const float* getDevicePointer() const override;
 	size_t getDevicePointerInULL() const;
@@ -106,4 +106,4 @@ public:
 private:
 	float* mpd_devicePointer;
 };
-}
+}  // namespace yrt

@@ -38,10 +38,10 @@ public:
 	void applyAH(const Variable* in, Variable* out, bool synchronize);
 
 protected:
-	explicit
-	    OperatorProjectorDevice(const OperatorProjectorParams& pr_projParams,
-	                            const cudaStream_t* pp_mainStream = nullptr,
-	                            const cudaStream_t* pp_auxStream = nullptr);
+	explicit OperatorProjectorDevice(
+	    const OperatorProjectorParams& pr_projParams,
+	    const cudaStream_t* pp_mainStream = nullptr,
+	    const cudaStream_t* pp_auxStream = nullptr);
 
 	// These must run on the main stream
 	virtual void applyAOnLoadedBatch(ImageDevice& img,

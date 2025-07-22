@@ -27,16 +27,26 @@ int main(int argc, char** argv)
 
 		/* clang-format off */
 		options.add_options()
-		("i,in", "MRI image (in RAWD format)", cxxopts::value<std::string>(img_in_fname))
-		("o,out", "Image output file", cxxopts::value<std::string>(out_fname))
-		("r,row", "Row index output file", cxxopts::value<std::string>(out_i_fname))
-		("c,col", "Column index output file", cxxopts::value<std::string>(out_j_fname))
-		("W,width", "Neighborhood half-width", cxxopts::value<int>(W))
-		("P,patch", "Patch half-width", cxxopts::value<int>(P))
-		("k,knn", "Number of neighbors to store", cxxopts::value<int>(num_k))
-		("s,sigma2", "Kernel parameter sigma^2", cxxopts::value<float>(sigma2))
-		("m,mode", "Mode: 'neighbors', 'knn', 'full'", cxxopts::value<std::string>(mode))
-		("t,nthreads", "Number of threads to use", cxxopts::value<int>(num_threads))
+		("i,in", "MRI image (in RAWD format)",
+		 cxxopts::value<std::string>(img_in_fname))
+		("o,out", "Image output file",
+		 cxxopts::value<std::string>(out_fname))
+		("r,row", "Row index output file",
+		 cxxopts::value<std::string>(out_i_fname))
+		("c,col", "Column index output file",
+		 cxxopts::value<std::string>(out_j_fname))
+		("W,width", "Neighborhood half-width",
+		 cxxopts::value<int>(W))
+		("P,patch", "Patch half-width",
+		 cxxopts::value<int>(P))
+		("k,knn", "Number of neighbors to store",
+		 cxxopts::value<int>(num_k))
+		("s,sigma2", "Kernel parameter sigma^2",
+		 cxxopts::value<float>(sigma2))
+		("m,mode", "Mode: 'neighbors', 'knn', 'full'",
+		 cxxopts::value<std::string>(mode))
+		("t,nthreads", "Number of threads to use",
+		 cxxopts::value<int>(num_threads))
 		("h,help", "Print help");
 		/* clang-format on */
 
@@ -91,24 +101,24 @@ int main(int argc, char** argv)
 		// Build K matrix
 		if (mode.compare("full") == 0)
 		{
-			yrt::kernel::build_K_full(x_in.getRawPointer(), k_out.getRawPointer(),
-			                     k_i_out.getRawPointer(),
-			                     k_j_out.getRawPointer(), shape[0], shape[1],
-			                     shape[2], num_k, sigma2, num_threads);
+			yrt::kernel::build_K_full(
+			    x_in.getRawPointer(), k_out.getRawPointer(),
+			    k_i_out.getRawPointer(), k_j_out.getRawPointer(), shape[0],
+			    shape[1], shape[2], num_k, sigma2, num_threads);
 		}
 		else if (mode.compare("knn") == 0)
 		{
 			yrt::kernel::build_K_knn_neighbors(
-			    x_in.getRawPointer(), k_out.getRawPointer(),
-			    k_i_out.getRawPointer(), k_j_out.getRawPointer(), shape[0],
-			    shape[1], shape[2], W, P, num_k, sigma2, num_threads);
+				x_in.getRawPointer(), k_out.getRawPointer(),
+				k_i_out.getRawPointer(), k_j_out.getRawPointer(), shape[0],
+				shape[1], shape[2], W, P, num_k, sigma2, num_threads);
 		}
 		else if (mode.compare("neighbors") == 0)
 		{
 			yrt::kernel::build_K_neighbors(
-			    x_in.getRawPointer(), k_out.getRawPointer(),
-			    k_i_out.getRawPointer(), k_j_out.getRawPointer(), shape[0],
-			    shape[1], shape[2], W, sigma2, num_threads);
+				x_in.getRawPointer(), k_out.getRawPointer(),
+				k_i_out.getRawPointer(), k_j_out.getRawPointer(), shape[0],
+				shape[1], shape[2], W, sigma2, num_threads);
 		}
 
 		k_out.writeToFile(out_fname);

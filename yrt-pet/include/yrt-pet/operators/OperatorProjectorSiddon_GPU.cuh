@@ -15,10 +15,10 @@ class ImageDevice;
 class OperatorProjectorSiddon_GPU : public OperatorProjectorDevice
 {
 public:
-	explicit
-	    OperatorProjectorSiddon_GPU(const OperatorProjectorParams& projParams,
-	                                const cudaStream_t* mainStream = nullptr,
-	                                const cudaStream_t* auxStream = nullptr);
+	explicit OperatorProjectorSiddon_GPU(
+	    const OperatorProjectorParams& projParams,
+	    const cudaStream_t* mainStream = nullptr,
+	    const cudaStream_t* auxStream = nullptr);
 
 protected:
 	void applyAOnLoadedBatch(ImageDevice& img, ProjectionDataDevice& dat,

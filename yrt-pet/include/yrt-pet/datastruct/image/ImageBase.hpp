@@ -37,8 +37,8 @@ public:
 
 	ImageParams();
 	ImageParams(int nxi, int nyi, int nzi, float length_xi, float length_yi,
-		    float length_zi, float offset_xi = 0., float offset_yi = 0.,
-		    float offset_zi = 0.);
+	            float length_zi, float offset_xi = 0., float offset_yi = 0.,
+	            float offset_zi = 0.);
 	ImageParams(const ImageParams& in);
 	ImageParams& operator=(const ImageParams& in);
 	explicit ImageParams(const std::string& fname);
@@ -57,8 +57,8 @@ public:
 
 private:
 	static float readLengthFromJSON(nlohmann::json& j,
-					const std::string& length_name,
-					const std::string& v_name, int n);
+	                                const std::string& length_name,
+	                                const std::string& v_name, int n);
 	template <int Dim>
 	void completeDimInfo();
 };
@@ -80,12 +80,12 @@ public:
 	virtual void copyFromImage(const ImageBase* imSrc) = 0;
 	virtual void addFirstImageToSecond(ImageBase* second) const = 0;
 	virtual void applyThreshold(const ImageBase* mask_img, float threshold,
-				    float val_le_scale, float val_le_off,
-				    float val_gt_scale, float val_gt_off) = 0;
+	                            float val_le_scale, float val_le_off,
+	                            float val_gt_scale, float val_gt_off) = 0;
 	virtual void writeToFile(const std::string& image_fname) const = 0;
 	virtual void updateEMThreshold(ImageBase* update_img,
-				       const ImageBase* norm_img,
-				       float threshold) = 0;
+	                               const ImageBase* norm_img,
+	                               float threshold) = 0;
 
 private:
 	ImageParams m_params;

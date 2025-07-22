@@ -55,6 +55,9 @@ public:
 	float dotProduct(const Image& y) const;
 	float nearestNeighbor(const Vector3D& pt) const;
 	float nearestNeighbor(const Vector3D& pt, int* pi, int* pj, int* pk) const;
+	template<bool MULT_FLAG>
+	void updateImageNearestNeighbor(const Vector3D& pt, float value);
+	void assignImageNearestNeighbor(const Vector3D& pt, float value);
 	bool getNearestNeighborIdx(const Vector3D& pt, int* pi, int* pj,
 	                           int* pk) const;
 

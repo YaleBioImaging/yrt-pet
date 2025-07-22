@@ -71,6 +71,22 @@ void py_setup_image(py::module& m)
 	    },
 	    py::arg("pt"));
 	c.def(
+	    "updateImageNearestNeighbor",
+	    [](Image& img, const Vector3D& pt, float value, bool mult_flag)
+	    {
+		    if (mult_flag)
+		    {
+			    img.updateImageNearestNeighbor<true>(pt, value);
+		    }
+		    else
+		    {
+			    img.updateImageNearestNeighbor<false>(pt, value);
+		    }
+	    },
+	    py::arg("pt"), py::arg("value"), py::arg("doMultiplication"));
+	c.def("assignImageNearestNeighbor", &Image::assignImageNearestNeighbor,
+	      py::arg("pt"), py::arg("value"));
+	c.def(
 	    "getNearestNeighborIdx",
 	    [](const Image& img, const Vector3D& pt) -> py::tuple
 	    {
@@ -241,6 +257,43 @@ float Image::nearestNeighbor(const Vector3D& pt, int* pi, int* pj,
 		return mp_array->getFlat(*pk * num_xy + *pj * num_x + *pi);
 	}
 	return 0.0;
+}
+
+// update image with "value" using nearest neighbor method:
+template <bool MULT_FLAG>
+void Image::updateImageNearestNeighbor(const Vector3D& pt, float value)
+{
+	int ix, iy, iz;
+	if (getNearestNeighborIdx(pt, &ix, &iy, &iz))
+	{
+		// update multiplicatively or additively:
+		float* ptr = mp_array->getRawPointer();
+		const size_t num_x = getParams().nx;
+		const size_t num_xy = getParams().nx * getParams().ny;
+		const size_t idx = iz * num_xy + iy * num_x + ix;
+		if constexpr (MULT_FLAG)
+		{
+			ptr[idx] *= value;
+		}
+		else
+		{
+			ptr[idx] += value;
+		}
+	}
+}
+
+// assign image with "value" using nearest neighbor method:
+void Image::assignImageNearestNeighbor(const Vector3D& pt, float value)
+{
+	int ix, iy, iz;
+	if (getNearestNeighborIdx(pt, &ix, &iy, &iz))
+	{
+		// update multiplicatively or additively:
+		float* ptr = mp_array->getRawPointer();
+		const size_t num_x = getParams().nx;
+		const size_t num_xy = getParams().nx * getParams().ny;
+		ptr[iz * num_xy + iy * num_x + ix] = value;
+	}
 }
 
 // Returns true if the point `pt` is inside the image

@@ -16,15 +16,15 @@ inline HOST_DEVICE_CALLABLE void
                          float off_x, float off_y, float off_z, int indices[8],
                          float weights[8])
 {
-
+	// Get voxel size
 	const float vx = length_x / nx;
 	const float vy = length_y / ny;
 	const float vz = length_z / nz;
 
 	// Convert physical position to grid coordinates
-	const float cx = (pos_x - off_x + length_x / 2.0f - vx / 2.0f) / vx;
-	const float cy = (pos_y - off_y + length_y / 2.0f - vy / 2.0f) / vy;
-	const float cz = (pos_z - off_z + length_z / 2.0f - vz / 2.0f) / vz;
+	const float cx = (pos_x - off_x + length_x * 0.5f - vx * 0.5f) / vx;
+	const float cy = (pos_y - off_y + length_y * 0.5f - vy * 0.5f) / vy;
+	const float cz = (pos_z - off_z + length_z * 0.5f - vz * 0.5f) / vz;
 
 	// Integer coordinates of base voxel
 	const int ix0 = static_cast<int>(floorf(cx));

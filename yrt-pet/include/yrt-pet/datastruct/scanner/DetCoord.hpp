@@ -24,7 +24,7 @@ public:
 	float getXorient(det_id_t detID) const override;
 	float getYorient(det_id_t detID) const override;
 	float getZorient(det_id_t detID) const override;
-	bool isLORAllowed(det_id_t det1, det_id_t det2) const override;
+	bool isDetectorAllowed(det_id_t det) const override;
 	void writeToFile(const std::string& detCoord_fname) const override;
 	virtual void setXpos(det_id_t detID, float f);
 	virtual void setYpos(det_id_t detID, float f);

@@ -1,6 +1,9 @@
 #include "datastruct/projection/BinIteratorConstrained.hpp"
 #include "datastruct/projection/ProjectionData.hpp"
 #include <cstdlib>
+#include <cmath>
+#include "geometry/Constants.hpp"
+#include "utils/Tools.hpp"
 
 // Constraints
 
@@ -39,13 +42,26 @@ std::vector<std::string> ConstraintAngleDiffDeg::getVariables() const
 	return {"abs_delta_angle_deg"};
 }
 
+// Minimum angle difference constraint (index)
+ConstraintBlockDiffIndex::ConstraintBlockDiffIndex(size_t pMinBlockDiffIdx)
+{
+	mConstraintFcn = [pMinBlockDiffIdx](constraint_params info)
+	{
+		return info["abs_delta_block_idx"] >= pMinBlockDiffIdx;
+	};
+}
+std::vector<std::string> ConstraintBlockDiffIndex::getVariables() const
+{
+	return {"abs_delta_block_idx"};
+}
+
 // Detector mask
 ConstraintDetectorMask::ConstraintDetectorMask(Scanner* scanner)
 {
 	mConstraintFcn = [scanner](constraint_params info)
 	{
-		return scanner->isDetectorAllowed(info["det1"]) &&
-			scanner->isDetectorAllowed(info["det2"]);
+		return (scanner->isDetectorAllowed(info["det1"]) &&
+		        scanner->isDetectorAllowed(info["det2"]));
 	};
 }
 std::vector<std::string> ConstraintDetectorMask::getVariables() const
@@ -53,25 +69,12 @@ std::vector<std::string> ConstraintDetectorMask::getVariables() const
 	return {"det1", "det2"};
 }
 
-// Histogram subset
-ConstraintHistoSubset::ConstraintHistoSubset(int pNumSubsets, int pSubsetIdx)
-{
-	mConstraintFcn = [pNumSubsets, pSubsetIdx](constraint_params info)
-	{
-		return scanner->isDetectorAllowed(info["det1"]) &&
-			scanner->isDetectorAllowed(info["det2"]);
-	};
-}
-std::vector<std::string> ConstraintHistoSubset::getVariables() const
-{
-	return {"det1", "det2"};
-}
-
 
 // Constrained bin iterator
-BinIteratorConstrained::BinIteratorConstrained(size_t pNumBins,
+BinIteratorConstrained::BinIteratorConstrained(ProjectionData* pProjData,
+                                               BinIterator* pBinIterBase,
                                                int pQueueSizeMax)
-    : mNumBins(pNumBins), mQueue(pQueueSizeMax)
+	: mProjData(pProjData), mBinIterBase(pBinIterBase), mQueue(pQueueSizeMax)
 {
 }
 
@@ -98,10 +101,69 @@ std::set<std::string> BinIteratorConstrained::collectVariables() const
 
 constraint_params
     BinIteratorConstrained::collectInfo(
-        size_t bin, std::set<std::string> variables) const
+	    bin_t bin, std::set<std::string> variables) const
 {
 	constraint_params info;
-	// TODO
+
+	auto [d1, d2] = mProjData->getDetectorPair(bin);
+	info["det1"] = d1;
+	info["det2"] = d2;
+
+	bool needsLOR = variables.find("abs_delta_angle_deg") != variables.end();
+	Line3D lor;
+	if (needsLOR)
+	{
+		lor = mProjData->getLOR(bin);
+	}
+
+	const Scanner* scanner = nullptr;
+	bool needsScanner = (
+		variables.find("abs_delta_block_idx") != variables.end() ||
+		variables.find("abs_delta_block_idx") != variables.end());
+	if (needsScanner)
+	{
+		scanner = &mProjData->getScanner();
+	}
+
+	if (variables.find("abs_delta_angle_deg") != variables.end())
+	{
+		// In-plane angle
+		float a1 = std::atan2(lor.point1.y, lor.point1.x);
+		float a2 = std::atan2(lor.point1.y, lor.point1.x);
+		info["abs_delta_angle_deg"] =
+		    Util::periodicDiff(a1, a2, (float)(2.f * PI));
+	}
+
+	bool needsPlaneIdx =
+	    variables.find("abs_delta_angle_idx") != variables.end();
+	size_t d1xyi;
+	size_t d2xyi;
+	if (needsPlaneIdx)
+	{
+		d1xyi = d1 % scanner->detsPerRing;
+		d2xyi = d2 % scanner->detsPerRing;
+	}
+	if (variables.find("abs_delta_angle_idx") != variables.end())
+	{
+		info["abs_delta_angle_idx"] = Util::periodicDiff(
+			d1xyi, d2xyi, scanner->detsPerRing);
+	}
+
+	bool needsPlaneBlock =
+	    variables.find("abs_delta_block_idx") != variables.end();
+	size_t d1bi;
+	size_t d2bi;
+	if (needsPlaneBlock)
+	{
+		d1bi = d1 % scanner->detsPerBlock;
+		d2bi = d2 % scanner->detsPerBlock;
+	}
+	if (variables.find("abs_delta_block_idx") != variables.end())
+	{
+		info["abs_delta_block_idx"] = Util::periodicDiff(
+			d1bi, d2bi, scanner->detsPerBlock);
+	}
+
 	return info;
 }
 
@@ -128,8 +190,9 @@ size_t BinIteratorConstrained::count() const
 	{
 		auto variables = collectVariables();
 		size_t count = 0;
-		for (size_t bin = 0; bin < mNumBins; bin++)
+		for (size_t binIdx = 0; binIdx < mBinIterBase->size(); binIdx++)
 		{
+			bin_t bin = mBinIterBase->get(binIdx);
 			auto info = collectInfo(bin, variables);
 			if (isValid(info))
 			{
@@ -143,8 +206,9 @@ size_t BinIteratorConstrained::count() const
 void BinIteratorConstrained::produce()
 {
 	auto variables = collectVariables();
-	for (size_t bin = 0; bin < mNumBins; bin++)
+	for (size_t binIdx = 0; binIdx < mBinIterBase->size(); binIdx++)
 	{
+		bin_t bin = mBinIterBase->get(binIdx);
 		auto info = collectInfo(bin, variables);
 		if (isValid(info))
 		{

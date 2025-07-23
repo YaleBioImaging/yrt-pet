@@ -109,6 +109,16 @@ TFloat erfc(TFloat x)
 template float erfc<float>(float);
 template double erfc<double>(double);
 
+template <typename T>
+T periodicDiff(const T& a, const T& b, const T& period)
+{
+	float halfPeriod = period / (float)2.f;
+	return halfPeriod - std::fabs(std::fmod(a - b, period) - halfPeriod);
+}
+template float periodicDiff(const float&, const float&, const float&);
+template size_t periodicDiff(const size_t&, const size_t&, const size_t&);
+template int periodicDiff(const int&, const int&, const int&);
+
 int reflect(int M, int x)
 {
 	if (x < 0)

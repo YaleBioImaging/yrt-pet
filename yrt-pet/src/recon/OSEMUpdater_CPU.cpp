@@ -12,6 +12,7 @@
 #include "yrt-pet/utils/Concurrency.hpp"
 #include "yrt-pet/utils/Globals.hpp"
 #include "yrt-pet/utils/ProgressDisplayMultiThread.hpp"
+#include "yrt-pet/datastruct/BinIteratorConstrained.hpp"
 
 
 namespace yrt
@@ -22,6 +23,7 @@ OSEMUpdater_CPU::OSEMUpdater_CPU(OSEM_CPU* pp_osem) : mp_osem(pp_osem)
 	ASSERT(mp_osem != nullptr);
 }
 
+#if 0
 void OSEMUpdater_CPU::computeSensitivityImage(Image& destImage) const
 {
 	const OperatorProjector* projector = mp_osem->getProjector();
@@ -55,6 +57,41 @@ void OSEMUpdater_CPU::computeSensitivityImage(Image& destImage) const
 		                              projValue, tid);
 	    });
 }
+#else
+void OSEMUpdater_CPU::computeSensitivityImage(Image& destImage) const
+{
+	const OperatorProjector* projector = mp_osem->getProjector();
+	const BinIterator* binIterProj = projector->getBinIter();
+	const Corrector_CPU& corrector = mp_osem->getCorrector_CPU();
+	const Corrector_CPU* correctorPtr = &corrector;
+	const ProjectionData* sensImgGenProjData =
+	    corrector.getSensImgGenProjData();
+	Image* destImagePtr = &destImage;
+	BinIteratorConstrained binIter(sensImgGenProjData, binIterProj, 10);
+	const bin_t numBins = binIter->size();
+	Util::ProgressDisplayMultiThread progressDisplay(Globals::get_num_threads(),
+	                                                 numBins);
+
+#pragma omp parallel for default(none)                                      \
+    firstprivate(sensImgGenProjData, correctorPtr, projector, destImagePtr, \
+                     binIter, numBins) shared(progressDisplay)
+	for (bin_t binIdx = 0; binIdx < numBins; binIdx++)
+	{
+		progressDisplay.progress(omp_get_thread_num(), 1);
+
+		const bin_t bin = binIter->get(binIdx);
+
+		const ProjectionProperties projectionProperties =
+		    sensImgGenProjData->getProjectionProperties(bin);
+
+		const float projValue = correctorPtr->getMultiplicativeCorrectionFactor(
+		    *sensImgGenProjData, bin);
+
+		projector->backProjection(destImagePtr, projectionProperties,
+		                          projValue);
+	}
+}
+#endif
 
 void OSEMUpdater_CPU::computeEMUpdateImage(const Image& inputImage,
                                            Image& destImage) const

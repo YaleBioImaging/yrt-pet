@@ -129,7 +129,7 @@ constraint_params
 	{
 		// In-plane angle
 		float a1 = std::atan2(lor.point1.y, lor.point1.x);
-		float a2 = std::atan2(lor.point1.y, lor.point1.x);
+		float a2 = std::atan2(lor.point2.y, lor.point2.x);
 		info["abs_delta_angle_deg"] =
 		    Util::periodicDiff(a1, a2, (float)(2.f * PI));
 	}
@@ -214,10 +214,10 @@ void BinIteratorConstrained::produce()
 		if (isValid(info))
 		{
 			// TODO get properties
-			const Line3D lor{};
-			float tofValue;
-			const Vector3D det1Orient{};
-			const Vector3D det2Orient{};
+			const Line3D lor = mProjData->getLOR(bin);
+			float tofValue = mProjData->getTOFValue(bin);;
+			const Vector3D det1Orient = mProjData->getScanner().getDetectorOrient(info["det1"]);
+			const Vector3D det2Orient = mProjData->getScanner().getDetectorOrient(info["det2"]);
 			// TODO check size
 			mQueue.wait_and_push(
 			    ProjectionProperties({lor, tofValue, det1Orient, det2Orient}));

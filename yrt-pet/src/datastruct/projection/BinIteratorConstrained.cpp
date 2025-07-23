@@ -1,9 +1,14 @@
-#include "datastruct/projection/BinIteratorConstrained.hpp"
-#include "datastruct/projection/ProjectionData.hpp"
-#include <cstdlib>
+#include "yrt-pet/datastruct/projection/BinIteratorConstrained.hpp"
+
 #include <cmath>
-#include "geometry/Constants.hpp"
-#include "utils/Tools.hpp"
+#include <cstdlib>
+
+#include "yrt-pet/datastruct/projection/ProjectionData.hpp"
+#include "yrt-pet/geometry/Constants.hpp"
+#include "yrt-pet/utils/Tools.hpp"
+
+namespace yrt
+{
 
 // Constraints
 
@@ -20,9 +25,7 @@ std::vector<ConstraintVariable> Constraint::getVariables() const
 ConstraintAngleDiffIndex::ConstraintAngleDiffIndex(size_t pMinAngleDiffIdx)
 {
 	mConstraintFcn = [pMinAngleDiffIdx](ConstraintParams& info)
-	{
-		return info[ConstraintVariable::AbsDeltaAngleIdx] >= pMinAngleDiffIdx;
-	};
+	{ return info[ConstraintVariable::AbsDeltaAngleIdx] >= pMinAngleDiffIdx; };
 }
 std::vector<ConstraintVariable> ConstraintAngleDiffIndex::getVariables() const
 {
@@ -33,9 +36,7 @@ std::vector<ConstraintVariable> ConstraintAngleDiffIndex::getVariables() const
 ConstraintAngleDiffDeg::ConstraintAngleDiffDeg(size_t pMinAngleDiffDeg)
 {
 	mConstraintFcn = [pMinAngleDiffDeg](ConstraintParams& info)
-	{
-		return info[ConstraintVariable::AbsDeltaAngleDeg] >= pMinAngleDiffDeg;
-	};
+	{ return info[ConstraintVariable::AbsDeltaAngleDeg] >= pMinAngleDiffDeg; };
 }
 std::vector<ConstraintVariable> ConstraintAngleDiffDeg::getVariables() const
 {
@@ -46,9 +47,7 @@ std::vector<ConstraintVariable> ConstraintAngleDiffDeg::getVariables() const
 ConstraintBlockDiffIndex::ConstraintBlockDiffIndex(size_t pMinBlockDiffIdx)
 {
 	mConstraintFcn = [pMinBlockDiffIdx](ConstraintParams& info)
-	{
-		return info[ConstraintVariable::AbsDeltaBlockIdx] >= pMinBlockDiffIdx;
-	};
+	{ return info[ConstraintVariable::AbsDeltaBlockIdx] >= pMinBlockDiffIdx; };
 }
 std::vector<ConstraintVariable> ConstraintBlockDiffIndex::getVariables() const
 {
@@ -73,9 +72,7 @@ std::vector<ConstraintVariable> ConstraintDetectorMask::getVariables() const
 // Constrained bin iterator
 BinIteratorConstrained::BinIteratorConstrained(const ProjectionData* pProjData,
                                                const BinIterator* pBinIterBase)
-    : mProjData(pProjData),
-      mBinIterBase(pBinIterBase),
-      mCount(0)
+    : mProjData(pProjData), mBinIterBase(pBinIterBase), mCount(0)
 {
 }
 
@@ -123,7 +120,7 @@ void BinIteratorConstrained::collectInfo(
 		float a1 = std::atan2(lor.point1.y, lor.point1.x);
 		float a2 = std::atan2(lor.point2.y, lor.point2.x);
 		info[ConstraintVariable::AbsDeltaAngleDeg] =
-		    Util::periodicDiff(a1, a2, (float)(2.f * PI));
+		    util::periodicDiff(a1, a2, (float)(2.f * PI));
 	}
 
 	bool needsPlaneIdx =
@@ -140,7 +137,7 @@ void BinIteratorConstrained::collectInfo(
 	if (variables.find(ConstraintVariable::AbsDeltaAngleIdx) != variables.end())
 	{
 		info[ConstraintVariable::AbsDeltaAngleIdx] =
-		    Util::periodicDiff(d1xyi, d2xyi, scanner->detsPerRing);
+		    util::periodicDiff(d1xyi, d2xyi, scanner->detsPerRing);
 	}
 
 	bool needsPlaneBlock =
@@ -155,7 +152,7 @@ void BinIteratorConstrained::collectInfo(
 	if (variables.find(ConstraintVariable::AbsDeltaBlockIdx) != variables.end())
 	{
 		info[ConstraintVariable::AbsDeltaBlockIdx] =
-		    Util::periodicDiff(d1bi, d2bi, scanner->detsPerBlock);
+		    util::periodicDiff(d1bi, d2bi, scanner->detsPerBlock);
 	}
 }
 
@@ -182,7 +179,7 @@ size_t BinIteratorConstrained::count()
 	{
 		auto variables = collectVariables();
 		size_t count = 0;
-#pragma omp parallel for reduction (+ : count)
+#pragma omp parallel for reduction(+ : count)
 		for (size_t binIdx = 0; binIdx < mBinIterBase->size(); binIdx++)
 		{
 			ConstraintParams info;
@@ -196,3 +193,5 @@ size_t BinIteratorConstrained::count()
 		return count;
 	}
 }
+
+}  // namespace yrt

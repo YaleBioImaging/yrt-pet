@@ -56,13 +56,13 @@ void py_setup_reconstructionutils(pybind11::module& m)
 
 	m.def("timeAverageMoveImage",
 	      static_cast<std::unique_ptr<ImageOwned> (*)(
-	          const LORMotion&, const Image&)>(&util::timeAverageMoveImage),
+	          const LORMotion&, const Image*)>(&util::timeAverageMoveImage),
 	      "lorMotion"_a, "unmovedSensImage"_a,
 	      "Blur a given image based on given motion information");
 
 	m.def("timeAverageMoveImage",
 	      static_cast<std::unique_ptr<ImageOwned> (*)(
-	          const LORMotion&, const Image&, timestamp_t, timestamp_t)>(
+	          const LORMotion&, const Image*, timestamp_t, timestamp_t)>(
 	          &util::timeAverageMoveImage),
 	      "lorMotion"_a, "unmovedSensImage"_a, "timeStart"_a, "timeStop"_a,
 	      "Blur a given image based on given motion information");
@@ -236,7 +236,7 @@ void histogram3DToListModeLUT(const Histogram3D* histo, ListModeLUTOwned* lmOut,
 }
 
 std::unique_ptr<ImageOwned> timeAverageMoveImage(const LORMotion& lorMotion,
-                                                 const Image& unmovedImage)
+                                                 const Image* unmovedImage)
 {
 	const size_t numFrames = lorMotion.getNumFrames();
 	ASSERT(numFrames > 0);
@@ -268,13 +268,13 @@ std::unique_ptr<ImageOwned> timeAverageMoveImage(const LORMotion& lorMotion,
 }
 
 std::unique_ptr<ImageOwned> timeAverageMoveImage(const LORMotion& lorMotion,
-                                                 const Image& unmovedImage,
+                                                 const Image* unmovedImage,
                                                  timestamp_t timeStart,
                                                  timestamp_t timeStop)
 {
-	const ImageParams& params = unmovedImage.getParams();
+	const ImageParams& params = unmovedImage->getParams();
 	ASSERT_MSG(params.isValid(), "Image parameters incomplete");
-	ASSERT_MSG(unmovedImage.isMemoryValid(),
+	ASSERT_MSG(unmovedImage->isMemoryValid(),
 	           "Sensitivity image given is not allocated");
 
 	const int64_t numFrames = lorMotion.getNumFrames();
@@ -306,7 +306,7 @@ std::unique_ptr<ImageOwned> timeAverageMoveImage(const LORMotion& lorMotion,
 			}
 			transform_t transform = lorMotion.getTransform(frame);
 			const float weight = lorMotion.getDuration(frame) / scanDuration;
-			unmovedImage.transformImage(transform, *movedSensImage, weight);
+			unmovedImage->transformImage(transform, *movedSensImage, weight);
 		}
 	}
 

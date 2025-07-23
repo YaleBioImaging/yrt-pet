@@ -83,10 +83,10 @@ __global__ void addFirstImageToSecond_kernel(const float* pd_imgIn,
 
 template <bool WEIGHED_AVG>
 __global__ void
-    timeAverageMoveImage_kernel(const float* d_imgIn, float* d_imgOut, int nx,
+    timeAverageMoveImage_kernel(const float* pd_imgIn, float* pd_imgOut, int nx,
                                 int ny, int nz, float length_x, float length_y,
                                 float length_z, float off_x, float off_y,
-                                float off_z, transform_t* transforms,
+                                float off_z, const transform_t* pd_transforms,
                                 float* frameWeights, int numTransforms)
 {
 	const long id_x = blockIdx.x * blockDim.x + threadIdx.x;
@@ -104,20 +104,20 @@ __global__ void
 		const float pos_y = util::indexToPosition(id_y, vy, length_y, off_y);
 		const float pos_z = util::indexToPosition(id_z, vz, length_z, off_z);
 
+		// If weights pointer is null, use 1.0 everywhere
+		float frameWeight = 1.0f;
 		float voxelWeights[8];
 		int voxelIndices[8];
 
 		for (int transform_i = 0; transform_i < numTransforms; transform_i++)
 		{
-			// If weights pointer is null, use 1.0 everywhere
-			float frameWeight = 1.0f;
 			if constexpr (WEIGHED_AVG)
 			{
 				frameWeight = frameWeights[transform_i];
 			}
 
 			const transform_t inv =
-			    util::invertTransform(transforms[transform_i]);
+			    util::invertTransform(pd_transforms[transform_i]);
 
 			float newX = pos_x * inv.r00 + pos_y * inv.r01 + pos_z * inv.r02;
 			newX += inv.tx;
@@ -132,8 +132,8 @@ __global__ void
 
 			for (size_t i = 0; i < 8; i++)
 			{
-				d_imgOut[flatId] +=
-				    d_imgIn[voxelIndices[i]] * voxelWeights[i] * frameWeight;
+				pd_imgOut[flatId] +=
+				    pd_imgIn[voxelIndices[i]] * voxelWeights[i] * frameWeight;
 			}
 		}
 	}
@@ -141,12 +141,12 @@ __global__ void
 template __global__ void timeAverageMoveImage_kernel<true>(
     const float* d_imgIn, float* d_imgOut, int nx, int ny, int nz,
     float length_x, float length_y, float length_z, float off_x, float off_y,
-    float off_z, transform_t* transforms, float* frameWeights,
+    float off_z, const transform_t* transforms, float* frameWeights,
     int numTransforms);
 template __global__ void timeAverageMoveImage_kernel<false>(
     const float* d_imgIn, float* d_imgOut, int nx, int ny, int nz,
     float length_x, float length_y, float length_z, float off_x, float off_y,
-    float off_z, transform_t* transforms, float* frameWeights,
+    float off_z, const transform_t* transforms, float* frameWeights,
     int numTransforms);
 
 __device__ constexpr int circular(int M, int x)

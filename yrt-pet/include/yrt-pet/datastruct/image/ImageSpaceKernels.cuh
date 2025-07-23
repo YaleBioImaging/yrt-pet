@@ -26,10 +26,13 @@ __global__ void addFirstImageToSecond_kernel(const float* d_imgIn,
                                              float* d_imgOut, int nx, int ny,
                                              int nz);
 
-__global__ void timeAverageMoveImage_kernel(const float* d_imgIn,
-                                            float* d_imgOut, int nx, int ny,
-                                            int nz, transform_t* transforms,
-                                            int numTransforms);
+template <bool WEIGHED_AVG>
+__global__ void
+    timeAverageMoveImage_kernel(const float* pd_imgIn, float* pd_imgOut, int nx,
+                                int ny, int nz, float length_x, float length_y,
+                                float length_z, float off_x, float off_y,
+                                float off_z, const transform_t* pd_transforms,
+                                float* frameWeights, int numTransforms);
 
 template <int Axis>
 __global__ void convolve3DSeparable_kernel(const float* input, float* output,

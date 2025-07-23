@@ -45,7 +45,6 @@ inline void setNumThreads(int t)
 	omp_set_num_threads(numThreads());
 }
 
-// TODO NOW: Document this
 static constexpr char DisablePinnedMemoryEnvVar[] =
     "YRTPET_DISABLE_PINNED_MEMORY";
 

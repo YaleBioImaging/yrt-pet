@@ -15,7 +15,7 @@
 #include "yrt-pet/utils/Concurrency.hpp"
 #include "yrt-pet/utils/Globals.hpp"
 #include "yrt-pet/utils/ProgressDisplayMultiThread.hpp"
-#include "yrt-pet/datastruct/BinIteratorConstrained.hpp"
+#include "yrt-pet/datastruct/projection/BinIteratorConstrained.hpp"
 
 
 namespace yrt
@@ -72,8 +72,8 @@ void OSEMUpdater_CPU::computeSensitivityImage(Image& destImage) const
 	BinIteratorConstrained binIter(sensImgGenProjData, binIterProj);
 	//binIter.prepare();
 	const bin_t numBinsMax = binIterProj->size();
-	int numThreads = Globals::get_num_threads();
-	Util::ProgressDisplayMultiThread progressDisplay(Globals::get_num_threads(),
+	int numThreads = globals::getNumThreads();
+	util::ProgressDisplayMultiThread progressDisplay(globals::getNumThreads(),
 	                                                 numBinsMax);
 
 	std::vector<std::thread> workers;

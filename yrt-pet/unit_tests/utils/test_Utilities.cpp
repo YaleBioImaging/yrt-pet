@@ -74,7 +74,7 @@ TEST_CASE("String", "[string]")
 	}
 	SECTION("ranges-step")
 	{
-		auto ranges = Util::RangeList::makeRangeListStep(1, 9, 2);
+		auto ranges = yrt::util::RangeList::makeRangeListStep(1, 9, 2);
 		REQUIRE(ranges.getSizeTotal() == 5);
 		REQUIRE(ranges.isIn(1));
 		REQUIRE(!ranges.isIn(2));

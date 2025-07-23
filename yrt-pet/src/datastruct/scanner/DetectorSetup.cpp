@@ -40,4 +40,12 @@ Vector3D DetectorSetup::getOrient(det_id_t id) const
 {
 	return {getXorient(id), getYorient(id), getZorient(id)};
 }
+
+bool DetectorSetup::isLORAllowed(det_id_t det1, det_id_t det2) const
+{
+	(void)det1;
+	(void)det2;
+	return true;
+}
+
 }  // namespace yrt

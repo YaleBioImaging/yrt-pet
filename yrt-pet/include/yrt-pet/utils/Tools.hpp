@@ -43,6 +43,10 @@ void gauss1DKernelFill(Array1DBase<T>& kernel);
 template <typename TFloat>
 TFloat erfc(TFloat x);
 
+// Periodic distance
+template <typename T>
+T periodicDiff(const T& a, const T&b, const T& period);
+
 std::string addBeforeExtension(const std::string& fname,
                                const std::string& addition);
 bool endsWith(const std::string& str, const std::string& suffix);

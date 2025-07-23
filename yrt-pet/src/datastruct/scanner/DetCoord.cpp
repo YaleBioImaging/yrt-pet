@@ -437,10 +437,9 @@ float DetCoord::getZorient(det_id_t detID) const
 {
 	return (*mp_Zorient)[detID];
 }
-bool DetCoord::isLORAllowed(det_id_t det1, det_id_t det2) const
+bool DetCoord::isDetectorAllowed(det_id_t det) const
 {
-	return mp_Mask->getSizeTotal() == 0 ||
-	       ((*mp_Mask)[det1] && (*mp_Mask)[det2]);
+	return mp_Mask->getSizeTotal() == 0 || (*mp_Mask)[det];
 }
 void DetCoord::setXpos(det_id_t detID, float f)
 {

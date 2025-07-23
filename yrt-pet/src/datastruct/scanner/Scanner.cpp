@@ -39,7 +39,7 @@ void py_setup_scanner(pybind11::module& m)
 	c.def("getTheoreticalNumDets", &Scanner::getTheoreticalNumDets);
 	c.def("getDetectorPos", &Scanner::getDetectorPos, "det_id"_a);
 	c.def("getDetectorOrient", &Scanner::getDetectorOrient, "det_id"_a);
-	c.def("isLORAllowed", &Scanner::isLORAllowed, "det_id_1"_a, "det_id_2"_a);
+	c.def("isDetectorAllowed", &Scanner::isDetectorAllowed, "det_id"_a);
 	c.def_readwrite("scannerName", &Scanner::scannerName);
 	c.def_readwrite("axialFOV", &Scanner::axialFOV);
 	c.def_readwrite("crystalSize_z", &Scanner::crystalSize_z);
@@ -143,9 +143,9 @@ bool Scanner::isValid() const
 	return mp_detectors != nullptr;
 }
 
-bool Scanner::isLORAllowed(det_id_t det1, det_id_t det2) const
+bool Scanner::isDetectorAllowed(det_id_t det) const
 {
-	return mp_detectors->isLORAllowed(det1, det2);
+	return mp_detectors->isDetectorAllowed(det);
 }
 
 void Scanner::createLUT(Array2D<float>& lut) const

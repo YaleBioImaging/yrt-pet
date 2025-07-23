@@ -24,6 +24,8 @@ void py_setup_utilities_rangelist(py::module& m)
 	c_range.def(py::init<const std::string&>());
 	c_range.def("isIn", &util::RangeList::isIn, py::arg("idx"));
 	c_range.def("empty", &util::RangeList::empty);
+	c_range.def_static("makeRangeListStep", &util::RangeList::makeRangeListStep,
+	                   py::arg("begin"), py::arg("end_incl"), py::arg("step"));
 	c_range.def(
 	    "insertSorted", [](util::RangeList& self, int begin, int end)
 	    { self.insertSorted(begin, end); }, py::arg("begin"), py::arg("end"));
@@ -73,6 +75,16 @@ void RangeList::readFromString(const std::string& p_Ranges)
 		}
 		insertSorted(begin, end);
 	}
+}
+
+RangeList RangeList::makeRangeListStep(int p_start, int p_end_incl, int p_step)
+{
+	RangeList ranges;
+	for (int it = p_start; it <= p_end_incl; it += p_step)
+	{
+		ranges.insertSorted(it, it);
+	}
+	return ranges;
 }
 
 void RangeList::sort()

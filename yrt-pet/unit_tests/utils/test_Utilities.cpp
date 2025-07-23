@@ -72,4 +72,12 @@ TEST_CASE("String", "[string]")
 		REQUIRE(ranges.get().size() == 2);
 		REQUIRE(ranges.getSizeTotal() == 19);
 	}
+	SECTION("ranges-step")
+	{
+		auto ranges = Util::RangeList::makeRangeListStep(1, 9, 2);
+		REQUIRE(ranges.getSizeTotal() == 5);
+		REQUIRE(ranges.isIn(1));
+		REQUIRE(!ranges.isIn(2));
+		REQUIRE(ranges.get().size() == 5);
+	}
 }

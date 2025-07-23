@@ -16,6 +16,7 @@
 
 namespace yrt
 {
+class BinIterator;
 
 struct ProjectionProperties
 {

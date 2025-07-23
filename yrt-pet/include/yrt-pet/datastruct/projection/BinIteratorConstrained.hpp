@@ -79,37 +79,37 @@ public:
 	ConstraintAngleDiffDeg(size_t pMinAngleDiffDeg);
 	std::vector<std::string> getVariables() const override;
 };
+class ConstraintBlockDiffIndex : public Constraint
+{
+public:
+	ConstraintBlockDiffIndex(size_t pMinBlockDiffIdx);
+	std::vector<std::string> getVariables() const override;
+};
 class ConstraintDetectorMask : public Constraint
 {
 public:
 	ConstraintDetectorMask(Scanner* scanner);
 	std::vector<std::string> getVariables() const override;
 };
-class ConstraintHistoSubset : public Constraint
-{
-public:
-	ConstraintHistoSubset(size_t p_numZBin, size_t p_numPhi,
-	                      size_t p_numR, int p_numSubsets,
-	                      int p_idxSubset);
-	std::vector<std::string> getVariables() const override;
-};
 
 class BinIteratorConstrained
 {
-	BinIteratorConstrained(size_t pNumBins, int pQueueSizeMax);
+	BinIteratorConstrained(ProjectionData* pProjData, BinIterator* pBinIterBase,
+	                       int pQueueSizeMax);
 	void addConstraint(Constraint& pConstraint);
 	size_t count() const;
 	void produce();
 	const ProjectionProperties& get();
 
 private:
-	size_t mNumBins;
+	ProjectionData* mProjData;
+	BinIterator* mBinIterBase;
 	std::vector<Constraint*> mConstraints;
 	ThreadSafeQueue<ProjectionProperties> mQueue;
 	size_t mCount;
 
 	std::set<std::string> collectVariables() const;
-	constraint_params collectInfo(size_t bin,
+	constraint_params collectInfo(bin_t bin,
 	                              std::set<std::string> variables) const;
 	bool isValid(constraint_params info) const;
 };

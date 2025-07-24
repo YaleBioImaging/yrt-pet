@@ -78,7 +78,7 @@ std::unique_ptr<ImageBase> timeAverageMoveImageDevice(
 	{
 		const auto unmovedImageHost_ptr =
 		    dynamic_cast<const Image*>(unmovedImage);
-		ASSERT(unmovedImageHost_ptr != nullptr);
+		ASSERT_MSG(unmovedImageHost_ptr != nullptr, "Unknown image type");
 
 		unmovedImageDevice = std::make_unique<ImageDeviceOwned>(
 		    unmovedImageHost_ptr->getParams());
@@ -87,6 +87,7 @@ std::unique_ptr<ImageBase> timeAverageMoveImageDevice(
 
 		unmovedImageDevice_ptr = unmovedImageDevice.get();
 	}
+	ASSERT(unmovedImageDevice_ptr != nullptr);
 
 	const ImageParams& params = unmovedImageDevice_ptr->getParams();
 	const GPULaunchParams3D launchParams = initiateDeviceParameters(params);
@@ -114,13 +115,15 @@ std::unique_ptr<ImageBase> timeAverageMoveImageDevice(
 		}
 	}
 
+
 	const size_t numTransforms = transforms.size();
 
 	// Transfer transforms and weights
-	DeviceArray<transform_t> transformsDevice{numTransforms};
+	DeviceArray<transform_t> transformsDevice{numTransforms,
+	                                          launchConfig.stream};
 	transformsDevice.copyFromHost(transforms.data(), numTransforms,
 	                              {launchConfig.stream, false});
-	DeviceArray<float> weightsDevice{numTransforms};
+	DeviceArray<float> weightsDevice{numTransforms, launchConfig.stream};
 	weightsDevice.copyFromHost(weights.data(), numTransforms,
 	                           {launchConfig.stream, false});
 
@@ -128,14 +131,39 @@ std::unique_ptr<ImageBase> timeAverageMoveImageDevice(
 	auto outImage = std::make_unique<ImageDeviceOwned>(params);
 	outImage->allocate(true, true);
 
-	timeAverageMoveImage_kernel<true>
-	    <<<launchParams.gridSize, launchParams.blockSize, 0,
-	       *launchConfig.stream>>>(
-	        unmovedImageDevice_ptr->getDevicePointer(),
-	        outImage->getDevicePointer(), params.nx, params.ny, params.nz,
-	        params.length_x, params.length_y, params.length_z, params.off_x,
-	        params.off_y, params.off_z, transformsDevice.getDevicePointer(),
-	        weightsDevice.getDevicePointer(), numTransforms);
+	if (launchConfig.stream != nullptr)
+	{
+		timeAverageMoveImage_kernel<true>
+		    <<<launchParams.gridSize, launchParams.blockSize, 0,
+		       *launchConfig.stream>>>(
+		        unmovedImageDevice_ptr->getDevicePointer(),
+		        outImage->getDevicePointer(), params.nx, params.ny, params.nz,
+		        params.length_x, params.length_y, params.length_z, params.off_x,
+		        params.off_y, params.off_z, transformsDevice.getDevicePointer(),
+		        weightsDevice.getDevicePointer(), numTransforms);
+
+		if (launchConfig.synchronize)
+		{
+			cudaStreamSynchronize(*launchConfig.stream);
+		}
+	}
+	else
+	{
+		timeAverageMoveImage_kernel<true>
+		    <<<launchParams.gridSize, launchParams.blockSize>>>(
+		        unmovedImageDevice_ptr->getDevicePointer(),
+		        outImage->getDevicePointer(), params.nx, params.ny, params.nz,
+		        params.length_x, params.length_y, params.length_z, params.off_x,
+		        params.off_y, params.off_z, transformsDevice.getDevicePointer(),
+		        weightsDevice.getDevicePointer(), numTransforms);
+
+		if (launchConfig.synchronize)
+		{
+			cudaDeviceSynchronize();
+		}
+	}
+	ASSERT(cudaCheckError());
+
 
 	return outImage;
 }

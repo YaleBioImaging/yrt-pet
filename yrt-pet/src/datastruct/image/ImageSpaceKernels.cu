@@ -126,9 +126,9 @@ __global__ void
 			float newZ = pos_x * inv.r20 + pos_y * inv.r21 + pos_z * inv.r22;
 			newZ += inv.tz;
 
-			util::trilinearInterpolate(
-			    pos_x, pos_y, pos_z, nx, ny, nz, length_x, length_y, length_z,
-			    off_x, off_y, off_z, voxelIndices, voxelWeights);
+			util::trilinearInterpolate(newX, newY, newZ, nx, ny, nz, length_x,
+			                           length_y, length_z, off_x, off_y, off_z,
+			                           voxelIndices, voxelWeights);
 
 			for (size_t i = 0; i < 8; i++)
 			{

@@ -54,6 +54,8 @@ void py_setup_reconstructionutils(pybind11::module& m)
 	    },
 	    "scanner"_a, "useGPU"_a = false);
 
+	m.def("getFullTimeRange", util::getFullTimeRange, "lorMotion"_a,
+	      "Get the maximum time range occupied by an LORMotion");
 	m.def("timeAverageMoveImage",
 	      static_cast<std::unique_ptr<ImageOwned> (*)(
 	          const LORMotion&, const Image*)>(&util::timeAverageMoveImage),
@@ -235,7 +237,8 @@ void histogram3DToListModeLUT(const Histogram3D* histo, ListModeLUTOwned* lmOut,
 	}
 }
 
-std::tuple<timestamp_t, timestamp_t> getFullTimeRange(const LORMotion& lorMotion)
+std::tuple<timestamp_t, timestamp_t>
+    getFullTimeRange(const LORMotion& lorMotion)
 {
 	const size_t numFrames = lorMotion.getNumFrames();
 	ASSERT(numFrames > 0);

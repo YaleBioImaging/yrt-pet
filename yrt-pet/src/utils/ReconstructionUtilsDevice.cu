@@ -7,6 +7,7 @@
 
 #include "yrt-pet/datastruct/image/ImageDevice.cuh"
 #include "yrt-pet/datastruct/image/ImageSpaceKernels.cuh"
+#include "yrt-pet/geometry/TransformUtils.hpp"
 #include "yrt-pet/operators/DeviceSynchronized.cuh"
 #include "yrt-pet/utils/DeviceArray.cuh"
 #include "yrt-pet/utils/ReconstructionUtils.hpp"
@@ -62,6 +63,8 @@ std::unique_ptr<ImageBase> timeAverageMoveImageDevice(
     timestamp_t timeStart, timestamp_t timeStop, GPULaunchConfig launchConfig)
 {
 	ASSERT_MSG(unmovedImage != nullptr, "Input image is null");
+	ASSERT_MSG(timeStop > timeStart,
+	           "Time stop must be greater than time start");
 
 	const int64_t numFrames = lorMotion.getNumFrames();
 	const auto scanDuration = static_cast<float>(timeStop - timeStart);
@@ -92,39 +95,62 @@ std::unique_ptr<ImageBase> timeAverageMoveImageDevice(
 	const ImageParams& params = unmovedImageDevice_ptr->getParams();
 	const GPULaunchParams3D launchParams = initiateDeviceParameters(params);
 
-	// Prepare host buffers
-	std::vector<transform_t> transforms;
-	std::vector<float> weights;
+	frame_t frameStart = -1;
+	frame_t frameStop = numFrames;
 
-	// Populate transforms and weights buffers
+	// Compute how many frames in total
 	for (frame_t frame = 0; frame < numFrames; frame++)
 	{
 		const timestamp_t startingTimestamp =
 		    lorMotion.getStartingTimestamp(frame);
 		if (startingTimestamp >= timeStart)
 		{
+			if (frame < 0)
+			{
+				frameStart = frame;
+			}
 			if (startingTimestamp > timeStop)
 			{
+				frameStop = frame;
 				break;
 			}
-			const transform_t transform = lorMotion.getTransform(frame);
-			const float weight = lorMotion.getDuration(frame) / scanDuration;
-
-			transforms.push_back(transform);
-			weights.push_back(weight);
 		}
 	}
+	ASSERT(frameStop > frameStart);
 
+	const size_t numFramesUsed = frameStop - frameStart;
 
-	const size_t numTransforms = transforms.size();
+	// Prepare host buffers
+	std::vector<transform_t> invTransforms;
+	invTransforms.resize(numFramesUsed);
+	transform_t* invTransforms_ptr = invTransforms.data();
+	std::vector<float> weights;
+	weights.resize(numFramesUsed);
+	float* weights_ptr = weights.data();
+	const LORMotion* lorMotion_ptr = &lorMotion;
+
+	// Populate transforms and weights buffers
+#pragma omp parallel for default(none)                                      \
+    firstprivate(frameStart, numFramesUsed, invTransforms_ptr, weights_ptr, \
+                     scanDuration, lorMotion_ptr)
+	for (frame_t frame_i = 0; frame_i < numFramesUsed; frame_i++)
+	{
+		const frame_t frame = frame_i + frameStart;
+		const transform_t transform = lorMotion_ptr->getTransform(frame);
+		const float weight = lorMotion_ptr->getDuration(frame) / scanDuration;
+
+		invTransforms_ptr[frame_i] = invertTransform(transform);
+		weights_ptr[frame_i] = weight;
+	}
 
 	// Transfer transforms and weights
-	DeviceArray<transform_t> transformsDevice{numTransforms,
+	DeviceArray<transform_t> transformsDevice{numFramesUsed,
 	                                          launchConfig.stream};
-	transformsDevice.copyFromHost(transforms.data(), numTransforms,
+	transformsDevice.copyFromHost(invTransforms_ptr, numFramesUsed,
 	                              {launchConfig.stream, false});
-	DeviceArray<float> weightsDevice{numTransforms, launchConfig.stream};
-	weightsDevice.copyFromHost(weights.data(), numTransforms,
+
+	DeviceArray<float> weightsDevice{numFramesUsed, launchConfig.stream};
+	weightsDevice.copyFromHost(weights_ptr, numFramesUsed,
 	                           {launchConfig.stream, false});
 
 	// Prepare output image
@@ -140,7 +166,7 @@ std::unique_ptr<ImageBase> timeAverageMoveImageDevice(
 		        outImage->getDevicePointer(), params.nx, params.ny, params.nz,
 		        params.length_x, params.length_y, params.length_z, params.off_x,
 		        params.off_y, params.off_z, transformsDevice.getDevicePointer(),
-		        weightsDevice.getDevicePointer(), numTransforms);
+		        weightsDevice.getDevicePointer(), numFramesUsed);
 
 		if (launchConfig.synchronize)
 		{
@@ -155,7 +181,7 @@ std::unique_ptr<ImageBase> timeAverageMoveImageDevice(
 		        outImage->getDevicePointer(), params.nx, params.ny, params.nz,
 		        params.length_x, params.length_y, params.length_z, params.off_x,
 		        params.off_y, params.off_z, transformsDevice.getDevicePointer(),
-		        weightsDevice.getDevicePointer(), numTransforms);
+		        weightsDevice.getDevicePointer(), numFramesUsed);
 
 		if (launchConfig.synchronize)
 		{

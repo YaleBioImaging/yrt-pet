@@ -31,7 +31,7 @@ __global__ void
     timeAverageMoveImage_kernel(const float* pd_imgIn, float* pd_imgOut, int nx,
                                 int ny, int nz, float length_x, float length_y,
                                 float length_z, float off_x, float off_y,
-                                float off_z, const transform_t* pd_transforms,
+                                float off_z, const transform_t* pd_invTransforms,
                                 float* frameWeights, int numTransforms);
 
 template <int Axis>

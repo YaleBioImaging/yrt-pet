@@ -11,25 +11,21 @@ namespace yrt::util
 {
 
 inline HOST_DEVICE_CALLABLE void
-    trilinearInterpolate(float pos_x, float pos_y, float pos_z, int nx, int ny,
-                         int nz, float length_x, float length_y, float length_z,
-                         float off_x, float off_y, float off_z, int indices[8],
-                         float weights[8])
+    trilinearInterpolateCore(float pos_x, float pos_y, float pos_z, int nx,
+                             int ny, int nz, float origin_x, float origin_y,
+                             float origin_z, float inv_vx, float inv_vy,
+                             float inv_vz, int indices[8], float weights[8])
 {
-	// Get voxel size
-	const float vx = length_x / nx;
-	const float vy = length_y / ny;
-	const float vz = length_z / nz;
 
 	// Convert physical position to grid coordinates
-	const float cx = (pos_x - off_x + length_x * 0.5f - vx * 0.5f) / vx;
-	const float cy = (pos_y - off_y + length_y * 0.5f - vy * 0.5f) / vy;
-	const float cz = (pos_z - off_z + length_z * 0.5f - vz * 0.5f) / vz;
+	const float cx = (pos_x - origin_x) * inv_vx;
+	const float cy = (pos_y - origin_y) * inv_vy;
+	const float cz = (pos_z - origin_z) * inv_vz;
 
 	// Integer coordinates of base voxel
-	const int ix0 = static_cast<int>(floorf(cx));
-	const int iy0 = static_cast<int>(floorf(cy));
-	const int iz0 = static_cast<int>(floorf(cz));
+	const int ix0 = static_cast<int>(cx);
+	const int iy0 = static_cast<int>(cy);
+	const int iz0 = static_cast<int>(cz);
 
 	// Fractional components
 	const float dx = cx - ix0;
@@ -72,6 +68,30 @@ inline HOST_DEVICE_CALLABLE void
 	}
 }
 
+inline HOST_DEVICE_CALLABLE void
+    trilinearInterpolate(float pos_x, float pos_y, float pos_z, int nx, int ny,
+                         int nz, float length_x, float length_y, float length_z,
+                         float off_x, float off_y, float off_z, int indices[8],
+                         float weights[8])
+{
+	// Get voxel size
+	const float vx = length_x / nx;
+	const float vy = length_y / ny;
+	const float vz = length_z / nz;
+
+	const float inv_vx = 1 / vx;
+	const float inv_vy = 1 / vy;
+	const float inv_vz = 1 / vz;
+
+	const float origin_x = off_x - length_x * 0.5f + vx * 0.5f;
+	const float origin_y = off_y - length_y * 0.5f + vy * 0.5f;
+	const float origin_z = off_z - length_z * 0.5f + vz * 0.5f;
+
+	trilinearInterpolateCore(pos_x, pos_y, pos_z, nx, ny, nz, origin_x,
+	                         origin_y, origin_z, inv_vx, inv_vy, inv_vz,
+	                         indices, weights);
+}
+
 inline HOST_DEVICE_CALLABLE float indexToPosition(int index, float voxelSize,
                                                   float length, float offset)
 {
@@ -79,4 +99,4 @@ inline HOST_DEVICE_CALLABLE float indexToPosition(int index, float voxelSize,
 	       0.5f * voxelSize;
 }
 
-}  // namespace yrt
+}  // namespace yrt::util

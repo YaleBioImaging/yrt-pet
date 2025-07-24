@@ -22,7 +22,7 @@ namespace yrt
 void py_setup_reconstructionutilsdevice(pybind11::module& m)
 {
 	m.def(
-	    "timeAverageMoveImage",
+	    "timeAverageMoveImageDevice",
 	    [](const LORMotion& lorMotion, const ImageBase* unmovedImage)
 	    {
 		    return util::timeAverageMoveImageDevice(lorMotion, unmovedImage,

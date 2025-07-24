@@ -16,9 +16,10 @@ namespace yrt::util
 
 std::unique_ptr<ImageBase>
     timeAverageMoveImageDevice(const LORMotion& lorMotion,
-                               const ImageBase& unmovedImage);
+                               const ImageBase* unmovedImage,
+                               GPULaunchConfig launchConfig);
 std::unique_ptr<ImageBase> timeAverageMoveImageDevice(
-    const LORMotion& lorMotion, const ImageBase& unmovedImage,
+    const LORMotion& lorMotion, const ImageBase* unmovedImage,
     timestamp_t timeStart, timestamp_t timeStop, GPULaunchConfig launchConfig);
 
 }  // namespace yrt::util

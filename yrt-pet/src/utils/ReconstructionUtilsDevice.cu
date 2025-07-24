@@ -9,16 +9,52 @@
 #include "yrt-pet/datastruct/image/ImageSpaceKernels.cuh"
 #include "yrt-pet/operators/DeviceSynchronized.cuh"
 #include "yrt-pet/utils/DeviceArray.cuh"
+#include "yrt-pet/utils/ReconstructionUtils.hpp"
+
+#if BUILD_PYBIND11
+#include <pybind11/pybind11.h>
+
+namespace py = pybind11;
+using namespace pybind11::literals;
+
+namespace yrt
+{
+void py_setup_reconstructionutilsdevice(pybind11::module& m)
+{
+	m.def(
+	    "timeAverageMoveImage",
+	    [](const LORMotion& lorMotion, const ImageBase* unmovedImage)
+	    {
+		    return util::timeAverageMoveImageDevice(lorMotion, unmovedImage,
+		                                            {nullptr, true});
+	    },
+	    "lorMotion"_a, "unmovedSensImage"_a,
+	    "Blur a given image based on given motion information using the GPU");
+	m.def(
+	    "timeAverageMoveImageDevice",
+	    [](const LORMotion& lorMotion, const ImageBase* unmovedImage,
+	       timestamp_t timeStart, timestamp_t timeStop)
+	    {
+		    return util::timeAverageMoveImageDevice(
+		        lorMotion, unmovedImage, timeStart, timeStop, {nullptr, true});
+	    },
+	    "lorMotion"_a, "unmovedSensImage"_a, "timeStart"_a, "timeStop"_a,
+	    "Blur a given image based on given motion information using the GPU");
+}
+}  // namespace yrt
+#endif
 
 namespace yrt::util
 {
 
 std::unique_ptr<ImageBase>
     timeAverageMoveImageDevice(const LORMotion& lorMotion,
-                               const ImageBase* unmovedImage)
+                               const ImageBase* unmovedImage,
+                               GPULaunchConfig launchConfig)
 {
-	// TODO NOW: redo this
-	return nullptr;
+	auto [timeStart, timeStop] = getFullTimeRange(lorMotion);
+	return timeAverageMoveImageDevice(lorMotion, unmovedImage, timeStart,
+	                                  timeStop, launchConfig);
 }
 
 std::unique_ptr<ImageBase> timeAverageMoveImageDevice(

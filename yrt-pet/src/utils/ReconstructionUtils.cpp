@@ -235,8 +235,7 @@ void histogram3DToListModeLUT(const Histogram3D* histo, ListModeLUTOwned* lmOut,
 	}
 }
 
-std::unique_ptr<ImageOwned> timeAverageMoveImage(const LORMotion& lorMotion,
-                                                 const Image* unmovedImage)
+std::tuple<timestamp_t, timestamp_t> getFullTimeRange(const LORMotion& lorMotion)
 {
 	const size_t numFrames = lorMotion.getNumFrames();
 	ASSERT(numFrames > 0);
@@ -247,9 +246,7 @@ std::unique_ptr<ImageOwned> timeAverageMoveImage(const LORMotion& lorMotion,
 	{
 		// If the user provides only one frame, then only one transformation
 		// will be applied. The weight of that frame will be 1 out of 1.
-		return timeAverageMoveImage(lorMotion, unmovedImage,
-		                            startingTimestampFirstFrame,
-		                            startingTimestampFirstFrame + 1);
+		return {startingTimestampFirstFrame, startingTimestampFirstFrame + 1};
 	}
 
 	const frame_t lastFrame = numFrames - 1;
@@ -262,9 +259,15 @@ std::unique_ptr<ImageOwned> timeAverageMoveImage(const LORMotion& lorMotion,
 	    startingTimestampLastFrame -
 	    lorMotion.getStartingTimestamp(lastFrame - 1);
 
-	return timeAverageMoveImage(
-	    lorMotion, unmovedImage, startingTimestampFirstFrame,
-	    startingTimestampLastFrame + duration2ndToLastFrame);
+	return {startingTimestampFirstFrame,
+	        startingTimestampLastFrame + duration2ndToLastFrame};
+}
+
+std::unique_ptr<ImageOwned> timeAverageMoveImage(const LORMotion& lorMotion,
+                                                 const Image* unmovedImage)
+{
+	auto [timeStart, timeStop] = getFullTimeRange(lorMotion);
+	return timeAverageMoveImage(lorMotion, unmovedImage, timeStart, timeStop);
 }
 
 std::unique_ptr<ImageOwned> timeAverageMoveImage(const LORMotion& lorMotion,

@@ -23,6 +23,10 @@ namespace util
 
 void histogram3DToListModeLUT(const Histogram3D* histo, ListModeLUTOwned* lmOut,
                               size_t numEvents = 0);
+
+std::tuple<timestamp_t, timestamp_t>
+    getFullTimeRange(const LORMotion& lorMotion);
+
 std::unique_ptr<ImageOwned> timeAverageMoveImage(const LORMotion& lorMotion,
                                                  const Image* unmovedImage);
 std::unique_ptr<ImageOwned> timeAverageMoveImage(const LORMotion& lorMotion,

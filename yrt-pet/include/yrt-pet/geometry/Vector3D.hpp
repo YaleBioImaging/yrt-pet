@@ -6,6 +6,7 @@
 #pragma once
 
 #include "yrt-pet/geometry/Constants.hpp"
+#include "yrt-pet/utils/GPUUtils.cuh"
 
 #include <cmath>
 #include <ostream>
@@ -17,21 +18,21 @@ template <typename TFloat>
 class Vector3DBase
 {
 public:
-	TFloat getNorm() const { return sqrt(getNormSquared()); }
-	TFloat getNormSquared() const { return x * x + y * y + z * z; }
-	void update(TFloat xi, TFloat yi, TFloat zi)
+	HOST_DEVICE_CALLABLE TFloat getNorm() const { return sqrt(getNormSquared()); }
+	HOST_DEVICE_CALLABLE TFloat getNormSquared() const { return x * x + y * y + z * z; }
+	HOST_DEVICE_CALLABLE void update(TFloat xi, TFloat yi, TFloat zi)
 	{
 		x = xi;
 		y = yi;
 		z = zi;
 	}
-	void update(const Vector3DBase& v)
+	HOST_DEVICE_CALLABLE void update(const Vector3DBase& v)
 	{
 		x = v.x;
 		y = v.y;
 		z = v.z;
 	}
-	Vector3DBase& normalize()
+	HOST_DEVICE_CALLABLE Vector3DBase& normalize()
 	{
 		TFloat norm;
 
@@ -53,7 +54,7 @@ public:
 		return *this;
 	}
 
-	Vector3DBase getNormalized()
+	HOST_DEVICE_CALLABLE Vector3DBase getNormalized()
 	{
 		const TFloat norm = getNorm();
 
@@ -64,30 +65,30 @@ public:
 		return Vector3DBase{0., 0., 0.};
 	}
 
-	bool isNormalized() const
+	HOST_DEVICE_CALLABLE bool isNormalized() const
 	{
 		return std::abs(1.0 - getNorm()) < SMALL_FLT;
 	}
-	Vector3DBase operator-(const Vector3DBase& v) const
+	HOST_DEVICE_CALLABLE Vector3DBase operator-(const Vector3DBase& v) const
 	{
 		return Vector3DBase{x - v.x, y - v.y, z - v.z};
 	}
 
-	Vector3DBase operator+(const Vector3DBase& v) const
+	HOST_DEVICE_CALLABLE Vector3DBase operator+(const Vector3DBase& v) const
 	{
 		return Vector3DBase{x + v.x, y + v.y, z + v.z};
 	}
 
-	TFloat scalProd(const Vector3DBase& vector) const
+	HOST_DEVICE_CALLABLE TFloat scalProd(const Vector3DBase& vector) const
 	{
 		return x * vector.x + y * vector.y + z * vector.z;
 	}
-	Vector3DBase crossProduct(const Vector3DBase& B) const
+	HOST_DEVICE_CALLABLE Vector3DBase crossProduct(const Vector3DBase& B) const
 	{
 		return Vector3DBase{y * B.z - z * B.y, z * B.x - x * B.z,
 							x * B.y - y * B.x};
 	}
-	void linearTransformation(const Vector3DBase& i,
+	HOST_DEVICE_CALLABLE void linearTransformation(const Vector3DBase& i,
 												const Vector3DBase& j,
 												const Vector3DBase& k)
 	{
@@ -95,11 +96,11 @@ public:
 		this->y = i.y * this->x + j.y * this->y + k.y * this->z;
 		this->z = i.z * this->x + j.z * this->y + k.z * this->z;
 	}
-	int argmax()
+	HOST_DEVICE_CALLABLE int argmax()
 	{
 		return (x > y) ? ((x > z) ? 0 : 2) : ((y > z) ? 1 : 2);
 	}
-	TFloat operator[](int idx) const
+	HOST_DEVICE_CALLABLE TFloat operator[](int idx) const
 	{
 		if (idx == 0)
 			return x;
@@ -110,7 +111,7 @@ public:
 		else
 			return NAN;
 	}
-	TFloat operator[](int idx)
+	HOST_DEVICE_CALLABLE TFloat operator[](int idx)
 	{
 		if (idx == 0)
 		{
@@ -127,28 +128,28 @@ public:
 		return NAN;
 	}
 
-	Vector3DBase operator*(const Vector3DBase& vector) const
+	HOST_DEVICE_CALLABLE Vector3DBase operator*(const Vector3DBase& vector) const
 	{
 		return Vector3DBase{y * vector.z - z * vector.y,
 							z * vector.x - x * vector.z,
 							x * vector.y - y * vector.x};
 	}
-	Vector3DBase operator+(TFloat scal) const
+	HOST_DEVICE_CALLABLE Vector3DBase operator+(TFloat scal) const
 	{
 		return Vector3DBase{x + scal, y + scal, z + scal};
 	}
 
-	Vector3DBase operator-(TFloat scal) const
+	HOST_DEVICE_CALLABLE Vector3DBase operator-(TFloat scal) const
 	{
 		return Vector3DBase{x - scal, y - scal, z - scal};
 	}
 
-	Vector3DBase operator*(TFloat scal) const
+	HOST_DEVICE_CALLABLE Vector3DBase operator*(TFloat scal) const
 	{
 		return Vector3DBase{x * scal, y * scal, z * scal};
 	}
 
-	Vector3DBase operator/(TFloat scal) const
+	HOST_DEVICE_CALLABLE Vector3DBase operator/(TFloat scal) const
 	{
 		if (std::abs(scal) > DOUBLE_PRECISION)
 		{
@@ -156,7 +157,7 @@ public:
 		}
 		return Vector3DBase<TFloat>{LARGE_VALUE, LARGE_VALUE, LARGE_VALUE};
 	}
-	bool operator==(const Vector3DBase& vector) const
+	HOST_DEVICE_CALLABLE bool operator==(const Vector3DBase& vector) const
 	{
 		const Vector3DBase tmp{x - vector.x, y - vector.y, z - vector.z};
 		if (tmp.getNorm() < SMALL_FLT)
@@ -167,7 +168,7 @@ public:
 	}
 
 	template <typename TargetType>
-	Vector3DBase<TargetType> to() const
+	HOST_DEVICE_CALLABLE Vector3DBase<TargetType> to() const
 	{
 		return Vector3DBase<TargetType>{static_cast<TargetType>(x),
 										static_cast<TargetType>(y),

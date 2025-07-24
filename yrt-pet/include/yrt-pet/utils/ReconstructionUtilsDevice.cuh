@@ -5,7 +5,7 @@
 
 #pragma once
 
-#include "yrt-pet/datastruct/image/Image.hpp"
+#include "yrt-pet/datastruct/image/ImageDevice.cuh"
 #include "yrt-pet/datastruct/projection/LORMotion.hpp"
 #include "yrt-pet/utils/GPUTypes.cuh"
 
@@ -14,11 +14,11 @@
 namespace yrt::util
 {
 
-std::unique_ptr<ImageBase>
+std::unique_ptr<ImageDevice>
     timeAverageMoveImageDevice(const LORMotion& lorMotion,
                                const ImageBase* unmovedImage,
                                GPULaunchConfig launchConfig);
-std::unique_ptr<ImageBase> timeAverageMoveImageDevice(
+std::unique_ptr<ImageDevice> timeAverageMoveImageDevice(
     const LORMotion& lorMotion, const ImageBase* unmovedImage,
     timestamp_t timeStart, timestamp_t timeStop, GPULaunchConfig launchConfig);
 

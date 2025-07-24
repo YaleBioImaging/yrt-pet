@@ -48,7 +48,7 @@ void py_setup_reconstructionutilsdevice(pybind11::module& m)
 namespace yrt::util
 {
 
-std::unique_ptr<ImageBase>
+std::unique_ptr<ImageDevice>
     timeAverageMoveImageDevice(const LORMotion& lorMotion,
                                const ImageBase* unmovedImage,
                                GPULaunchConfig launchConfig)
@@ -58,7 +58,7 @@ std::unique_ptr<ImageBase>
 	                                  timeStop, launchConfig);
 }
 
-std::unique_ptr<ImageBase> timeAverageMoveImageDevice(
+std::unique_ptr<ImageDevice> timeAverageMoveImageDevice(
     const LORMotion& lorMotion, const ImageBase* unmovedImage,
     timestamp_t timeStart, timestamp_t timeStop, GPULaunchConfig launchConfig)
 {

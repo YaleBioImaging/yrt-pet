@@ -149,11 +149,8 @@ std::unique_ptr<ImageOwned> makeImageWithRandomPrism(const ImageParams& params)
 	    static_cast<unsigned int>(std::time(nullptr)));
 	constexpr float MaxPrismValue = 10.0f;
 
-	// Initialize image with prism inside
-	ASSERT(params.nx == params.ny);
-
-	std::uniform_int_distribution<int> prismPositionDistributionXY(0,
-	                                                               params.nx);
+	std::uniform_int_distribution<int> prismPositionDistributionX(0, params.nx);
+	std::uniform_int_distribution<int> prismPositionDistributionY(0, params.ny);
 	std::uniform_int_distribution<int> prismPositionDistributionZ(0, params.nz);
 	std::uniform_real_distribution<float> prismValueDistribution(0.1f,
 	                                                             MaxPrismValue);
@@ -168,11 +165,11 @@ std::unique_ptr<ImageOwned> makeImageWithRandomPrism(const ImageParams& params)
 
 	do
 	{
-		prismBeginX = prismPositionDistributionXY(engine);
-		prismBeginY = prismPositionDistributionXY(engine);
+		prismBeginX = prismPositionDistributionX(engine);
+		prismBeginY = prismPositionDistributionY(engine);
 		prismBeginZ = prismPositionDistributionZ(engine);
-		prismEndX = prismPositionDistributionXY(engine);
-		prismEndY = prismPositionDistributionXY(engine);
+		prismEndX = prismPositionDistributionX(engine);
+		prismEndY = prismPositionDistributionY(engine);
 		prismEndZ = prismPositionDistributionZ(engine);
 
 		auto [prismBeginX_n, prismEndX_n] = std::minmax(prismBeginX, prismEndX);

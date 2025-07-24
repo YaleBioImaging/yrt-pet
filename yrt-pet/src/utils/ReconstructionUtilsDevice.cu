@@ -121,12 +121,10 @@ std::unique_ptr<ImageBase> timeAverageMoveImageDevice(
 	const size_t numFramesUsed = frameStop - frameStart;
 
 	// Prepare host buffers
-	std::vector<transform_t> invTransforms;
-	invTransforms.resize(numFramesUsed);
-	transform_t* invTransforms_ptr = invTransforms.data();
-	std::vector<float> weights;
-	weights.resize(numFramesUsed);
-	float* weights_ptr = weights.data();
+	PageLockedBuffer<transform_t> invTransforms{numFramesUsed};
+	transform_t* invTransforms_ptr = invTransforms.getPointer();
+	PageLockedBuffer<float> weights{numFramesUsed};
+	float* weights_ptr = weights.getPointer();
 	const LORMotion* lorMotion_ptr = &lorMotion;
 
 	// Populate transforms and weights buffers

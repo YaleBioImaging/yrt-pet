@@ -105,7 +105,7 @@ std::unique_ptr<ImageDevice> timeAverageMoveImageDevice(
 		    lorMotion.getStartingTimestamp(frame);
 		if (startingTimestamp >= timeStart)
 		{
-			if (frame < 0)
+			if (frameStart < 0)
 			{
 				frameStart = frame;
 			}

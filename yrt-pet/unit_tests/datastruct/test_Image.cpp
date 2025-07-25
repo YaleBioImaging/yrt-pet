@@ -52,7 +52,7 @@ TEST_CASE("image-timeavg", "[image]")
 	                                                      yrt::PI_FLT);
 	std::uniform_real_distribution<float> translationDistribution(0.1f, 5.0f);
 	std::uniform_int_distribution<yrt::timestamp_t> frameDurationDistribution(
-	    5, 100);
+	    5, 100); // in ms
 
 	constexpr int NumTrials = 5;
 
@@ -107,7 +107,8 @@ TEST_CASE("image-timeavg", "[image]")
 		outImage_gpu->allocate();
 		outImageDevice_gpu->transferToHostMemory(outImage_gpu.get());
 
-		yrt::util::test::allclose(*outImage_cpu, *outImage_gpu, 0.001, 0);
+		CHECK(yrt::util::test::allclose(*outImage_cpu, *outImage_gpu, 0.00001,
+		                                  0.0001));
 	}
 }
 

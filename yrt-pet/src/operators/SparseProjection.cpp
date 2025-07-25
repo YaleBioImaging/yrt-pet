@@ -18,7 +18,7 @@ namespace yrt
 {
 namespace util
 {
-
+template <bool PrintProgress>
 void forwProjectToSparseHistogram(const Image& sourceImage,
                                   const OperatorProjector& projector,
                                   SparseHistogram& sparseHistogram)
@@ -37,7 +37,10 @@ void forwProjectToSparseHistogram(const Image& sourceImage,
 
 	for (bin_t bin = 0; bin < numBins; ++bin)
 	{
-		progress.progress(bin);
+		if constexpr (PrintProgress)
+		{
+			progress.progress(bin);
+		}
 
 		const det_pair_t detPair = uniformHistogram_ptr->getDetectorPair(bin);
 		const ProjectionProperties projectionProperties =
@@ -52,6 +55,13 @@ void forwProjectToSparseHistogram(const Image& sourceImage,
 		}
 	}
 }
-
+template void
+    forwProjectToSparseHistogram<true>(const Image& sourceImage,
+                                       const OperatorProjector& projector,
+                                       SparseHistogram& sparseHistogram);
+template void
+    forwProjectToSparseHistogram<false>(const Image& sourceImage,
+                                        const OperatorProjector& projector,
+                                        SparseHistogram& sparseHistogram);
 }  // namespace util
 }  // namespace yrt

@@ -41,7 +41,7 @@ TEST_CASE("sparse-projection", "[SparseProjection]")
 
 		// Forward project into sparse histogram
 		std::cout << "Forward projecting into sparse histogram..." << std::endl;
-		yrt::util::forwProjectToSparseHistogram(*image, *projector,
+		yrt::util::forwProjectToSparseHistogram<false>(*image, *projector,
 		                                   *sparseHistogram);
 
 		// Compare both histograms

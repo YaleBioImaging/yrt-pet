@@ -4,9 +4,12 @@
  */
 
 #include "yrt-pet/datastruct/image/ImageSpaceKernels.cuh"
+#include "yrt-pet/datastruct/image/ImageUtils.cuh"
+#include "yrt-pet/geometry/TransformUtils.hpp"
 
 namespace yrt
 {
+
 __global__ void updateEM_kernel(const float* pd_imgIn, float* pd_imgOut,
                                 const float* pd_sensImg, const int nx,
                                 const int ny, const int nz,
@@ -77,6 +80,91 @@ __global__ void addFirstImageToSecond_kernel(const float* pd_imgIn,
 		pd_imgOut[pixelId] = pd_imgOut[pixelId] + pd_imgIn[pixelId];
 	}
 }
+
+template <bool WEIGHED_AVG>
+__global__ void timeAverageMoveImage_kernel(
+    const float* pd_imgIn, float* pd_imgOut, int nx, int ny, int nz,
+    float length_x, float length_y, float length_z, float off_x, float off_y,
+    float off_z, const transform_t* pd_invTransforms, float* frameWeights,
+    int numTransforms)
+{
+	const long id_x = blockIdx.x * blockDim.x + threadIdx.x;
+	const long id_y = blockIdx.y * blockDim.y + threadIdx.y;
+	const long id_z = blockIdx.z * blockDim.z + threadIdx.z;
+
+	if (id_z < nz && id_y < ny && id_x < nx)
+	{
+		const long flatId = id_z * nx * ny + id_y * nx + id_x;
+
+		const float vx = length_x / nx;
+		const float vy = length_y / ny;
+		const float vz = length_z / nz;
+
+		const float inv_vx = 1 / vx;
+		const float inv_vy = 1 / vy;
+		const float inv_vz = 1 / vz;
+
+		const float origin_x = off_x - length_x * 0.5f + vx * 0.5f;
+		const float origin_y = off_y - length_y * 0.5f + vy * 0.5f;
+		const float origin_z = off_z - length_z * 0.5f + vz * 0.5f;
+
+		const float pos_x = util::indexToPosition(id_x, vx, length_x, off_x);
+		const float pos_y = util::indexToPosition(id_y, vy, length_y, off_y);
+		const float pos_z = util::indexToPosition(id_z, vz, length_z, off_z);
+
+		// If weights pointer is null, use 1.0 everywhere
+		float frameWeight = 1.0f;
+		float voxelWeights[8];
+		int voxelIndices[8];
+
+		// Output voxel value
+		float outVoxelValue = pd_imgOut[flatId];
+
+		for (int transform_i = 0; transform_i < numTransforms; transform_i++)
+		{
+			if constexpr (WEIGHED_AVG)
+			{
+				frameWeight = frameWeights[transform_i];
+			}
+
+			const transform_t inv = pd_invTransforms[transform_i];
+
+			// Apply inverse transform (matrix-vector multiply)
+			const float newX =
+			    fmaf(inv.r00, pos_x,
+			         fmaf(inv.r01, pos_y, fmaf(inv.r02, pos_z, inv.tx)));
+			const float newY =
+			    fmaf(inv.r10, pos_x,
+			         fmaf(inv.r11, pos_y, fmaf(inv.r12, pos_z, inv.ty)));
+			const float newZ =
+			    fmaf(inv.r20, pos_x,
+			         fmaf(inv.r21, pos_y, fmaf(inv.r22, pos_z, inv.tz)));
+
+			// Interpolate into the image
+			util::trilinearInterpolateCore(
+			    newX, newY, newZ, nx, ny, nz, origin_x, origin_y, origin_z,
+			    inv_vx, inv_vy, inv_vz, voxelIndices, voxelWeights);
+
+			for (size_t i = 0; i < 8; i++)
+			{
+				outVoxelValue +=
+				    pd_imgIn[voxelIndices[i]] * voxelWeights[i] * frameWeight;
+			}
+		}
+
+		pd_imgOut[flatId] = outVoxelValue;
+	}
+}
+template __global__ void timeAverageMoveImage_kernel<true>(
+    const float* d_imgIn, float* d_imgOut, int nx, int ny, int nz,
+    float length_x, float length_y, float length_z, float off_x, float off_y,
+    float off_z, const transform_t* transforms, float* frameWeights,
+    int numTransforms);
+template __global__ void timeAverageMoveImage_kernel<false>(
+    const float* d_imgIn, float* d_imgOut, int nx, int ny, int nz,
+    float length_x, float length_y, float length_z, float off_x, float off_y,
+    float off_z, const transform_t* transforms, float* frameWeights,
+    int numTransforms);
 
 __device__ constexpr int circular(int M, int x)
 {
@@ -159,4 +247,5 @@ template __global__ void convolve3DSeparable_kernel<2>(const float* input,
                                                        const float* kernel,
                                                        int kernelSize, int nx,
                                                        int ny, int nz);
+
 }  // namespace yrt

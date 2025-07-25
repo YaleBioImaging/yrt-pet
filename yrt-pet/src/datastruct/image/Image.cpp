@@ -6,6 +6,7 @@
 #include "yrt-pet/datastruct/image/Image.hpp"
 
 #include "yrt-pet/datastruct/image/ImageBase.hpp"
+#include "yrt-pet/datastruct/image/ImageUtils.cuh"
 #include "yrt-pet/geometry/Constants.hpp"
 #include "yrt-pet/geometry/Matrix.hpp"
 #include "yrt-pet/geometry/TransformUtils.hpp"
@@ -52,14 +53,30 @@ void py_setup_image(py::module& m)
 	c.def("dotProduct", &Image::dotProduct, py::arg("y"));
 	c.def("getRadius", &Image::getRadius);
 	c.def("getParams", &Image::getParams);
-	c.def("interpolImage",
+	c.def("interpolateImage",
 	      static_cast<float (Image::*)(const Vector3D& pt, const Image& sens)
 	                      const>(&Image::interpolateImage),
 	      py::arg("pt"), py::arg("sens"));
-	c.def("interpolImage",
+	c.def("interpolateImage",
 	      static_cast<float (Image::*)(const Vector3D& pt) const>(
 	          &Image::interpolateImage),
 	      py::arg("pt"));
+	c.def(
+	    "updateImageInterpolate",
+	    [](Image& img, const Vector3D& pt, float value, bool mult_flag)
+	    {
+		    if (mult_flag)
+		    {
+			    img.updateImageInterpolate<true>(pt, value);
+		    }
+		    else
+		    {
+			    img.updateImageInterpolate<false>(pt, value);
+		    }
+	    },
+	    py::arg("pt"), py::arg("value"), py::arg("mult_flag") = false);
+	c.def("assignImageInterpolate", &Image::assignImageInterpolate,
+	      py::arg("pt"), py::arg("value"));
 	c.def(
 	    "nearestNeighbor",
 	    [](const Image& img, const Vector3D& pt) -> py::tuple
@@ -69,6 +86,22 @@ void py_setup_image(py::module& m)
 		    return py::make_tuple(val, pi, pj, pk);
 	    },
 	    py::arg("pt"));
+	c.def(
+	    "updateImageNearestNeighbor",
+	    [](Image& img, const Vector3D& pt, float value, bool mult_flag)
+	    {
+		    if (mult_flag)
+		    {
+			    img.updateImageNearestNeighbor<true>(pt, value);
+		    }
+		    else
+		    {
+			    img.updateImageNearestNeighbor<false>(pt, value);
+		    }
+	    },
+	    py::arg("pt"), py::arg("value"), py::arg("mult_flag") = false);
+	c.def("assignImageNearestNeighbor", &Image::assignImageNearestNeighbor,
+	      py::arg("pt"), py::arg("value"));
 	c.def(
 	    "getNearestNeighborIdx",
 	    [](const Image& img, const Vector3D& pt) -> py::tuple
@@ -88,14 +121,6 @@ void py_setup_image(py::module& m)
 	      static_cast<std::unique_ptr<ImageOwned> (Image::*)(
 	          const transform_t& t) const>(&Image::transformImage),
 	      py::arg("transform"));
-	c.def("updateImageNearestNeighbor", &Image::updateImageNearestNeighbor,
-	      py::arg("pt"), py::arg("value"), py::arg("doMultiplication"));
-	c.def("assignImageNearestNeighbor", &Image::assignImageNearestNeighbor,
-	      py::arg("pt"), py::arg("value"));
-	c.def("updateImageInterpolate", &Image::updateImageInterpolate,
-	      py::arg("pt"), py::arg("value"), py::arg("doMultiplication") = false);
-	c.def("assignImageInterpolate", &Image::assignImageInterpolate,
-	      py::arg("pt"), py::arg("value"));
 	c.def("writeToFile", &Image::writeToFile, py::arg("filename"));
 
 	auto c_alias = py::class_<ImageAlias, Image>(m, "ImageAlias");
@@ -250,10 +275,9 @@ float Image::nearestNeighbor(const Vector3D& pt, int* pi, int* pj,
 	return 0.0;
 }
 
-
 // update image with "value" using nearest neighbor method:
-void Image::updateImageNearestNeighbor(const Vector3D& pt, float value,
-                                       bool mult_flag)
+template <bool MULT_FLAG>
+void Image::updateImageNearestNeighbor(const Vector3D& pt, float value)
 {
 	int ix, iy, iz;
 	if (getNearestNeighborIdx(pt, &ix, &iy, &iz))
@@ -263,7 +287,7 @@ void Image::updateImageNearestNeighbor(const Vector3D& pt, float value,
 		const size_t num_x = getParams().nx;
 		const size_t num_xy = getParams().nx * getParams().ny;
 		const size_t idx = iz * num_xy + iy * num_x + ix;
-		if (mult_flag)
+		if constexpr (MULT_FLAG)
 		{
 			ptr[idx] *= value;
 		}
@@ -322,115 +346,28 @@ bool Image::getNearestNeighborIdx(const Vector3D& pt, int* pi, int* pj,
 	return true;
 }
 
-
 // interpolation operation.
 float Image::interpolateImage(const Vector3D& pt) const
 {
 	const ImageParams& params = getParams();
-	const float x = pt.x - params.off_x;
-	const float y = pt.y - params.off_y;
-	const float z = pt.z - params.off_z;
 
-	const float dx = (x + params.length_x / 2.0f) / params.length_x *
-	                 static_cast<float>(params.nx);
-	const float dy = (y + params.length_y / 2.0f) / params.length_y *
-	                 static_cast<float>(params.ny);
-	const float dz = (z + params.length_z / 2.0f) / params.length_z *
-	                 static_cast<float>(params.nz);
+	float weights[8];
+	int indices[8];
 
-	const int ix = static_cast<int>(dx);
-	const int iy = static_cast<int>(dy);
-	const int iz = static_cast<int>(dz);
+	util::trilinearInterpolate(pt.x, pt.y, pt.z, params.nx, params.ny,
+	                           params.nz, params.length_x, params.length_y,
+	                           params.length_z, params.off_x, params.off_y,
+	                           params.off_z, indices, weights);
 
-	if (ix < 0 || ix >= params.nx || iy < 0 || iy >= params.ny || iz < 0 ||
-	    iz >= params.nz)
+	const float* rawPtr = getRawPointer();
+	float total = 0.0f;
+
+	for (size_t i = 0; i < 8; i++)
 	{
-		// Point outside grid
-		return 0.0f;
+		total += rawPtr[indices[i]] * weights[i];
 	}
 
-	const float delta_x = dx - static_cast<float>(ix);
-	const float delta_y = dy - static_cast<float>(iy);
-	const float delta_z = dz - static_cast<float>(iz);
-
-	// parameters of the x interpolation:
-	int ix1, ix2, iy1, iy2, iz1, iz2;
-	float dx1, dy1, dz1;
-	if (delta_x < 0.5f)
-	{
-		ix1 = ix;
-		dx1 = 0.5f - delta_x;
-		if (ix != 0)
-			ix2 = ix - 1;
-		else
-			ix2 = ix1;
-	}
-	else
-	{
-		ix1 = ix;
-		dx1 = delta_x - 0.5f;
-		if (ix != (params.nx - 1))
-			ix2 = ix + 1;
-		else
-			ix2 = ix1;
-	}
-	// parameters of the y interpolation:
-	if (delta_y < 0.5f)
-	{
-		iy1 = iy;
-		dy1 = 0.5f - delta_y;
-		if (iy != 0)
-			iy2 = iy - 1;
-		else
-			iy2 = iy1;
-	}
-	else
-	{
-		iy1 = iy;
-		dy1 = delta_y - 0.5f;
-		if (iy != (params.ny - 1))
-			iy2 = iy + 1;
-		else
-			iy2 = iy1;
-	}
-	// parameters of the z interpolation:
-	if (delta_z < 0.5f)
-	{
-		iz1 = iz;
-		dz1 = 0.5f - delta_z;
-		if (iz != 0)
-			iz2 = iz - 1;
-		else
-			iz2 = iz1;
-	}
-	else
-	{
-		iz1 = iz;
-		dz1 = delta_z - 0.5f;
-		if (iz != (params.nz - 1))
-			iz2 = iz + 1;
-		else
-			iz2 = iz1;
-	}
-	// interpolate in z:
-	const float* ptr = mp_array->getRawPointer();
-	const size_t num_x = params.nx;
-	const size_t num_xy = params.nx * params.ny;
-	const float* ptr_11 = ptr + iz1 * num_xy + iy1 * num_x;
-	const float* ptr_12 = ptr + iz1 * num_xy + iy2 * num_x;
-	const float* ptr_21 = ptr + iz2 * num_xy + iy1 * num_x;
-	const float* ptr_22 = ptr + iz2 * num_xy + iy2 * num_x;
-	const float v1 = ptr_11[ix1] * (1 - dz1) + ptr_21[ix1] * dz1;
-	const float v2 = ptr_12[ix1] * (1 - dz1) + ptr_22[ix1] * dz1;
-	const float v3 = ptr_11[ix2] * (1 - dz1) + ptr_21[ix2] * dz1;
-	const float v4 = ptr_12[ix2] * (1 - dz1) + ptr_22[ix2] * dz1;
-	// interpolate in y:
-	const float vv1 = v1 * (1 - dy1) + v2 * dy1;
-	const float vv2 = v3 * (1 - dy1) + v4 * dy1;
-	// interpolate in the x direction:
-	const float vvv = vv1 * (1 - dx1) + vv2 * dx1;
-
-	return vvv;
+	return total;
 }
 
 // calculate the value of a point on the image matrix
@@ -438,348 +375,81 @@ float Image::interpolateImage(const Vector3D& pt) const
 float Image::interpolateImage(const Vector3D& pt, const Image& sens) const
 {
 	const ImageParams& params = getParams();
-	const float x = pt.x - params.off_x;
-	const float y = pt.y - params.off_y;
-	const float z = pt.z - params.off_z;
 
-	const float dx = (x + params.length_x / 2.0f) / params.length_x *
-	                 static_cast<float>(params.nx);
-	const float dy = (y + params.length_y / 2.0f) / params.length_y *
-	                 static_cast<float>(params.ny);
-	const float dz = (z + params.length_z / 2.0f) / params.length_z *
-	                 static_cast<float>(params.nz);
+	float weights[8];
+	int indices[8];
 
-	const int ix = static_cast<int>(dx);
-	const int iy = static_cast<int>(dy);
-	const int iz = static_cast<int>(dz);
+	util::trilinearInterpolate(pt.x, pt.y, pt.z, params.nx, params.ny,
+	                           params.nz, params.length_x, params.length_y,
+	                           params.length_z, params.off_x, params.off_y,
+	                           params.off_z, indices, weights);
 
-	if (ix < 0 || ix >= params.nx || iy < 0 || iy >= params.ny || iz < 0 ||
-	    iz >= params.nz)
+	const float* rawPtr = getRawPointer();
+	const float* sensRawPtr = sens.getRawPointer();
+	float total = 0.0f;
+
+	for (size_t i = 0; i < 8; i++)
 	{
-		// Point outside grid
-		return 0.0f;
+		total += rawPtr[indices[i]] * weights[i] * sensRawPtr[indices[i]];
 	}
 
-	const float delta_x = dx - static_cast<float>(ix);
-	const float delta_y = dy - static_cast<float>(iy);
-	const float delta_z = dz - static_cast<float>(iz);
-
-	// parameters of the x interpolation:
-	int ix1, ix2, iy1, iy2, iz1, iz2;
-	float dx1, dy1, dz1;
-	if (delta_x < 0.5f)
-	{
-		ix1 = ix;
-		dx1 = 0.5f - delta_x;
-		if (ix != 0)
-			ix2 = ix - 1;
-		else
-			ix2 = ix1;
-	}
-	else
-	{
-		ix1 = ix;
-		dx1 = delta_x - 0.5f;
-		if (ix != (params.nx - 1))
-			ix2 = ix + 1;
-		else
-			ix2 = ix1;
-	}
-	// parameters of the y interpolation:
-	if (delta_y < 0.5f)
-	{
-		iy1 = iy;
-		dy1 = 0.5f - delta_y;
-		if (iy != 0)
-			iy2 = iy - 1;
-		else
-			iy2 = iy1;
-	}
-	else
-	{
-		iy1 = iy;
-		dy1 = delta_y - 0.5f;
-		if (iy != (params.ny - 1))
-			iy2 = iy + 1;
-		else
-			iy2 = iy1;
-	}
-	// parameters of the z interpolation:
-	if (delta_z < 0.5f)
-	{
-		iz1 = iz;
-		dz1 = 0.5f - delta_z;
-		if (iz != 0)
-			iz2 = iz - 1;
-		else
-			iz2 = iz1;
-	}
-	else
-	{
-		iz1 = iz;
-		dz1 = delta_z - 0.5f;
-		if (iz != (params.nz - 1))
-			iz2 = iz + 1;
-		else
-			iz2 = iz1;
-	}
-	// interpolate in z:
-	const float* ptr = getRawPointer();
-	const float* sptr = sens.getRawPointer();
-	const size_t num_x = params.nx;
-	const size_t num_xy = params.nx * params.ny;
-	const float* ptr_11 = ptr + iz1 * num_xy + iy1 * num_x;
-	const float* ptr_21 = ptr + iz2 * num_xy + iy1 * num_x;
-	const float* ptr_12 = ptr + iz1 * num_xy + iy2 * num_x;
-	const float* ptr_22 = ptr + iz2 * num_xy + iy2 * num_x;
-	const float* sptr_11 = sptr + iz1 * num_xy + iy1 * num_x;
-	const float* sptr_21 = sptr + iz2 * num_xy + iy1 * num_x;
-	const float* sptr_12 = sptr + iz1 * num_xy + iy2 * num_x;
-	const float* sptr_22 = sptr + iz2 * num_xy + iy2 * num_x;
-	const float v1 = ptr_11[ix1] * sptr_11[ix1] * (1 - dz1) +
-	                 ptr_21[ix1] * sptr_21[ix1] * dz1;
-	const float v2 = ptr_12[ix1] * sptr_12[ix1] * (1 - dz1) +
-	                 ptr_22[ix1] * sptr_22[ix1] * dz1;
-	const float v3 = ptr_11[ix2] * sptr_11[ix2] * (1 - dz1) +
-	                 ptr_21[ix2] * sptr_21[ix2] * dz1;
-	const float v4 = ptr_12[ix2] * sptr_12[ix2] * (1 - dz1) +
-	                 ptr_22[ix2] * sptr_22[ix2] * dz1;
-	// interpolate in y:
-	const float vv1 = v1 * (1 - dy1) + v2 * dy1;
-	const float vv2 = v3 * (1 - dy1) + v4 * dy1;
-	// interpolate in the x direction:
-	const float vvv = vv1 * (1 - dx1) + vv2 * dx1;
-
-	return vvv;
+	return total;
 }
 
 // update image with "value" using trilinear interpolation:
-void Image::updateImageInterpolate(const Vector3D& point, float value,
-                                   bool mult_flag)
+template <int OPERATION>  // 0: assign, 1: multiply, 2: add
+void Image::operationImageInterpolate(const Vector3D& pt, float value)
 {
+	// Only allow defined operations
+	static_assert(OPERATION >= 0 && OPERATION <= 2);
+
 	const ImageParams& params = getParams();
-	const float x = point.x - params.off_x;
-	const float y = point.y - params.off_y;
-	const float z = point.z - params.off_z;
 
-	float dx = (x + params.length_x / 2) / params.length_x * ((float)params.nx);
-	float dy = (y + params.length_y / 2) / params.length_y * ((float)params.ny);
-	float dz = (z + params.length_z / 2) / params.length_z * ((float)params.nz);
+	float weights[8];
+	int indices[8];
 
-	int ix = (int)dx;
-	int iy = (int)dy;
-	int iz = (int)dz;
+	util::trilinearInterpolate(pt.x, pt.y, pt.z, params.nx, params.ny,
+	                           params.nz, params.length_x, params.length_y,
+	                           params.length_z, params.off_x, params.off_y,
+	                           params.off_z, indices, weights);
 
-	if (ix < 0 || ix >= params.nx || iy < 0 || iy >= params.ny || iz < 0 ||
-	    iz >= params.nz)
+	float* rawPtr = getRawPointer();
+
+	for (size_t i = 0; i < 8; i++)
 	{
-		// Point outside grid
-		return;
-	}
-
-	float delta_x = dx - (float)ix;
-	float delta_y = dy - (float)iy;
-	float delta_z = dz - (float)iz;
-
-	// parameters of the x interpolation:
-	int ix1, ix2, iy1, iy2, iz1, iz2;
-	float dx1, dy1, dz1;
-	if (delta_x < 0.5f)
-	{
-		ix1 = ix;
-		dx1 = 0.5f - delta_x;
-		if (ix != 0)
-			ix2 = ix - 1;
+		if (OPERATION == 0)
+		{
+			rawPtr[indices[i]] = weights[i] * value;
+		}
+		else if constexpr (OPERATION == 1)
+		{
+			rawPtr[indices[i]] *= weights[i] * value;
+		}
 		else
-			ix2 = ix1;
-	}
-	else
-	{
-		ix1 = ix;
-		dx1 = delta_x - 0.5f;
-		if (ix != (params.nx - 1))
-			ix2 = ix + 1;
-		else
-			ix2 = ix1;
-	}
-
-	// parameters of the y interpolation:
-	if (delta_y < 0.5f)
-	{
-		iy1 = iy;
-		dy1 = 0.5f - delta_y;
-		if (iy != 0)
-			iy2 = iy - 1;
-		else
-			iy2 = iy1;
-	}
-	else
-	{
-		iy1 = iy;
-		dy1 = delta_y - 0.5f;
-		if (iy != (params.ny - 1))
-			iy2 = iy + 1;
-		else
-			iy2 = iy1;
-	}
-
-	// parameters of the z interpolation:
-	if (delta_z < 0.5f)
-	{
-		iz1 = iz;
-		dz1 = 0.5f - delta_z;
-		if (iz != 0)
-			iz2 = iz - 1;
-		else
-			iz2 = iz1;
-	}
-	else
-	{
-		iz1 = iz;
-		dz1 = delta_z - 0.5f;
-		if (iz != (params.nz - 1))
-			iz2 = iz + 1;
-		else
-			iz2 = iz1;
-	}
-
-	// interpolate multiplicatively or additively:
-	float* ptr = mp_array->getRawPointer();
-	size_t num_x = params.nx;
-	size_t num_xy = params.nx * params.ny;
-	float* ptr_11 = ptr + iz1 * num_xy + iy1 * num_x;
-	float* ptr_21 = ptr + iz2 * num_xy + iy1 * num_x;
-	float* ptr_12 = ptr + iz1 * num_xy + iy2 * num_x;
-	float* ptr_22 = ptr + iz2 * num_xy + iy2 * num_x;
-	if (mult_flag)
-	{
-		ptr_11[ix1] *= value * (1 - dz1) * (1 - dy1) * (1 - dx1);
-		ptr_21[ix1] *= value * dz1 * (1 - dy1) * (1 - dx1);
-		ptr_11[ix2] *= value * (1 - dz1) * (1 - dy1) * dx1;
-		ptr_21[ix2] *= value * dz1 * (1 - dy1) * dx1;
-		ptr_12[ix1] *= value * (1 - dz1) * dy1 * (1 - dx1);
-		ptr_22[ix1] *= value * dz1 * dy1 * (1 - dx1);
-		ptr_12[ix2] *= value * (1 - dz1) * dy1 * dx1;
-		ptr_22[ix2] *= value * dz1 * dy1 * dx1;
-	}
-	else
-	{
-		ptr_11[ix1] += value * (1 - dz1) * (1 - dy1) * (1 - dx1);
-		ptr_21[ix1] += value * dz1 * (1 - dy1) * (1 - dx1);
-		ptr_11[ix2] += value * (1 - dz1) * (1 - dy1) * dx1;
-		ptr_21[ix2] += value * dz1 * (1 - dy1) * dx1;
-		ptr_12[ix1] += value * (1 - dz1) * dy1 * (1 - dx1);
-		ptr_22[ix1] += value * dz1 * dy1 * (1 - dx1);
-		ptr_12[ix2] += value * (1 - dz1) * dy1 * dx1;
-		ptr_22[ix2] += value * dz1 * dy1 * dx1;
+		{
+			rawPtr[indices[i]] += weights[i] * value;
+		}
 	}
 }
 
 // assign image with "value" using trilinear interpolation:
-void Image::assignImageInterpolate(const Vector3D& point, float value)
+template <bool MULT_FLAG>
+void Image::updateImageInterpolate(const Vector3D& pt, float value)
 {
-	const ImageParams& params = getParams();
-	const float x = point.x - params.off_x;
-	const float y = point.y - params.off_y;
-	const float z = point.z - params.off_z;
-
-	float dx = (x + params.length_x / 2) / params.length_x * ((float)params.nx);
-	float dy = (y + params.length_y / 2) / params.length_y * ((float)params.ny);
-	float dz = (z + params.length_z / 2) / params.length_z * ((float)params.nz);
-
-	int ix = (int)dx;
-	int iy = (int)dy;
-	int iz = (int)dz;
-
-	if (ix < 0 || ix >= params.nx || iy < 0 || iy >= params.ny || iz < 0 ||
-	    iz >= params.nz)
+	if (MULT_FLAG)
 	{
-		// Point outside grid
-		return;
-	}
-
-	float delta_x = dx - (float)ix;
-	float delta_y = dy - (float)iy;
-	float delta_z = dz - (float)iz;
-
-	// parameters of the x interpolation:
-	float dx1, dy1, dz1;
-	int ix1, ix2, iy1, iy2, iz1, iz2;
-	if (delta_x < 0.5f)
-	{
-		ix1 = ix;
-		dx1 = 0.5f - delta_x;
-		if (ix != 0)
-			ix2 = ix - 1;
-		else
-			ix2 = ix1;
+		operationImageInterpolate<1>(pt, value);
 	}
 	else
 	{
-		ix1 = ix;
-		dx1 = delta_x - 0.5f;
-		if (ix != (params.nx - 1))
-			ix2 = ix + 1;
-		else
-			ix2 = ix1;
+		operationImageInterpolate<2>(pt, value);
 	}
+}
 
-	// parameters of the y interpolation:
-	if (delta_y < 0.5f)
-	{
-		iy1 = iy;
-		dy1 = 0.5f - delta_y;
-		if (iy != 0)
-			iy2 = iy - 1;
-		else
-			iy2 = iy1;
-	}
-	else
-	{
-		iy1 = iy;
-		dy1 = delta_y - 0.5f;
-		if (iy != (params.ny - 1))
-			iy2 = iy + 1;
-		else
-			iy2 = iy1;
-	}
-
-	// parameters of the z interpolation:
-	if (delta_z < 0.5f)
-	{
-		iz1 = iz;
-		dz1 = 0.5f - delta_z;
-		if (iz != 0)
-			iz2 = iz - 1;
-		else
-			iz2 = iz1;
-	}
-	else
-	{
-		iz1 = iz;
-		dz1 = delta_z - 0.5f;
-		if (iz != (params.nz - 1))
-			iz2 = iz + 1;
-		else
-			iz2 = iz1;
-	}
-
-	// assign:
-	float* ptr = mp_array->getRawPointer();
-	const size_t num_x = params.nx;
-	const size_t num_xy = params.nx * params.ny;
-	float* ptr_11 = ptr + iz1 * num_xy + iy1 * num_x;
-	float* ptr_21 = ptr + iz2 * num_xy + iy1 * num_x;
-	float* ptr_12 = ptr + iz1 * num_xy + iy2 * num_x;
-	float* ptr_22 = ptr + iz2 * num_xy + iy2 * num_x;
-	ptr_11[ix1] = value * (1 - dz1) * (1 - dy1) * (1 - dx1);
-	ptr_21[ix1] = value * dz1 * (1 - dy1) * (1 - dx1);
-	ptr_11[ix2] = value * (1 - dz1) * (1 - dy1) * dx1;
-	ptr_21[ix2] = value * dz1 * (1 - dy1) * dx1;
-	ptr_12[ix1] = value * (1 - dz1) * dy1 * (1 - dx1);
-	ptr_22[ix1] = value * dz1 * dy1 * (1 - dx1);
-	ptr_12[ix2] = value * (1 - dz1) * dy1 * dx1;
-	ptr_22[ix2] = value * dz1 * dy1 * dx1;
+// assign image with "value" using trilinear interpolation:
+void Image::assignImageInterpolate(const Vector3D& pt, float value)
+{
+	operationImageInterpolate<0>(pt, value);
 }
 
 void Image::operationOnEachVoxel(const std::function<float(size_t)>& func)
@@ -1320,8 +990,7 @@ float Image::indexToPositionInDimension(int index) const
 	{
 		throw std::runtime_error("Unknown error");
 	}
-	return static_cast<float>(index) * voxelSize - 0.5f * length + offset +
-	       0.5f * voxelSize;
+	return util::indexToPosition(index, voxelSize, length, offset);
 }
 
 template float Image::indexToPositionInDimension<0>(int index) const;

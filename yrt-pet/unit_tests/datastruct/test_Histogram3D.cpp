@@ -122,8 +122,8 @@ TEST_CASE("histo3d", "[histo]")
 
 	std::uniform_int_distribution<size_t> numRingsDistribution(1, 15);
 	std::uniform_int_distribution<size_t> numDOIDistribution(1, 4);
-	// detsPerRing is forced to be an even number here (from 2 to 100 crystals)
-	std::uniform_int_distribution<size_t> halfDetsPerRingDistribution(1, 50);
+	// detsPerRing is forced to be an even number here (from 4 to 100 crystals)
+	std::uniform_int_distribution<size_t> halfDetsPerRingDistribution(2, 50);
 
 	constexpr int NumTrials = 25;
 

@@ -55,17 +55,17 @@ public:
 	float dotProduct(const Image& y) const;
 	float nearestNeighbor(const Vector3D& pt) const;
 	float nearestNeighbor(const Vector3D& pt, int* pi, int* pj, int* pk) const;
-	void updateImageNearestNeighbor(const Vector3D& pt, float value,
-	                                bool mult_flag);
+	template<bool MULT_FLAG>
+	void updateImageNearestNeighbor(const Vector3D& pt, float value);
 	void assignImageNearestNeighbor(const Vector3D& pt, float value);
 	bool getNearestNeighborIdx(const Vector3D& pt, int* pi, int* pj,
 	                           int* pk) const;
 
 	float interpolateImage(const Vector3D& pt) const;
 	float interpolateImage(const Vector3D& pt, const Image& sens) const;
-	void updateImageInterpolate(const Vector3D& point, float value,
-	                            bool mult_flag);
-	void assignImageInterpolate(const Vector3D& point, float value);
+	template<bool MULT_FLAG>
+	void updateImageInterpolate(const Vector3D& pt, float value);
+	void assignImageInterpolate(const Vector3D& pt, float value);
 
 	template <int Dimension>
 	float indexToPositionInDimension(int index) const;
@@ -84,6 +84,11 @@ protected:
 	Image();
 	explicit Image(const ImageParams& imgParams);
 	std::unique_ptr<Array3DBase<float>> mp_array;
+
+private:
+	// Helper
+	template <int OPERATION> // operations 0: assign, 1: multiply, 2: add
+	void operationImageInterpolate(const Vector3D& pt, float value);
 };
 
 class ImageOwned : public Image

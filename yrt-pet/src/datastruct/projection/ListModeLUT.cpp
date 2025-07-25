@@ -183,21 +183,24 @@ void ListModeLUTOwned::readFromFile(const std::string& listMode_fname)
 	size_t end = fin.tellg();
 	fin.seekg(0, std::ios::beg);
 	size_t begin = fin.tellg();
-	size_t file_size = end - begin;
+	size_t fileSize = end - begin;
 	int numFields = m_flagTOF ? 4 : 3;
 	size_t sizeOfAnEvent = numFields * sizeof(float);
-	if (file_size <= 0 || (file_size % sizeOfAnEvent) != 0)
+	if (fileSize <= 0 || (fileSize % sizeOfAnEvent) != 0)
 	{
 		throw std::runtime_error("Error: Input file has incorrect size in "
 		                         "ListModeLUTOwned::readFromFile.");
 	}
 
 	// Allocate the memory
-	size_t numEvents = file_size / sizeOfAnEvent;
+	size_t numEvents = fileSize / sizeOfAnEvent;
 	allocate(numEvents);
 
-	// Read content of file
+	// Compute buffer size (No need to allocate more than needed)
 	size_t bufferSize = (size_t(1) << 30);
+	bufferSize = std::min(fileSize, bufferSize);
+
+	// Read content of file
 	auto buff = std::make_unique<uint32_t[]>(bufferSize);
 	size_t posStart = 0;
 	while (posStart < numEvents)
@@ -504,4 +507,3 @@ REGISTER_PROJDATA_PLUGIN("LM", ListModeLUTOwned, ListModeLUTOwned::create,
                          ListModeLUTOwned::getOptions)
 
 }  // namespace yrt
-

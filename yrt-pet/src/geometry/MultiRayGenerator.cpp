@@ -85,7 +85,7 @@ Line3D MultiRayGenerator::getRandomLine(unsigned int& seed) const
 	    currentLor->point1 + vect_parrallel_to_z * (rand_i_1 * thickness_z) +
 	    vect_parrallel_to_trans1 * (rand_j_1 * thickness_trans);
 	const Vector3D pt2 =
-	    currentLor->point2 + vect_parrallel_to_z * (rand_i_2 * thickness_z) +
+	    currentLor->point2 + vect_parrallel_to_z * (rand_i_2 * thickness_z) -
 	    vect_parrallel_to_trans2 * (rand_j_2 * thickness_trans);
 
 	return Line3D{pt1, pt2};

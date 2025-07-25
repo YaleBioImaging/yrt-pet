@@ -23,15 +23,20 @@ namespace util
 
 void histogram3DToListModeLUT(const Histogram3D* histo, ListModeLUTOwned* lmOut,
                               size_t numEvents = 0);
+
+std::tuple<timestamp_t, timestamp_t>
+    getFullTimeRange(const LORMotion& lorMotion);
+
+template <bool PrintProgress = true>
 std::unique_ptr<ImageOwned> timeAverageMoveImage(const LORMotion& lorMotion,
-                                                 const Image& unmovedImage);
-std::unique_ptr<ImageOwned> timeAverageMoveImage(const LORMotion& lorMotion,
-                                                 const Image& unmovedImage,
-                                                 timestamp_t timeStart,
-                                                 timestamp_t timeStop);
+                                                 const Image* unmovedImage);
+template <bool PrintProgress = true>
+std::unique_ptr<ImageOwned>
+    timeAverageMoveImage(const LORMotion& lorMotion, const Image* unmovedImage,
+                         timestamp_t timeStart, timestamp_t timeStop);
 
 
-template <bool RequiresAtomic>
+template <bool RequiresAtomic, bool PrintProgress = true>
 void convertToHistogram3D(const ProjectionData& dat, Histogram3D& histoOut);
 
 Line3D getNativeLOR(const Scanner& scanner, const ProjectionData& dat,

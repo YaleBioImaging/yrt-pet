@@ -339,7 +339,7 @@ template std::unique_ptr<ImageOwned>
                                 const Image* unmovedImage,
                                 timestamp_t timeStart, timestamp_t timeStop);
 
-template <bool RequiresAtomicAccumulation>
+template <bool RequiresAtomicAccumulation, bool PrintProgress>
 void convertToHistogram3D(const ProjectionData& dat, Histogram3D& histoOut)
 {
 	float* histoDataPointer = histoOut.getData().getRawPointer();
@@ -355,7 +355,10 @@ void convertToHistogram3D(const ProjectionData& dat, Histogram3D& histoOut)
                      dat_constptr) shared(progressBar)
 	for (bin_t datBin = 0; datBin < numDatBins; ++datBin)
 	{
-		progressBar.progress(omp_get_thread_num(), 1);
+		if constexpr (PrintProgress)
+		{
+			progressBar.progress(omp_get_thread_num(), 1);
+		}
 
 		const float projValue = dat_constptr->getProjectionValue(datBin);
 		if (projValue > 0)
@@ -380,9 +383,14 @@ void convertToHistogram3D(const ProjectionData& dat, Histogram3D& histoOut)
 		}
 	}
 }
-
-template void convertToHistogram3D<true>(const ProjectionData&, Histogram3D&);
-template void convertToHistogram3D<false>(const ProjectionData&, Histogram3D&);
+template void convertToHistogram3D<true, true>(const ProjectionData&,
+                                               Histogram3D&);
+template void convertToHistogram3D<false, true>(const ProjectionData&,
+                                                Histogram3D&);
+template void convertToHistogram3D<true, false>(const ProjectionData&,
+                                                Histogram3D&);
+template void convertToHistogram3D<false, false>(const ProjectionData&,
+                                                 Histogram3D&);
 
 Line3D getNativeLOR(const Scanner& scanner, const ProjectionData& dat,
                     bin_t binId)

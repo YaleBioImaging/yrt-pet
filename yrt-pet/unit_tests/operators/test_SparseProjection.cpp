@@ -109,7 +109,7 @@ TEST_CASE("sparse-projection", "[SparseProjection]")
 		// Accumulating sparse histogram into dense histogram
 		auto histogram3D2 = std::make_unique<yrt::Histogram3DOwned>(*scanner);
 		histogram3D2->allocate();
-		yrt::util::convertToHistogram3D<false>(*sparseHistogram, *histogram3D2);
+		yrt::util::convertToHistogram3D<false, false>(*sparseHistogram, *histogram3D2);
 
 		// Comparing both dense histograms
 		numBins = histogram3D2->count();

@@ -36,7 +36,7 @@ std::unique_ptr<ImageOwned>
                          timestamp_t timeStart, timestamp_t timeStop);
 
 
-template <bool RequiresAtomic>
+template <bool RequiresAtomic, bool PrintProgress = true>
 void convertToHistogram3D(const ProjectionData& dat, Histogram3D& histoOut);
 
 Line3D getNativeLOR(const Scanner& scanner, const ProjectionData& dat,

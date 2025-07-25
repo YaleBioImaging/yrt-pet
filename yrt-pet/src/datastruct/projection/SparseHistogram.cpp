@@ -38,18 +38,32 @@ void py_setup_sparsehistogram(py::module& m)
 	c.def(
 	    "accumulate",
 	    [](SparseHistogram& self, const ProjectionData& projData,
-	       bool ignoreZeros)
+	       bool ignoreZeros, bool printProgress)
 	    {
 		    if (ignoreZeros)
 		    {
-			    self.accumulate<true>(projData);
+			    if (printProgress)
+			    {
+				    self.accumulate<true, true>(projData);
+			    }
+			    else
+			    {
+				    self.accumulate<true, false>(projData);
+			    }
 		    }
 		    else
 		    {
-			    self.accumulate<false>(projData);
+			    if (printProgress)
+			    {
+				    self.accumulate<false, true>(projData);
+			    }
+			    else
+			    {
+				    self.accumulate<false, false>(projData);
+			    }
 		    }
 	    },
-	    "projData"_a, "ignoreZeros"_a = true);
+	    "projData"_a, "ignoreZeros"_a = true, "printProgress"_a = true);
 	c.def("getProjectionValueFromDetPair",
 	      &SparseHistogram::getProjectionValueFromDetPair, "detPair"_a);
 	c.def("readFromFile", &SparseHistogram::readFromFile, "filename"_a);
@@ -77,7 +91,7 @@ SparseHistogram::SparseHistogram(const Scanner& pr_scanner,
                                  const ProjectionData& pr_projData)
     : SparseHistogram(pr_scanner)
 {
-	accumulate(pr_projData);
+	accumulate<true, false>(pr_projData);
 }
 
 void SparseHistogram::allocate(size_t numBins)
@@ -87,7 +101,7 @@ void SparseHistogram::allocate(size_t numBins)
 	m_projValues.reserve(numBins);
 }
 
-template <bool IgnoreZeros>
+template <bool IgnoreZeros, bool PrintProgress>
 void SparseHistogram::accumulate(const ProjectionData& projData)
 {
 	const size_t numBins = projData.count();
@@ -98,7 +112,11 @@ void SparseHistogram::accumulate(const ProjectionData& projData)
 
 	for (bin_t binId = 0; binId < numBins; binId++)
 	{
-		progress.progress(binId);
+		if constexpr (PrintProgress)
+		{
+			progress.progress(binId);
+		}
+
 		const float projValue = projData.getProjectionValue(binId);
 		if constexpr (IgnoreZeros)
 		{
@@ -112,9 +130,14 @@ void SparseHistogram::accumulate(const ProjectionData& projData)
 		accumulate(detPair, projValue);
 	}
 }
-template void SparseHistogram::accumulate<true>(const ProjectionData& projData);
 template void
-    SparseHistogram::accumulate<false>(const ProjectionData& projData);
+    SparseHistogram::accumulate<true, true>(const ProjectionData& projData);
+template void
+    SparseHistogram::accumulate<false, true>(const ProjectionData& projData);
+template void
+    SparseHistogram::accumulate<true, false>(const ProjectionData& projData);
+template void
+    SparseHistogram::accumulate<false, false>(const ProjectionData& projData);
 
 void SparseHistogram::accumulate(det_pair_t detPair, float projValue)
 {

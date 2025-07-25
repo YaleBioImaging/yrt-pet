@@ -23,7 +23,7 @@ public:
 	void allocate(size_t numBins);
 
 	// Insertion
-	template <bool IgnoreZeros = true>
+	template <bool IgnoreZeros = true, bool PrintProgress = true>
 	void accumulate(const ProjectionData& projData);
 	void accumulate(det_pair_t detPair, float projValue);
 

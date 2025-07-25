@@ -266,17 +266,25 @@ std::tuple<timestamp_t, timestamp_t>
 	        startingTimestampLastFrame + duration2ndToLastFrame};
 }
 
+template <bool PrintProgress>
 std::unique_ptr<ImageOwned> timeAverageMoveImage(const LORMotion& lorMotion,
                                                  const Image* unmovedImage)
 {
 	auto [timeStart, timeStop] = getFullTimeRange(lorMotion);
-	return timeAverageMoveImage(lorMotion, unmovedImage, timeStart, timeStop);
+	return timeAverageMoveImage<PrintProgress>(lorMotion, unmovedImage,
+	                                           timeStart, timeStop);
 }
+template std::unique_ptr<ImageOwned>
+    timeAverageMoveImage<true>(const LORMotion& lorMotion,
+                               const Image* unmovedImage);
+template std::unique_ptr<ImageOwned>
+    timeAverageMoveImage<false>(const LORMotion& lorMotion,
+                                const Image* unmovedImage);
 
-std::unique_ptr<ImageOwned> timeAverageMoveImage(const LORMotion& lorMotion,
-                                                 const Image* unmovedImage,
-                                                 timestamp_t timeStart,
-                                                 timestamp_t timeStop)
+template <bool PrintProgress>
+std::unique_ptr<ImageOwned>
+    timeAverageMoveImage(const LORMotion& lorMotion, const Image* unmovedImage,
+                         timestamp_t timeStart, timestamp_t timeStop)
 {
 	const ImageParams& params = unmovedImage->getParams();
 	ASSERT_MSG(params.isValid(), "Image parameters incomplete");
@@ -301,7 +309,11 @@ std::unique_ptr<ImageOwned> timeAverageMoveImage(const LORMotion& lorMotion,
 
 	for (frame_t frame = 0; frame < numFrames; frame++)
 	{
-		progress.progress(frame);
+		if constexpr (PrintProgress)
+		{
+			progress.progress(frame);
+		}
+
 		const timestamp_t startingTimestamp =
 		    lorMotion.getStartingTimestamp(frame);
 		if (startingTimestamp >= timeStart)
@@ -318,6 +330,14 @@ std::unique_ptr<ImageOwned> timeAverageMoveImage(const LORMotion& lorMotion,
 
 	return movedSensImage;
 }
+template std::unique_ptr<ImageOwned>
+    timeAverageMoveImage<true>(const LORMotion& lorMotion,
+                               const Image* unmovedImage, timestamp_t timeStart,
+                               timestamp_t timeStop);
+template std::unique_ptr<ImageOwned>
+    timeAverageMoveImage<false>(const LORMotion& lorMotion,
+                                const Image* unmovedImage,
+                                timestamp_t timeStart, timestamp_t timeStop);
 
 template <bool RequiresAtomicAccumulation>
 void convertToHistogram3D(const ProjectionData& dat, Histogram3D& histoOut)

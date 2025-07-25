@@ -11,7 +11,10 @@
 #include "yrt-pet/geometry/Constants.hpp"
 #include "yrt-pet/geometry/TransformUtils.hpp"
 #include "yrt-pet/utils/ReconstructionUtils.hpp"
+
+#if BUILD_CUDA
 #include "yrt-pet/utils/ReconstructionUtilsDevice.cuh"
+#endif
 
 #include <ctime>
 #include <random>
@@ -34,6 +37,10 @@ void checkTwoImages(const Image& img1, const Image& img2)
 }
 }  // namespace yrt
 
+#if BUILD_CUDA
+
+// This test validates that the image time-averaging is consistent between the
+//  CPU and the GPU implementations
 TEST_CASE("image-timeavg", "[image]")
 {
 	std::default_random_engine engine(
@@ -111,6 +118,8 @@ TEST_CASE("image-timeavg", "[image]")
 		                                0.001));
 	}
 }
+
+#endif
 
 TEST_CASE("image-readwrite", "[image]")
 {

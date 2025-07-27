@@ -35,6 +35,17 @@ void checkTwoImages(const Image& img1, const Image& img2)
 		CHECK(i1_ptr[i] == Approx(i2_ptr[i]));
 	}
 }
+void checkImageAllPositive(const Image& img)
+{
+	const ImageParams& params = img.getParams();
+
+	const float* i_ptr = img.getRawPointer();
+	const int numVoxels = params.nx * params.ny * params.nz;
+	for (int i = 0; i < numVoxels; i++)
+	{
+		CHECK(i_ptr[i] >= 0);
+	}
+}
 }  // namespace yrt
 
 #if BUILD_CUDA
@@ -113,6 +124,9 @@ TEST_CASE("image-timeavg", "[image]")
 		auto outImage_gpu = std::make_unique<yrt::ImageOwned>(params);
 		outImage_gpu->allocate();
 		outImageDevice_gpu->transferToHostMemory(outImage_gpu.get());
+
+		yrt::checkImageAllPositive(*outImage_gpu);
+		yrt::checkImageAllPositive(*outImage_cpu);
 
 		CHECK(yrt::util::test::allclose(*outImage_cpu, *outImage_gpu, 0.001,
 		                                0.001));

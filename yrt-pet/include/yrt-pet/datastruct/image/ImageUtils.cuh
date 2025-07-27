@@ -23,9 +23,9 @@ inline HOST_DEVICE_CALLABLE void
 	const float cz = (pos_z - origin_z) * inv_vz;
 
 	// Integer coordinates of base voxel
-	const int ix0 = static_cast<int>(cx);
-	const int iy0 = static_cast<int>(cy);
-	const int iz0 = static_cast<int>(cz);
+	const int ix0 = static_cast<int>(floorf(cx));
+	const int iy0 = static_cast<int>(floorf(cy));
+	const int iz0 = static_cast<int>(floorf(cz));
 
 	// Fractional components
 	const float dx = cx - ix0;

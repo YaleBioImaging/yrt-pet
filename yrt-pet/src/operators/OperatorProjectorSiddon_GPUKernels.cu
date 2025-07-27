@@ -67,7 +67,7 @@ __device__ void moveLineToRandomOffset(curandState& state, float4& p1,
 
 	p1 = p1 + vectParallelToZ * (rand_i_1 * scannerParams.crystalSize_z) +
 	     parallelToTrans1 * (rand_j_1 * scannerParams.crystalSize_trans);
-	p2 = p2 + vectParallelToZ * (rand_i_2 * scannerParams.crystalSize_z) +
+	p2 = p2 + vectParallelToZ * (rand_i_2 * scannerParams.crystalSize_z) -
 	     parallelToTrans2 * (rand_j_2 * scannerParams.crystalSize_trans);
 }
 

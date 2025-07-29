@@ -10,6 +10,7 @@
 #if BUILD_PYBIND11
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
+#incldue <>
 namespace py = pybind11;
 
 void py_setup_operatorpsfdevice(py::module& m)
@@ -55,16 +56,15 @@ void py_setup_operatorpsfdevice(py::module& m)
 }
 #endif
 
-OperatorVarPsfDevice::OperatorVarPsfDevice(const cudaStream_t* pp_stream)
+OperatorVarPsfDevice::OperatorVarPsfDevice(const cudaStream_t* pp_stream, const ImageParams& p_imageParams)
     : DeviceSynchronized{pp_stream, pp_stream},
-      OperatorVarPsf{},
-      mpd_intermediaryImage{nullptr}
+      OperatorVarPsf{}
 {
 	initDeviceArraysIfNeeded();
 }
 
 OperatorVarPsfDevice::OperatorVarPsfDevice(const std::string& pr_imagePsf_fname,
-                                     const cudaStream_t* pp_stream)
+                                     const cudaStream_t* pp_stream, const ImageParams& p_imageParams)
     : OperatorVarPsfDevice{pp_stream}
 {
 	// Constructors should be synchronized
@@ -74,7 +74,7 @@ OperatorVarPsfDevice::OperatorVarPsfDevice(const std::string& pr_imagePsf_fname,
 void OperatorVarPsfDevice::readFromFileInternal(
     const std::string& pr_imagePsf_fname, bool p_synchronize)
 {
-	OperatorPsf::readFromFile(pr_imagePsf_fname);
+	OperatorVarPsf::readFromFile(pr_imagePsf_fname);
 	copyToDevice(p_synchronize);
 }
 
@@ -96,15 +96,23 @@ void OperatorVarPsfDevice::copyToDevice(bool synchronize)
 	initDeviceArraysIfNeeded();
 	allocateDeviceArrays(synchronize);
 
-	mpd_kernelX->copyFromHost(m_kernelX.data(), m_kernelX.size(), launchConfig);
-	mpd_kernelY->copyFromHost(m_kernelY.data(), m_kernelY.size(), launchConfig);
-	mpd_kernelZ->copyFromHost(m_kernelZ.data(), m_kernelZ.size(), launchConfig);
-	mpd_kernelX_flipped->copyFromHost(m_kernelX_flipped.data(),
-	                                  m_kernelX_flipped.size(), launchConfig);
-	mpd_kernelY_flipped->copyFromHost(m_kernelY_flipped.data(),
-	                                  m_kernelY_flipped.size(), launchConfig);
-	mpd_kernelZ_flipped->copyFromHost(m_kernelZ_flipped.data(),
-	                                  m_kernelZ_flipped.size(), launchConfig);
+	for (size_t i = 0; i < m_kernelLUT.size(); ++i)
+	{
+		if (mpd_kernelLUT.size() <= i)
+		{
+			mpd_kernelLUT.emplace_back(std::make_unique<DeviceArray<float>>());
+		}
+
+		const auto& kernelArray = m_kernelLUT[i]->getArray();
+		if (!mpd_kernelLUT[i]->isAllocated())
+		{
+			mpd_kernelLUT[i]->allocate(kernelArray.getSizeTotal(), launchConfig);
+		}
+
+		mpd_kernelLUT[i]->copyFromHost(kernelArray.getPointer(),
+									   kernelArray.getSizeTotal(), launchConfig);
+	}
+
 }
 
 void OperatorVarPsfDevice::allocateTemporaryDeviceImageIfNeeded(

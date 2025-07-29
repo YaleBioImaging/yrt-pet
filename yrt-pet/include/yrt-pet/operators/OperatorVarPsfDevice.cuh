@@ -11,12 +11,15 @@
 #include "utils/DeviceArray.cuh"
 
 
+namespace yrt
+{
+
 class OperatorVarPsfDevice : public DeviceSynchronized, public OperatorVarPsf
 {
 public:
-	explicit OperatorVarPsfDevice(const cudaStream_t* pp_stream = nullptr);
+	explicit OperatorVarPsfDevice(const cudaStream_t* pp_stream = nullptr, const ImageParams& p_imageParams);
 	explicit OperatorVarPsfDevice(const std::string& pr_imagePsf_fname,
-	                           const cudaStream_t* pp_stream = nullptr);
+							   const cudaStream_t* pp_stream = nullptr, const ImageParams& p_imageParams);
 
 	void readFromFile(const std::string& pr_imagePsf_fname) override;
 	void readFromFile(const std::string& pr_imagePsf_fname, bool p_synchronize);
@@ -62,15 +65,11 @@ protected:
 	                    const DeviceArray<float>& kernelZ,
 	                    bool synchronize = true) const;
 
-	std::unique_ptr<DeviceArray<float>> mpd_kernelX;
-	std::unique_ptr<DeviceArray<float>> mpd_kernelY;
-	std::unique_ptr<DeviceArray<float>> mpd_kernelZ;
-	std::unique_ptr<DeviceArray<float>> mpd_kernelX_flipped;
-	std::unique_ptr<DeviceArray<float>> mpd_kernelY_flipped;
-	std::unique_ptr<DeviceArray<float>> mpd_kernelZ_flipped;
+
 	mutable std::unique_ptr<ImageDeviceOwned> mpd_intermediaryImage;
 
 private:
+	std::vector<std::unique_ptr<DeviceArray<float>>> mpd_kernelLUT;
 	void readFromFileInternal(const std::string& pr_imagePsf_fname,
 	                          bool p_synchronize);
 	static void initDeviceArrayIfNeeded(
@@ -78,3 +77,4 @@ private:
 	void allocateDeviceArray(DeviceArray<float>& prd_kernel, size_t newSize,
 	                         bool synchronize);
 };
+}  // namespace yrt

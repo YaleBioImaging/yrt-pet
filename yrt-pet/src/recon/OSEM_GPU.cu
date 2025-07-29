@@ -433,7 +433,8 @@ void OSEM_GPU::addImagePSF(const std::string& p_imagePsf_fname,
 	}
 	else
 	{
-		ASSERT_MSG(false, "Spatially variant PSF not implemented in GPU yet");
+		imagePsf = std::make_unique<OperatorVarPsfDevice>(p_imagePsf_fname,getMainStream());
+		//ASSERT_MSG(false, "Spatially variant PSF not implemented in GPU yet");
 	}
 
 	flagImagePSF = true;

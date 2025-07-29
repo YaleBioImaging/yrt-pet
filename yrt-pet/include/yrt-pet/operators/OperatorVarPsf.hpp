@@ -68,9 +68,9 @@ public:
 
 protected:
 	const ConvolutionKernel& findNearestKernel(float x, float y, float z) const;
+	ConvolutionKernelCollection m_kernelLUT;
 
 private:
-	ConvolutionKernelCollection m_kernelLUT;
 	ImageParams m_imageParams;
 	// Ranges and gaps in mm
 	float m_xRange;

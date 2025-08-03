@@ -27,8 +27,7 @@ struct ProjectionProperties
 	bin_t bin;
 	Line3D lor;
 	float tofValue;
-	Vector3D det1Orient;
-	Vector3D det2Orient;
+	det_orient_t detOrient;
 };
 
 class ProjectionData : public Variable

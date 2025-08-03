@@ -120,8 +120,8 @@ float OperatorProjectorSiddon::forwardProjection(
     const Image* img, const ProjectionProperties& projectionProperties) const
 {
 	return forwardProjection(img, projectionProperties.lor,
-	                         projectionProperties.det1Orient,
-	                         projectionProperties.det2Orient,
+	                         projectionProperties.detOrient.d1,
+	                         projectionProperties.detOrient.d2,
 	                         mp_tofHelper.get(), projectionProperties.tofValue);
 }
 
@@ -130,8 +130,8 @@ void OperatorProjectorSiddon::backProjection(
     float projValue) const
 {
 	backProjection(img, projectionProperties.lor,
-	               projectionProperties.det1Orient,
-	               projectionProperties.det2Orient, projValue,
+	               projectionProperties.detOrient.d1,
+	               projectionProperties.detOrient.d2, projValue,
 	               mp_tofHelper.get(), projectionProperties.tofValue);
 }
 

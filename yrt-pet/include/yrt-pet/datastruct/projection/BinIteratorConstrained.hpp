@@ -1,3 +1,8 @@
+/*
+ * This file is subject to the terms and conditions defined in
+ * file 'LICENSE.txt', which is part of this source code package.
+ */
+
 #include <unordered_map>
 #include <vector>
 #include <set>
@@ -21,6 +26,18 @@ enum class ConstraintVariable
 	AbsDeltaAngleDeg,
 	AbsDeltaAngleIdx,
 	AbsDeltaBlockIdx
+};
+
+enum class ProjectionPropertiesVariable
+{
+	Det1,
+	Det2,
+	LOR,
+	Orient1,
+	Orient2,
+	TOFValue,
+	AdditiveCorrection,
+	ACFInVivo
 };
 
 using ConstraintParams = std::unordered_map<ConstraintVariable, size_t>;
@@ -67,8 +84,11 @@ public:
 	size_t count();
 
 	std::set<ConstraintVariable> collectVariables() const;
-	void collectInfo(bin_t bin, std::set<ConstraintVariable>& variables,
-	                 ConstraintParams& info) const;
+	void collectInfo(
+	    bin_t bin, std::set<ConstraintVariable>& consVariables,
+	    std::set<ProjectionPropertiesVariable>& projVariables,
+	    ProjectionProperties& projProps,
+	    ConstraintParams& consInfo) const;
 	bool isValid(ConstraintParams& info) const;
 
 private:

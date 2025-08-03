@@ -13,10 +13,14 @@
 
 #include <functional>
 #include <memory>
+#include <set>
 
 namespace yrt
 {
 class BinIterator;
+enum class ProjectionPropertiesVariable;
+enum class ConstraintVariable;
+using ConstraintParams = std::unordered_map<ConstraintVariable, size_t>;
 
 struct ProjectionProperties
 {
@@ -65,6 +69,7 @@ public:
 
 	// Helper functions
 	virtual ProjectionProperties getProjectionProperties(bin_t bin) const;
+
 	Line3D getLOR(bin_t bin) const;
 	virtual void clearProjections(float value);
 	virtual void divideMeasurements(const ProjectionData* measurements,

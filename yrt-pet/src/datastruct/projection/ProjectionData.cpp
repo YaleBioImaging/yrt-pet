@@ -7,7 +7,7 @@
 #include "yrt-pet/geometry/Constants.hpp"
 
 #include "yrt-pet/geometry/Matrix.hpp"
-#include "yrt-pet/utils/Concurrency.hpp"
+#include "yrt-pet/recon/OSEMUpdater_CPU.hpp"
 #include "yrt-pet/utils/Globals.hpp"
 
 #include <limits>
@@ -183,6 +183,28 @@ ProjectionProperties ProjectionData::getProjectionProperties(
 	const Vector3D det2Orient = mr_scanner.getDetectorOrient(d2);
 	return ProjectionProperties{bin, lor, tofValue, det1Orient, det2Orient};
 }
+
+// template <bool HasTOF, bool HasOrient>
+// void ProjectionData::getProjectionProperties(
+//     const ProjectionData& projData, bin_t bin,
+//     std::set<ProjectionPropertiesVariable>& variables,
+//     ConstraintParams& consInfo, ProjectionProperties& projProps)
+// {
+// 	det_id_t d1 = consInfo[ConstraintVariable::Det1];
+// 	det_id_t d2 = consInfo[ConstraintVariable::Det2];
+// 	// const Line3D lor = getLOR(bin);
+
+// 	if (HasTOF)
+// 	{
+// 		//projProps.setTOFValue(projData.getTOFValue(bin));
+// 	}
+
+// 	if (HasOrient)
+// 	{
+// 		// projProps.setOrient(mr_scanner.getDetectorOrient(d1),
+// 		//                     mr_scanner.getDetectorOrient(d2));
+// 	}
+// }
 
 Line3D ProjectionData::getLOR(bin_t bin) const
 {

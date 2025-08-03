@@ -1,3 +1,8 @@
+/*
+ * This file is subject to the terms and conditions defined in
+ * file 'LICENSE.txt', which is part of this source code package.
+ */
+
 #include "yrt-pet/datastruct/projection/BinIteratorConstrained.hpp"
 
 #include <cmath>
@@ -98,35 +103,40 @@ std::set<ConstraintVariable> BinIteratorConstrained::collectVariables() const
 }
 
 void BinIteratorConstrained::collectInfo(
-    bin_t bin, std::set<ConstraintVariable>& variables,
-    ConstraintParams& info) const
+    bin_t bin, std::set<ConstraintVariable>& consVariables,
+    std::set<ProjectionPropertiesVariable>& projVariables,
+    ProjectionProperties& projProps,
+    ConstraintParams& consInfo) const
 {
 	auto [d1, d2] = mProjData->getDetectorPair(bin);
-	info[ConstraintVariable::Det1] = d1;
-	info[ConstraintVariable::Det2] = d2;
+	consInfo[ConstraintVariable::Det1] = d1;
+	consInfo[ConstraintVariable::Det2] = d2;
 
 	bool needsLOR =
-	    variables.find(ConstraintVariable::AbsDeltaAngleDeg) != variables.end();
+		projVariables.find(ProjectionPropertiesVariable::LOR) != projVariables.end() ||
+	    consVariables.find(ConstraintVariable::AbsDeltaAngleDeg) != consVariables.end();
 	Line3D lor;
 	if (needsLOR)
 	{
 		lor = mProjData->getLOR(bin);
+		projProps.lor = lor;
 	}
 	const Scanner* scanner = &mProjData->getScanner();
 
-	if (variables.find(ConstraintVariable::AbsDeltaAngleDeg) != variables.end())
+	if (consVariables.find(ConstraintVariable::AbsDeltaAngleDeg) != consVariables.end())
 	{
 		// In-plane angle
 		float a1 = std::atan2(lor.point1.y, lor.point1.x);
 		float a2 = std::atan2(lor.point2.y, lor.point2.x);
-		info[ConstraintVariable::AbsDeltaAngleDeg] =
+		consInfo[ConstraintVariable::AbsDeltaAngleDeg] =
 		    util::periodicDiff(a1, a2, (float)(2.f * PI));
 	}
 
 	bool needsPlaneIdx =
-	    variables.find(ConstraintVariable::AbsDeltaAngleIdx) !=
-	        variables.end() ||
-	    variables.find(ConstraintVariable::AbsDeltaBlockIdx) != variables.end();
+	    consVariables.find(ConstraintVariable::AbsDeltaAngleIdx) !=
+	        consVariables.end() ||
+	    consVariables.find(ConstraintVariable::AbsDeltaBlockIdx) !=
+	        consVariables.end();
 	size_t d1xyi;
 	size_t d2xyi;
 	if (needsPlaneIdx)
@@ -134,14 +144,14 @@ void BinIteratorConstrained::collectInfo(
 		d1xyi = d1 % scanner->detsPerRing;
 		d2xyi = d2 % scanner->detsPerRing;
 	}
-	if (variables.find(ConstraintVariable::AbsDeltaAngleIdx) != variables.end())
+	if (consVariables.find(ConstraintVariable::AbsDeltaAngleIdx) != consVariables.end())
 	{
-		info[ConstraintVariable::AbsDeltaAngleIdx] =
+		consInfo[ConstraintVariable::AbsDeltaAngleIdx] =
 		    util::periodicDiff(d1xyi, d2xyi, scanner->detsPerRing);
 	}
 
 	bool needsPlaneBlock =
-	    variables.find(ConstraintVariable::AbsDeltaBlockIdx) != variables.end();
+	    consVariables.find(ConstraintVariable::AbsDeltaBlockIdx) != consVariables.end();
 	size_t d1bi;
 	size_t d2bi;
 	if (needsPlaneBlock)
@@ -149,9 +159,9 @@ void BinIteratorConstrained::collectInfo(
 		d1bi = d1xyi / scanner->detsPerBlock;
 		d2bi = d2xyi / scanner->detsPerBlock;
 	}
-	if (variables.find(ConstraintVariable::AbsDeltaBlockIdx) != variables.end())
+	if (consVariables.find(ConstraintVariable::AbsDeltaBlockIdx) != consVariables.end())
 	{
-		info[ConstraintVariable::AbsDeltaBlockIdx] =
+		consInfo[ConstraintVariable::AbsDeltaBlockIdx] =
 		    util::periodicDiff(d1bi, d2bi, scanner->detsPerBlock);
 	}
 }
@@ -184,7 +194,7 @@ size_t BinIteratorConstrained::count()
 		{
 			ConstraintParams info;
 			bin_t bin = mBinIterBase->get(binIdx);
-			collectInfo(bin, variables, info);
+			// FIXME: collectInfo(bin, variables, info);
 			if (isValid(info))
 			{
 				count++;

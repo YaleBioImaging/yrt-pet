@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include "yrt-pet/geometry/Vector3D.hpp"
 #include <cstdint>
 #include <variant>
 
@@ -25,6 +26,11 @@ struct det_pair_t
 		return d1 == other.d1 && d2 == other.d2;
 	}
 	det_id_t d1, d2;
+};
+
+struct det_orient_t
+{
+	Vector3D d1, d2;
 };
 
 // Defining an LOR

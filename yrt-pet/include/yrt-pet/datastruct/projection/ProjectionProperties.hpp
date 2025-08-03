@@ -9,79 +9,69 @@
 #include "yrt-pet/geometry/Line3D.hpp"
 #include "yrt-pet/utils/Types.hpp"
 
-#include <experimental/type_traits>
+#include <map>
+#include <memory>
+#include <ostream>
+#include <string>
 
 namespace yrt
 {
 
-class ProjectionPropertiesT
+enum class ProjectionPropertiesList
 {
-	template <bool HasTOF, bool HasOrient>
-	static void getProjectionProperties(
-	    const ProjectionData& projData, bin_t bin,
-	    std::set<ProjectionPropertiesVariable>& variables,
-	    ConstraintParams& consInfo, ProjectionProperties& projProps);
+	DET_ID = 0,
+	LOR,
+	ORIENT,
+	TOF,
+	ADD_CORR,
+	MULT_CORR,
+	FRAME,
+	COUNT
 };
 
-namespace ProjProps
+inline std::map<ProjectionPropertiesList, std::pair<std::string, int>>
+    ProjectionPropertiesInfo{
+        {ProjectionPropertiesList::DET_ID, {"DET_ID", sizeof(det_pair_t)}},
+        {ProjectionPropertiesList::LOR, {"LOR", sizeof(Line3D)}},
+        {ProjectionPropertiesList::ORIENT, {"ORIENT", sizeof(det_orient_t)}},
+        {ProjectionPropertiesList::TOF, {"TOF", sizeof(float)}},
+        {ProjectionPropertiesList::ADD_CORR, {"ADD_CORR", sizeof(float)}},
+        {ProjectionPropertiesList::MULT_CORR, {"MULT_CORR", sizeof(float)}},
+        {ProjectionPropertiesList::FRAME, {"FRAME", sizeof(frame_t)}}};
+
+class ProjectionPropertiesManager
 {
+public:
+	ProjectionPropertiesManager(std::set<ProjectionPropertiesList>& props);
 
-// Properties
-struct Dets { det_pair_t detPair; };
-struct LOR { Line3D lor; };
-struct Orientation { Vector3D orient1; Vector3D orient2; };
-struct TOFValue { float tofValue; };
-struct AdditiveCorrection { float additiveCorrection; };
-struct ACFInVivo { float acfInVivo; };
+	// Helper functions
+	std::unique_ptr<char[]> createDataArray(size_t numElements) const;
+	template <typename T>
+	T* getDataPtr(char* data, int idx, ProjectionPropertiesList prop) const;
+	template <typename T>
+	void setDataValue(char* data, int idx, ProjectionPropertiesList prop,
+	                  T& value) const;
+	template <typename T>
+	T& getDataValue(char* data, int idx, ProjectionPropertiesList prop) const;
 
-// Combined type
-template <typename... Fields>
-struct ProjectionProps : Fields...
-{
+	// Accessors
+	unsigned int getElementSize() const;
+	int getTypeID() const;
+	unsigned int getOffset(ProjectionPropertiesList prop) const;
+
+private:
+	// Data information
+	// ----------------
+
+	// Bit mask with flag for each allowed variable
+	int type;
+	// Total element size
+	unsigned int elementSize;
+	// Offset in raw pointer for each included prop
+	std::unordered_map<ProjectionPropertiesList, unsigned int> offsetMap;
 };
 
-// Get type from properties
-template <typename... Fields>
-struct GetProductType;
-
-template <typename First, typename... Rest>
-struct GetProductType<First, Rest...>
-{
-	using type = ProjectionProps<First, Rest...>;
-};
-
-// Test functions
-
-template <typename T>
-void has_det() {}
-template <typename T, typename U>
-auto has_det(T*) -> decltype(has_det(std::declval<U*>()), void(),
-                             std::true_type());
-template <typename T>
-struct TestHasDet
-{
-	static constexpr bool value = has_det<T>(0).value;
-};
-
-template <typename T>
-void has_orientation() { }
-template <typename T, typename U>
-auto has_orientation(T*) -> decltype(has_orientation(std::declval<U*>()), void(),
-                                     std::true_type());
-template <typename T>
-struct TestHasOrientation {
-  static constexpr bool value = has_orientation<T>(0).value;
-};
-
-template <typename T>
-void has_tof() { }
-template <typename T, typename U>
-auto has_tof(T*) -> decltype(has_tof(std::declval<U*>()), void(), std::true_type());
-template <typename T>
-struct TestHasTOF {
-  static constexpr bool value = has_tof<T>(0).value;
-};
-
-}  // namespace ProjProps
+std::ostream& operator<<(std::ostream& oss,
+                         const ProjectionPropertiesManager& t);
 
 }  // namespace yrt

@@ -82,8 +82,8 @@ float OperatorProjectorDD::forwardProjection(
     int tid) const
 {
 	return forwardProjection(
-	    img, projectionProperties.lor, projectionProperties.det1Orient,
-	    projectionProperties.det2Orient, tid, mp_tofHelper.get(),
+	    img, projectionProperties.lor, projectionProperties.detOrient.d1,
+	    projectionProperties.detOrient.d2, mp_tofHelper.get(),
 	    projectionProperties.tofValue, mp_projPsfManager.get());
 }
 
@@ -92,8 +92,8 @@ void OperatorProjectorDD::backProjection(
     float projValue, int tid) const
 {
 	backProjection(
-	    img, projectionProperties.lor, projectionProperties.det1Orient,
-	    projectionProperties.det2Orient, projValue, tid, mp_tofHelper.get(),
+	    img, projectionProperties.lor, projectionProperties.detOrient.d1,
+	    projectionProperties.detOrient.d2, projValue, mp_tofHelper.get(),
 	    projectionProperties.tofValue, mp_projPsfManager.get());
 }
 

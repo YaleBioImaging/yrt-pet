@@ -70,26 +70,26 @@ void LORsDevice::precomputeBatchLORs(const BinIterator& binIter,
 		for (binIdx = 0; binIdx < batchSize; binIdx++)
 		{
 			binId = binIter_ptr->get(binIdx + offset);
-			auto [bin, lor, tofValue, det1Orient, det2Orient] =
+			auto [bin, lor, tofValue, detOrient] =
 			    reference_ptr->getProjectionProperties(binId);
 
-			    tempBufferLorDet1Pos_ptr[binIdx].x = lor.point1.x;
-			    tempBufferLorDet1Pos_ptr[binIdx].y = lor.point1.y;
-			    tempBufferLorDet1Pos_ptr[binIdx].z = lor.point1.z;
-			    tempBufferLorDet2Pos_ptr[binIdx].x = lor.point2.x;
-			    tempBufferLorDet2Pos_ptr[binIdx].y = lor.point2.y;
-			    tempBufferLorDet2Pos_ptr[binIdx].z = lor.point2.z;
-			    tempBufferLorDet1Orient_ptr[binIdx].x = det1Orient.x;
-			    tempBufferLorDet1Orient_ptr[binIdx].y = det1Orient.y;
-			    tempBufferLorDet1Orient_ptr[binIdx].z = det1Orient.z;
-			    tempBufferLorDet2Orient_ptr[binIdx].x = det2Orient.x;
-			    tempBufferLorDet2Orient_ptr[binIdx].y = det2Orient.y;
-			    tempBufferLorDet2Orient_ptr[binIdx].z = det2Orient.z;
-			    if (m_hasTOF)
-			    {
-				    tempBufferLorTOFValue_ptr[binIdx] = tofValue;
-			    }
-		    });
+			tempBufferLorDet1Pos_ptr[binIdx].x = lor.point1.x;
+			tempBufferLorDet1Pos_ptr[binIdx].y = lor.point1.y;
+			tempBufferLorDet1Pos_ptr[binIdx].z = lor.point1.z;
+			tempBufferLorDet2Pos_ptr[binIdx].x = lor.point2.x;
+			tempBufferLorDet2Pos_ptr[binIdx].y = lor.point2.y;
+			tempBufferLorDet2Pos_ptr[binIdx].z = lor.point2.z;
+			tempBufferLorDet1Orient_ptr[binIdx].x = detOrient.d1.x;
+			tempBufferLorDet1Orient_ptr[binIdx].y = detOrient.d1.y;
+			tempBufferLorDet1Orient_ptr[binIdx].z = detOrient.d1.z;
+			tempBufferLorDet2Orient_ptr[binIdx].x = detOrient.d2.x;
+			tempBufferLorDet2Orient_ptr[binIdx].y = detOrient.d2.y;
+			tempBufferLorDet2Orient_ptr[binIdx].z = detOrient.d2.z;
+			if (m_hasTOF)
+			{
+				tempBufferLorTOFValue_ptr[binIdx] = tofValue;
+			}
+		}
 
 		m_precomputedBatchSize = batchSize;
 		m_precomputedBatchId = batchId;

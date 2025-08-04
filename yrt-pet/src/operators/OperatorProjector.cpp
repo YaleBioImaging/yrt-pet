@@ -41,10 +41,63 @@ void py_setup_operatorprojector(py::module& m)
 	    [](OperatorProjector& self, const ProjectionData* proj, Image* img)
 	    { self.applyAH(proj, img); }, py::arg("proj"), py::arg("img"));
 
+	c.def("setUpdaterLRUpdateH", [](OperatorProjector& self, bool updateH)
+	      {
+			auto* updaterLR = dynamic_cast<OperatorProjectorUpdaterLR*>(self.getUpdater());
+		    if (updaterLR == nullptr)
+		    {
+			    throw std::bad_cast();
+		    }
+		    else
+		    {
+			    updaterLR->setUpdateH(updateH);
+		    }
+	});
+
+	c.def(
+	    "setUpdaterLRHBasis",
+	    [](OperatorProjector& self, py::buffer& np_data)
+	    {
+		    py::buffer_info buffer = np_data.request();
+		    if (buffer.ndim != 2)
+		    {
+			    throw std::invalid_argument(
+			        "The buffer given has to have 2 dimensions");
+		    }
+		    if (buffer.format != py::format_descriptor<float>::format())
+		    {
+			    throw std::invalid_argument(
+			        "The buffer given has to have a float32 format");
+		    }
+
+		    auto* updaterLR = dynamic_cast<OperatorProjectorUpdaterLR*>(self.getUpdater());
+		    if (updaterLR == nullptr)
+		    {
+			    throw std::bad_cast();
+		    }
+		    else
+		    {
+			    Array2DAlias<float> hBasis;
+			    hBasis.bind(reinterpret_cast<float*>(buffer.ptr),
+			                buffer.shape[0], buffer.shape[1]);
+			    updaterLR->setHBasis(hBasis);
+		    }
+
+	    },
+	    py::arg("numpy_data"));
+
+
 	py::enum_<OperatorProjector::ProjectorType>(c, "ProjectorType")
 	    .value("SIDDON", OperatorProjector::ProjectorType::SIDDON)
 	    .value("DD", OperatorProjector::ProjectorType::DD)
 	    .export_values();
+
+	py::enum_<OperatorProjector::ProjectorUpdaterType>(c, "ProjectorUpdaterType")
+	    .value("DEFAULT3D", OperatorProjector::ProjectorUpdaterType::DEFAULT3D)
+	    .value("LR", OperatorProjector::ProjectorUpdaterType::LR)
+	    .export_values();
+
+
 }
 }  // namespace yrt
 
@@ -55,7 +108,9 @@ namespace yrt
 
 OperatorProjector::OperatorProjector(const Scanner& pr_scanner,
                                      float tofWidth_ps, int tofNumStd,
-                                     const std::string& projPsf_fname)
+                                     const std::string& projPsf_fname,
+                                     OperatorProjector::ProjectorUpdaterType
+                                     projectorUpdaterType)
     : OperatorProjectorBase{pr_scanner},
       mp_tofHelper{nullptr},
       mp_projPsfManager{nullptr}
@@ -68,10 +123,28 @@ OperatorProjector::OperatorProjector(const Scanner& pr_scanner,
 	{
 		setupProjPsfManager(projPsf_fname);
 	}
+	if (projectorUpdaterType == OperatorProjector::DEFAULT3D)
+	{
+		setUpdater(std::make_unique<OperatorProjectorUpdaterDefault3D>());
+	}
+	else if (projectorUpdaterType == OperatorProjector::DEFAULT4D)
+	{
+		setUpdater(std::make_unique<OperatorProjectorUpdaterDefault4D>());
+	}
+	else if (projectorUpdaterType == OperatorProjector::LR)
+	{
+		setUpdater(std::make_unique<OperatorProjectorUpdaterLR>());
+	}
+	else
+	{
+		throw std::invalid_argument("ProjectorUpdaterType not valid");
+	}
 }
 
 OperatorProjector::OperatorProjector(
-    const OperatorProjectorParams& p_projParams)
+    const OperatorProjectorParams& p_projParams,
+    OperatorProjector::ProjectorUpdaterType
+        projectorUpdaterType)
     : OperatorProjectorBase{p_projParams},
       mp_tofHelper{nullptr},
       mp_projPsfManager{nullptr}
@@ -83,6 +156,18 @@ OperatorProjector::OperatorProjector(
 	if (!p_projParams.projPsf_fname.empty())
 	{
 		setupProjPsfManager(p_projParams.projPsf_fname);
+	}
+	if (projectorUpdaterType == OperatorProjector::DEFAULT3D)
+	{
+		setUpdater(std::make_unique<OperatorProjectorUpdaterDefault3D>());
+	}
+	else if (projectorUpdaterType == OperatorProjector::LR)
+	{
+		setUpdater(std::make_unique<OperatorProjectorUpdaterLR>());
+	}
+	else
+	{
+		throw std::invalid_argument("ProjectorUpdaterType not valid");
 	}
 }
 
@@ -148,14 +233,14 @@ void OperatorProjector::setupTOFHelper(float tofWidth_ps, int tofNumStd)
 {
 	mp_tofHelper = std::make_unique<TimeOfFlightHelper>(tofWidth_ps, tofNumStd);
 	ASSERT_MSG(mp_tofHelper != nullptr,
-	           "Error occured during the setup of TimeOfFlightHelper");
+	           "Error occurred during the setup of TimeOfFlightHelper");
 }
 
 void OperatorProjector::setupProjPsfManager(const std::string& projPsf_fname)
 {
 	mp_projPsfManager = std::make_unique<ProjectionPsfManager>(projPsf_fname);
 	ASSERT_MSG(mp_projPsfManager != nullptr,
-	           "Error occured during the setup of ProjectionPsfManager");
+	           "Error occurred during the setup of ProjectionPsfManager");
 }
 
 const TimeOfFlightHelper* OperatorProjector::getTOFHelper() const
@@ -167,4 +252,15 @@ const ProjectionPsfManager* OperatorProjector::getProjectionPsfManager() const
 {
 	return mp_projPsfManager.get();
 }
+
+void OperatorProjector::setUpdater(std::unique_ptr<OperatorProjectorUpdater> pp_updater)
+{
+	mp_updater = std::move(pp_updater);
+}
+
+OperatorProjectorUpdater* OperatorProjector::getUpdater()
+{
+	return mp_updater.get();
+}
+
 }  // namespace yrt

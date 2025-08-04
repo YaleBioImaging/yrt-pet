@@ -23,6 +23,7 @@ struct ProjectionProperties
 	float tofValue;
 	Vector3D det1Orient;
 	Vector3D det2Orient;
+	int eventTimeFrame;
 };
 
 class ProjectionData : public Variable

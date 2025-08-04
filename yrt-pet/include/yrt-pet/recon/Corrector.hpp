@@ -7,6 +7,7 @@
 
 #include "yrt-pet/datastruct/image/Image.hpp"
 #include "yrt-pet/datastruct/projection/Histogram.hpp"
+#include "yrt-pet/operators/OperatorProjectorUpdater.hpp"
 #include "yrt-pet/datastruct/projection/ProjectionList.hpp"
 #include "yrt-pet/datastruct/projection/UniformHistogram.hpp"
 #include "yrt-pet/operators/TimeOfFlight.hpp"
@@ -114,5 +115,8 @@ protected:
 	std::unique_ptr<TimeOfFlightHelper> mp_tofHelper;
 
 	bool m_attenuationSetupComplete;
+
+	// Updater for forward and back-projection
+	std::shared_ptr<OperatorProjectorUpdater> mp_updater;
 };
 }  // namespace yrt

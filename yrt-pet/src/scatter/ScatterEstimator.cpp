@@ -132,7 +132,7 @@ std::unique_ptr<Histogram3DOwned>
 	scatterHisto->allocate();
 	scatterHisto->clearProjections();
 
-	m_sss.runSSS(numberZ, numberPhi, numberR, *scatterHisto);
+	m_sss.runSSS(numberZ, numberPhi, numberR, *scatterHisto, 0);
 
 	return scatterHisto;
 }

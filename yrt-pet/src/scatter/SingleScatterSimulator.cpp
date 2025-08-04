@@ -34,10 +34,10 @@ void py_setup_singlescattersimulator(py::module& m)
 	      "scanner"_a, "attenuation_image"_a, "source_image"_a,
 	      "crystal_material"_a, "seed"_a);
 	c.def("runSSS", &scatter::SingleScatterSimulator::runSSS, "num_z"_a,
-	      "num_phi"_a, "num_r"_a, "scatter_histo"_a);
+	      "num_phi"_a, "num_r"_a, "scatter_histo"_a, "eventTimeFrame"_a);
 	c.def("computeSingleScatterInLOR",
 	      &scatter::SingleScatterSimulator::computeSingleScatterInLOR, "lor"_a,
-	      "n1"_a, "n2"_a);
+	      "n1"_a, "n2"_a, "eventTimeFrame"_a);
 	c.def("getSamplePoint", &scatter::SingleScatterSimulator::getSamplePoint,
 	      "i"_a);
 	c.def("getNumSamples", &scatter::SingleScatterSimulator::getNumSamples);
@@ -163,7 +163,8 @@ SingleScatterSimulator::SingleScatterSimulator(
 }
 
 void SingleScatterSimulator::runSSS(size_t numberZ, size_t numberPhi,
-                                    size_t numberR, Histogram3D& scatterHisto)
+                                    size_t numberR, Histogram3D& scatterHisto,
+                                    int eventTimeFrame)
 {
 	const size_t num_i_z = numberZ;
 	const size_t num_i_phi = numberPhi;
@@ -247,7 +248,7 @@ void SingleScatterSimulator::runSSS(size_t numberZ, size_t numberPhi,
 
 		    const Line3D lor{p1, p2};
 
-		    const float scatterResult = computeSingleScatterInLOR(lor, n1, n2);
+		    const float scatterResult = computeSingleScatterInLOR(lor, n1, n2, eventTimeFrame);
 		    if (scatterResult <= 0.0)
 			    return;  // Ignore irrelevant lines?
 		    scatterHisto.setProjectionValue(scatterHistoBinId, scatterResult);
@@ -306,7 +307,8 @@ void SingleScatterSimulator::runSSS(size_t numberZ, size_t numberPhi,
 
 // YP LOR in which to compute the scatter contribution
 float SingleScatterSimulator::computeSingleScatterInLOR(
-    const Line3D& lor, const Vector3D& n1, const Vector3D& n2) const
+    const Line3D& lor, const Vector3D& n1, const Vector3D& n2,
+    int eventTimeFrame) const
 {
 	int i;
 	float res = 0., dist1, dist2, energy, cosa, mu_scaling_factor;
@@ -368,12 +370,16 @@ float SingleScatterSimulator::computeSingleScatterInLOR(
 
 		// compute I1 and I2:
 		att_s_1_511 =
-		    OperatorProjectorSiddon::singleForwardProjection(&mr_mu, lor_1_s) /
+		    OperatorProjectorSiddon::singleForwardProjection(&mr_mu, lor_1_s,
+		                                                     *mp_updater.get(),
+		                                                     eventTimeFrame) /
 		    10.0;
 
 		att_s_1 = att_s_1_511 * mu_scaling_factor;
 		lamb_s_1 = OperatorProjectorSiddon::singleForwardProjection(&mr_lambda,
-		                                                            lor_1_s);
+		                                                            lor_1_s,
+		                                                            *mp_updater.get(),
+		                                                            eventTimeFrame);
 		delta_1 = getIntersectionLengthLORCrystal(lor_1_s);
 		if (delta_1 > 10 * m_crystalDepth)
 		{
@@ -385,12 +391,16 @@ float SingleScatterSimulator::computeSingleScatterInLOR(
 		}
 
 		att_s_2_511 =
-		    OperatorProjectorSiddon::singleForwardProjection(&mr_mu, lor_2_s) /
+		    OperatorProjectorSiddon::singleForwardProjection(&mr_mu, lor_2_s,
+		                                                     *mp_updater.get(),
+		                                                     eventTimeFrame) /
 		    10.0;
 
 		att_s_2 = att_s_2_511 * mu_scaling_factor;
 		lamb_s_2 = OperatorProjectorSiddon::singleForwardProjection(&mr_lambda,
-		                                                            lor_2_s);
+		                                                            lor_2_s,
+		                                                            *mp_updater.get(),
+		                                                            eventTimeFrame);
 		delta_2 = getIntersectionLengthLORCrystal(lor_2_s);
 
 		// Check that the distance between the two cylinders is not too big

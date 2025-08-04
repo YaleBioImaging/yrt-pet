@@ -39,6 +39,7 @@ void py_setup_listmodelutdoi(py::module& m);
 void py_setup_projectionlist(py::module& m);
 void py_setup_detectorsetup(py::module& m);
 void py_setup_osem(py::module& m);
+void py_setup_osem_updater(py::module& m);
 void py_setup_reconstructionutils(py::module& m);
 void py_setup_scanner(py::module& m);
 void py_setup_detcoord(py::module& m);
@@ -53,6 +54,7 @@ void py_setup_operatorvarpsf(py::module& m);
 void py_setup_operatorprojectorparams(py::module& m);
 void py_setup_operatorprojectorbase(py::module& m);
 void py_setup_operatorprojector(py::module& m);
+void py_setup_operatorprojectorupdater(py::module& m);
 void py_setup_operatorprojectorsiddon(py::module& m);
 void py_setup_operatorprojectordd(py::module& m);
 
@@ -114,9 +116,11 @@ PYBIND11_MODULE(pyyrtpet, m)
 	py_setup_operatorprojectorbase(m);
 	py_setup_operatorprojector(m);
 	py_setup_operatorprojectorparams(m);
+	py_setup_operatorprojectorupdater(m);
 	py_setup_operatorprojectorsiddon(m);
 	py_setup_operatorprojectordd(m);
 	py_setup_osem(m);
+	py_setup_osem_updater(m);
 	py_setup_reconstructionutils(m);
 
 	py_setup_globals(m);

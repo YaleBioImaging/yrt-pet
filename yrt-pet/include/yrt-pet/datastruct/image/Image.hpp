@@ -23,11 +23,12 @@ class Image : public ImageBase
 public:
 	~Image() override = default;
 
-	Array3DBase<float>& getData();
-	const Array3DBase<float>& getData() const;
+	Array4DBase<float>& getData();
+	const Array4DBase<float>& getData() const;
 	float* getRawPointer();
 	const float* getRawPointer() const;
 	bool isMemoryValid() const;
+	int getNumFrames() const;
 
 	void copyFromImage(const ImageBase* imSrc) override;
 	void multWithScalar(float scalar);
@@ -42,7 +43,7 @@ public:
 	                       float threshold) override;
 	void writeToFile(const std::string& fname) const override;
 
-	Array3DAlias<float> getArray() const;
+	Array4DAlias<float> getArray() const;
 
 	void transformImage(const Vector3D& rotation, const Vector3D& translation,
 	                    Image& dest, float weight) const;
@@ -53,19 +54,23 @@ public:
 	std::unique_ptr<ImageOwned> transformImage(const transform_t& t) const;
 
 	float dotProduct(const Image& y) const;
-	float nearestNeighbor(const Vector3D& pt) const;
-	float nearestNeighbor(const Vector3D& pt, int* pi, int* pj, int* pk) const;
+	float nearestNeighbor(const Vector3D& pt, int frame = 0) const;
+	float nearestNeighbor(const Vector3D& pt, int* pi, int* pj, int* pk,
+	                      int frame = 0) const;
 	template<bool MULT_FLAG>
-	void updateImageNearestNeighbor(const Vector3D& pt, float value);
-	void assignImageNearestNeighbor(const Vector3D& pt, float value);
+	void updateImageNearestNeighbor(const Vector3D& pt, float value,
+	                                int frame = 0);
+	void assignImageNearestNeighbor(const Vector3D& pt, float value, int frame = 0);
 	bool getNearestNeighborIdx(const Vector3D& pt, int* pi, int* pj,
-	                           int* pk) const;
+	                           int* pk, int frame = 0) const;
 
-	float interpolateImage(const Vector3D& pt) const;
-	float interpolateImage(const Vector3D& pt, const Image& sens) const;
+	float interpolateImage(const Vector3D& pt, int frame = 0) const;
+	float interpolateImage(const Vector3D& pt, const Image& sens,
+	                       int frame = 0) const;
 	template<bool MULT_FLAG>
-	void updateImageInterpolate(const Vector3D& pt, float value);
-	void assignImageInterpolate(const Vector3D& pt, float value);
+	void updateImageInterpolate(const Vector3D& point, float value,
+	                            int frame = 0);
+	void assignImageInterpolate(const Vector3D& point, float value, int frame = 0);
 
 	void operationOnEachVoxel(const std::function<float(size_t)>& func);
 	// Note: The function given as argument should be able to be called in
@@ -77,21 +82,22 @@ public:
 protected:
 	static float originToOffset(float origin, float voxelSize, float length);
 	static float offsetToOrigin(float off, float voxelSize, float length);
+	int m_numFrames;
 
 	Image();
-	explicit Image(const ImageParams& imgParams);
-	std::unique_ptr<Array3DBase<float>> mp_array;
+	explicit Image(const ImageParams& imgParams, int p_numFrames = 1);
+	std::unique_ptr<Array4DBase<float>> mp_array;
 
 private:
 	// Helper
 	template <int OPERATION> // operations 0: assign, 1: multiply, 2: add
-	void operationImageInterpolate(const Vector3D& pt, float value);
+	void operationImageInterpolate(const Vector3D& pt, float value, int frame);
 };
 
 class ImageOwned : public Image
 {
 public:
-	explicit ImageOwned(const ImageParams& imgParams);
+	explicit ImageOwned(const ImageParams& imgParams, int p_numFrames = 1);
 	ImageOwned(const ImageParams& imgParams, const std::string& filename);
 	explicit ImageOwned(const std::string& filename);
 	void allocate();
@@ -108,7 +114,7 @@ private:
 class ImageAlias : public Image
 {
 public:
-	explicit ImageAlias(const ImageParams& imgParams);
-	void bind(Array3DBase<float>& p_data);
+	explicit ImageAlias(const ImageParams& imgParams, int p_numFrames = 1);
+	void bind(Array4DBase<float>& p_data);
 };
 }  // namespace yrt

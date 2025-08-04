@@ -470,4 +470,15 @@ size_t DetCoord::getNumDets() const
 {
 	return this->mp_Xpos->getSize(0);
 }
+
+Array1DBase<bool>* DetCoord::getMaskArrayRef() const
+{
+	return (mp_Mask.get());
+}
+
+bool DetCoord::hasMask() const
+{
+	return mp_Mask->getSizeTotal() > 0;
+}
+
 }  // namespace yrt

@@ -48,7 +48,8 @@ public:
 	{
 		return (mp_Zorient.get());
 	}
-	Array1DBase<bool>* getMaskArrayRef() const { return (mp_Mask.get()); }
+	Array1DBase<bool>* getMaskArrayRef() const;
+	bool hasMask() const override;
 
 protected:
 	DetCoord();
@@ -61,7 +62,6 @@ protected:
 	std::unique_ptr<Array1DBase<float>> mp_Yorient;
 	std::unique_ptr<Array1DBase<float>> mp_Zorient;
 	std::unique_ptr<Array1DBase<bool>> mp_Mask;
-	// total number of dets in scanner = 258,048 in SAVANT DOI config
 };
 
 class DetCoordAlias : public DetCoord

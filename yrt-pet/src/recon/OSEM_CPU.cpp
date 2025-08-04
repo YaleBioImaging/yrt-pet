@@ -6,6 +6,7 @@
 #include "yrt-pet/recon/OSEM_CPU.hpp"
 
 #include "yrt-pet/datastruct/projection/ProjectionList.hpp"
+#include "yrt-pet/operators/OperatorProjectorBase.hpp"
 #include "yrt-pet/operators/OperatorProjectorDD.hpp"
 #include "yrt-pet/operators/OperatorProjectorSiddon.hpp"
 #include "yrt-pet/recon/Corrector_CPU.hpp"
@@ -62,12 +63,8 @@ void OSEM_CPU::allocateForSensImgGen()
 	}
 }
 
-void OSEM_CPU::setupOperatorsForSensImgGen()
+void OSEM_CPU::setupOperatorsForSensImgGen(OperatorProjectorParams& projParams)
 {
-	// TODO: Unify this in OSEM (avoids the copy-paste)
-	getBinIterators().clear();
-	getBinIterators().reserve(num_OSEM_subsets);
-
 	for (int subsetId = 0; subsetId < num_OSEM_subsets; subsetId++)
 	{
 		// Create and add Bin Iterator
@@ -77,10 +74,6 @@ void OSEM_CPU::setupOperatorsForSensImgGen()
 	}
 
 	// Create ProjectorParams object
-	OperatorProjectorParams projParams(
-	    nullptr /* Will be set later at each subset loading */, scanner, 0.f, 0,
-	    flagProjPSF ? projPsf_fname : "", numRays);
-
 	if (projectorType == OperatorProjector::ProjectorType::SIDDON)
 	{
 		mp_projector = std::make_unique<OperatorProjectorSiddon>(projParams);

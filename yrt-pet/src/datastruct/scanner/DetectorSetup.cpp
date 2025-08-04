@@ -47,4 +47,9 @@ bool DetectorSetup::isDetectorAllowed(det_id_t det) const
 	return true;
 }
 
+bool DetectorSetup::hasMask() const
+{
+	return false;
+}
+
 }  // namespace yrt

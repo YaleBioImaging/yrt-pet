@@ -34,7 +34,7 @@ void OSEMUpdater_CPU::backprojectBin(
     util::ProgressDisplayMultiThread& progressDisplay, size_t numBinsMax,
     const BinIterator& binIterProj, size_t blockSize,
     std::set<ConstraintVariable>& consVariables,
-    std::set<ProjectionPropertiesVariable>& projVariables,
+    std::set<ProjectionPropertyType>& projVariables,
     ConstraintParams* infoT) const
 {
 	ProjectionProperties projectionProperties;
@@ -101,7 +101,7 @@ void OSEMUpdater_CPU::computeSensitivityImage(Image& destImage) const
 	const ProjectionData* sensImgGenProjData =
 	    corrector.getSensImgGenProjData();
 	Image* destImagePtr = &destImage;
-	BinIteratorConstrained binIter(sensImgGenProjData, binIterProj);
+	BinIteratorConstrained binIter(sensImgGenProjData, mp_osem->getConstraints());
 	const bin_t numBinsMax = binIterProj->size();
 	int numThreads = globals::getNumThreads();
 	util::ProgressDisplayMultiThread progressDisplay(globals::getNumThreads(),
@@ -110,7 +110,7 @@ void OSEMUpdater_CPU::computeSensitivityImage(Image& destImage) const
 	std::vector<std::thread> workers;
 	std::vector<ConstraintParams> info;
 	std::set<ConstraintVariable> consVariables = binIter.collectVariables();
-	std::set<ProjectionPropertiesVariable> projVariables = {};
+	std::set<ProjectionPropertyType> projVariables = {};
 	ConstraintParams infoTest;
 	ProjectionProperties projPropsTest;
 	binIter.collectInfo(0, consVariables, projVariables, projPropsTest,

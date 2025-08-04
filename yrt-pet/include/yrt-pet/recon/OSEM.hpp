@@ -5,13 +5,13 @@
 
 #pragma once
 
+#include "yrt-pet/datastruct/projection/BinIteratorConstrained.hpp"
 #include "yrt-pet/datastruct/image/Image.hpp"
 #include "yrt-pet/datastruct/projection/UniformHistogram.hpp"
 #include "yrt-pet/operators/OperatorProjector.hpp"
-#include "yrt-pet/operators/OperatorPsf.hpp"
-#include "yrt-pet/operators/OperatorVarPsf.hpp"
 #include "yrt-pet/recon/Corrector.hpp"
 #include "yrt-pet/utils/RangeList.hpp"
+#include <vector>
 
 #if BUILD_PYBIND11
 #include <pybind11/pybind11.h>
@@ -137,7 +137,8 @@ protected:
 	// ---------- Virtual pure functions ----------
 
 	// Sens Image generator driver
-	virtual void setupOperatorsForSensImgGen() = 0;
+	virtual void
+	    setupOperatorsForSensImgGen(OperatorProjectorParams& projParams) = 0;
 	virtual void allocateForSensImgGen() = 0;
 	virtual std::unique_ptr<Image>
 	    getLatestSensitivityImage(bool isLastSubset) = 0;
@@ -174,6 +175,9 @@ private:
 	void initializeForRecon();
 
 	std::vector<std::unique_ptr<BinIterator>> m_binIterators;
+	std::vector<std::unique_ptr<Constraint>> m_constraints;
+	std::set<ConstraintVariable> consVariables;
+	std::set<ProjectionPropertyType> projVariables;
 
 	const ProjectionData* mp_dataInput;
 

@@ -3,6 +3,8 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
+#pragma once
+
 #include <condition_variable>
 #include <cstddef>
 #include <mutex>

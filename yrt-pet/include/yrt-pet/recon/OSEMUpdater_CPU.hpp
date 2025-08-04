@@ -37,7 +37,7 @@ public:
 	                    size_t numBinsMax, const BinIterator& binIterProj,
 	                    size_t blockSize,
 	                    std::set<ConstraintVariable>& variables,
-	                    std::set<ProjectionPropertiesVariable>& projVariables,
+	                    std::set<ProjectionPropertyType>& projVariables,
 	                    ConstraintParams* infoT) const;
 
 	/*

@@ -52,11 +52,8 @@ Corrector_GPU& OSEM_GPU::getCorrector_GPU()
 	return *mp_corrector;
 }
 
-void OSEM_GPU::setupOperatorsForSensImgGen()
+void OSEM_GPU::setupOperatorsForSensImgGen(OperatorProjectorParams& projParams)
 {
-	getBinIterators().clear();
-	getBinIterators().reserve(num_OSEM_subsets);
-
 	for (int subsetId = 0; subsetId < num_OSEM_subsets; subsetId++)
 	{
 		// Create and add Bin Iterator
@@ -64,11 +61,6 @@ void OSEM_GPU::setupOperatorsForSensImgGen()
 		    mp_corrector->getSensImgGenProjData()->getBinIter(num_OSEM_subsets,
 		                                                      subsetId));
 	}
-	// Create ProjectorParams object
-	OperatorProjectorParams projParams(
-	    nullptr /* Will be set later at each subset loading */, scanner, 0.f, 0,
-	    flagProjPSF ? projPsf_fname : "", numRays);
-
 	if (projectorType == OperatorProjector::DD)
 	{
 		mp_projector = std::make_unique<OperatorProjectorDD_GPU>(

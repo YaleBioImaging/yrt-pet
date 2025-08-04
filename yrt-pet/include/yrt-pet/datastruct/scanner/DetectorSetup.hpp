@@ -27,5 +27,6 @@ public:
 	virtual void writeToFile(const std::string& detCoord_fname) const = 0;
 	virtual Vector3D getPos(det_id_t id) const;
 	virtual Vector3D getOrient(det_id_t id) const;
+	virtual bool hasMask() const;
 };
 }  // namespace yrt

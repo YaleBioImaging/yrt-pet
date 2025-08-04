@@ -20,7 +20,7 @@ namespace yrt
 class BinIterator;
 enum class ProjectionPropertiesVariable;
 enum class ConstraintVariable;
-using ConstraintParams = std::unordered_map<ConstraintVariable, size_t>;
+using ConstraintParams = char*;
 
 struct ProjectionProperties
 {

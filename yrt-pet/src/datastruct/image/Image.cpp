@@ -36,9 +36,9 @@ void py_setup_image(py::module& m)
 	c.def_buffer(
 	    [](Image& img) -> py::buffer_info
 	    {
-		    Array3DBase<float>& d = img.getData();
+		    Array4DBase<float>& d = img.getData();
 		    return py::buffer_info(d.getRawPointer(), sizeof(float),
-		                           py::format_descriptor<float>::format(), 3,
+		                           py::format_descriptor<float>::format(), 4,
 		                           d.getDims(), d.getStrides());
 	    });
 	c.def("isMemoryValid", &Image::isMemoryValid);
@@ -55,16 +55,17 @@ void py_setup_image(py::module& m)
 	c.def("getRadius", &Image::getRadius);
 	c.def("getParams", &Image::getParams);
 	c.def("interpolateImage",
-	      static_cast<float (Image::*)(const Vector3D& pt, const Image& sens)
-	                      const>(&Image::interpolateImage),
-	      py::arg("pt"), py::arg("sens"));
-	c.def("interpolateImage",
-	      static_cast<float (Image::*)(const Vector3D& pt) const>(
+	      static_cast<float (Image::*)(const Vector3D& pt, const Image& sens,
+	                                   int frame) const>(
 	          &Image::interpolateImage),
-	      py::arg("pt"));
+	      py::arg("pt"), py::arg("sens"), py::arg("frame") = 0);
+	c.def("interpolateImage",
+	      static_cast<float (Image::*)(const Vector3D& pt, int frame) const>(
+	          &Image::interpolateImage),
+	      py::arg("pt"), py::arg("frame") = 0);
 	c.def(
 	    "updateImageInterpolate",
-	    [](Image& img, const Vector3D& pt, float value, bool mult_flag)
+	    [](Image& img, const Vector3D& pt, float value, frame_t frame, bool mult_flag)
 	    {
 		    if (mult_flag)
 		    {
@@ -75,9 +76,9 @@ void py_setup_image(py::module& m)
 			    img.updateImageInterpolate<false>(pt, value);
 		    }
 	    },
-	    py::arg("pt"), py::arg("value"), py::arg("mult_flag") = false);
+	    py::arg("pt"), py::arg("value"), py::arg("frame") = 0, py::arg("mult_flag") = false);
 	c.def("assignImageInterpolate", &Image::assignImageInterpolate,
-	      py::arg("pt"), py::arg("value"));
+	      py::arg("pt"), py::arg("value"), py::arg("frame") = 0);
 	c.def(
 	    "nearestNeighbor",
 	    [](const Image& img, const Vector3D& pt) -> py::tuple
@@ -89,7 +90,7 @@ void py_setup_image(py::module& m)
 	    py::arg("pt"));
 	c.def(
 	    "updateImageNearestNeighbor",
-	    [](Image& img, const Vector3D& pt, float value, bool mult_flag)
+	    [](Image& img, const Vector3D& pt, float value, frame_t frame, bool mult_flag)
 	    {
 		    if (mult_flag)
 		    {
@@ -100,9 +101,9 @@ void py_setup_image(py::module& m)
 			    img.updateImageNearestNeighbor<false>(pt, value);
 		    }
 	    },
-	    py::arg("pt"), py::arg("value"), py::arg("mult_flag") = false);
+	    py::arg("pt"), py::arg("value"), py::arg("frame") = 0, py::arg("mult_flag") = false);
 	c.def("assignImageNearestNeighbor", &Image::assignImageNearestNeighbor,
-	      py::arg("pt"), py::arg("value"));
+	      py::arg("pt"), py::arg("value"), py::arg("frame") = 0);
 	c.def(
 	    "getNearestNeighborIdx",
 	    [](const Image& img, const Vector3D& pt) -> py::tuple
@@ -123,43 +124,45 @@ void py_setup_image(py::module& m)
 	          const transform_t& t) const>(&Image::transformImage),
 	      py::arg("transform"));
 	c.def("writeToFile", &Image::writeToFile, py::arg("filename"));
+	c.def("getNumFrames", &Image::getNumFrames);
 
 	auto c_alias = py::class_<ImageAlias, Image>(m, "ImageAlias");
-	c_alias.def(py::init<const ImageParams&>(), py::arg("img_params"));
+	c_alias.def(py::init<const ImageParams&, int>(), py::arg("img_params"),
+	            py::arg("num_frames") = 1);
 	c_alias.def(
 	    "bind",
 	    [](ImageAlias& self, py::buffer& np_data)
 	    {
 		    py::buffer_info buffer = np_data.request();
-		    if (buffer.ndim != 3)
+		    if (buffer.ndim != 4 && buffer.ndim != 3)
 		    {
 			    throw std::invalid_argument(
-			        "The buffer given has to have 3 dimensions");
+			        "The buffer given has to have 4 dimensions");
 		    }
 		    if (buffer.format != py::format_descriptor<float>::format())
 		    {
 			    throw std::invalid_argument(
 			        "The buffer given has to have a float32 format");
 		    }
-		    std::vector<int> dims = {self.getParams().nz, self.getParams().ny,
-		                             self.getParams().nx};
-		    for (int i = 0; i < 3; i++)
+		    std::vector<int> dims = {self.getNumFrames(), self.getParams().nz,
+		                             self.getParams().ny, self.getParams().nx};
+		    for (int i = 0; i < buffer.ndim; i++)
 		    {
-			    if (buffer.shape[i] != dims[i])
+			    if (buffer.shape[i] != dims[buffer.ndim == 4 ? i : i + 1])
 			    {
 				    throw std::invalid_argument(
 				        "The buffer shape does not match with the image "
 				        "parameters");
 			    }
 		    }
-		    static_cast<Array3DAlias<float>&>(self.getData())
+		    static_cast<Array4DAlias<float>&>(self.getData())
 		        .bind(reinterpret_cast<float*>(buffer.ptr), dims[0], dims[1],
-		              dims[2]);
+		              dims[2], dims[3]);
 	    },
 	    py::arg("numpy_data"));
 
 	auto c_owned = py::class_<ImageOwned, Image>(m, "ImageOwned");
-	c_owned.def(py::init<const ImageParams&>(), py::arg("img_params"));
+	c_owned.def(py::init<const ImageParams&, int>(), py::arg("img_params"), py::arg("num_frames"));
 	c_owned.def(py::init<const ImageParams&, std::string>(),
 	            py::arg("img_params"), py::arg("filename"));
 	c_owned.def(py::init<std::string>(), py::arg("filename"));
@@ -174,7 +177,10 @@ namespace yrt
 
 Image::Image() : ImageBase{} {}
 
-Image::Image(const ImageParams& imgParams) : ImageBase(imgParams) {}
+Image::Image(const ImageParams& imgParams, int p_numFrames)
+    : ImageBase(imgParams), m_numFrames(p_numFrames)
+{
+}
 
 void Image::setValue(float initValue)
 {
@@ -190,14 +196,19 @@ void Image::copyFromImage(const ImageBase* imSrc)
 	setParams(imSrc_ptr->getParams());
 }
 
-Array3DBase<float>& Image::getData()
+Array4DBase<float>& Image::getData()
 {
 	return *mp_array;
 }
 
-const Array3DBase<float>& Image::getData() const
+const Array4DBase<float>& Image::getData() const
 {
 	return *mp_array;
+}
+
+int Image::getNumFrames() const
+{
+	return m_numFrames;
 }
 
 float* Image::getRawPointer()
@@ -230,7 +241,7 @@ float Image::voxelSum() const
 {
 	// Use double to avoid precision loss
 	const ImageParams& params = getParams();
-	const size_t numVoxels = params.nx * params.ny * params.nz;
+	const size_t numVoxels = m_numFrames * params.nx * params.ny * params.nz;
 	const float* rawPtr = mp_array->getRawPointer();
 	std::function<double(double, double)> func_sum = [](double a, double b)
 	{ return a + b; };
@@ -245,44 +256,50 @@ void Image::multWithScalar(float scalar)
 }
 
 // return the value of the voxel the nearest to "point":
-float Image::nearestNeighbor(const Vector3D& pt) const
+float Image::nearestNeighbor(const Vector3D& pt, int frame) const
 {
 	int ix, iy, iz;
 
-	if (getNearestNeighborIdx(pt, &ix, &iy, &iz))
+	if (getNearestNeighborIdx(pt, &ix, &iy, &iz, frame))
 	{
 		const size_t num_x = getParams().nx;
 		const size_t num_xy = getParams().nx * getParams().ny;
-		return mp_array->getFlat(iz * num_xy + iy * num_x + ix);
+		const size_t num_xyz = getParams().nz * getParams().nx * getParams().ny;
+		return mp_array->getFlat(frame * num_xyz + iz * num_xy + iy * num_x +
+		                         ix);
 	}
 	return 0;
 }
 
 // return the value of the voxel the nearest to "point":
-float Image::nearestNeighbor(const Vector3D& pt, int* pi, int* pj,
-                             int* pk) const
+float Image::nearestNeighbor(const Vector3D& pt, int* pi, int* pj, int* pk,
+                             int frame) const
 {
-	if (getNearestNeighborIdx(pt, pi, pj, pk))
+	if (getNearestNeighborIdx(pt, pi, pj, pk, frame))
 	{
 		const size_t num_x = getParams().nx;
 		const size_t num_xy = getParams().nx * getParams().ny;
-		return mp_array->getFlat(*pk * num_xy + *pj * num_x + *pi);
+		const size_t num_xyz = getParams().nx * getParams().ny * getParams().nz;
+		return mp_array->getFlat(frame * num_xyz + *pk * num_xy + *pj * num_x +
+		                         *pi);
 	}
 	return 0.0;
 }
 
 // update image with "value" using nearest neighbor method:
 template <bool MULT_FLAG>
-void Image::updateImageNearestNeighbor(const Vector3D& pt, float value)
+void Image::updateImageNearestNeighbor(const Vector3D& pt, float value,
+                                      int frame)
 {
 	int ix, iy, iz;
-	if (getNearestNeighborIdx(pt, &ix, &iy, &iz))
+	if (getNearestNeighborIdx(pt, &ix, &iy, &iz, frame))
 	{
 		// update multiplicatively or additively:
 		float* ptr = mp_array->getRawPointer();
 		const size_t num_x = getParams().nx;
 		const size_t num_xy = getParams().nx * getParams().ny;
-		const size_t idx = iz * num_xy + iy * num_x + ix;
+		const size_t num_xyz = getParams().nx * getParams().ny * getParams().nz;
+		const size_t idx = frame * num_xyz + iz * num_xy + iy * num_x + ix;
 		if constexpr (MULT_FLAG)
 		{
 			ptr[idx] *= value;
@@ -295,22 +312,24 @@ void Image::updateImageNearestNeighbor(const Vector3D& pt, float value)
 }
 
 // assign image with "value" using nearest neighbor method:
-void Image::assignImageNearestNeighbor(const Vector3D& pt, float value)
+void Image::assignImageNearestNeighbor(const Vector3D& pt, float value,
+                                       int frame)
 {
 	int ix, iy, iz;
-	if (getNearestNeighborIdx(pt, &ix, &iy, &iz))
+	if (getNearestNeighborIdx(pt, &ix, &iy, &iz, frame))
 	{
 		// update multiplicatively or additively:
 		float* ptr = mp_array->getRawPointer();
 		const size_t num_x = getParams().nx;
 		const size_t num_xy = getParams().nx * getParams().ny;
-		ptr[iz * num_xy + iy * num_x + ix] = value;
+		const size_t num_xyz = getParams().nx * getParams().ny * getParams().nz;
+		ptr[frame * num_xyz + iz * num_xy + iy * num_x + ix] = value;
 	}
 }
 
 // Returns true if the point `pt` is inside the image
-bool Image::getNearestNeighborIdx(const Vector3D& pt, int* pi, int* pj,
-                                  int* pk) const
+bool Image::getNearestNeighborIdx(const Vector3D& pt, int* pi, int* pj, int* pk,
+                                  int frame) const
 {
 	const ImageParams& params = getParams();
 	const float x = pt.x - params.off_x;
@@ -329,7 +348,7 @@ bool Image::getNearestNeighborIdx(const Vector3D& pt, int* pi, int* pj,
 	const int iz = static_cast<int>(dz);
 
 	if (ix < 0 || ix >= params.nx || iy < 0 || iy >= params.ny || iz < 0 ||
-	    iz >= params.nz)
+	    iz >= params.nz || frame < 0 || frame >= m_numFrames)
 	{
 		// Point outside grid
 		return false;
@@ -343,7 +362,7 @@ bool Image::getNearestNeighborIdx(const Vector3D& pt, int* pi, int* pj,
 }
 
 // interpolation operation.
-float Image::interpolateImage(const Vector3D& pt) const
+float Image::interpolateImage(const Vector3D& pt, int frame) const
 {
 	const ImageParams& params = getParams();
 
@@ -355,7 +374,7 @@ float Image::interpolateImage(const Vector3D& pt) const
 	                           params.length_z, params.off_x, params.off_y,
 	                           params.off_z, indices, weights);
 
-	const float* rawPtr = getRawPointer();
+	const float* rawPtr = getRawPointer() + frame * params.nx * params.ny * params.nz;
 	float total = 0.0f;
 
 	for (size_t i = 0; i < 8; i++)
@@ -368,7 +387,8 @@ float Image::interpolateImage(const Vector3D& pt) const
 
 // calculate the value of a point on the image matrix
 // using tri-linear interpolation and weighting with image "sens":
-float Image::interpolateImage(const Vector3D& pt, const Image& sens) const
+float Image::interpolateImage(const Vector3D& pt, const Image& sens,
+                              int frame) const
 {
 	const ImageParams& params = getParams();
 
@@ -380,8 +400,8 @@ float Image::interpolateImage(const Vector3D& pt, const Image& sens) const
 	                           params.length_z, params.off_x, params.off_y,
 	                           params.off_z, indices, weights);
 
-	const float* rawPtr = getRawPointer();
-	const float* sensRawPtr = sens.getRawPointer();
+	const float* rawPtr = getRawPointer() + frame * params.nx * params.ny * params.nz;;
+	const float* sensRawPtr = sens.getRawPointer() + frame * params.nx * params.ny * params.nz;
 	float total = 0.0f;
 
 	for (size_t i = 0; i < 8; i++)
@@ -394,7 +414,7 @@ float Image::interpolateImage(const Vector3D& pt, const Image& sens) const
 
 // update image with "value" using trilinear interpolation:
 template <int OPERATION>  // 0: assign, 1: multiply, 2: add
-void Image::operationImageInterpolate(const Vector3D& pt, float value)
+void Image::operationImageInterpolate(const Vector3D& pt, float value, int frame)
 {
 	// Only allow defined operations
 	static_assert(OPERATION >= 0 && OPERATION <= 2);
@@ -409,7 +429,7 @@ void Image::operationImageInterpolate(const Vector3D& pt, float value)
 	                           params.length_z, params.off_x, params.off_y,
 	                           params.off_z, indices, weights);
 
-	float* rawPtr = getRawPointer();
+	float* rawPtr = getRawPointer() + frame * params.nx * params.ny * params.nz;;
 
 	for (size_t i = 0; i < 8; i++)
 	{
@@ -430,29 +450,29 @@ void Image::operationImageInterpolate(const Vector3D& pt, float value)
 
 // assign image with "value" using trilinear interpolation:
 template <bool MULT_FLAG>
-void Image::updateImageInterpolate(const Vector3D& pt, float value)
+void Image::updateImageInterpolate(const Vector3D& pt, float value, int frame)
 {
 	if (MULT_FLAG)
 	{
-		operationImageInterpolate<1>(pt, value);
+		operationImageInterpolate<1>(pt, value, frame);
 	}
 	else
 	{
-		operationImageInterpolate<2>(pt, value);
+		operationImageInterpolate<2>(pt, value, frame);
 	}
 }
 
 // assign image with "value" using trilinear interpolation:
-void Image::assignImageInterpolate(const Vector3D& pt, float value)
+void Image::assignImageInterpolate(const Vector3D& pt, float value, int frame)
 {
-	operationImageInterpolate<0>(pt, value);
+	operationImageInterpolate<0>(pt, value, frame);
 }
 
 void Image::operationOnEachVoxel(const std::function<float(size_t)>& func)
 {
 	const ImageParams& params = getParams();
 	float* flatPtr = mp_array->getRawPointer();
-	const size_t numVoxels = params.nx * params.ny * params.nz;
+	const size_t numVoxels = m_numFrames * params.nx * params.ny * params.nz;
 	for (size_t i = 0; i < numVoxels; i++)
 	{
 		flatPtr[i] = func(i);
@@ -464,7 +484,7 @@ void Image::operationOnEachVoxelParallel(
 {
 	const ImageParams& params = getParams();
 	float* flatPtr = mp_array->getRawPointer();
-	const size_t numVoxels = params.nx * params.ny * params.nz;
+	const size_t numVoxels = m_numFrames * params.nx * params.ny * params.nz;
 
 	util::parallelForChunked(numVoxels, globals::getNumThreads(),
 	                         [flatPtr, func](size_t i, size_t /*tid*/)
@@ -480,20 +500,25 @@ void Image::writeToFile(const std::string& fname) const
 	    "The NIfTI image file extension should be either .nii or .nii.gz");
 
 	const ImageParams& params = getParams();
-	const int dims[] = {3, params.nx, params.ny, params.nz};
+	const int dims[] = {4, params.nx, params.ny, params.nz, m_numFrames};
 	nifti_image* nim = nifti_make_new_nim(dims, NIFTI_TYPE_FLOAT32, 0);
 	nim->nx = params.nx;
 	nim->ny = params.ny;
 	nim->nz = params.nz;
+	nim->nt = m_numFrames;
 	nim->nbyper = sizeof(float);
 	nim->datatype = NIFTI_TYPE_FLOAT32;
 	nim->pixdim[0] = 0.0f;
 	nim->dx = params.vx;
 	nim->dy = params.vy;
 	nim->dz = params.vz;
+	// todo: is pixel spacing along time always 1 by default?
+	nim->dt = 1;
 	nim->pixdim[1] = params.vx;
 	nim->pixdim[2] = params.vy;
 	nim->pixdim[3] = params.vz;
+	// todo: is pixel spacing along time always 1 by default?
+	nim->pixdim[4] = 1;
 	nim->scl_slope = 1.0f;
 	nim->scl_inter = 0.0f;
 	nim->data =
@@ -584,7 +609,7 @@ float Image::dotProduct(const Image& y) const
 	return out;
 }
 
-Array3DAlias<float> Image::getArray() const
+Array4DAlias<float> Image::getArray() const
 {
 	return {mp_array.get()};
 }
@@ -619,6 +644,7 @@ void Image::transformImage(const transform_t& t, Image& dest,
 	const int nx = params.nx;
 	const int ny = params.ny;
 	const int nz = params.nz;
+	// todo: Update to loop through frames here too?
 
 	const transform_t inv = util::invertTransform(t);
 
@@ -663,9 +689,9 @@ std::unique_ptr<ImageOwned> Image::transformImage(const transform_t& t) const
 	return newImg;
 }
 
-ImageOwned::ImageOwned(const ImageParams& imgParams) : Image{imgParams}
+ImageOwned::ImageOwned(const ImageParams& imgParams, int p_numFrames) : Image{imgParams, p_numFrames}
 {
-	mp_array = std::make_unique<Array3D<float>>();
+	mp_array = std::make_unique<Array4D<float>>();
 }
 
 ImageOwned::ImageOwned(const ImageParams& imgParams,
@@ -678,7 +704,7 @@ ImageOwned::ImageOwned(const ImageParams& imgParams,
 
 ImageOwned::ImageOwned(const std::string& filename) : Image{}
 {
-	mp_array = std::make_unique<Array3D<float>>();
+	mp_array = std::make_unique<Array4D<float>>();
 
 	// Deduce image parameters from given file
 	readFromFile(filename);
@@ -688,8 +714,8 @@ void ImageOwned::allocate()
 {
 	ASSERT(mp_array != nullptr);
 	const ImageParams& params = getParams();
-	reinterpret_cast<Array3D<float>*>(mp_array.get())
-	    ->allocate(params.nz, params.ny, params.nx);
+	reinterpret_cast<Array4D<float>*>(mp_array.get())
+	    ->allocate(m_numFrames, params.nz, params.ny, params.nx);
 }
 
 mat44 ImageOwned::adjustAffineMatrix(mat44 matrix)
@@ -724,7 +750,7 @@ void ImageOwned::readFromFile(const std::string& fname)
 
 	if (niftiImage == nullptr)
 	{
-		throw std::invalid_argument("An error occured while reading file " +
+		throw std::invalid_argument("An error occurred while reading file " +
 		                            fname);
 	}
 
@@ -759,6 +785,7 @@ void ImageOwned::readFromFile(const std::string& fname)
 	voxelSpacing[0] = niftiImage->dx;  // Spacing along x
 	voxelSpacing[1] = niftiImage->dy;  // Spacing along y
 	voxelSpacing[2] = niftiImage->dz;  // Spacing along z
+	//	todo: Spacing along time (?)
 
 	const int spaceUnits = niftiImage->xyz_units;
 	if (spaceUnits == NIFTI_UNITS_METER)
@@ -794,7 +821,7 @@ void ImageOwned::readFromFile(const std::string& fname)
 		newParams.vx = voxelSpacing[0];
 		newParams.vy = voxelSpacing[1];
 		newParams.vz = voxelSpacing[2];
-		ASSERT_MSG(niftiImage->dim[0] == 3, "NIfTI Image's dim[0] is not 3");
+		ASSERT_MSG(niftiImage->dim[0] == 4, "NIfTI Image's dim[0] is not 3");
 		newParams.nx = niftiImage->dim[1];
 		newParams.ny = niftiImage->dim[2];
 		newParams.nz = niftiImage->dim[3];
@@ -822,7 +849,7 @@ void ImageOwned::readNIfTIData(int datatype, void* data, float slope,
 	const ImageParams& params = getParams();
 
 	float* imgData = getRawPointer();
-	const int numVoxels = params.nx * params.ny * params.nz;
+	const int numVoxels = m_numFrames * params.nx * params.ny * params.nz;
 
 	if (datatype == NIFTI_TYPE_FLOAT32)
 	{
@@ -902,7 +929,7 @@ void ImageOwned::checkImageParamsWithGivenImage(float voxelSpacing[3],
 {
 	const ImageParams& params = getParams();
 
-	ASSERT(dim[0] == 3);
+	ASSERT(dim[0] == 4 || dim[0] == 3);
 
 	if (!(APPROX_EQ_THRESH(voxelSpacing[0], params.vx, 1e-3) &&
 	      APPROX_EQ_THRESH(voxelSpacing[1], params.vy, 1e-3) &&
@@ -959,17 +986,52 @@ float Image::offsetToOrigin(float off, float voxelSize, float length)
 	return off - 0.5f * length + 0.5f * voxelSize;
 }
 
-ImageAlias::ImageAlias(const ImageParams& imgParams) : Image(imgParams)
+template <int Dimension>
+float Image::indexToPositionInDimension(int index) const
 {
-	mp_array = std::make_unique<Array3DAlias<float>>();
+	static_assert(Dimension >= 0 && Dimension < 3);
+	const ImageParams& params = getParams();
+	float voxelSize, length, offset;
+	if constexpr (Dimension == 0)
+	{
+		voxelSize = params.vz;
+		length = params.length_z;
+		offset = params.off_z;
+	}
+	else if constexpr (Dimension == 1)
+	{
+		voxelSize = params.vy;
+		length = params.length_y;
+		offset = params.off_y;
+	}
+	else if constexpr (Dimension == 2)
+	{
+		voxelSize = params.vx;
+		length = params.length_x;
+		offset = params.off_x;
+	}
+	else
+	{
+		throw std::runtime_error("Unknown error");
+	}
+	return util::indexToPosition(index, voxelSize, length, offset);
 }
 
-void ImageAlias::bind(Array3DBase<float>& p_data)
+template float Image::indexToPositionInDimension<0>(int index) const;
+template float Image::indexToPositionInDimension<1>(int index) const;
+template float Image::indexToPositionInDimension<2>(int index) const;
+
+ImageAlias::ImageAlias(const ImageParams& imgParams, int p_numFrames) : Image{imgParams, p_numFrames}
 {
-	static_cast<Array3DAlias<float>*>(mp_array.get())->bind(p_data);
+	mp_array = std::make_unique<Array4DAlias<float>>();
+}
+
+void ImageAlias::bind(Array4DBase<float>& p_data)
+{
+	static_cast<Array4DAlias<float>*>(mp_array.get())->bind(p_data);
 	if (mp_array->getRawPointer() != p_data.getRawPointer())
 	{
-		throw std::runtime_error("An error occured during Image binding");
+		throw std::runtime_error("An error occurred during Image binding");
 	}
 }
 }  // namespace yrt

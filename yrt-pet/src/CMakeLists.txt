@@ -35,6 +35,7 @@ set(SOURCES
     operators/Operator.cpp
     operators/OperatorProjectorBase.cpp
     operators/OperatorProjector.cpp
+    operators/OperatorProjectorUpdater.cpp
     operators/OperatorProjectorSiddon.cpp
     operators/OperatorProjectorDD.cpp
     operators/OperatorPsf.cpp
@@ -45,6 +46,7 @@ set(SOURCES
     operators/Variable.cpp
     recon/Corrector.cpp
     recon/Corrector_CPU.cpp
+    recon/OSEMUpdater.cpp
     recon/OSEMUpdater_CPU.cpp
     recon/OSEM.cpp
     recon/OSEM_CPU.cpp

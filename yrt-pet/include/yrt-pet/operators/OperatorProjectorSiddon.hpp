@@ -37,22 +37,29 @@ public:
 	                        float tofValue = 0.f) const;
 	void backProjection(Image* img, const Line3D& lor, const Vector3D& n1,
 	                    const Vector3D& n2, float projValue, int tid,
+	                    int eventTimeFrame = 0,
 	                    const TimeOfFlightHelper* tofHelper = nullptr,
 	                    float tofValue = 0.f) const;
 
 	// Without Multi-ray siddon
 	static float
 	    singleForwardProjection(const Image* img, const Line3D& lor,
+	                            OperatorProjectorUpdater& updater,
+	                            int eventTimeFrame = 0,
 	                            const TimeOfFlightHelper* tofHelper = nullptr,
 	                            float tofValue = 0.f);
 	static void
 	    singleBackProjection(Image* img, const Line3D& lor, float projValue,
+	                         OperatorProjectorUpdater& updater,
+	                         int eventTimeFrame = 0,
 	                         const TimeOfFlightHelper* tofHelper = nullptr,
 	                         float tofValue = 0.f);
 
 
 	template <bool IS_FWD, bool FLAG_INCR, bool FLAG_TOF>
 	static void project_helper(Image* img, const Line3D& lor, float& value,
+	                           OperatorProjectorUpdater& updater,
+	                           int eventTimeFrame = 0,
 	                           const TimeOfFlightHelper* tofHelper = nullptr,
 	                           float tofValue = 0.f);
 

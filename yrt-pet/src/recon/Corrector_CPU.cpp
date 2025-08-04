@@ -204,8 +204,11 @@ float Corrector_CPU::getAttenuationFactorFromAttenuationImage(
 	const float tofValue =
 	    measurements.hasTOF() ? measurements.getTOFValue(binId) : 0.0f;
 
+	// todo: pass eventTimeFrame argument from above to calculate the
+	//  attenuation for each timeframe the coincidence belongs to.
 	const float att = OperatorProjectorSiddon::singleForwardProjection(
-	    &attenuationImage, lor, mp_tofHelper.get(), tofValue);
+	    &attenuationImage, lor, *mp_updater.get(), 0,
+	    mp_tofHelper.get(), tofValue);
 
 	return util::getAttenuationCoefficientFactor(att);
 }

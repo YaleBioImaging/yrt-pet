@@ -414,7 +414,7 @@ protected:
 		if (_shape == nullptr)
 		{
 			throw std::runtime_error(
-			    "Error occured while trying to change the array shape");
+			    "Error occurred while trying to change the array shape");
 		}
 	}
 
@@ -488,7 +488,7 @@ protected:
 		_data_ptr = this->allocateFlatPointer(size);
 		this->_data = _data_ptr.get();
 		if (_data_ptr == nullptr)
-			throw std::runtime_error("Error occured during memory allocation");
+			throw std::runtime_error("Error occurred during memory allocation");
 	}
 };
 
@@ -589,7 +589,7 @@ protected:
 		_data_ptr = this->allocateFlatPointer(size);
 		this->_data = _data_ptr.get();
 		if (_data_ptr == nullptr)
-			throw std::runtime_error("Error occured during memory allocation");
+			throw std::runtime_error("Error occurred during memory allocation");
 	}
 };
 
@@ -705,7 +705,7 @@ protected:
 		_data_ptr = this->allocateFlatPointer(size);
 		this->_data = _data_ptr.get();
 		if (_data_ptr == nullptr)
-			throw std::runtime_error("Error occured during memory allocation");
+			throw std::runtime_error("Error occurred during memory allocation");
 	}
 };
 
@@ -748,5 +748,133 @@ protected:
 		    "Unsupported operation, cannot Allocate on Alias array");
 	}
 };
+
+
+
+
+
+
+
+template <typename T>
+class Array4DBase : public Array<4, T>
+{
+public:
+	Array4DBase() : Array<4, T>()
+	{
+		size_t dims[4] = {0, 0, 0, 0};
+		this->setShape(dims);
+	}
+
+	T* getSlicePtr(size_t ri)
+	{
+		return &this->_data[ri * this->_shape.get()[1] *
+		                    this->_shape.get()[2] * this->_shape.get()[3]];
+	}
+
+	T* getSlicePtr(size_t ri) const
+	{
+		return &this->_data[ri * this->_shape.get()[1] *
+		                    this->_shape.get()[2] * this->_shape.get()[3]];
+	}
+
+	Array3DAlias<T> operator[](size_t ri)
+	{
+		Array3DAlias<T> slice_array;
+		T* data_slice = getSlicePtr(ri);
+		slice_array.bind(data_slice, this->_shape.get()[1],
+		                 this->_shape.get()[2], this->_shape.get()[3]);
+		return slice_array;
+	}
+
+	Array3DAlias<T> operator[](size_t ri) const
+	{
+		Array3DAlias<T> slice_array;
+		T* data_slice = getSlicePtr(ri);
+		slice_array.bind(data_slice, this->_shape.get()[1],
+		                 this->_shape.get()[2], this->_shape.get()[3]);
+		return slice_array;
+	}
+
+private:
+	Array4DBase(const Array4DBase<T>&) = delete;
+};
+
+template <typename T>
+class Array4D : public Array4DBase<T>
+{
+public:
+	Array4D() : Array4DBase<T>() {}
+
+	void allocate(size_t num_t, size_t num_slices, size_t num_rows, size_t num_el)
+	{
+		if (num_t * num_slices * num_rows * num_el != this->getSizeTotal())
+		{
+			if (_data_ptr != nullptr)
+			{
+				_data_ptr.reset();
+			}
+			allocateFlat(num_t * num_slices * num_rows * num_el);
+		}
+		size_t dims[4] = {num_t, num_slices, num_rows, num_el};
+		this->setShape(dims);
+	}
+
+private:
+	Array4D(const Array4D<T>&) = delete;
+
+protected:
+	std::unique_ptr<T[]> _data_ptr;
+
+	void allocateFlat(size_t size) override
+	{
+		_data_ptr = this->allocateFlatPointer(size);
+		this->_data = _data_ptr.get();
+		if (_data_ptr == nullptr)
+			throw std::runtime_error("Error occurred during memory allocation");
+	}
+};
+
+
+template <typename T>
+class Array4DAlias : public Array4DBase<T>
+{
+public:
+	Array4DAlias() : Array4DBase<T>() {}
+
+	void bind(const Array4DBase<T>& array)
+	{
+		size_t dims[4];
+		array.getDims(dims);
+		this->setShape(dims);
+		this->_data = array[0][0][0];
+	}
+
+	void bind(T* data, size_t num_t, size_t num_slices, size_t num_rows, size_t num_el)
+	{
+		size_t dims[4] = {num_t, num_slices, num_rows, num_el};
+		this->setShape(dims);
+		this->_data = data;
+	}
+
+	Array4DAlias(const Array4DBase<T>* array) { bind(*array); }
+
+	Array4DAlias(const Array4DAlias<T>& array) : Array4DBase<T>()
+	{
+		bind(array);
+	}
+
+	Array4DAlias(const Array4D<T>& array) { bind(array); }
+
+protected:
+	void allocateFlat(size_t size) override
+	{
+		(void)size;
+		throw std::runtime_error(
+		    "Unsupported operation, cannot Allocate on Alias array");
+	}
+};
+
+
+
 
 }  // namespace yrt

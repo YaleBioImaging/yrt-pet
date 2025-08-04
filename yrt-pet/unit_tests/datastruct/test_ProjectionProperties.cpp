@@ -16,7 +16,7 @@ TEST_CASE("proj_props", "[projProps]")
 		std::set<yrt::ProjectionPropertyType> variables{
 		    yrt::ProjectionPropertyType::LOR,
 		    yrt::ProjectionPropertyType::TOF};
-		yrt::ProjectionPropertiesManager propManager(variables);
+		yrt::PropStructManager propManager(variables);
 		REQUIRE(propManager.getElementSize() ==
 		        sizeof(yrt::Line3D) + sizeof(float));
 	}
@@ -24,9 +24,9 @@ TEST_CASE("proj_props", "[projProps]")
 	SECTION("props-simple-elementSize")
 	{
 		std::set<yrt::ProjectionPropertyType> variables;
-		variables.insert(yrt::ProjectionPropertyType::DET_ID);
-		variables.insert(yrt::ProjectionPropertyType::FRAME);
-		yrt::ProjectionPropertiesManager propManager(variables);
+		variables.insert(yrt::ProjectionPropertyType::DetID);
+		variables.insert(yrt::ProjectionPropertyType::Frame);
+		yrt::PropStructManager propManager(variables);
 
 		// Create data list
 		unsigned int numElements = 10;
@@ -37,19 +37,19 @@ TEST_CASE("proj_props", "[projProps]")
 			d.d1 = i;
 			d.d2 = i + 1;
 			propManager.setDataValue(data.get(), i,
-			                         yrt::ProjectionPropertyType::DET_ID, d);
+			                         yrt::ProjectionPropertyType::DetID, d);
 			yrt::frame_t frame = 12 + i;
 			propManager.setDataValue(
-			    data.get(), i, yrt::ProjectionPropertyType::FRAME, frame);
+			    data.get(), i, yrt::ProjectionPropertyType::Frame, frame);
 		}
 		// Get data
 		for (unsigned int i = 0; i < numElements; i++)
 		{
 			yrt::det_pair_t& det_pair =
 			    propManager.getDataValue<yrt::det_pair_t>(
-			        data.get(), i, yrt::ProjectionPropertyType::DET_ID);
+			        data.get(), i, yrt::ProjectionPropertyType::DetID);
 			yrt::frame_t frame = propManager.getDataValue<int>(
-			    data.get(), i, yrt::ProjectionPropertyType::FRAME);
+			    data.get(), i, yrt::ProjectionPropertyType::Frame);
 			REQUIRE(det_pair.d1 == i);
 			REQUIRE(det_pair.d2 == i + 1);
 			REQUIRE(frame == static_cast<yrt::frame_t>(12 + i));

@@ -36,6 +36,7 @@ public:
 	std::shared_ptr<DetectorSetup> getDetectorSetup() const;
 	bool isValid() const;
 	bool isDetectorAllowed(det_id_t det) const;
+	bool hasMask() const;
 
 	// Allocate and fill array with detector positions
 	void createLUT(Array2D<float>& lut) const;

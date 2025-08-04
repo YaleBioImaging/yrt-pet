@@ -148,6 +148,11 @@ bool Scanner::isDetectorAllowed(det_id_t det) const
 	return mp_detectors->isDetectorAllowed(det);
 }
 
+bool Scanner::hasMask() const
+{
+	return mp_detectors->hasMask();
+}
+
 void Scanner::createLUT(Array2D<float>& lut) const
 {
 	lut.allocate(this->getNumDets(), 6);

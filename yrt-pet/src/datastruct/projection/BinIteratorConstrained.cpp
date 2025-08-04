@@ -60,7 +60,7 @@ std::vector<ConstraintVariable> ConstraintBlockDiffIndex::getVariables() const
 }
 
 // Detector mask
-ConstraintDetectorMask::ConstraintDetectorMask(Scanner* scanner)
+ConstraintDetectorMask::ConstraintDetectorMask(const Scanner* scanner)
 {
 	mConstraintFcn = [scanner](ConstraintParams& info)
 	{
@@ -75,24 +75,17 @@ std::vector<ConstraintVariable> ConstraintDetectorMask::getVariables() const
 
 
 // Constrained bin iterator
-BinIteratorConstrained::BinIteratorConstrained(const ProjectionData* pProjData,
-                                               const BinIterator* pBinIterBase)
-    : mProjData(pProjData), mBinIterBase(pBinIterBase), mCount(0)
+BinIteratorConstrained::BinIteratorConstrained(
+    const ProjectionData* p_projData, std::vector<const Constraint*> p_constraints)
+	: m_projData(p_projData), m_constraints(p_constraints)
 {
-}
-
-
-void BinIteratorConstrained::addConstraint(Constraint& pConstraint)
-{
-	mConstraints.push_back(&pConstraint);
-	mCount = 0;
 }
 
 std::set<ConstraintVariable> BinIteratorConstrained::collectVariables() const
 {
 	// List variables required by constraints
 	std::set<ConstraintVariable> variables;
-	for (auto constraint : mConstraints)
+	for (auto constraint : m_constraints)
 	{
 		for (auto variable : constraint->getVariables())
 		{
@@ -104,24 +97,24 @@ std::set<ConstraintVariable> BinIteratorConstrained::collectVariables() const
 
 void BinIteratorConstrained::collectInfo(
     bin_t bin, std::set<ConstraintVariable>& consVariables,
-    std::set<ProjectionPropertiesVariable>& projVariables,
+    std::set<ProjectionPropertyType>& projVariables,
     ProjectionProperties& projProps,
     ConstraintParams& consInfo) const
 {
-	auto [d1, d2] = mProjData->getDetectorPair(bin);
+	auto [d1, d2] = m_projData->getDetectorPair(bin);
 	consInfo[ConstraintVariable::Det1] = d1;
 	consInfo[ConstraintVariable::Det2] = d2;
 
 	bool needsLOR =
-		projVariables.find(ProjectionPropertiesVariable::LOR) != projVariables.end() ||
+		projVariables.find(ProjectionPropertyType::LOR) != projVariables.end() ||
 	    consVariables.find(ConstraintVariable::AbsDeltaAngleDeg) != consVariables.end();
 	Line3D lor;
 	if (needsLOR)
 	{
-		lor = mProjData->getLOR(bin);
+		lor = m_projData->getLOR(bin);
 		projProps.lor = lor;
 	}
-	const Scanner* scanner = &mProjData->getScanner();
+	const Scanner* scanner = &m_projData->getScanner();
 
 	if (consVariables.find(ConstraintVariable::AbsDeltaAngleDeg) != consVariables.end())
 	{
@@ -168,7 +161,7 @@ void BinIteratorConstrained::collectInfo(
 
 bool BinIteratorConstrained::isValid(ConstraintParams& info) const
 {
-	for (auto constraint : mConstraints)
+	for (auto constraint : m_constraints)
 	{
 		if (!constraint->isValid(info))
 		{
@@ -176,32 +169,6 @@ bool BinIteratorConstrained::isValid(ConstraintParams& info) const
 		}
 	}
 	return true;
-}
-
-
-size_t BinIteratorConstrained::count()
-{
-	if (mCount != 0)
-	{
-		return mCount;
-	}
-	else
-	{
-		auto variables = collectVariables();
-		size_t count = 0;
-#pragma omp parallel for reduction(+ : count)
-		for (size_t binIdx = 0; binIdx < mBinIterBase->size(); binIdx++)
-		{
-			ConstraintParams info;
-			bin_t bin = mBinIterBase->get(binIdx);
-			// FIXME: collectInfo(bin, variables, info);
-			if (isValid(info))
-			{
-				count++;
-			}
-		}
-		return count;
-	}
 }
 
 }  // namespace yrt

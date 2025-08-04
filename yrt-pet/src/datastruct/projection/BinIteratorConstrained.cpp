@@ -7,10 +7,13 @@
 
 #include <cmath>
 #include <cstdlib>
+#include <memory>
 
 #include "yrt-pet/datastruct/projection/ProjectionData.hpp"
+#include "yrt-pet/datastruct/projection/ProjectionProperties.hpp"
 #include "yrt-pet/geometry/Constants.hpp"
 #include "yrt-pet/utils/Tools.hpp"
+#include "yrt-pet/utils/Types.hpp"
 
 namespace yrt
 {
@@ -19,7 +22,7 @@ namespace yrt
 
 bool Constraint::isValid(ConstraintParams& info) const
 {
-	return mConstraintFcn(info);
+	return m_constraintFcn(info);
 }
 std::vector<ConstraintVariable> Constraint::getVariables() const
 {
@@ -27,10 +30,15 @@ std::vector<ConstraintVariable> Constraint::getVariables() const
 }
 
 // Minimum angle difference constraint (index)
-ConstraintAngleDiffIndex::ConstraintAngleDiffIndex(size_t pMinAngleDiffIdx)
+ConstraintAngleDiffIndex::ConstraintAngleDiffIndex(
+    const ConstraintManager& p_manager, int p_minAngleDiffIdx)
 {
-	mConstraintFcn = [pMinAngleDiffIdx](ConstraintParams& info)
-	{ return info[ConstraintVariable::AbsDeltaAngleIdx] >= pMinAngleDiffIdx; };
+	m_constraintFcn = [p_manager, p_minAngleDiffIdx](ConstraintParams& info)
+	{
+		int absDeltaAngleIdx = p_manager.getDataValue<int>(
+		    info, 0, ConstraintVariable::AbsDeltaAngleIdx);
+		return absDeltaAngleIdx >= p_minAngleDiffIdx;
+	};
 }
 std::vector<ConstraintVariable> ConstraintAngleDiffIndex::getVariables() const
 {
@@ -38,10 +46,15 @@ std::vector<ConstraintVariable> ConstraintAngleDiffIndex::getVariables() const
 }
 
 // Minimum angle difference constraint (angle)
-ConstraintAngleDiffDeg::ConstraintAngleDiffDeg(size_t pMinAngleDiffDeg)
+ConstraintAngleDiffDeg::ConstraintAngleDiffDeg(
+    const ConstraintManager& p_manager, float p_minAngleDiffDeg)
 {
-	mConstraintFcn = [pMinAngleDiffDeg](ConstraintParams& info)
-	{ return info[ConstraintVariable::AbsDeltaAngleDeg] >= pMinAngleDiffDeg; };
+	m_constraintFcn = [p_manager, p_minAngleDiffDeg](ConstraintParams& info)
+	{
+		float absDeltaAngleDeg = p_manager.getDataValue<float>(
+			info, 0, ConstraintVariable::AbsDeltaAngleDeg);
+		return absDeltaAngleDeg >= p_minAngleDiffDeg;
+	};
 }
 std::vector<ConstraintVariable> ConstraintAngleDiffDeg::getVariables() const
 {
@@ -49,10 +62,15 @@ std::vector<ConstraintVariable> ConstraintAngleDiffDeg::getVariables() const
 }
 
 // Minimum angle difference constraint (index)
-ConstraintBlockDiffIndex::ConstraintBlockDiffIndex(size_t pMinBlockDiffIdx)
+ConstraintBlockDiffIndex::ConstraintBlockDiffIndex(
+    const ConstraintManager& p_manager, int p_minBlockDiffIdx)
 {
-	mConstraintFcn = [pMinBlockDiffIdx](ConstraintParams& info)
-	{ return info[ConstraintVariable::AbsDeltaBlockIdx] >= pMinBlockDiffIdx; };
+	m_constraintFcn = [p_manager, p_minBlockDiffIdx](ConstraintParams& info)
+	{
+		int absDeltaBlockIdx = p_manager.getDataValue<int>(
+			info, 0, ConstraintVariable::AbsDeltaBlockIdx);
+		return absDeltaBlockIdx >= p_minBlockDiffIdx;
+	};
 }
 std::vector<ConstraintVariable> ConstraintBlockDiffIndex::getVariables() const
 {
@@ -60,12 +78,17 @@ std::vector<ConstraintVariable> ConstraintBlockDiffIndex::getVariables() const
 }
 
 // Detector mask
-ConstraintDetectorMask::ConstraintDetectorMask(const Scanner* scanner)
+ConstraintDetectorMask::ConstraintDetectorMask(
+    const ConstraintManager& p_manager, const Scanner* scanner)
 {
-	mConstraintFcn = [scanner](ConstraintParams& info)
+	m_constraintFcn = [p_manager, scanner](ConstraintParams& info)
 	{
-		return (scanner->isDetectorAllowed(info[ConstraintVariable::Det1]) &&
-		        scanner->isDetectorAllowed(info[ConstraintVariable::Det2]));
+		det_id_t d1 =
+		    p_manager.getDataValue<det_id_t>(info, 0, ConstraintVariable::Det1);
+		det_id_t d2 =
+		    p_manager.getDataValue<det_id_t>(info, 0, ConstraintVariable::Det2);
+		return (scanner->isDetectorAllowed(d1) &&
+		        scanner->isDetectorAllowed(d2));
 	};
 }
 std::vector<ConstraintVariable> ConstraintDetectorMask::getVariables() const
@@ -79,6 +102,8 @@ BinIteratorConstrained::BinIteratorConstrained(
     const ProjectionData* p_projData, std::vector<const Constraint*> p_constraints)
 	: m_projData(p_projData), m_constraints(p_constraints)
 {
+	auto variables = collectVariables();
+	m_constraintManager = std::make_unique<ConstraintManager>(variables);
 }
 
 std::set<ConstraintVariable> BinIteratorConstrained::collectVariables() const
@@ -98,12 +123,14 @@ std::set<ConstraintVariable> BinIteratorConstrained::collectVariables() const
 void BinIteratorConstrained::collectInfo(
     bin_t bin, std::set<ConstraintVariable>& consVariables,
     std::set<ProjectionPropertyType>& projVariables,
-    ProjectionProperties& projProps,
+    char*& projProps,
     ConstraintParams& consInfo) const
 {
 	auto [d1, d2] = m_projData->getDetectorPair(bin);
-	consInfo[ConstraintVariable::Det1] = d1;
-	consInfo[ConstraintVariable::Det2] = d2;
+	m_constraintManager->setDataValue(consInfo, 0, ConstraintVariable::Det1,
+	                                  d1);
+	m_constraintManager->setDataValue(consInfo, 0, ConstraintVariable::Det2,
+	                                  d2);
 
 	bool needsLOR =
 		projVariables.find(ProjectionPropertyType::LOR) != projVariables.end() ||
@@ -112,7 +139,7 @@ void BinIteratorConstrained::collectInfo(
 	if (needsLOR)
 	{
 		lor = m_projData->getLOR(bin);
-		projProps.lor = lor;
+		m_propManager->setDataValue(projProps, 0, ProjectionPropertyType::LOR, lor);
 	}
 	const Scanner* scanner = &m_projData->getScanner();
 
@@ -121,8 +148,9 @@ void BinIteratorConstrained::collectInfo(
 		// In-plane angle
 		float a1 = std::atan2(lor.point1.y, lor.point1.x);
 		float a2 = std::atan2(lor.point2.y, lor.point2.x);
-		consInfo[ConstraintVariable::AbsDeltaAngleDeg] =
-		    util::periodicDiff(a1, a2, (float)(2.f * PI));
+		float diff = util::periodicDiff(a1, a2, (float)(2.f * PI));
+		m_constraintManager->setDataValue(
+		    consInfo, 0, ConstraintVariable::AbsDeltaAngleDeg, diff);
 	}
 
 	bool needsPlaneIdx =
@@ -130,8 +158,8 @@ void BinIteratorConstrained::collectInfo(
 	        consVariables.end() ||
 	    consVariables.find(ConstraintVariable::AbsDeltaBlockIdx) !=
 	        consVariables.end();
-	size_t d1xyi;
-	size_t d2xyi;
+	int d1xyi;
+	int d2xyi;
 	if (needsPlaneIdx)
 	{
 		d1xyi = d1 % scanner->detsPerRing;
@@ -139,14 +167,16 @@ void BinIteratorConstrained::collectInfo(
 	}
 	if (consVariables.find(ConstraintVariable::AbsDeltaAngleIdx) != consVariables.end())
 	{
-		consInfo[ConstraintVariable::AbsDeltaAngleIdx] =
-		    util::periodicDiff(d1xyi, d2xyi, scanner->detsPerRing);
+		int diff = util::periodicDiff(d1xyi, d2xyi,
+		                              static_cast<int>(scanner->detsPerRing));
+		m_constraintManager->setDataValue(
+		    consInfo, 0, ConstraintVariable::AbsDeltaAngleIdx, diff);
 	}
 
 	bool needsPlaneBlock =
 	    consVariables.find(ConstraintVariable::AbsDeltaBlockIdx) != consVariables.end();
-	size_t d1bi;
-	size_t d2bi;
+	int d1bi;
+	int d2bi;
 	if (needsPlaneBlock)
 	{
 		d1bi = d1xyi / scanner->detsPerBlock;
@@ -154,8 +184,10 @@ void BinIteratorConstrained::collectInfo(
 	}
 	if (consVariables.find(ConstraintVariable::AbsDeltaBlockIdx) != consVariables.end())
 	{
-		consInfo[ConstraintVariable::AbsDeltaBlockIdx] =
-		    util::periodicDiff(d1bi, d2bi, scanner->detsPerBlock);
+		int diff = util::periodicDiff(d1bi, d2bi,
+		                              static_cast<int>(scanner->detsPerBlock));
+		m_constraintManager->setDataValue(
+		    consInfo, 0, ConstraintVariable::AbsDeltaBlockIdx, diff);
 	}
 }
 

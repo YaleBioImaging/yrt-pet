@@ -17,27 +17,8 @@
 namespace yrt
 {
 
-enum class ConstraintVariable
-{
-	Det1,
-	Det2,
-	AbsDeltaAngleDeg,
-	AbsDeltaAngleIdx,
-	AbsDeltaBlockIdx
-};
-
-inline std::map<ConstraintVariable, std::pair<std::string, int>>
-    ConstraintVariableInfo{
-        {ConstraintVariable::Det1, {"Det1", sizeof(det_id_t)}},
-        {ConstraintVariable::Det2, {"Det2", sizeof(det_id_t)}},
-        {ConstraintVariable::AbsDeltaAngleDeg,
-         {"AbsDeltaAngleDeg", sizeof(float)}},
-        {ConstraintVariable::AbsDeltaAngleIdx,
-         {"AbsDeltaAngleIdx", sizeof(int)}},
-        {ConstraintVariable::AbsDeltaBlockIdx,
-         {"AbsDeltaBlockIdx", sizeof(int)}}};
-
 using ConstraintParams = char*;
+using ConstraintManager = PropStructManager<ConstraintVariable>;
 
 class Constraint
 {
@@ -45,31 +26,35 @@ public:
 	bool isValid(ConstraintParams& info) const;
 	virtual std::vector<ConstraintVariable> getVariables() const = 0;
 protected:
-	std::function<bool(ConstraintParams&)> mConstraintFcn;
+	std::function<bool(ConstraintParams&)> m_constraintFcn;
 };
 
 class ConstraintAngleDiffIndex : public Constraint
 {
 public:
-	ConstraintAngleDiffIndex(size_t pMinAngleDiffIdx);
+	ConstraintAngleDiffIndex(const ConstraintManager& p_manager,
+	                         int p_minAngleDiffIdx);
 	std::vector<ConstraintVariable> getVariables() const override;
 };
 class ConstraintAngleDiffDeg : public Constraint
 {
 public:
-	ConstraintAngleDiffDeg(size_t pMinAngleDiffDeg);
+	ConstraintAngleDiffDeg(const ConstraintManager& p_manager,
+	                       float p_minAngleDiffDeg);
 	std::vector<ConstraintVariable> getVariables() const override;
 };
 class ConstraintBlockDiffIndex : public Constraint
 {
 public:
-	ConstraintBlockDiffIndex(size_t pMinBlockDiffIdx);
+	ConstraintBlockDiffIndex(const ConstraintManager& p_manager,
+	                         int p_minBlockDiffIdx);
 	std::vector<ConstraintVariable> getVariables() const override;
 };
 class ConstraintDetectorMask : public Constraint
 {
 public:
-	ConstraintDetectorMask(const Scanner* scanner);
+	ConstraintDetectorMask(const ConstraintManager& p_manager,
+	                       const Scanner* scanner);
 	std::vector<ConstraintVariable> getVariables() const override;
 };
 
@@ -83,7 +68,7 @@ public:
 	void collectInfo(
 	    bin_t bin, std::set<ConstraintVariable>& consVariables,
 	    std::set<ProjectionPropertyType>& projVariables,
-	    ProjectionProperties& projProps,
+	    char*& projProps,
 	    ConstraintParams& consInfo) const;
 	bool isValid(ConstraintParams& info) const;
 
@@ -94,7 +79,8 @@ private:
 
 	// Loop variables
 	std::set<ConstraintVariable> m_variables;
-
+	std::unique_ptr<ConstraintManager> m_constraintManager;
+	std::unique_ptr<ProjectionPropertyManager> m_propManager;
 };
 
 }  // namespace yrt

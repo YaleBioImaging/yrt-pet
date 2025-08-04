@@ -8,6 +8,7 @@
 #include "yrt-pet/geometry/Cylinder.hpp"
 #include "yrt-pet/geometry/Plane.hpp"
 #include "yrt-pet/scatter/Crystal.hpp"
+#include "yrt-pet/operators/OperatorProjectorUpdater.hpp"
 
 #include <vector>
 
@@ -29,10 +30,11 @@ public:
 	                       CrystalMaterial p_crystalMaterial, int seedi);
 
 	void runSSS(size_t numberZ, size_t numberPhi, size_t numberR,
-	            Histogram3D& scatterHisto);
+	            Histogram3D& scatterHisto, int eventTimeFrame);
 
 	float computeSingleScatterInLOR(const Line3D& lor, const Vector3D& n1,
-	                                const Vector3D& n2) const;
+	                                const Vector3D& n2,
+	                                int eventTimeFrame) const;
 
 	Vector3D getSamplePoint(int i) const;
 	int getNumSamples() const;
@@ -59,6 +61,9 @@ private:
 	CrystalMaterial m_crystalMaterial;
 	Cylinder m_cyl1, m_cyl2;
 	Plane m_endPlate1, m_endPlate2;
+
+	// Updater for forward and back-projection
+	std::shared_ptr<OperatorProjectorUpdater> mp_updater;
 };
 
 }  // namespace scatter

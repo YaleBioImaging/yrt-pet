@@ -8,6 +8,7 @@
 #include "yrt-pet/datastruct/projection/ProjectionData.hpp"
 #include "yrt-pet/operators/Operator.hpp"
 #include "yrt-pet/operators/OperatorProjectorBase.hpp"
+#include "yrt-pet/operators/OperatorProjectorUpdater.hpp"
 #include "yrt-pet/operators/ProjectionPsfManager.hpp"
 #include "yrt-pet/operators/TimeOfFlight.hpp"
 #include "yrt-pet/utils/Types.hpp"
@@ -30,11 +31,22 @@ public:
 		DD
 	};
 
+	enum ProjectorUpdaterType
+	{
+		DEFAULT3D = 0,
+		DEFAULT4D,
+		LR
+	};
+
 	explicit OperatorProjector(const Scanner& pr_scanner,
 	                           float tofWidth_ps = 0.0f, int tofNumStd = -1,
-	                           const std::string& projPsf_fname = "");
+	                           const std::string& projPsf_fname = "",
+	                           ProjectorUpdaterType projectorUpdaterType =
+	                               OperatorProjector::DEFAULT3D);
 
-	explicit OperatorProjector(const OperatorProjectorParams& p_projParams);
+	explicit OperatorProjector(const OperatorProjectorParams& p_projParams,
+	                           ProjectorUpdaterType projectorUpdaterType =
+	                               OperatorProjector::DEFAULT3D);
 
 	// Virtual functions
 	virtual float forwardProjection(
@@ -51,6 +63,8 @@ public:
 	void addTOF(float tofWidth_ps, int tofNumStd = -1);
 	void setupTOFHelper(float tofWidth_ps, int tofNumStd = -1);
 	void setupProjPsfManager(const std::string& projPsf_fname);
+	OperatorProjectorUpdater* getUpdater();
+	void setUpdater(std::unique_ptr<OperatorProjectorUpdater> pp_updater);
 
 	const TimeOfFlightHelper* getTOFHelper() const;
 	const ProjectionPsfManager* getProjectionPsfManager() const;
@@ -61,5 +75,8 @@ protected:
 
 	// Projection-domain PSF
 	std::unique_ptr<ProjectionPsfManager> mp_projPsfManager;
+
+	// Updater for forward and back-projection
+	std::unique_ptr<OperatorProjectorUpdater> mp_updater;
 };
 }  // namespace yrt

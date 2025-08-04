@@ -12,6 +12,7 @@
 #include "yrt-pet/operators/OperatorProjector.hpp"
 #include "yrt-pet/operators/OperatorProjectorDD.hpp"
 #include "yrt-pet/operators/OperatorProjectorSiddon.hpp"
+#include "yrt-pet/operators/OperatorPsf.hpp"
 #include "yrt-pet/operators/SparseProjection.hpp"
 #include "yrt-pet/utils/Assert.hpp"
 #include "yrt-pet/utils/Globals.hpp"

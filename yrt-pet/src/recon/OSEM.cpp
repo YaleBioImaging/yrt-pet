@@ -7,6 +7,7 @@
 
 #include "yrt-pet/datastruct/IO.hpp"
 #include "yrt-pet/datastruct/image/Image.hpp"
+#include "yrt-pet/datastruct/projection/BinIteratorConstrained.hpp"
 #include "yrt-pet/datastruct/projection/Histogram3D.hpp"
 #include "yrt-pet/datastruct/projection/ListMode.hpp"
 #include "yrt-pet/datastruct/projection/ProjectionData.hpp"
@@ -362,8 +363,20 @@ void OSEM::loadSubsetInternal(int p_subsetId, bool p_forRecon)
 
 void OSEM::initializeForSensImgGen()
 {
-	setupOperatorsForSensImgGen();
+	getBinIterators().clear();
+	getBinIterators().reserve(num_OSEM_subsets);
+	OperatorProjectorParams projParams(
+	    nullptr, scanner, 0.f, 0, flagProjPSF ? projPsf_fname : "", numRays);
+
+	setupOperatorsForSensImgGen(projParams);
 	allocateForSensImgGen();
+
+	// Collect constraints
+	if (scanner.hasMask())
+	{
+		m_constraints.push_back(
+			std::make_unique<ConstraintDetectorMask>(&scanner));
+	}
 }
 
 void OSEM::initializeForRecon()

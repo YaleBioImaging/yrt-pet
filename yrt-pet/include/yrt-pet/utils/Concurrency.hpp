@@ -33,6 +33,8 @@ void parallel_do_indexed(size_t threadCnt, F f, Args... args)
 		worker.join();
 }
 
+// Function given as a parameter has two arguments: The position in the for loop
+//  and the current thread's ID.
 template <typename Func>
 void parallel_for_chunked(size_t total, size_t threadCnt, Func fn)
 {
@@ -49,7 +51,7 @@ void parallel_for_chunked(size_t total, size_t threadCnt, Func fn)
 		    {
 			    for (size_t i = start; i < end; ++i)
 			    {
-				    fn(i);
+				    fn(i, t);
 			    }
 		    });
 	}

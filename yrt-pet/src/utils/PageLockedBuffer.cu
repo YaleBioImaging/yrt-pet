@@ -10,6 +10,9 @@
 
 #if BUILD_CUDA
 
+#include "yrt-pet/utils/Types.hpp"
+
+
 #include <cuda.h>
 #include <iostream>
 
@@ -146,6 +149,7 @@ template class PageLockedBuffer<int>;
 template class PageLockedBuffer<uint2>;
 template class PageLockedBuffer<short>;
 template class PageLockedBuffer<char>;
+template class PageLockedBuffer<transform_t>;
 
 }  // namespace yrt
 

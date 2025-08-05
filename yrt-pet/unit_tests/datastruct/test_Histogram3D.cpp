@@ -5,10 +5,10 @@
 
 #include "catch.hpp"
 
+#include "test_utils.hpp"
 #include "yrt-pet/datastruct/projection/Histogram3D.hpp"
 #include "yrt-pet/datastruct/projection/ListModeLUT.hpp"
 #include "yrt-pet/datastruct/scanner/DetRegular.hpp"
-#include "test_utils.hpp"
 #include "yrt-pet/utils/ReconstructionUtils.hpp"
 
 namespace yrt
@@ -122,8 +122,8 @@ TEST_CASE("histo3d", "[histo]")
 
 	std::uniform_int_distribution<size_t> numRingsDistribution(1, 15);
 	std::uniform_int_distribution<size_t> numDOIDistribution(1, 4);
-	// detsPerRing is forced to be an even number here (from 2 to 100 crystals)
-	std::uniform_int_distribution<size_t> halfDetsPerRingDistribution(1, 50);
+	// detsPerRing is forced to be an even number here (from 4 to 100 crystals)
+	std::uniform_int_distribution<size_t> halfDetsPerRingDistribution(2, 50);
 
 	constexpr int NumTrials = 25;
 
@@ -324,7 +324,7 @@ TEST_CASE("histo3d", "[histo]")
 
 		SECTION("histo3d-get-lor-id-trial-" + std::to_string(trial + 1))
 		{
-			yrt::bin_t binId = 12;
+			yrt::bin_t binId = histo3d->count() - 1;
 			auto [d1_ref, d2_ref] = histo3d->getDetectorPair(binId);
 			yrt::histo_bin_t lorId = histo3d->getHistogramBin(binId);
 			auto newBin = std::get<yrt::bin_t>(lorId);

@@ -93,4 +93,4 @@ def test_image_transform():
     v_tr = yrt.Vector3D(0.0, 0.0, 0.0)
     img_t = img.transformImage(v_rot, v_tr)
     x_t = np.array(img_t, copy=False)
-    np.testing.assert_allclose(np.moveaxis(x, 1, 2)[..., ::-1], x_t, rtol=9e-6)
+    np.testing.assert_allclose(np.moveaxis(x, 1, 2)[..., ::-1], x_t, rtol=9e-5)

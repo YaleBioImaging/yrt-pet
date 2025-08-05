@@ -45,7 +45,7 @@ TEST_CASE("sparsehisto", "[sparsehisto]")
 		listMode->setDetectorIdsOfEvent(1, 10, 15);  // 3rd
 		listMode->setDetectorIdsOfEvent(2, 0, 15);   // 5th
 
-		sparseHisto->accumulate(*listMode);
+		sparseHisto->accumulate<true, false>(*listMode);
 		CHECK(sparseHisto->getProjectionValueFromDetPair({0, 15}) == 5.0f);
 		CHECK(sparseHisto->getProjectionValueFromDetPair({10, 15}) == 3.0f);
 	}
@@ -60,7 +60,7 @@ TEST_CASE("sparsehisto", "[sparsehisto]")
 
 		auto sparseHistoTotal =
 		    std::make_unique<yrt::SparseHistogram>(*scanner);
-		sparseHistoTotal->accumulate(*sparseHisto1);
+		sparseHistoTotal->accumulate<true, false>(*sparseHisto1);
 
 		auto sparseHisto2 = std::make_unique<yrt::SparseHistogram>(*scanner);
 		sparseHisto2->accumulate({5, 20}, 10.0f);
@@ -68,7 +68,7 @@ TEST_CASE("sparsehisto", "[sparsehisto]")
 		sparseHisto2->accumulate({12, 10}, 10.0f);
 		sparseHisto2->accumulate({120, 100}, 10.0f);
 
-		sparseHistoTotal->accumulate(*sparseHisto2);
+		sparseHistoTotal->accumulate<true, false>(*sparseHisto2);
 
 		REQUIRE(sparseHistoTotal->count() == 5);
 

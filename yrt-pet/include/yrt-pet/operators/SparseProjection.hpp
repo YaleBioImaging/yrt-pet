@@ -14,6 +14,7 @@ class SparseHistogram;
 
 namespace util
 {
+template <bool PrintProgress = true>
 void forwProjectToSparseHistogram(const Image& sourceImage,
                                   const OperatorProjector& projector,
                                   SparseHistogram& sparseHistogram);

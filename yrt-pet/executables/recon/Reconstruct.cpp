@@ -504,7 +504,7 @@ int main(int argc, char** argv)
 				{
 					// Time average move based on all the frames
 					movedSensImage = util::timeAverageMoveImage(
-					    *lorMotion, *unmovedSensImage);
+					    *lorMotion, unmovedSensImage);
 				}
 				else
 				{
@@ -513,7 +513,7 @@ int main(int argc, char** argv)
 					const timestamp_t timeStop =
 					    dataInput->getTimestamp(dataInput->count() - 1);
 					movedSensImage = util::timeAverageMoveImage(
-					    *lorMotion, *unmovedSensImage, timeStart, timeStop);
+					    *lorMotion, unmovedSensImage, timeStart, timeStop);
 				}
 
 				sensTimer.pause();

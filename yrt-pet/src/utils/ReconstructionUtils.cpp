@@ -54,15 +54,17 @@ void py_setup_reconstructionutils(pybind11::module& m)
 	    },
 	    "scanner"_a, "useGPU"_a = false);
 
+	m.def("getFullTimeRange", util::getFullTimeRange, "lorMotion"_a,
+	      "Get the maximum time range occupied by an LORMotion");
 	m.def("timeAverageMoveImage",
 	      static_cast<std::unique_ptr<ImageOwned> (*)(
-	          const LORMotion&, const Image&)>(&util::timeAverageMoveImage),
+	          const LORMotion&, const Image*)>(&util::timeAverageMoveImage),
 	      "lorMotion"_a, "unmovedSensImage"_a,
 	      "Blur a given image based on given motion information");
 
 	m.def("timeAverageMoveImage",
 	      static_cast<std::unique_ptr<ImageOwned> (*)(
-	          const LORMotion&, const Image&, timestamp_t, timestamp_t)>(
+	          const LORMotion&, const Image*, timestamp_t, timestamp_t)>(
 	          &util::timeAverageMoveImage),
 	      "lorMotion"_a, "unmovedSensImage"_a, "timeStart"_a, "timeStop"_a,
 	      "Blur a given image based on given motion information");
@@ -235,8 +237,8 @@ void histogram3DToListModeLUT(const Histogram3D* histo, ListModeLUTOwned* lmOut,
 	}
 }
 
-std::unique_ptr<ImageOwned> timeAverageMoveImage(const LORMotion& lorMotion,
-                                                 const Image& unmovedImage)
+std::tuple<timestamp_t, timestamp_t>
+    getFullTimeRange(const LORMotion& lorMotion)
 {
 	const size_t numFrames = lorMotion.getNumFrames();
 	ASSERT(numFrames > 0);
@@ -247,9 +249,7 @@ std::unique_ptr<ImageOwned> timeAverageMoveImage(const LORMotion& lorMotion,
 	{
 		// If the user provides only one frame, then only one transformation
 		// will be applied. The weight of that frame will be 1 out of 1.
-		return timeAverageMoveImage(lorMotion, unmovedImage,
-		                            startingTimestampFirstFrame,
-		                            startingTimestampFirstFrame + 1);
+		return {startingTimestampFirstFrame, startingTimestampFirstFrame + 1};
 	}
 
 	const frame_t lastFrame = numFrames - 1;
@@ -262,19 +262,33 @@ std::unique_ptr<ImageOwned> timeAverageMoveImage(const LORMotion& lorMotion,
 	    startingTimestampLastFrame -
 	    lorMotion.getStartingTimestamp(lastFrame - 1);
 
-	return timeAverageMoveImage(
-	    lorMotion, unmovedImage, startingTimestampFirstFrame,
-	    startingTimestampLastFrame + duration2ndToLastFrame);
+	return {startingTimestampFirstFrame,
+	        startingTimestampLastFrame + duration2ndToLastFrame};
 }
 
+template <bool PrintProgress>
 std::unique_ptr<ImageOwned> timeAverageMoveImage(const LORMotion& lorMotion,
-                                                 const Image& unmovedImage,
-                                                 timestamp_t timeStart,
-                                                 timestamp_t timeStop)
+                                                 const Image* unmovedImage)
 {
-	const ImageParams& params = unmovedImage.getParams();
+	auto [timeStart, timeStop] = getFullTimeRange(lorMotion);
+	return timeAverageMoveImage<PrintProgress>(lorMotion, unmovedImage,
+	                                           timeStart, timeStop);
+}
+template std::unique_ptr<ImageOwned>
+    timeAverageMoveImage<true>(const LORMotion& lorMotion,
+                               const Image* unmovedImage);
+template std::unique_ptr<ImageOwned>
+    timeAverageMoveImage<false>(const LORMotion& lorMotion,
+                                const Image* unmovedImage);
+
+template <bool PrintProgress>
+std::unique_ptr<ImageOwned>
+    timeAverageMoveImage(const LORMotion& lorMotion, const Image* unmovedImage,
+                         timestamp_t timeStart, timestamp_t timeStop)
+{
+	const ImageParams& params = unmovedImage->getParams();
 	ASSERT_MSG(params.isValid(), "Image parameters incomplete");
-	ASSERT_MSG(unmovedImage.isMemoryValid(),
+	ASSERT_MSG(unmovedImage->isMemoryValid(),
 	           "Sensitivity image given is not allocated");
 
 	const int64_t numFrames = lorMotion.getNumFrames();
@@ -295,7 +309,11 @@ std::unique_ptr<ImageOwned> timeAverageMoveImage(const LORMotion& lorMotion,
 
 	for (frame_t frame = 0; frame < numFrames; frame++)
 	{
-		progress.progress(frame);
+		if constexpr (PrintProgress)
+		{
+			progress.progress(frame);
+		}
+
 		const timestamp_t startingTimestamp =
 		    lorMotion.getStartingTimestamp(frame);
 		if (startingTimestamp >= timeStart)
@@ -306,14 +324,22 @@ std::unique_ptr<ImageOwned> timeAverageMoveImage(const LORMotion& lorMotion,
 			}
 			transform_t transform = lorMotion.getTransform(frame);
 			const float weight = lorMotion.getDuration(frame) / scanDuration;
-			unmovedImage.transformImage(transform, *movedSensImage, weight);
+			unmovedImage->transformImage(transform, *movedSensImage, weight);
 		}
 	}
 
 	return movedSensImage;
 }
+template std::unique_ptr<ImageOwned>
+    timeAverageMoveImage<true>(const LORMotion& lorMotion,
+                               const Image* unmovedImage, timestamp_t timeStart,
+                               timestamp_t timeStop);
+template std::unique_ptr<ImageOwned>
+    timeAverageMoveImage<false>(const LORMotion& lorMotion,
+                                const Image* unmovedImage,
+                                timestamp_t timeStart, timestamp_t timeStop);
 
-template <bool RequiresAtomicAccumulation>
+template <bool RequiresAtomicAccumulation, bool PrintProgress>
 void convertToHistogram3D(const ProjectionData& dat, Histogram3D& histoOut)
 {
 	float* histoDataPointer = histoOut.getData().getRawPointer();
@@ -329,7 +355,10 @@ void convertToHistogram3D(const ProjectionData& dat, Histogram3D& histoOut)
                      dat_constptr) shared(progressBar)
 	for (bin_t datBin = 0; datBin < numDatBins; ++datBin)
 	{
-		progressBar.progress(omp_get_thread_num(), 1);
+		if constexpr (PrintProgress)
+		{
+			progressBar.progress(omp_get_thread_num(), 1);
+		}
 
 		const float projValue = dat_constptr->getProjectionValue(datBin);
 		if (projValue > 0)
@@ -354,9 +383,14 @@ void convertToHistogram3D(const ProjectionData& dat, Histogram3D& histoOut)
 		}
 	}
 }
-
-template void convertToHistogram3D<true>(const ProjectionData&, Histogram3D&);
-template void convertToHistogram3D<false>(const ProjectionData&, Histogram3D&);
+template void convertToHistogram3D<true, true>(const ProjectionData&,
+                                               Histogram3D&);
+template void convertToHistogram3D<false, true>(const ProjectionData&,
+                                                Histogram3D&);
+template void convertToHistogram3D<true, false>(const ProjectionData&,
+                                                Histogram3D&);
+template void convertToHistogram3D<false, false>(const ProjectionData&,
+                                                 Histogram3D&);
 
 Line3D getNativeLOR(const Scanner& scanner, const ProjectionData& dat,
                     bin_t binId)

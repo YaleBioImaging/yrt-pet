@@ -36,7 +36,7 @@ void py_setup_lormotion(py::module& m)
 	c.def("getDuration", &LORMotion::getDuration, "frame"_a);
 	c.def("getError", &LORMotion::getError_safe, "frame"_a);
 	c.def("setError", &LORMotion::setError_safe, "frame"_a, "error"_a);
-	c.def("getNumFrames", &LORMotion::getNumFrames);
+	c.def("getNumMotionFrames", &LORMotion::getNumFrames);
 	c.def("readFromFile", &LORMotion::readFromFile, "filename"_a);
 	c.def("writeToFile", &LORMotion::writeToFile, "filename"_a);
 	c.def("getTotalDuration", &LORMotion::getTotalDuration);

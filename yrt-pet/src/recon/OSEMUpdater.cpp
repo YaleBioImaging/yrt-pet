@@ -3,7 +3,7 @@
 * file 'LICENSE.txt', which is part of this source code package.
 */
 
-#include "yrt-pet/recon/OSEM.hpp"
+#include "yrt-pet/recon/OSEMUpdater.hpp"
 
 #include "yrt-pet/datastruct/IO.hpp"
 #include "yrt-pet/datastruct/image/Image.hpp"
@@ -19,8 +19,8 @@
 #include "yrt-pet/operators/OperatorPsf.hpp"
 #include "yrt-pet/operators/OperatorVarPsf.hpp"
 #include "yrt-pet/recon/OSEM_CPU.hpp"
-#include "yrt-pet/recon/OSEMUpdater.hpp"
 #include "yrt-pet/recon/OSEMUpdater_CPU.hpp"
+#include "yrt-pet/recon/OSEM.hpp"
 #include "yrt-pet/utils/Assert.hpp"
 #include "yrt-pet/utils/Globals.hpp"
 #include "yrt-pet/utils/Tools.hpp"
@@ -54,7 +54,7 @@ void py_setup_osem_updater(pybind11::module& m)
 	      py::arg("inputImage"), py::arg("destImage"));
 
 	// factory function
-	m.def("create_osem_updater", &yrt::make_osem_updater, py::arg("osem"));
+	m.def("createOSEMUpdater", &yrt::createOSEMUpdater, py::arg("osem"));
 
 	// Downcast helpers (return raw pointer, may be nullptr if cast fails)
 	c.def("as_cpu",
@@ -98,7 +98,7 @@ void py_setup_osem_updater(pybind11::module& m)
 namespace yrt
 {
 
-std::unique_ptr<OSEMUpdater> make_osem_updater(OSEM* pp_osem)
+std::unique_ptr<OSEMUpdater> createOSEMUpdater(OSEM* pp_osem)
 {
 	if (!pp_osem) {
 		throw std::invalid_argument("OSEM pointer is null");

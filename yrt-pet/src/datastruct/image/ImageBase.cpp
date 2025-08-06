@@ -28,12 +28,13 @@ void py_setup_imageparams(py::module& m)
 	c.def(py::init<>());
 	c.def(py::init<int, int, int, float, float, float, float, float, float>(),
 	      "nx"_a, "ny"_a, "nz"_a, "length_x"_a, "length_y"_a, "length_z"_a,
-	      "offset_x"_a = 0., "offset_y"_a = 0., "offset_z"_a = 0.);
+	      "offset_x"_a = 0., "offset_y"_a = 0., "offset_z"_a = 0., "num_frames"_a = 1);
 	c.def(py::init<std::string>());
 	c.def(py::init<const ImageParams&>());
 	c.def_readwrite("nx", &ImageParams::nx);
 	c.def_readwrite("ny", &ImageParams::ny);
 	c.def_readwrite("nz", &ImageParams::nz);
+	c.def_readwrite("num_frames", &ImageParams::num_frames);
 
 	c.def_readwrite("length_x", &ImageParams::length_x);
 	c.def_readwrite("length_y", &ImageParams::length_y);
@@ -122,13 +123,14 @@ ImageParams::ImageParams()
       off_x(0.0f),
       off_y(0.0f),
       off_z(0.0f),
+      num_frames(1),
       fovRadius(-1.0f)
 {
 }
 
 ImageParams::ImageParams(int nxi, int nyi, int nzi, float length_xi,
                          float length_yi, float length_zi, float offset_xi,
-                         float offset_yi, float offset_zi)
+                         float offset_yi, float offset_zi, frame_t num_framesi)
     : nx(nxi),
       ny(nyi),
       nz(nzi),
@@ -140,7 +142,8 @@ ImageParams::ImageParams(int nxi, int nyi, int nzi, float length_xi,
       vz(-1.0f),
       off_x(offset_xi),
       off_y(offset_yi),
-      off_z(offset_zi)
+      off_z(offset_zi),
+      num_frames(num_framesi)
 {
 	setup();
 }
@@ -170,6 +173,7 @@ void ImageParams::copy(const ImageParams& in)
 	vx = in.vx;
 	vy = in.vy;
 	vz = in.vz;
+	num_frames = in.num_frames;
 	setup();
 }
 
@@ -272,6 +276,7 @@ void ImageParams::writeToJSON(json& j) const
 	j["off_x"] = off_x;
 	j["off_y"] = off_y;
 	j["off_z"] = off_z;
+	j["num_frames"] = num_frames;
 }
 
 void ImageParams::deserialize(const std::string& fname)
@@ -323,6 +328,8 @@ void ImageParams::readFromJSON(json& j)
 	util::getParam<int>(
 	    &j, &nz, "nz", 0, true,
 	    "Error in ImageParams file version : \'nz\' unspecified");
+
+	util::getParam<frame_t>(&j, &num_frames, {"num_frames"}, 1, false);
 
 	util::getParam<float>(&j, &off_x, {"off_x", "offset_x"}, 0.0, false);
 
@@ -438,9 +445,9 @@ void ImageBase::setParams(const ImageParams& newParams)
 	m_params = newParams;
 }
 
-size_t ImageBase::unravel(int iz, int iy, int ix) const
+size_t ImageBase::unravel(int iz, int iy, int ix, frame_t it) const
 {
-	return ix + (iy + iz * m_params.ny) * m_params.nx;
+	return ix + (iy + (iz + m_params.nz * it) * m_params.ny) * m_params.nx;
 }
 
 float ImageBase::getRadius() const

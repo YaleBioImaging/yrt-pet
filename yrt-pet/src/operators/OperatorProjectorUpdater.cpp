@@ -5,6 +5,7 @@
 
 #include "yrt-pet/datastruct/image/Image.hpp"
 #include "yrt-pet/operators/OperatorProjectorUpdater.hpp"
+#include "yrt-pet/utils/Types.hpp"
 
 
 #if BUILD_PYBIND11
@@ -24,13 +25,13 @@ void py_setup_operatorprojectorupdater(py::module& m)
 			  float weight,
 			  Image* in_image,
 			  int offset_x,
-			  int event_timeframe,
+			  frame_t dynamicFrame,
 			  size_t numVoxelPerFrame) -> float {
 			 return self.forwardUpdate(weight, in_image->getRawPointer(),
-			 offset_x, event_timeframe, numVoxelPerFrame);
+			 offset_x, dynamicFrame, numVoxelPerFrame);
 		   },
 		   py::arg("weight"), py::arg("in_image"),
-		   py::arg("offset_x"), py::arg("event_timeframe") = 0,
+		   py::arg("offset_x"), py::arg("dynamicFrame") = 0,
 		   py::arg("numVoxelPerFrame") = 0);
 	c.def("backUpdate",
 			   [](OperatorProjectorUpdater& self,
@@ -38,13 +39,13 @@ void py_setup_operatorprojectorupdater(py::module& m)
 				  float weight,
 				  Image* in_image,
 				  int offset_x,
-				  int event_timeframe,
+				  frame_t dynamicFrame,
 				  size_t numVoxelPerFrame) -> void {
 				 self.backUpdate(value, weight, in_image->getRawPointer(),
-				 offset_x, event_timeframe, numVoxelPerFrame);
+				 offset_x, dynamicFrame, numVoxelPerFrame);
 				 },
 			   py::arg("value"), py::arg("weight"), py::arg("in_image"),
-			   py::arg("offset_x"), py::arg("event_timeframe") = 0,
+			   py::arg("offset_x"), py::arg("dynamicFrame") = 0,
 			   py::arg("numVoxelPerFrame") = 0);
 
 	// Default updater
@@ -143,20 +144,20 @@ namespace yrt
 
 float OperatorProjectorUpdaterDefault3D::forwardUpdate(
     float weight, float* cur_img_ptr,
-    int offset_x, int event_timeframe,
+    int offset_x, frame_t dynamicFrame,
     size_t numVoxelPerFrame) const
 {
-	(void) event_timeframe;
+	(void) dynamicFrame;
 	(void) numVoxelPerFrame;
 	return weight * cur_img_ptr[offset_x];
 }
 
 void OperatorProjectorUpdaterDefault3D::backUpdate(
     float value, float weight, float* cur_img_ptr,
-    int offset_x, int event_timeframe,
+    int offset_x, frame_t dynamicFrame,
     size_t numVoxelPerFrame)
 {
-	(void) event_timeframe;
+	(void) dynamicFrame;
 	(void) numVoxelPerFrame;
 	float output = value * weight;
 	std::atomic_ref<float> atomic_elem(cur_img_ptr[offset_x]);
@@ -166,19 +167,19 @@ void OperatorProjectorUpdaterDefault3D::backUpdate(
 
 float OperatorProjectorUpdaterDefault4D::forwardUpdate(
     float weight, float* cur_img_ptr,
-    int offset_x, int event_timeframe,
+    int offset_x, frame_t dynamicFrame,
     size_t numVoxelPerFrame) const
 {
-	return weight * cur_img_ptr[event_timeframe * numVoxelPerFrame + offset_x];
+	return weight * cur_img_ptr[dynamicFrame * numVoxelPerFrame + offset_x];
 }
 
 void OperatorProjectorUpdaterDefault4D::backUpdate(
     float value, float weight, float* cur_img_ptr,
-    int offset_x, int event_timeframe,
+    int offset_x, frame_t dynamicFrame,
     size_t numVoxelPerFrame)
 {
 	float output = value * weight;
-	std::atomic_ref<float> atomic_elem(cur_img_ptr[event_timeframe * numVoxelPerFrame + offset_x]);
+	std::atomic_ref<float> atomic_elem(cur_img_ptr[dynamicFrame * numVoxelPerFrame + offset_x]);
 	atomic_elem.fetch_add(output);
 }
 
@@ -199,7 +200,7 @@ void OperatorProjectorUpdaterDefault4D::backUpdate(
 //	}
 //
 //	m_rank = static_cast<int>(dims[0]);
-//	m_numTimeFrames = static_cast<int>(dims[1]);
+//	dynamicFrames = static_cast<int>(dims[1]);
 //
 //	m_HBasis.allocate(dims[0], dims[1]);
 //	m_HBasis.copy(HBasis);  // copies data; m_HBasis is mutable after this
@@ -216,7 +217,7 @@ void OperatorProjectorUpdaterLR::setHBasis(const Array2D<float>& HBasis) {
 		throw std::invalid_argument("HBasis must have nonzero dimensions");
 	}
 	m_rank = static_cast<int>(dims[0]);
-	m_numTimeFrames = static_cast<int>(dims[1]);
+	dynamicFrames = static_cast<int>(dims[1]);
 
 	// Bind the alias to the provided backing storage
 	m_HBasis.bind(HBasis);  // Array2DAlias::bind(const Array2DBase<T>&)
@@ -225,7 +226,7 @@ void OperatorProjectorUpdaterLR::setHBasis(const Array2D<float>& HBasis) {
 void OperatorProjectorUpdaterLR::setHBasis(const Array2DAlias<float>& HBasisAlias) {
 	auto dims = HBasisAlias.getDims();
 	m_rank = static_cast<int>(dims[0]);
-	m_numTimeFrames = static_cast<int>(dims[1]);
+	dynamicFrames = static_cast<int>(dims[1]);
 	m_HBasis.bind(HBasisAlias); // alias-of-an-alias ??
 }
 
@@ -240,15 +241,15 @@ bool OperatorProjectorUpdaterLR::getUpdateH() const {
 
 float OperatorProjectorUpdaterLR::forwardUpdate(
     float weight, float* cur_img_ptr,
-    int offset_x, int event_timeframe, size_t numVoxelPerFrame) const
+    int offset_x, frame_t dynamicFrame, size_t numVoxelPerFrame) const
 {
 	float cur_img_lr_val = 0.0f;
 	const float* H_ptr = m_HBasis.getRawPointer();
-//	const int nt = static_cast<int>(m_numTimeFrames);
+//	const int nt = static_cast<int>(dynamicFrames);
 
 	for (int l = 0; l < m_rank; ++l)
 	{
-		float cur_H_ptr = *(H_ptr + l * m_numTimeFrames + event_timeframe);
+		float cur_H_ptr = *(H_ptr + l * dynamicFrames + dynamicFrame);
 		const size_t offset_rank = l * numVoxelPerFrame;
 		cur_img_lr_val += cur_img_ptr[offset_x + offset_rank] * cur_H_ptr;
 	}
@@ -257,7 +258,7 @@ float OperatorProjectorUpdaterLR::forwardUpdate(
 
 void OperatorProjectorUpdaterLR::backUpdate(
     float value, float weight, float* cur_img_ptr,
-    int offset_x, int event_timeframe, size_t numVoxelPerFrame)
+    int offset_x, frame_t dynamicFrame, size_t numVoxelPerFrame)
 {
 	float Ay = value * weight;
 	float* H_ptr = m_HBasis.getRawPointer();
@@ -266,7 +267,7 @@ void OperatorProjectorUpdaterLR::backUpdate(
 	{
 		for (int l = 0; l < m_rank; ++l)
 		{
-			float cur_H_ptr = *(H_ptr + l * m_numTimeFrames + event_timeframe);
+			float cur_H_ptr = *(H_ptr + l * dynamicFrames + dynamicFrame);
 			const size_t offset_rank = l * numVoxelPerFrame;
 			float output = Ay * cur_H_ptr;
 			std::atomic_ref<float> atomic_elem(cur_img_ptr[offset_x + offset_rank]);
@@ -277,7 +278,7 @@ void OperatorProjectorUpdaterLR::backUpdate(
 		for (int l = 0; l < m_rank; ++l) {
 			const size_t offset_rank = l * numVoxelPerFrame;
 			float output = Ay * cur_img_ptr[offset_x + offset_rank];
-			std::atomic_ref<float> atomic_elem(H_ptr[l * m_numTimeFrames + event_timeframe]);
+			std::atomic_ref<float> atomic_elem(H_ptr[l * dynamicFrames + dynamicFrame]);
 			atomic_elem.fetch_add(output);
 		}
 	}

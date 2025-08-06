@@ -98,6 +98,7 @@ public:
 	int num_OSEM_subsets;
 	float hardThreshold;
 	int numRays;  // For Siddon only
+	OperatorProjectorBase::ProjectorUpdaterType projectorUpdaterType;
 	OperatorProjector::ProjectorType projectorType;
 	const Scanner& scanner;
 	const Image* maskImage;
@@ -143,6 +144,7 @@ protected:
 	    getLatestSensitivityImage(bool isLastSubset) = 0;
 	virtual void computeSensitivityImage(ImageBase& destImage) = 0;
 	virtual void endSensImgGen() = 0;
+	virtual void setupProjectorUpdater() = 0;
 
 	// Reconstruction driver
 	virtual void setupOperatorsForRecon() = 0;

@@ -23,7 +23,7 @@ struct ProjectionProperties
 	float tofValue;
 	Vector3D det1Orient;
 	Vector3D det2Orient;
-	int eventTimeFrame;
+	frame_t dynamicFrame;
 };
 
 class ProjectionData : public Variable
@@ -45,7 +45,8 @@ public:
 
 	// Optional methods
 	virtual timestamp_t getTimestamp(bin_t id) const;
-	virtual frame_t getFrame(bin_t id) const;
+	virtual frame_t getDynamicFrame(bin_t id) const;
+	virtual frame_t getMotionFrame(bin_t id) const;
 	virtual bool isUniform() const;
 	virtual bool hasRandomsEstimates() const;
 	virtual float getRandomsEstimate(bin_t id) const;
@@ -54,9 +55,10 @@ public:
 	virtual float getTOFValue(bin_t id) const;
 	// For motion correction
 	virtual bool hasMotion() const;
-	virtual size_t getNumFrames() const;
-	virtual transform_t getTransformOfFrame(frame_t frame) const;
-	virtual float getDurationOfFrame(frame_t frame) const;
+	virtual size_t getNumDynamicFrames() const;
+	virtual size_t getNumMotionFrames() const;
+	virtual transform_t getTransformOfMotionFrame(frame_t frame) const;
+	virtual float getDurationOfMotionFrame(frame_t frame) const;
 	virtual timestamp_t getScanDuration() const;
 	// Special case when the LOR is not defined directly from the scanner's LUT
 	virtual bool hasArbitraryLORs() const;

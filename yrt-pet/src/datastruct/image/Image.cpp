@@ -127,8 +127,7 @@ void py_setup_image(py::module& m)
 	c.def("getNumFrames", &Image::getNumFrames);
 
 	auto c_alias = py::class_<ImageAlias, Image>(m, "ImageAlias");
-	c_alias.def(py::init<const ImageParams&, int>(), py::arg("img_params"),
-	            py::arg("num_frames") = 1);
+	c_alias.def(py::init<const ImageParams&>(), py::arg("img_params"));
 	c_alias.def(
 	    "bind",
 	    [](ImageAlias& self, py::buffer& np_data)
@@ -137,7 +136,7 @@ void py_setup_image(py::module& m)
 		    if (buffer.ndim != 4 && buffer.ndim != 3)
 		    {
 			    throw std::invalid_argument(
-			        "The buffer given has to have 4 dimensions");
+			        "The buffer given has to have 3 or 4 dimensions");
 		    }
 		    if (buffer.format != py::format_descriptor<float>::format())
 		    {
@@ -162,7 +161,7 @@ void py_setup_image(py::module& m)
 	    py::arg("numpy_data"));
 
 	auto c_owned = py::class_<ImageOwned, Image>(m, "ImageOwned");
-	c_owned.def(py::init<const ImageParams&, int>(), py::arg("img_params"), py::arg("num_frames"));
+	c_owned.def(py::init<const ImageParams&>(), py::arg("img_params"));
 	c_owned.def(py::init<const ImageParams&, std::string>(),
 	            py::arg("img_params"), py::arg("filename"));
 	c_owned.def(py::init<std::string>(), py::arg("filename"));
@@ -177,8 +176,8 @@ namespace yrt
 
 Image::Image() : ImageBase{} {}
 
-Image::Image(const ImageParams& imgParams, int p_numFrames)
-    : ImageBase(imgParams), m_numFrames(p_numFrames)
+Image::Image(const ImageParams& imgParams)
+    : ImageBase(imgParams)
 {
 }
 
@@ -208,7 +207,7 @@ const Array4DBase<float>& Image::getData() const
 
 int Image::getNumFrames() const
 {
-	return m_numFrames;
+	return getParams().num_frames;
 }
 
 float* Image::getRawPointer()
@@ -241,7 +240,7 @@ float Image::voxelSum() const
 {
 	// Use double to avoid precision loss
 	const ImageParams& params = getParams();
-	const size_t numVoxels = m_numFrames * params.nx * params.ny * params.nz;
+	const size_t numVoxels = getNumFrames() * params.nx * params.ny * params.nz;
 	const float* rawPtr = mp_array->getRawPointer();
 	std::function<double(double, double)> func_sum = [](double a, double b)
 	{ return a + b; };
@@ -348,7 +347,7 @@ bool Image::getNearestNeighborIdx(const Vector3D& pt, int* pi, int* pj, int* pk,
 	const int iz = static_cast<int>(dz);
 
 	if (ix < 0 || ix >= params.nx || iy < 0 || iy >= params.ny || iz < 0 ||
-	    iz >= params.nz || frame < 0 || frame >= m_numFrames)
+	    iz >= params.nz || frame < 0 || frame >= getNumFrames())
 	{
 		// Point outside grid
 		return false;
@@ -472,7 +471,7 @@ void Image::operationOnEachVoxel(const std::function<float(size_t)>& func)
 {
 	const ImageParams& params = getParams();
 	float* flatPtr = mp_array->getRawPointer();
-	const size_t numVoxels = m_numFrames * params.nx * params.ny * params.nz;
+	const size_t numVoxels = getNumFrames() * params.nx * params.ny * params.nz;
 	for (size_t i = 0; i < numVoxels; i++)
 	{
 		flatPtr[i] = func(i);
@@ -484,7 +483,7 @@ void Image::operationOnEachVoxelParallel(
 {
 	const ImageParams& params = getParams();
 	float* flatPtr = mp_array->getRawPointer();
-	const size_t numVoxels = m_numFrames * params.nx * params.ny * params.nz;
+	const size_t numVoxels = getNumFrames() * params.nx * params.ny * params.nz;
 
 	util::parallelForChunked(numVoxels, globals::getNumThreads(),
 	                         [flatPtr, func](size_t i, size_t /*tid*/)
@@ -500,12 +499,12 @@ void Image::writeToFile(const std::string& fname) const
 	    "The NIfTI image file extension should be either .nii or .nii.gz");
 
 	const ImageParams& params = getParams();
-	const int dims[] = {4, params.nx, params.ny, params.nz, m_numFrames};
+	const int dims[] = {4, params.nx, params.ny, params.nz, getNumFrames()};
 	nifti_image* nim = nifti_make_new_nim(dims, NIFTI_TYPE_FLOAT32, 0);
 	nim->nx = params.nx;
 	nim->ny = params.ny;
 	nim->nz = params.nz;
-	nim->nt = m_numFrames;
+	nim->nt = getNumFrames();
 	nim->nbyper = sizeof(float);
 	nim->datatype = NIFTI_TYPE_FLOAT32;
 	nim->pixdim[0] = 0.0f;
@@ -689,7 +688,7 @@ std::unique_ptr<ImageOwned> Image::transformImage(const transform_t& t) const
 	return newImg;
 }
 
-ImageOwned::ImageOwned(const ImageParams& imgParams, int p_numFrames) : Image{imgParams, p_numFrames}
+ImageOwned::ImageOwned(const ImageParams& imgParams) : Image{imgParams}
 {
 	mp_array = std::make_unique<Array4D<float>>();
 }
@@ -715,7 +714,7 @@ void ImageOwned::allocate()
 	ASSERT(mp_array != nullptr);
 	const ImageParams& params = getParams();
 	reinterpret_cast<Array4D<float>*>(mp_array.get())
-	    ->allocate(m_numFrames, params.nz, params.ny, params.nx);
+	    ->allocate(getNumFrames(), params.nz, params.ny, params.nx);
 }
 
 mat44 ImageOwned::adjustAffineMatrix(mat44 matrix)
@@ -821,7 +820,7 @@ void ImageOwned::readFromFile(const std::string& fname)
 		newParams.vx = voxelSpacing[0];
 		newParams.vy = voxelSpacing[1];
 		newParams.vz = voxelSpacing[2];
-		ASSERT_MSG(niftiImage->dim[0] == 4, "NIfTI Image's dim[0] is not 3");
+		ASSERT_MSG(niftiImage->dim[0] == 4, "NIfTI Image's dim[0] is not 4");
 		newParams.nx = niftiImage->dim[1];
 		newParams.ny = niftiImage->dim[2];
 		newParams.nz = niftiImage->dim[3];
@@ -849,7 +848,7 @@ void ImageOwned::readNIfTIData(int datatype, void* data, float slope,
 	const ImageParams& params = getParams();
 
 	float* imgData = getRawPointer();
-	const int numVoxels = m_numFrames * params.nx * params.ny * params.nz;
+	const int numVoxels = getNumFrames() * params.nx * params.ny * params.nz;
 
 	if (datatype == NIFTI_TYPE_FLOAT32)
 	{
@@ -1021,7 +1020,7 @@ template float Image::indexToPositionInDimension<0>(int index) const;
 template float Image::indexToPositionInDimension<1>(int index) const;
 template float Image::indexToPositionInDimension<2>(int index) const;
 
-ImageAlias::ImageAlias(const ImageParams& imgParams, int p_numFrames) : Image{imgParams, p_numFrames}
+ImageAlias::ImageAlias(const ImageParams& imgParams) : Image{imgParams}
 {
 	mp_array = std::make_unique<Array4DAlias<float>>();
 }

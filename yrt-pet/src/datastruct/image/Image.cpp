@@ -68,11 +68,11 @@ void py_setup_image(py::module& m)
 	    {
 		    if (mult_flag)
 		    {
-			    img.updateImageInterpolate<true>(pt, value);
+			    img.updateImageInterpolate<true>(pt, value, frame);
 		    }
 		    else
 		    {
-			    img.updateImageInterpolate<false>(pt, value);
+			    img.updateImageInterpolate<false>(pt, value, frame);
 		    }
 	    },
 	    py::arg("pt"), py::arg("value"), py::arg("frame") = 0, py::arg("mult_flag") = false);
@@ -93,11 +93,11 @@ void py_setup_image(py::module& m)
 	    {
 		    if (mult_flag)
 		    {
-			    img.updateImageNearestNeighbor<true>(pt, value);
+			    img.updateImageNearestNeighbor<true>(pt, value, frame);
 		    }
 		    else
 		    {
-			    img.updateImageNearestNeighbor<false>(pt, value);
+			    img.updateImageNearestNeighbor<false>(pt, value, frame);
 		    }
 	    },
 	    py::arg("pt"), py::arg("value"), py::arg("frame") = 0, py::arg("mult_flag") = false);

@@ -17,6 +17,7 @@ find_package(OpenMP REQUIRED)
 option(BUILD_PYBIND11 "Build python bindings using pybind11" ON)
 option(BUILD_TESTS "Determines whether to build tests." ON)
 option(USE_CUDA "Enable CUDA" ON)
+option(BUILD_SHARED_LIB "Additionally build YRT-PET as a shared library " OFF)
 option(DOWNLOAD_CATCH2 "Determines whether to download the Catch2 library" ON)
 option(DOWNLOAD_CXXOPTS "Determines whether to download the CxxOpts library" ON)
 option(DOWNLOAD_JSON "Determines whether to download the JSON library" ON)
@@ -108,11 +109,25 @@ function(define_yrtpet_lib SOURCES)
         ARCHIVE DESTINATION lib
         INCLUDES DESTINATION include)
     install(DIRECTORY ${CMAKE_SOURCE_DIR}/include/ DESTINATION include)
+    if (BUILD_SHARED_LIB)
+        add_library(${YRTPET_LIB_NAME}_shared SHARED)
+        target_sources(${YRTPET_LIB_NAME}_shared PRIVATE ${SOURCES})
+        setup_target(${YRTPET_LIB_NAME}_shared ${JSON} ${CXXOPTS} ${BUILD_PYBIND11})
+        target_compile_options(${YRTPET_LIB_NAME}_shared PRIVATE
+                $<$<COMPILE_LANGUAGE:CXX>:-fPIC>
+                "$<$<COMPILE_LANGUAGE:CUDA>:--compiler-options=-fPIC>")
+        install(TARGETS ${YRTPET_LIB_NAME}_shared
+                ARCHIVE DESTINATION lib
+                INCLUDES DESTINATION include)
+    endif()
 endfunction()
 
 # Add plugin sources to library
 function(add_plugin_sources)
     target_sources(${YRTPET_LIB_NAME} PRIVATE ${ARGN})
+    if (BUILD_SHARED_LIB)
+        target_sources(${YRTPET_LIB_NAME}_shared PRIVATE ${ARGN})
+    endif()
 endfunction()
 
 # Wrapper for executable target (link against library)

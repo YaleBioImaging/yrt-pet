@@ -54,6 +54,6 @@ public:
 
 };
 
-std::unique_ptr<OSEMUpdater> make_osem_updater(OSEM* pp_osem);
+std::unique_ptr<OSEMUpdater> createOSEMUpdater(OSEM* pp_osem);
 
 }

@@ -91,9 +91,9 @@ void ProjectionList::clearProjections(float value)
 	mp_projs->fill(value);
 }
 
-frame_t ProjectionList::getFrame(bin_t id) const
+frame_t ProjectionList::getMotionFrame(bin_t id) const
 {
-	return mp_reference->getFrame(id);
+	return mp_reference->getMotionFrame(id);
 }
 
 timestamp_t ProjectionList::getTimestamp(bin_t id) const
@@ -101,9 +101,9 @@ timestamp_t ProjectionList::getTimestamp(bin_t id) const
 	return mp_reference->getTimestamp(id);
 }
 
-size_t ProjectionList::getNumFrames() const
+size_t ProjectionList::getNumMotionFrames() const
 {
-	return mp_reference->getNumFrames();
+	return mp_reference->getNumMotionFrames();
 }
 
 float ProjectionList::getDurationOfFrame(frame_t frame) const
@@ -161,9 +161,9 @@ bool ProjectionList::hasMotion() const
 	return mp_reference->hasMotion();
 }
 
-transform_t ProjectionList::getTransformOfFrame(frame_t frame) const
+transform_t ProjectionList::getTransformOfMotionFrame(frame_t frame) const
 {
-	return mp_reference->getTransformOfFrame(frame);
+	return mp_reference->getTransformOfMotionFrame(frame);
 }
 
 bool ProjectionList::hasArbitraryLORs() const

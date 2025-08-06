@@ -34,10 +34,10 @@ void py_setup_singlescattersimulator(py::module& m)
 	      "scanner"_a, "attenuation_image"_a, "source_image"_a,
 	      "crystal_material"_a, "seed"_a);
 	c.def("runSSS", &scatter::SingleScatterSimulator::runSSS, "num_z"_a,
-	      "num_phi"_a, "num_r"_a, "scatter_histo"_a, "eventTimeFrame"_a);
+	      "num_phi"_a, "num_r"_a, "scatter_histo"_a, "dynamicFrame"_a);
 	c.def("computeSingleScatterInLOR",
 	      &scatter::SingleScatterSimulator::computeSingleScatterInLOR, "lor"_a,
-	      "n1"_a, "n2"_a, "eventTimeFrame"_a);
+	      "n1"_a, "n2"_a, "dynamicFrame"_a);
 	c.def("getSamplePoint", &scatter::SingleScatterSimulator::getSamplePoint,
 	      "i"_a);
 	c.def("getNumSamples", &scatter::SingleScatterSimulator::getNumSamples);

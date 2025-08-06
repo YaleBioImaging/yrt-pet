@@ -6,6 +6,7 @@
 #pragma once
 
 #include "yrt-pet/datastruct/image/ImageBase.hpp"
+#include "yrt-pet/operators/OperatorProjectorUpdaterBase.hpp"
 #include "yrt-pet/utils/Array.hpp"
 
 #include <vector>
@@ -13,29 +14,20 @@
 namespace yrt
 {
 
-class OperatorProjectorUpdater
+class OperatorProjectorUpdater : public OperatorProjectorUpdaterBase
 {
 public:
 	OperatorProjectorUpdater() = default;
 	virtual ~OperatorProjectorUpdater() = default;
 
-//	virtual float forwardUpdate(
-//	    float weight, float* cur_img_ptr,
-//	    int offset_x
-//	    ) const = 0;
-//	virtual void backUpdate(
-//	    float value, float weight, float* cur_img_ptr,
-//	    int offset_x
-//	    ) = 0;
-
 	virtual float forwardUpdate(
 	    float weight, float* cur_img_ptr,
-	    int offset_x, int event_timeframe = 0,
+	    int offset_x, int dynamicFrame = 0,
 	    size_t numVoxelPerFrame = 0
 	) const = 0;
 	virtual void backUpdate(
 	    float value, float weight, float* cur_img_ptr,
-	    int offset_x, int event_timeframe = 0,
+	    int offset_x, int dynamicFrame = 0,
 	    size_t numVoxelPerFrame = 0
 	    ) = 0;
 };
@@ -48,13 +40,13 @@ public:
 
 	float forwardUpdate(
 	    float weight, float* cur_img_ptr,
-	    int offset_x, int event_timeframe = 0,
+	    int offset_x, int dynamicFrame = 0,
 	    size_t numVoxelPerFrame = 0
 	) const override;
 
 	void backUpdate(
 	    float value, float weight, float* cur_img_ptr,
-	    int offset_x, int event_timeframe = 0,
+	    int offset_x, int dynamicFrame = 0,
 	    size_t numVoxelPerFrame = 0
 	    ) override;
 };
@@ -66,13 +58,13 @@ public:
 
 	float forwardUpdate(
 	    float weight, float* cur_img_ptr,
-	    int offset_x, int event_timeframe,
+	    int offset_x, int dynamicFrame,
 	    size_t numVoxelPerFrame
 	) const override;
 
 	void backUpdate(
 	    float value, float weight, float* cur_img_ptr,
-	    int offset_x, int event_timeframe,
+	    int offset_x, int dynamicFrame,
 	    size_t numVoxelPerFrame
 	    ) override;
 };
@@ -84,13 +76,13 @@ public:
 
 	float forwardUpdate(
 	    float weight, float* cur_img_ptr,
-	    int offset_x, int event_timeframe,
+	    int offset_x, int dynamicFrame,
 	    size_t numVoxelPerFrame
 	) const override;
 
 	void backUpdate(
 	    float value, float weight, float* cur_img_ptr,
-	    int offset_x, int event_timeframe,
+	    int offset_x, int dynamicFrame,
 	    size_t numVoxelPerFrame
 	) override;
 
@@ -102,7 +94,7 @@ public:
 
 protected:
 	int            m_rank = 1;
-	int            m_numTimeFrames = 1;
+	int dynamicFrames = 1;
 	Array2DAlias<float> m_HBasis;
 	bool           m_updateH = false;
 };

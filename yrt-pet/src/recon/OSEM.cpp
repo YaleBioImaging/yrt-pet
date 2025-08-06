@@ -112,6 +112,7 @@ void py_setup_osem(pybind11::module& m)
 	c.def_readwrite("hardThreshold", &OSEM::hardThreshold);
 	c.def_readwrite("numRays", &OSEM::numRays);
 	c.def_readwrite("projectorType", &OSEM::projectorType);
+	c.def_readwrite("projectorUpdaterType", &OSEM::projectorUpdaterType);
 	c.def_readwrite("maskImage", &OSEM::maskImage);
 	c.def_readwrite("initialEstimate", &OSEM::initialEstimate);
 }
@@ -127,7 +128,8 @@ OSEM::OSEM(const Scanner& pr_scanner)
       num_OSEM_subsets(1),
       hardThreshold(DEFAULT_HARD_THRESHOLD),
       numRays(1),
-      projectorType(OperatorProjector::SIDDON),
+	  projectorUpdaterType(OperatorProjectorBase::ProjectorUpdaterType::DEFAULT3D),
+	  projectorType(OperatorProjector::SIDDON),
       scanner(pr_scanner),
       maskImage(nullptr),
       initialEstimate(nullptr),

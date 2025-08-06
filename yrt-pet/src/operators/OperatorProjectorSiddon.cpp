@@ -38,14 +38,14 @@ void py_setup_operatorprojectorsiddon(py::module& m)
 	    "forwardProjection",
 	    [](const OperatorProjectorSiddon& self, const Image* in_image,
 	       const Line3D& lor, const Vector3D& n1, const Vector3D& n2,
-	       const int tid, int eventTimeFrame, const TimeOfFlightHelper* tofHelper,
+	       const int tid, frame_t dynamicFrame, const TimeOfFlightHelper* tofHelper,
 	       float tofValue) -> float
 	    {
 		    return self.forwardProjection(in_image, lor, n1, n2, tid, eventTimeFrame, tofHelper,
 		                                  tofValue);
 	    },
 	    py::arg("in_image"), py::arg("lor"), py::arg("n1"), py::arg("n2"),
-	    py::arg("tid") = 0, py::arg("eventTimeFrame") = 0, py::arg("tofHelper") = nullptr,
+	    py::arg("tid") = 0, py::arg("dynamic_frame") = 0, py::arg("tofHelper") = nullptr,
 	    py::arg("tofValue") = 0.0f);
 	c.def(
 	    "backProjection",
@@ -55,36 +55,36 @@ void py_setup_operatorprojectorsiddon(py::module& m)
 	       float tofValue) -> void
 	    {
 		    self.backProjection(in_image, lor, n1, n2, proj_value, tid,
-		                        eventTimeFrame, tofHelper, tofValue);
+		                        dynamicFrame, tofHelper, tofValue);
 	    },
 	    py::arg("in_image"), py::arg("lor"), py::arg("n1"), py::arg("n2"),
-	    py::arg("proj_value"), py::arg("tid") = 0, py::arg("eventTimeFrame") = 0,
+	    py::arg("proj_value"), py::arg("tid") = 0, py::arg("dynamic_rame") = 0,
 	    py::arg("tofHelper") = nullptr, py::arg("tofValue") = 0.0f);
 	c.def_static(
 	    "singleBackProjection",
 	    [](Image* in_image, const Line3D& lor, float proj_value,
-	       OperatorProjectorUpdater& updater, int eventTimeFrame,
+	       OperatorProjectorUpdater& updater, frame_t dynamicFrame,
 	       const TimeOfFlightHelper* tofHelper, float tofValue) -> void
 	    {
 		    OperatorProjectorSiddon::singleBackProjection(
-		        in_image, lor, proj_value, updater, eventTimeFrame,
+		        in_image, lor, proj_value, updater, dynamicFrame,
 		        tofHelper, tofValue);
 	    },
 	    py::arg("in_image"), py::arg("lor"), py::arg("proj_value"),
-	    py::arg("updater"), py::arg("eventTimeFrame") = 0,
+	    py::arg("updater"), py::arg("dynamicFrame") = 0,
 	    py::arg("tofHelper") = nullptr, py::arg("tofValue") = 0.0f);
 	c.def_static(
 	    "singleForwardProjection",
 	    [](const Image* in_image, const Line3D& lor,
-	       OperatorProjectorUpdater& updater, int eventTimeFrame,
+	       OperatorProjectorUpdater& updater, frame_t dynamicFrame,
 	       const TimeOfFlightHelper* tofHelper, float tofValue) -> float
 	    {
 		    return OperatorProjectorSiddon::singleForwardProjection(
-		        in_image, lor, updater, eventTimeFrame,
+		        in_image, lor, updater, dynamicFrame,
 		        tofHelper, tofValue);
 	    },
 	    py::arg("in_image"), py::arg("lor"),
-	    py::arg("updater"), py::arg("eventTimeFrame") = 0,
+	    py::arg("updater"), py::arg("dynamicFrame") = 0,
 	    py::arg("tofHelper") = nullptr,
 	    py::arg("tofValue") = 0.0f);
 }
@@ -135,7 +135,7 @@ float OperatorProjectorSiddon::forwardProjection(
 	return forwardProjection(img, projectionProperties.lor,
 	                         projectionProperties.det1Orient,
 	                         projectionProperties.det2Orient, tid,
-	                         projectionProperties.eventTimeFrame,
+	                         projectionProperties.dynamicFrame,
 	                         mp_tofHelper.get(), projectionProperties.tofValue);
 }
 
@@ -146,13 +146,13 @@ void OperatorProjectorSiddon::backProjection(
 	backProjection(img, projectionProperties.lor,
 	               projectionProperties.det1Orient,
 	               projectionProperties.det2Orient, projValue, tid,
-	               projectionProperties.eventTimeFrame,
+	               projectionProperties.dynamicFrame,
 	               mp_tofHelper.get(), projectionProperties.tofValue);
 }
 
 float OperatorProjectorSiddon::forwardProjection(
     const Image* img, const Line3D& lor, const Vector3D& n1, const Vector3D& n2,
-    int tid, int eventTimeFrame, const TimeOfFlightHelper* tofHelper, float tofValue) const
+    int tid, frame_t dynamicFrame, const TimeOfFlightHelper* tofHelper, float tofValue) const
 {
 	const ImageParams& params = img->getParams();
 	const Vector3D offsetVec = {params.off_x, params.off_y, params.off_z};
@@ -181,14 +181,14 @@ float OperatorProjectorSiddon::forwardProjection(
 		{
 			project_helper<true, true, true>(const_cast<Image*>(img), randLine,
 			                                 currentProjValue, *mp_updater.get(),
-			                                 eventTimeFrame, tofHelper,
+			                                 dynamicFrame, tofHelper,
 			                                 tofValue);
 		}
 		else
 		{
 			project_helper<true, true, false>(const_cast<Image*>(img), randLine,
 			                                  currentProjValue, *mp_updater.get(),
-			                                  eventTimeFrame, nullptr, 0);
+			                                  dynamicFrame, nullptr, 0);
 		}
 		imProj += currentProjValue;
 	}
@@ -203,7 +203,7 @@ float OperatorProjectorSiddon::forwardProjection(
 
 void OperatorProjectorSiddon::backProjection(
     Image* img, const Line3D& lor, const Vector3D& n1, const Vector3D& n2,
-    float projValue, int tid, int eventTimeFrame, const TimeOfFlightHelper* tofHelper,
+    float projValue, int tid, frame_t dynamicFrame, const TimeOfFlightHelper* tofHelper,
     float tofValue) const
 {
 	const ImageParams& params = img->getParams();
@@ -231,13 +231,13 @@ void OperatorProjectorSiddon::backProjection(
 		if (tofHelper != nullptr)
 		{
 			project_helper<false, true, true>(img, randLine, projValuePerLor,
-			                                  *mp_updater.get(), eventTimeFrame,
+			                                  *mp_updater.get(), dynamicFrame,
 			                                  tofHelper, tofValue);
 		}
 		else
 		{
 			project_helper<false, true, false>(img, randLine, projValuePerLor,
-			                                   *mp_updater.get(), eventTimeFrame,
+			                                   *mp_updater.get(), dynamicFrame,
 			                                   nullptr, 0);
 		}
 	}
@@ -245,20 +245,20 @@ void OperatorProjectorSiddon::backProjection(
 
 float OperatorProjectorSiddon::singleForwardProjection(
     const Image* img, const Line3D& lor, OperatorProjectorUpdater& updater,
-    int eventTimeFrame, const TimeOfFlightHelper* tofHelper,
+    frame_t dynamicFrame, const TimeOfFlightHelper* tofHelper,
     float tofValue)
 {
 	float v;
 	if (tofHelper != nullptr)
 	{
 		project_helper<true, true, true>(const_cast<Image*>(img), lor, v,
-		                                 updater, eventTimeFrame,
+		                                 updater, dynamicFrame,
 		                                 tofHelper, tofValue);
 	}
 	else
 	{
 		project_helper<true, true, false>(const_cast<Image*>(img), lor, v,
-		                                  updater, eventTimeFrame,
+		                                  updater, dynamicFrame,
 		                                  tofHelper, tofValue);
 	}
 	return v;
@@ -266,20 +266,20 @@ float OperatorProjectorSiddon::singleForwardProjection(
 
 void OperatorProjectorSiddon::singleBackProjection(
     Image* img, const Line3D& lor, float projValue,
-    OperatorProjectorUpdater& updater, int eventTimeFrame,
+    OperatorProjectorUpdater& updater, frame_t dynamicFrame,
     const TimeOfFlightHelper* tofHelper, float tofValue)
 {
 	if (tofHelper != nullptr)
 	{
 		project_helper<false, true, true>(img, lor, projValue, updater,
-		                                  eventTimeFrame,
+		                                  dynamicFrame,
 		                                  tofHelper,
 		                                  tofValue);
 	}
 	else
 	{
 		project_helper<false, true, false>(img, lor, projValue, updater,
-		                                   eventTimeFrame,
+		                                   dynamicFrame,
 		                                   tofHelper,
 		                                   tofValue);
 	}
@@ -302,7 +302,7 @@ enum SIDDON_DIR
 template <bool IS_FWD, bool FLAG_INCR, bool FLAG_TOF>
 void OperatorProjectorSiddon::project_helper(
     Image* img, const Line3D& lor, float& value,
-    OperatorProjectorUpdater& updater, int eventTimeFrame,
+    OperatorProjectorUpdater& updater, frame_t dynamicFrame,
     const TimeOfFlightHelper* tofHelper, float tofValue)
 {
 	if (IS_FWD)
@@ -550,14 +550,14 @@ void OperatorProjectorSiddon::project_helper(
 		{
 			const size_t numVoxelsPerFrame = params.nx * params.ny * params.nz;
 			value += updater.forwardUpdate(weight, cur_img_ptr,
-										   vx, eventTimeFrame,
+										   vx, dynamicFrame,
 										   numVoxelsPerFrame);
 		}
 		else
 		{
 			const size_t numVoxelsPerFrame = params.nx * params.ny * params.nz;
 			updater.backUpdate(value, weight, cur_img_ptr,
-							   vx, eventTimeFrame,
+							   vx, dynamicFrame,
 							   numVoxelsPerFrame);
 		}
 		a_cur = a_next;

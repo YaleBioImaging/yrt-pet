@@ -42,7 +42,8 @@ void py_setup_projectiondata(py::module& m)
 	c.def("getBinIter", &ProjectionData::getBinIter, py::arg("numSubsets"),
 	      py::arg("idxSubset"));
 	c.def("getTimestamp", &ProjectionData::getTimestamp, py::arg("id"));
-	c.def("getFrame", &ProjectionData::getFrame, py::arg("id"));
+	c.def("getMotionFrame", &ProjectionData::getMotionFrame, py::arg("id"));
+	c.def("getDynamicFrame", &ProjectionData::getDynamicFrame, py::arg("id"));
 	c.def("isUniform", &ProjectionData::isUniform);
 	c.def("getRandomsEstimate", &ProjectionData::getRandomsEstimate,
 	      py::arg("id"));
@@ -50,10 +51,12 @@ void py_setup_projectiondata(py::module& m)
 	c.def("hasRandomsEstimates", &ProjectionData::hasRandomsEstimates);
 	c.def("getTOFValue", &ProjectionData::getTOFValue, py::arg("id"));
 	c.def("hasMotion", &ProjectionData::hasMotion);
-	c.def("getNumFrames", &ProjectionData::getNumFrames);
-	c.def("getTransformOfFrame", &ProjectionData::getTransformOfFrame,
+	c.def("getNumMotionFrames", &ProjectionData::getNumMotionFrames);
+	c.def("getNumDynamicFrames", &ProjectionData::getNumDynamicFrames);
+	c.def("getTransformOfMotionFrame",
+	      &ProjectionData::getTransformOfMotionFrame,
 	      py::arg("frame"));
-	c.def("getDurationOfFrame", &ProjectionData::getDurationOfFrame,
+	c.def("getDurationOfMotionFrame", &ProjectionData::getDurationOfMotionFrame,
 	      py::arg("frame"));
 	c.def("getScanDuration", &ProjectionData::getScanDuration);
 	c.def("hasArbitraryLORs", &ProjectionData::hasArbitraryLORs);
@@ -113,23 +116,29 @@ bool ProjectionData::hasMotion() const
 	return false;
 }
 
-size_t ProjectionData::getNumFrames() const
+size_t ProjectionData::getNumMotionFrames() const
 {
 	// By default, only one frame
 	return 1ull;
 }
 
-transform_t ProjectionData::getTransformOfFrame(frame_t frame) const
+size_t ProjectionData::getNumDynamicFrames() const
+{
+	// By default, only one frame
+	return 1ull;
+}
+
+transform_t ProjectionData::getTransformOfMotionFrame(frame_t frame) const
 {
 	(void)frame;
 	// Return identity rotation and null translation
 	return {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0};
 }
 
-float ProjectionData::getDurationOfFrame(frame_t frame) const
+float ProjectionData::getDurationOfMotionFrame(frame_t frame) const
 {
 	(void)frame;
-	throw std::logic_error("getDurationOfFrame unimplemented");
+	throw std::logic_error("getDurationOfMotionFrame unimplemented");
 }
 
 timestamp_t ProjectionData::getScanDuration() const
@@ -177,9 +186,11 @@ ProjectionProperties ProjectionData::getProjectionProperties(bin_t bin) const
 		tofValue = getTOFValue(bin);
 	}
 
+	const frame_t dynamicFrame = getDynamicFrame(bin);
+
 	const Vector3D det1Orient = mr_scanner.getDetectorOrient(d1);
 	const Vector3D det2Orient = mr_scanner.getDetectorOrient(d2);
-	return ProjectionProperties{lor, tofValue, det1Orient, det2Orient};
+	return ProjectionProperties{lor, tofValue, det1Orient, det2Orient, dynamicFrame};
 }
 
 Line3D ProjectionData::getLOR(bin_t bin) const
@@ -200,8 +211,8 @@ Line3D ProjectionData::getLOR(bin_t bin) const
 
 	if (hasMotion())
 	{
-		const frame_t frame = getFrame(bin);
-		const transform_t transfo = getTransformOfFrame(frame);
+		const frame_t frame = getMotionFrame(bin);
+		const transform_t transfo = getTransformOfMotionFrame(frame);
 
 		const Matrix MRot{transfo.r00, transfo.r01, transfo.r02,
 		                  transfo.r10, transfo.r11, transfo.r12,
@@ -225,7 +236,13 @@ timestamp_t ProjectionData::getTimestamp(bin_t id) const
 	return 0u;
 }
 
-frame_t ProjectionData::getFrame(bin_t id) const
+frame_t ProjectionData::getMotionFrame(bin_t id) const
+{
+	(void)id;
+	return 0u;
+}
+
+frame_t ProjectionData::getDynamicFrame(bin_t id) const
 {
 	(void)id;
 	return 0u;

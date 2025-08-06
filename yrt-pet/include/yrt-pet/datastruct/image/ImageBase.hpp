@@ -6,6 +6,7 @@
 #pragma once
 
 #include "yrt-pet/operators/Variable.hpp"
+#include "yrt-pet/utils/Types.hpp"
 
 #include "nlohmann/json_fwd.hpp"
 #include <string>
@@ -29,6 +30,7 @@ public:
 	float off_x;
 	float off_y;
 	float off_z;
+	frame_t num_frames;
 
 	// Automatically populated fields
 	float fovRadius;
@@ -37,8 +39,8 @@ public:
 
 	ImageParams();
 	ImageParams(int nxi, int nyi, int nzi, float length_xi, float length_yi,
-	            float length_zi, float offset_xi = 0., float offset_yi = 0.,
-	            float offset_zi = 0.);
+	            float length_zi, float offset_xi = 0.f, float offset_yi = 0.f,
+	            float offset_zi = 0.f, frame_t num_framesi = 1);
 	ImageParams(const ImageParams& in);
 	ImageParams& operator=(const ImageParams& in);
 	explicit ImageParams(const std::string& fname);
@@ -74,7 +76,7 @@ public:
 	float getRadius() const;
 	const ImageParams& getParams() const;
 	void setParams(const ImageParams& newParams);
-	size_t unravel(int iz, int iy, int ix) const;
+	size_t unravel(int iz, int iy, int ix, frame_t it = 0) const;
 
 	virtual void setValue(float initValue) = 0;
 	virtual void copyFromImage(const ImageBase* imSrc) = 0;

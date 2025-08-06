@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include "yrt-pet/operators/OperatorProjectorUpdaterBase.hpp"
 #include "yrt-pet/datastruct/projection/ProjectionData.hpp"
 #include "yrt-pet/operators/Operator.hpp"
 
@@ -44,6 +45,20 @@ public:
 class OperatorProjectorBase : public Operator
 {
 public:
+
+	enum ProjectorType
+	{
+		SIDDON = 0,
+		DD
+	};
+
+	enum ProjectorUpdaterType
+	{
+		DEFAULT3D = 0,
+		DEFAULT4D,
+		LR
+	};
+
 	explicit OperatorProjectorBase(const Scanner& pr_scanner);
 	explicit OperatorProjectorBase(const OperatorProjectorParams& p_projParams);
 

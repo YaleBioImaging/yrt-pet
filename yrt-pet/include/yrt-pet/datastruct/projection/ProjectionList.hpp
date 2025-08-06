@@ -33,16 +33,16 @@ public:
 	histo_bin_t getHistogramBin(bin_t id) const override;
 	std::unique_ptr<BinIterator> getBinIter(int numSubsets,
 	                                        int idxSubset) const override;
-	frame_t getFrame(bin_t id) const override;
+	frame_t getMotionFrame(bin_t id) const override;
 	timestamp_t getTimestamp(bin_t id) const override;
-	size_t getNumFrames() const override;
+	size_t getNumMotionFrames() const override;
 	bool isUniform() const override;
 	bool hasRandomsEstimates() const override;
 	float getRandomsEstimate(bin_t id) const override;
 	bool hasTOF() const override;
 	float getTOFValue(bin_t id) const override;
 	bool hasMotion() const override;
-	transform_t getTransformOfFrame(frame_t frame) const override;
+	transform_t getTransformOfMotionFrame(frame_t frame) const override;
 	bool hasArbitraryLORs() const override;
 	Line3D getArbitraryLOR(bin_t id) const override;
 

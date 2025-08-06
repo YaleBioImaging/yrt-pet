@@ -25,6 +25,7 @@ public:
 
 	// Getters for operators
 	const OperatorProjector* getProjector() const;
+	void setupProjectorUpdater() override;
 
 protected:
 	// Sens Image generator driver

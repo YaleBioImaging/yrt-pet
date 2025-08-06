@@ -25,28 +25,16 @@ class Histogram;
 class OperatorProjector : public OperatorProjectorBase
 {
 public:
-	enum ProjectorType
-	{
-		SIDDON = 0,
-		DD
-	};
-
-	enum ProjectorUpdaterType
-	{
-		DEFAULT3D = 0,
-		DEFAULT4D,
-		LR
-	};
 
 	explicit OperatorProjector(const Scanner& pr_scanner,
 	                           float tofWidth_ps = 0.0f, int tofNumStd = -1,
 	                           const std::string& projPsf_fname = "",
 	                           ProjectorUpdaterType projectorUpdaterType =
-	                               OperatorProjector::DEFAULT3D);
+	                               OperatorProjectorBase::DEFAULT3D);
 
 	explicit OperatorProjector(const OperatorProjectorParams& p_projParams,
 	                           ProjectorUpdaterType projectorUpdaterType =
-	                               OperatorProjector::DEFAULT3D);
+	                               OperatorProjectorBase::DEFAULT3D);
 
 	// Virtual functions
 	virtual float forwardProjection(
@@ -64,6 +52,7 @@ public:
 	void setupTOFHelper(float tofWidth_ps, int tofNumStd = -1);
 	void setupProjPsfManager(const std::string& projPsf_fname);
 	OperatorProjectorUpdater* getUpdater();
+	void setUpdaterType(OperatorProjectorBase::ProjectorUpdaterType p_updaterType);
 	void setUpdater(std::unique_ptr<OperatorProjectorUpdater> pp_updater);
 
 	const TimeOfFlightHelper* getTOFHelper() const;

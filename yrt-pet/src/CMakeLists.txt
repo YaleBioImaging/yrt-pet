@@ -3,6 +3,7 @@ project(src)
 # List source files explicitly
 set(SOURCES
     datastruct/projection/BinIterator.cpp
+    datastruct/projection/DynamicFraming.cpp
     datastruct/projection/Histogram.cpp
     datastruct/projection/Histogram3D.cpp
     datastruct/projection/ListMode.cpp
@@ -35,6 +36,7 @@ set(SOURCES
     operators/Operator.cpp
     operators/OperatorProjectorBase.cpp
     operators/OperatorProjector.cpp
+    operators/OperatorProjectorUpdaterBase.cpp
     operators/OperatorProjectorUpdater.cpp
     operators/OperatorProjectorSiddon.cpp
     operators/OperatorProjectorDD.cpp

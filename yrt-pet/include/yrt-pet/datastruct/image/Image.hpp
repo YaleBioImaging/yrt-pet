@@ -85,10 +85,9 @@ public:
 protected:
 	static float originToOffset(float origin, float voxelSize, float length);
 	static float offsetToOrigin(float off, float voxelSize, float length);
-	int m_numFrames;
 
 	Image();
-	explicit Image(const ImageParams& imgParams, int p_numFrames = 1);
+	explicit Image(const ImageParams& imgParams);
 	std::unique_ptr<Array4DBase<float>> mp_array;
 
 private:
@@ -100,7 +99,7 @@ private:
 class ImageOwned : public Image
 {
 public:
-	explicit ImageOwned(const ImageParams& imgParams, int p_numFrames = 1);
+	explicit ImageOwned(const ImageParams& imgParams);
 	ImageOwned(const ImageParams& imgParams, const std::string& filename);
 	explicit ImageOwned(const std::string& filename);
 	void allocate();
@@ -117,7 +116,7 @@ private:
 class ImageAlias : public Image
 {
 public:
-	explicit ImageAlias(const ImageParams& imgParams, int p_numFrames = 1);
+	explicit ImageAlias(const ImageParams& imgParams);
 	void bind(Array4DBase<float>& p_data);
 };
 }  // namespace yrt

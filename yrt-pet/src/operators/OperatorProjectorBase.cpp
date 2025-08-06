@@ -25,6 +25,7 @@ void py_setup_operatorprojectorparams(py::module& m)
 	c.def_readwrite("tofNumStd", &OperatorProjectorParams::tofNumStd);
 	c.def_readwrite("projPsf_fname", &OperatorProjectorParams::projPsf_fname);
 	c.def_readwrite("num_rays", &OperatorProjectorParams::numRays);
+
 }
 
 void py_setup_operatorprojectorbase(py::module& m)
@@ -33,6 +34,17 @@ void py_setup_operatorprojectorbase(py::module& m)
 	    py::class_<OperatorProjectorBase, Operator>(m, "OperatorProjectorBase");
 	c.def("getBinIter", &OperatorProjectorBase::getBinIter);
 	c.def("getScanner", &OperatorProjectorBase::getScanner);
+
+	py::enum_<OperatorProjectorBase::ProjectorType>(c, "ProjectorType")
+	    .value("SIDDON", OperatorProjectorBase::ProjectorType::SIDDON)
+	    .value("DD", OperatorProjectorBase::ProjectorType::DD)
+	    .export_values();
+
+	py::enum_<OperatorProjectorBase::ProjectorUpdaterType>(c, "ProjectorUpdaterType")
+	    .value("DEFAULT3D", OperatorProjectorBase::ProjectorUpdaterType::DEFAULT3D)
+	    .value("DEFAULT4D", OperatorProjectorBase::ProjectorUpdaterType::DEFAULT4D)
+	    .value("LR", OperatorProjectorBase::ProjectorUpdaterType::LR)
+	    .export_values();
 }
 }  // namespace yrt
 
@@ -79,4 +91,5 @@ void OperatorProjectorBase::setBinIter(const BinIterator* p_binIter)
 {
 	binIter = p_binIter;
 }
+
 }  // namespace yrt

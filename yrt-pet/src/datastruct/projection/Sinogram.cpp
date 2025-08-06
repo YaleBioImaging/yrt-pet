@@ -3,11 +3,14 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "datastruct/projection/Sinogram.hpp"
-#include "geometry/Constants.hpp"
+#include "yrt-pet/datastruct/projection/Sinogram.hpp"
+#include "yrt-pet/geometry/Constants.hpp"
 
 #include <fstream>
 #include <stdexcept>
+
+namespace yrt
+{
 
 SinogramParams::SinogramParams(const std::string& params_fname)
 {
@@ -237,4 +240,6 @@ void SinogramAlias::bind(Array5DBase<float>& pr_array)
 	{
 		throw std::runtime_error("An error occured during Sinogram binding");
 	}
+}
+
 }

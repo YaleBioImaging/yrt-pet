@@ -1,5 +1,5 @@
 /*
- * This file is subject to the terms and conditions defined in
+* This file is subject to the terms and conditions defined in
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
@@ -49,6 +49,6 @@ constexpr float NS_TO_S_FLT = 1e-9f;
 #define APPROX_EQ_THRESH(a, b, thresh) (std::abs((a) - (b)) < (thresh))
 #define SIGN(a, b) ((b) > 0.0 ? std::abs(a) : -std::abs(a))
 #define SHFT(a, b, c, d) \
-	(a) = (b);           \
-	(b) = (c);           \
-	(c) = (d);
+(a) = (b);           \
+(b) = (c);           \
+(c) = (d);

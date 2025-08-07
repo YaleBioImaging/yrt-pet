@@ -105,6 +105,91 @@ pybind11::array_t<double> fit_srtm_basis(
 	return kin_out;
 }
 
+pybind11::array_t<double> fit_srtm2_basis(
+    pybind11::array_t<double> tac_all, pybind11::array_t<double> kin_p,
+    pybind11::array_t<double> A_all, pybind11::array_t<double> B_all,
+    pybind11::array_t<double> A_n_inv_all, pybind11::array_t<double> W,
+    pybind11::array_t<double> Lambda, double alpha, double k2p,
+    pybind11::array_t<double> kappa_list, int num_threads)
+{
+	pybind11::buffer_info buf_tac_all = tac_all.request();
+	pybind11::buffer_info buf_kin_p = kin_p.request();
+	pybind11::buffer_info buf_A_all = A_all.request();
+	pybind11::buffer_info buf_B_all = B_all.request();
+	pybind11::buffer_info buf_A_n_inv_all = A_n_inv_all.request();
+	pybind11::buffer_info buf_W = W.request();
+	pybind11::buffer_info buf_Lambda = Lambda.request();
+	pybind11::buffer_info buf_kappa_list = kappa_list.request();
+
+	size_t num_pix = buf_tac_all.shape[1];
+	int num_frames = buf_tac_all.shape[0];
+	int num_kappa = buf_kappa_list.size;
+	const int num_k = 2;
+
+	if (buf_kin_p.ndim == 2 &&
+	    (buf_kin_p.shape[0] != num_k ||
+	     buf_kin_p.shape[1] != static_cast<long>(num_pix)))
+	{
+		throw std::runtime_error("kin_p matrix should have shape [P, X]");
+	}
+	if (buf_A_all.shape[0] != num_kappa || buf_A_all.shape[1] != num_frames)
+	{
+		std::stringstream err;
+		err << "A matrix should have shape [K, T] "
+		    << "([" << num_kappa << ", " << num_frames << "])";
+		throw std::runtime_error(err.str());
+	}
+	if (buf_B_all.shape[0] != num_kappa || buf_B_all.shape[1] != num_k)
+	{
+		std::stringstream err;
+		err << "B matrix should have shape [K, P] "
+		    << "([" << num_kappa << ", " << num_k << "])";
+		throw std::runtime_error(err.str());
+	}
+	if (buf_A_n_inv_all.shape[0] != num_kappa)
+	{
+		std::stringstream err;
+		err << "A_n_inv matrix should have shape [K] "
+		    << "([" << num_kappa << "])";
+		throw std::runtime_error(err.str());
+	}
+	if (buf_W.size != num_frames)
+	{
+		throw std::runtime_error("W matrix should have shape [T]");
+	}
+	if (buf_Lambda.ndim == 1 && buf_Lambda.size != num_k)
+	{
+		throw std::runtime_error("Lambda matrix should have shape [3]");
+	}
+
+	/* No pointer is passed, so NumPy will allocate the buffer */
+	auto kin_out = pybind11::array_t<double>(
+	    std::vector<ptrdiff_t>{2, static_cast<long>(num_pix)});
+	pybind11::buffer_info buf_kin_out = kin_out.request();
+	double* ptr_kin_out = static_cast<double*>(buf_kin_out.ptr);
+
+	double* ptr_tac_all = static_cast<double*>(buf_tac_all.ptr);
+	double* ptr_A_all = static_cast<double*>(buf_A_all.ptr);
+	double* ptr_B_all = static_cast<double*>(buf_B_all.ptr);
+	double* ptr_A_n_inv_all = static_cast<double*>(buf_A_n_inv_all.ptr);
+	double* ptr_W = static_cast<double*>(buf_W.ptr);
+	double* ptr_kappa_list = static_cast<double*>(buf_kappa_list.ptr);
+	double* ptr_kin_p = nullptr;
+	double* ptr_Lambda = nullptr;
+	if (buf_kin_p.ndim == 2)
+	{
+		ptr_kin_p = static_cast<double*>(buf_kin_p.ptr);
+		ptr_Lambda = static_cast<double*>(buf_Lambda.ptr);
+	}
+
+	solveSRTM2Basis(ptr_tac_all, ptr_kin_out, ptr_kin_p, ptr_A_all, ptr_B_all,
+	                ptr_A_n_inv_all, ptr_W, ptr_Lambda, alpha, k2p,
+	                ptr_kappa_list, num_kappa, num_pix, num_frames,
+	                num_threads);
+
+	return kin_out;
+}
+
 pybind11::array_t<double> fit_srtm_basis_joint(
     pybind11::array_t<double> tac_all, pybind11::array_t<double> kin_p,
     pybind11::array_t<double> A_all, pybind11::array_t<double> B_all,
@@ -196,6 +281,7 @@ pybind11::array_t<double> fit_srtm_basis_joint(
 void py_setup_srtm(pybind11::module& m)
 {
 	m.def("fit_srtm_basis", &fit_srtm_basis, "Fit SRTM model using bases");
+	m.def("fit_srtm2_basis", &fit_srtm2_basis, "Fit SRTM2 model using bases");
 	m.def("fit_srtm_basis_joint", &fit_srtm_basis_joint,
 	      "Fit joint SRTM model using bases");
 }
@@ -206,6 +292,100 @@ void py_setup_srtm(pybind11::module& m)
 
 namespace yrt
 {
+
+template <typename T>
+void solveSRTM2Basis(const T* tac_all, T* kin_out, const T* kin_p,
+                     const T* A_all, const T* B_all, const T* A_n_inv_all,
+                     const T* W, const T* Lambda, const T alpha,
+                     const T k2p, const T* kappa_list, const int num_kappa,
+                     const size_t num_pix, const int num_frames,
+                     const int num_threads)
+{
+	auto tac_buff = std::make_unique<T[]>(num_frames * num_threads);
+
+#pragma omp parallel for num_threads(num_threads)
+	for (size_t pi = 0; pi < num_pix; pi++)
+	{
+		int tid = omp_get_thread_num();
+		// Fill buffer
+		T* tac_buff_t = tac_buff.get() + tid * num_frames;
+		for (int ti = 0; ti < num_frames; ti++)
+		{
+			tac_buff_t[ti] = tac_all[ti * num_pix + pi];
+		}
+		T cost_min = std::numeric_limits<T>::max();
+		T opt_bp = -1.f;
+		T opt_r1 = -1.f;
+		for (int ki = 0; ki < num_kappa; ki++)
+		{
+			// Get precomputed matrices for current basis
+			const T* A = &A_all[ki * num_frames];
+			const T* B = &B_all[ki * 2];
+			const T A_n_inv = A_n_inv_all[ki];
+			const T kappa = kappa_list[ki];
+
+			// Right-hand side
+			T y = 0.f;
+			for (int ti = 0; ti < num_frames; ti++)
+			{
+				y += A[ti] * W[ti] * tac_buff_t[ti];
+			}
+			if (alpha > 0.f && kin_p != nullptr)
+			{
+				y += alpha * (B[0] * Lambda[0] * (kin_p[0 * num_pix + pi] + 1) +
+				              B[1] * Lambda[1] * kin_p[1 * num_pix + pi]);
+			}
+
+			// Calculate inverse
+			T theta = A_n_inv * y;
+
+			// Compute cost
+			T cost = 0.f;
+			for (int ti = 0; ti < num_frames; ti++)
+			{
+				T res = tac_buff_t[ti] - (A[ti] * theta);
+				cost += W[ti] * res * res;
+			}
+			if (alpha > 0.f && kin_p != nullptr)
+			{
+				T k_diff_0 = kin_p[0 * num_pix + pi] - (theta * k2p / kappa - 1);
+				T k_diff_1 = kin_p[1 * num_pix + pi] - theta;
+				cost += alpha * (Lambda[0] * k_diff_0 * k_diff_0 +
+				                 Lambda[1] * k_diff_1 * k_diff_1);
+			}
+			cost *= 0.5f;
+
+			// Track minimum cost
+			if (cost < cost_min)
+			{
+				cost_min = cost;
+				opt_bp = theta * k2p / kappa - 1;
+				opt_r1 = theta;
+			}
+		}
+
+		// Store output
+		kin_out[0 * num_pix + pi] = opt_bp;
+		kin_out[1 * num_pix + pi] = opt_r1;
+	}
+}
+
+template void solveSRTM2Basis(const float* tac_all, float* kin_out,
+                              const float* kin_p, const float* A_all,
+                              const float* B_all, const float* Rinv_Qt_all,
+                              const float* W, const float* Lambda,
+                              const float alpha, const float k2p,
+                              const float* kappa_list, const int num_kappa,
+                              const size_t num_pix, const int num_frames,
+                              const int num_threads);
+template void solveSRTM2Basis(const double* tac_all, double* kin_out,
+                              const double* kin_p, const double* A_all,
+                              const double* B_all, const double* Rinv_Qt_all,
+                              const double* W, const double* Lambda,
+                              const double alpha, const double k2p,
+                              const double* kappa_list, const int num_kappa,
+                              const size_t num_pix, const int num_frames,
+                              const int num_threads);
 
 template <typename T>
 void solveSRTMBasis(const T* tac_all, T* kin_out, const T* kin_p,

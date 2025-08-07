@@ -67,64 +67,56 @@ void py_setup_operatorprojectorupdater(py::module& m)
                             std::shared_ptr<OperatorProjectorUpdaterLR>>(
       m, "OperatorProjectorUpdaterLR");
 
-	lr_upd.def(py::init<>());
+	lr_upd.def(py::init<const Array2D<float>&>());
+	lr_upd.def("getHBasisCopy", &OperatorProjectorUpdaterLR::getHBasisCopy);
 
-	lr_upd.def(
-	    "getHBasisArray",
-	    [](OperatorProjectorUpdaterLR& self) {
-		    const Array2DAlias<float>& H = self.getHBasis();
-		    auto dims = H.getDims();
-		    size_t rank = dims[0];
-		    size_t numTimeFrames = dims[1];
+//	lr_upd.def(
+//	    "getHBasisArray",
+//	    [](OperatorProjectorUpdaterLR& self) {
+//		    const Array2DAlias<float>& H = self.getHBasis();
+//		    auto dims = H.getDims();
+//		    size_t rank = dims[0];
+//		    size_t numTimeFrames = dims[1];
+//
+//		    // Allocate a new NumPy array (row-major: [rank, time])
+//		    py::array_t<float> arr({static_cast<ssize_t>(rank),
+//		                            static_cast<ssize_t>(numTimeFrames)});
+//		    auto buf = arr.request();
+//		    float* out = static_cast<float*>(buf.ptr);
+//
+//		    // Copy data from H into the numpy array
+//		    for (size_t l = 0; l < rank; ++l) {
+//			    for (size_t t = 0; t < numTimeFrames; ++t) {
+//				    out[l * numTimeFrames + t] = H[l][t];
+//			    }
+//		    }
+//		    return arr;
+//	    }  // no py::arg() here
+//	);
 
-		    // Allocate a new NumPy array (row-major: [rank, time])
-		    py::array_t<float> arr({static_cast<ssize_t>(rank),
-		                            static_cast<ssize_t>(numTimeFrames)});
-		    auto buf = arr.request();
-		    float* out = static_cast<float*>(buf.ptr);
-
-		    // Copy data from H into the numpy array
-		    for (size_t l = 0; l < rank; ++l) {
-			    for (size_t t = 0; t < numTimeFrames; ++t) {
-				    out[l * numTimeFrames + t] = H[l][t];
-			    }
-		    }
-		    return arr;
-	    }  // no py::arg() here
-	);
-
-//	lr_upd.def("getHBasis", &OperatorProjectorUpdaterLR::getHBasis,
-//	           py::return_value_policy::reference_internal);
-
-	lr_upd.def("setHBasis", [](OperatorProjectorUpdaterLR& self,
-	                           const Array2DAlias<float>& HBasis) {
-		     self.setHBasis(HBasis);
-	     });
+	lr_upd.def("setHBasis", &OperatorProjectorUpdaterLR::setHBasis);
 
 	// new numpy version (2D: [rank, time])
-	lr_upd.def("setHBasisFromNumpy",
-	     [](OperatorProjectorUpdaterLR& self, py::buffer& np_data) {
-	        py::buffer_info buffer = np_data.request();
-		    if (buffer.ndim != 2) {
-			     throw std::invalid_argument("HBasis numpy array must be 2D (rank x time).");
-		     }
-		     if (buffer.format != py::format_descriptor<float>::format())
-		     {
-			     throw std::invalid_argument(
-			         "HBasis buffer given has to have a float32 format");
-		     }
-
-		    const int rank = static_cast<int>(buffer.shape[0]);
-		    const int numTimeFrames = static_cast<int>(buffer.shape[1]);
-		    // Create an alias into the numpy data
-		    Array2DAlias<float> alias;
-		    alias.bind(reinterpret_cast<float*>(buffer.ptr), rank, numTimeFrames);
-		    self.setHBasis(alias);
-		    // Keep numpy array alive by attaching it to the Python wrapper object
-//		    py::object py_self = py::cast(self);
-//		    py_self.attr("_hbasis_backing") = np_data;
-	     },
-	     py::arg("HBasis"), py::keep_alive<1, 2>());
+//	lr_upd.def("setHBasisFromNumpy",
+//	     [](OperatorProjectorUpdaterLR& self, py::buffer& np_data) {
+//	        py::buffer_info buffer = np_data.request();
+//		    if (buffer.ndim != 2) {
+//			     throw std::invalid_argument("HBasis numpy array must be 2D (rank x time).");
+//		     }
+//		     if (buffer.format != py::format_descriptor<float>::format())
+//		     {
+//			     throw std::invalid_argument(
+//			         "HBasis buffer given has to have a float32 format");
+//		     }
+//
+//		    const int rank = static_cast<int>(buffer.shape[0]);
+//		    const int numTimeFrames = static_cast<int>(buffer.shape[1]);
+//		    // Create an alias into the numpy data
+//		    Array2DAlias<float> alias;
+//		    alias.bind(reinterpret_cast<float*>(buffer.ptr), rank, numTimeFrames);
+//		    self.setHBasis(alias);
+//	     },
+//	     py::arg("HBasis"), py::keep_alive<1, 2>());
 
 	lr_upd.def("setUpdateH", [](OperatorProjectorUpdaterLR& self,
 							   bool updateH) {
@@ -206,29 +198,49 @@ void OperatorProjectorUpdaterDefault4D::backUpdate(
 //	m_HBasis.copy(HBasis);  // copies data; m_HBasis is mutable after this
 //}
 
+OperatorProjectorUpdaterLR::OperatorProjectorUpdaterLR(
+    const Array2D<float>& pr_HBasis)
+{
+	setHBasis(pr_HBasis);
+}
 const Array2DAlias<float>& OperatorProjectorUpdaterLR::getHBasis() const
 {
-	return m_HBasis;
+	return *mp_HBasis;
 }
 
-void OperatorProjectorUpdaterLR::setHBasis(const Array2D<float>& HBasis) {
-	auto dims = HBasis.getDims(); // [rank, numTimeFrames]
-	if (dims[0] == 0 || dims[1] == 0) {
-		throw std::invalid_argument("HBasis must have nonzero dimensions");
-	}
+std::unique_ptr<Array2D<float>> OperatorProjectorUpdaterLR::getHBasisCopy() const
+{
+	auto HBasis = std::make_unique<Array2D<float>>();
+	HBasis->copy(*mp_HBasis);
+	return HBasis;
+}
+
+void OperatorProjectorUpdaterLR::setHBasis(const Array2DBase<float>& pr_HBasis) {
+	mp_HBasis = std::make_unique<Array2DAlias<float>>();
+	mp_HBasis->bind(pr_HBasis);
+	auto dims = mp_HBasis->getDims();
 	m_rank = static_cast<int>(dims[0]);
-	dynamicFrames = static_cast<int>(dims[1]);
-
-	// Bind the alias to the provided backing storage
-	m_HBasis.bind(HBasis);  // Array2DAlias::bind(const Array2DBase<T>&)
+	m_numDynamicFrames = static_cast<int>(dims[1]);
 }
 
-void OperatorProjectorUpdaterLR::setHBasis(const Array2DAlias<float>& HBasisAlias) {
-	auto dims = HBasisAlias.getDims();
-	m_rank = static_cast<int>(dims[0]);
-	dynamicFrames = static_cast<int>(dims[1]);
-	m_HBasis.bind(HBasisAlias); // alias-of-an-alias ??
-}
+//void OperatorProjectorUpdaterLR::setHBasis(const Array2D<float>& HBasis) {
+//	auto dims = HBasis.getDims(); // [rank, numTimeFrames]
+//	if (dims[0] == 0 || dims[1] == 0) {
+//		throw std::invalid_argument("HBasis must have nonzero dimensions");
+//	}
+//	m_rank = static_cast<int>(dims[0]);
+//	dynamicFrames = static_cast<int>(dims[1]);
+//
+//	// Bind the alias to the provided backing storage
+//	m_HBasis.bind(HBasis);  // Array2DAlias::bind(const Array2DBase<T>&)
+//}
+
+//void OperatorProjectorUpdaterLR::setHBasis(const Array2DAlias<float>& HBasisAlias) {
+//	auto dims = HBasisAlias.getDims();
+//	m_rank = static_cast<int>(dims[0]);
+//	dynamicFrames = static_cast<int>(dims[1]);
+//	m_HBasis.bind(HBasisAlias); // alias-of-an-alias ??
+//}
 
 void OperatorProjectorUpdaterLR::setUpdateH(bool updateH) {
 	m_updateH = updateH;
@@ -244,12 +256,12 @@ float OperatorProjectorUpdaterLR::forwardUpdate(
     int offset_x, frame_t dynamicFrame, size_t numVoxelPerFrame) const
 {
 	float cur_img_lr_val = 0.0f;
-	const float* H_ptr = m_HBasis.getRawPointer();
+	const float* H_ptr = mp_HBasis->getRawPointer();
 //	const int nt = static_cast<int>(dynamicFrames);
 
 	for (int l = 0; l < m_rank; ++l)
 	{
-		float cur_H_ptr = *(H_ptr + l * dynamicFrames + dynamicFrame);
+		float cur_H_ptr = *(H_ptr + l + m_rank * dynamicFrame);
 		const size_t offset_rank = l * numVoxelPerFrame;
 		cur_img_lr_val += cur_img_ptr[offset_x + offset_rank] * cur_H_ptr;
 	}
@@ -261,13 +273,13 @@ void OperatorProjectorUpdaterLR::backUpdate(
     int offset_x, frame_t dynamicFrame, size_t numVoxelPerFrame)
 {
 	float Ay = value * weight;
-	float* H_ptr = m_HBasis.getRawPointer();
+	float* H_ptr = mp_HBasis->getRawPointer();
 
 	if (! m_updateH)
 	{
 		for (int l = 0; l < m_rank; ++l)
 		{
-			float cur_H_ptr = *(H_ptr + l * dynamicFrames + dynamicFrame);
+			float cur_H_ptr = *(H_ptr + l + m_rank * dynamicFrame);
 			const size_t offset_rank = l * numVoxelPerFrame;
 			float output = Ay * cur_H_ptr;
 			std::atomic_ref<float> atomic_elem(cur_img_ptr[offset_x + offset_rank]);
@@ -278,7 +290,7 @@ void OperatorProjectorUpdaterLR::backUpdate(
 		for (int l = 0; l < m_rank; ++l) {
 			const size_t offset_rank = l * numVoxelPerFrame;
 			float output = Ay * cur_img_ptr[offset_x + offset_rank];
-			std::atomic_ref<float> atomic_elem(H_ptr[l * dynamicFrames + dynamicFrame]);
+			std::atomic_ref<float> atomic_elem(H_ptr[l * m_rank + dynamicFrame]);
 			atomic_elem.fetch_add(output);
 		}
 	}

@@ -41,18 +41,20 @@ void py_setup_operatorprojector(py::module& m)
 	    [](OperatorProjector& self, const ProjectionData* proj, Image* img)
 	    { self.applyAH(proj, img); }, py::arg("proj"), py::arg("img"));
 
-	c.def("setUpdaterLRUpdateH", [](OperatorProjector& self, bool updateH)
+	c.def("setUpdaterLRUpdateH",
+	      [](OperatorProjector& self, bool updateH)
 	      {
-			auto* updaterLR = dynamic_cast<OperatorProjectorUpdaterLR*>(self.getUpdater());
-		    if (updaterLR == nullptr)
-		    {
-			    throw std::bad_cast();
-		    }
-		    else
-		    {
-			    updaterLR->setUpdateH(updateH);
-		    }
-	});
+		      auto* updaterLR =
+		          dynamic_cast<OperatorProjectorUpdaterLR*>(self.getUpdater());
+		      if (updaterLR == nullptr)
+		      {
+			      throw std::bad_cast();
+		      }
+		      else
+		      {
+			      updaterLR->setUpdateH(updateH);
+		      }
+	      });
 
 	c.def(
 	    "setUpdaterLRHBasis",
@@ -70,10 +72,11 @@ void py_setup_operatorprojector(py::module& m)
 			        "The buffer given has to have a float32 format");
 		    }
 
-		    auto* updaterLR = dynamic_cast<OperatorProjectorUpdaterLR*>(self.getUpdater());
+		    auto* updaterLR =
+		        dynamic_cast<OperatorProjectorUpdaterLR*>(self.getUpdater());
 		    if (updaterLR == nullptr)
 		    {
-			    throw std::bad_cast();
+			    throw py::cast_error("Projector needs to have a `OperatorProjectorUpdaterLR`");
 		    }
 		    else
 		    {
@@ -82,7 +85,6 @@ void py_setup_operatorprojector(py::module& m)
 			                buffer.shape[0], buffer.shape[1]);
 			    updaterLR->setHBasis(hBasis);
 		    }
-
 	    },
 	    py::arg("numpy_data"));
 }
@@ -93,33 +95,18 @@ void py_setup_operatorprojector(py::module& m)
 namespace yrt
 {
 
-OperatorProjector::OperatorProjector(const Scanner& pr_scanner,
-                                     float tofWidth_ps, int tofNumStd,
-                                     const std::string& projPsf_fname,
-                                     OperatorProjectorBase::ProjectorUpdaterType
-                                     projectorUpdaterType)
-    : OperatorProjectorBase{pr_scanner},
-      mp_tofHelper{nullptr},
-      mp_projPsfManager{nullptr}
+OperatorProjector::OperatorProjector(
+    const Scanner& pr_scanner, float tofWidth_ps, int tofNumStd,
+    const std::string& projPsf_fname,
+    OperatorProjectorParams::ProjectorUpdaterType projectorUpdaterType)
+    : OperatorProjector{
+          OperatorProjectorParams{nullptr, pr_scanner, projectorUpdaterType,
+                                  tofWidth_ps, tofNumStd, projPsf_fname}}
 {
-	if (tofWidth_ps > 0.0f)
-	{
-		setupTOFHelper(tofWidth_ps, tofNumStd);
-	}
-	if (!projPsf_fname.empty())
-	{
-		setupProjPsfManager(projPsf_fname);
-	}
-	setUpdaterType(projectorUpdaterType);
-
 }
 
-
-
 OperatorProjector::OperatorProjector(
-    const OperatorProjectorParams& p_projParams,
-    OperatorProjectorBase::ProjectorUpdaterType
-        projectorUpdaterType)
+    const OperatorProjectorParams& p_projParams)
     : OperatorProjectorBase{p_projParams},
       mp_tofHelper{nullptr},
       mp_projPsfManager{nullptr}
@@ -132,18 +119,7 @@ OperatorProjector::OperatorProjector(
 	{
 		setupProjPsfManager(p_projParams.projPsf_fname);
 	}
-	if (projectorUpdaterType == OperatorProjector::DEFAULT3D)
-	{
-		setUpdater(std::make_unique<OperatorProjectorUpdaterDefault3D>());
-	}
-	else if (projectorUpdaterType == OperatorProjector::LR)
-	{
-		setUpdater(std::make_unique<OperatorProjectorUpdaterLR>());
-	}
-	else
-	{
-		throw std::invalid_argument("ProjectorUpdaterType not valid");
-	}
+	setupUpdater(p_projParams);
 }
 
 void OperatorProjector::applyA(const Variable* in, Variable* out)
@@ -228,7 +204,8 @@ const ProjectionPsfManager* OperatorProjector::getProjectionPsfManager() const
 	return mp_projPsfManager.get();
 }
 
-void OperatorProjector::setUpdater(std::unique_ptr<OperatorProjectorUpdater> pp_updater)
+void OperatorProjector::setUpdater(
+    std::unique_ptr<OperatorProjectorUpdater> pp_updater)
 {
 	mp_updater = std::move(pp_updater);
 }
@@ -237,20 +214,25 @@ OperatorProjectorUpdater* OperatorProjector::getUpdater()
 {
 	return mp_updater.get();
 }
-void OperatorProjector::setUpdaterType(
-    OperatorProjectorBase::ProjectorUpdaterType p_updaterType)
+void OperatorProjector::setupUpdater(
+    const OperatorProjectorParams& p_projParams)
 {
-	if (p_updaterType == OperatorProjector::DEFAULT3D)
+	if (p_projParams.projectorUpdaterType == OperatorProjectorParams::DEFAULT3D)
 	{
 		setUpdater(std::make_unique<OperatorProjectorUpdaterDefault3D>());
 	}
-	else if (p_updaterType == OperatorProjector::DEFAULT4D)
+	else if (p_projParams.projectorUpdaterType == OperatorProjectorParams::DEFAULT4D)
 	{
 		setUpdater(std::make_unique<OperatorProjectorUpdaterDefault4D>());
 	}
-	else if (p_updaterType == OperatorProjector::LR)
+	else if (p_projParams.projectorUpdaterType == OperatorProjectorParams::LR)
 	{
-		setUpdater(std::make_unique<OperatorProjectorUpdaterLR>());
+		if (!p_projParams.HBasis)
+		{
+			throw std::invalid_argument(
+				"LR updater was requested but no HBasis provided");
+		}
+		setUpdater(std::make_unique<OperatorProjectorUpdaterLR>(*p_projParams.HBasis));
 	}
 	else
 	{

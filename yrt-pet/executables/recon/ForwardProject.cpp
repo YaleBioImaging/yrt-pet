@@ -49,8 +49,9 @@ int main(int argc, char** argv)
 		                          "i");
 		registry.registerArgument("psf", "Image-space PSF kernel file", false,
 		                          io::TypeOfArgument::STRING, "", inputGroup);
-		registry.registerArgument("varpsf","Image-space Variant PSF look-up table file", false,
-								  io::TypeOfArgument::STRING, "", inputGroup);
+		registry.registerArgument(
+		    "varpsf", "Image-space Variant PSF look-up table file", false,
+		    io::TypeOfArgument::STRING, "", inputGroup);
 		registry.registerArgument("num_subsets",
 		                          "Number of OSEM subsets (Default: 1)", false,
 		                          io::TypeOfArgument::INT, 1, inputGroup);
@@ -118,34 +119,26 @@ int main(int argc, char** argv)
 
 		// Input file
 		auto inputImage = std::make_unique<ImageOwned>(inputImage_fname);
-		const yrt::ImageParams& inputImageParams = inputImage->getImageParams();
+		const ImageParams& imgParams = inputImage->getParams();
 
 		// Image-space PSF
 		if (!imagePsf_fname.empty())
 		{
 			ASSERT_MSG(varPsf_fname.empty(),
-				"Got two different image PSF inputs");
+			           "Got two different image PSF inputs");
 			const auto imagePsf = std::make_unique<OperatorPsf>(imagePsf_fname);
-			std::cout << "Applying Uniform Image-space PSF..." << std::endl;
+			std::cout << "Applying uniform Image-space PSF..." << std::endl;
 			imagePsf->applyA(inputImage.get(), inputImage.get());
 		}
 		else if (!varPsf_fname.empty())
 		{
-			const auto imagePsf = std::make_unique<OperatorVarPsf>(varPsf_fname, inputImageParams);
-			std::cout << "Applying Variant Image-space PSF..." << std::endl;
-			auto tempBuffer = std::make_unique<yrt::ImageOwned>(inputImageParams);
+			const auto imagePsf =
+			    std::make_unique<OperatorVarPsf>(varPsf_fname, imgParams);
+			std::cout << "Applying variant Image-space PSF..." << std::endl;
+			auto tempBuffer = std::make_unique<ImageOwned>(imgParams);
 			tempBuffer->allocate();
 			tempBuffer->copyFromImage(inputImage.get());
-			imagePsf->applyAH(tempBuffer.get(), inputImage.get());
-		}
-
-
-
-		if (!imagePsf_fname.empty())
-		{
-			auto imagePsf = std::make_unique<OperatorPsf>(imagePsf_fname);
-			std::cout << "Applying Image-space PSF..." << std::endl;
-			imagePsf->applyA(inputImage.get(), inputImage.get());
+			imagePsf->applyA(tempBuffer.get(), inputImage.get());
 		}
 
 		auto projectorType = io::getProjector(projector_name);

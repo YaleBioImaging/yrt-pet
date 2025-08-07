@@ -120,9 +120,8 @@ int main(int argc, char** argv)
 
 		// Output image
 		std::cout << "Preparing output image..." << std::endl;
-		ImageParams outputImageParams{config.getValue<std::string>("params")};
-		const auto outputImage =
-		    std::make_unique<ImageOwned>(outputImageParams);
+		ImageParams imgParams{config.getValue<std::string>("params")};
+		const auto outputImage = std::make_unique<ImageOwned>(imgParams);
 		outputImage->allocate();
 
 		// Input data
@@ -183,14 +182,14 @@ int main(int argc, char** argv)
 			ASSERT_MSG(varPsf_fname.empty(),
 				"Got two different image PSF inputs");
 			const auto imagePsf = std::make_unique<OperatorPsf>(imagePsf_fname);
-			std::cout << "Applying Uniform Image-space PSF..." << std::endl;
+			std::cout << "Applying uniform Image-space PSF..." << std::endl;
 			imagePsf->applyAH(outputImage.get(), outputImage.get());
 		}
 		else if (!varPsf_fname.empty())
 		{
-			const auto imagePsf = std::make_unique<OperatorVarPsf>(varPsf_fname, outputImageParams);
-			std::cout << "Applying Variant Image-space PSF..." << std::endl;
-			auto tempBuffer = std::make_unique<yrt::ImageOwned>(outputImageParams);
+			const auto imagePsf = std::make_unique<OperatorVarPsf>(varPsf_fname, imgParams);
+			std::cout << "Applying variant Image-space PSF..." << std::endl;
+			auto tempBuffer = std::make_unique<ImageOwned>(imgParams);
 			tempBuffer->allocate();
 			tempBuffer->copyFromImage(outputImage.get());
 			imagePsf->applyAH(tempBuffer.get(), outputImage.get());

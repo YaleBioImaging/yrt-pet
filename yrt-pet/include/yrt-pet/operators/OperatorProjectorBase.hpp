@@ -21,14 +21,26 @@ class Histogram;
 class OperatorProjectorParams
 {
 public:
+	enum ProjectorUpdaterType
+	{
+		DEFAULT3D = 0,
+		DEFAULT4D,
+		LR
+	};
+
 	OperatorProjectorParams(const BinIterator* pp_binIter,
 	                        const Scanner& pr_scanner,
+	                        ProjectorUpdaterType p_projectorUpdaterType = ProjectorUpdaterType::DEFAULT3D,
 	                        float p_tofWidth_ps = 0.f, int p_tofNumStd = 0,
 	                        const std::string& pr_projPsf_fname = "",
 	                        int p_num_rays = 1);
 
 	const BinIterator* binIter;
 	const Scanner& scanner;
+
+	// Projector Updater type (e.g., DEFAULT3D)
+	ProjectorUpdaterType projectorUpdaterType;
+	std::unique_ptr<Array2D<float>> HBasis;
 
 	// Time of Flight
 	float tofWidth_ps;
@@ -39,6 +51,8 @@ public:
 
 	// Multi-ray siddon only
 	int numRays;
+
+
 };
 
 // Device-agnostic virtual class
@@ -50,13 +64,6 @@ public:
 	{
 		SIDDON = 0,
 		DD
-	};
-
-	enum ProjectorUpdaterType
-	{
-		DEFAULT3D = 0,
-		DEFAULT4D,
-		LR
 	};
 
 	explicit OperatorProjectorBase(const Scanner& pr_scanner);

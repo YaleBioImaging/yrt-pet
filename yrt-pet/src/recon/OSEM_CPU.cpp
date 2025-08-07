@@ -94,6 +94,7 @@ void OSEM_CPU::setupOperatorsForSensImgGen()
 		throw std::runtime_error("Unknown error");
 	}
 
+	setupProjectorUpdater();
 	mp_updater = std::make_unique<OSEMUpdater_CPU>(this);
 }
 
@@ -207,7 +208,6 @@ void OSEM_CPU::setupOperatorsForRecon()
 	}
 
 	setupProjectorUpdater();
-
 	mp_updater = std::make_unique<OSEMUpdater_CPU>(this);
 }
 
@@ -302,7 +302,7 @@ void OSEM_CPU::completeMLEMIteration() {}
 void OSEM_CPU::setupProjectorUpdater()
 {
 	auto projector = reinterpret_cast<OperatorProjector*>(mp_projector.get());
-	projector->setUpdaterType(projectorUpdaterType);
+	projector->setupUpdater(projectorUpdaterType);
 }
 
 

@@ -92,14 +92,22 @@ public:
 	void setInVivoAttenuationImage(const Image* pp_inVivoAttenuationImage);
 	void setInVivoACFHistogram(const Histogram* pp_inVivoAcf);
 	virtual const Corrector& getCorrector() const = 0;
+	const OperatorProjectorParams& getProjectorParams() const;
+	void setProjectorParams(OperatorProjectorParams params);
+	const Array2DAlias<float>& getHBasis() const;
+	void setHBasis(const Array2DAlias<float>& HBasisAlias);
+	OperatorProjectorParams::ProjectorUpdaterType getProjectorUpdaterType() const;
+	void setProjectorUpdaterType(OperatorProjectorParams::ProjectorUpdaterType projectorUpdaterType);
+
 
 	// ---------- Public members ----------
 	int num_MLEM_iterations;
 	int num_OSEM_subsets;
 	float hardThreshold;
 	int numRays;  // For Siddon only
-	OperatorProjectorBase::ProjectorUpdaterType projectorUpdaterType;
+//	OperatorProjectorBase::ProjectorUpdaterType projectorUpdaterType;
 	OperatorProjector::ProjectorType projectorType;
+	std::unique_ptr<OperatorProjectorParams> projectorParams;
 	const Scanner& scanner;
 	const Image* maskImage;
 	const Image* initialEstimate;

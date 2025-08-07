@@ -6,7 +6,6 @@
 #include "yrt-pet/utils/Assert.hpp"
 
 #include <algorithm>
-#include <random>
 
 namespace yrt::util::test
 {
@@ -143,19 +142,33 @@ template bool allclose<double, true>(const double* valuesRef,
                                      const double* values, size_t numValues,
                                      double rtol, double atol);
 
-std::unique_ptr<ImageOwned> makeImageWithRandomPrism(const ImageParams& params)
+std::unique_ptr<ImageOwned>
+    makeImageWithRandomPrism(const ImageParams& params,
+                             std::default_random_engine* p_engine)
 {
-	/*unsigned int rseed = 1754246256; //static_cast<unsigned int>(std::time(0));
-	std::cout << " rseed=" << rseed << std::endl;
+	/*unsigned int rseed = 1754246256; //static_cast<unsigned
+	int>(std::time(0)); std::cout << " rseed=" << rseed << std::endl;*/
 
-	std::default_random_engine engine(rseed);*/
-	unsigned int rseed = static_cast<unsigned int>(std::time(nullptr));
-	std::default_random_engine engine(rseed);
-	std::cout << "prism rseed=" << rseed << std::endl;
+	std::unique_ptr<std::default_random_engine> engine;
+	std::default_random_engine* usedEngine;
+	if (p_engine == nullptr)
+	{
+		unsigned int rseed = static_cast<unsigned int>(std::time(nullptr));
+		engine = std::make_unique<std::default_random_engine>(rseed);
+		usedEngine = engine.get();
+		std::cout << "prism rseed=" << rseed << std::endl;
+	}
+	else
+	{
+		usedEngine = p_engine;
+	}
 	constexpr float MaxPrismValue = 10.0f;
 
-	std::uniform_int_distribution<int> prismPositionDistributionX(0, params.nx);
-	std::uniform_int_distribution<int> prismPositionDistributionY(0, params.ny);
+	// Initialize image with prism inside
+	ASSERT(params.nx == params.ny);
+
+	std::uniform_int_distribution<int> prismPositionDistributionXY(0,
+	                                                               params.nx);
 	std::uniform_int_distribution<int> prismPositionDistributionZ(0, params.nz);
 	std::uniform_real_distribution<float> prismValueDistribution(0.1f,
 	                                                             MaxPrismValue);
@@ -170,12 +183,12 @@ std::unique_ptr<ImageOwned> makeImageWithRandomPrism(const ImageParams& params)
 
 	do
 	{
-		prismBeginX = prismPositionDistributionX(engine);
-		prismBeginY = prismPositionDistributionY(engine);
-		prismBeginZ = prismPositionDistributionZ(engine);
-		prismEndX = prismPositionDistributionX(engine);
-		prismEndY = prismPositionDistributionY(engine);
-		prismEndZ = prismPositionDistributionZ(engine);
+		prismBeginX = prismPositionDistributionXY(*usedEngine);
+		prismBeginY = prismPositionDistributionXY(*usedEngine);
+		prismBeginZ = prismPositionDistributionZ(*usedEngine);
+		prismEndX = prismPositionDistributionXY(*usedEngine);
+		prismEndY = prismPositionDistributionXY(*usedEngine);
+		prismEndZ = prismPositionDistributionZ(*usedEngine);
 
 		auto [prismBeginX_n, prismEndX_n] = std::minmax(prismBeginX, prismEndX);
 		prismBeginX = prismBeginX_n;
@@ -205,7 +218,7 @@ std::unique_ptr<ImageOwned> makeImageWithRandomPrism(const ImageParams& params)
 			for (int i_z = prismBeginZ; i_z < prismEndZ; i_z++)
 			{
 				const size_t flatIdx = image->unravel(i_z, i_y, i_x);
-				image_ptr[flatIdx] = prismValueDistribution(engine);
+				image_ptr[flatIdx] = prismValueDistribution(*usedEngine);
 			}
 		}
 	}

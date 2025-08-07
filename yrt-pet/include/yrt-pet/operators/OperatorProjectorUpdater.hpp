@@ -72,7 +72,7 @@ public:
 class OperatorProjectorUpdaterLR : public OperatorProjectorUpdater
 {
 public:
-	OperatorProjectorUpdaterLR() = default;
+	OperatorProjectorUpdaterLR(const Array2D<float>& pr_HBasis);
 
 	float forwardUpdate(
 	    float weight, float* cur_img_ptr,
@@ -86,17 +86,20 @@ public:
 	    size_t numVoxelPerFrame
 	) override;
 
-	void setHBasis(const Array2D<float>& HBasis);
-	void setHBasis(const Array2DAlias<float>& HBasis);
+//	void setHBasis(const Array2D<float>& HBasis);
+	void setHBasis(const Array2DBase<float>& pr_HBasis);
+//	void setHBasis(std::unique_ptr<Array2DAlias<float>> HBasis);
 	const Array2DAlias<float>& getHBasis() const;
+	std::unique_ptr<Array2D<float>> getHBasisCopy() const;
 	void setUpdateH(bool updateH);
 	bool getUpdateH() const;
 
+
 protected:
-	int            m_rank = 1;
-	int dynamicFrames = 1;
-	Array2DAlias<float> m_HBasis;
-	bool           m_updateH = false;
+	std::unique_ptr<Array2DAlias<float>> mp_HBasis;
+	bool m_updateH = false;
+	int m_rank = 1;
+	int m_numDynamicFrames = 1;
 };
 
 }  // namespace yrt

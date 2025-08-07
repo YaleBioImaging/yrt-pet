@@ -18,13 +18,32 @@ void py_setup_operatorprojectorparams(py::module& m)
 	auto c = py::class_<OperatorProjectorParams>(m, "OperatorProjectorParams");
 	c.def(
 	    py::init<BinIterator*, Scanner&, float, int, const std::string&, int>(),
-	    py::arg("binIter"), py::arg("scanner"), py::arg("tofWidth_ps") = 0.f,
+	    py::arg("binIter"), py::arg("scanner"),
+	    py::arg("ProjectorUpdaterType") = OperatorProjectorParams::ProjectorUpdaterType::DEFAULT3D,
+	    py::arg("tofWidth_ps") = 0.f,
 	    py::arg("tofNumStd") = -1, py::arg("projPsf_fname") = "",
 	    py::arg("num_rays") = 1);
+
+	c.def_property("HBasis",
+	// getter: return a reference
+	[](OperatorProjectorParams &p) -> Array2DAlias<float>& {
+	return *p.HBasis;
+	},
+	// setter: take a new alias and assign it
+	[](OperatorProjectorParams &p, const Array2DAlias<float>& alias) {
+	p.HBasis = std::make_unique<Array2DAlias<float>>(alias);
+	});
+
 	c.def_readwrite("tofWidth_ps", &OperatorProjectorParams::tofWidth_ps);
 	c.def_readwrite("tofNumStd", &OperatorProjectorParams::tofNumStd);
 	c.def_readwrite("projPsf_fname", &OperatorProjectorParams::projPsf_fname);
 	c.def_readwrite("num_rays", &OperatorProjectorParams::numRays);
+
+	py::enum_<OperatorProjectorParams::ProjectorUpdaterType>(c, "ProjectorUpdaterType")
+	    .value("DEFAULT3D", OperatorProjectorParams::ProjectorUpdaterType::DEFAULT3D)
+	    .value("DEFAULT4D", OperatorProjectorParams::ProjectorUpdaterType::DEFAULT4D)
+	    .value("LR", OperatorProjectorParams::ProjectorUpdaterType::LR)
+	    .export_values();
 
 }
 
@@ -39,12 +58,6 @@ void py_setup_operatorprojectorbase(py::module& m)
 	    .value("SIDDON", OperatorProjectorBase::ProjectorType::SIDDON)
 	    .value("DD", OperatorProjectorBase::ProjectorType::DD)
 	    .export_values();
-
-	py::enum_<OperatorProjectorBase::ProjectorUpdaterType>(c, "ProjectorUpdaterType")
-	    .value("DEFAULT3D", OperatorProjectorBase::ProjectorUpdaterType::DEFAULT3D)
-	    .value("DEFAULT4D", OperatorProjectorBase::ProjectorUpdaterType::DEFAULT4D)
-	    .value("LR", OperatorProjectorBase::ProjectorUpdaterType::LR)
-	    .export_values();
 }
 }  // namespace yrt
 
@@ -55,10 +68,12 @@ namespace yrt
 
 OperatorProjectorParams::OperatorProjectorParams(
     const BinIterator* pp_binIter, const Scanner& pr_scanner,
+    OperatorProjectorParams::ProjectorUpdaterType p_projectorUpdaterType,
     float p_tofWidth_ps, int p_tofNumStd, const std::string& pr_projPsf_fname,
     int p_num_rays)
     : binIter(pp_binIter),
       scanner(pr_scanner),
+      projectorUpdaterType(p_projectorUpdaterType),
       tofWidth_ps(p_tofWidth_ps),
       tofNumStd(p_tofNumStd),
       projPsf_fname(pr_projPsf_fname),

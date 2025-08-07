@@ -29,12 +29,10 @@ public:
 	explicit OperatorProjector(const Scanner& pr_scanner,
 	                           float tofWidth_ps = 0.0f, int tofNumStd = -1,
 	                           const std::string& projPsf_fname = "",
-	                           ProjectorUpdaterType projectorUpdaterType =
-	                               OperatorProjectorBase::DEFAULT3D);
+	                           OperatorProjectorParams::ProjectorUpdaterType projectorUpdaterType =
+	                               OperatorProjectorParams::DEFAULT3D);
 
-	explicit OperatorProjector(const OperatorProjectorParams& p_projParams,
-	                           ProjectorUpdaterType projectorUpdaterType =
-	                               OperatorProjectorBase::DEFAULT3D);
+	explicit OperatorProjector(const OperatorProjectorParams& p_projParams);
 
 	// Virtual functions
 	virtual float forwardProjection(
@@ -52,7 +50,7 @@ public:
 	void setupTOFHelper(float tofWidth_ps, int tofNumStd = -1);
 	void setupProjPsfManager(const std::string& projPsf_fname);
 	OperatorProjectorUpdater* getUpdater();
-	void setUpdaterType(OperatorProjectorBase::ProjectorUpdaterType p_updaterType);
+	void setupUpdater(const OperatorProjectorParams& p_projParams);
 	void setUpdater(std::unique_ptr<OperatorProjectorUpdater> pp_updater);
 
 	const TimeOfFlightHelper* getTOFHelper() const;

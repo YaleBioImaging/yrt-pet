@@ -107,12 +107,36 @@ void py_setup_osem(pybind11::module& m)
 	c.def("setInVivoACFHistogram", &OSEM::setInVivoACFHistogram,
 	      "acf_invivo_his"_a);
 
+	c.def("getProjectorParams",&OSEM::getProjectorParams,
+	     py::return_value_policy::reference_internal);
+	c.def("setProjectorParams",
+	 [](OSEM &self, const OperatorProjectorParams &p) {
+	auto params = std::make_unique<OperatorProjectorParams>(
+		p.binIter,
+		p.scanner,
+		p.projectorUpdaterType,
+		p.tofWidth_ps,
+		p.tofNumStd,
+		p.projPsf_fname,
+		p.numRays);
+	if (p.HBasis) {
+		params->HBasis = std::make_unique<Array2DAlias<float>>(*p.HBasis);
+	}
+	self.setProjectorParams(std::move(*params));
+	      }, py::arg("params"));
+	c.def("getHBasis", &OSEM::getHBasis,
+	      py::return_value_policy::reference_internal);
+	c.def("setHBasis", &OSEM::setHBasis, py::arg("HBasisAlias"));
+
+	c.def("getProjectorUpdaterType",&OSEM::getProjectorUpdaterType);
+	c.def("setProjectorUpdaterType",&OSEM::setProjectorUpdaterType,
+	      py::arg("projectorUpdaterType"));
+
 	c.def_readwrite("num_MLEM_iterations", &OSEM::num_MLEM_iterations);
 	c.def_readwrite("num_OSEM_subsets", &OSEM::num_OSEM_subsets);
 	c.def_readwrite("hardThreshold", &OSEM::hardThreshold);
 	c.def_readwrite("numRays", &OSEM::numRays);
 	c.def_readwrite("projectorType", &OSEM::projectorType);
-	c.def_readwrite("projectorUpdaterType", &OSEM::projectorUpdaterType);
 	c.def_readwrite("maskImage", &OSEM::maskImage);
 	c.def_readwrite("initialEstimate", &OSEM::initialEstimate);
 }
@@ -128,7 +152,6 @@ OSEM::OSEM(const Scanner& pr_scanner)
       num_OSEM_subsets(1),
       hardThreshold(DEFAULT_HARD_THRESHOLD),
       numRays(1),
-	  projectorUpdaterType(OperatorProjectorBase::ProjectorUpdaterType::DEFAULT3D),
 	  projectorType(OperatorProjector::SIDDON),
       scanner(pr_scanner),
       maskImage(nullptr),
@@ -147,6 +170,39 @@ OSEM::OSEM(const Scanner& pr_scanner)
       mp_copiedSensitivityImage(nullptr)
 {
 }
+
+const OperatorProjectorParams& OSEM::getProjectorParams() const {
+	return *projectorParams;
+}
+
+void OSEM::setProjectorParams(OperatorProjectorParams params) {
+	projectorParams = std::make_unique<OperatorProjectorParams>(std::move(params));
+}
+
+const Array2DAlias<float>& OSEM::getHBasis() const {
+	auto& params = *projectorParams;
+	if (!params.HBasis)
+		throw std::runtime_error("HBasis not set");
+	return *params.HBasis;
+}
+
+void OSEM::setHBasis(const Array2DAlias<float>& HBasisAlias) {
+	auto& params = *projectorParams;
+	params.HBasis = std::make_unique<Array2DAlias<float>>(HBasisAlias);
+}
+
+OperatorProjectorParams::ProjectorUpdaterType OSEM::getProjectorUpdaterType() const
+{
+	return projectorParams->projectorUpdaterType;
+}
+
+void OSEM::setProjectorUpdaterType(
+    OperatorProjectorParams::ProjectorUpdaterType projectorUpdaterType)
+{
+	auto& params = *projectorParams;
+	params.projectorUpdaterType = projectorUpdaterType;
+}
+
 
 void OSEM::generateSensitivityImages(const std::string& out_fname)
 {
@@ -751,5 +807,6 @@ void OSEM::summary() const
 		          << std::endl;
 	}
 }
+
 
 }  // namespace yrt

@@ -256,21 +256,20 @@ TEST_CASE("PSF", "[psf]")
 TEST_CASE("VarPSF", "[varpsf]")
 {
 	// Random sigma generator
+	const unsigned int randomSeed =
+	     static_cast<unsigned int>(std::time(nullptr));
 
-	// const unsigned int randomSeed =
-	//     static_cast<unsigned int>(std::time(nullptr));
-
-	const unsigned int randomSeed = 1754591587;
+	//const unsigned int randomSeed = 1754591587;
 	std::default_random_engine engine(randomSeed);
 
 	std::cout << "Random seed = " << randomSeed << std::endl;
 
 	for (int i = 0; i < 100; ++i)
 	{
-		ImageParams imgParams{100,    100,  51,   400.0f, 401.0f,
+		ImageParams imgParams{100, 100, 51, 400.0f, 401.0f,
 		                      421.0f, 0.0f, 0.0f, 0.0f};
 		auto image = makeImageWithRandomPrism(imgParams, &engine);
-		// image->writeToFile("/data2/Recons/tz323/YRT/yrt-pet/build-clion/unit_tests/prism.nii");
+		//image->writeToFile("/data2/Recons/tz323/YRT/yrt-pet/build-clion/unit_tests/prism_debug.nii");
 
 		// std::mt19937 gen(static_cast<unsigned int>(std::time(0)));
 		std::uniform_real_distribution<float> sigma_dist1(0.5f, 1.0f);
@@ -381,7 +380,7 @@ TEST_CASE("VarPSF", "[varpsf]")
 		SECTION("forward_varpsf")
 		{
 			op_var.applyA(image.get(), img_out.get());
-			// img_out->writeToFile("/data2/Recons/tz323/YRT/yrt-pet/build-clion/unit_tests/var.nii");
+			//img_out->writeToFile("/data2/Recons/tz323/YRT/yrt-pet/build-clion/unit_tests/var_debug.nii");
 
 			std::vector<float> expected1 =
 			    convolve(inputData, dims, voxels, sigmas1, false,
@@ -398,11 +397,10 @@ TEST_CASE("VarPSF", "[varpsf]")
 			}
 			std::cout << std::endl;*/
 
-			// size_t data_size = img_out->getData().getSizeTotal(); // get
-			// total size from img_out float* outputPtr =
-			// img_out->getRawPointer(); std::memcpy(outputPtr,
-			// expected1.data(), data_size * sizeof(float));
-			// img_out->writeToFile("/data2/Recons/tz323/YRT/yrt-pet/build-clion/unit_tests/exp1.nii");
+			/*size_t data_size = img_out->getData().getSizeTotal(); // get total size from img_out
+			float* outputPtr = img_out->getRawPointer(); std::memcpy(outputPtr,
+			expected1.data(), data_size * sizeof(float));
+			img_out->writeToFile("/data2/Recons/tz323/YRT/yrt-pet/build-clion/unit_tests/exp1_debug.nii");*/
 
 
 			std::vector<float> expected2 =
@@ -418,12 +416,10 @@ TEST_CASE("VarPSF", "[varpsf]")
 			}
 			std::cout << std::endl;*/
 
-
-			// size_t data_size = img_out->getData().getSizeTotal(); // get
-			// total size from img_out float* outputPtr =
-			// img_out->getRawPointer(); std::memcpy(outputPtr,
-			// expected2.data(), data_size * sizeof(float));
-			// img_out->writeToFile("/data2/Recons/tz323/YRT/yrt-pet/build-clion/unit_tests/exp2.nii");
+			/*img_out->getRawPointer();
+			std::memcpy(outputPtr,
+			expected2.data(), data_size * sizeof(float));
+			img_out->writeToFile("/data2/Recons/tz323/YRT/yrt-pet/build-clion/unit_tests/exp2_debug.nii");*/
 
 			size_t idx =
 			    center_x + imgParams.nx * (center_y + imgParams.ny * center_z);
@@ -439,7 +435,7 @@ TEST_CASE("VarPSF", "[varpsf]")
 		SECTION("transpose_varpsf")
 		{
 			op_var.applyAH(image.get(), img_out.get());
-
+			//img_out->writeToFile("/data2/Recons/tz323/YRT/yrt-pet/build-clion/unit_tests/var_T_debug.nii");
 			std::vector<float> expected1 =
 			    convolve(inputData, dims, voxels, sigmas1, true, kernel_size_x1,
 			             kernel_size_y1, kernel_size_z1);
@@ -447,12 +443,18 @@ TEST_CASE("VarPSF", "[varpsf]")
 			    convolve(inputData, dims, voxels, sigmas2, true, kernel_size_x2,
 			             kernel_size_y2, kernel_size_z2);
 
+			/*size_t data_size = img_out->getData().getSizeTotal(); // get total size from img_out
+			float* outputPtr = img_out->getRawPointer();
+			std::memcpy(outputPtr,
+			expected2.data(), data_size * sizeof(float));
+			img_out->writeToFile("/data2/Recons/tz323/YRT/yrt-pet/build-clion/unit_tests/exp2_T_debug.nii");*/
+
 			size_t idx =
 			    center_x + imgParams.nx * (center_y + imgParams.ny * center_z);
 			CHECK(outputPtr[idx] == Approx(expected1[idx]).epsilon(1e-3));
-			idx = tp1_x + imgParams.nx * (tp1_y + imgParams.ny * tp1_z);
+			idx = tp1_x - kernel_size_x2 + imgParams.nx * (tp1_y + imgParams.ny * tp1_z);
 			CHECK(outputPtr[idx] == Approx(expected1[idx]).epsilon(1e-3));
-			idx = tp2_x + imgParams.nx * (tp2_y + imgParams.ny * tp2_z);
+			idx = tp2_x + kernel_size_x2 + imgParams.nx * (tp2_y - kernel_size_y2 + imgParams.ny * (tp2_z + kernel_size_z2));
 			CHECK(outputPtr[idx] == Approx(expected2[idx]).epsilon(1e-3));
 			idx = tp3_x + imgParams.nx * (tp3_y + imgParams.ny * tp3_z);
 			CHECK(outputPtr[idx] == Approx(expected2[idx]).epsilon(1e-3));

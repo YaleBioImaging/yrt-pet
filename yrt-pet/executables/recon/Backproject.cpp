@@ -67,6 +67,10 @@ int main(int argc, char** argv)
 		    "Image-space PSF kernel file (Applied after the backprojection)",
 		    false, io::TypeOfArgument::STRING, "", outputGroup);
 		registry.registerArgument(
+			"varpsf",
+			"Image-space Variant PSF look-up table file (Applied after the backprojection)",
+			false, io::TypeOfArgument::STRING, "", outputGroup);
+		registry.registerArgument(
 		    "proj_psf",
 		    "Projection-space PSF kernel file (for DD projector only)", false,
 		    io::TypeOfArgument::STRING, "", projectorGroup);
@@ -172,12 +176,24 @@ int main(int argc, char** argv)
 		                  config.getValue<bool>("gpu"));
 
 		// Image-space PSF
-		const std::string imagePsf_fname = config.getValue<std::string>("psf");
+		auto imagePsf_fname = config.getValue<std::string>("psf");
+		auto varPsf_fname = config.getValue<std::string>("varpsf");
 		if (!imagePsf_fname.empty())
 		{
+			ASSERT_MSG(varPsf_fname.empty(),
+				"Got two different image PSF inputs");
 			const auto imagePsf = std::make_unique<OperatorPsf>(imagePsf_fname);
-			std::cout << "Applying Image-space PSF..." << std::endl;
+			std::cout << "Applying Uniform Image-space PSF..." << std::endl;
 			imagePsf->applyAH(outputImage.get(), outputImage.get());
+		}
+		else if (!varPsf_fname.empty())
+		{
+			const auto imagePsf = std::make_unique<OperatorVarPsf>(varPsf_fname, outputImageParams);
+			std::cout << "Applying Variant Image-space PSF..." << std::endl;
+			auto tempBuffer = std::make_unique<yrt::ImageOwned>(outputImageParams);
+			tempBuffer->allocate();
+			tempBuffer->copyFromImage(outputImage.get());
+			imagePsf->applyAH(tempBuffer.get(), outputImage.get());
 		}
 
 		std::cout << "Writing image to file..." << std::endl;

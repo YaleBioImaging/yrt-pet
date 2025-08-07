@@ -145,8 +145,13 @@ template bool allclose<double, true>(const double* valuesRef,
 
 std::unique_ptr<ImageOwned> makeImageWithRandomPrism(const ImageParams& params)
 {
-	std::default_random_engine engine(
-	    static_cast<unsigned int>(std::time(nullptr)));
+	/*unsigned int rseed = 1754246256; //static_cast<unsigned int>(std::time(0));
+	std::cout << " rseed=" << rseed << std::endl;
+
+	std::default_random_engine engine(rseed);*/
+	unsigned int rseed = static_cast<unsigned int>(std::time(nullptr));
+	std::default_random_engine engine(rseed);
+	std::cout << "prism rseed=" << rseed << std::endl;
 	constexpr float MaxPrismValue = 10.0f;
 
 	std::uniform_int_distribution<int> prismPositionDistributionX(0, params.nx);

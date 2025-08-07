@@ -18,6 +18,9 @@
 #include <ctime>
 #include <iostream>
 #include <random>
+#include <ctime>
+#include <thread> // For std::this_thread::sleep_for
+#include <chrono> // For std::chrono::seconds
 
 namespace yrt::util::test
 {
@@ -253,168 +256,213 @@ TEST_CASE("PSF", "[psf]")
 
 TEST_CASE("VarPSF", "[varpsf]")
 {
-	ImageParams imgParams{100,    100,  51,   400.0f, 401.0f,
-	                      421.0f, 0.0f, 0.0f, 0.0f};
-	auto image = makeImageWithRandomPrism(imgParams);
-
-	// Random sigma generator
-	std::mt19937 gen(static_cast<unsigned int>(std::time(0)));
-	std::uniform_real_distribution<float> sigma_dist1(0.5f, 1.0f);
-
-	float sigmaX1 = sigma_dist1(gen);
-	float sigmaY1 = sigma_dist1(gen);
-	float sigmaZ1 = sigma_dist1(gen);
-
-	std::uniform_real_distribution<float> sigma_dist2(1.5f, 2.0f);
-	float sigmaX2 = sigma_dist2(gen);
-	float sigmaY2 = sigma_dist2(gen);
-	float sigmaZ2 = sigma_dist2(gen);
-
-	// Generate sigma_lookup on the fly using fixed (x,y,z) values
-	OperatorVarPsf::ConvolutionKernelCollection random_sigma_lookup;
-	std::vector<std::tuple<float, float, float>> positions;
-	std::vector<float> xvals = {5.1f, 54.9f, 105.3f, 155.1f, 205.5f};
-	std::vector<float> yvals = {5.1f, 54.9f, 105.3f, 155.1f, 204.9f};
-	std::vector<float> zvals = {4.8f, 54.4f, 104.8f, 154.4f, 204.8f};
-	for (float z : zvals)
+	for (int i = 0; i < 1000; ++i)
 	{
-		for (float y : yvals)
+		ImageParams imgParams{100,    100,  51,   400.0f, 401.0f,
+							  421.0f, 0.0f, 0.0f, 0.0f};
+		auto image = makeImageWithRandomPrism(imgParams);
+		//image->writeToFile("/data2/Recons/tz323/YRT/yrt-pet/build-clion/unit_tests/prism.nii");
+
+		// Random sigma generator
+		unsigned int randomSeed = static_cast<unsigned int>(std::time(nullptr));
+		std::default_random_engine engine(randomSeed);
+
+		//std::mt19937 gen(static_cast<unsigned int>(std::time(0)));
+		std::uniform_real_distribution<float> sigma_dist1(0.5f, 1.0f);
+
+		float sigmaX1 = sigma_dist1(engine);
+		float sigmaY1 = sigma_dist1(engine);
+		float sigmaZ1 = sigma_dist1(engine);
+
+		std::uniform_real_distribution<float> sigma_dist2(1.5f, 2.0f);
+		float sigmaX2 = sigma_dist2(engine);
+		float sigmaY2 = sigma_dist2(engine);
+		float sigmaZ2 = sigma_dist2(engine);
+
+		// Generate sigma_lookup on the fly using fixed (x,y,z) values
+		OperatorVarPsf::ConvolutionKernelCollection random_sigma_lookup;
+		std::vector<std::tuple<float, float, float>> positions;
+		std::vector<float> xvals = {5.1f, 54.9f, 105.3f, 155.1f, 205.5f};
+		std::vector<float> yvals = {5.1f, 54.9f, 105.3f, 155.1f, 204.9f};
+		std::vector<float> zvals = {4.8f, 54.4f, 104.8f, 154.4f, 204.8f};
+		for (float z : zvals)
 		{
-			for (float x : xvals)
+			for (float y : yvals)
 			{
-				positions.emplace_back(x, y, z);
+				for (float x : xvals)
+				{
+					positions.emplace_back(x, y, z);
+				}
 			}
 		}
-	}
-	OperatorVarPsf op_var(imgParams);
-	op_var.setRangeAndGap(200, 50, 200, 50, 200, 50);
-	float threshold = 100.0f;
-	float tempx, tempy, tempz;
-	float sigmax, sigmay, sigmaz;
-	float nstdx = 4.0, nstdy = 4.0, nstdz = 4.0;
-	OperatorVarPsf::ConvolutionKernelCollection kernels;
-	for (size_t i = 0; i < positions.size(); ++i)
-	{
-		std::tie(tempx, tempy, tempz) = positions[i];
-		sigmax = (tempx > threshold) ? sigmaX2 : sigmaX1;
-		sigmay = (tempy > threshold) ? sigmaY2 : sigmaY1;
-		sigmaz = (tempz > threshold) ? sigmaZ2 : sigmaZ1;
-		auto kernel = std::make_unique<ConvolutionKernelGaussian>(
-		    sigmax, sigmay, sigmaz, nstdx, nstdy, nstdz, imgParams);
-		kernels.push_back(std::move(kernel));
-	}
-	op_var.setKernelCollection(kernels);
+		OperatorVarPsf op_var(imgParams);
+		op_var.setRangeAndGap(200, 50, 200, 50, 200, 50);
+		float threshold = 100.0f;
+		float tempx, tempy, tempz;
+		float sigmax, sigmay, sigmaz;
+		float nstdx = 4.0, nstdy = 4.0, nstdz = 4.0;
+		OperatorVarPsf::ConvolutionKernelCollection kernels;
+		for (size_t i = 0; i < positions.size(); ++i)
+		{
+			std::tie(tempx, tempy, tempz) = positions[i];
+			sigmax = (tempx > threshold) ? sigmaX2 : sigmaX1;
+			sigmay = (tempy > threshold) ? sigmaY2 : sigmaY1;
+			sigmaz = (tempz > threshold) ? sigmaZ2 : sigmaZ1;
+			auto kernel = std::make_unique<ConvolutionKernelGaussian>(
+				sigmax, sigmay, sigmaz, nstdx, nstdy, nstdz, imgParams);
+			kernels.push_back(std::move(kernel));
+		}
+		op_var.setKernelCollection(kernels);
 
-	auto img_out = std::make_unique<ImageOwned>(imgParams);
-	img_out->allocate();
-	std::vector<int64_t> dims = {imgParams.nx, imgParams.ny, imgParams.nz};
-	std::vector<float> voxels = {imgParams.vx, imgParams.vy, imgParams.vz};
+		auto img_out = std::make_unique<ImageOwned>(imgParams);
+		img_out->allocate();
+		std::vector<int64_t> dims = {imgParams.nx, imgParams.ny, imgParams.nz};
+		std::vector<float> voxels = {imgParams.vx, imgParams.vy, imgParams.vz};
 
-	std::vector<float> sigmas1 = {sigmaX1, sigmaY1, sigmaZ1};
-	int kernel_size_x1 = std::max(
-	    1,
-	    static_cast<int>(std::floor((sigmas1[0] * nstdx) / imgParams.vx)) - 1);
-	int kernel_size_y1 = std::max(
-	    1,
-	    static_cast<int>(std::floor((sigmas1[1] * nstdy) / imgParams.vy)) - 1);
-	int kernel_size_z1 = std::max(
-	    1,
-	    static_cast<int>(std::floor((sigmas1[2] * nstdz) / imgParams.vz)) - 1);
-	std::vector<float> sigmas2 = {sigmaX2, sigmaY2, sigmaZ2};
-	int kernel_size_x2 = std::max(
-	    1,
-	    static_cast<int>(std::floor((sigmas2[0] * nstdx) / imgParams.vx)) - 1);
-	int kernel_size_y2 = std::max(
-	    1,
-	    static_cast<int>(std::floor((sigmas2[1] * nstdy) / imgParams.vy)) - 1);
-	int kernel_size_z2 = std::max(
-	    1,
-	    static_cast<int>(std::floor((sigmas2[2] * nstdz) / imgParams.vz)) - 1);
-	std::vector<float> inputData;
-	inputData.resize(image->getData().getSizeTotal());
-	float* inputPtr = image->getRawPointer();
-	float* outputPtr = img_out->getRawPointer();
-	std::memcpy(inputData.data(), inputPtr,
-	            image->getData().getSizeTotal() * sizeof(float));
+		std::vector<float> sigmas1 = {sigmaX1, sigmaY1, sigmaZ1};
+		int kernel_size_x1 = std::max(
+			1,
+			static_cast<int>(std::floor((sigmas1[0] * nstdx) / imgParams.vx)) - 1);
+		int kernel_size_y1 = std::max(
+			1,
+			static_cast<int>(std::floor((sigmas1[1] * nstdy) / imgParams.vy)) - 1);
+		int kernel_size_z1 = std::max(
+			1,
+			static_cast<int>(std::floor((sigmas1[2] * nstdz) / imgParams.vz)) - 1);
+		std::vector<float> sigmas2 = {sigmaX2, sigmaY2, sigmaZ2};
+		int kernel_size_x2 = std::max(
+			1,
+			static_cast<int>(std::floor((sigmas2[0] * nstdx) / imgParams.vx)) - 1);
+		int kernel_size_y2 = std::max(
+			1,
+			static_cast<int>(std::floor((sigmas2[1] * nstdy) / imgParams.vy)) - 1);
+		int kernel_size_z2 = std::max(
+			1,
+			static_cast<int>(std::floor((sigmas2[2] * nstdz) / imgParams.vz)) - 1);
+		std::vector<float> inputData;
+		inputData.resize(image->getData().getSizeTotal());
+		float* inputPtr = image->getRawPointer();
+		float* outputPtr = img_out->getRawPointer();
+		std::memcpy(inputData.data(), inputPtr,
+					image->getData().getSizeTotal() * sizeof(float));
 
-	Vector3D center_pt = {-imgParams.vx / 2, -imgParams.vy / 2,
-	                      -imgParams.vz / 2};
-	Vector3D test_pt1 = {threshold - imgParams.vx, 0, 0};
-	Vector3D test_pt2 = {threshold + imgParams.vx, -threshold - imgParams.vx,
-	                     threshold + imgParams.vx};
-	Vector3D test_pt3 = {(imgParams.nx - 1) * imgParams.vx / 2,
-	                     (imgParams.ny - 1) * imgParams.vy / 2,
-	                     -(imgParams.nz - 1) * imgParams.vx / 2};
-	int center_x, center_y, center_z;
-	int tp1_x, tp1_y, tp1_z;
-	int tp2_x, tp2_y, tp2_z;
-	int tp3_x, tp3_y, tp3_z;
+		threshold = threshold - 25;
+		Vector3D center_pt = {-imgParams.vx / 2, -imgParams.vy / 2,
+							  -imgParams.vz / 2};
+		Vector3D test_pt1 = {threshold - imgParams.vx, 0, 0};
+		Vector3D test_pt2 = {threshold + imgParams.vx, -threshold - imgParams.vy,
+							 threshold + imgParams.vz};
+		Vector3D test_pt3 = {(imgParams.nx - 1) * imgParams.vx / 2,
+							 (imgParams.ny - 1) * imgParams.vy / 2,
+							 -(imgParams.nz - 1) * imgParams.vz / 2};
+		int center_x, center_y, center_z;
+		int tp1_x, tp1_y, tp1_z;
+		int tp2_x, tp2_y, tp2_z;
+		int tp3_x, tp3_y, tp3_z;
 
-	image->getNearestNeighborIdx(center_pt, &center_x, &center_y, &center_z);
-	image->getNearestNeighborIdx(test_pt1, &tp1_x, &tp1_y, &tp1_z);
-	image->getNearestNeighborIdx(test_pt2, &tp2_x, &tp2_y, &tp2_z);
-	image->getNearestNeighborIdx(test_pt3, &tp3_x, &tp3_y, &tp3_z);
+		image->getNearestNeighborIdx(center_pt, &center_x, &center_y, &center_z);
+		image->getNearestNeighborIdx(test_pt1, &tp1_x, &tp1_y, &tp1_z);
+		image->getNearestNeighborIdx(test_pt2, &tp2_x, &tp2_y, &tp2_z);
+		image->getNearestNeighborIdx(test_pt3, &tp3_x, &tp3_y, &tp3_z);
 
-	SECTION("forward_varpsf")
-	{
-		op_var.applyA(image.get(), img_out.get());
+		SECTION("forward_varpsf")
+		{
+			op_var.applyA(image.get(), img_out.get());
+			//img_out->writeToFile("/data2/Recons/tz323/YRT/yrt-pet/build-clion/unit_tests/var.nii");
 
-		std::vector<float> expected1 =
-		    convolve(inputData, dims, voxels, sigmas1, false, kernel_size_x1,
-		             kernel_size_y1, kernel_size_z1);
-		std::vector<float> expected2 =
-		    convolve(inputData, dims, voxels, sigmas2, false, kernel_size_x2,
-		             kernel_size_y2, kernel_size_z2);
+			std::vector<float> expected1 =
+				convolve(inputData, dims, voxels, sigmas1, false, kernel_size_x1,
+						 kernel_size_y1, kernel_size_z1);
 
-		size_t idx =
-		    center_x + imgParams.nx * (center_y + imgParams.ny * center_z);
-		CHECK(outputPtr[idx] == Approx(expected1[idx]).epsilon(1e-3));
-		idx = tp1_x + imgParams.nx * (tp1_y + imgParams.ny * tp1_z);
-		CHECK(outputPtr[idx] == Approx(expected1[idx]).epsilon(1e-3));
-		idx = tp2_x + imgParams.nx * (tp2_y + imgParams.ny * tp2_z);
-		CHECK(outputPtr[idx] == Approx(expected2[idx]).epsilon(1e-3));
-		idx = tp3_x + imgParams.nx * (tp3_y + imgParams.ny * tp3_z);
-		CHECK(outputPtr[idx] == Approx(expected2[idx]).epsilon(1e-3));
-	}
+			/*std::cout << "Kernel Size X1: " << kernel_size_x1 << std::endl;
+			std::cout << "Kernel Size Y1: " << kernel_size_y1 << std::endl;
+			std::cout << "Kernel Size Z1: " << kernel_size_z1 << std::endl;
 
-	SECTION("transpose_varpsf")
-	{
-		op_var.applyAH(image.get(), img_out.get());
+			std::cout << "Sigmas1: ";
+			for (const auto& sigma : sigmas1)
+			{
+				std::cout << sigma << " ";
+			}
+			std::cout << std::endl;*/
 
-		std::vector<float> expected1 =
-		    convolve(inputData, dims, voxels, sigmas1, true, kernel_size_x1,
-		             kernel_size_y1, kernel_size_z1);
-		std::vector<float> expected2 =
-		    convolve(inputData, dims, voxels, sigmas2, true, kernel_size_x2,
-		             kernel_size_y2, kernel_size_z2);
+			//size_t data_size = img_out->getData().getSizeTotal(); // get total size from img_out
+			//float* outputPtr = img_out->getRawPointer();
+			//std::memcpy(outputPtr, expected1.data(), data_size * sizeof(float));
+			//img_out->writeToFile("/data2/Recons/tz323/YRT/yrt-pet/build-clion/unit_tests/exp1.nii");
 
-		size_t idx =
-		    center_x + imgParams.nx * (center_y + imgParams.ny * center_z);
-		CHECK(outputPtr[idx] == Approx(expected1[idx]).epsilon(1e-3));
-		idx = tp1_x + imgParams.nx * (tp1_y + imgParams.ny * tp1_z);
-		CHECK(outputPtr[idx] == Approx(expected1[idx]).epsilon(1e-3));
-		idx = tp2_x + imgParams.nx * (tp2_y + imgParams.ny * tp2_z);
-		CHECK(outputPtr[idx] == Approx(expected2[idx]).epsilon(1e-3));
-		idx = tp3_x + imgParams.nx * (tp3_y + imgParams.ny * tp3_z);
-		CHECK(outputPtr[idx] == Approx(expected2[idx]).epsilon(1e-3));
-	}
 
-	SECTION("adjoint_test_varpsf")
-	{
-		//<Ax,y> =? <x,Aty>
-		auto img_out1 = std::make_unique<ImageOwned>(imgParams);
-		img_out1->allocate();
-		op_var.applyA(image.get(), img_out1.get());
+			std::vector<float> expected2 =
+				convolve(inputData, dims, voxels, sigmas2, false, kernel_size_x2,
+						 kernel_size_y2, kernel_size_z2);
+			/*std::cout << "Kernel Size X2: " << kernel_size_x2 << std::endl;
+			std::cout << "Kernel Size Y2: " << kernel_size_y2 << std::endl;
+			std::cout << "Kernel Size Z2: " << kernel_size_z2 << std::endl;
+			std::cout << "Sigmas2: ";
+			for (const auto& sigma : sigmas2)
+			{
+				std::cout << sigma << " ";
+			}
+			std::cout << std::endl;*/
 
-		auto image2 = makeImageWithRandomPrism(imgParams);
-		auto img_out2 = std::make_unique<ImageOwned>(imgParams);
-		img_out2->allocate();
-		op_var.applyAH(image2.get(), img_out2.get());
 
-		// Compute dot products
-		float lhs = img_out1->dotProduct(*image2);  // <Ax, y>
-		float rhs = image->dotProduct(*img_out2);   // <x, Aty>
-		CHECK(lhs == Approx(rhs).epsilon(1e-3));
+			//size_t data_size = img_out->getData().getSizeTotal(); // get total size from img_out
+			//float* outputPtr = img_out->getRawPointer();
+			//std::memcpy(outputPtr, expected2.data(), data_size * sizeof(float));
+			//img_out->writeToFile("/data2/Recons/tz323/YRT/yrt-pet/build-clion/unit_tests/exp2.nii");
+
+			size_t idx =
+				center_x + imgParams.nx * (center_y + imgParams.ny * center_z);
+			CHECK(outputPtr[idx] == Approx(expected1[idx]).epsilon(1e-3));
+			idx = tp1_x + imgParams.nx * (tp1_y + imgParams.ny * tp1_z);
+			CHECK(outputPtr[idx] == Approx(expected1[idx]).epsilon(1e-3));
+			idx = tp2_x + imgParams.nx * (tp2_y + imgParams.ny * tp2_z);
+			CHECK(outputPtr[idx] == Approx(expected2[idx]).epsilon(1e-3));
+			idx = tp3_x + imgParams.nx * (tp3_y + imgParams.ny * tp3_z);
+			CHECK(outputPtr[idx] == Approx(expected2[idx]).epsilon(1e-3));
+		}
+
+		SECTION("transpose_varpsf")
+		{
+			op_var.applyAH(image.get(), img_out.get());
+
+			std::vector<float> expected1 =
+				convolve(inputData, dims, voxels, sigmas1, true, kernel_size_x1,
+						 kernel_size_y1, kernel_size_z1);
+			std::vector<float> expected2 =
+				convolve(inputData, dims, voxels, sigmas2, true, kernel_size_x2,
+						 kernel_size_y2, kernel_size_z2);
+
+			size_t idx =
+				center_x + imgParams.nx * (center_y + imgParams.ny * center_z);
+			CHECK(outputPtr[idx] == Approx(expected1[idx]).epsilon(1e-3));
+			idx = tp1_x + imgParams.nx * (tp1_y + imgParams.ny * tp1_z);
+			CHECK(outputPtr[idx] == Approx(expected1[idx]).epsilon(1e-3));
+			idx = tp2_x + imgParams.nx * (tp2_y + imgParams.ny * tp2_z);
+			CHECK(outputPtr[idx] == Approx(expected2[idx]).epsilon(1e-3));
+			idx = tp3_x + imgParams.nx * (tp3_y + imgParams.ny * tp3_z);
+			CHECK(outputPtr[idx] == Approx(expected2[idx]).epsilon(1e-3));
+		}
+
+		SECTION("adjoint_test_varpsf")
+		{
+			//<Ax,y> =? <x,Aty>
+			auto img_out1 = std::make_unique<ImageOwned>(imgParams);
+			img_out1->allocate();
+			op_var.applyA(image.get(), img_out1.get());
+
+			auto image2 = makeImageWithRandomPrism(imgParams);
+			auto img_out2 = std::make_unique<ImageOwned>(imgParams);
+			img_out2->allocate();
+			op_var.applyAH(image2.get(), img_out2.get());
+
+			// Compute dot products
+			float lhs = img_out1->dotProduct(*image2);  // <Ax, y>
+			float rhs = image->dotProduct(*img_out2);   // <x, Aty>
+			CHECK(lhs == Approx(rhs).epsilon(1e-3));
+		}
+		std::this_thread::sleep_for(std::chrono::seconds(1));
+		std::cout << "Test iteration: " << i + 1  << ", random seed = " << randomSeed << std::endl;
+
 	}
 }
 }  // namespace yrt::util::test

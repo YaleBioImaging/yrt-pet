@@ -66,10 +66,11 @@ int main(int argc, char** argv)
 		    "psf",
 		    "Image-space PSF kernel file (Applied after the backprojection)",
 		    false, io::TypeOfArgument::STRING, "", outputGroup);
-		registry.registerArgument(
-			"varpsf",
-			"Image-space Variant PSF look-up table file (Applied after the backprojection)",
-			false, io::TypeOfArgument::STRING, "", outputGroup);
+		registry.registerArgument("varpsf",
+		                          "Image-space Variant PSF look-up table file "
+		                          "(Applied after the backprojection)",
+		                          false, io::TypeOfArgument::STRING, "",
+		                          outputGroup);
 		registry.registerArgument(
 		    "proj_psf",
 		    "Projection-space PSF kernel file (for DD projector only)", false,
@@ -93,8 +94,8 @@ int main(int argc, char** argv)
 		                          io::TypeOfArgument::INT, 0, inputGroup);
 
 		// Add plugin options
-		plugin::addOptionsFromPlugins(
-		    registry, plugin::InputFormatsChoice::ALL);
+		plugin::addOptionsFromPlugins(registry,
+		                              plugin::InputFormatsChoice::ALL);
 
 		// Load configuration
 		io::ArgumentReader config{registry,
@@ -180,14 +181,15 @@ int main(int argc, char** argv)
 		if (!imagePsf_fname.empty())
 		{
 			ASSERT_MSG(varPsf_fname.empty(),
-				"Got two different image PSF inputs");
+			           "Got two different image PSF inputs");
 			const auto imagePsf = std::make_unique<OperatorPsf>(imagePsf_fname);
 			std::cout << "Applying uniform Image-space PSF..." << std::endl;
 			imagePsf->applyAH(outputImage.get(), outputImage.get());
 		}
 		else if (!varPsf_fname.empty())
 		{
-			const auto imagePsf = std::make_unique<OperatorVarPsf>(varPsf_fname, imgParams);
+			const auto imagePsf =
+			    std::make_unique<OperatorVarPsf>(varPsf_fname, imgParams);
 			std::cout << "Applying variant Image-space PSF..." << std::endl;
 			auto tempBuffer = std::make_unique<ImageOwned>(imgParams);
 			tempBuffer->allocate();

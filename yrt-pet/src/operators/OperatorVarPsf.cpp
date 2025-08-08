@@ -8,12 +8,7 @@
 #include "yrt-pet/datastruct/image/ImageBase.hpp"
 #include "yrt-pet/utils/Assert.hpp"
 #include "yrt-pet/utils/Tools.hpp"
-#include <chrono>
-#include <fstream>
-#include <iostream>
 #include <memory>
-#include <sstream>
-#include <stdexcept>
 
 #if BUILD_PYBIND11
 #include <pybind11/pybind11.h>
@@ -183,8 +178,6 @@ const ConvolutionKernel& OperatorVarPsf::findNearestKernel(float x, float y,
 
 void OperatorVarPsf::readFromFile(const std::string& imageVarPsf_fname)
 {
-	std::cout << "Reading image space Variant PSF sigma lookup table file..."
-	          << std::endl;
 	Array2D<float> data;
 	util::readCSV<float>(imageVarPsf_fname, data);
 	size_t dims[2];
@@ -224,30 +217,20 @@ void OperatorVarPsf::setKernelCollection(
 
 void OperatorVarPsf::applyA(const Variable* in, Variable* out)
 {
-	auto start = std::chrono::high_resolution_clock::now();
 	const Image* img_in = dynamic_cast<const Image*>(in);
 	Image* img_out = dynamic_cast<Image*>(out);
 	ASSERT_MSG(img_in != nullptr && img_out != nullptr,
 	           "Input parameters must be images");
 	varconvolve<true>(img_in, img_out);
-	auto end = std::chrono::high_resolution_clock::now();
-	std::chrono::duration<double> duration = end - start;
-	std::cout << "Var PSF execution time: " << duration.count() << " seconds"
-	          << std::endl;
 }
 
 void OperatorVarPsf::applyAH(const Variable* in, Variable* out)
 {
-	auto start = std::chrono::high_resolution_clock::now();
 	const Image* img_in = dynamic_cast<const Image*>(in);
 	Image* img_out = dynamic_cast<Image*>(out);
 	ASSERT_MSG(img_in != nullptr && img_out != nullptr,
 	           "Input parameters must be images");
 	varconvolve<false>(img_in, img_out);
-	auto end = std::chrono::high_resolution_clock::now();
-	std::chrono::duration<double> duration = end - start;
-	std::cout << "Var Transposed PSF execution time: " << duration.count()
-	          << " seconds" << std::endl;
 }
 
 template <bool IS_FWD>

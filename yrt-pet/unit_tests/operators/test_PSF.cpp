@@ -6,20 +6,16 @@
 #include "../unit_tests/test_utils.hpp"
 #include "yrt-pet/operators/OperatorPsf.hpp"
 #include "yrt-pet/operators/OperatorVarPsf.hpp"
-#include "yrt-pet/utils/Assert.hpp"
 
 #if BUILD_CUDA
 #include "yrt-pet/operators/OperatorPsfDevice.cuh"
 #endif
 
 #include "catch.hpp"
-#include <chrono>  // For std::chrono::seconds
 #include <cmath>
 #include <cstring>
 #include <ctime>
-#include <iostream>
 #include <random>
-#include <thread>  // For std::this_thread::sleep_for
 
 namespace yrt::util::test
 {
@@ -259,10 +255,7 @@ TEST_CASE("VarPSF", "[varpsf]")
 	const unsigned int randomSeed =
 	     static_cast<unsigned int>(std::time(nullptr));
 
-	//const unsigned int randomSeed = 1754591587;
 	std::default_random_engine engine(randomSeed);
-
-	std::cout << "Random seed = " << randomSeed << std::endl;
 
 	for (int i = 0; i < 100; ++i)
 	{
@@ -434,7 +427,6 @@ TEST_CASE("VarPSF", "[varpsf]")
 			float rhs = image->dotProduct(*img_out2);   // <x, Aty>
 			CHECK(lhs == Approx(rhs).epsilon(1e-3));
 		}
-		std::cout << "Test iteration: " << i + 1 << std::endl;
 	}
 }
 }  // namespace yrt::util::test

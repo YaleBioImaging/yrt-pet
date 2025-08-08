@@ -156,7 +156,6 @@ std::unique_ptr<ImageOwned>
 		unsigned int rseed = static_cast<unsigned int>(std::time(nullptr));
 		engine = std::make_unique<std::default_random_engine>(rseed);
 		usedEngine = engine.get();
-		std::cout << "prism rseed=" << rseed << std::endl;
 	}
 	else
 	{

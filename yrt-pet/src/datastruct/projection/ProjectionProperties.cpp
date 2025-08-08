@@ -4,6 +4,7 @@
  */
 
 #include "yrt-pet/datastruct/projection/ProjectionProperties.hpp"
+#include <stdexcept>
 
 namespace yrt
 {
@@ -14,16 +15,45 @@ PropStructManager<Enum>::PropStructManager(std::set<Enum>& props)
 	const auto& info = getInfo();
 	type = 0;
 	elementSize = 0;
+	offsetMap.resize(static_cast<size_t>(Enum::COUNT));
 	for (int i = 0; i < static_cast<int>(Enum::COUNT); i++)
 	{
 		auto var = static_cast<Enum>(i);
 		if (props.find(var) != props.end())
 		{
 			type |= (1 << i);
-			offsetMap[var] = elementSize;
+			offsetMap[i] = elementSize;
 			elementSize += info.at(var).second;
 		}
 	}
+}
+
+template <>
+std::map<ProjectionPropertyType, std::pair<std::string, int>>
+    PropStructManager<ProjectionPropertyType>::getInfo() const
+{
+	return std::map<ProjectionPropertyType, std::pair<std::string, int>>{
+	    {ProjectionPropertyType::DetID, {"DET_ID", sizeof(det_pair_t)}},
+	    {ProjectionPropertyType::LOR, {"LOR", sizeof(Line3D)}},
+	    {ProjectionPropertyType::DetOrient, {"ORIENT", sizeof(det_orient_t)}},
+	    {ProjectionPropertyType::TOF, {"TOF", sizeof(float)}},
+	    {ProjectionPropertyType::AddCorr, {"ADD_CORR", sizeof(float)}},
+	    {ProjectionPropertyType::MulCorr, {"MULT_CORR", sizeof(float)}},
+	    {ProjectionPropertyType::EventFrame, {"FRAME", sizeof(frame_t)}}};
+}
+template <>
+std::map<ConstraintVariable, std::pair<std::string, int>>
+    PropStructManager<ConstraintVariable>::getInfo() const
+{
+	return std::map<ConstraintVariable, std::pair<std::string, int>>{
+	    {ConstraintVariable::Det1, {"Det1", sizeof(det_id_t)}},
+	    {ConstraintVariable::Det2, {"Det2", sizeof(det_id_t)}},
+	    {ConstraintVariable::AbsDeltaAngleDeg,
+	     {"AbsDeltaAngleDeg", sizeof(float)}},
+	    {ConstraintVariable::AbsDeltaAngleIdx,
+	     {"AbsDeltaAngleIdx", sizeof(int)}},
+	    {ConstraintVariable::AbsDeltaBlockIdx,
+	     {"AbsDeltaBlockIdx", sizeof(int)}}};
 }
 
 template <typename Enum>
@@ -38,7 +68,8 @@ template <typename Enum>
 template <typename T>
 T* PropStructManager<Enum>::getDataPtr(char* data, int idx, Enum prop) const
 {
-	return reinterpret_cast<T*>(data + elementSize * idx + offsetMap.at(prop));
+	return reinterpret_cast<T*>(data + elementSize * idx +
+	                            offsetMap[static_cast<int>(prop)]);
 }
 
 template <typename Enum>
@@ -73,9 +104,14 @@ int PropStructManager<Enum>::getTypeID() const
 template <typename Enum>
 unsigned int PropStructManager<Enum>::getOffset(Enum prop) const
 {
-	return offsetMap.at(prop);
+	return offsetMap[static_cast<int>(prop)];
 }
 
+template <typename Enum>
+bool PropStructManager<Enum>::has(Enum prop) const
+{
+	return type & (1 << static_cast<int>(prop));
+}
 
 template <typename Enum>
 std::ostream& operator<<(std::ostream& oss, const PropStructManager<Enum>& t)

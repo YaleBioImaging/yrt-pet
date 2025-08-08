@@ -10,6 +10,7 @@
 #include "yrt-pet/datastruct/scanner/Scanner.hpp"
 #include "yrt-pet/geometry/ProjectorUtils.hpp"
 #include "yrt-pet/utils/ReconstructionUtils.hpp"
+#include "yrt-pet/utils/Types.hpp"
 
 #include <algorithm>
 
@@ -80,20 +81,40 @@ OperatorProjectorDD::OperatorProjectorDD(
 float OperatorProjectorDD::forwardProjection(
     const Image* img, const ProjectionProperties& projectionProperties) const
 {
+	det_orient_t detOrient = mp_projPropsManager.getDataValue<det_orient_t>(
+		projectionProperties, 0, ProjectionPropertyType::DetOrient);
+	float tofValue = 0.f;
+	if (mp_projPropsManager.has(ProjectionPropertyType::TOF))
+	{
+		tofValue = mp_projPropsManager.getDataValue<float>(
+		    projectionProperties, 0, ProjectionPropertyType::TOF);
+	}
 	return forwardProjection(
-	    img, projectionProperties.lor, projectionProperties.detOrient.d1,
-	    projectionProperties.detOrient.d2, mp_tofHelper.get(),
-	    projectionProperties.tofValue, mp_projPsfManager.get());
+	    img,
+	    mp_projPropsManager.getDataValue<Line3D>(projectionProperties, 0,
+	                                             ProjectionPropertyType::LOR),
+	    detOrient.d1, detOrient.d2,
+	    mp_tofHelper.get(), tofValue, mp_projPsfManager.get());
 }
 
 void OperatorProjectorDD::backProjection(
     Image* img, const ProjectionProperties& projectionProperties,
     float projValue) const
 {
+	det_orient_t detOrient = mp_projPropsManager.getDataValue<det_orient_t>(
+		projectionProperties, 0, ProjectionPropertyType::DetOrient);
+	float tofValue = 0.f;
+	if (mp_projPropsManager.has(ProjectionPropertyType::TOF))
+	{
+		tofValue = mp_projPropsManager.getDataValue<float>(
+		    projectionProperties, 0, ProjectionPropertyType::TOF);
+	}
 	backProjection(
-	    img, projectionProperties.lor, projectionProperties.detOrient.d1,
-	    projectionProperties.detOrient.d2, projValue, mp_tofHelper.get(),
-	    projectionProperties.tofValue, mp_projPsfManager.get());
+	    img,
+	    mp_projPropsManager.getDataValue<Line3D>(projectionProperties, 0,
+	                                             ProjectionPropertyType::LOR),
+	    detOrient.d1, detOrient.d2, projValue,
+	    mp_tofHelper.get(), tofValue, mp_projPsfManager.get());
 }
 
 float OperatorProjectorDD::forwardProjection(

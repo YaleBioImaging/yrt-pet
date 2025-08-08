@@ -269,9 +269,6 @@ TEST_CASE("VarPSF", "[varpsf]")
 		ImageParams imgParams{100, 100, 51, 400.0f, 401.0f,
 		                      421.0f, 0.0f, 0.0f, 0.0f};
 		auto image = makeImageWithRandomPrism(imgParams, &engine);
-		//image->writeToFile("/data2/Recons/tz323/YRT/yrt-pet/build-clion/unit_tests/prism_debug.nii");
-
-		// std::mt19937 gen(static_cast<unsigned int>(std::time(0)));
 		std::uniform_real_distribution<float> sigma_dist1(0.5f, 1.0f);
 
 		float sigmaX1 = sigma_dist1(engine);
@@ -380,46 +377,13 @@ TEST_CASE("VarPSF", "[varpsf]")
 		SECTION("forward_varpsf")
 		{
 			op_var.applyA(image.get(), img_out.get());
-			//img_out->writeToFile("/data2/Recons/tz323/YRT/yrt-pet/build-clion/unit_tests/var_debug.nii");
-
 			std::vector<float> expected1 =
 			    convolve(inputData, dims, voxels, sigmas1, false,
 			             kernel_size_x1, kernel_size_y1, kernel_size_z1);
 
-			/*std::cout << "Kernel Size X1: " << kernel_size_x1 << std::endl;
-			std::cout << "Kernel Size Y1: " << kernel_size_y1 << std::endl;
-			std::cout << "Kernel Size Z1: " << kernel_size_z1 << std::endl;
-
-			std::cout << "Sigmas1: ";
-			for (const auto& sigma : sigmas1)
-			{
-			    std::cout << sigma << " ";
-			}
-			std::cout << std::endl;*/
-
-			/*size_t data_size = img_out->getData().getSizeTotal(); // get total size from img_out
-			float* outputPtr = img_out->getRawPointer(); std::memcpy(outputPtr,
-			expected1.data(), data_size * sizeof(float));
-			img_out->writeToFile("/data2/Recons/tz323/YRT/yrt-pet/build-clion/unit_tests/exp1_debug.nii");*/
-
-
 			std::vector<float> expected2 =
 			    convolve(inputData, dims, voxels, sigmas2, false,
 			             kernel_size_x2, kernel_size_y2, kernel_size_z2);
-			/*std::cout << "Kernel Size X2: " << kernel_size_x2 << std::endl;
-			std::cout << "Kernel Size Y2: " << kernel_size_y2 << std::endl;
-			std::cout << "Kernel Size Z2: " << kernel_size_z2 << std::endl;
-			std::cout << "Sigmas2: ";
-			for (const auto& sigma : sigmas2)
-			{
-			    std::cout << sigma << " ";
-			}
-			std::cout << std::endl;*/
-
-			/*img_out->getRawPointer();
-			std::memcpy(outputPtr,
-			expected2.data(), data_size * sizeof(float));
-			img_out->writeToFile("/data2/Recons/tz323/YRT/yrt-pet/build-clion/unit_tests/exp2_debug.nii");*/
 
 			size_t idx =
 			    center_x + imgParams.nx * (center_y + imgParams.ny * center_z);
@@ -435,19 +399,12 @@ TEST_CASE("VarPSF", "[varpsf]")
 		SECTION("transpose_varpsf")
 		{
 			op_var.applyAH(image.get(), img_out.get());
-			//img_out->writeToFile("/data2/Recons/tz323/YRT/yrt-pet/build-clion/unit_tests/var_T_debug.nii");
 			std::vector<float> expected1 =
 			    convolve(inputData, dims, voxels, sigmas1, true, kernel_size_x1,
 			             kernel_size_y1, kernel_size_z1);
 			std::vector<float> expected2 =
 			    convolve(inputData, dims, voxels, sigmas2, true, kernel_size_x2,
 			             kernel_size_y2, kernel_size_z2);
-
-			/*size_t data_size = img_out->getData().getSizeTotal(); // get total size from img_out
-			float* outputPtr = img_out->getRawPointer();
-			std::memcpy(outputPtr,
-			expected2.data(), data_size * sizeof(float));
-			img_out->writeToFile("/data2/Recons/tz323/YRT/yrt-pet/build-clion/unit_tests/exp2_T_debug.nii");*/
 
 			size_t idx =
 			    center_x + imgParams.nx * (center_y + imgParams.ny * center_z);

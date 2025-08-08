@@ -146,9 +146,6 @@ std::unique_ptr<ImageOwned>
     makeImageWithRandomPrism(const ImageParams& params,
                              std::default_random_engine* p_engine)
 {
-	/*unsigned int rseed = 1754246256; //static_cast<unsigned
-	int>(std::time(0)); std::cout << " rseed=" << rseed << std::endl;*/
-
 	std::unique_ptr<std::default_random_engine> engine;
 	std::default_random_engine* usedEngine;
 	if (p_engine == nullptr)

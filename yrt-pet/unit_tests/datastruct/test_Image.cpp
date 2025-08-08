@@ -76,17 +76,16 @@ TEST_CASE("image-timeavg", "[image]")
 
 	for (int trial = 0; trial < NumTrials; trial++)
 	{
-		const int nx = numVoxelsDistribution(engine);
-		const int ny = numVoxelsDistribution(engine);
+		const int nxy = numVoxelsDistribution(engine);
 		const int nz = numVoxelsDistribution(engine);
 		const float vx = voxelSizeDistribution(engine);
 		const float vy = voxelSizeDistribution(engine);
 		const float vz = voxelSizeDistribution(engine);
-		const float length_x = vx * nx;
-		const float length_y = vy * ny;
+		const float length_x = vx * nxy;
+		const float length_y = vy * nxy;
 		const float length_z = vz * nz;
 
-		yrt::ImageParams params(nx, ny, nz, length_x, length_y, length_z);
+		yrt::ImageParams params(nxy, nxy, nz, length_x, length_y, length_z);
 
 		auto inputImage = yrt::util::test::makeImageWithRandomPrism(params);
 

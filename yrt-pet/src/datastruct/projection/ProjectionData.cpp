@@ -4,11 +4,13 @@
  */
 
 #include "yrt-pet/datastruct/projection/ProjectionData.hpp"
+#include "yrt-pet/datastruct/projection/ProjectionProperties.hpp"
 #include "yrt-pet/geometry/Constants.hpp"
 
 #include "yrt-pet/geometry/Matrix.hpp"
 #include "yrt-pet/recon/OSEMUpdater_CPU.hpp"
 #include "yrt-pet/utils/Globals.hpp"
+#include "yrt-pet/utils/Types.hpp"
 
 #include <limits>
 #include <stdexcept>
@@ -166,45 +168,37 @@ Line3D ProjectionData::getArbitraryLOR(bin_t id) const
 	throw std::logic_error("getArbitraryLOR Unimplemented");
 }
 
-ProjectionProperties ProjectionData::getProjectionProperties(
-	bin_t bin) const
+void ProjectionData::getProjectionProperties(
+    ProjectionProperties& props, const ProjectionPropertyManager& propManager,
+    bin_t bin) const
 {
-	auto [d1, d2] = getDetectorPair(bin);
-
-	const Line3D lor = getLOR(bin);
-
-	float tofValue = 0.0f;
-	if (hasTOF())
+	if (propManager.has(ProjectionPropertyType::LOR))
 	{
-		tofValue = getTOFValue(bin);
+		const Line3D lor = getLOR(bin);
+		propManager.setDataValue(props, 0, ProjectionPropertyType::LOR, lor);
 	}
 
-	const Vector3D det1Orient = mr_scanner.getDetectorOrient(d1);
-	const Vector3D det2Orient = mr_scanner.getDetectorOrient(d2);
-	return ProjectionProperties{bin, lor, tofValue, det1Orient, det2Orient};
+	if (propManager.has(ProjectionPropertyType::LOR))
+	{
+		float tofValue = 0.0f;
+		if (hasTOF())
+		{
+			tofValue = getTOFValue(bin);
+		}
+		propManager.setDataValue(props, 0, ProjectionPropertyType::TOF,
+		                         tofValue);
+	}
+
+	if (propManager.has(ProjectionPropertyType::DetOrient))
+	{
+		auto [d1, d2] = getDetectorPair(bin);
+		const Vector3D det1Orient = mr_scanner.getDetectorOrient(d1);
+		const Vector3D det2Orient = mr_scanner.getDetectorOrient(d2);
+		det_orient_t detOrient{det1Orient, det2Orient};
+		propManager.setDataValue(props, 0, ProjectionPropertyType::DetOrient,
+		                         detOrient);
+	}
 }
-
-// template <bool HasTOF, bool HasOrient>
-// void ProjectionData::getProjectionProperties(
-//     const ProjectionData& projData, bin_t bin,
-//     std::set<ProjectionPropertiesVariable>& variables,
-//     ConstraintParams& consInfo, ProjectionProperties& projProps)
-// {
-// 	det_id_t d1 = consInfo[ConstraintVariable::Det1];
-// 	det_id_t d2 = consInfo[ConstraintVariable::Det2];
-// 	// const Line3D lor = getLOR(bin);
-
-// 	if (HasTOF)
-// 	{
-// 		//projProps.setTOFValue(projData.getTOFValue(bin));
-// 	}
-
-// 	if (HasOrient)
-// 	{
-// 		// projProps.setOrient(mr_scanner.getDetectorOrient(d1),
-// 		//                     mr_scanner.getDetectorOrient(d2));
-// 	}
-// }
 
 Line3D ProjectionData::getLOR(bin_t bin) const
 {

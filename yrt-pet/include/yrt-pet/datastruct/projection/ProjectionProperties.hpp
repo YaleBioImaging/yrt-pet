@@ -5,7 +5,6 @@
 
 #pragma once
 
-#include "yrt-pet/datastruct/projection/ProjectionData.hpp"
 #include "yrt-pet/geometry/Line3D.hpp"
 #include "yrt-pet/utils/Types.hpp"
 
@@ -13,6 +12,9 @@
 #include <memory>
 #include <ostream>
 #include <string>
+#include <set>
+#include <typeinfo>
+#include <vector>
 
 namespace yrt
 {
@@ -25,19 +27,19 @@ enum class ProjectionPropertyType
 	TOF,
 	AddCorr,
 	MulCorr,
-	Frame,
+	EventFrame,
 	COUNT
 };
 
-inline std::map<ProjectionPropertyType, std::pair<std::string, int>>
-    ProjectionPropertiesInfo{
-        {ProjectionPropertyType::DetID, {"DET_ID", sizeof(det_pair_t)}},
-        {ProjectionPropertyType::LOR, {"LOR", sizeof(Line3D)}},
-        {ProjectionPropertyType::DetOrient, {"ORIENT", sizeof(det_orient_t)}},
-        {ProjectionPropertyType::TOF, {"TOF", sizeof(float)}},
-        {ProjectionPropertyType::AddCorr, {"ADD_CORR", sizeof(float)}},
-        {ProjectionPropertyType::MulCorr, {"MULT_CORR", sizeof(float)}},
-        {ProjectionPropertyType::Frame, {"FRAME", sizeof(frame_t)}}};
+// inline std::map<ProjectionPropertyType, std::pair<std::string, int>>
+//     projectionPropertiesInfo{
+//         {ProjectionPropertyType::DetID, {"DET_ID", sizeof(det_pair_t)}},
+//         {ProjectionPropertyType::LOR, {"LOR", sizeof(Line3D)}},
+//         {ProjectionPropertyType::DetOrient, {"ORIENT", sizeof(det_orient_t)}},
+//         {ProjectionPropertyType::TOF, {"TOF", sizeof(float)}},
+//         {ProjectionPropertyType::AddCorr, {"ADD_CORR", sizeof(float)}},
+//         {ProjectionPropertyType::MulCorr, {"MULT_CORR", sizeof(float)}},
+//         {ProjectionPropertyType::EventFrame, {"FRAME", sizeof(frame_t)}}};
 
 
 enum class ConstraintVariable
@@ -51,7 +53,7 @@ enum class ConstraintVariable
 };
 
 inline std::map<ConstraintVariable, std::pair<std::string, int>>
-    ConstraintVariableInfo{
+    constraintVariableInfo{
         {ConstraintVariable::Det1, {"Det1", sizeof(det_id_t)}},
         {ConstraintVariable::Det2, {"Det2", sizeof(det_id_t)}},
         {ConstraintVariable::AbsDeltaAngleDeg,
@@ -81,9 +83,10 @@ public:
 	unsigned int getElementSize() const;
 	int getTypeID() const;
 	unsigned int getOffset(Enum prop) const;
+	bool has(Enum prop) const;
 
 	// Offset table
-	std::map<Enum, std::pair<std::string, int>>& getInfo() const;
+	std::map<Enum, std::pair<std::string, int>> getInfo() const;
 
 private:
 	// Data information
@@ -94,7 +97,8 @@ private:
 	// Total element size
 	unsigned int elementSize;
 	// Offset in raw pointer for each included prop
-	std::unordered_map<Enum, unsigned int> offsetMap;
+	//std::array<int, static_cast<size_t>(Enum::COUNT)> offsetMap;
+	std::vector<int> offsetMap;
 };
 
 using ProjectionProperties = char*;

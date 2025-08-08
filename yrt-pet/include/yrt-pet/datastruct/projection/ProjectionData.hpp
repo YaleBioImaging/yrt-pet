@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include "yrt-pet/datastruct/projection/ProjectionProperties.hpp"
 #include "yrt-pet/datastruct/projection/BinIterator.hpp"
 #include "yrt-pet/datastruct/scanner/Scanner.hpp"
 #include "yrt-pet/geometry/Line3D.hpp"
@@ -18,17 +19,19 @@
 namespace yrt
 {
 class BinIterator;
-enum class ProjectionPropertiesVariable;
-enum class ConstraintVariable;
-using ConstraintParams = char*;
+// enum class ProjectionPropertiesVariable;
+// enum class ConstraintVariable;
+// using ConstraintParams = char*;
+// using ProjectionProperties = char*;
+// using ProjectionPropertyManager = PropStructManager<ProjectionPropertyType>;
 
-struct ProjectionProperties
-{
-	bin_t bin;
-	Line3D lor;
-	float tofValue;
-	det_orient_t detOrient;
-};
+// struct ProjectionProperties
+// {
+// 	bin_t bin;
+// 	Line3D lor;
+// 	float tofValue;
+// 	det_orient_t detOrient;
+// };
 
 class ProjectionData : public Variable
 {
@@ -67,7 +70,10 @@ public:
 	virtual Line3D getArbitraryLOR(bin_t id) const;
 
 	// Helper functions
-	virtual ProjectionProperties getProjectionProperties(bin_t bin) const;
+	virtual void
+	    getProjectionProperties(ProjectionProperties& props,
+	                            const ProjectionPropertyManager& propManager,
+	                            bin_t bin) const;
 
 	Line3D getLOR(bin_t bin) const;
 	virtual void clearProjections(float value);

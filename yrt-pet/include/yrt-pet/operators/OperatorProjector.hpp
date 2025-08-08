@@ -6,6 +6,7 @@
 #pragma once
 
 #include "yrt-pet/datastruct/projection/ProjectionData.hpp"
+#include "yrt-pet/datastruct/projection/ProjectionProperties.hpp"
 #include "yrt-pet/operators/Operator.hpp"
 #include "yrt-pet/operators/OperatorProjectorBase.hpp"
 #include "yrt-pet/operators/ProjectionPsfManager.hpp"
@@ -61,5 +62,8 @@ protected:
 
 	// Projection-domain PSF
 	std::unique_ptr<ProjectionPsfManager> mp_projPsfManager;
+
+	// Manager for projection properties
+	ProjectionPropertyManager& mp_projPropsManager;
 };
 }  // namespace yrt

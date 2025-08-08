@@ -390,9 +390,9 @@ def _test_savant_sim_ultra_micro_hotspot_nomotion_osem_6rays(use_gpu: bool):
                              os.path.join(fold_savant_sim,
                                           "ref", ref_img_fname))
 
-    np_out_img = np.array(out_img, copy=False)
-    np_ref_img = np.array(ref_img, copy=False)
-    is_close = np.isclose(ref_vals, out_vals, atol=0, rtol=1e-3)
+    out_img_np = np.array(out_img, copy=False)
+    ref_img_np = np.array(ref_img, copy=False)
+    is_close = np.isclose(ref_img_np, out_img_np, atol=0, rtol=1e-3)
     num_mismatch = (~is_close).sum()
     print(f"Number of mismatched voxels: {num_mismatch}")
 

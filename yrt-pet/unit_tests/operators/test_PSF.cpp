@@ -253,13 +253,13 @@ TEST_CASE("VarPSF", "[varpsf]")
 {
 	// Random sigma generator
 	const unsigned int randomSeed =
-	     static_cast<unsigned int>(std::time(nullptr));
+	    static_cast<unsigned int>(std::time(nullptr));
 
 	std::default_random_engine engine(randomSeed);
 
 	for (int i = 0; i < 100; ++i)
 	{
-		ImageParams imgParams{100, 100, 51, 400.0f, 401.0f,
+		ImageParams imgParams{100,    100,  51,   400.0f, 401.0f,
 		                      421.0f, 0.0f, 0.0f, 0.0f};
 		auto image = makeImageWithRandomPrism(imgParams, &engine);
 		std::uniform_real_distribution<float> sigma_dist1(0.5f, 1.0f);
@@ -402,9 +402,12 @@ TEST_CASE("VarPSF", "[varpsf]")
 			size_t idx =
 			    center_x + imgParams.nx * (center_y + imgParams.ny * center_z);
 			CHECK(outputPtr[idx] == Approx(expected1[idx]).epsilon(1e-3));
-			idx = tp1_x - kernel_size_x2 + imgParams.nx * (tp1_y + imgParams.ny * tp1_z);
+			idx = tp1_x - kernel_size_x2 +
+			      imgParams.nx * (tp1_y + imgParams.ny * tp1_z);
 			CHECK(outputPtr[idx] == Approx(expected1[idx]).epsilon(1e-3));
-			idx = tp2_x + kernel_size_x2 + imgParams.nx * (tp2_y - kernel_size_y2 + imgParams.ny * (tp2_z + kernel_size_z2));
+			idx = tp2_x + kernel_size_x2 +
+			      imgParams.nx * (tp2_y - kernel_size_y2 +
+			                      imgParams.ny * (tp2_z + kernel_size_z2));
 			CHECK(outputPtr[idx] == Approx(expected2[idx]).epsilon(1e-3));
 			idx = tp3_x + imgParams.nx * (tp3_y + imgParams.ny * tp3_z);
 			CHECK(outputPtr[idx] == Approx(expected2[idx]).epsilon(1e-3));

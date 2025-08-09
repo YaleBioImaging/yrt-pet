@@ -164,7 +164,7 @@ std::unique_ptr<ImageOwned>
 	std::uniform_int_distribution<int> prismPositionDistributionY(0, params.ny);
 	std::uniform_int_distribution<int> prismPositionDistributionZ(0, params.nz);
 	std::uniform_real_distribution<float> prismValueDistribution(0.1f,
-																 MaxPrismValue);
+	                                                             MaxPrismValue);
 
 	auto image = std::make_unique<ImageOwned>(params);
 	image->allocate();

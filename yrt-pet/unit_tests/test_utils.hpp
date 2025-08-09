@@ -8,6 +8,8 @@
 #include "yrt-pet/datastruct/image/Image.hpp"
 #include "yrt-pet/datastruct/scanner/Scanner.hpp"
 
+#include <random>
+
 namespace yrt
 {
 class Image;
@@ -33,7 +35,9 @@ template <typename TFloat, bool EQUAL_NAN = false>
 bool allclose(const TFloat* valuesRef, const TFloat* values, size_t numValues,
               TFloat rtol = 1e-5, TFloat atol = 1e-8);
 
-std::unique_ptr<ImageOwned> makeImageWithRandomPrism(const ImageParams& params);
+std::unique_ptr<ImageOwned>
+    makeImageWithRandomPrism(const ImageParams& params,
+                             std::default_random_engine* p_engine = nullptr);
 
 }  // namespace util::test
 }  // namespace yrt

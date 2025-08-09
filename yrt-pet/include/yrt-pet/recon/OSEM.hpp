@@ -134,6 +134,10 @@ protected:
 	ImageParams imageParams;
 	std::unique_ptr<ImageOwned> outImage;  // Note: This is a host image
 
+	std::vector<std::unique_ptr<BinIterator>> m_binIterators;
+	std::vector<std::unique_ptr<Constraint>> m_constraints;
+	BinIteratorConstrained m_binIteratorConstrained;
+
 	// ---------- Virtual pure functions ----------
 
 	// Sens Image generator driver
@@ -174,10 +178,6 @@ private:
 	    std::vector<std::unique_ptr<Image>>& sensImages);
 	void initializeForRecon();
 	void collectConstraints();
-
-	std::vector<std::unique_ptr<BinIterator>> m_binIterators;
-	std::vector<std::unique_ptr<Constraint>> m_constraints;
-	BinIteratorConstrained m_binIteratorConstrained;
 
 	const ProjectionData* mp_dataInput;
 

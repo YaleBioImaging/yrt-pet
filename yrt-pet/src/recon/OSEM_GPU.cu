@@ -143,15 +143,6 @@ void OSEM_GPU::endSensImgGen()
 
 void OSEM_GPU::setupOperatorsForRecon()
 {
-	getBinIterators().clear();
-	getBinIterators().reserve(num_OSEM_subsets);
-
-	for (int subsetId = 0; subsetId < num_OSEM_subsets; subsetId++)
-	{
-		getBinIterators().push_back(
-		    getDataInput()->getBinIter(num_OSEM_subsets, subsetId));
-	}
-
 	// Create ProjectorParams object
 	OperatorProjectorParams projParams(
 	    nullptr /* Will be set later at each subset loading */, scanner,

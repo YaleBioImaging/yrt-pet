@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include "yrt-pet/datastruct/projection/BinIteratorConstrained.hpp"
 #include "yrt-pet/datastruct/projection/ProjectionData.hpp"
 #include "yrt-pet/operators/Operator.hpp"
 
@@ -44,13 +45,21 @@ public:
 class OperatorProjectorBase : public Operator
 {
 public:
-	explicit OperatorProjectorBase(const Scanner& pr_scanner);
-	explicit OperatorProjectorBase(const OperatorProjectorParams& p_projParams);
+	explicit OperatorProjectorBase(
+	    const Scanner& pr_scanner,
+	    const BinIteratorConstrained& pr_binIteratorConstrained);
+	explicit OperatorProjectorBase(
+	    const OperatorProjectorParams& p_projParams,
+	    const BinIteratorConstrained& pr_binIteratorConstrained);
 
 	const Scanner& getScanner() const;
 	const BinIterator* getBinIter() const;
+	const BinIteratorConstrained* getBinIterContrained() const;
 
 	void setBinIter(const BinIterator* p_binIter);
+
+	virtual std::vector<ProjectionPropertyType>
+	    getProjectionPropertyTypes() const;
 
 protected:
 	// To take scanner properties into account
@@ -60,6 +69,7 @@ protected:
 	const BinIterator* binIter;
 	// Note: In the future, maybe bin iterators should not be a member of the
 	//  projector object.
+	const BinIteratorConstrained& binIterConstrained;
 };
 
 }  // namespace yrt

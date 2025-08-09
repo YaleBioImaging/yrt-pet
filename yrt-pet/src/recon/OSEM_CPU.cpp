@@ -76,11 +76,13 @@ void OSEM_CPU::setupOperatorsForSensImgGen(OperatorProjectorParams& projParams)
 	// Create ProjectorParams object
 	if (projectorType == OperatorProjector::ProjectorType::SIDDON)
 	{
-		mp_projector = std::make_unique<OperatorProjectorSiddon>(projParams);
+		mp_projector = std::make_unique<OperatorProjectorSiddon>(
+		    projParams, m_binIteratorConstrained);
 	}
 	else if (projectorType == OperatorProjector::ProjectorType::DD)
 	{
-		mp_projector = std::make_unique<OperatorProjectorDD>(projParams);
+		mp_projector = std::make_unique<OperatorProjectorDD>(
+		    projParams, m_binIteratorConstrained);
 	}
 	else
 	{
@@ -179,11 +181,13 @@ void OSEM_CPU::setupOperatorsForRecon()
 
 	if (projectorType == OperatorProjector::SIDDON)
 	{
-		mp_projector = std::make_unique<OperatorProjectorSiddon>(projParams);
+		mp_projector = std::make_unique<OperatorProjectorSiddon>(
+		    projParams, m_binIteratorConstrained);
 	}
 	else if (projectorType == OperatorProjector::DD)
 	{
-		mp_projector = std::make_unique<OperatorProjectorDD>(projParams);
+		mp_projector = std::make_unique<OperatorProjectorDD>(
+		    projParams, m_binIteratorConstrained);
 	}
 	else
 	{

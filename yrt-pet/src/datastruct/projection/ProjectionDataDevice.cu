@@ -30,26 +30,30 @@ void py_setup_projectiondatadevice(py::module& m)
 	    m, "ProjectionDataDevice");
 	c.def(
 	    "prepareBatchLORs",
-	    [](ProjectionDataDevice& self, size_t subsetId, size_t batchId) {
-		    self.prepareBatchLORs(subsetId, batchId, {nullptr, true});
-	    },
+	    [](ProjectionDataDevice& self, size_t subsetId, size_t batchId)
+	    { self.prepareBatchLORs(subsetId, batchId, {nullptr, true}); },
 	    "Load the LORs of a specific batch in a specific subset", "subsetId"_a,
 	    "batchId"_a);
+
+	c.def("loadProjValuesFromReference", [](ProjectionDataDeviceOwned& self)
+	      { self.loadProjValuesFromReference({nullptr, true}); });
+	c.def("loadProjValuesFromHost",
+	      [](ProjectionDataDevice& self, const ProjectionData* src)
+	      { self.loadProjValuesFromHost(src, {nullptr, true}); });
+	c.def("loadProjValuesFromHostRandoms",
+	      [](ProjectionDataDevice& self, const ProjectionData* src)
+	      { self.loadProjValuesFromHostRandoms(src, {nullptr, true}); });
+	c.def("loadProjValuesFromHostHistogram",
+	      [](ProjectionDataDevice& self, const Histogram* histo)
+	      { self.loadProjValuesFromHostHistogram(histo, {nullptr, true}); });
+	c.def("loadProjValuesFromHost",  // Python binding kept for legacy reasons
+	      [](ProjectionDataDevice& self, const Histogram* histo)
+	      { self.loadProjValuesFromHostHistogram(histo, {nullptr, true}); });
+
 	c.def("transferProjValuesToHost",
 	      [](const ProjectionDataDevice& self, ProjectionData* dest)
-	      { self.transferProjValuesToHost(dest); });
-	c.def("loadProjValuesFromHost",
-	      [](ProjectionDataDevice& self, const ProjectionData* src) {
-		      self.loadProjValuesFromHost(src, {nullptr, true});
-	      });
-	c.def("loadProjValuesFromHost",
-	      [](ProjectionDataDevice& self, const Histogram* histo) {
-		      self.loadProjValuesFromHostHistogram(histo, {nullptr, true});
-	      });
-	c.def("loadProjValuesFromReference",
-	      [](ProjectionDataDeviceOwned& self) {
-		      self.loadProjValuesFromReference({nullptr, true});
-	      });
+	      { self.transferProjValuesToHost(dest, nullptr); });
+
 	c.def("getLoadedBatchSize", &ProjectionDataDevice::getLoadedBatchSize);
 	c.def("getLoadedBatchId", &ProjectionDataDevice::getLoadedBatchId);
 	c.def("getLoadedSubsetId", &ProjectionDataDevice::getLoadedSubsetId);
@@ -68,10 +72,8 @@ void py_setup_projectiondatadevice(py::module& m)
 	            "Create a ProjectionDataDevice from an existing one. They will "
 	            "share the LORs",
 	            "orig"_a);
-	c_owned.def("allocateForProjValues",
-	            [](ProjectionDataDeviceOwned& self) {
-		            self.allocateForProjValues({nullptr, true});
-	            });
+	c_owned.def("allocateForProjValues", [](ProjectionDataDeviceOwned& self)
+	            { self.allocateForProjValues({nullptr, true}); });
 
 	auto c_alias = py::class_<ProjectionDataDeviceAlias, ProjectionDataDevice>(
 	    m, "ProjectionDataDeviceAlias");
@@ -240,21 +242,43 @@ void ProjectionDataDevice::loadPrecomputedLORsToDevice(
 void ProjectionDataDevice::loadProjValuesFromReference(
     GPULaunchConfig launchConfig)
 {
-	loadProjValuesFromHostInternal(getReference(), nullptr, launchConfig);
+	loadProjValuesFromHostInternal(getReference(), nullptr, false,
+	                               launchConfig);
 }
 
 void ProjectionDataDevice::loadProjValuesFromHost(const ProjectionData* src,
                                                   GPULaunchConfig launchConfig)
 {
-	loadProjValuesFromHostInternal(src, nullptr, launchConfig);
+	loadProjValuesFromHostInternal(src, nullptr, false, launchConfig);
+}
+
+void ProjectionDataDevice::loadProjValuesFromHostRandoms(
+    const ProjectionData* src, GPULaunchConfig launchConfig)
+{
+	loadProjValuesFromHostInternal(src, nullptr, true, launchConfig);
 }
 
 void ProjectionDataDevice::loadProjValuesFromHostHistogram(
     const Histogram* histo, GPULaunchConfig launchConfig)
 {
-	loadProjValuesFromHostInternal(getReference(), histo, launchConfig);
+	loadProjValuesFromHostInternal(getReference(), histo, false, launchConfig);
 }
 
+void ProjectionDataDevice::loadProjValuesFromHostInternal(
+    const ProjectionData* src, const Histogram* histo, bool gatherRandoms,
+    GPULaunchConfig launchConfig)
+{
+	if (gatherRandoms)
+	{
+		loadProjValuesFromHostInternal<true>(src, histo, launchConfig);
+	}
+	else
+	{
+		loadProjValuesFromHostInternal<false>(src, histo, launchConfig);
+	}
+}
+
+template <bool GatherRandoms>
 void ProjectionDataDevice::loadProjValuesFromHostInternal(
     const ProjectionData* src, const Histogram* histo,
     GPULaunchConfig launchConfig)
@@ -293,7 +317,14 @@ void ProjectionDataDevice::loadProjValuesFromHostInternal(
 			for (binIdx = 0; binIdx < batchSize; binIdx++)
 			{
 				binId = binIter->get(binIdx + offset);
-				projValuesBuffer[binIdx] = src->getProjectionValue(binId);
+				if constexpr (GatherRandoms)
+				{
+					projValuesBuffer[binIdx] = src->getRandomsEstimate(binId);
+				}
+				else
+				{
+					projValuesBuffer[binIdx] = src->getProjectionValue(binId);
+				}
 			}
 		}
 		else
@@ -315,6 +346,10 @@ void ProjectionDataDevice::loadProjValuesFromHostInternal(
 		                       batchSize, launchConfig);
 	}
 }
+template void ProjectionDataDevice::loadProjValuesFromHostInternal<true>(
+    const ProjectionData*, const Histogram*, GPULaunchConfig);
+template void ProjectionDataDevice::loadProjValuesFromHostInternal<false>(
+    const ProjectionData*, const Histogram*, GPULaunchConfig);
 
 void ProjectionDataDevice::transferProjValuesToHost(
     ProjectionData* projDataDest, const cudaStream_t* stream) const
@@ -764,14 +799,14 @@ bool ProjectionDataDeviceOwned::allocateForProjValues(
 }
 
 void ProjectionDataDeviceOwned::loadProjValuesFromHostInternal(
-    const ProjectionData* src, const Histogram* histo,
+    const ProjectionData* src, const Histogram* histo, bool gatherRandoms,
     GPULaunchConfig launchConfig)
 {
 	if (!mp_projValues->isAllocated())
 	{
 		allocateForProjValues(launchConfig);
 	}
-	ProjectionDataDevice::loadProjValuesFromHostInternal(src, histo,
+	ProjectionDataDevice::loadProjValuesFromHostInternal(src, histo, false,
 	                                                     launchConfig);
 }
 

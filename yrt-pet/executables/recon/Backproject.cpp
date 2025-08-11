@@ -163,8 +163,18 @@ int main(int argc, char** argv)
 		const auto binIter =
 		    dataInput->getBinIter(config.getValue<int>("num_subsets"),
 		                          config.getValue<int>("subset_id"));
+		auto projectorUpdaterType = OperatorProjectorParams::ProjectorUpdaterType::DEFAULT3D;
+		if (config.hasValue("projector_updater_type")) {
+			const auto s = config.getValue<std::string>("projector_updater_type");
+			// map to enum
+			if      (s == "DEFAULT3D") projectorUpdaterType = OperatorProjectorParams::ProjectorUpdaterType::DEFAULT3D;
+			else if (s == "DEFAULT4D") projectorUpdaterType = OperatorProjectorParams::ProjectorUpdaterType::DEFAULT4D;
+			else if (s == "LR")        projectorUpdaterType = OperatorProjectorParams::ProjectorUpdaterType::LR;
+			else throw std::invalid_argument("Unknown projector_updater_type: " + s);
+		}
 		const OperatorProjectorParams projParams(
-		    binIter.get(), *scanner, config.getValue<float>("tof_width_ps"),
+		    binIter.get(), *scanner, projectorUpdaterType,
+		    config.getValue<float>("tof_width_ps"),
 		    config.getValue<int>("tof_n_std"),
 		    config.getValue<std::string>("proj_psf"),
 		    config.getValue<int>("num_rays"));

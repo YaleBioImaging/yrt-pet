@@ -268,8 +268,11 @@ void ProjectionDataDevice::loadProjValuesFromHostInternal(
     const ProjectionData* src, const Histogram* histo, bool gatherRandoms,
     GPULaunchConfig launchConfig)
 {
+	ASSERT(src != nullptr);
 	if (gatherRandoms)
 	{
+		ASSERT_MSG(src->hasRandomsEstimates(),
+		           "Source projection data has no randoms estimates");
 		loadProjValuesFromHostInternal<true>(src, histo, launchConfig);
 	}
 	else

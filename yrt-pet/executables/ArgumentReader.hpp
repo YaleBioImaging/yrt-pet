@@ -79,6 +79,9 @@ public:
 	// Validate configuration
 	bool validate() const;
 
+	// Check if field exists
+	bool hasValue(const std::string& name) const;
+
 	// Access configuration values
 	template <typename T>
 	T getValue(const std::string& name) const;

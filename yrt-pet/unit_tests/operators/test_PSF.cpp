@@ -6,6 +6,7 @@
 #include "../unit_tests/test_utils.hpp"
 #include "yrt-pet/operators/OperatorPsf.hpp"
 #include "yrt-pet/operators/OperatorVarPsf.hpp"
+#include "yrt-pet/utils/Assert.hpp"
 
 #if BUILD_CUDA
 #include "yrt-pet/operators/OperatorPsfDevice.cuh"

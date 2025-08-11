@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include "BinIteratorConstrained.hpp"
 #include "yrt-pet/datastruct/image/ImageBase.hpp"
 #include "yrt-pet/datastruct/projection/LORsDevice.cuh"
 #include "yrt-pet/datastruct/projection/ProjectionData.hpp"
@@ -52,9 +53,12 @@ public:
 	// Load the events' detector ids from a specific subset&batch id and prepare
 	// the projection values buffer
 	void prepareBatchLORs(int subsetId, int batchId,
-	                      GPULaunchConfig launchConfig);
-	void precomputeBatchLORs(int subsetId, int batchId);
-	void loadPrecomputedLORsToDevice(GPULaunchConfig launchConfig);
+	                      GPULaunchConfig launchConfig,
+	                      const BinIteratorConstrained& binIterConstrained);
+	void precomputeBatchLORs(int subsetId, int batchId,
+	                         const BinIteratorConstrained& binIterConstrained);
+	void loadPrecomputedLORsToDevice(GPULaunchConfig launchConfig,
+	                                 size_t elementSize);
 
 	// Gather the projection values from the reference ProjectionData object and
 	// store them on the GPU buffer

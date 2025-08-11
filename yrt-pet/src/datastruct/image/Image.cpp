@@ -626,7 +626,7 @@ void Image::updateEMThresholdRankScaled(ImageBase* updateImg,
 		for (size_t j = 0; j < J; ++j) {
 			if (norm_ptr[j] > thr_r) {
 				// up / (sj * cr)  ==  (up/sj) * (1/cr)
-				ptr_r[j] *= (up_ptr_r[j] / norm_ptr[j]) * invcr;
+				ptr_r[j] *= up_ptr_r[j] / (norm_ptr[j] * cr);
 			}
 		}
 	}

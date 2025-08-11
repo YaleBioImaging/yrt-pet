@@ -307,7 +307,7 @@ int main(int argc, char** argv)
 		osem->num_OSEM_subsets = config.getValue<int>("num_subsets");
 		osem->hardThreshold = config.getValue<float>("hard_threshold");
 		osem->projectorType = projectorType;
-		osem->numRays = config.getValue<int>("num_rays");
+		osem->projectorParams.numRays = config.getValue<int>("num_rays");
 
 		// To make sure the sensitivity image gets generated accordingly
 		const bool useListMode =

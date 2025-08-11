@@ -366,7 +366,7 @@ bool ImageParams::isValid() const
 	return nx > 0 && ny > 0 && nz > 0 && length_x > 0. && length_y > 0. &&
 	       length_z > 0.;
 }
-
+// todo: Add time dimension to checks? Will change implementations during chekcs
 bool ImageParams::isSameDimensionsAs(const ImageParams& other) const
 {
 	return nx == other.nx && ny == other.ny && nz == other.nz;

@@ -473,6 +473,8 @@ static void project(Image* img, ProjectionData* projData,
 	}
 
 	std::unique_ptr<OperatorProjectorBase> oper;
+	BinIteratorConstrained binIteratorConstrained;
+	binIteratorConstrained.addProjVariable(ProjectionPropertyType::LOR);
 	if (projectorType == OperatorProjector::SIDDON)
 	{
 		if (useGPU)
@@ -488,7 +490,8 @@ static void project(Image* img, ProjectionData* projData,
 		}
 		else
 		{
-			oper = std::make_unique<OperatorProjectorSiddon>(projParams);
+			oper = std::make_unique<OperatorProjectorSiddon>(
+			    projParams, binIteratorConstrained);
 		}
 	}
 	else if (projectorType == OperatorProjector::DD)
@@ -506,12 +509,17 @@ static void project(Image* img, ProjectionData* projData,
 		}
 		else
 		{
-			oper = std::make_unique<OperatorProjectorDD>(projParams);
+			oper = std::make_unique<OperatorProjectorDD>(
+			    projParams, binIteratorConstrained);
 		}
 	}
 	else
 	{
 		throw std::runtime_error("Unknown error");
+	}
+	for (auto prop : oper->getProjectionPropertyTypes())
+	{
+		binIteratorConstrained.addProjVariable(prop);
 	}
 
 	if constexpr (IS_FWD)

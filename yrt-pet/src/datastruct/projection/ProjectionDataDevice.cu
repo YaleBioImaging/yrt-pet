@@ -53,7 +53,14 @@ void py_setup_projectiondatadevice(py::module& m)
 	c.def("transferProjValuesToHost",
 	      [](const ProjectionDataDevice& self, ProjectionData* dest)
 	      { self.transferProjValuesToHost(dest, nullptr); });
-
+	c.def("loadProjValuesFromHost",
+	      [](ProjectionDataDevice& self, const ProjectionData* src)
+	      { self.loadProjValuesFromHost(src, {nullptr, true}); });
+	c.def("loadProjValuesFromHost",
+	      [](ProjectionDataDevice& self, const Histogram* histo)
+	      { self.loadProjValuesFromHostHistogram(histo, {nullptr, true}); });
+	c.def("loadProjValuesFromReference", [](ProjectionDataDeviceOwned& self)
+	      { self.loadProjValuesFromReference({nullptr, true}); });
 	c.def("getLoadedBatchSize", &ProjectionDataDevice::getLoadedBatchSize);
 	c.def("getLoadedBatchId", &ProjectionDataDevice::getLoadedBatchId);
 	c.def("getLoadedSubsetId", &ProjectionDataDevice::getLoadedSubsetId);

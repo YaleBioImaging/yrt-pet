@@ -51,13 +51,15 @@ const Corrector_CPU& OSEM_CPU::getCorrector_CPU() const
 
 void OSEM_CPU::allocateForSensImgGen()
 {
-	auto tempSensImageBuffer = std::make_unique<ImageOwned>(getImageParams());
+	auto imageParamsSens = getImageParams();
+	imageParamsSens.num_frames = 1;
+	auto tempSensImageBuffer = std::make_unique<ImageOwned>(imageParamsSens);
 	tempSensImageBuffer->allocate();
 	mp_tempSensImageBuffer = std::move(tempSensImageBuffer);
 
 	if (flagImagePSF)
 	{
-		mp_imageTmpPsf = std::make_unique<ImageOwned>(getImageParams());
+		mp_imageTmpPsf = std::make_unique<ImageOwned>(imageParamsSens);
 		reinterpret_cast<ImageOwned*>(mp_imageTmpPsf.get())->allocate();
 	}
 }
@@ -76,10 +78,13 @@ void OSEM_CPU::setupOperatorsForSensImgGen()
 		                                                      subsetId));
 	}
 
-	// Create ProjectorParams object
+	// Create ProjectorParams object only for sensitivity image, without TOF
+	// Todo: projectorUpdaterType for sens image is just DEFAULT3D?
 	OperatorProjectorParams projParams(
-	    nullptr /* Will be set later at each subset loading */, scanner, 0.f, 0,
-	    flagProjPSF ? projPsf_fname : "", numRays);
+	    nullptr /* Will be set later at each subset loading */, scanner,
+	    OperatorProjectorParams::DEFAULT3D, 0.f, 0,
+	    !projectorParams.projPsf_fname.empty() ? projectorParams.projPsf_fname : "",
+	    projectorParams.numRays);
 
 	if (projectorType == OperatorProjector::ProjectorType::SIDDON)
 	{
@@ -188,19 +193,13 @@ void OSEM_CPU::setupOperatorsForRecon()
 		    getDataInput()->getBinIter(num_OSEM_subsets, subsetId));
 	}
 
-	// Create ProjectorParams object
-	OperatorProjectorParams projParams(
-	    nullptr /* Will be set later at each subset loading */, scanner,
-	    flagProjTOF ? tofWidth_ps : 0.f, flagProjTOF ? tofNumStd : 0,
-	    flagProjPSF ? projPsf_fname : "", numRays);
-
 	if (projectorType == OperatorProjector::SIDDON)
 	{
-		mp_projector = std::make_unique<OperatorProjectorSiddon>(projParams);
+		mp_projector = std::make_unique<OperatorProjectorSiddon>(projectorParams);
 	}
 	else if (projectorType == OperatorProjector::DD)
 	{
-		mp_projector = std::make_unique<OperatorProjectorDD>(projParams);
+		mp_projector = std::make_unique<OperatorProjectorDD>(projectorParams);
 	}
 	else
 	{
@@ -302,7 +301,7 @@ void OSEM_CPU::completeMLEMIteration() {}
 void OSEM_CPU::setupProjectorUpdater()
 {
 	auto projector = reinterpret_cast<OperatorProjector*>(mp_projector.get());
-	projector->setupUpdater(projectorUpdaterType);
+	projector->setupUpdater(projectorParams);
 }
 
 

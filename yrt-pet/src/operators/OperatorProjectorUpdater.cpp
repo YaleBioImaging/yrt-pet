@@ -70,29 +70,6 @@ void py_setup_operatorprojectorupdater(py::module& m)
 	lr_upd.def(py::init<const Array2D<float>&>());
 	lr_upd.def("getHBasisCopy", &OperatorProjectorUpdaterLR::getHBasisCopy);
 
-//	lr_upd.def(
-//	    "getHBasisArray",
-//	    [](OperatorProjectorUpdaterLR& self) {
-//		    const Array2DAlias<float>& H = self.getHBasis();
-//		    auto dims = H.getDims();
-//		    size_t rank = dims[0];
-//		    size_t numTimeFrames = dims[1];
-//
-//		    // Allocate a new NumPy array (row-major: [rank, time])
-//		    py::array_t<float> arr({static_cast<ssize_t>(rank),
-//		                            static_cast<ssize_t>(numTimeFrames)});
-//		    auto buf = arr.request();
-//		    float* out = static_cast<float*>(buf.ptr);
-//
-//		    // Copy data from H into the numpy array
-//		    for (size_t l = 0; l < rank; ++l) {
-//			    for (size_t t = 0; t < numTimeFrames; ++t) {
-//				    out[l * numTimeFrames + t] = H[l][t];
-//			    }
-//		    }
-//		    return arr;
-//	    }  // no py::arg() here
-//	);
 
 	lr_upd.def("setHBasis", &OperatorProjectorUpdaterLR::setHBasis);
 
@@ -199,26 +176,29 @@ void OperatorProjectorUpdaterDefault4D::backUpdate(
 //}
 
 OperatorProjectorUpdaterLR::OperatorProjectorUpdaterLR(
-    const Array2D<float>& pr_HBasis)
+    const Array2DBase<float>& pr_HBasis)
 {
 	setHBasis(pr_HBasis);
 }
+
 const Array2DAlias<float>& OperatorProjectorUpdaterLR::getHBasis() const
 {
-	return *mp_HBasis;
+	return mp_HBasis;
 }
 
 std::unique_ptr<Array2D<float>> OperatorProjectorUpdaterLR::getHBasisCopy() const
 {
-	auto HBasis = std::make_unique<Array2D<float>>();
-	HBasis->copy(*mp_HBasis);
-	return HBasis;
+	auto dims = mp_HBasis.getDims();
+	auto out  = std::make_unique<Array2D<float>>();
+	out->allocate(dims[0], dims[1]);
+	out->copy(mp_HBasis);
+	return out;
+
 }
 
 void OperatorProjectorUpdaterLR::setHBasis(const Array2DBase<float>& pr_HBasis) {
-	mp_HBasis = std::make_unique<Array2DAlias<float>>();
-	mp_HBasis->bind(pr_HBasis);
-	auto dims = mp_HBasis->getDims();
+	mp_HBasis.bind(pr_HBasis);
+	auto dims = mp_HBasis.getDims();
 	m_rank = static_cast<int>(dims[0]);
 	m_numDynamicFrames = static_cast<int>(dims[1]);
 }
@@ -256,7 +236,7 @@ float OperatorProjectorUpdaterLR::forwardUpdate(
     int offset_x, frame_t dynamicFrame, size_t numVoxelPerFrame) const
 {
 	float cur_img_lr_val = 0.0f;
-	const float* H_ptr = mp_HBasis->getRawPointer();
+	const float* H_ptr = mp_HBasis.getRawPointer();
 //	const int nt = static_cast<int>(dynamicFrames);
 
 	for (int l = 0; l < m_rank; ++l)
@@ -273,7 +253,7 @@ void OperatorProjectorUpdaterLR::backUpdate(
     int offset_x, frame_t dynamicFrame, size_t numVoxelPerFrame)
 {
 	float Ay = value * weight;
-	float* H_ptr = mp_HBasis->getRawPointer();
+	float* H_ptr = mp_HBasis.getRawPointer();
 
 	if (! m_updateH)
 	{

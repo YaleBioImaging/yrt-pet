@@ -72,7 +72,7 @@ public:
 class OperatorProjectorUpdaterLR : public OperatorProjectorUpdater
 {
 public:
-	OperatorProjectorUpdaterLR(const Array2D<float>& pr_HBasis);
+	OperatorProjectorUpdaterLR(const Array2DBase<float>& pr_HBasis);
 
 	float forwardUpdate(
 	    float weight, float* cur_img_ptr,
@@ -96,7 +96,7 @@ public:
 
 
 protected:
-	std::unique_ptr<Array2DAlias<float>> mp_HBasis;
+	Array2DAlias<float> mp_HBasis;
 	bool m_updateH = false;
 	int m_rank = 1;
 	int m_numDynamicFrames = 1;

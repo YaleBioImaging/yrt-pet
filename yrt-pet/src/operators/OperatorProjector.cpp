@@ -214,6 +214,7 @@ OperatorProjectorUpdater* OperatorProjector::getUpdater()
 {
 	return mp_updater.get();
 }
+
 void OperatorProjector::setupUpdater(
     const OperatorProjectorParams& p_projParams)
 {
@@ -227,12 +228,11 @@ void OperatorProjector::setupUpdater(
 	}
 	else if (p_projParams.projectorUpdaterType == OperatorProjectorParams::LR)
 	{
-		if (!p_projParams.HBasis)
-		{
+		if (p_projParams.HBasis.getSizeTotal() == 0) {
 			throw std::invalid_argument(
-				"LR updater was requested but no HBasis provided");
+			    "LR updater was requested but HBasis is empty");
 		}
-		setUpdater(std::make_unique<OperatorProjectorUpdaterLR>(*p_projParams.HBasis));
+		setUpdater(std::make_unique<OperatorProjectorUpdaterLR>(p_projParams.HBasis));
 	}
 	else
 	{

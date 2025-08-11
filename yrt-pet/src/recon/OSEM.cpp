@@ -176,12 +176,7 @@ OSEM::OSEM(const Scanner& pr_scanner)
 	  projectorType(OperatorProjector::SIDDON),
       projectorParams(
           /*binIter*/        nullptr,
-          /*scanner*/        pr_scanner,
-          /*updater type*/   OperatorProjectorParams::ProjectorUpdaterType::DEFAULT3D,
-          /*tofWidth_ps*/    0.0f,
-          /*tofNumStd*/      0,
-          /*projPsf_fname*/  "",
-          /*num_rays*/       1),
+          /*scanner*/        pr_scanner),
       scanner(pr_scanner),
       maskImage(nullptr),
       initialEstimate(nullptr),
@@ -630,7 +625,7 @@ Image* OSEM::getSensitivityImage(int subsetId)
 	return m_sensitivityImages.at(subsetId);
 }
 
-template<bool isDynamic>
+template<bool IS_DYNAMIC>
 void apply_update(ImageBase*, ImageBase*, const ImageBase*, float,
                   const float*, int);
 
@@ -657,7 +652,7 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 		                       std::to_string(m_sensitivityImages.size()));
 	}
 
-	const bool isDynamic =
+	const bool IS_DYNAMIC =
 	    (projectorParams.projectorUpdaterType != OperatorProjectorParams::DEFAULT3D);
 	const bool isLowRank =
 	    (projectorParams.projectorUpdaterType == OperatorProjectorParams::LR);
@@ -667,17 +662,17 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 	int rank;
 	if (isLowRank) {
 		// HBasis is rank x T
-		auto dims = projectorParams.HBasis.getDims();   // std::array<size_t,2>
+		const auto dims = projectorParams.HBasis.getDims();   // std::array<size_t,2>
 		rank = static_cast<int>(dims[0]);
 		const int T = static_cast<int>(dims[1]);
 
 		c_r.resize(rank, 0.f);
-		const float* H = projectorParams.HBasis.getRawPointer();
+		// const float* H = projectorParams.HBasis.getRawPointer();
 		for (int r = 0; r < rank; ++r) {
-			const float* hrow = H + r * T;
-			float s = 0.f;
-			for (int t = 0; t < T; ++t) s += hrow[t];
-			c_r[r] = s;
+			for (int t = 0; t < T; ++t)
+			{
+				c_r[r] += projectorParams.HBasis[r][t];
+			}
 		}
 		// todo: if any c_r <= 0, handle it (skip rank or clamp) ??
 	}
@@ -777,7 +772,7 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 			        ? getImageTmpBuffer(TemporaryImageSpaceBufferType::PSF)
 			        : getImageTmpBuffer(TemporaryImageSpaceBufferType::EM_RATIO);
 
-			if (isDynamic) {
+			if (IS_DYNAMIC) {
 				apply_update<true>(getMLEMImageBuffer(), updateImage, getSensImageBuffer(),
 				                   EPS_FLT, c_r.data(), rank);
 			} else {
@@ -885,26 +880,26 @@ void OSEM::summary() const
 	}
 }
 
-template<bool isDynamic>
+template<bool IS_DYNAMIC>
 void apply_update(ImageBase* destImage,
                   ImageBase* numerator,
                   const ImageBase* norm,
-                  float eps,
-                  const float* c_r,  // sum_t H[r,t] (null if !isDynamic)
-                  int rank)
+                  const float eps,
+                  const float* c_r,  // sum_t H[r,t] (null if !IS_DYNAMIC)
+                  const int rank)
 {
-	if constexpr (isDynamic) {
-		static_cast<Image*>(destImage)->updateEMThresholdRankScaled(
+	if constexpr (IS_DYNAMIC) {
+		dynamic_cast<Image*>(destImage)->updateEMThresholdRankScaled(
 		    numerator, norm, c_r, rank, eps);
 	} else {
-		static_cast<Image*>(destImage)->updateEMThreshold(
+		dynamic_cast<Image*>(destImage)->updateEMThreshold(
 		    numerator, norm, eps);
 	}
 }
 
 
 // Instantiation of template for LR EM update
-//template<bool isDynamic>
+//template<bool IS_DYNAMIC>
 //void apply_update(ImageBase*, ImageBase*, const ImageBase*, float,
 //                  const float*, int);
 

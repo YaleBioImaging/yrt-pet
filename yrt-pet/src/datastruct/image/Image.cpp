@@ -596,6 +596,42 @@ void Image::updateEMThreshold(ImageBase* updateImg, const ImageBase* normImg,
 	}
 }
 
+void Image::updateEMThresholdRankScaled(ImageBase* updateImg,
+                                 const ImageBase* normImg,
+                                 const float* c_r, int rank,
+                                 float threshold)
+{
+	Image* updateImg_Image = dynamic_cast<Image*>(updateImg);
+	const Image* normImg_Image = dynamic_cast<const Image*>(normImg);
+
+	float* ptr = mp_array->getRawPointer();
+	float* up_ptr = updateImg_Image->getRawPointer();
+	const float* norm_ptr = normImg_Image->getRawPointer();
+
+	// number of voxels per rank slab (nz*ny*nx)
+	auto params = updateImg_Image->getParams();
+	const size_t J = params.nx * params.ny * params.nz;
+
+// Parallelize across rank slabs (optional)
+//#pragma omp parallel for if (rank * J > (1u << 16))
+	for (int r = 0; r < rank; ++r) {
+		const float cr    = c_r[r];
+		const float invcr = 1.0f / cr;               // micro-opt
+		const float thr_r = threshold * invcr;       // s[j] > threshold/cr
+
+		const size_t base = r * J;
+		float* ptr_r = ptr + base;
+		const float* up_ptr_r  = up_ptr + base;
+
+		for (size_t j = 0; j < J; ++j) {
+			if (norm_ptr[j] > thr_r) {
+				// up / (sj * cr)  ==  (up/sj) * (1/cr)
+				ptr_r[j] *= (up_ptr_r[j] / norm_ptr[j]) * invcr;
+			}
+		}
+	}
+}
+
 float Image::dotProduct(const Image& y) const
 {
 	float out = 0.0;

@@ -95,6 +95,10 @@ public:
 	virtual void updateEMThreshold(ImageBase* update_img,
 	                               const ImageBase* norm_img,
 	                               float threshold) = 0;
+	virtual void updateEMThresholdRankScaled(ImageBase* updateImg,
+	                                         const ImageBase* normImg,
+	                                         const float* c_r, int rank,
+	                                         float threshold) = 0;
 
 private:
 	ImageParams m_params;

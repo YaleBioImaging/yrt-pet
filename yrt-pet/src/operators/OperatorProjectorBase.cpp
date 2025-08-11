@@ -16,34 +16,39 @@ namespace yrt
 void py_setup_operatorprojectorparams(py::module& m)
 {
 	auto c = py::class_<OperatorProjectorParams>(m, "OperatorProjectorParams");
-	c.def(
-	    py::init<BinIterator*, Scanner&, float, int, const std::string&, int>(),
-	    py::arg("binIter"), py::arg("scanner"),
-	    py::arg("ProjectorUpdaterType") = OperatorProjectorParams::ProjectorUpdaterType::DEFAULT3D,
-	    py::arg("tofWidth_ps") = 0.f,
-	    py::arg("tofNumStd") = -1, py::arg("projPsf_fname") = "",
-	    py::arg("num_rays") = 1);
-
-	c.def_property("HBasis",
-	// getter: return a reference
-	[](OperatorProjectorParams &p) -> Array2DAlias<float>& {
-	return *p.HBasis;
-	},
-	// setter: take a new alias and assign it
-	[](OperatorProjectorParams &p, const Array2DAlias<float>& alias) {
-	p.HBasis = std::make_unique<Array2DAlias<float>>(alias);
-	});
-
-	c.def_readwrite("tofWidth_ps", &OperatorProjectorParams::tofWidth_ps);
-	c.def_readwrite("tofNumStd", &OperatorProjectorParams::tofNumStd);
-	c.def_readwrite("projPsf_fname", &OperatorProjectorParams::projPsf_fname);
-	c.def_readwrite("num_rays", &OperatorProjectorParams::numRays);
 
 	py::enum_<OperatorProjectorParams::ProjectorUpdaterType>(c, "ProjectorUpdaterType")
 	    .value("DEFAULT3D", OperatorProjectorParams::ProjectorUpdaterType::DEFAULT3D)
 	    .value("DEFAULT4D", OperatorProjectorParams::ProjectorUpdaterType::DEFAULT4D)
 	    .value("LR", OperatorProjectorParams::ProjectorUpdaterType::LR)
 	    .export_values();
+
+	c.def(
+	    py::init<const BinIterator*, const Scanner&, OperatorProjectorParams::ProjectorUpdaterType,
+	             float, int, const std::string&, int>(),
+	    py::arg("binIter"), py::arg("scanner"),
+	    py::arg("ProjectorUpdaterType") = OperatorProjectorParams::ProjectorUpdaterType::DEFAULT3D,
+	    py::arg("tofWidth_ps") = 0.f,
+	    py::arg("tofNumStd") = -1, py::arg("projPsf_fname") = "",
+	    py::arg("num_rays") = 1);
+
+	c.def_property(
+	    "HBasis",
+	    // getter: const ref to the alias; tie lifetime to parent
+	    [](OperatorProjectorParams& p) -> Array2DAlias<float>& {
+		    return p.HBasis;
+	    },
+	    // setter: accept any 2D array base and bind alias to it
+	    [](OperatorProjectorParams& p, const Array2DBase<float>& src) {
+		    p.HBasis.bind(src);  // NO allocation, just alias the source
+	    },
+	    py::return_value_policy::reference_internal
+	);
+
+	c.def_readwrite("tofWidth_ps", &OperatorProjectorParams::tofWidth_ps);
+	c.def_readwrite("tofNumStd", &OperatorProjectorParams::tofNumStd);
+	c.def_readwrite("projPsf_fname", &OperatorProjectorParams::projPsf_fname);
+	c.def_readwrite("num_rays", &OperatorProjectorParams::numRays);
 
 }
 
@@ -79,6 +84,27 @@ OperatorProjectorParams::OperatorProjectorParams(
       projPsf_fname(pr_projPsf_fname),
       numRays(p_num_rays)
 {
+	if (tofWidth_ps > 0.f)
+	{
+		flagProjTOF = true;
+	}
+	else
+	{
+		flagProjTOF = false;
+	}
+}
+
+OperatorProjectorParams::OperatorProjectorParams(const OperatorProjectorParams& other)
+    : binIter(other.binIter)
+      , scanner(other.scanner)
+      , projectorUpdaterType(other.projectorUpdaterType)
+      , flagProjTOF(other.flagProjTOF)
+      , tofWidth_ps(other.tofWidth_ps)
+      , tofNumStd(other.tofNumStd)
+      , projPsf_fname(other.projPsf_fname)
+      , numRays(other.numRays)
+{
+	HBasis.bind(other.HBasis);
 }
 
 OperatorProjectorBase::OperatorProjectorBase(

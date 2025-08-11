@@ -114,6 +114,16 @@ int main(int argc, char** argv)
 		bool convertToAcf = config.getValue<bool>("to_acf");
 		bool toSparseHistogram = config.getValue<bool>("sparse");
 
+		auto projectorUpdaterType = OperatorProjectorParams::ProjectorUpdaterType::DEFAULT3D;
+		if (config.hasValue("projector_updater_type")) {
+			const auto s = config.getValue<std::string>("projector_updater_type");
+			// map to enum
+			if      (s == "DEFAULT3D") projectorUpdaterType = OperatorProjectorParams::ProjectorUpdaterType::DEFAULT3D;
+			else if (s == "DEFAULT4D") projectorUpdaterType = OperatorProjectorParams::ProjectorUpdaterType::DEFAULT4D;
+			else if (s == "LR")        projectorUpdaterType = OperatorProjectorParams::ProjectorUpdaterType::LR;
+			else throw std::invalid_argument("Unknown projector_updater_type: " + s);
+		}
+
 		auto scanner = std::make_unique<Scanner>(scanner_fname);
 		globals::setNumThreads(numThreads);
 
@@ -150,7 +160,8 @@ int main(int argc, char** argv)
 
 			// Setup forward projection
 			auto binIter = his->getBinIter(numSubsets, subsetId);
-			OperatorProjectorParams projParams(binIter.get(), *scanner, 0, 0,
+			OperatorProjectorParams projParams(binIter.get(), *scanner,
+			                                   projectorUpdaterType, 0, 0,
 			                                   projPsf_fname, numRays);
 
 			util::forwProject(*inputImage, *his, projParams, projectorType,

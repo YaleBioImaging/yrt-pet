@@ -41,6 +41,11 @@ public:
 	                    float val_gt_scale, float val_gt_off) override;
 	void updateEMThreshold(ImageBase* updateImg, const ImageBase* normImg,
 	                       float threshold) override;
+	void updateEMThresholdRankScaled(ImageBase* updateImg,
+	                                 const ImageBase* normImg,
+	                                 const float* c_r, int rank,
+	                                 float threshold) override;
+
 	void writeToFile(const std::string& fname) const override;
 
 	Array4DAlias<float> getArray() const;

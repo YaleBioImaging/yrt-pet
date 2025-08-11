@@ -6,6 +6,7 @@
 #pragma once
 
 #include "yrt-pet/datastruct/projection/BinIterator.hpp"
+#include "yrt-pet/datastruct/projection/BinIteratorConstrained.hpp"
 #include "yrt-pet/datastruct/scanner/ScannerDevice.cuh"
 #include "yrt-pet/utils/GPUTypes.cuh"
 #include "yrt-pet/utils/PageLockedBuffer.cuh"
@@ -25,8 +26,10 @@ public:
 
 	void precomputeBatchLORs(const BinIterator& binIter,
 	                         const GPUBatchSetup& batchSetup, int subsetId,
-	                         int batchId, const ProjectionData& reference);
-	void loadPrecomputedLORsToDevice(GPULaunchConfig launchConfig);
+	                         int batchId, const ProjectionData& reference,
+	                         const BinIteratorConstrained& binIterConstrained);
+	void loadPrecomputedLORsToDevice(GPULaunchConfig launchConfig,
+	                                 size_t elementSize);
 
 	// Gets the size of the last precomputed batch
 	size_t getPrecomputedBatchSize() const;
@@ -41,37 +44,17 @@ public:
 	// Gets the index of the last-loaded subset
 	int getLoadedSubsetId() const;
 
-	const float4* getLorDet1PosDevicePointer() const;
-	const float4* getLorDet1OrientDevicePointer() const;
-	const float4* getLorDet2PosDevicePointer() const;
-	const float4* getLorDet2OrientDevicePointer() const;
-	const float* getLorTOFValueDevicePointer() const;
-	float4* getLorDet1PosDevicePointer();
-	float4* getLorDet1OrientDevicePointer();
-	float4* getLorDet2PosDevicePointer();
-	float4* getLorDet2OrientDevicePointer();
-	float* getLorTOFValueDevicePointer();
+	const char* getProjectionPropertiesDevicePointer() const;
+	char* getProjectionPropertiesDevicePointer();
 	bool areLORsGathered() const;
-
-	static constexpr size_t MemoryUsagePerLOR = sizeof(float4) * 4;
-
-	static constexpr size_t MemoryUsagePerLORWithTOF =
-	    MemoryUsagePerLOR + sizeof(float);
 
 private:
 	void initializeDeviceArrays();
-	void allocateForPrecomputedLORsIfNeeded(GPULaunchConfig launchConfig);
+	void allocateForPrecomputedLORsIfNeeded(GPULaunchConfig launchConfig,
+	                                        size_t elementSize);
 
-	std::unique_ptr<DeviceArray<float4>> mp_lorDet1Pos;
-	std::unique_ptr<DeviceArray<float4>> mp_lorDet2Pos;
-	std::unique_ptr<DeviceArray<float4>> mp_lorDet1Orient;
-	std::unique_ptr<DeviceArray<float4>> mp_lorDet2Orient;
-	std::unique_ptr<DeviceArray<float>> mp_lorTOFValue;
-	PageLockedBuffer<float4> m_tempLorDet1Pos;
-	PageLockedBuffer<float4> m_tempLorDet2Pos;
-	PageLockedBuffer<float4> m_tempLorDet1Orient;
-	PageLockedBuffer<float4> m_tempLorDet2Orient;
-	PageLockedBuffer<float> m_tempLorTOFValue;
+	std::unique_ptr<DeviceArray<char>> mp_projectionProperties;
+	PageLockedBuffer<char> m_tempProjectionProperties;
 	bool m_hasTOF;
 	size_t m_precomputedBatchSize;
 	int m_precomputedBatchId;

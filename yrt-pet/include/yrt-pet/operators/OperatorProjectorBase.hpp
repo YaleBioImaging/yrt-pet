@@ -35,14 +35,17 @@ public:
 	                        const std::string& pr_projPsf_fname = "",
 	                        int p_num_rays = 1);
 
+	OperatorProjectorParams(const OperatorProjectorParams& other);
+
 	const BinIterator* binIter;
 	const Scanner& scanner;
 
 	// Projector Updater type (e.g., DEFAULT3D)
 	ProjectorUpdaterType projectorUpdaterType;
-	std::unique_ptr<Array2D<float>> HBasis;
+	Array2DAlias<float> HBasis;
 
 	// Time of Flight
+	bool flagProjTOF;
 	float tofWidth_ps;
 	int tofNumStd;
 

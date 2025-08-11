@@ -72,8 +72,8 @@ void OSEMUpdater_CPU::computeSensitivityImage(Image& destImage) const
 	Image* destImagePtr = &destImage;
 
 	const bin_t numBinsMax = binIter->size();
-	int numThreads = globals::getNumThreads();
-	size_t blockSize = std::ceil(numBinsMax / (float)numThreads);
+	const int numThreads = globals::getNumThreads();
+	const size_t blockSize = std::ceil(numBinsMax / (float)numThreads);
 
 	auto binIterConstrained = projector->getBinIterContrained();
 	auto info =

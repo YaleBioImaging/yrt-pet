@@ -8,10 +8,12 @@ Timestamp for event 0 (ms) (uint32)
 Detector1 of the event 0 (uint32)
 Detector2 of the event 0 (uint32)
 TOF position of event 0 (ps) (float32) [Optional]
+Randoms estimate of event 0 (counts/s) (float32) [Optional]
 Timestamp for event 1 (ms) (uint32)
 Detector1 of the event 1 (uint32)
 Detector2 of the event 1 (uint32)
 TOF position of event 1 (ps) (float32) [Optional]
+Randoms estimate of event 1 (counts/s) (float32) [Optional]
 ...
 ```
 
@@ -24,6 +26,10 @@ If the ListMode file contains time-of-flight (TOF) information, the option
 of arrival time between detector 2 ($t_2$) and detector 1 ($t_1$),
 or $t_2 - t_1$, expressed in picoseconds.
 
+If the ListMode file contains a randoms estimate for each event, the option
+`--flag_randoms` must be used in the executable(s). The randoms estimate is in
+counts per second (cps).
+
 ## For Python users
 
 If using python bindings, here's how to read a ListModeLUT:
@@ -33,11 +39,14 @@ import pyyrtpet as yrt
 
 scanner = yrt.Scanner("myscanner.json")
 flag_tof = True  # Indicate whether the list-mode file contains a TOF field
-lm = yrt.ListModeLUTOwned(scanner, "mylistmode.lmDat", flag_tof=flag_tof)
+flag_randoms = False  # Indicate whether it contains randoms estimates
+lm = yrt.ListModeLUTOwned(scanner, "mylistmode.lmDat",
+                          flag_tof=flag_tof, flag_randoms=flag_randoms)
 ```
 
 The `flag_tof` option specifies if the list-mode contains TOF information for
-each event.
+each event and the `flag_randoms` option specifies if the list-mode contains
+randoms estimates.
 
 # List-mode DOI file
 
@@ -49,8 +58,7 @@ binning of the DOI layers from 256 layers to an arbitrary number of layers.
 
 **Note that it is still possible to use the default list-mode format for
 DOI-enabled scanners**. This additional format only allows to save some disk
-space
-in case the amount of DOI layers in the scanner is configurable.
+space in case the amount of DOI layers in the scanner is configurable.
 
 ```
 Timestamp for event 0 (ms) (uint32)
@@ -59,11 +67,13 @@ DOI1 of the event 0 (uint8)
 Detector2 of the event 0 (uint32)
 DOI2 of the event 0 (uint8)
 TOF position of event 0 (ps) (float32) [Optional]
+Randoms estimate of event 0 (counts/s) (float32) [Optional]
 Timestamp for event 1 (ms) (uint32)
 Detector1 of the event 1 (uint32)
 DOI1 of the event 1 (uint8)
 Detector2 of the event 1 (uint32)
 DOI2 of the event 2 (uint8)
 TOF position of event 1 (ps) (float32) [Optional]
+Randoms estimate of event 1 (counts/s) (float32) [Optional]
 ...
 ```

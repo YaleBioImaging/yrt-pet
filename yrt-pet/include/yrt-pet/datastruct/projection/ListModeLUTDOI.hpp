@@ -29,7 +29,7 @@ public:
 	void writeToFile(const std::string& listMode_fname) const override;
 
 protected:
-	explicit ListModeLUTDOI(const Scanner& pr_scanner, bool p_flagTOF = false,
+	explicit ListModeLUTDOI(const Scanner& pr_scanner,
 	                        int numLayers = 256);
 	std::unique_ptr<Array1DBase<unsigned char>> mp_doi1;
 	std::unique_ptr<Array1DBase<unsigned char>> mp_doi2;

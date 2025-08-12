@@ -51,16 +51,17 @@ public:
 	bool isMemoryValid() const;
 
 protected:
-	explicit ListModeLUT(const Scanner& pr_scanner, bool p_flagTOF = false);
+	explicit ListModeLUT(const Scanner& pr_scanner);
 
 	// Parameters
 	// The detector Id of the events.
 	std::unique_ptr<Array1DBase<timestamp_t>> mp_timestamps;
 	std::unique_ptr<Array1DBase<det_id_t>> mp_detectorId1;
 	std::unique_ptr<Array1DBase<det_id_t>> mp_detectorId2;
-	bool m_flagTOF;
 	// Time-of-flight: difference of arrival time t2 - t1 in picoseconds
 	std::unique_ptr<Array1DBase<float>> mp_tof_ps;
+	// Randoms estimate for the given event in counts per second
+	std::unique_ptr<Array1DBase<float>> mp_randoms;
 };
 
 

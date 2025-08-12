@@ -71,22 +71,21 @@ void py_setup_listmodelutdoi(py::module& m)
 
 namespace yrt
 {
-ListModeLUTDOI::ListModeLUTDOI(const Scanner& pr_scanner, bool p_flagTOF,
-                               int numLayers)
-    : ListModeLUT(pr_scanner, p_flagTOF), m_numLayers(numLayers)
+ListModeLUTDOI::ListModeLUTDOI(const Scanner& pr_scanner, int numLayers)
+    : ListModeLUT(pr_scanner), m_numLayers(numLayers)
 {
 }
 
 ListModeLUTDOIOwned::ListModeLUTDOIOwned(const Scanner& pr_scanner,
                                          bool p_flagTOF, int numLayers)
-    : ListModeLUTDOI(pr_scanner, p_flagTOF, numLayers)
+    : ListModeLUTDOI(pr_scanner, numLayers)
 {
 	mp_timestamps = std::make_unique<Array1D<timestamp_t>>();
 	mp_detectorId1 = std::make_unique<Array1D<det_id_t>>();
 	mp_detectorId2 = std::make_unique<Array1D<det_id_t>>();
 	mp_doi1 = std::make_unique<Array1D<unsigned char>>();
 	mp_doi2 = std::make_unique<Array1D<unsigned char>>();
-	if (m_flagTOF)
+	if (p_flagTOF)
 	{
 		mp_tof_ps = std::make_unique<Array1D<float>>();
 	}
@@ -102,14 +101,14 @@ ListModeLUTDOIOwned::ListModeLUTDOIOwned(const Scanner& pr_scanner,
 
 ListModeLUTDOIAlias::ListModeLUTDOIAlias(const Scanner& pr_scanner,
                                          bool p_flagTOF, int numLayers)
-    : ListModeLUTDOI(pr_scanner, p_flagTOF, numLayers)
+    : ListModeLUTDOI(pr_scanner, numLayers)
 {
 	mp_timestamps = std::make_unique<Array1DAlias<timestamp_t>>();
 	mp_detectorId1 = std::make_unique<Array1DAlias<det_id_t>>();
 	mp_detectorId2 = std::make_unique<Array1DAlias<det_id_t>>();
 	mp_doi1 = std::make_unique<Array1DAlias<unsigned char>>();
 	mp_doi2 = std::make_unique<Array1DAlias<unsigned char>>();
-	if (m_flagTOF)
+	if (p_flagTOF)
 	{
 		mp_tof_ps = std::make_unique<Array1DAlias<float>>();
 	}
@@ -124,6 +123,7 @@ void ListModeLUTDOIOwned::readFromFile(const std::string& listMode_fname)
 	}
 
 	const det_id_t numDets = mr_scanner.getNumDets();
+	const bool hasTOF = this->hasTOF();
 
 	// first check that file has the right size:
 	fin.seekg(0, std::ios::end);
@@ -131,7 +131,7 @@ void ListModeLUTDOIOwned::readFromFile(const std::string& listMode_fname)
 	fin.seekg(0, std::ios::beg);
 	size_t begin = fin.tellg();
 	size_t fileSize = end - begin;
-	int num_fields = m_flagTOF ? 6 : 5;
+	int num_fields = hasTOF ? 6 : 5;
 	size_t sizeOfAnEvent =
 	    (num_fields - 2) * sizeof(float) + (2 * sizeof(unsigned char));
 	if (fileSize <= 0 || (fileSize % sizeOfAnEvent) != 0)
@@ -145,7 +145,7 @@ void ListModeLUTDOIOwned::readFromFile(const std::string& listMode_fname)
 	allocate(numEvents);
 
 	// Read content of file
-	size_t numEventsBatch = size_t(1) << 15;
+	size_t numEventsBatch = 1ull << 15;
 	auto buff =
 	    std::make_unique<unsigned char[]>(numEventsBatch * sizeOfAnEvent);
 	size_t eventStart = 0;
@@ -159,7 +159,8 @@ void ListModeLUTDOIOwned::readFromFile(const std::string& listMode_fname)
 #pragma omp parallel for default(none),                                     \
     shared(mp_timestamps, mp_detectorId1, mp_detectorId2, mp_doi1, mp_doi2, \
                buff, mp_tof_ps),                                            \
-    firstprivate(numEventsBatchCurr, sizeOfAnEvent, eventStart, numDets)
+    firstprivate(numEventsBatchCurr, sizeOfAnEvent, eventStart, numDets,    \
+                     hasTOF)
 		for (size_t i = 0; i < numEventsBatchCurr; i++)
 		{
 			const size_t eventPos = eventStart + i;
@@ -182,7 +183,7 @@ void ListModeLUTDOIOwned::readFromFile(const std::string& listMode_fname)
 			(*mp_doi1)[eventPos] = buff[sizeOfAnEvent * i + 8];
 			(*mp_detectorId2)[eventPos] = d2;
 			(*mp_doi2)[eventPos] = buff[sizeOfAnEvent * i + 13];
-			if (m_flagTOF)
+			if (hasTOF)
 			{
 				(*mp_tof_ps)[eventPos] = *(
 				    reinterpret_cast<float*>(&(buff[sizeOfAnEvent * i + 14])));
@@ -226,22 +227,23 @@ Line3D ListModeLUTDOI::getArbitraryLOR(bin_t id) const
 
 void ListModeLUTDOI::writeToFile(const std::string& listMode_fname) const
 {
-	int num_fields = m_flagTOF ? 6 : 5;
-	size_t numEvents = count();
+	const bool hasTOF = this->hasTOF();
+	const int num_fields = hasTOF ? 6 : 5;
+	const size_t numEvents = count();
 	std::ofstream file;
 	file.open(listMode_fname.c_str(), std::ios::binary | std::ios::out);
-	size_t sizeOfAnEvent =
+	const size_t sizeOfAnEvent =
 	    (num_fields - 2) * sizeof(float) + (2 * sizeof(unsigned char));
 
-	size_t numEventsBatch = size_t(1) << 15;
+	constexpr size_t numEventsBatch = 1ull << 15;
 	auto buff =
 	    std::make_unique<unsigned char[]>(numEventsBatch * sizeOfAnEvent);
 	size_t eventStart = 0;
 	while (eventStart < numEvents)
 	{
-		size_t numEventsBatchCurr =
+		const size_t numEventsBatchCurr =
 		    std::min(numEventsBatch, numEvents - eventStart);
-		size_t writeSize = numEventsBatchCurr * sizeOfAnEvent;
+		const size_t writeSize = numEventsBatchCurr * sizeOfAnEvent;
 		for (size_t i = 0; i < numEventsBatchCurr; i++)
 		{
 			memcpy(&buff[sizeOfAnEvent * i], &(*mp_timestamps)[eventStart + i],
@@ -252,13 +254,13 @@ void ListModeLUTDOI::writeToFile(const std::string& listMode_fname) const
 			memcpy(&buff[sizeOfAnEvent * i + 9],
 			       &(*mp_detectorId2)[eventStart + i], sizeof(det_id_t));
 			buff[sizeOfAnEvent * i + 13] = (*mp_doi2)[eventStart + i];
-			if (m_flagTOF)
+			if (hasTOF)
 			{
 				memcpy(&buff[sizeOfAnEvent * i + 14],
 				       &(*mp_tof_ps)[eventStart + i], sizeof(float));
 			}
 		}
-		file.write((char*)buff.get(), writeSize);
+		file.write(reinterpret_cast<char*>(buff.get()), writeSize);
 		eventStart += numEventsBatchCurr;
 	}
 	file.close();
@@ -272,7 +274,7 @@ void ListModeLUTDOIOwned::allocate(size_t num_events)
 	static_cast<Array1D<det_id_t>*>(mp_detectorId2.get())->allocate(num_events);
 	static_cast<Array1D<unsigned char>*>(mp_doi1.get())->allocate(num_events);
 	static_cast<Array1D<unsigned char>*>(mp_doi2.get())->allocate(num_events);
-	if (m_flagTOF)
+	if (hasTOF())
 	{
 		static_cast<Array1D<float>*>(mp_tof_ps.get())->allocate(num_events);
 	}
@@ -384,10 +386,12 @@ void ListModeLUTDOIAlias::bind(
     pybind11::array_t<unsigned char, pybind11::array::c_style>& p_doi2,
     pybind11::array_t<float, pybind11::array::c_style>& p_tof_ps)
 {
-	bind(p_timestamps, p_detector_ids1, p_detector_ids2, p_doi1, p_doi2);
-	if (!m_flagTOF)
+	if (!hasTOF())
+	{
 		throw std::logic_error(
 		    "The ListMode was not created with TOF flag at true");
+	}
+	bind(p_timestamps, p_detector_ids1, p_detector_ids2, p_doi1, p_doi2);
 	pybind11::buffer_info buffer = p_tof_ps.request();
 	if (buffer.ndim != 1)
 	{

@@ -28,6 +28,10 @@ namespace yrt
 void py_setup_listmodelut(py::module& m)
 {
 	auto c = py::class_<ListModeLUT, ListMode>(m, "ListModeLUT");
+
+	c.def("getTOFValue", &ListModeLUT::getTOFValue_safe);
+	c.def("getRandomsEstimate", &ListModeLUT::getRandomsEstimate_safe);
+
 	c.def("setDetectorId1OfEvent", &ListModeLUT::setDetectorId1OfEvent,
 	      "event_id"_a, "d1"_a);
 	c.def("setDetectorId2OfEvent", &ListModeLUT::setDetectorId2OfEvent,
@@ -81,7 +85,7 @@ void py_setup_listmodelut(py::module& m)
 		                          {arr->getSizeTotal()}, {sizeof(float)});
 		      return py::array_t<float>(buf_info);
 	      });
-	c.def("getRandomsEstimatesFArray",
+	c.def("getRandomsEstimatesArray",
 	      [](const ListModeLUT& self) -> py::array_t<float>
 	      {
 		      ASSERT_MSG(self.hasRandomsEstimates(),
@@ -117,7 +121,7 @@ void py_setup_listmodelut(py::module& m)
 
 	auto c_owned =
 	    py::class_<ListModeLUTOwned, ListModeLUT>(m, "ListModeLUTOwned");
-	c_owned.def(py::init<const Scanner&, bool, bool>(), py::arg("scanner"),
+	c_owned.def(py::init<const Scanner&, bool, bool>(), "scanner"_a,
 	            "flag_tof"_a = false, "flag_randoms"_a = false);
 	c_owned.def(py::init<const Scanner&, const std::string&, bool, bool>(),
 	            "scanner"_a, "listMode_fname"_a, "flag_tof"_a = false,
@@ -450,9 +454,13 @@ det_id_t ListModeLUT::getDetector2(bin_t eventId) const
 
 float ListModeLUT::getTOFValue(bin_t eventId) const
 {
-	// TODO NOW: Add assert only for Python ?
-	ASSERT_MSG(hasTOF(), "The given ListMode does not have any TOF values");
 	return (*mp_tof_ps)[eventId];
+}
+
+float ListModeLUT::getTOFValue_safe(bin_t eventId) const
+{
+	ASSERT_MSG(hasTOF(), "The given ListMode does not have any TOF values");
+	return getTOFValue(eventId);
 }
 
 bool ListModeLUT::hasRandomsEstimates() const
@@ -462,9 +470,14 @@ bool ListModeLUT::hasRandomsEstimates() const
 
 float ListModeLUT::getRandomsEstimate(bin_t eventId) const
 {
+	return (*mp_randoms)[eventId];
+}
+
+float ListModeLUT::getRandomsEstimate_safe(bin_t eventId) const
+{
 	ASSERT_MSG(mp_randoms != nullptr,
 	           "The given ListMode does not have randoms estimates");
-	return (*mp_randoms)[eventId];
+	return getRandomsEstimate(eventId);
 }
 
 void ListModeLUTAlias::bind(ListModeLUT* listMode)

@@ -22,6 +22,8 @@ public:
 		float error;
 	};
 
+	// TODO NOW: Rename "Safe" to "_safe"
+
 	explicit LORMotion(const std::string& filename);
 	explicit LORMotion(size_t numFrames);
 

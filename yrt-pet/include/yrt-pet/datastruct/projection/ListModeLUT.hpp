@@ -32,8 +32,10 @@ public:
 	bool isUniform() const override;
 	bool hasTOF() const override;
 	float getTOFValue(bin_t eventId) const override;
+	float getTOFValue_safe(bin_t eventId) const;
 	bool hasRandomsEstimates() const override;
 	float getRandomsEstimate(bin_t eventId) const override;
+	float getRandomsEstimate_safe(bin_t eventId) const;
 
 	void setTimestampOfEvent(bin_t eventId, timestamp_t ts);
 	void setDetectorId1OfEvent(bin_t eventId, det_id_t d1);

@@ -15,7 +15,9 @@
 #if BUILD_PYBIND11
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
+
 namespace py = pybind11;
+using namespace py::literals;
 
 namespace yrt
 {
@@ -27,8 +29,8 @@ void py_setup_listmodelutdoi(py::module& m)
 
 	auto c_alias = py::class_<ListModeLUTDOIAlias, ListModeLUTDOI>(
 	    m, "ListModeLUTDOIAlias");
-	c_alias.def(py::init<const Scanner&, bool, int>(), py::arg("scanner"),
-	            py::arg("flag_tof") = false, py::arg("numLayers") = 256);
+	c_alias.def(py::init<const Scanner&, bool, int>(), "scanner"_a,
+	            "flag_tof"_a = false, "numLayers"_a = 256);
 
 	c_alias.def(
 	    "bind",
@@ -39,8 +41,8 @@ void py_setup_listmodelutdoi(py::module& m)
 	        pybind11::array_t<unsigned char, pybind11::array::c_style>&,
 	        pybind11::array_t<unsigned char, pybind11::array::c_style>&)>(
 	        &ListModeLUTDOIAlias::bind),
-	    py::arg("timestamps"), py::arg("detector_ids1"),
-	    py::arg("detector_ids2"), py::arg("doi1"), py::arg("doi2"));
+	    "timestamps"_a, "detector_ids1"_a, "detector_ids2"_a, "doi1"_a,
+	    "doi2"_a);
 	c_alias.def("bind",
 	            static_cast<void (ListModeLUTDOIAlias::*)(
 	                pybind11::array_t<timestamp_t, pybind11::array::c_style>&,
@@ -50,18 +52,16 @@ void py_setup_listmodelutdoi(py::module& m)
 	                pybind11::array_t<unsigned char, pybind11::array::c_style>&,
 	                pybind11::array_t<float, pybind11::array::c_style>&)>(
 	                &ListModeLUTDOIAlias::bind),
-	            py::arg("timestamps"), py::arg("detector_ids1"),
-	            py::arg("detector_ids2"), py::arg("doi1"), py::arg("doi2"),
-	            py::arg("tof_ps"));
+	            "timestamps"_a, "detector_ids1"_a, "detector_ids2"_a, "doi1"_a,
+	            "doi2"_a, "tof_ps"_a);
 
 
 	auto c_owned = py::class_<ListModeLUTDOIOwned, ListModeLUTDOI>(
 	    m, "ListModeLUTDOIOwned");
-	c_owned.def(py::init<const Scanner&, bool, int>(), py::arg("scanner"),
-	            py::arg("flag_tof") = false, py::arg("numLayers") = 256);
-	c_owned.def(py::init<const Scanner&, std::string, bool, int>(),
-	            py::arg("scanner"), py::arg("listMode_fname"),
-	            py::arg("flag_tof") = false, py::arg("numLayers") = 256);
+	c_owned.def(py::init<const Scanner&, bool, int>(), "scanner"_a,
+	            "flag_tof"_a = false, "numLayers"_a = 256);
+	c_owned.def(py::init<const Scanner&, std::string, bool, int>(), "scanner"_a,
+	            "listMode_fname"_a, "flag_tof"_a = false, "numLayers"_a = 256);
 	c_owned.def("readFromFile", &ListModeLUTDOIOwned::readFromFile);
 	c_owned.def("allocate", &ListModeLUTDOIOwned::allocate);
 }
@@ -71,6 +71,7 @@ void py_setup_listmodelutdoi(py::module& m)
 
 namespace yrt
 {
+
 ListModeLUTDOI::ListModeLUTDOI(const Scanner& pr_scanner, int numLayers)
     : ListModeLUT(pr_scanner), m_numLayers(numLayers)
 {

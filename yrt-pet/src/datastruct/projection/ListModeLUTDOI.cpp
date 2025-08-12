@@ -77,7 +77,8 @@ ListModeLUTDOI::ListModeLUTDOI(const Scanner& pr_scanner, int numLayers)
 }
 
 ListModeLUTDOIOwned::ListModeLUTDOIOwned(const Scanner& pr_scanner,
-                                         bool p_flagTOF, int numLayers)
+                                         bool p_flagTOF, bool p_flagRandoms,
+                                         int numLayers)
     : ListModeLUTDOI(pr_scanner, numLayers)
 {
 	mp_timestamps = std::make_unique<Array1D<timestamp_t>>();
@@ -89,18 +90,24 @@ ListModeLUTDOIOwned::ListModeLUTDOIOwned(const Scanner& pr_scanner,
 	{
 		mp_tof_ps = std::make_unique<Array1D<float>>();
 	}
+	if (p_flagRandoms)
+	{
+		mp_randoms = std::make_unique<Array1D<float>>();
+	}
 }
 
 ListModeLUTDOIOwned::ListModeLUTDOIOwned(const Scanner& pr_scanner,
                                          const std::string& listMode_fname,
-                                         bool p_flagTOF, int numLayers)
-    : ListModeLUTDOIOwned(pr_scanner, p_flagTOF, numLayers)
+                                         bool p_flagTOF, bool p_flagRandoms,
+                                         int numLayers)
+    : ListModeLUTDOIOwned(pr_scanner, p_flagTOF, p_flagRandoms, numLayers)
 {
 	readFromFile(listMode_fname);
 }
 
 ListModeLUTDOIAlias::ListModeLUTDOIAlias(const Scanner& pr_scanner,
-                                         bool p_flagTOF, int numLayers)
+                                         bool p_flagTOF, bool p_flagRandoms,
+                                         int numLayers)
     : ListModeLUTDOI(pr_scanner, numLayers)
 {
 	mp_timestamps = std::make_unique<Array1DAlias<timestamp_t>>();
@@ -111,6 +118,10 @@ ListModeLUTDOIAlias::ListModeLUTDOIAlias(const Scanner& pr_scanner,
 	if (p_flagTOF)
 	{
 		mp_tof_ps = std::make_unique<Array1DAlias<float>>();
+	}
+	if (p_flagRandoms)
+	{
+		mp_randoms = std::make_unique<Array1DAlias<float>>();
 	}
 }
 
@@ -123,7 +134,8 @@ void ListModeLUTDOIOwned::readFromFile(const std::string& listMode_fname)
 	}
 
 	const det_id_t numDets = mr_scanner.getNumDets();
-	const bool hasTOF = this->hasTOF();
+	const bool hasTOF = mp_tof_ps != nullptr;
+	const bool hasRandoms = mp_randoms != nullptr;
 
 	// first check that file has the right size:
 	fin.seekg(0, std::ios::end);
@@ -131,9 +143,18 @@ void ListModeLUTDOIOwned::readFromFile(const std::string& listMode_fname)
 	fin.seekg(0, std::ios::beg);
 	size_t begin = fin.tellg();
 	size_t fileSize = end - begin;
-	int num_fields = hasTOF ? 6 : 5;
+	int numFields = 3;  // Number of 4-byte fields
+	if (hasTOF)
+	{
+		numFields++;
+	}
+	if (hasRandoms)
+	{
+		numFields++;
+	}
+
 	size_t sizeOfAnEvent =
-	    (num_fields - 2) * sizeof(float) + (2 * sizeof(unsigned char));
+	    numFields * sizeof(float) + 2 * sizeof(unsigned char);
 	if (fileSize <= 0 || (fileSize % sizeOfAnEvent) != 0)
 	{
 		throw std::runtime_error("Error: Input file has incorrect size in "
@@ -160,33 +181,56 @@ void ListModeLUTDOIOwned::readFromFile(const std::string& listMode_fname)
     shared(mp_timestamps, mp_detectorId1, mp_detectorId2, mp_doi1, mp_doi2, \
                buff, mp_tof_ps),                                            \
     firstprivate(numEventsBatchCurr, sizeOfAnEvent, eventStart, numDets,    \
-                     hasTOF)
+                     hasTOF, hasRandoms)
 		for (size_t i = 0; i < numEventsBatchCurr; i++)
 		{
 			const size_t eventPos = eventStart + i;
+			size_t bufferPos = sizeOfAnEvent * i;
+
+			const timestamp_t timestamp =
+			    *reinterpret_cast<timestamp_t*>(&(buff[bufferPos]));
+			bufferPos += sizeof(timestamp_t);
 
 			const det_id_t d1 =
-			    *(reinterpret_cast<det_id_t*>(&(buff[sizeOfAnEvent * i + 4])));
-			const det_id_t d2 =
-			    *(reinterpret_cast<det_id_t*>(&(buff[sizeOfAnEvent * i + 9])));
+			    *(reinterpret_cast<det_id_t*>(&(buff[bufferPos])));
+			bufferPos += sizeof(det_id_t);
 
-			if (CHECK_LIKELY(d1 >= numDets || d2 >= numDets))
+			const unsigned char doi1 = buff[bufferPos];
+			bufferPos += sizeof(unsigned char);
+
+			const det_id_t d2 =
+			    *(reinterpret_cast<det_id_t*>(&(buff[bufferPos])));
+			bufferPos += sizeof(det_id_t);
+
+			const unsigned char doi2 = buff[bufferPos];
+			bufferPos += sizeof(unsigned char);
+
+			if (CHECK_LIKELY(d1 < numDets && d2 < numDets))
+			{
+				(*mp_timestamps)[eventPos] = timestamp;
+				(*mp_detectorId1)[eventPos] = d1;
+				(*mp_doi1)[eventPos] = doi1;
+				(*mp_detectorId2)[eventPos] = d2;
+				(*mp_doi2)[eventPos] = doi2;
+				if (hasTOF)
+				{
+					(*mp_tof_ps)[eventPos] =
+					    *(reinterpret_cast<float*>(&(buff[bufferPos])));
+					bufferPos += sizeof(float);
+				}
+				if (hasRandoms)
+				{
+					(*mp_tof_ps)[eventPos] =
+					    *(reinterpret_cast<float*>(&(buff[bufferPos])));
+					// Uncomment this if we add another field:
+					// bufferPos += sizeof(float);
+				}
+			}
+			else
 			{
 				throw std::invalid_argument(
 				    "Detectors invalid in list-mode event " +
 				    std::to_string(eventPos));
-			}
-
-			(*mp_timestamps)[eventPos] =
-			    *(reinterpret_cast<timestamp_t*>(&(buff[sizeOfAnEvent * i])));
-			(*mp_detectorId1)[eventPos] = d1;
-			(*mp_doi1)[eventPos] = buff[sizeOfAnEvent * i + 8];
-			(*mp_detectorId2)[eventPos] = d2;
-			(*mp_doi2)[eventPos] = buff[sizeOfAnEvent * i + 13];
-			if (hasTOF)
-			{
-				(*mp_tof_ps)[eventPos] = *(
-				    reinterpret_cast<float*>(&(buff[sizeOfAnEvent * i + 14])));
 			}
 		}
 		eventStart += numEventsBatchCurr;
@@ -227,13 +271,25 @@ Line3D ListModeLUTDOI::getArbitraryLOR(bin_t id) const
 
 void ListModeLUTDOI::writeToFile(const std::string& listMode_fname) const
 {
-	const bool hasTOF = this->hasTOF();
-	const int num_fields = hasTOF ? 6 : 5;
+	const bool hasTOF = mp_tof_ps != nullptr;
+	const bool hasRandoms = mp_randoms != nullptr;
+
+	int numFields = 3;  // Number of 4-byte fields
+	if (hasTOF)
+	{
+		numFields++;
+	}
+
+	if (hasRandoms)
+	{
+		numFields++;
+	}
+
 	const size_t numEvents = count();
 	std::ofstream file;
 	file.open(listMode_fname.c_str(), std::ios::binary | std::ios::out);
 	const size_t sizeOfAnEvent =
-	    (num_fields - 2) * sizeof(float) + (2 * sizeof(unsigned char));
+	    numFields * sizeof(float) + (2 * sizeof(unsigned char));
 
 	constexpr size_t numEventsBatch = 1ull << 15;
 	auto buff =
@@ -246,18 +302,40 @@ void ListModeLUTDOI::writeToFile(const std::string& listMode_fname) const
 		const size_t writeSize = numEventsBatchCurr * sizeOfAnEvent;
 		for (size_t i = 0; i < numEventsBatchCurr; i++)
 		{
-			memcpy(&buff[sizeOfAnEvent * i], &(*mp_timestamps)[eventStart + i],
+			size_t bufferPos = sizeOfAnEvent * i;
+			const size_t arrayPos = eventStart + i;
+
+			memcpy(&buff[bufferPos], &(*mp_timestamps)[arrayPos],
 			       sizeof(timestamp_t));
-			memcpy(&buff[sizeOfAnEvent * i + 4],
-			       &(*mp_detectorId1)[eventStart + i], sizeof(det_id_t));
-			buff[sizeOfAnEvent * i + 8] = (*mp_doi1)[eventStart + i];
-			memcpy(&buff[sizeOfAnEvent * i + 9],
-			       &(*mp_detectorId2)[eventStart + i], sizeof(det_id_t));
-			buff[sizeOfAnEvent * i + 13] = (*mp_doi2)[eventStart + i];
+			bufferPos += sizeof(timestamp_t);
+
+			memcpy(&buff[bufferPos], &(*mp_detectorId1)[arrayPos],
+			       sizeof(det_id_t));
+			bufferPos += sizeof(det_id_t);
+
+			buff[bufferPos] = (*mp_doi1)[arrayPos];
+			bufferPos += sizeof(unsigned char);
+
+			memcpy(&buff[bufferPos], &(*mp_detectorId2)[arrayPos],
+			       sizeof(det_id_t));
+			bufferPos += sizeof(det_id_t);
+
+			buff[bufferPos] = (*mp_doi2)[arrayPos];
+			bufferPos += sizeof(unsigned char);
+
 			if (hasTOF)
 			{
-				memcpy(&buff[sizeOfAnEvent * i + 14],
-				       &(*mp_tof_ps)[eventStart + i], sizeof(float));
+				memcpy(&buff[bufferPos], &(*mp_tof_ps)[arrayPos],
+				       sizeof(float));
+				bufferPos += sizeof(float);
+			}
+
+			if (hasRandoms)
+			{
+				memcpy(&buff[bufferPos], &(*mp_randoms)[arrayPos],
+				       sizeof(float));
+				// Uncomment this if we add another field:
+				// bufferPos += sizeof(float);
 			}
 		}
 		file.write(reinterpret_cast<char*>(buff.get()), writeSize);
@@ -277,6 +355,10 @@ void ListModeLUTDOIOwned::allocate(size_t num_events)
 	if (hasTOF())
 	{
 		static_cast<Array1D<float>*>(mp_tof_ps.get())->allocate(num_events);
+	}
+	if (hasRandomsEstimates())
+	{
+		static_cast<Array1D<float>*>(mp_randoms.get())->allocate(num_events);
 	}
 }
 

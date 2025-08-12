@@ -29,8 +29,7 @@ public:
 	void writeToFile(const std::string& listMode_fname) const override;
 
 protected:
-	explicit ListModeLUTDOI(const Scanner& pr_scanner,
-	                        int numLayers = 256);
+	explicit ListModeLUTDOI(const Scanner& pr_scanner, int numLayers = 256);
 	std::unique_ptr<Array1DBase<unsigned char>> mp_doi1;
 	std::unique_ptr<Array1DBase<unsigned char>> mp_doi2;
 
@@ -41,7 +40,9 @@ class ListModeLUTDOIAlias : public ListModeLUTDOI
 {
 public:
 	explicit ListModeLUTDOIAlias(const Scanner& pr_scanner,
-	                             bool p_flagTOF = false, int numLayers = 256);
+	                             bool p_flagTOF = false,
+	                             bool p_flagRandoms = false,
+	                             int numLayers = 256);
 	~ListModeLUTDOIAlias() override = default;
 	void bind(const Array1DBase<timestamp_t>* pp_timestamps,
 	          const Array1DBase<det_id_t>* pp_detector_ids1,
@@ -70,10 +71,13 @@ class ListModeLUTDOIOwned : public ListModeLUTDOI
 {
 public:
 	explicit ListModeLUTDOIOwned(const Scanner& pr_scanner,
-	                             bool p_flagTOF = false, int numLayers = 256);
+	                             bool p_flagTOF = false,
+	                             bool p_flagRandoms = false,
+	                             int numLayers = 256);
 	ListModeLUTDOIOwned(const Scanner& pr_scanner,
 	                    const std::string& listMode_fname,
-	                    bool p_flagTOF = false, int numLayers = 256);
+	                    bool p_flagTOF = false, bool p_flagRandoms = false,
+	                    int numLayers = 256);
 	~ListModeLUTDOIOwned() override = default;
 
 	void readFromFile(const std::string& listMode_fname);
@@ -85,4 +89,5 @@ public:
 	           const io::OptionsResult& options);
 	static plugin::OptionsListPerPlugin getOptions();
 };
+
 }  // namespace yrt

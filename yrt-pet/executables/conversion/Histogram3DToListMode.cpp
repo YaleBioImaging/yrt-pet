@@ -73,6 +73,8 @@ int main(int argc, char** argv)
 
 		util::histogram3DToListModeLUT(histo.get(), lm.get(), numEvents);
 
+		// TODO: We should shuffle the events afterwards
+
 		lm->writeToFile(out_fname);
 
 		std::cout << "Done." << std::endl;

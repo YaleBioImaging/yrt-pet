@@ -377,8 +377,14 @@ void ListModeLUT::setDetectorIdsOfEvent(bin_t eventId, det_id_t d1, det_id_t d2)
 
 void ListModeLUT::setTOFValueOfEvent(bin_t eventId, float tofValue)
 {
-	ASSERT_MSG(hasTOF(), "TOF not set in the list-mode");
+	ASSERT_MSG(hasTOF(), "TOF not enabled in the list-mode");
 	(*mp_tof_ps)[eventId] = tofValue;
+}
+
+void ListModeLUT::setRandomsEstimateOfEvent(bin_t eventId, float randoms)
+{
+	ASSERT_MSG(hasRandomsEstimates(), "Randoms not enabled in the list-mode");
+	(*mp_randoms)[eventId] = randoms;
 }
 
 Array1DBase<timestamp_t>* ListModeLUT::getTimestampArrayPtr() const

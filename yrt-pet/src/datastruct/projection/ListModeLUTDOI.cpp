@@ -29,39 +29,32 @@ void py_setup_listmodelutdoi(py::module& m)
 
 	auto c_alias = py::class_<ListModeLUTDOIAlias, ListModeLUTDOI>(
 	    m, "ListModeLUTDOIAlias");
-	c_alias.def(py::init<const Scanner&, bool, int>(), "scanner"_a,
-	            "flag_tof"_a = false, "numLayers"_a = 256);
+	c_alias.def(py::init<const Scanner&, bool, bool, int>(), "scanner"_a,
+	            "flag_tof"_a = false, "flag_randoms"_a = false,
+	            "numLayers"_a = 256);
 
-	c_alias.def(
-	    "bind",
-	    static_cast<void (ListModeLUTDOIAlias::*)(
-	        pybind11::array_t<timestamp_t, pybind11::array::c_style>&,
-	        pybind11::array_t<det_id_t, pybind11::array::c_style>&,
-	        pybind11::array_t<det_id_t, pybind11::array::c_style>&,
-	        pybind11::array_t<unsigned char, pybind11::array::c_style>&,
-	        pybind11::array_t<unsigned char, pybind11::array::c_style>&)>(
-	        &ListModeLUTDOIAlias::bind),
-	    "timestamps"_a, "detector_ids1"_a, "detector_ids2"_a, "doi1"_a,
-	    "doi2"_a);
 	c_alias.def("bind",
 	            static_cast<void (ListModeLUTDOIAlias::*)(
-	                pybind11::array_t<timestamp_t, pybind11::array::c_style>&,
-	                pybind11::array_t<det_id_t, pybind11::array::c_style>&,
-	                pybind11::array_t<det_id_t, pybind11::array::c_style>&,
-	                pybind11::array_t<unsigned char, pybind11::array::c_style>&,
-	                pybind11::array_t<unsigned char, pybind11::array::c_style>&,
-	                pybind11::array_t<float, pybind11::array::c_style>&)>(
+	                pybind11::array_t<timestamp_t, pybind11::array::c_style>*,
+	                pybind11::array_t<det_id_t, pybind11::array::c_style>*,
+	                pybind11::array_t<det_id_t, pybind11::array::c_style>*,
+	                pybind11::array_t<unsigned char, pybind11::array::c_style>*,
+	                pybind11::array_t<unsigned char, pybind11::array::c_style>*,
+	                pybind11::array_t<float, pybind11::array::c_style>*,
+	                pybind11::array_t<float, pybind11::array::c_style>*)>(
 	                &ListModeLUTDOIAlias::bind),
 	            "timestamps"_a, "detector_ids1"_a, "detector_ids2"_a, "doi1"_a,
-	            "doi2"_a, "tof_ps"_a);
+	            "doi2"_a, "tof_ps"_a, "randoms"_a);
 
 
 	auto c_owned = py::class_<ListModeLUTDOIOwned, ListModeLUTDOI>(
 	    m, "ListModeLUTDOIOwned");
-	c_owned.def(py::init<const Scanner&, bool, int>(), "scanner"_a,
-	            "flag_tof"_a = false, "numLayers"_a = 256);
-	c_owned.def(py::init<const Scanner&, std::string, bool, int>(), "scanner"_a,
-	            "listMode_fname"_a, "flag_tof"_a = false, "numLayers"_a = 256);
+	c_owned.def(py::init<const Scanner&, bool, bool, int>(), "scanner"_a,
+	            "flag_tof"_a = false, "flag_randoms"_a = false,
+	            "numLayers"_a = 256);
+	c_owned.def(py::init<const Scanner&, std::string, bool, bool, int>(),
+	            "scanner"_a, "listMode_fname"_a, "flag_tof"_a = false,
+	            "flag_randoms"_a = false, "numLayers"_a = 256);
 	c_owned.def("readFromFile", &ListModeLUTDOIOwned::readFromFile);
 	c_owned.def("allocate", &ListModeLUTDOIOwned::allocate);
 }
@@ -221,7 +214,7 @@ void ListModeLUTDOIOwned::readFromFile(const std::string& listMode_fname)
 				}
 				if (hasRandoms)
 				{
-					(*mp_tof_ps)[eventPos] =
+					(*mp_randoms)[eventPos] =
 					    *(reinterpret_cast<float*>(&(buff[bufferPos])));
 					// Uncomment this if we add another field:
 					// bufferPos += sizeof(float);
@@ -368,7 +361,8 @@ void ListModeLUTDOIAlias::bind(const Array1DBase<timestamp_t>* pp_timestamps,
                                const Array1DBase<det_id_t>* pp_detector_ids2,
                                const Array1DBase<unsigned char>* pp_doi1,
                                const Array1DBase<unsigned char>* pp_doi2,
-                               const Array1DBase<float>* pp_tof_ps)
+                               const Array1DBase<float>* pp_tof_ps,
+                               const Array1DBase<float>* pp_randoms)
 {
 	static_cast<Array1DAlias<timestamp_t>*>(mp_timestamps.get())
 	    ->bind(*pp_timestamps);
@@ -402,86 +396,112 @@ void ListModeLUTDOIAlias::bind(const Array1DBase<timestamp_t>* pp_timestamps,
 		throw std::runtime_error("The doi2 array could not be bound");
 	}
 
-	if (mp_tof_ps != nullptr && pp_tof_ps != nullptr)
+	if (mp_tof_ps != nullptr)
 	{
+		ASSERT_MSG(
+		    pp_tof_ps != nullptr,
+		    "TOF is enabled for the list-mode but no TOF array was provided");
 		static_cast<Array1DAlias<float>*>(mp_tof_ps.get())->bind(*pp_tof_ps);
 		if (mp_tof_ps->getRawPointer() == nullptr)
 			throw std::runtime_error("The tof_ps array could not be bound");
+	}
+
+	if (mp_randoms != nullptr)
+	{
+		ASSERT_MSG(pp_randoms != nullptr,
+		           "Randoms are enabled for the list-mode but no Randoms "
+		           "estimates array was provided");
+		static_cast<Array1DAlias<float>*>(mp_randoms.get())->bind(*pp_randoms);
+		if (mp_randoms->getRawPointer() == nullptr)
+			throw std::runtime_error("The randoms array could not be bound");
 	}
 }
 
 #if BUILD_PYBIND11
 void ListModeLUTDOIAlias::bind(
-    pybind11::array_t<timestamp_t, pybind11::array::c_style>& p_timestamps,
-    pybind11::array_t<det_id_t, pybind11::array::c_style>& p_detector_ids1,
-    pybind11::array_t<det_id_t, pybind11::array::c_style>& p_detector_ids2,
-    pybind11::array_t<unsigned char, pybind11::array::c_style>& p_doi1,
-    pybind11::array_t<unsigned char, pybind11::array::c_style>& p_doi2)
+    pybind11::array_t<timestamp_t, pybind11::array::c_style>* pp_timestamps,
+    pybind11::array_t<det_id_t, pybind11::array::c_style>* pp_detectorIds1,
+    pybind11::array_t<det_id_t, pybind11::array::c_style>* pp_detectorIds2,
+    pybind11::array_t<unsigned char, pybind11::array::c_style>* pp_doi1,
+    pybind11::array_t<unsigned char, pybind11::array::c_style>* pp_doi2,
+    pybind11::array_t<float, pybind11::array::c_style>* pp_tof_ps,
+    pybind11::array_t<float, pybind11::array::c_style>* pp_randoms)
 {
-	pybind11::buffer_info buffer1 = p_timestamps.request();
-	if (buffer1.ndim != 1)
-	{
-		throw std::invalid_argument(
-		    "The timestamps buffer has to be 1-dimensional");
-	}
+
+	ssize_t count = 0;
+	ASSERT_MSG(pp_timestamps != nullptr, "The timestamps array is null");
+	const pybind11::buffer_info buffer1 = pp_timestamps->request();
+	ASSERT_MSG(buffer1.ndim == 1,
+	           "The timestamps array has to be 1-dimensional");
+	ASSERT_MSG(buffer1.shape[0] > 0, "Timestamps array is empty");
 	static_cast<Array1DAlias<timestamp_t>*>(mp_timestamps.get())
 	    ->bind(reinterpret_cast<timestamp_t*>(buffer1.ptr), buffer1.shape[0]);
+	count = buffer1.shape[0];
 
-	pybind11::buffer_info buffer2 = p_detector_ids1.request();
-	if (buffer2.ndim != 1)
-	{
-		throw std::invalid_argument(
-		    "The detector_ids1 buffer has to be 1-dimensional");
-	}
+	ASSERT_MSG(pp_detectorIds1 != nullptr, "The detector_ids1 array is null");
+	const pybind11::buffer_info buffer2 = pp_detectorIds1->request();
+	ASSERT_MSG(buffer2.ndim == 1,
+	           "The detector_ids1 array has to be 1-dimensional");
+	ASSERT_MSG(
+	    buffer2.shape[0] == count,
+	    "detector_ids1 array is not of coherent size with the other arrays");
 	static_cast<Array1DAlias<det_id_t>*>(mp_detectorId1.get())
 	    ->bind(reinterpret_cast<det_id_t*>(buffer2.ptr), buffer2.shape[0]);
 
-	pybind11::buffer_info buffer3 = p_detector_ids2.request();
-	if (buffer3.ndim != 1)
-	{
-		throw std::invalid_argument(
-		    "The detector_ids2 buffer has to be 1-dimensional");
-	}
+	ASSERT_MSG(pp_detectorIds2 != nullptr, "The detector_ids2 array is null");
+	const pybind11::buffer_info buffer3 = pp_detectorIds2->request();
+	ASSERT_MSG(buffer3.ndim == 1,
+	           "The detector_ids2 array has to be 1-dimensional");
+	ASSERT_MSG(
+	    buffer3.shape[0] == count,
+	    "detector_ids2 array is not of coherent size with the other arrays");
 	static_cast<Array1DAlias<det_id_t>*>(mp_detectorId2.get())
 	    ->bind(reinterpret_cast<det_id_t*>(buffer3.ptr), buffer3.shape[0]);
 
-	pybind11::buffer_info buffer4 = p_doi1.request();
-	if (buffer4.ndim != 1)
+	// To avoid code duplication:
+	using doi_pair_t =
+	    std::pair<py::array_t<unsigned char, py::array::c_style>*,
+	              Array1DBase<unsigned char>*>;
+	std::array<doi_pair_t, 2> doiPairs;
+	doiPairs[0] = {pp_doi1, mp_doi1.get()};
+	doiPairs[1] = {pp_doi2, mp_doi2.get()};
+	for (auto doiPair : doiPairs)
 	{
-		throw std::invalid_argument("The doi1 buffer has to be 1-dimensional");
+		auto [pp_doi, mp_doi] = doiPair;
+		ASSERT_MSG(pp_doi != nullptr, "The DOI array is null");
+		const pybind11::buffer_info buffer = pp_doi->request();
+		ASSERT_MSG(buffer.ndim == 1, "The DOI array has to be 1-dimensional");
+		ASSERT_MSG(buffer.shape[0] == count,
+		           "DOI array is not of coherent size with the other arrays");
+		static_cast<Array1DAlias<unsigned char>*>(mp_doi)->bind(
+		    reinterpret_cast<unsigned char*>(buffer.ptr), buffer.shape[0]);
 	}
-	static_cast<Array1DAlias<unsigned char>*>(mp_doi1.get())
-	    ->bind(reinterpret_cast<unsigned char*>(buffer4.ptr), buffer4.shape[0]);
-	pybind11::buffer_info buffer5 = p_doi2.request();
-	if (buffer5.ndim != 1)
-	{
-		throw std::invalid_argument("The doi2 buffer has to be 1-dimensional");
-	}
-	static_cast<Array1DAlias<unsigned char>*>(mp_doi2.get())
-	    ->bind(reinterpret_cast<unsigned char*>(buffer5.ptr), buffer5.shape[0]);
-}
 
-void ListModeLUTDOIAlias::bind(
-    pybind11::array_t<timestamp_t, pybind11::array::c_style>& p_timestamps,
-    pybind11::array_t<det_id_t, pybind11::array::c_style>& p_detector_ids1,
-    pybind11::array_t<det_id_t, pybind11::array::c_style>& p_detector_ids2,
-    pybind11::array_t<unsigned char, pybind11::array::c_style>& p_doi1,
-    pybind11::array_t<unsigned char, pybind11::array::c_style>& p_doi2,
-    pybind11::array_t<float, pybind11::array::c_style>& p_tof_ps)
-{
-	if (!hasTOF())
+	if (pp_tof_ps != nullptr)
 	{
-		throw std::logic_error(
-		    "The ListMode was not created with TOF flag at true");
+		ASSERT_MSG(hasTOF(),
+		           "The ListMode was not created with flag_tof at true");
+		pybind11::buffer_info buffer = pp_tof_ps->request();
+		ASSERT_MSG(buffer.ndim == 1, "The TOF array has to be 1-dimensional");
+		ASSERT_MSG(buffer.shape[0] == count,
+		           "TOF array is not of coherent size with the other arrays");
+		static_cast<Array1DAlias<float>*>(mp_tof_ps.get())
+		    ->bind(reinterpret_cast<float*>(buffer.ptr), buffer.shape[0]);
 	}
-	bind(p_timestamps, p_detector_ids1, p_detector_ids2, p_doi1, p_doi2);
-	pybind11::buffer_info buffer = p_tof_ps.request();
-	if (buffer.ndim != 1)
+
+	if (pp_randoms != nullptr)
 	{
-		throw std::invalid_argument("The TOF buffer has to be 1-dimensional");
+		ASSERT_MSG(hasRandomsEstimates(),
+		           "The ListMode was not created with flag_tof at true");
+		pybind11::buffer_info buffer = pp_randoms->request();
+		ASSERT_MSG(buffer.ndim == 1,
+		           "The randoms estimates array has to be 1-dimensional");
+		ASSERT_MSG(buffer.shape[0] == count,
+		           "randoms estimates array is not of coherent size with the "
+		           "other arrays");
+		static_cast<Array1DAlias<float>*>(mp_randoms.get())
+		    ->bind(reinterpret_cast<float*>(buffer.ptr), buffer.shape[0]);
 	}
-	static_cast<Array1DAlias<float>*>(mp_tof_ps.get())
-	    ->bind(reinterpret_cast<float*>(buffer.ptr), buffer.shape[0]);
 }
 #endif
 
@@ -499,12 +519,21 @@ std::unique_ptr<ProjectionData>
 		flagTOF = std::get<bool>(flagTOFVariant);
 	}
 
+	const auto flagRandomsVariant = options.at("flag_randoms");
+	bool flagRandoms = false;
+	if (!std::holds_alternative<std::monostate>(flagRandomsVariant))
+	{
+		ASSERT(std::holds_alternative<bool>(flagRandomsVariant));
+		flagRandoms = std::get<bool>(flagRandomsVariant);
+	}
+
 	const auto numLayersVariant = options.at("num_layers");
 
 	std::unique_ptr<ListModeLUTDOIOwned> lm;
 	if (std::holds_alternative<std::monostate>(numLayersVariant))
 	{
-		lm = std::make_unique<ListModeLUTDOIOwned>(scanner, filename, flagTOF);
+		lm = std::make_unique<ListModeLUTDOIOwned>(scanner, filename, flagTOF,
+		                                           flagRandoms);
 	}
 	else
 	{
@@ -512,7 +541,7 @@ std::unique_ptr<ProjectionData>
 		const int numLayers = std::get<int>(numLayersVariant);
 
 		lm = std::make_unique<ListModeLUTDOIOwned>(scanner, filename, flagTOF,
-		                                           numLayers);
+		                                           flagRandoms, numLayers);
 	}
 
 	return lm;
@@ -522,6 +551,9 @@ plugin::OptionsListPerPlugin ListModeLUTDOIOwned::getOptions()
 {
 	return {
 	    {"flag_tof", {"Flag for reading TOF column", io::TypeOfArgument::BOOL}},
+	    {"flag_randoms",
+	     {"Flag for reading randoms estimates column",
+	      io::TypeOfArgument::BOOL}},
 	    {"num_layers", {"Number of layers", io::TypeOfArgument::INT}}};
 }
 

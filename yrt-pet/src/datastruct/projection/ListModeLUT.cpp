@@ -105,8 +105,8 @@ void py_setup_listmodelut(py::module& m)
 
 	auto c_alias =
 	    py::class_<ListModeLUTAlias, ListModeLUT>(m, "ListModeLUTAlias");
-	c_alias.def(py::init<const Scanner&, bool>(), "scanner"_a,
-	            "flag_tof"_a = false);
+	c_alias.def(py::init<const Scanner&, bool, bool>(), "scanner"_a,
+	            "flag_tof"_a = false, "flag_randoms"_a = false);
 
 	c_alias.def("bind",
 	            static_cast<void (ListModeLUTAlias::*)(

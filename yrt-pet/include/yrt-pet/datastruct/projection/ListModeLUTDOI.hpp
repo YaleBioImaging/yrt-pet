@@ -49,21 +49,18 @@ public:
 	          const Array1DBase<det_id_t>* pp_detector_ids2,
 	          const Array1DBase<unsigned char>* pp_doi1,
 	          const Array1DBase<unsigned char>* pp_doi2,
-	          const Array1DBase<float>* pp_tof_ps = nullptr);
+	          const Array1DBase<float>* pp_tof_ps = nullptr,
+	          const Array1DBase<float>* pp_randoms = nullptr);
 #if BUILD_PYBIND11
 	void bind(
-	    pybind11::array_t<timestamp_t, pybind11::array::c_style>& p_timestamps,
-	    pybind11::array_t<det_id_t, pybind11::array::c_style>& p_detector_ids1,
-	    pybind11::array_t<det_id_t, pybind11::array::c_style>& p_detector_ids2,
-	    pybind11::array_t<unsigned char, pybind11::array::c_style>& p_doi1,
-	    pybind11::array_t<unsigned char, pybind11::array::c_style>& p_doi2);
-	void bind(
-	    pybind11::array_t<timestamp_t, pybind11::array::c_style>& p_timestamps,
-	    pybind11::array_t<det_id_t, pybind11::array::c_style>& p_detector_ids1,
-	    pybind11::array_t<det_id_t, pybind11::array::c_style>& p_detector_ids2,
-	    pybind11::array_t<unsigned char, pybind11::array::c_style>& p_doi1,
-	    pybind11::array_t<unsigned char, pybind11::array::c_style>& p_doi2,
-	    pybind11::array_t<float, pybind11::array::c_style>& p_tof_ps);
+	    pybind11::array_t<timestamp_t, pybind11::array::c_style>* pp_timestamps,
+	    pybind11::array_t<det_id_t, pybind11::array::c_style>* pp_detectorIds1,
+	    pybind11::array_t<det_id_t, pybind11::array::c_style>* pp_detectorIds2,
+	    pybind11::array_t<unsigned char, pybind11::array::c_style>* pp_doi1,
+	    pybind11::array_t<unsigned char, pybind11::array::c_style>* pp_doi2,
+	    pybind11::array_t<float, pybind11::array::c_style>* pp_tof_ps = nullptr,
+	    pybind11::array_t<float, pybind11::array::c_style>* pp_randoms =
+	        nullptr);
 #endif
 };
 

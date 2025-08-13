@@ -12,89 +12,129 @@
 #include <cmath>
 #include <cstdio>
 
-namespace yrt
-{
-std::unique_ptr<ListModeLUTOwned> getListMode(const Scanner& scanner)
-{
-	auto listMode = std::make_unique<ListModeLUTOwned>(scanner);
-	listMode->allocate(15);
-	listMode->setDetectorIdsOfEvent(0, 25, 36);
-	listMode->setDetectorIdsOfEvent(13, 1, 60);
-	return listMode;
-}
-}  // namespace yrt
+using namespace yrt;
 
-TEST_CASE("listmode", "[list-mode]")
+static void fillRandomListMode(
+    ListModeLUTOwned& lm, size_t numEvents, bool withTOF, bool withRandoms,
+    const std::shared_ptr<std::default_random_engine>& pp_engine)
 {
-	const auto scanner = yrt::util::test::makeScanner();
-	auto listMode = yrt::getListMode(*scanner);
-
-	SECTION("listmode-data")
+	std::shared_ptr<std::default_random_engine> engine = pp_engine;
+	if (engine == nullptr)
 	{
-		CHECK(listMode->getDetector1(0) == 25);
-		CHECK(listMode->getDetector2(0) == 36);
-		CHECK(listMode->getDetector1(13) == 1);
-		CHECK(listMode->getDetector2(13) == 60);
+		engine = std::make_shared<std::default_random_engine>();
 	}
 
-	SECTION("listmode-binding")
+	std::uniform_int_distribution<timestamp_t> ts_dist(0, 1'000'000);
+	std::uniform_int_distribution<det_id_t> det_dist(
+	    0, lm.getScanner().getNumDets() - 1);
+	std::uniform_real_distribution<float> tof_dist(-5000.0f, 5000.0f);
+	std::uniform_real_distribution<float> rand_dist(0.0f, 1000.0f);
+
+	for (size_t i = 0; i < numEvents; i++)
 	{
-		yrt::ListModeLUTAlias listMode_alias(*scanner);
-		listMode_alias.bind(listMode.get());
-		CHECK(listMode->getTimestamp(0) == listMode_alias.getTimestamp(0));
-		CHECK(listMode->getTimestamp(13) == listMode_alias.getTimestamp(13));
-		CHECK(listMode->getDetector1(0) == listMode_alias.getDetector1(0));
-		CHECK(listMode->getDetector2(0) == listMode_alias.getDetector2(0));
-		CHECK(listMode->getDetector1(13) == listMode_alias.getDetector1(13));
-		CHECK(listMode->getDetector2(13) == listMode_alias.getDetector2(13));
-	}
-
-	SECTION("listmode-fileread")
-	{
-		listMode->writeToFile("listmode1");
-
-		auto listMode2 = std::make_unique<yrt::ListModeLUTOwned>(*scanner);
-		listMode2->readFromFile("listmode1");
-
-		CHECK(listMode->getTimestamp(0) == listMode2->getTimestamp(0));
-		CHECK(listMode->getTimestamp(13) == listMode2->getTimestamp(13));
-		CHECK(listMode->getDetector1(0) == listMode2->getDetector1(0));
-		CHECK(listMode->getDetector2(0) == listMode2->getDetector2(0));
-		CHECK(listMode->getDetector1(13) == listMode2->getDetector1(13));
-		CHECK(listMode->getDetector2(13) == listMode2->getDetector2(13));
-
-		std::remove("listmode1");
-	}
-
-	SECTION("listmode-get-lor-id")
-	{
-		yrt::histo_bin_t histoBin = listMode->getHistogramBin(0);
-		auto detPair = std::get<yrt::det_pair_t>(histoBin);
-		CHECK(listMode->getDetector1(0) == detPair.d1);
-		CHECK(listMode->getDetector2(0) == detPair.d2);
+		lm.setTimestampOfEvent(i, ts_dist(*engine));
+		const det_id_t d1 = det_dist(*engine);
+		const det_id_t d2 = det_dist(*engine);
+		lm.setDetectorIdsOfEvent(i, d1, d2);
+		if (withTOF)
+		{
+			lm.setTOFValueOfEvent(i, tof_dist(*engine));
+		}
+		if (withRandoms)
+		{
+			lm.setRandomsEstimateOfEvent(i, rand_dist(*engine));
+		}
 	}
 }
 
-void makeArraysDOI(yrt::Array1D<float>& ts, yrt::Array1D<float>& tof,
-                   yrt::Array1D<yrt::det_id_t>& d1,
-                   yrt::Array1D<yrt::det_id_t>& d2,
-                   yrt::Array1D<unsigned char>& z1,
-                   yrt::Array1D<unsigned char>& z2, int numDOI,
-                   yrt::det_id_t d1_i, yrt::det_id_t d2_i)
+static void compareListModes(const ListModeLUT& a, const ListModeLUT& b,
+                             bool withTOF, bool withRandoms)
 {
-	ts.allocate(numDOI);
-	tof.allocate(numDOI);
-	d1.allocate(numDOI);
-	d2.allocate(numDOI);
-	z1.allocate(numDOI);
-	z2.allocate(numDOI);
-	for (int li = 0; li < numDOI; li++)
+	REQUIRE(a.count() == b.count());
+	for (size_t i = 0; i < a.count(); i++)
 	{
-		ts[li] = 15.2f + (float)li;
-		tof[li] = (rand() / (float)RAND_MAX) * 100.f - 50.f;
-		d1[li] = d1_i;
-		d2[li] = d2_i;
-		z1[li] = li;
-		z2[li] = li;
+		CHECK(a.getTimestamp(i) == b.getTimestamp(i));
+		CHECK(a.getDetector1(i) == b.getDetector1(i));
+		CHECK(a.getDetector2(i) == b.getDetector2(i));
+		if (withTOF)
+		{
+			CHECK(a.getTOFValue(i) == Approx(b.getTOFValue(i)));
+		}
+		if (withRandoms)
+		{
+			CHECK(a.getRandomsEstimate(i) == Approx(b.getRandomsEstimate(i)));
+		}
+	}
+}
+
+TEST_CASE("listmodelut", "[list-mode]")
+{
+	const auto scanner = util::test::makeScanner();
+	const auto seed = static_cast<unsigned int>(std::time(nullptr));
+	const auto engine = std::make_shared<std::default_random_engine>(seed);
+
+	constexpr size_t maxNumEvents = 100'000;
+	const size_t numEvents =
+	    std::uniform_int_distribution<size_t>(1, maxNumEvents)(*engine);
+
+	auto testCase = [&](bool withTOF, bool withRandoms)
+	{
+		// Create & fill list mode
+		ListModeLUTOwned lmOwned(*scanner, withTOF, withRandoms);
+		lmOwned.allocate(numEvents);
+		fillRandomListMode(lmOwned, numEvents, withTOF, withRandoms, engine);
+
+		// Test alias binding
+		ListModeLUTAlias lmAlias(*scanner, withTOF, withRandoms);
+		lmAlias.bind(&lmOwned);
+		compareListModes(lmOwned, lmAlias, withTOF, withRandoms);
+
+		// Test array getters (pointers should match)
+		CHECK(lmOwned.getTimestampArrayPtr()->getSize(0) == numEvents);
+		CHECK(lmOwned.getDetector1ArrayPtr()->getSize(0) == numEvents);
+		CHECK(lmOwned.getDetector2ArrayPtr()->getSize(0) == numEvents);
+		if (withTOF)
+		{
+			CHECK(lmOwned.getTOFArrayPtr()->getSize(0) == numEvents);
+		}
+		if (withRandoms)
+		{
+			CHECK(lmOwned.getRandomsEstimatesArrayPtr()->getSize(0) ==
+			      numEvents);
+		}
+
+		// Test write + read
+		const std::string fname = "tmp_listmodelut.lmDat";
+		lmOwned.writeToFile(fname);
+		ListModeLUTOwned lmRead(*scanner, withTOF, withRandoms);
+		lmRead.readFromFile(fname);
+		compareListModes(lmOwned, lmRead, withTOF, withRandoms);
+		std::remove(fname.c_str());
+
+		// Test histogram bin
+		for (bin_t eventId = 0; eventId < numEvents; eventId++)
+		{
+			histo_bin_t histoBin = lmOwned.getHistogramBin(eventId);
+			auto detPair = std::get<det_pair_t>(histoBin);
+			CHECK(lmOwned.getDetector1(eventId) == detPair.d1);
+			CHECK(lmOwned.getDetector2(eventId) == detPair.d2);
+		}
+	};
+
+	SECTION("no-tof-no-randoms")
+	{
+		testCase(false, false);
+	}
+	SECTION("with-tof-no-randoms")
+	{
+		testCase(true, false);
+	}
+	SECTION("no-tof-with-randoms")
+	{
+		testCase(false, true);
+	}
+	SECTION("with-tof-with-randoms")
+	{
+		testCase(true, true);
 	}
 }

@@ -428,6 +428,8 @@ bool ListModeLUT::hasTOF() const
 
 void ListModeLUTOwned::allocate(size_t numEvents)
 {
+	ASSERT_MSG(numEvents > 0,
+	           "Number of events to allocate must be larger than zero");
 	static_cast<Array1D<timestamp_t>*>(mp_timestamps.get())
 	    ->allocate(numEvents);
 	static_cast<Array1D<det_id_t>*>(mp_detectorId1.get())->allocate(numEvents);
@@ -483,7 +485,8 @@ float ListModeLUT::getRandomsEstimate_safe(bin_t eventId) const
 void ListModeLUTAlias::bind(ListModeLUT* listMode)
 {
 	bind(listMode->getTimestampArrayPtr(), listMode->getDetector1ArrayPtr(),
-	     listMode->getDetector2ArrayPtr());
+	     listMode->getDetector2ArrayPtr(), listMode->getTOFArrayPtr(),
+	     listMode->getRandomsEstimatesArrayPtr());
 }
 
 void ListModeLUTAlias::bind(const Array1DBase<timestamp_t>* pp_timestamps,

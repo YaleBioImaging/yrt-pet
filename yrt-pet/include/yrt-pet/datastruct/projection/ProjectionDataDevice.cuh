@@ -56,11 +56,23 @@ public:
 	void precomputeBatchLORs(int subsetId, int batchId);
 	void loadPrecomputedLORsToDevice(GPULaunchConfig launchConfig);
 
+	// Gather the projection values from the reference ProjectionData object and
+	// store them on the GPU buffer
 	void loadProjValuesFromReference(GPULaunchConfig launchConfig);
+	// Gather the projection values from any given ProjectionData object and
+	// store them on the GPU buffer
 	void loadProjValuesFromHost(const ProjectionData* src,
 	                            GPULaunchConfig launchConfig);
+	// Gather the randoms estimates from any given ProjectionData object and
+	// store them on the GPU buffer
+	void loadProjValuesFromHostRandoms(const ProjectionData* src,
+	                                   GPULaunchConfig launchConfig);
+	// Gather the projection values from any given Histogram object (using the
+	// associated histogram bins) and store them on the GPU buffer
 	void loadProjValuesFromHostHistogram(const Histogram* histo,
 	                                     GPULaunchConfig launchConfig);
+	// Transfer the projection values on the device into a host-side
+	// ProjectionData object
 	void transferProjValuesToHost(ProjectionData* projDataDest,
 	                              const cudaStream_t* stream = nullptr) const;
 
@@ -109,8 +121,10 @@ public:
 	static constexpr float DefaultMemoryShare = 0.9f;
 
 protected:
+	// Function overridden by the Owned vs Alias pattern
 	virtual void loadProjValuesFromHostInternal(const ProjectionData* src,
 	                                            const Histogram* histo,
+	                                            bool gatherRandoms,
 	                                            GPULaunchConfig launchConfig);
 
 	// For Host->Device data transfers
@@ -121,6 +135,11 @@ protected:
 	std::vector<const BinIterator*> mp_binIteratorList;
 
 private:
+	// Helper with all the logic
+	template <bool GatherRandoms = false>
+	void loadProjValuesFromHostInternal(const ProjectionData* src,
+	                                    const Histogram* histo,
+	                                    GPULaunchConfig launchConfig);
 	void createBinIterators(int num_OSEM_subsets);
 	void createBatchSetups(float shareOfMemoryToUse);
 
@@ -163,6 +182,7 @@ public:
 protected:
 	void loadProjValuesFromHostInternal(const ProjectionData* src,
 	                                    const Histogram* histo,
+	                                    bool gatherRandoms,
 	                                    GPULaunchConfig launchConfig) override;
 
 private:

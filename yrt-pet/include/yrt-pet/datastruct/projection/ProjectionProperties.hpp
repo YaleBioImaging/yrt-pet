@@ -37,18 +37,6 @@ enum class ConstraintVariable
 	COUNT
 };
 
-inline std::map<ConstraintVariable, std::pair<std::string, int>>
-    constraintVariableInfo{
-        {ConstraintVariable::Det1, {"Det1", sizeof(det_id_t)}},
-        {ConstraintVariable::Det2, {"Det2", sizeof(det_id_t)}},
-        {ConstraintVariable::AbsDeltaAngleDeg,
-         {"AbsDeltaAngleDeg", sizeof(float)}},
-        {ConstraintVariable::AbsDeltaAngleIdx,
-         {"AbsDeltaAngleIdx", sizeof(int)}},
-        {ConstraintVariable::AbsDeltaBlockIdx,
-         {"AbsDeltaBlockIdx", sizeof(int)}}};
-
-
 template <typename Enum>
 class PropStructManager
 {
@@ -82,8 +70,7 @@ private:
 	// Total element size
 	unsigned int elementSize;
 	// Offset in raw pointer for each included prop
-	//std::array<int, static_cast<size_t>(Enum::COUNT)> offsetMap;
-	std::vector<int> offsetMap;
+	int offsetMap[static_cast<size_t>(Enum::COUNT)];
 };
 
 using ProjectionProperties = char*;

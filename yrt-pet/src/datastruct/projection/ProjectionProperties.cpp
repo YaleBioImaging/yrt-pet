@@ -16,7 +16,6 @@ PropStructManager<Enum>::PropStructManager(std::set<Enum>& props)
 	const auto& info = getInfo();
 	type = 0;
 	elementSize = 0;
-	offsetMap.resize(static_cast<size_t>(Enum::COUNT));
 	for (int i = 0; i < static_cast<int>(Enum::COUNT); i++)
 	{
 		auto var = static_cast<Enum>(i);

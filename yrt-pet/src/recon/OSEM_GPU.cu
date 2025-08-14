@@ -52,6 +52,22 @@ Corrector_GPU& OSEM_GPU::getCorrector_GPU()
 	return *mp_corrector;
 }
 
+std::pair<size_t, size_t> OSEM_GPU::calculateMemProj(bool flagSensOrRecon,
+                                                     float shareOfMemoryToUse)
+{
+	size_t memAvailable = globals::getDeviceInfo(true);
+
+	// Shrink memory according to the portion we want to use
+	memAvailable = static_cast<size_t>(static_cast<float>(memAvailable) *
+	                                   shareOfMemoryToUse);
+
+	auto projPropManager =
+	    flagSensOrRecon ? m_binIteratorConstrained.getPropertyManagerSens() :
+	                      m_binIteratorConstrained.getPropertyManagerRecon();
+	const size_t memoryUsagePerLOR = projPropManager.getElementSize();
+	return {memAvailable, memoryUsagePerLOR};
+}
+
 void OSEM_GPU::setupOperatorsForSensImgGen(OperatorProjectorParams& projParams)
 {
 	for (int subsetId = 0; subsetId < num_OSEM_subsets; subsetId++)
@@ -109,9 +125,11 @@ void OSEM_GPU::allocateForSensImgGen()
 	}
 
 	// Allocate for projection space
-	auto tempSensDataInput = std::make_unique<ProjectionDataDeviceOwned>(
-	    scanner, mp_corrector->getSensImgGenProjData(), num_OSEM_subsets);
-	mpd_tempSensDataInput = std::move(tempSensDataInput);
+	std::vector<GPUBatchSetup> batchSetups;
+	auto batchSetups = createBatchSetups(1.f, true);
+	mpd_tempSensDataInput = std::make_unique<ProjectionDataDeviceOwned>(
+	    scanner, mp_corrector->getSensImgGenProjData(), num_OSEM_subsets,
+		batchSetups);
 
 	// Make sure the corrector buffer is properly defined
 	mp_corrector->initializeTemporaryDeviceBuffer(mpd_tempSensDataInput.get());
@@ -240,9 +258,11 @@ void OSEM_GPU::allocateForRecon()
 		binIteratorPtrList.push_back(subsetBinIter.get());
 
 	// Allocate projection-space buffers
+	std::vector<GPUBatchSetup> batchSetups;
+	auto batchSetups = createBatchSetups(0.4f, false);
 	const ProjectionData* dataInput = getDataInput();
 	auto dat = std::make_unique<ProjectionDataDeviceOwned>(
-	    scanner, dataInput, binIteratorPtrList, 0.4f);
+	    scanner, dataInput, binIteratorPtrList, batchSetups);
 	auto datTmp = std::make_unique<ProjectionDataDeviceOwned>(dat.get());
 
 	mpd_dat = std::move(dat);

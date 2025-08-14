@@ -38,6 +38,19 @@ OperatorProjectorSiddon_GPU::OperatorProjectorSiddon_GPU(
 {
 }
 
+std::vector<ProjectionPropertyType>
+    OperatorProjectorSiddon_GPU::getProjectionPropertyTypes() const
+{
+	if (m_numRays > 1)
+	{
+		return {ProjectionPropertyType::DetOrient};
+	}
+	else
+	{
+		return {};
+	}
+}
+
 void OperatorProjectorSiddon_GPU::applyAOnLoadedBatch(ImageDevice& img,
                                                       ProjectionDataDevice& dat,
                                                       bool synchronize)

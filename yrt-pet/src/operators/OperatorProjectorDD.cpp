@@ -28,10 +28,12 @@ void py_setup_operatorprojectordd(py::module& m)
 	auto c = py::class_<OperatorProjectorDD, OperatorProjector>(
 	    m, "OperatorProjectorDD");
 
-	c.def(py::init<const Scanner&, float, int, const std::string&>(),
-	      "scanner"_a, "tofWidth_ps"_a = 0.f, "tofNumStd"_a = -1,
-	      "projPsf_fname"_a = "");
-	c.def(py::init<const OperatorProjectorParams&>(), "projParams"_a);
+	c.def(py::init<const Scanner&, BinIteratorConstrained&, float, int,
+	               const std::string&>(),
+	      "scanner"_a, "binIteratorConstrained"_a, "tofWidth_ps"_a = 0.f,
+	      "tofNumStd"_a = -1, "projPsf_fname"_a = "");
+	c.def(py::init<const OperatorProjectorParams&, BinIteratorConstrained&>(),
+	      "projParams"_a, "binIteratorConstrained"_a);
 
 	c.def(
 	    "forwardProjection",
@@ -65,57 +67,67 @@ void py_setup_operatorprojectordd(py::module& m)
 
 namespace yrt
 {
-OperatorProjectorDD::OperatorProjectorDD(const Scanner& pr_scanner,
-                                         float tofWidth_ps, int tofNumStd,
-                                         const std::string& projPsf_fname)
-    : OperatorProjector{pr_scanner, tofWidth_ps, tofNumStd, projPsf_fname}
+OperatorProjectorDD::OperatorProjectorDD(
+    const Scanner& pr_scanner,
+    const BinIteratorConstrained& pr_binIteratorConstrained, float tofWidth_ps,
+    int tofNumStd, const std::string& projPsf_fname)
+    : OperatorProjector{pr_scanner, pr_binIteratorConstrained, tofWidth_ps,
+                        tofNumStd, projPsf_fname}
 {
 }
 
 OperatorProjectorDD::OperatorProjectorDD(
-    const OperatorProjectorParams& p_projParams)
-    : OperatorProjector{p_projParams}
+    const OperatorProjectorParams& p_projParams,
+    const BinIteratorConstrained& pr_binIteratorConstrained)
+    : OperatorProjector{p_projParams, pr_binIteratorConstrained}
 {
+}
+
+std::vector<ProjectionPropertyType>
+    OperatorProjectorDD::getProjectionPropertyTypes() const
+{
+	return {ProjectionPropertyType::DetOrient};
 }
 
 float OperatorProjectorDD::forwardProjection(
     const Image* img, const ProjectionProperties& projectionProperties,
     int tid) const
 {
-	det_orient_t detOrient = mp_projPropsManager.getDataValue<det_orient_t>(
-		projectionProperties, 0, ProjectionPropertyType::DetOrient);
+	auto projPropManager = binIterConstrained.getPropertyManagerRecon();
+	det_orient_t detOrient = projPropManager.getDataValue<det_orient_t>(
+	    projectionProperties, tid, ProjectionPropertyType::DetOrient);
 	float tofValue = 0.f;
-	if (mp_projPropsManager.has(ProjectionPropertyType::TOF))
+	if (projPropManager.has(ProjectionPropertyType::TOF))
 	{
-		tofValue = mp_projPropsManager.getDataValue<float>(
-		    projectionProperties, 0, ProjectionPropertyType::TOF);
+		tofValue = projPropManager.getDataValue<float>(
+		    projectionProperties, tid, ProjectionPropertyType::TOF);
 	}
 	return forwardProjection(
 	    img,
-	    mp_projPropsManager.getDataValue<Line3D>(projectionProperties, 0,
-	                                             ProjectionPropertyType::LOR),
-	    detOrient.d1, detOrient.d2,
-	    mp_tofHelper.get(), tofValue, mp_projPsfManager.get());
+	    projPropManager.getDataValue<Line3D>(projectionProperties, tid,
+	                                         ProjectionPropertyType::LOR),
+	    detOrient.d1, detOrient.d2, mp_tofHelper.get(), tofValue,
+	    mp_projPsfManager.get());
 }
 
 void OperatorProjectorDD::backProjection(
     Image* img, const ProjectionProperties& projectionProperties,
     float projValue, int tid) const
 {
-	det_orient_t detOrient = mp_projPropsManager.getDataValue<det_orient_t>(
-		projectionProperties, 0, ProjectionPropertyType::DetOrient);
+	auto projPropManager = binIterConstrained.getPropertyManagerRecon();
+	det_orient_t detOrient = projPropManager.getDataValue<det_orient_t>(
+	    projectionProperties, tid, ProjectionPropertyType::DetOrient);
 	float tofValue = 0.f;
-	if (mp_projPropsManager.has(ProjectionPropertyType::TOF))
+	if (projPropManager.has(ProjectionPropertyType::TOF))
 	{
-		tofValue = mp_projPropsManager.getDataValue<float>(
-		    projectionProperties, 0, ProjectionPropertyType::TOF);
+		tofValue = projPropManager.getDataValue<float>(
+		    projectionProperties, tid, ProjectionPropertyType::TOF);
 	}
-	backProjection(
-	    img,
-	    mp_projPropsManager.getDataValue<Line3D>(projectionProperties, 0,
-	                                             ProjectionPropertyType::LOR),
-	    detOrient.d1, detOrient.d2, projValue,
-	    mp_tofHelper.get(), tofValue, mp_projPsfManager.get());
+	backProjection(img,
+	               projPropManager.getDataValue<Line3D>(
+	                   projectionProperties, tid, ProjectionPropertyType::LOR),
+	               detOrient.d1, detOrient.d2, projValue, mp_tofHelper.get(),
+	               tofValue, mp_projPsfManager.get());
 }
 
 float OperatorProjectorDD::forwardProjection(

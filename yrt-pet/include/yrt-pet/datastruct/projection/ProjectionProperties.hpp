@@ -5,15 +5,13 @@
 
 #pragma once
 
-#include "yrt-pet/geometry/Line3D.hpp"
 #include "yrt-pet/utils/Types.hpp"
 
 #include <map>
 #include <memory>
 #include <ostream>
-#include <string>
 #include <set>
-#include <typeinfo>
+#include <string>
 #include <vector>
 
 namespace yrt
@@ -25,22 +23,9 @@ enum class ProjectionPropertyType
 	LOR,
 	DetOrient,
 	TOF,
-	AddCorr,
-	MulCorr,
 	EventFrame,
 	COUNT
 };
-
-// inline std::map<ProjectionPropertyType, std::pair<std::string, int>>
-//     projectionPropertiesInfo{
-//         {ProjectionPropertyType::DetID, {"DET_ID", sizeof(det_pair_t)}},
-//         {ProjectionPropertyType::LOR, {"LOR", sizeof(Line3D)}},
-//         {ProjectionPropertyType::DetOrient, {"ORIENT", sizeof(det_orient_t)}},
-//         {ProjectionPropertyType::TOF, {"TOF", sizeof(float)}},
-//         {ProjectionPropertyType::AddCorr, {"ADD_CORR", sizeof(float)}},
-//         {ProjectionPropertyType::MulCorr, {"MULT_CORR", sizeof(float)}},
-//         {ProjectionPropertyType::EventFrame, {"FRAME", sizeof(frame_t)}}};
-
 
 enum class ConstraintVariable
 {

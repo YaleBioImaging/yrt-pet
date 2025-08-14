@@ -15,20 +15,22 @@ class Image;
 class OperatorProjectorSiddon : public OperatorProjector
 {
 public:
-	explicit OperatorProjectorSiddon(const Scanner& pr_scanner, int numRays = 1,
-	                                 float tofWidth_ps = 0.0f,
-	                                 int tofNumStd = -1);
+	explicit OperatorProjectorSiddon(
+	    const Scanner& pr_scanner,
+	    const BinIteratorConstrained& pr_binIteratorConstrained,
+	    int numRays = 1, float tofWidth_ps = 0.0f, int tofNumStd = -1);
 
 	explicit OperatorProjectorSiddon(
-	    const OperatorProjectorParams& p_projParams);
+	    const OperatorProjectorParams& p_projParams,
+	    const BinIteratorConstrained& pr_binIteratorConstrained);
 
 	float forwardProjection(const Image* img,
 	                        const ProjectionProperties& projectionProperties,
-	                        int tid) const override;
+	                        int tid = 0) const override;
 
 	void backProjection(Image* img,
 	                    const ProjectionProperties& projectionProperties,
-	                    float projValue, int tid) const override;
+	                    float projValue, int tid = 0) const override;
 
 	// Projection
 	float forwardProjection(const Image* img, const Line3D& lor,
@@ -58,6 +60,9 @@ public:
 
 	int getNumRays() const;
 	void setNumRays(int n);
+
+	std::vector<ProjectionPropertyType>
+	    getProjectionPropertyTypes() const override;
 
 private:
 	int m_numRays;

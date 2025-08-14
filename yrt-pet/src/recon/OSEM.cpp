@@ -145,6 +145,7 @@ OSEM::OSEM(const Scanner& pr_scanner)
       mp_dataInput(nullptr),
       mp_copiedSensitivityImage(nullptr)
 {
+	m_binIteratorConstrained.addProjVariable(ProjectionPropertyType::LOR);
 }
 
 void OSEM::generateSensitivityImages(const std::string& out_fname)
@@ -361,6 +362,15 @@ void OSEM::loadSubsetInternal(int p_subsetId, bool p_forRecon)
 	loadSubset(p_subsetId, p_forRecon);
 }
 
+void OSEM::collectConstraints()
+{
+	m_binIteratorConstrained.clearConstraints();
+	if (scanner.hasMask())
+	{
+		m_binIteratorConstrained.addConstraint<ConstraintDetectorMask>(&scanner);
+	}
+}
+
 void OSEM::initializeForSensImgGen()
 {
 	getBinIterators().clear();
@@ -371,18 +381,32 @@ void OSEM::initializeForSensImgGen()
 	setupOperatorsForSensImgGen(projParams);
 	allocateForSensImgGen();
 
-	// Collect constraints
-	if (scanner.hasMask())
+	collectConstraints();
+	for (auto prop : mp_projector->getProjectionPropertyTypes())
 	{
-		m_constraints.push_back(
-			std::make_unique<ConstraintDetectorMask>(&scanner));
+		m_binIteratorConstrained.addProjVariable(prop);
 	}
 }
 
 void OSEM::initializeForRecon()
 {
+	getBinIterators().clear();
+	getBinIterators().reserve(num_OSEM_subsets);
+
+	for (int subsetId = 0; subsetId < num_OSEM_subsets; subsetId++)
+	{
+		getBinIterators().push_back(
+		    getDataInput()->getBinIter(num_OSEM_subsets, subsetId));
+	}
+
 	setupOperatorsForRecon();
 	allocateForRecon();
+
+	collectConstraints();
+	for (auto prop : mp_projector->getProjectionPropertyTypes())
+	{
+		m_binIteratorConstrained.addProjVariable(prop);
+	}
 }
 
 void OSEM::setSensitivityHistogram(const Histogram* pp_sensitivityData)
@@ -418,6 +442,7 @@ void OSEM::addTOF(float p_tofWidth_ps, int p_tofNumStd)
 	tofWidth_ps = p_tofWidth_ps;
 	tofNumStd = p_tofNumStd;
 	flagProjTOF = true;
+	m_binIteratorConstrained.addProjVariableRecon(ProjectionPropertyType::TOF);
 }
 
 void OSEM::addProjPSF(const std::string& pr_projPsf_fname)

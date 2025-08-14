@@ -5,6 +5,8 @@
 
 #include "yrt-pet/operators/OperatorProjector.hpp"
 
+#include "yrt-pet/datastruct/projection/BinIteratorConstrained.hpp"
+#include "yrt-pet/utils/Concurrency.hpp"
 #include "yrt-pet/datastruct/image/Image.hpp"
 #include "yrt-pet/datastruct/projection/BinIterator.hpp"
 #include "yrt-pet/datastruct/projection/Histogram3D.hpp"
@@ -53,10 +55,11 @@ void py_setup_operatorprojector(py::module& m)
 namespace yrt
 {
 
-OperatorProjector::OperatorProjector(const Scanner& pr_scanner,
-                                     float tofWidth_ps, int tofNumStd,
-                                     const std::string& projPsf_fname)
-    : OperatorProjectorBase{pr_scanner},
+OperatorProjector::OperatorProjector(
+    const Scanner& pr_scanner,
+    const BinIteratorConstrained& pr_binIteratorConstrained, float tofWidth_ps,
+    int tofNumStd, const std::string& projPsf_fname)
+    : OperatorProjectorBase{pr_scanner, pr_binIteratorConstrained},
       mp_tofHelper{nullptr},
       mp_projPsfManager{nullptr}
 {
@@ -71,8 +74,9 @@ OperatorProjector::OperatorProjector(const Scanner& pr_scanner,
 }
 
 OperatorProjector::OperatorProjector(
-    const OperatorProjectorParams& p_projParams)
-    : OperatorProjectorBase{p_projParams},
+    const OperatorProjectorParams& p_projParams,
+    const BinIteratorConstrained& pr_binIteratorConstrained)
+    : OperatorProjectorBase{p_projParams, pr_binIteratorConstrained},
       mp_tofHelper{nullptr},
       mp_projPsfManager{nullptr}
 {
@@ -95,22 +99,35 @@ void OperatorProjector::applyA(const Variable* in, Variable* out)
 	ASSERT_MSG(img != nullptr, "Input variable has to be an Image");
 	ASSERT_MSG(binIter != nullptr, "BinIterator undefined");
 
-	util::parallelForChunked(binIter->size(), globals::getNumThreads(),
-	                         [img, dat, this](size_t binIdx, size_t tid)
-	                         {
-		                         const bin_t bin = binIter->get(binIdx);
+	int numThreads = globals::getNumThreads();
+	const size_t numBinsMax = binIter->size();
 
-		                         ProjectionProperties projectionProperties =
-			                         dat->getProjectionProperties(bin);
+	auto info =
+	    binIterConstrained.getConstraintManager().createDataArray(numThreads);
+	auto infoPtr = info.get();
+	auto projPropManager = binIterConstrained.getPropertyManagerRecon();
+	auto projectionProperties = projPropManager.createDataArray(numThreads);
+	auto projectionPropertiesPtr = projectionProperties.get();
 
-		if (projectionProperties.lor.point1.x !=
-		    std::numeric_limits<float>::infinity())
-		{
-			float imProj = forwardProjection(img, projectionProperties);
+	util::parallel_do_indexed(
+	    numBinsMax,
+	    [img, dat, projPropManager, &infoPtr, &projectionPropertiesPtr,
+	     this](int binIdx)
+	    {
+		    int tid = omp_get_thread_num();
+		    const bin_t bin = binIter->get(binIdx);
+		    binIterConstrained.collectInfoRecon(
+		        bin, tid, *dat, projectionPropertiesPtr, infoPtr);
+		    if (binIterConstrained.isValid(infoPtr))
+		    {
+			    dat->getProjectionProperties(projectionPropertiesPtr,
+			                                 projPropManager, bin, tid);
+			    float imProj = forwardProjection(img, projectionPropertiesPtr);
+			    dat->setProjectionValue(bin, static_cast<float>(imProj));
+		    }
+	    });
 
-			dat->setProjectionValue(bin, static_cast<float>(imProj));
-		}
-	}
+
 }
 
 void OperatorProjector::applyAH(const Variable* in, Variable* out)
@@ -122,31 +139,37 @@ void OperatorProjector::applyAH(const Variable* in, Variable* out)
 	ASSERT_MSG(img != nullptr, "Output variable has to be an Image");
 	ASSERT_MSG(binIter != nullptr, "BinIterator undefined");
 
-	util::parallelForChunked(
-	    binIter->size(), globals::getNumThreads(),
-	    [img, dat, this](size_t binIdx, size_t tid)
+	int numThreads = globals::getNumThreads();
+	const size_t numBinsMax = binIter->size();
+
+	auto info =
+	    binIterConstrained.getConstraintManager().createDataArray(numThreads);
+	auto infoPtr = info.get();
+	auto projPropManager = binIterConstrained.getPropertyManagerRecon();
+	auto projectionProperties = projPropManager.createDataArray(numThreads);
+	auto projectionPropertiesPtr = projectionProperties.get();
+
+	util::parallel_do_indexed(
+	    numBinsMax,
+	    [img, dat, projPropManager, &infoPtr, &projectionPropertiesPtr,
+	     this](int binIdx)
 	    {
+		    int tid = omp_get_thread_num();
 		    const bin_t bin = binIter->get(binIdx);
-
-		    ProjectionProperties projectionProperties =
-		        dat->getProjectionProperties(bin);
-
-		float projValue = dat->getProjectionValue(bin);
-		if (std::abs(projValue) == 0.0f &&
-		    projectionProperties.lor.point1.x !=
-		    std::numeric_limits<float>::infinity())
-		{
-			// TODO: What to do with randomsEstimate ?
-
-			float projValue = dat->getProjectionValue(bin);
-			if (std::abs(projValue) < SMALL)
-			{
-				continue;
-			}
-
-			backProjection(img, projectionProperties, projValue);
-		}
-	}
+		    binIterConstrained.collectInfoRecon(
+		        bin, tid, *dat, projectionPropertiesPtr, infoPtr);
+		    if (binIterConstrained.isValid(infoPtr))
+		    {
+			    dat->getProjectionProperties(projectionPropertiesPtr,
+			                                 projPropManager, bin, tid);
+			    float projValue = dat->getProjectionValue(bin);
+			    if (std::abs(projValue) == 0.0f)
+			    {
+				    return;
+			    }
+			    backProjection(img, projectionPropertiesPtr, projValue);
+		    }
+	    });
 }
 
 void OperatorProjector::addTOF(float tofWidth_ps, int tofNumStd)

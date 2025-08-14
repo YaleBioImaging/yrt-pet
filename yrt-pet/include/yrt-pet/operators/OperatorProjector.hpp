@@ -31,20 +31,24 @@ public:
 		DD
 	};
 
-	explicit OperatorProjector(const Scanner& pr_scanner,
-	                           float tofWidth_ps = 0.0f, int tofNumStd = -1,
-	                           const std::string& projPsf_fname = "");
+	explicit OperatorProjector(
+	    const Scanner& pr_scanner,
+	    const BinIteratorConstrained& pr_binIteratorConstrained,
+	    float tofWidth_ps = 0.0f, int tofNumStd = -1,
+	    const std::string& projPsf_fname = "");
 
-	explicit OperatorProjector(const OperatorProjectorParams& p_projParams);
+	explicit OperatorProjector(
+	    const OperatorProjectorParams& p_projParams,
+	    const BinIteratorConstrained& pr_binIteratorConstrained);
 
 	// Virtual functions
 	virtual float forwardProjection(
 	    const Image* image,
-	    const ProjectionProperties& projectionProperties, int tid) const = 0;
+	    const ProjectionProperties& projectionProperties, int tid = 0) const = 0;
 	virtual void
 	    backProjection(Image* image,
 	                   const ProjectionProperties& projectionProperties,
-	                   float projValue, int tid) const = 0;
+	                   float projValue, int tid = 0) const = 0;
 
 	void applyA(const Variable* in, Variable* out) override;
 	void applyAH(const Variable* in, Variable* out) override;
@@ -62,8 +66,5 @@ protected:
 
 	// Projection-domain PSF
 	std::unique_ptr<ProjectionPsfManager> mp_projPsfManager;
-
-	// Manager for projection properties
-	ProjectionPropertyManager& mp_projPropsManager;
 };
 }  // namespace yrt

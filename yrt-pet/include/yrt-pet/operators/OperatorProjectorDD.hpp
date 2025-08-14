@@ -20,11 +20,15 @@ class ProjectionData;
 class OperatorProjectorDD : public OperatorProjector
 {
 public:
-	explicit OperatorProjectorDD(const Scanner& pr_scanner,
-	                             float tofWidth_ps = 0.0f, int tofNumStd = -1,
-	                             const std::string& projPsf_fname = "");
+	explicit OperatorProjectorDD(
+	    const Scanner& pr_scanner,
+	    const BinIteratorConstrained& pr_binIteratorConstrained,
+	    float tofWidth_ps = 0.0f, int tofNumStd = -1,
+	    const std::string& projPsf_fname = "");
 
-	explicit OperatorProjectorDD(const OperatorProjectorParams& p_projParams);
+	explicit OperatorProjectorDD(
+	    const OperatorProjectorParams& p_projParams,
+	    const BinIteratorConstrained& pr_binIteratorConstrained);
 
 	float forwardProjection(
 	    const Image* in_image, const Line3D& lor, const Vector3D& n1,
@@ -38,13 +42,13 @@ public:
 	                    float tofValue = 0.0f,
 	                    const ProjectionPsfManager* psfManager = nullptr) const;
 
-	float forwardProjection(const Image* img,
-	                        const ProjectionProperties& projectionProperties,
-	                        int tid) const override;
+	float forwardProjection(
+	    const Image* img,
+	    const ProjectionProperties& projectionProperties, int tid = 0) const override;
 
 	void backProjection(Image* img,
 	                    const ProjectionProperties& projectionProperties,
-	                    float projValue, int tid) const override;
+	                    float projValue, int tid = 0) const override;
 
 	static float get_overlap_safe(float p0, float p1, float d0, float d1);
 	static float get_overlap_safe(float p0, float p1, float d0, float d1,
@@ -54,6 +58,8 @@ public:
 	                         const ProjectionPsfManager* psfManager = nullptr,
 	                         const float* psfKernel = nullptr);
 
+	std::vector<ProjectionPropertyType>
+	    getProjectionPropertyTypes() const override;
 
 private:
 	template <bool IS_FWD, bool FLAG_TOF>

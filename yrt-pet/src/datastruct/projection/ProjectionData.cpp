@@ -170,22 +170,22 @@ Line3D ProjectionData::getArbitraryLOR(bin_t id) const
 
 void ProjectionData::getProjectionProperties(
     ProjectionProperties& props, const ProjectionPropertyManager& propManager,
-    bin_t bin) const
+    bin_t bin, int tid) const
 {
 	if (propManager.has(ProjectionPropertyType::LOR))
 	{
 		const Line3D lor = getLOR(bin);
-		propManager.setDataValue(props, 0, ProjectionPropertyType::LOR, lor);
+		propManager.setDataValue(props, tid, ProjectionPropertyType::LOR, lor);
 	}
 
-	if (propManager.has(ProjectionPropertyType::LOR))
+	if (propManager.has(ProjectionPropertyType::TOF))
 	{
 		float tofValue = 0.0f;
 		if (hasTOF())
 		{
 			tofValue = getTOFValue(bin);
 		}
-		propManager.setDataValue(props, 0, ProjectionPropertyType::TOF,
+		propManager.setDataValue(props, tid, ProjectionPropertyType::TOF,
 		                         tofValue);
 	}
 
@@ -195,7 +195,7 @@ void ProjectionData::getProjectionProperties(
 		const Vector3D det1Orient = mr_scanner.getDetectorOrient(d1);
 		const Vector3D det2Orient = mr_scanner.getDetectorOrient(d2);
 		det_orient_t detOrient{det1Orient, det2Orient};
-		propManager.setDataValue(props, 0, ProjectionPropertyType::DetOrient,
+		propManager.setDataValue(props, tid, ProjectionPropertyType::DetOrient,
 		                         detOrient);
 	}
 }

@@ -4,6 +4,7 @@
  */
 
 #include "yrt-pet/datastruct/projection/ProjectionProperties.hpp"
+#include "yrt-pet/geometry/Line3D.hpp"
 #include <stdexcept>
 
 namespace yrt
@@ -37,8 +38,6 @@ std::map<ProjectionPropertyType, std::pair<std::string, int>>
 	    {ProjectionPropertyType::LOR, {"LOR", sizeof(Line3D)}},
 	    {ProjectionPropertyType::DetOrient, {"ORIENT", sizeof(det_orient_t)}},
 	    {ProjectionPropertyType::TOF, {"TOF", sizeof(float)}},
-	    {ProjectionPropertyType::AddCorr, {"ADD_CORR", sizeof(float)}},
-	    {ProjectionPropertyType::MulCorr, {"MULT_CORR", sizeof(float)}},
 	    {ProjectionPropertyType::EventFrame, {"FRAME", sizeof(frame_t)}}};
 }
 template <>

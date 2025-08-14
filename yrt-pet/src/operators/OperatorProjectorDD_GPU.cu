@@ -38,6 +38,12 @@ OperatorProjectorDD_GPU::OperatorProjectorDD_GPU(
 {
 }
 
+std::vector<ProjectionPropertyType>
+    OperatorProjectorDD_GPU::getProjectionPropertyTypes() const
+{
+	return {ProjectionPropertyType::DetOrient};
+}
+
 void OperatorProjectorDD_GPU::applyAOnLoadedBatch(ImageDevice& img,
                                                   ProjectionDataDevice& dat,
                                                   bool synchronize)

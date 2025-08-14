@@ -15,6 +15,7 @@
 #include "omp.h"
 #include <cstddef>
 #include <cstring>
+#include <functional>
 
 namespace yrt
 {
@@ -31,6 +32,7 @@ LORsDevice::LORsDevice()
 	initializeDeviceArrays();
 }
 
+template <bool flagSensOrRecon>
 void LORsDevice::precomputeBatchLORs(
     const BinIterator& binIter, const GPUBatchSetup& batchSetup, int subsetId,
     int batchId, const ProjectionData& reference,
@@ -47,6 +49,7 @@ void LORsDevice::precomputeBatchLORs(
 		const size_t blockSize = std::ceil(batchSize / (float)numThreads);
 
 		auto projPropManager = binIterConstrained.getPropertyManagerRecon();
+		m_elementSize = projPropManager.getElementSize();
 		auto projectionProperties = projPropManager.createDataArray(batchSize);
 		auto projectionPropertiesPtr = projectionProperties.get();
 
@@ -63,20 +66,28 @@ void LORsDevice::precomputeBatchLORs(
 		const ProjectionData* reference_ptr = &reference;
 
 		util::parallel_do_indexed(
-			batchSize,
+		    numThreads,
 		    [offset, blockSize, batchSize, &binIterConstrained, projPropManager,
 		     binIter_ptr, &infoPtr, &tempBufferProjectionProperties_ptr,
 		     reference_ptr](int tid)
 		    {
-			    for (size_t binIdx = offset + tid * blockSize;
-			         binIdx <
-			         std::min((tid + 1) * blockSize, offset + batchSize);
+			    for (size_t binIdx = tid * blockSize;
+			         binIdx < std::min({(tid + 1) * blockSize, batchSize});
 			         binIdx++)
 			    {
-				    bin_t bin = binIter_ptr->get(binIdx);
-				    binIterConstrained.collectInfoSens(
-				        bin, tid, *reference_ptr,
-				        tempBufferProjectionProperties_ptr, infoPtr);
+				    bin_t bin = binIter_ptr->get(binIdx + offset);
+				    if constexpr (flagSensOrRecon)
+				    {
+					    binIterConstrained.collectInfoSens(
+					        bin, binIdx, *reference_ptr,
+					        tempBufferProjectionProperties_ptr, infoPtr);
+				    }
+				    else
+				    {
+					    binIterConstrained.collectInfoRecon(
+					        bin, binIdx, *reference_ptr,
+					        tempBufferProjectionProperties_ptr, infoPtr);
+				    }
 				    if (binIterConstrained.isValid(infoPtr))
 				    {
 					    reference_ptr->getProjectionProperties(
@@ -85,10 +96,9 @@ void LORsDevice::precomputeBatchLORs(
 				    }
 				    else
 				    {
-					    float* ptr = reinterpret_cast<float*>(
-					        tempBufferProjectionProperties_ptr +
-					        (binIdx - offset) *
-					            projPropManager.getElementSize());
+					    float* ptr = projPropManager.getDataPtr<float>(
+					        tempBufferProjectionProperties_ptr, binIdx,
+					        ProjectionPropertyType::LOR);
 					    memset(ptr, 0, 6 * sizeof(float));
 				    }
 			    }
@@ -103,19 +113,18 @@ void LORsDevice::precomputeBatchLORs(
 	m_areLORsPrecomputed = true;
 }
 
-void LORsDevice::loadPrecomputedLORsToDevice(GPULaunchConfig launchConfig,
-                                             size_t elementSize)
+void LORsDevice::loadPrecomputedLORsToDevice(GPULaunchConfig launchConfig)
 {
 	const cudaStream_t* stream = launchConfig.stream;
 
 	if (m_loadedSubsetId != m_precomputedSubsetId ||
 	    m_loadedBatchId != m_precomputedBatchId)
 	{
-		allocateForPrecomputedLORsIfNeeded({stream, false}, elementSize);
+		allocateForPrecomputedLORsIfNeeded({stream, false});
 
 		mp_projectionProperties->copyFromHost(
 		    m_tempProjectionProperties.getPointer(),
-		    m_precomputedBatchSize * elementSize, {stream, false});
+		    m_precomputedBatchSize * m_elementSize, {stream, false});
 
 		// In case the LOR loading is done for other reasons than projections
 		if (launchConfig.synchronize == true)
@@ -157,13 +166,11 @@ void LORsDevice::initializeDeviceArrays()
 }
 
 void LORsDevice::allocateForPrecomputedLORsIfNeeded(
-	GPULaunchConfig launchConfig, size_t elementSize)
+    GPULaunchConfig launchConfig)
 {
 	ASSERT_MSG(m_precomputedBatchSize > 0, "No batch of LORs precomputed");
-	bool hasAllocated = false;
-
-	hasAllocated |= mp_projectionProperties->allocate(
-		m_precomputedBatchSize * elementSize,
+	const bool hasAllocated = mp_projectionProperties->allocate(
+		m_precomputedBatchSize * m_elementSize,
 		{launchConfig.stream, false});
 
 	if (hasAllocated && launchConfig.synchronize)

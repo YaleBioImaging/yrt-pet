@@ -28,25 +28,25 @@ public:
 	ProjectionDataDevice(const Scanner& pr_scanner,
 	                     const ProjectionData* pp_reference,
 	                     std::vector<const BinIterator*> pp_binIteratorList,
-	                     float shareOfMemoryToUse = DefaultMemoryShare);
+	                     size_t memoryUsagePerLOR, size_t memAvailable);
 	// The Scanner LUT has to be loaded to device AND the BinIterators have to
 	// be generated
 	ProjectionDataDevice(const Scanner& pr_scanner,
 	                     const ProjectionData* pp_reference,
-	                     int num_OSEM_subsets = 1,
-	                     float shareOfMemoryToUse = DefaultMemoryShare);
+	                     size_t memoryUsagePerLOR, size_t memAvailable,
+	                     int num_OSEM_subsets = 1);
 	// The Scanner LUT AND the lines of responses are already on device, but the
 	// BinIterators have already been generated
 	ProjectionDataDevice(std::shared_ptr<LORsDevice> pp_LORs,
 	                     const ProjectionData* pp_reference,
-	                     int num_OSEM_subsets = 1,
-	                     float shareOfMemoryToUse = DefaultMemoryShare);
+	                     size_t memoryUsagePerLOR, size_t memAvailable,
+	                     int num_OSEM_subsets = 1);
 	// The Scanner LUT AND the lines of responses are already on the device, and
 	// no need to generate the BinIterators
 	ProjectionDataDevice(std::shared_ptr<LORsDevice> pp_LORs,
 	                     const ProjectionData* pp_reference,
 	                     std::vector<const BinIterator*> pp_binIteratorList,
-	                     float shareOfMemoryToUse = DefaultMemoryShare);
+	                     size_t memoryUsagePerLOR, size_t memAvailable);
 	// Proxy for the above
 	explicit ProjectionDataDevice(const ProjectionDataDevice* orig);
 
@@ -54,11 +54,12 @@ public:
 	// the projection values buffer
 	void prepareBatchLORs(int subsetId, int batchId,
 	                      GPULaunchConfig launchConfig,
-	                      const BinIteratorConstrained& binIterConstrained);
+	                      const BinIteratorConstrained& binIterConstrained,
+	                      bool flagSensOrRecon);
 	void precomputeBatchLORs(int subsetId, int batchId,
-	                         const BinIteratorConstrained& binIterConstrained);
-	void loadPrecomputedLORsToDevice(GPULaunchConfig launchConfig,
-	                                 size_t elementSize);
+	                         const BinIteratorConstrained& binIterConstrained,
+	                         bool flagSensOrRecon);
+	void loadPrecomputedLORsToDevice(GPULaunchConfig launchConfig);
 
 	// Gather the projection values from the reference ProjectionData object and
 	// store them on the GPU buffer
@@ -95,11 +96,6 @@ public:
 
 	virtual float* getProjValuesDevicePointer() = 0;
 	virtual const float* getProjValuesDevicePointer() const = 0;
-	const float4* getLorDet1PosDevicePointer() const;
-	const float4* getLorDet1OrientDevicePointer() const;
-	const float4* getLorDet2PosDevicePointer() const;
-	const float4* getLorDet2OrientDevicePointer() const;
-	const float* getLorTOFValueDevicePointer() const;
 
 	float getProjectionValue(bin_t id) const override;
 	void setProjectionValue(bin_t id, float val) override;
@@ -120,9 +116,6 @@ public:
 	const GPUBatchSetup& getBatchSetup(size_t subsetId) const;
 	size_t getNumBatches(size_t subsetId) const;
 	bool areLORsGathered() const;
-
-	// Use 90% of what is available
-	static constexpr float DefaultMemoryShare = 0.9f;
 
 protected:
 	// Function overridden by the Owned vs Alias pattern
@@ -145,7 +138,7 @@ private:
 	                                    const Histogram* histo,
 	                                    GPULaunchConfig launchConfig);
 	void createBinIterators(int num_OSEM_subsets);
-	void createBatchSetups(float shareOfMemoryToUse);
+	void createBatchSetups(size_t memoryUsagePerLOR, size_t memAvailable);
 
 	std::shared_ptr<LORsDevice> mp_LORs;
 	const Scanner& mr_scanner;
@@ -161,19 +154,19 @@ public:
 	ProjectionDataDeviceOwned(
 	    const Scanner& pr_scanner, const ProjectionData* pp_reference,
 	    std::vector<const BinIterator*> pp_binIteratorList,
-	    float shareOfMemoryToUse = DefaultMemoryShare);
+	    size_t memoryUsagePerLOR, size_t memAvailable);
 	ProjectionDataDeviceOwned(const Scanner& pr_scanner,
 	                          const ProjectionData* pp_reference,
-	                          int num_OSEM_subsets = 1,
-	                          float shareOfMemoryToUse = DefaultMemoryShare);
+	                          size_t memoryUsagePerLOR, size_t memAvailable,
+	                          int num_OSEM_subsets = 1);
 	ProjectionDataDeviceOwned(std::shared_ptr<LORsDevice> pp_LORs,
 	                          const ProjectionData* pp_reference,
-	                          int num_OSEM_subsets = 1,
-	                          float shareOfMemoryToUse = DefaultMemoryShare);
+	                          size_t memoryUsagePerLOR, size_t memAvailable,
+	                          int num_OSEM_subsets = 1);
 	ProjectionDataDeviceOwned(
 	    std::shared_ptr<LORsDevice> pp_LORs, const ProjectionData* pp_reference,
 	    std::vector<const BinIterator*> pp_binIteratorList,
-	    float shareOfMemoryToUse = DefaultMemoryShare);
+	    size_t memoryUsagePerLOR, size_t memAvailable);
 	explicit ProjectionDataDeviceOwned(const ProjectionDataDevice* orig);
 
 	~ProjectionDataDeviceOwned() override = default;
@@ -199,19 +192,19 @@ public:
 	ProjectionDataDeviceAlias(
 	    const Scanner& pr_scanner, const ProjectionData* pp_reference,
 	    std::vector<const BinIterator*> pp_binIteratorList,
-	    float shareOfMemoryToUse = DefaultMemoryShare);
+	    size_t memoryUsagePerLOR, size_t memAvailable);
 	ProjectionDataDeviceAlias(const Scanner& pr_scanner,
 	                          const ProjectionData* pp_reference,
-	                          int num_OSEM_subsets = 1,
-	                          float shareOfMemoryToUse = DefaultMemoryShare);
+	                          size_t memoryUsagePerLOR, size_t memAvailable,
+	                          int num_OSEM_subsets = 1);
 	ProjectionDataDeviceAlias(std::shared_ptr<LORsDevice> pp_LORs,
 	                          const ProjectionData* pp_reference,
-	                          int num_OSEM_subsets = 1,
-	                          float shareOfMemoryToUse = DefaultMemoryShare);
+	                          size_t memoryUsagePerLOR, size_t memAvailable,
+	                          int num_OSEM_subsets = 1);
 	ProjectionDataDeviceAlias(
-	    std::shared_ptr<LORsDevice> pp_LORs, const ProjectionData* pp_reference,
-	    std::vector<const BinIterator*> pp_binIteratorList,
-	    float shareOfMemoryToUse = DefaultMemoryShare);
+	    std::shared_ptr<LORsDevice> pp_LORs, const ProjectionData*
+	    pp_reference, std::vector<const BinIterator*> pp_binIteratorList,
+	    size_t memoryUsagePerLOR, size_t memAvailable);
 	explicit ProjectionDataDeviceAlias(const ProjectionDataDevice* orig);
 
 	float* getProjValuesDevicePointer() override;

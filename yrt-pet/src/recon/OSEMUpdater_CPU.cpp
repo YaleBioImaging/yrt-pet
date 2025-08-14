@@ -87,7 +87,7 @@ void OSEMUpdater_CPU::computeSensitivityImage(Image& destImage) const
 	                                                 numBinsMax);
 
 	util::parallel_do_indexed(
-		std::ceil(numBinsMax / (float)blockSize),
+	    numThreads,
 	    [blockSize, numBinsMax, sensImgGenProjData, projPropManager,
 	     correctorPtr, projector, destImagePtr, &progressDisplay, &binIter,
 	     &binIterConstrained, &infoPtr, &projectionPropertiesPtr](int tid)
@@ -161,14 +161,13 @@ void OSEMUpdater_CPU::computeEMUpdateImage(const Image& inputImage,
 	auto projectionProperties = projPropManager.createDataArray(numThreads);
 	auto projectionPropertiesPtr = projectionProperties.get();
 
-	util::parallel_do_indexed(
-	    numBins,
+	util::parallel_for_chunked(
+	    numBins, numThreads,
 	    [hasAdditiveCorrection, hasInVivoAttenuation, measurements,
 	     inputImagePtr, projPropManager, correctorPtr, projector, destImagePtr,
 	     &binIter, &binIterConstrained, &infoPtr,
-	     &projectionPropertiesPtr](int binIdx)
+	     &projectionPropertiesPtr](int binIdx, int tid)
 	    {
-		    int tid = omp_get_thread_num();
 		    bin_t bin = binIter->get(binIdx);
 		    binIterConstrained->collectInfoSens(
 		        bin, tid, *measurements, projectionPropertiesPtr, infoPtr);

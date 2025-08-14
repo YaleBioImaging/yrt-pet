@@ -145,6 +145,7 @@ void OperatorProjector::applyAH(const Variable* in, Variable* out)
 	auto info =
 	    binIterConstrained.getConstraintManager().createDataArray(numThreads);
 	auto infoPtr = info.get();
+	// FIXME-NOW (SensOrRecon)
 	auto projPropManager = binIterConstrained.getPropertyManagerRecon();
 	auto projectionProperties = projPropManager.createDataArray(numThreads);
 	auto projectionPropertiesPtr = projectionProperties.get();

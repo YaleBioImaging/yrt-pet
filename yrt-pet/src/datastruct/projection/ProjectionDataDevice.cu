@@ -37,18 +37,27 @@ void py_setup_projectiondatadevice(py::module& m)
 		                          binIterConstrained, flagSensOrRecon);
 	    },
 	    "Load the LORs of a specific batch in a specific subset", "subsetId"_a,
-	    "batchId"_a, "binIterator"_a, "flagSensOrRecon"_a);
-	c.def("transferProjValuesToHost",
-	      [](const ProjectionDataDevice& self, ProjectionData* dest)
-	      { self.transferProjValuesToHost(dest, nullptr); });
+	    "batchId"_a, "binIteratorConstrained"_a, "flagSensOrRecon"_a);
+
+	c.def("loadProjValuesFromReference", [](ProjectionDataDeviceOwned& self)
+	      { self.loadProjValuesFromReference({nullptr, true}); });
 	c.def("loadProjValuesFromHost",
 	      [](ProjectionDataDevice& self, const ProjectionData* src)
 	      { self.loadProjValuesFromHost(src, {nullptr, true}); });
+	c.def("loadProjValuesFromHostRandoms",
+	      [](ProjectionDataDevice& self, const ProjectionData* src)
+	      { self.loadProjValuesFromHostRandoms(src, {nullptr, true}); });
+	c.def("loadProjValuesFromHostHistogram",
+	      [](ProjectionDataDevice& self, const Histogram* histo)
+	      { self.loadProjValuesFromHostHistogram(histo, {nullptr, true}); });
 	c.def("loadProjValuesFromHost",
 	      [](ProjectionDataDevice& self, const Histogram* histo)
 	      { self.loadProjValuesFromHostHistogram(histo, {nullptr, true}); });
-	c.def("loadProjValuesFromReference", [](ProjectionDataDeviceOwned& self)
-	      { self.loadProjValuesFromReference({nullptr, true}); });
+
+	c.def("transferProjValuesToHost",
+	      [](const ProjectionDataDevice& self, ProjectionData* dest)
+	      { self.transferProjValuesToHost(dest, nullptr); });
+
 	c.def("getLoadedBatchSize", &ProjectionDataDevice::getLoadedBatchSize);
 	c.def("getLoadedBatchId", &ProjectionDataDevice::getLoadedBatchId);
 	c.def("getLoadedSubsetId", &ProjectionDataDevice::getLoadedSubsetId);
@@ -58,11 +67,11 @@ void py_setup_projectiondatadevice(py::module& m)
 	auto c_owned = py::class_<ProjectionDataDeviceOwned, ProjectionDataDevice>(
 	    m, "ProjectionDataDeviceOwned");
 	c_owned.def(
-	    py::init<const Scanner&, const ProjectionData*, int, float>(),
+	    py::init<const Scanner&, const ProjectionData*, size_t, size_t, int>(),
 	    "Create a ProjectionDataDevice. This constructor will also store "
 	    "the Scanner LUT in the device",
-	    "scanner"_a, "reference"_a, "num_OSEM_subsets"_a = 1,
-	    "shareOfMemoryToUse"_a = ProjectionDataDevice::DefaultMemoryShare);
+	    "scanner"_a, "reference"_a, "memory_usage_per_LOR"_a, "mem_available"_a,
+	    "num_OSEM_subsets"_a = 1);
 	c_owned.def(py::init<const ProjectionDataDevice*>(),
 	            "Create a ProjectionDataDevice from an existing one. They will "
 	            "share the LORs",
@@ -73,12 +82,12 @@ void py_setup_projectiondatadevice(py::module& m)
 	auto c_alias = py::class_<ProjectionDataDeviceAlias, ProjectionDataDevice>(
 	    m, "ProjectionDataDeviceAlias");
 	c_alias.def(
-	    py::init<const Scanner&, const ProjectionData*, int, float>(),
+	    py::init<const Scanner&, const ProjectionData*, size_t, size_t, int>(),
 	    "Create a ProjectionDataDeviceAlias. This constructor will also "
 	    "store "
 	    "the Scanner LUT in the device",
-	    "scanner"_a, "reference"_a, "num_OSEM_subsets"_a = 1,
-	    "shareOfMemoryToUse"_a = ProjectionDataDevice::DefaultMemoryShare);
+	    "scanner"_a, "reference"_a, "memory_usage_per_LOR"_a, "mem_available"_a,
+	    "num_OSEM_subsets"_a = 1);
 	c_alias.def(
 	    py::init<const ProjectionDataDevice*>(),
 	    "Create a ProjectionDataDeviceAlias from an existing one. They will "

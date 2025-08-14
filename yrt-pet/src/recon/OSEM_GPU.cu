@@ -125,11 +125,11 @@ void OSEM_GPU::allocateForSensImgGen()
 	}
 
 	// Allocate for projection space
-	std::vector<GPUBatchSetup> batchSetups;
-	auto batchSetups = createBatchSetups(1.f, true);
+	auto [memAvailable, memoryUsagePerLOR] =
+	    calculateMemProj(true, DefaultMemoryShare);
 	mpd_tempSensDataInput = std::make_unique<ProjectionDataDeviceOwned>(
 	    scanner, mp_corrector->getSensImgGenProjData(), num_OSEM_subsets,
-		batchSetups);
+	    memoryUsagePerLOR, memAvailable);
 
 	// Make sure the corrector buffer is properly defined
 	mp_corrector->initializeTemporaryDeviceBuffer(mpd_tempSensDataInput.get());
@@ -258,11 +258,12 @@ void OSEM_GPU::allocateForRecon()
 		binIteratorPtrList.push_back(subsetBinIter.get());
 
 	// Allocate projection-space buffers
-	std::vector<GPUBatchSetup> batchSetups;
-	auto batchSetups = createBatchSetups(0.4f, false);
+	auto [memAvailable, memoryUsagePerLOR] =
+	    calculateMemProj(false, DefaultMemoryShare);
 	const ProjectionData* dataInput = getDataInput();
 	auto dat = std::make_unique<ProjectionDataDeviceOwned>(
-	    scanner, dataInput, binIteratorPtrList, batchSetups);
+	    scanner, dataInput, binIteratorPtrList, memoryUsagePerLOR,
+	    memAvailable);
 	auto datTmp = std::make_unique<ProjectionDataDeviceOwned>(dat.get());
 
 	mpd_dat = std::move(dat);

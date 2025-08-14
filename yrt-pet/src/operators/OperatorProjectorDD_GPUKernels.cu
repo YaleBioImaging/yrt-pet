@@ -9,6 +9,7 @@
 #include "yrt-pet/operators/ProjectionPsfUtils.cuh"
 
 #include <cuda_runtime.h>
+#include <cuda/std/limits>
 
 namespace yrt
 {

@@ -52,7 +52,7 @@ ConstraintAngleDiffDeg::ConstraintAngleDiffDeg(
 	m_constraintFcn = [p_manager, p_minAngleDiffDeg](ConstraintParams& info)
 	{
 		float absDeltaAngleDeg = p_manager.getDataValue<float>(
-			info, 0, ConstraintVariable::AbsDeltaAngleDeg);
+		    info, 0, ConstraintVariable::AbsDeltaAngleDeg);
 		return absDeltaAngleDeg >= p_minAngleDiffDeg;
 	};
 }
@@ -68,7 +68,7 @@ ConstraintBlockDiffIndex::ConstraintBlockDiffIndex(
 	m_constraintFcn = [p_manager, p_minBlockDiffIdx](ConstraintParams& info)
 	{
 		int absDeltaBlockIdx = p_manager.getDataValue<int>(
-			info, 0, ConstraintVariable::AbsDeltaBlockIdx);
+		    info, 0, ConstraintVariable::AbsDeltaBlockIdx);
 		return absDeltaBlockIdx >= p_minBlockDiffIdx;
 	};
 }
@@ -98,66 +98,144 @@ std::vector<ConstraintVariable> ConstraintDetectorMask::getVariables() const
 
 
 // Constrained bin iterator
-BinIteratorConstrained::BinIteratorConstrained(
-    const ProjectionData* p_projData, std::vector<const Constraint*> p_constraints)
-	: m_projData(p_projData), m_constraints(p_constraints)
+BinIteratorConstrained::BinIteratorConstrained()
 {
-	auto variables = collectVariables();
-	m_constraintManager = std::make_unique<ConstraintManager>(variables);
 }
 
-std::set<ConstraintVariable> BinIteratorConstrained::collectVariables() const
+template <typename C, typename... Args>
+void BinIteratorConstrained::addConstraint(Args... args)
+{
+    static_assert(std::is_base_of<Constraint, C>::value,
+                  "Type C must inherit from Constraint");
+	m_constraints.push_back(std::make_unique<C>(m_constraintManager, args...));
+}
+
+void BinIteratorConstrained::clearConstraints()
+{
+	m_constraints.clear();
+	m_consVariables.clear();
+	m_constraintManager = nullptr;
+}
+
+void BinIteratorConstrained::setupManagers()
+{
+	if (m_constraints.size() > 0)
+	{
+		collectConstraintVariables();
+		m_constraintManager =
+		    std::make_unique<ConstraintManager>(m_consVariables);
+	}
+	m_propManagerSens =
+	    std::make_unique<ProjectionPropertyManager>(m_projVariablesSens);
+	m_propManagerRecon =
+	    std::make_unique<ProjectionPropertyManager>(m_projVariablesRecon);
+}
+
+void BinIteratorConstrained::addProjVariable(ProjectionPropertyType prop)
+{
+	addProjVariableSens(prop);
+	addProjVariableRecon(prop);
+}
+void BinIteratorConstrained::addProjVariableSens(ProjectionPropertyType prop)
+{
+	m_projVariablesSens.insert(prop);
+}
+void BinIteratorConstrained::addProjVariableRecon(ProjectionPropertyType prop)
+{
+	m_projVariablesRecon.insert(prop);
+}
+
+std::set<ConstraintVariable>
+    BinIteratorConstrained::collectConstraintVariables()
 {
 	// List variables required by constraints
-	std::set<ConstraintVariable> variables;
-	for (auto constraint : m_constraints)
+	for (auto& constraint : m_constraints)
 	{
 		for (auto variable : constraint->getVariables())
 		{
-			variables.insert(variable);
+			m_consVariables.insert(variable);
 		}
 	}
-	return variables;
+	return m_consVariables;
+}
+
+
+const ConstraintManager& BinIteratorConstrained::getConstraintManager() const
+{
+	return *m_constraintManager.get();
+}
+
+const ProjectionPropertyManager&
+    BinIteratorConstrained::getPropertyManagerSens() const
+{
+	return *m_propManagerSens.get();
+}
+
+const ProjectionPropertyManager& BinIteratorConstrained::getPropertyManagerRecon() const
+{
+	return *m_propManagerRecon.get();
+}
+
+void BinIteratorConstrained::collectInfoSens(bin_t bin, int tid,
+                                             const ProjectionData& projData,
+                                             ProjectionProperties& projProps,
+                                             ConstraintParams& consInfo) const
+{
+	collectInfo(bin, tid, projData, *m_propManagerSens.get(),
+	            m_projVariablesSens, projProps, consInfo);
+}
+
+void BinIteratorConstrained::collectInfoRecon(bin_t bin, int tid,
+                                              const ProjectionData& projData,
+                                              ProjectionProperties& projProps,
+                                              ConstraintParams& consInfo) const
+{
+	collectInfo(bin, tid, projData, *m_propManagerRecon.get(),
+	            m_projVariablesRecon, projProps, consInfo);
 }
 
 void BinIteratorConstrained::collectInfo(
-    bin_t bin, std::set<ConstraintVariable>& consVariables,
-    std::set<ProjectionPropertyType>& projVariables,
-    char*& projProps,
-    ConstraintParams& consInfo) const
+    bin_t bin, int tid, const ProjectionData& projData,
+    ProjectionPropertyManager& projPropManager,
+    const std::set<ProjectionPropertyType>& projVariables,
+    ProjectionProperties& projProps, ConstraintParams& consInfo) const
 {
-	auto [d1, d2] = m_projData->getDetectorPair(bin);
-	m_constraintManager->setDataValue(consInfo, 0, ConstraintVariable::Det1,
+	auto [d1, d2] = projData.getDetectorPair(bin);
+	m_constraintManager->setDataValue(consInfo, tid, ConstraintVariable::Det1,
 	                                  d1);
-	m_constraintManager->setDataValue(consInfo, 0, ConstraintVariable::Det2,
+	m_constraintManager->setDataValue(consInfo, tid, ConstraintVariable::Det2,
 	                                  d2);
 
 	bool needsLOR =
-		projVariables.find(ProjectionPropertyType::LOR) != projVariables.end() ||
-	    consVariables.find(ConstraintVariable::AbsDeltaAngleDeg) != consVariables.end();
+	    projVariables.find(ProjectionPropertyType::LOR) !=
+	        projVariables.end() ||
+	    m_consVariables.find(ConstraintVariable::AbsDeltaAngleDeg) !=
+	        m_consVariables.end();
 	Line3D lor;
 	if (needsLOR)
 	{
-		lor = m_projData->getLOR(bin);
-		m_propManager->setDataValue(projProps, 0, ProjectionPropertyType::LOR, lor);
+		lor = projData.getLOR(bin);
+		projPropManager.setDataValue(projProps, tid,
+		                             ProjectionPropertyType::LOR, lor);
 	}
-	const Scanner* scanner = &m_projData->getScanner();
+	const Scanner* scanner = &projData.getScanner();
 
-	if (consVariables.find(ConstraintVariable::AbsDeltaAngleDeg) != consVariables.end())
+	if (m_consVariables.find(ConstraintVariable::AbsDeltaAngleDeg) !=
+	    m_consVariables.end())
 	{
 		// In-plane angle
 		float a1 = std::atan2(lor.point1.y, lor.point1.x);
 		float a2 = std::atan2(lor.point2.y, lor.point2.x);
 		float diff = util::periodicDiff(a1, a2, (float)(2.f * PI));
 		m_constraintManager->setDataValue(
-		    consInfo, 0, ConstraintVariable::AbsDeltaAngleDeg, diff);
+		    consInfo, tid, ConstraintVariable::AbsDeltaAngleDeg, diff);
 	}
 
 	bool needsPlaneIdx =
-	    consVariables.find(ConstraintVariable::AbsDeltaAngleIdx) !=
-	        consVariables.end() ||
-	    consVariables.find(ConstraintVariable::AbsDeltaBlockIdx) !=
-	        consVariables.end();
+	    m_consVariables.find(ConstraintVariable::AbsDeltaAngleIdx) !=
+	        m_consVariables.end() ||
+	    m_consVariables.find(ConstraintVariable::AbsDeltaBlockIdx) !=
+	        m_consVariables.end();
 	int d1xyi;
 	int d2xyi;
 	if (needsPlaneIdx)
@@ -165,16 +243,18 @@ void BinIteratorConstrained::collectInfo(
 		d1xyi = d1 % scanner->detsPerRing;
 		d2xyi = d2 % scanner->detsPerRing;
 	}
-	if (consVariables.find(ConstraintVariable::AbsDeltaAngleIdx) != consVariables.end())
+	if (m_consVariables.find(ConstraintVariable::AbsDeltaAngleIdx) !=
+	    m_consVariables.end())
 	{
 		int diff = util::periodicDiff(d1xyi, d2xyi,
 		                              static_cast<int>(scanner->detsPerRing));
 		m_constraintManager->setDataValue(
-		    consInfo, 0, ConstraintVariable::AbsDeltaAngleIdx, diff);
+		    consInfo, tid, ConstraintVariable::AbsDeltaAngleIdx, diff);
 	}
 
 	bool needsPlaneBlock =
-	    consVariables.find(ConstraintVariable::AbsDeltaBlockIdx) != consVariables.end();
+	    m_consVariables.find(ConstraintVariable::AbsDeltaBlockIdx) !=
+	    m_consVariables.end();
 	int d1bi;
 	int d2bi;
 	if (needsPlaneBlock)
@@ -182,18 +262,19 @@ void BinIteratorConstrained::collectInfo(
 		d1bi = d1xyi / scanner->detsPerBlock;
 		d2bi = d2xyi / scanner->detsPerBlock;
 	}
-	if (consVariables.find(ConstraintVariable::AbsDeltaBlockIdx) != consVariables.end())
+	if (m_consVariables.find(ConstraintVariable::AbsDeltaBlockIdx) !=
+	    m_consVariables.end())
 	{
 		int diff = util::periodicDiff(d1bi, d2bi,
 		                              static_cast<int>(scanner->detsPerBlock));
 		m_constraintManager->setDataValue(
-		    consInfo, 0, ConstraintVariable::AbsDeltaBlockIdx, diff);
+		    consInfo, tid, ConstraintVariable::AbsDeltaBlockIdx, diff);
 	}
 }
 
 bool BinIteratorConstrained::isValid(ConstraintParams& info) const
 {
-	for (auto constraint : m_constraints)
+	for (auto& constraint : m_constraints)
 	{
 		if (!constraint->isValid(info))
 		{

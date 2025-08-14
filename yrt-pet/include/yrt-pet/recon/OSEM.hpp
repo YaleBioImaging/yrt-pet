@@ -173,11 +173,11 @@ private:
 	    bool saveOnDisk, const std::string& out_fname, bool saveOnMemory,
 	    std::vector<std::unique_ptr<Image>>& sensImages);
 	void initializeForRecon();
+	void collectConstraints();
 
 	std::vector<std::unique_ptr<BinIterator>> m_binIterators;
 	std::vector<std::unique_ptr<Constraint>> m_constraints;
-	std::set<ConstraintVariable> consVariables;
-	std::set<ProjectionPropertyType> projVariables;
+	BinIteratorConstrained m_binIteratorConstrained;
 
 	const ProjectionData* mp_dataInput;
 

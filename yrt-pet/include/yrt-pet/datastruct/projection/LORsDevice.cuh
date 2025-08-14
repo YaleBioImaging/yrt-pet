@@ -24,12 +24,12 @@ class LORsDevice
 public:
 	LORsDevice();
 
+	template <bool flagSensOrRecon>
 	void precomputeBatchLORs(const BinIterator& binIter,
 	                         const GPUBatchSetup& batchSetup, int subsetId,
 	                         int batchId, const ProjectionData& reference,
 	                         const BinIteratorConstrained& binIterConstrained);
-	void loadPrecomputedLORsToDevice(GPULaunchConfig launchConfig,
-	                                 size_t elementSize);
+	void loadPrecomputedLORsToDevice(GPULaunchConfig launchConfig);
 
 	// Gets the size of the last precomputed batch
 	size_t getPrecomputedBatchSize() const;
@@ -50,11 +50,12 @@ public:
 
 private:
 	void initializeDeviceArrays();
-	void allocateForPrecomputedLORsIfNeeded(GPULaunchConfig launchConfig,
-	                                        size_t elementSize);
+	void allocateForPrecomputedLORsIfNeeded(GPULaunchConfig launchConfig);
 
 	std::unique_ptr<DeviceArray<char>> mp_projectionProperties;
 	PageLockedBuffer<char> m_tempProjectionProperties;
+	// Size (in bytes) of ProjectionProperties element of precomputed batch
+	size_t m_elementSize;
 	bool m_hasTOF;
 	size_t m_precomputedBatchSize;
 	int m_precomputedBatchId;

@@ -69,6 +69,12 @@ public:
 	void addImagePSF(const std::string& p_imagePsf_fname,
 	                 ImagePSFMode p_imagePSFMode) override;
 
+	// Use 90% of what is available
+	static constexpr float DefaultMemoryShare = 0.9f;
+
+	std::pair<size_t, size_t> calculateMemProj(bool flagSensOrRecon,
+	                                           float shareOfMemoryToUse);
+
 private:
 	std::unique_ptr<ImageDeviceOwned> mpd_sensImageBuffer;
 	std::unique_ptr<ImageDeviceOwned> mpd_mlemImage;

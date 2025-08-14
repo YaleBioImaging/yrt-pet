@@ -30,26 +30,14 @@ void py_setup_projectiondatadevice(py::module& m)
 	    m, "ProjectionDataDevice");
 	c.def(
 	    "prepareBatchLORs",
-	    [](ProjectionDataDevice& self, size_t subsetId, size_t batchId)
-	    { self.prepareBatchLORs(subsetId, batchId, {nullptr, true}); },
+	    [](ProjectionDataDevice& self, size_t subsetId, size_t batchId,
+	       BinIteratorConstrained& binIterConstrained, bool flagSensOrRecon)
+	    {
+		    self.prepareBatchLORs(subsetId, batchId, {nullptr, true},
+		                          binIterConstrained, flagSensOrRecon);
+	    },
 	    "Load the LORs of a specific batch in a specific subset", "subsetId"_a,
-	    "batchId"_a);
-
-	c.def("loadProjValuesFromReference", [](ProjectionDataDeviceOwned& self)
-	      { self.loadProjValuesFromReference({nullptr, true}); });
-	c.def("loadProjValuesFromHost",
-	      [](ProjectionDataDevice& self, const ProjectionData* src)
-	      { self.loadProjValuesFromHost(src, {nullptr, true}); });
-	c.def("loadProjValuesFromHostRandoms",
-	      [](ProjectionDataDevice& self, const ProjectionData* src)
-	      { self.loadProjValuesFromHostRandoms(src, {nullptr, true}); });
-	c.def("loadProjValuesFromHostHistogram",
-	      [](ProjectionDataDevice& self, const Histogram* histo)
-	      { self.loadProjValuesFromHostHistogram(histo, {nullptr, true}); });
-	c.def("loadProjValuesFromHost",  // Python binding kept for legacy reasons
-	      [](ProjectionDataDevice& self, const Histogram* histo)
-	      { self.loadProjValuesFromHostHistogram(histo, {nullptr, true}); });
-
+	    "batchId"_a, "binIterator"_a, "flagSensOrRecon"_a);
 	c.def("transferProjValuesToHost",
 	      [](const ProjectionDataDevice& self, ProjectionData* dest)
 	      { self.transferProjValuesToHost(dest, nullptr); });
@@ -131,49 +119,50 @@ ProjectionDataDevice::ProjectionDataDevice(const ProjectionDataDevice* orig)
 ProjectionDataDevice::ProjectionDataDevice(
     const Scanner& pr_scanner, const ProjectionData* pp_reference,
     std::vector<const BinIterator*> pp_binIteratorList,
-    float shareOfMemoryToUse)
+    size_t memoryUsagePerLOR, size_t memAvailable)
     : ProjectionList(pp_reference),
       mp_binIteratorList(std::move(pp_binIteratorList)),
       mr_scanner(pr_scanner)
 {
 	mp_LORs = std::make_unique<LORsDevice>();
-	createBatchSetups(shareOfMemoryToUse);
+	createBatchSetups(memoryUsagePerLOR, memAvailable);
 }
 
 ProjectionDataDevice::ProjectionDataDevice(
     std::shared_ptr<LORsDevice> pp_LORs, const ProjectionData* pp_reference,
     std::vector<const BinIterator*> pp_binIteratorList,
-    float shareOfMemoryToUse)
+    size_t memoryUsagePerLOR, size_t memAvailable)
     : ProjectionList(pp_reference),
       mp_binIteratorList(std::move(pp_binIteratorList)),
       mp_LORs(std::move(pp_LORs)),
       mr_scanner(pp_reference->getScanner())
 {
-	createBatchSetups(shareOfMemoryToUse);
+	createBatchSetups(memoryUsagePerLOR, memAvailable);
 }
 
 ProjectionDataDevice::ProjectionDataDevice(std::shared_ptr<LORsDevice> pp_LORs,
                                            const ProjectionData* pp_reference,
-                                           int num_OSEM_subsets,
-                                           float shareOfMemoryToUse)
+                                           size_t memoryUsagePerLOR,
+                                           size_t memAvailable,
+                                           int num_OSEM_subsets)
     : ProjectionList(pp_reference),
       mp_LORs(std::move(pp_LORs)),
       mr_scanner(pp_reference->getScanner())
 {
 	createBinIterators(num_OSEM_subsets);
-	createBatchSetups(shareOfMemoryToUse);
+	createBatchSetups(memoryUsagePerLOR, memAvailable);
 }
 
 ProjectionDataDevice::ProjectionDataDevice(const Scanner& pr_scanner,
                                            const ProjectionData* pp_reference,
-                                           int num_OSEM_subsets,
-                                           float shareOfMemoryToUse)
+                                           size_t memoryUsagePerLOR,
+                                           size_t memAvailable,
+                                           int num_OSEM_subsets)
     : ProjectionList(pp_reference), mr_scanner(pr_scanner)
 {
-	createBinIterators(num_OSEM_subsets);
-	createBatchSetups(shareOfMemoryToUse);
-
 	mp_LORs = std::make_unique<LORsDevice>();
+	createBinIterators(num_OSEM_subsets);
+	createBatchSetups(memoryUsagePerLOR, memAvailable);
 }
 
 void ProjectionDataDevice::createBinIterators(int num_OSEM_subsets)
@@ -187,17 +176,9 @@ void ProjectionDataDevice::createBinIterators(int num_OSEM_subsets)
 	}
 }
 
-void ProjectionDataDevice::createBatchSetups(float shareOfMemoryToUse)
+void ProjectionDataDevice::createBatchSetups(size_t memoryUsagePerLOR,
+                                             size_t memAvailable)
 {
-	size_t memAvailable = getDeviceInfo(true);
-
-	// Shrink memory according to the portion we want to use
-	memAvailable = static_cast<size_t>(static_cast<float>(memAvailable) *
-	                                   shareOfMemoryToUse);
-
-	const size_t memoryUsagePerLOR = getReference()->hasTOF() ?
-	                                     LORsDevice::MemoryUsagePerLORWithTOF :
-	                                     LORsDevice::MemoryUsagePerLOR;
 	const size_t memoryUsagePerEvent = memoryUsagePerLOR + sizeof(float);
 
 	const size_t possibleEventsPerBatch =
@@ -213,10 +194,11 @@ void ProjectionDataDevice::createBatchSetups(float shareOfMemoryToUse)
 	}
 }
 
-void ProjectionDataDevice::prepareBatchLORs(int subsetId, int batchId,
-                                            GPULaunchConfig launchConfig)
+void ProjectionDataDevice::prepareBatchLORs(
+    int subsetId, int batchId, GPULaunchConfig launchConfig,
+    const BinIteratorConstrained& binIterConstrained, bool flagSensOrRecon)
 {
-	precomputeBatchLORs(subsetId, batchId);
+	precomputeBatchLORs(subsetId, batchId, binIterConstrained, flagSensOrRecon);
 
 	// Necessary bottleneck
 	// Must wait until previous operation using the device buffers is
@@ -229,15 +211,25 @@ void ProjectionDataDevice::prepareBatchLORs(int subsetId, int batchId,
 	{
 		cudaDeviceSynchronize();
 	}
-
 	loadPrecomputedLORsToDevice(launchConfig);
 }
 
-void ProjectionDataDevice::precomputeBatchLORs(int subsetId, int batchId)
+void ProjectionDataDevice::precomputeBatchLORs(
+    int subsetId, int batchId, const BinIteratorConstrained& binIterConstrained,
+    bool flagSensOrRecon)
 {
-	mp_LORs->precomputeBatchLORs(*mp_binIteratorList.at(subsetId),
-	                             m_batchSetups.at(subsetId), subsetId, batchId,
-	                             *mp_reference);
+	if (flagSensOrRecon)
+	{
+		mp_LORs->precomputeBatchLORs<true>(
+		    *mp_binIteratorList.at(subsetId), m_batchSetups.at(subsetId),
+		    subsetId, batchId, *mp_reference, binIterConstrained);
+	}
+	else
+	{
+		mp_LORs->precomputeBatchLORs<false>(
+		    *mp_binIteratorList.at(subsetId), m_batchSetups.at(subsetId),
+		    subsetId, batchId, *mp_reference, binIterConstrained);
+	}
 }
 
 void ProjectionDataDevice::loadPrecomputedLORsToDevice(
@@ -417,31 +409,6 @@ size_t ProjectionDataDevice::getLoadedBatchId() const
 size_t ProjectionDataDevice::getLoadedSubsetId() const
 {
 	return mp_LORs->getLoadedSubsetId();
-}
-
-const float4* ProjectionDataDevice::getLorDet1PosDevicePointer() const
-{
-	return mp_LORs->getLorDet1PosDevicePointer();
-}
-
-const float4* ProjectionDataDevice::getLorDet1OrientDevicePointer() const
-{
-	return mp_LORs->getLorDet1OrientDevicePointer();
-}
-
-const float4* ProjectionDataDevice::getLorDet2PosDevicePointer() const
-{
-	return mp_LORs->getLorDet2PosDevicePointer();
-}
-
-const float4* ProjectionDataDevice::getLorDet2OrientDevicePointer() const
-{
-	return mp_LORs->getLorDet2OrientDevicePointer();
-}
-
-const float* ProjectionDataDevice::getLorTOFValueDevicePointer() const
-{
-	return mp_LORs->getLorTOFValueDevicePointer();
 }
 
 float ProjectionDataDevice::getProjectionValue(bin_t id) const
@@ -748,27 +715,28 @@ bool ProjectionDataDevice::areLORsGathered() const
 ProjectionDataDeviceOwned::ProjectionDataDeviceOwned(
     const Scanner& pr_scanner, const ProjectionData* pp_reference,
     std::vector<const BinIterator*> pp_binIteratorList,
-    float shareOfMemoryToUse)
+    size_t memoryUsagePerLOR, size_t memAvailable)
     : ProjectionDataDevice(pr_scanner, pp_reference,
-                           std::move(pp_binIteratorList), shareOfMemoryToUse)
+                           std::move(pp_binIteratorList), memoryUsagePerLOR,
+                           memAvailable)
 {
 	mp_projValues = std::make_unique<DeviceArray<float>>();
 }
 
 ProjectionDataDeviceOwned::ProjectionDataDeviceOwned(
     const Scanner& pr_scanner, const ProjectionData* pp_reference,
-    int num_OSEM_subsets, float shareOfMemoryToUse)
-    : ProjectionDataDevice(pr_scanner, pp_reference, num_OSEM_subsets,
-                           shareOfMemoryToUse)
+    size_t memoryUsagePerLOR, size_t memAvailable, int num_OSEM_subsets)
+    : ProjectionDataDevice(pr_scanner, pp_reference, memoryUsagePerLOR,
+                           memAvailable, num_OSEM_subsets)
 {
 	mp_projValues = std::make_unique<DeviceArray<float>>();
 }
 
 ProjectionDataDeviceOwned::ProjectionDataDeviceOwned(
     std::shared_ptr<LORsDevice> pp_LORs, const ProjectionData* pp_reference,
-    int num_OSEM_subsets, float shareOfMemoryToUse)
-    : ProjectionDataDevice(std::move(pp_LORs), pp_reference, num_OSEM_subsets,
-                           shareOfMemoryToUse)
+    size_t memoryUsagePerLOR, size_t memAvailable, int num_OSEM_subsets)
+    : ProjectionDataDevice(std::move(pp_LORs), pp_reference, memoryUsagePerLOR,
+                           memAvailable, num_OSEM_subsets)
 {
 	mp_projValues = std::make_unique<DeviceArray<float>>();
 }
@@ -776,9 +744,10 @@ ProjectionDataDeviceOwned::ProjectionDataDeviceOwned(
 ProjectionDataDeviceOwned::ProjectionDataDeviceOwned(
     std::shared_ptr<LORsDevice> pp_LORs, const ProjectionData* pp_reference,
     std::vector<const BinIterator*> pp_binIteratorList,
-    float shareOfMemoryToUse)
+    size_t memoryUsagePerLOR, size_t memAvailable)
     : ProjectionDataDevice(std::move(pp_LORs), pp_reference,
-                           std::move(pp_binIteratorList), shareOfMemoryToUse)
+                           std::move(pp_binIteratorList), memoryUsagePerLOR,
+                           memAvailable)
 {
 	mp_projValues = std::make_unique<DeviceArray<float>>();
 }
@@ -823,27 +792,28 @@ void ProjectionDataDeviceOwned::loadProjValuesFromHostInternal(
 ProjectionDataDeviceAlias::ProjectionDataDeviceAlias(
     const Scanner& pr_scanner, const ProjectionData* pp_reference,
     std::vector<const BinIterator*> pp_binIteratorList,
-    float shareOfMemoryToUse)
+    size_t memoryUsagePerLOR, size_t memAvailable)
     : ProjectionDataDevice(pr_scanner, pp_reference,
-                           std::move(pp_binIteratorList), shareOfMemoryToUse),
+                           std::move(pp_binIteratorList), memoryUsagePerLOR,
+                           memAvailable),
       mpd_devicePointer(nullptr)
 {
 }
 
 ProjectionDataDeviceAlias::ProjectionDataDeviceAlias(
     const Scanner& pr_scanner, const ProjectionData* pp_reference,
-    int num_OSEM_subsets, float shareOfMemoryToUse)
-    : ProjectionDataDevice(pr_scanner, pp_reference, num_OSEM_subsets,
-                           shareOfMemoryToUse),
+    size_t memoryUsagePerLOR, size_t memAvailable, int num_OSEM_subsets)
+    : ProjectionDataDevice(pr_scanner, pp_reference, memoryUsagePerLOR,
+                           memAvailable, num_OSEM_subsets),
       mpd_devicePointer(nullptr)
 {
 }
 
 ProjectionDataDeviceAlias::ProjectionDataDeviceAlias(
     std::shared_ptr<LORsDevice> pp_LORs, const ProjectionData* pp_reference,
-    int num_OSEM_subsets, float shareOfMemoryToUse)
-    : ProjectionDataDevice(std::move(pp_LORs), pp_reference, num_OSEM_subsets,
-                           shareOfMemoryToUse),
+    size_t memoryUsagePerLOR, size_t memAvailable, int num_OSEM_subsets)
+    : ProjectionDataDevice(std::move(pp_LORs), pp_reference, memoryUsagePerLOR,
+                           memAvailable, num_OSEM_subsets),
       mpd_devicePointer(nullptr)
 {
 }
@@ -851,9 +821,10 @@ ProjectionDataDeviceAlias::ProjectionDataDeviceAlias(
 ProjectionDataDeviceAlias::ProjectionDataDeviceAlias(
     std::shared_ptr<LORsDevice> pp_LORs, const ProjectionData* pp_reference,
     std::vector<const BinIterator*> pp_binIteratorList,
-    float shareOfMemoryToUse)
+    size_t memoryUsagePerLOR, size_t memAvailable)
     : ProjectionDataDevice(std::move(pp_LORs), pp_reference,
-                           std::move(pp_binIteratorList), shareOfMemoryToUse),
+                           std::move(pp_binIteratorList), memoryUsagePerLOR,
+                           memAvailable),
       mpd_devicePointer(nullptr)
 {
 }

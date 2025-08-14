@@ -7,6 +7,8 @@
 
 #include "yrt-pet/utils/GPUUtils.cuh"
 
+#include <cmath>
+
 namespace yrt::util
 {
 

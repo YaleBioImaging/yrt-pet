@@ -620,6 +620,7 @@ void Image::transformImage(const transform_t& t, Image& dest,
 {
 	const ImageParams params = getParams();
 	float* destRawPtr = dest.getRawPointer();
+	const ImageParams* paramsPtr = &params;
 	const int num_xy = params.nx * params.ny;
 	const int nx = params.nx;
 	const int ny = params.ny;
@@ -628,18 +629,18 @@ void Image::transformImage(const transform_t& t, Image& dest,
 	const transform_t inv = util::invertTransform(t);
 
 #pragma omp parallel for default(none) \
-    firstprivate(destRawPtr, nx, ny, nz, num_xy, weight, inv)
+    firstprivate(destRawPtr, nx, ny, nz, num_xy, weight, inv, paramsPtr)
 	for (int i = 0; i < nz; i++)
 	{
-		const float z = indexToPositionInDimension<0>(i);
+		const float z = paramsPtr->indexToPositionInDimension<0>(i);
 
 		for (int j = 0; j < ny; j++)
 		{
-			const float y = indexToPositionInDimension<1>(j);
+			const float y = paramsPtr->indexToPositionInDimension<1>(j);
 
 			for (int k = 0; k < nx; k++)
 			{
-				const float x = indexToPositionInDimension<2>(k);
+				const float x = paramsPtr->indexToPositionInDimension<2>(k);
 
 				float newX = x * inv.r00 + y * inv.r01 + z * inv.r02;
 				newX += inv.tx;
@@ -961,41 +962,6 @@ float Image::offsetToOrigin(float off, float voxelSize, float length)
 {
 	return off - 0.5f * length + 0.5f * voxelSize;
 }
-
-template <int Dimension>
-float Image::indexToPositionInDimension(int index) const
-{
-	static_assert(Dimension >= 0 && Dimension < 3);
-	const ImageParams& params = getParams();
-	float voxelSize, length, offset;
-	if constexpr (Dimension == 0)
-	{
-		voxelSize = params.vz;
-		length = params.length_z;
-		offset = params.off_z;
-	}
-	else if constexpr (Dimension == 1)
-	{
-		voxelSize = params.vy;
-		length = params.length_y;
-		offset = params.off_y;
-	}
-	else if constexpr (Dimension == 2)
-	{
-		voxelSize = params.vx;
-		length = params.length_x;
-		offset = params.off_x;
-	}
-	else
-	{
-		throw std::runtime_error("Unknown error");
-	}
-	return util::indexToPosition(index, voxelSize, length, offset);
-}
-
-template float Image::indexToPositionInDimension<0>(int index) const;
-template float Image::indexToPositionInDimension<1>(int index) const;
-template float Image::indexToPositionInDimension<2>(int index) const;
 
 ImageAlias::ImageAlias(const ImageParams& imgParams) : Image(imgParams)
 {

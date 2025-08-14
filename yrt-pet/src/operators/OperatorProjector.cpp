@@ -103,11 +103,14 @@ void OperatorProjector::applyA(const Variable* in, Variable* out)
 		                         ProjectionProperties projectionProperties =
 			                         dat->getProjectionProperties(bin);
 
-		                         const float imProj = forwardProjection(
-			                         img, projectionProperties, tid);
+		if (projectionProperties.lor.point1.x !=
+		    std::numeric_limits<float>::infinity())
+		{
+			float imProj = forwardProjection(img, projectionProperties);
 
-		                         dat->setProjectionValue(bin, imProj);
-	                           });
+			dat->setProjectionValue(bin, static_cast<float>(imProj));
+		}
+	}
 }
 
 void OperatorProjector::applyAH(const Variable* in, Variable* out)
@@ -128,15 +131,22 @@ void OperatorProjector::applyAH(const Variable* in, Variable* out)
 		    ProjectionProperties projectionProperties =
 		        dat->getProjectionProperties(bin);
 
-		    float projValue = dat->getProjectionValue(bin);
+		float projValue = dat->getProjectionValue(bin);
+		if (std::abs(projValue) == 0.0f &&
+		    projectionProperties.lor.point1.x !=
+		    std::numeric_limits<float>::infinity())
+		{
+			// TODO: What to do with randomsEstimate ?
 
-		    if (std::abs(projValue) == 0.0f)
-		    {
-			    return;
-		    }
+			float projValue = dat->getProjectionValue(bin);
+			if (std::abs(projValue) < SMALL)
+			{
+				continue;
+			}
 
-		    backProjection(img, projectionProperties, projValue, tid);
-	    });
+			backProjection(img, projectionProperties, projValue);
+		}
+	}
 }
 
 void OperatorProjector::addTOF(float tofWidth_ps, int tofNumStd)

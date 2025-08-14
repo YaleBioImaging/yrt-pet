@@ -23,6 +23,7 @@ public:
 	virtual float getXorient(det_id_t id) const = 0;
 	virtual float getYorient(det_id_t id) const = 0;
 	virtual float getZorient(det_id_t id) const = 0;
+	virtual bool isLORAllowed(det_id_t det1, det_id_t det2) const;
 	virtual void writeToFile(const std::string& detCoord_fname) const = 0;
 	virtual Vector3D getPos(det_id_t id) const;
 	virtual Vector3D getOrient(det_id_t id) const;

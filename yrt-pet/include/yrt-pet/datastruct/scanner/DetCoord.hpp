@@ -24,6 +24,7 @@ public:
 	float getXorient(det_id_t detID) const override;
 	float getYorient(det_id_t detID) const override;
 	float getZorient(det_id_t detID) const override;
+	bool isLORAllowed(det_id_t det1, det_id_t det2) const override;
 	void writeToFile(const std::string& detCoord_fname) const override;
 	virtual void setXpos(det_id_t detID, float f);
 	virtual void setYpos(det_id_t detID, float f);
@@ -47,6 +48,7 @@ public:
 	{
 		return (mp_Zorient.get());
 	}
+	Array1DBase<bool>* getMaskArrayRef() const { return (mp_Mask.get()); }
 
 protected:
 	DetCoord();
@@ -58,6 +60,7 @@ protected:
 	std::unique_ptr<Array1DBase<float>> mp_Xorient;
 	std::unique_ptr<Array1DBase<float>> mp_Yorient;
 	std::unique_ptr<Array1DBase<float>> mp_Zorient;
+	std::unique_ptr<Array1DBase<bool>> mp_Mask;
 	// total number of dets in scanner = 258,048 in SAVANT DOI config
 };
 
@@ -68,15 +71,18 @@ public:
 	void bind(DetCoord* p_detCoord);
 	void bind(Array1DBase<float>* Xpos, Array1DBase<float>* Ypos,
 	          Array1DBase<float>* Zpos, Array1DBase<float>* Xorient,
-	          Array1DBase<float>* Yorient, Array1DBase<float>* Zorient);
+	          Array1DBase<float>* Yorient, Array1DBase<float>* Zorient,
+	          Array1DBase<bool>* detMask = nullptr);
 };
 
 class DetCoordOwned : public DetCoord
 {
 public:
 	DetCoordOwned();
-	DetCoordOwned(const std::string& filename);
-	void allocate(size_t numDets);
-	void readFromFile(const std::string& filename);
+	DetCoordOwned(const std::string& filename,
+	              const std::string& maskFilename = "");
+	void allocate(size_t numDets, bool hasDetMask);
+	void readFromFile(const std::string& filename,
+	                  const std::string& maskFilename = "");
 };
 }  // namespace yrt

@@ -35,6 +35,7 @@ public:
 	Vector3D getDetectorOrient(det_id_t id) const;
 	std::shared_ptr<DetectorSetup> getDetectorSetup() const;
 	bool isValid() const;
+	bool isLORAllowed(det_id_t det1, det_id_t det2) const;
 
 	// Allocate and fill array with detector positions
 	void createLUT(Array2D<float>& lut) const;

@@ -10,6 +10,7 @@
 #include "yrt-pet/utils/Concurrency.hpp"
 #include "yrt-pet/utils/Globals.hpp"
 
+#include <limits>
 #include <stdexcept>
 
 #if BUILD_PYBIND11
@@ -165,9 +166,17 @@ Line3D ProjectionData::getArbitraryLOR(bin_t id) const
 	throw std::logic_error("getArbitraryLOR Unimplemented");
 }
 
-ProjectionProperties ProjectionData::getProjectionProperties(bin_t bin) const
+ProjectionProperties ProjectionData::getProjectionProperties(
+	bin_t bin) const
 {
 	auto [d1, d2] = getDetectorPair(bin);
+	if (!mr_scanner.isLORAllowed(d1, d2))
+	{
+		Vector3D vinf = {std::numeric_limits<float>::infinity(),
+		                 std::numeric_limits<float>::infinity(),
+		                 std::numeric_limits<float>::infinity()};
+		return ProjectionProperties{Line3D{vinf, vinf}, 0.f, 0.f, vinf, vinf};
+	}
 
 	const Line3D lor = getLOR(bin);
 

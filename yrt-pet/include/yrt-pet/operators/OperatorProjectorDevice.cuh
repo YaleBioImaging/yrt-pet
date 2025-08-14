@@ -40,6 +40,7 @@ public:
 protected:
 	explicit OperatorProjectorDevice(
 	    const OperatorProjectorParams& pr_projParams,
+	    const BinIteratorConstrained& pr_binIteratorConstrained,
 	    const cudaStream_t* pp_mainStream = nullptr,
 	    const cudaStream_t* pp_auxStream = nullptr);
 

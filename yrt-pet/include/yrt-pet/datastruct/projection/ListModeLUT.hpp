@@ -27,22 +27,28 @@ public:
 	timestamp_t getTimestamp(bin_t eventId) const override;
 	det_id_t getDetector1(bin_t eventId) const override;
 	det_id_t getDetector2(bin_t eventId) const override;
-	Line3D getNativeLORFromId(bin_t id) const;
-	bool hasTOF() const override;
-	float getTOFValue(bin_t id) const override;
+	Line3D getNativeLORFromId(bin_t eventId) const;
 	size_t count() const override;
 	bool isUniform() const override;
+	bool hasTOF() const override;
+	float getTOFValue(bin_t eventId) const override;
+	float getTOFValue_safe(bin_t eventId) const;
+	bool hasRandomsEstimates() const override;
+	float getRandomsEstimate(bin_t eventId) const override;
+	float getRandomsEstimate_safe(bin_t eventId) const;
 
 	void setTimestampOfEvent(bin_t eventId, timestamp_t ts);
 	void setDetectorId1OfEvent(bin_t eventId, det_id_t d1);
 	void setDetectorId2OfEvent(bin_t eventId, det_id_t d2);
 	void setDetectorIdsOfEvent(bin_t eventId, det_id_t d1, det_id_t d2);
 	void setTOFValueOfEvent(bin_t eventId, float tofValue);
+	void setRandomsEstimateOfEvent(bin_t eventId, float randoms);
 
 	Array1DBase<timestamp_t>* getTimestampArrayPtr() const;
 	Array1DBase<det_id_t>* getDetector1ArrayPtr() const;
 	Array1DBase<det_id_t>* getDetector2ArrayPtr() const;
 	Array1DBase<float>* getTOFArrayPtr() const;
+	Array1DBase<float>* getRandomsEstimatesArrayPtr() const;
 
 	virtual void writeToFile(const std::string& listMode_fname) const;
 
@@ -51,40 +57,40 @@ public:
 	bool isMemoryValid() const;
 
 protected:
-	explicit ListModeLUT(const Scanner& pr_scanner, bool p_flagTOF = false);
+	explicit ListModeLUT(const Scanner& pr_scanner);
 
 	// Parameters
 	// The detector Id of the events.
 	std::unique_ptr<Array1DBase<timestamp_t>> mp_timestamps;
 	std::unique_ptr<Array1DBase<det_id_t>> mp_detectorId1;
 	std::unique_ptr<Array1DBase<det_id_t>> mp_detectorId2;
-	bool m_flagTOF;
 	// Time-of-flight: difference of arrival time t2 - t1 in picoseconds
 	std::unique_ptr<Array1DBase<float>> mp_tof_ps;
+	// Randoms estimate for the given event in counts per second
+	std::unique_ptr<Array1DBase<float>> mp_randoms;
 };
 
 
 class ListModeLUTAlias : public ListModeLUT
 {
 public:
-	explicit ListModeLUTAlias(const Scanner& pr_scanner,
-	                          bool p_flagTOF = false);
+	explicit ListModeLUTAlias(const Scanner& pr_scanner, bool p_flagTOF = false,
+	                          bool p_flagRandoms = false);
 	~ListModeLUTAlias() override = default;
 	void bind(ListModeLUT* listMode);
-	void bind(Array1DBase<timestamp_t>* p_timestamps,
-	          Array1DBase<det_id_t>* p_detector_ids1,
-	          Array1DBase<det_id_t>* p_detector_ids2,
-	          Array1DBase<float>* p_tof_ps = nullptr);
+	void bind(const Array1DBase<timestamp_t>* pp_timestamps,
+	          const Array1DBase<det_id_t>* pp_detector_ids1,
+	          const Array1DBase<det_id_t>* pp_detector_ids2,
+	          const Array1DBase<float>* pp_tof_ps = nullptr,
+	          const Array1DBase<float>* pp_randoms = nullptr);
 #if BUILD_PYBIND11
 	void bind(
-	    pybind11::array_t<timestamp_t, pybind11::array::c_style>& p_timestamps,
-	    pybind11::array_t<det_id_t, pybind11::array::c_style>& p_detector_ids1,
-	    pybind11::array_t<det_id_t, pybind11::array::c_style>& p_detector_ids2);
-	void bind(
-	    pybind11::array_t<timestamp_t, pybind11::array::c_style>& p_timestamps,
-	    pybind11::array_t<det_id_t, pybind11::array::c_style>& p_detector_ids1,
-	    pybind11::array_t<det_id_t, pybind11::array::c_style>& p_detector_ids2,
-	    pybind11::array_t<float, pybind11::array::c_style>& p_tof_ps);
+	    pybind11::array_t<timestamp_t, pybind11::array::c_style>* pp_timestamps,
+	    pybind11::array_t<det_id_t, pybind11::array::c_style>* pp_detector_ids1,
+	    pybind11::array_t<det_id_t, pybind11::array::c_style>* pp_detector_ids2,
+	    pybind11::array_t<float, pybind11::array::c_style>* pp_tof_ps = nullptr,
+	    pybind11::array_t<float, pybind11::array::c_style>* pp_randoms =
+	        nullptr);
 #endif
 };
 
@@ -92,10 +98,11 @@ public:
 class ListModeLUTOwned : public ListModeLUT
 {
 public:
-	explicit ListModeLUTOwned(const Scanner& pr_scanner,
-	                          bool p_flagTOF = false);
+	explicit ListModeLUTOwned(const Scanner& pr_scanner, bool p_flagTOF = false,
+	                          bool p_flagRandoms = false);
 	ListModeLUTOwned(const Scanner& pr_scanner,
-	                 const std::string& listMode_fname, bool p_flagTOF = false);
+	                 const std::string& listMode_fname, bool p_flagTOF = false,
+	                 bool p_flagRandoms = false);
 	~ListModeLUTOwned() override = default;
 
 	void readFromFile(const std::string& listMode_fname);

@@ -27,15 +27,15 @@ void py_setup_lormotion(py::module& m)
 	c.def(py::init<size_t>(), py::arg("numFrames"));
 
 	c.def("getTransform", &LORMotion::getTransform, "frame"_a);
-	c.def("getStartingTimestamp", &LORMotion::getStartingTimestampSafe,
+	c.def("getStartingTimestamp", &LORMotion::getStartingTimestamp_safe,
 	      "frame"_a);
-	c.def("setTransform", &LORMotion::setTransformSafe, "frame"_a,
+	c.def("setTransform", &LORMotion::setTransform_safe, "frame"_a,
 	      "transform"_a);
-	c.def("setStartingTimestamp", &LORMotion::setStartingTimestampSafe,
+	c.def("setStartingTimestamp", &LORMotion::setStartingTimestamp_safe,
 	      "frame"_a, "timestamp"_a);
 	c.def("getDuration", &LORMotion::getDuration, "frame"_a);
-	c.def("getError", &LORMotion::getErrorSafe, "frame"_a);
-	c.def("setError", &LORMotion::setErrorSafe, "frame"_a, "error"_a);
+	c.def("getError", &LORMotion::getError_safe, "frame"_a);
+	c.def("setError", &LORMotion::setError_safe, "frame"_a, "error"_a);
 	c.def("getNumFrames", &LORMotion::getNumFrames);
 	c.def("readFromFile", &LORMotion::readFromFile, "filename"_a);
 	c.def("writeToFile", &LORMotion::writeToFile, "filename"_a);
@@ -234,7 +234,7 @@ float LORMotion::getTotalDuration() const
 	       getDuration(lastFrame);
 }
 
-timestamp_t LORMotion::getStartingTimestampSafe(frame_t frame) const
+timestamp_t LORMotion::getStartingTimestamp_safe(frame_t frame) const
 {
 	ASSERT_MSG(frame < static_cast<frame_t>(getNumFrames()),
 	           "Frame index out of range");
@@ -242,7 +242,7 @@ timestamp_t LORMotion::getStartingTimestampSafe(frame_t frame) const
 	return getStartingTimestamp(frame);
 }
 
-void LORMotion::setTransformSafe(frame_t frame, const transform_t& transform)
+void LORMotion::setTransform_safe(frame_t frame, const transform_t& transform)
 {
 	ASSERT_MSG(frame < static_cast<frame_t>(getNumFrames()),
 	           "Frame index out of range");
@@ -250,7 +250,7 @@ void LORMotion::setTransformSafe(frame_t frame, const transform_t& transform)
 	setTransform(frame, transform);
 }
 
-void LORMotion::setStartingTimestampSafe(frame_t frame, timestamp_t timestamp)
+void LORMotion::setStartingTimestamp_safe(frame_t frame, timestamp_t timestamp)
 {
 	ASSERT_MSG(frame < static_cast<frame_t>(getNumFrames()),
 	           "Frame index out of range");
@@ -258,7 +258,7 @@ void LORMotion::setStartingTimestampSafe(frame_t frame, timestamp_t timestamp)
 	setStartingTimestamp(frame, timestamp);
 }
 
-void LORMotion::setErrorSafe(frame_t frame, float error)
+void LORMotion::setError_safe(frame_t frame, float error)
 {
 	ASSERT_MSG(frame < static_cast<frame_t>(getNumFrames()),
 	           "Frame index out of range");
@@ -266,7 +266,7 @@ void LORMotion::setErrorSafe(frame_t frame, float error)
 	setError(frame, error);
 }
 
-float LORMotion::getErrorSafe(frame_t frame) const
+float LORMotion::getError_safe(frame_t frame) const
 {
 	ASSERT_MSG(frame < static_cast<frame_t>(getNumFrames()),
 	           "Frame index out of range");

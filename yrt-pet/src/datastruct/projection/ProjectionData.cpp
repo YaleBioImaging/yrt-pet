@@ -46,6 +46,7 @@ void py_setup_projectiondata(py::module& m)
 	c.def("getRandomsEstimate", &ProjectionData::getRandomsEstimate,
 	      py::arg("id"));
 	c.def("hasTOF", &ProjectionData::hasTOF);
+	c.def("hasRandomsEstimates", &ProjectionData::hasRandomsEstimates);
 	c.def("getTOFValue", &ProjectionData::getTOFValue, py::arg("id"));
 	c.def("hasMotion", &ProjectionData::hasMotion);
 	c.def("getNumFrames", &ProjectionData::getNumFrames);

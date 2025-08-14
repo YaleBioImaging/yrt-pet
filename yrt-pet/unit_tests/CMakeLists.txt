@@ -12,7 +12,7 @@ set(SOURCES_DATASTRUCT
     datastruct/test_Histogram3D.cpp
     datastruct/test_LORMotion.cpp
     datastruct/test_Image.cpp
-    datastruct/test_ListMode.cpp
+    datastruct/test_ListModeLUT.cpp
     datastruct/test_Scanner.cpp
     operators/test_TimeOfFlight.cpp
     utils/test_BinIterator.cpp)

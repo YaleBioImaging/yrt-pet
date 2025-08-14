@@ -34,7 +34,7 @@ int main(int argc, char** argv)
 		registry.registerArgument("num_threads", "Number of threads to use",
 		                          false, io::TypeOfArgument::INT, -1,
 		                          coreGroup);
-		registry.registerArgument("input", "Input listmdde file", true,
+		registry.registerArgument("input", "Input listmode file", true,
 		                          io::TypeOfArgument::STRING, "", inputGroup,
 		                          "i");
 		registry.registerArgument(
@@ -82,18 +82,20 @@ int main(int argc, char** argv)
 		std::cout << "Reading input data..." << std::endl;
 		std::unique_ptr<ProjectionData> dataInput = io::openProjectionData(
 		    input_fname, input_format, *scanner, config.getAllArguments());
+		const bool hasTOF = dataInput->hasTOF();
+		const bool hasRandoms = dataInput->hasRandomsEstimates();
 
 		std::cout << "Generating output ListModeLUT..." << std::endl;
 		auto lmOut =
-		    std::make_unique<ListModeLUTOwned>(*scanner, dataInput->hasTOF());
+		    std::make_unique<ListModeLUTOwned>(*scanner, hasTOF, hasRandoms);
 		const size_t numEvents = dataInput->count();
 		lmOut->allocate(numEvents);
 
 		ListModeLUTOwned* lmOut_ptr = lmOut.get();
 		const ProjectionData* dataInput_ptr = dataInput.get();
-		const bool hasTOF = dataInput->hasTOF();
+
 #pragma omp parallel for default(none), \
-    firstprivate(lmOut_ptr, dataInput_ptr, numEvents, hasTOF)
+    firstprivate(lmOut_ptr, dataInput_ptr, numEvents, hasTOF, hasRandoms)
 		for (bin_t evId = 0; evId < numEvents; evId++)
 		{
 			lmOut_ptr->setTimestampOfEvent(evId,
@@ -104,6 +106,11 @@ int main(int argc, char** argv)
 			{
 				lmOut_ptr->setTOFValueOfEvent(evId,
 				                              dataInput_ptr->getTOFValue(evId));
+			}
+			if (hasRandoms)
+			{
+				lmOut_ptr->setRandomsEstimateOfEvent(
+				    evId, dataInput_ptr->getRandomsEstimate(evId));
 			}
 		}
 

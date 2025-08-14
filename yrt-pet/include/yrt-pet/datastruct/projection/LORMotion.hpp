@@ -39,12 +39,12 @@ public:
 	void readFromFile(const std::string& filename);
 	void writeToFile(const std::string& filename) const;
 
-	// Safe getters and setters (for python)
-	timestamp_t getStartingTimestampSafe(frame_t frame) const;
-	void setTransformSafe(frame_t frame, const transform_t& transform);
-	void setStartingTimestampSafe(frame_t frame, timestamp_t timestamp);
-	void setErrorSafe(frame_t frame, float error);
-	float getErrorSafe(frame_t frame) const;
+	// Safe getters and setters (for Python)
+	timestamp_t getStartingTimestamp_safe(frame_t frame) const;
+	void setTransform_safe(frame_t frame, const transform_t& transform);
+	void setStartingTimestamp_safe(frame_t frame, timestamp_t timestamp);
+	void setError_safe(frame_t frame, float error);
+	float getError_safe(frame_t frame) const;
 
 protected:
 	void resize(size_t newSize);
@@ -53,4 +53,4 @@ private:
 	// Member data
 	std::vector<Record> m_records;
 };
-}
+}  // namespace yrt

@@ -20,6 +20,9 @@ public:
 	    const cudaStream_t* mainStream = nullptr,
 	    const cudaStream_t* auxStream = nullptr);
 
+	std::vector<ProjectionPropertyType>
+	    getProjectionPropertyTypes() const override;
+
 protected:
 	void applyAOnLoadedBatch(ImageDevice& img, ProjectionDataDevice& dat,
 	                         bool synchronize) override;

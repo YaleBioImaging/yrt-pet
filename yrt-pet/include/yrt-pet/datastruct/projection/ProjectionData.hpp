@@ -73,7 +73,7 @@ public:
 	virtual void
 	    getProjectionProperties(ProjectionProperties& props,
 	                            const ProjectionPropertyManager& propManager,
-	                            bin_t bin) const;
+	                            bin_t bin, int tid) const;
 
 	Line3D getLOR(bin_t bin) const;
 	virtual void clearProjections(float value);

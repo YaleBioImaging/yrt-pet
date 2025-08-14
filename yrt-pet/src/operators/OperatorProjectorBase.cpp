@@ -55,14 +55,27 @@ OperatorProjectorParams::OperatorProjectorParams(
 }
 
 OperatorProjectorBase::OperatorProjectorBase(
-    const OperatorProjectorParams& p_projParams)
-    : scanner(p_projParams.scanner), binIter(p_projParams.binIter)
+    const OperatorProjectorParams& p_projParams,
+    const BinIteratorConstrained& pr_binIteratorConstrained)
+    : scanner(p_projParams.scanner),
+      binIter(p_projParams.binIter),
+      binIterConstrained(pr_binIteratorConstrained)
 {
 }
 
-OperatorProjectorBase::OperatorProjectorBase(const Scanner& pr_scanner)
-    : scanner(pr_scanner), binIter{nullptr}
+OperatorProjectorBase::OperatorProjectorBase(
+    const Scanner& pr_scanner,
+    const BinIteratorConstrained& pr_binIteratorConstrained)
+    : scanner(pr_scanner),
+      binIter{nullptr},
+      binIterConstrained(pr_binIteratorConstrained)
 {
+}
+
+std::vector<ProjectionPropertyType>
+    OperatorProjectorBase::getProjectionPropertyTypes() const
+{
+	return {};
 }
 
 const BinIterator* OperatorProjectorBase::getBinIter() const

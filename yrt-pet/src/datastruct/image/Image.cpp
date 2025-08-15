@@ -569,6 +569,37 @@ void Image::applyThreshold(const ImageBase* maskImg, float threshold,
 	}
 }
 
+void Image::applyThresholdBroadcast(const ImageBase* maskImg, float threshold,
+						   float val_le_scale, float val_le_off,
+						   float val_gt_scale, float val_gt_off)
+{
+	const Image* maskImg_Image = dynamic_cast<const Image*>(maskImg);
+	ASSERT_MSG(maskImg_Image != nullptr, "Input image has the wrong type");
+
+	float* ptr = mp_array->getRawPointer();
+	const float* mask_ptr = maskImg_Image->getRawPointer();
+	const auto rank = this->getNumFrames();
+	const auto params = this->getParams();
+	const size_t J = params.nx * params.ny * params.nz;
+
+	for (int r = 0; r < rank; r++)
+	{
+		float* ptr_r = ptr + r * J;
+
+		for (size_t k = 0; k < J; k++)
+		{
+			if (mask_ptr[k] <= threshold)
+			{
+				ptr_r[k] = ptr_r[k] * val_le_scale + val_le_off;
+			}
+			else
+			{
+				ptr_r[k] = ptr_r[k] * val_gt_scale + val_gt_off;
+			}
+		}
+	}
+}
+
 void Image::updateEMThreshold(ImageBase* updateImg, const ImageBase* normImg,
                               float threshold)
 {
@@ -597,9 +628,9 @@ void Image::updateEMThreshold(ImageBase* updateImg, const ImageBase* normImg,
 }
 
 void Image::updateEMThresholdRankScaled(ImageBase* updateImg,
-                                 const ImageBase* normImg,
-                                 const float* c_r, int rank,
-                                 float threshold)
+                                        const ImageBase* normImg,
+                                        const float* c_r,
+                                        float threshold)
 {
 	Image* updateImg_Image = dynamic_cast<Image*>(updateImg);
 	const Image* normImg_Image = dynamic_cast<const Image*>(normImg);
@@ -609,24 +640,31 @@ void Image::updateEMThresholdRankScaled(ImageBase* updateImg,
 	const float* norm_ptr = normImg_Image->getRawPointer();
 
 	// number of voxels per rank slab (nz*ny*nx)
-	auto params = updateImg_Image->getParams();
+	auto params = this->getParams();
+	const auto rank = this->getNumFrames();
 	const size_t J = params.nx * params.ny * params.nz;
+	const float* norm_ptr_r = norm_ptr;
+
+	// Precompute to avoid divides inside the hot loop
+	std::vector<float> inv_c(rank), thr_r(rank);
+	for (int r = 0; r < rank; ++r) {
+		inv_c[r] = 1.0f / c_r[r];
+		thr_r[r] = threshold * inv_c[r];   // == threshold / c_r[r]
+	}
 
 // Parallelize across rank slabs (optional)
-//#pragma omp parallel for if (rank * J > (1u << 16))
-	for (int r = 0; r < rank; ++r) {
-		const float cr    = c_r[r];
-		const float invcr = 1.0f / cr;               // micro-opt
-		const float thr_r = threshold * invcr;       // s[j] > threshold/cr
-
-		const size_t base = r * J;
-		float* ptr_r = ptr + base;
-		const float* up_ptr_r  = up_ptr + base;
-
-		for (size_t j = 0; j < J; ++j) {
-			if (norm_ptr[j] > thr_r) {
-				// up / (sj * cr)  ==  (up/sj) * (1/cr)
-				ptr_r[j] *= up_ptr_r[j] / (norm_ptr[j] * cr);
+#pragma omp parallel for schedule(static)
+	for (size_t j = 0; j < J; j++) {
+		const float s = norm_ptr[j];
+#pragma omp simd
+	for (int r2 = 0; r2 < rank; r2++) {
+			// const float cr    = c_r[r];
+			// const float thr_r = threshold / c_r[r];       // s[j] > threshold/cr
+			// float* ptr_r = ptr + r * J;
+			// const float* up_ptr_r = up_ptr + r * J;
+			if (s > thr_r[r2]) {
+				const auto idx = r2 * J + j;
+				ptr[idx] *= (up_ptr[idx] * inv_c[r2]) / s;
 			}
 		}
 	}

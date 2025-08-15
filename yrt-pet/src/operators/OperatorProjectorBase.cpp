@@ -45,6 +45,27 @@ void py_setup_operatorprojectorparams(py::module& m)
 	    py::return_value_policy::reference_internal
 	);
 
+	c.def(
+	"setHBasisFromNumpy",
+	[](OperatorProjectorParams& self, py::buffer& np_data) {
+		py::buffer_info buffer = np_data.request();
+
+		if (buffer.ndim != 2)
+			throw std::invalid_argument("HBasis must be 2D (rank x time).");
+
+		if (buffer.format != py::format_descriptor<float>::format())
+			throw std::invalid_argument("HBasis must be float32.");
+
+		auto* ptr = reinterpret_cast<float*>(buffer.ptr);
+		const size_t rank = static_cast<size_t>(buffer.shape[0]);
+		const size_t T    = static_cast<size_t>(buffer.shape[1]);
+
+		self.HBasis.bind(ptr, rank, T);
+	},
+	py::arg("HBasis"),
+	py::keep_alive<1, 2>()  // keep the buffer owner alive
+);
+
 	c.def_readwrite("tofWidth_ps", &OperatorProjectorParams::tofWidth_ps);
 	c.def_readwrite("tofNumStd", &OperatorProjectorParams::tofNumStd);
 	c.def_readwrite("projPsf_fname", &OperatorProjectorParams::projPsf_fname);

@@ -67,9 +67,6 @@ public:
 	void updateImageInterpolate(const Vector3D& pt, float value);
 	void assignImageInterpolate(const Vector3D& pt, float value);
 
-	template <int Dimension>
-	float indexToPositionInDimension(int index) const;
-
 	void operationOnEachVoxel(const std::function<float(size_t)>& func);
 	// Note: The function given as argument should be able to be called in
 	// parallel without race conditions for different bins.

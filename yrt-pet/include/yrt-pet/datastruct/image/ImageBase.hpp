@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include "yrt-pet/geometry/Vector3D.hpp"
 #include "yrt-pet/operators/Variable.hpp"
 
 #include "nlohmann/json_fwd.hpp"
@@ -14,6 +15,7 @@
 
 namespace yrt
 {
+
 class ImageParams
 {
 public:
@@ -46,6 +48,11 @@ public:
 	bool isSameLengthsAs(const ImageParams& other) const;
 	bool isSameOffsetsAs(const ImageParams& other) const;
 	bool isSameAs(const ImageParams& other) const;
+
+	// Dimensions: 0: Z, 1: Y, 2: X
+	template <int Dimension>
+	float indexToPositionInDimension(int index) const;
+	Vector3D indexToPosition(int ix, int iy, int iz) const;
 
 	void copy(const ImageParams& in);
 	void setup();
@@ -90,4 +97,5 @@ public:
 private:
 	ImageParams m_params;
 };
-}
+
+}  // namespace yrt

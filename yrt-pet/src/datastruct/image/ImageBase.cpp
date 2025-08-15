@@ -4,6 +4,7 @@
  */
 
 #include "yrt-pet/datastruct/image/ImageBase.hpp"
+#include "yrt-pet/datastruct/image/ImageUtils.cuh"
 #include "yrt-pet/geometry/Constants.hpp"
 #include "yrt-pet/utils/Assert.hpp"
 #include "yrt-pet/utils/JSONUtils.hpp"
@@ -16,37 +17,18 @@ using json = nlohmann::json;
 #if BUILD_PYBIND11
 #include <pybind11/pybind11.h>
 namespace py = pybind11;
+using namespace py::literals;
 
 namespace yrt
 {
-
-void py_setup_imagebase(py::module& m)
-{
-	auto c = py::class_<ImageBase, Variable>(m, "ImageBase");
-
-	c.def("getParams", &ImageBase::getParams);
-	c.def("getRadius", &ImageBase::getRadius);
-	c.def("setParams", &ImageBase::setParams, py::arg("params"));
-
-	c.def("setValue", &ImageBase::setValue, py::arg("initValue"));
-	c.def("addFirstImageToSecond", &ImageBase::addFirstImageToSecond,
-		  py::arg("second"));
-	c.def("applyThreshold", &ImageBase::applyThreshold, py::arg("maskImage"),
-		  py::arg("threshold"), py::arg("val_le_scale"), py::arg("val_le_off"),
-		  py::arg("val_gt_scale"), py::arg("val_gt_off"));
-	c.def("writeToFile", &ImageBase::writeToFile, py::arg("filename"));
-	c.def("updateEMThreshold", &ImageBase::updateEMThreshold,
-		  py::arg("update_img"), py::arg("norm_img"), py::arg("threshold"));
-}
 
 void py_setup_imageparams(py::module& m)
 {
 	auto c = py::class_<ImageParams>(m, "ImageParams");
 	c.def(py::init<>());
 	c.def(py::init<int, int, int, float, float, float, float, float, float>(),
-		  py::arg("nx"), py::arg("ny"), py::arg("nz"), py::arg("length_x"),
-		  py::arg("length_y"), py::arg("length_z"), py::arg("offset_x") = 0.,
-		  py::arg("offset_y") = 0., py::arg("offset_z") = 0.);
+	      "nx"_a, "ny"_a, "nz"_a, "length_x"_a, "length_y"_a, "length_z"_a,
+	      "offset_x"_a = 0., "offset_y"_a = 0., "offset_z"_a = 0.);
 	c.def(py::init<std::string>());
 	c.def(py::init<const ImageParams&>());
 	c.def_readwrite("nx", &ImageParams::nx);
@@ -75,62 +57,90 @@ void py_setup_imageparams(py::module& m)
 	c.def("isSameOffsetsAs", &ImageParams::isSameOffsetsAs);
 	c.def("isSameLengthsAs", &ImageParams::isSameLengthsAs);
 	c.def("isSameDimensionsAs", &ImageParams::isSameDimensionsAs);
+	c.def("indexToPositionInZDimension",
+	      &ImageParams::indexToPositionInDimension<0>);
+	c.def("indexToPositionInYDimension",
+	      &ImageParams::indexToPositionInDimension<1>);
+	c.def("indexToPositionInXDimension",
+	      &ImageParams::indexToPositionInDimension<2>);
+	c.def("indexToPosition", &ImageParams::indexToPosition, "ix"_a, "iy"_a,
+	      "iz"_a);
 
 	c.def(py::pickle(
-		[](const ImageParams& g)
-		{
-			nlohmann::json geom_json;
-			g.writeToJSON(geom_json);
-			std::stringstream oss;
-			oss << geom_json;
-			return oss.str();
-		},
-		[](const std::string& s)
-		{
-			nlohmann::json geom_json;
-			geom_json = json::parse(s);
-			ImageParams g;
-			g.readFromJSON(geom_json);
-			return g;
-		}));
+	    [](const ImageParams& g)
+	    {
+		    nlohmann::json geom_json;
+		    g.writeToJSON(geom_json);
+		    std::stringstream oss;
+		    oss << geom_json;
+		    return oss.str();
+	    },
+	    [](const std::string& s)
+	    {
+		    nlohmann::json geom_json;
+		    geom_json = json::parse(s);
+		    ImageParams g;
+		    g.readFromJSON(geom_json);
+		    return g;
+	    }));
 }
+
+void py_setup_imagebase(py::module& m)
+{
+	auto c = py::class_<ImageBase, Variable>(m, "ImageBase");
+
+	c.def("getParams", &ImageBase::getParams);
+	c.def("getRadius", &ImageBase::getRadius);
+	c.def("setParams", &ImageBase::setParams, "params"_a);
+
+	c.def("setValue", &ImageBase::setValue, "initValue"_a);
+	c.def("addFirstImageToSecond", &ImageBase::addFirstImageToSecond,
+	      "second"_a);
+	c.def("applyThreshold", &ImageBase::applyThreshold, "maskImage"_a,
+	      "threshold"_a, "val_le_scale"_a, "val_le_off"_a, "val_gt_scale"_a,
+	      "val_gt_off"_a);
+	c.def("writeToFile", &ImageBase::writeToFile, "filename"_a);
+	c.def("updateEMThreshold", &ImageBase::updateEMThreshold, "update_img"_a,
+	      "norm_img"_a, "threshold"_a);
 }
+
+}  // namespace yrt
 #endif
 
 namespace yrt
 {
 ImageParams::ImageParams()
-	: nx(-1),
-	  ny(-1),
-	  nz(-1),
-	  length_x(-1.0f),
-	  length_y(-1.0f),
-	  length_z(-1.0f),
-	  vx(-1.0f),
-	  vy(-1.0f),
-	  vz(-1.0f),
-	  off_x(0.0f),
-	  off_y(0.0f),
-	  off_z(0.0f),
-	  fovRadius(-1.0f)
+    : nx(-1),
+      ny(-1),
+      nz(-1),
+      length_x(-1.0f),
+      length_y(-1.0f),
+      length_z(-1.0f),
+      vx(-1.0f),
+      vy(-1.0f),
+      vz(-1.0f),
+      off_x(0.0f),
+      off_y(0.0f),
+      off_z(0.0f),
+      fovRadius(-1.0f)
 {
 }
 
 ImageParams::ImageParams(int nxi, int nyi, int nzi, float length_xi,
-						 float length_yi, float length_zi, float offset_xi,
-						 float offset_yi, float offset_zi)
-	: nx(nxi),
-	  ny(nyi),
-	  nz(nzi),
-	  length_x(length_xi),
-	  length_y(length_yi),
-	  length_z(length_zi),
-	  vx(-1.0f),
-	  vy(-1.0f),
-	  vz(-1.0f),
-	  off_x(offset_xi),
-	  off_y(offset_yi),
-	  off_z(offset_zi)
+                         float length_yi, float length_zi, float offset_xi,
+                         float offset_yi, float offset_zi)
+    : nx(nxi),
+      ny(nyi),
+      nz(nzi),
+      length_x(length_xi),
+      length_y(length_yi),
+      length_z(length_zi),
+      vx(-1.0f),
+      vy(-1.0f),
+      vz(-1.0f),
+      off_x(offset_xi),
+      off_y(offset_yi),
+      off_z(offset_zi)
 {
 	setup();
 }
@@ -232,7 +242,7 @@ void ImageParams::completeDimInfo()
 	else if (*v < 0.0f && *length < 0.0f)
 	{
 		throw std::invalid_argument(
-			"Image parameters incorrectly defined in X");
+		    "Image parameters incorrectly defined in X");
 	}
 
 	// Force offset to be zero in case it is lower than 0.1 micrometers
@@ -241,7 +251,6 @@ void ImageParams::completeDimInfo()
 		*off = 0.0f;
 	}
 }
-
 
 void ImageParams::serialize(const std::string& fname) const
 {
@@ -292,28 +301,28 @@ void ImageParams::readFromJSON(json& j)
 	float version;
 
 	util::getParam<float>(
-		&j, &version, {"VERSION", "GCIMAGEPARAMS_FILE_VERSION"}, -1.0, true,
-		"Error in ImageParams file version : Version unspecified");
+	    &j, &version, {"VERSION", "GCIMAGEPARAMS_FILE_VERSION"}, -1.0, true,
+	    "Error in ImageParams file version : Version unspecified");
 
 	if (version > IMAGEPARAMS_FILE_VERSION + SMALL_FLT)
 	{
 		throw std::logic_error("Error in ImageParams file version : Wrong "
-							   "version. Current version: " +
-							   std::to_string(IMAGEPARAMS_FILE_VERSION) +
-							   ", Given version: " + std::to_string(version));
+		                       "version. Current version: " +
+		                       std::to_string(IMAGEPARAMS_FILE_VERSION) +
+		                       ", Given version: " + std::to_string(version));
 	}
 
 	util::getParam<int>(
-		&j, &nx, "nx", 0, true,
-		"Error in ImageParams file version : \'nx\' unspecified");
+	    &j, &nx, "nx", 0, true,
+	    "Error in ImageParams file version : \'nx\' unspecified");
 
 	util::getParam<int>(
-		&j, &ny, "ny", 0, true,
-		"Error in ImageParams file version : \'ny\' unspecified");
+	    &j, &ny, "ny", 0, true,
+	    "Error in ImageParams file version : \'ny\' unspecified");
 
 	util::getParam<int>(
-		&j, &nz, "nz", 0, true,
-		"Error in ImageParams file version : \'nz\' unspecified");
+	    &j, &nz, "nz", 0, true,
+	    "Error in ImageParams file version : \'nz\' unspecified");
 
 	util::getParam<float>(&j, &off_x, {"off_x", "offset_x"}, 0.0, false);
 
@@ -329,17 +338,17 @@ void ImageParams::readFromJSON(json& j)
 }
 
 float ImageParams::readLengthFromJSON(nlohmann::json& j,
-									  const std::string& length_name,
-									  const std::string& v_name, int n)
+                                      const std::string& length_name,
+                                      const std::string& v_name, int n)
 {
 	float given_v;
 	if (!util::getParam<float>(&j, &given_v, v_name, -1.0, false))
 	{
 		float length;
 		util::getParam<float>(&j, &length, length_name, -1.0, true,
-							  "You need to specify either the voxel size (vx, "
-							  "vy or vz) or the length (length_x, length_y or "
-							  "length_z) for all three dimensions.");
+		                      "You need to specify either the voxel size (vx, "
+		                      "vy or vz) or the length (length_x, length_y or "
+		                      "length_z) for all three dimensions.");
 		return length;
 	}
 	return given_v * n;
@@ -348,7 +357,7 @@ float ImageParams::readLengthFromJSON(nlohmann::json& j,
 bool ImageParams::isValid() const
 {
 	return nx > 0 && ny > 0 && nz > 0 && length_x > 0. && length_y > 0. &&
-		   length_z > 0.;
+	       length_z > 0.;
 }
 
 bool ImageParams::isSameDimensionsAs(const ImageParams& other) const
@@ -359,21 +368,62 @@ bool ImageParams::isSameDimensionsAs(const ImageParams& other) const
 bool ImageParams::isSameLengthsAs(const ImageParams& other) const
 {
 	return APPROX_EQ_THRESH(length_x, other.length_x, PositioningPrecision) &&
-		   APPROX_EQ_THRESH(length_y, other.length_y, PositioningPrecision) &&
-		   APPROX_EQ_THRESH(length_z, other.length_z, PositioningPrecision);
+	       APPROX_EQ_THRESH(length_y, other.length_y, PositioningPrecision) &&
+	       APPROX_EQ_THRESH(length_z, other.length_z, PositioningPrecision);
 }
 
 bool ImageParams::isSameOffsetsAs(const ImageParams& other) const
 {
 	return APPROX_EQ_THRESH(off_x, other.off_x, PositioningPrecision) &&
-		   APPROX_EQ_THRESH(off_y, other.off_y, PositioningPrecision) &&
-		   APPROX_EQ_THRESH(off_z, other.off_z, PositioningPrecision);
+	       APPROX_EQ_THRESH(off_y, other.off_y, PositioningPrecision) &&
+	       APPROX_EQ_THRESH(off_z, other.off_z, PositioningPrecision);
 }
 
 bool ImageParams::isSameAs(const ImageParams& other) const
 {
 	return isSameDimensionsAs(other) && isSameLengthsAs(other) &&
-		   isSameOffsetsAs(other);
+	       isSameOffsetsAs(other);
+}
+
+template <int Dimension>
+float ImageParams::indexToPositionInDimension(int index) const
+{
+	static_assert(Dimension >= 0 && Dimension < 3);
+	float voxelSize, length, offset;
+	if constexpr (Dimension == 0)
+	{
+		voxelSize = vz;
+		length = length_z;
+		offset = off_z;
+	}
+	else if constexpr (Dimension == 1)
+	{
+		voxelSize = vy;
+		length = length_y;
+		offset = off_y;
+	}
+	else if constexpr (Dimension == 2)
+	{
+		voxelSize = vx;
+		length = length_x;
+		offset = off_x;
+	}
+	else
+	{
+		throw std::runtime_error("Unknown error");
+	}
+	return util::indexToPosition(index, voxelSize, length, offset);
+}
+template float ImageParams::indexToPositionInDimension<0>(int index) const;
+template float ImageParams::indexToPositionInDimension<1>(int index) const;
+template float ImageParams::indexToPositionInDimension<2>(int index) const;
+
+Vector3D ImageParams::indexToPosition(int ix, int iy, int iz) const
+{
+	const float posZ = indexToPositionInDimension<0>(iz);
+	const float posY = indexToPositionInDimension<1>(iy);
+	const float posX = indexToPositionInDimension<2>(ix);
+	return Vector3D{posX, posY, posZ};
 }
 
 ImageBase::ImageBase(const ImageParams& imgParams) : m_params(imgParams) {}
@@ -397,4 +447,4 @@ float ImageBase::getRadius() const
 {
 	return m_params.fovRadius;
 }
-}
+}  // namespace yrt

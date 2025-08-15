@@ -106,6 +106,16 @@ size_t ProjectionList::getNumFrames() const
 	return mp_reference->getNumFrames();
 }
 
+float ProjectionList::getDurationOfFrame(frame_t frame) const
+{
+	return mp_reference->getDurationOfFrame(frame);
+}
+
+timestamp_t ProjectionList::getScanDuration() const
+{
+	return mp_reference->getScanDuration();
+}
+
 bool ProjectionList::isUniform() const
 {
 	return false;

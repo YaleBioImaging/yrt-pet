@@ -91,13 +91,16 @@ public:
 	virtual void applyThreshold(const ImageBase* mask_img, float threshold,
 	                            float val_le_scale, float val_le_off,
 	                            float val_gt_scale, float val_gt_off) = 0;
+	virtual void applyThresholdBroadcast(const ImageBase* mask_img, float threshold,
+							float val_le_scale, float val_le_off,
+							float val_gt_scale, float val_gt_off) = 0;
 	virtual void writeToFile(const std::string& image_fname) const = 0;
 	virtual void updateEMThreshold(ImageBase* update_img,
 	                               const ImageBase* norm_img,
 	                               float threshold) = 0;
 	virtual void updateEMThresholdRankScaled(ImageBase* updateImg,
 	                                         const ImageBase* normImg,
-	                                         const float* c_r, int rank,
+	                                         const float* c_r,
 	                                         float threshold) = 0;
 
 private:

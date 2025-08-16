@@ -91,6 +91,11 @@ void ProjectionList::clearProjections(float value)
 	mp_projs->fill(value);
 }
 
+frame_t ProjectionList::getDynamicFrame(bin_t id) const
+{
+	return mp_reference->getDynamicFrame(id);
+}
+
 frame_t ProjectionList::getMotionFrame(bin_t id) const
 {
 	return mp_reference->getMotionFrame(id);
@@ -99,6 +104,11 @@ frame_t ProjectionList::getMotionFrame(bin_t id) const
 timestamp_t ProjectionList::getTimestamp(bin_t id) const
 {
 	return mp_reference->getTimestamp(id);
+}
+
+size_t ProjectionList::getNumDynamicFrames() const
+{
+	return mp_reference->getNumDynamicFrames();
 }
 
 size_t ProjectionList::getNumMotionFrames() const
@@ -239,4 +249,5 @@ std::unique_ptr<BinIterator> ProjectionList::getBinIter(int numSubsets,
 {
 	return mp_reference->getBinIter(numSubsets, idxSubset);
 }
+
 }  // namespace yrt

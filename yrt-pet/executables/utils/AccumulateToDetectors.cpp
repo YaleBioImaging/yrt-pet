@@ -80,6 +80,7 @@ int main(int argc, char** argv)
 
 
 		globals::setNumThreads(numThreads);
+		numThreads = globals::getNumThreads();
 
 		auto scanner = std::make_unique<Scanner>(scanner_fname);
 
@@ -88,28 +89,55 @@ int main(int argc, char** argv)
 		std::unique_ptr<ProjectionData> dataInput = io::openProjectionData(
 		    input_fname, input_format, *scanner, config.getAllArguments());
 
-		auto map = std::make_unique<Array3D<float>>();
-		map->allocate(scanner->numDOI, scanner->numRings, scanner->detsPerRing);
-		map->fill(0.0f);
+		std::cout << "Initializing buffer for each thread..." << std::endl;
+		// Accumulated map for every thread
+		std::vector<std::unique_ptr<Array3D<float>>> maps;
+		maps.resize(numThreads);
 
+		for (auto threadId = 0; threadId < numThreads; threadId++)
+		{
+			auto map = std::make_unique<Array3D<float>>();
+			map->allocate(scanner->numDOI, scanner->numRings,
+			              scanner->detsPerRing);
+			map->fill(0.0f);
+			maps[threadId] = std::move(map);
+		}
+
+		std::cout << "Multi-threaded accumulation..." << std::endl;
 		const size_t numBins = dataInput->count();
 		const size_t numDets = scanner->getNumDets();
-		float* mapPtr = map->getRawPointer();
+		auto* mapsPtr = maps.data();
 		ProjectionData* dataInputPtr = dataInput.get();
 
 #pragma omp parallel for default(none) \
-    firstprivate(numBins, mapPtr, dataInputPtr, numDets)
+    firstprivate(numBins, mapsPtr, dataInputPtr, numDets, numThreads)
 		for (bin_t bin = 0; bin < numBins; ++bin)
 		{
+			int threadId = omp_get_thread_num();
 			const det_pair_t detPair = dataInputPtr->getDetectorPair(bin);
+			const float projValue = dataInputPtr->getProjectionValue(bin);
 			ASSERT_MSG(detPair.d1 < numDets && detPair.d2 < numDets,
 			           "Invalid Detector Id");
-#pragma omp atomic
-			mapPtr[detPair.d1]++;
-#pragma omp atomic
-			mapPtr[detPair.d2]++;
+			ASSERT(threadId < numThreads);
+			mapsPtr[threadId]->incrementFlat(detPair.d1, projValue);
+			mapsPtr[threadId]->incrementFlat(detPair.d2, projValue);
 		}
 
+		// Reduction (accumulate what each thread accumulated)
+		std::cout << "Reduction..." << std::endl;
+		auto map = std::make_unique<Array3D<float>>();
+		map->allocate(scanner->numDOI, scanner->numRings, scanner->detsPerRing);
+		map->fill(0.0f);
+		for (auto threadId = 0; threadId < numThreads; threadId++)
+		{
+			const Array3D<float>& currentMap = *maps[threadId];
+			for (det_id_t detId = 0; detId < numDets; detId++)
+			{
+				map->incrementFlat(detId, currentMap.getFlat(detId));
+			}
+		}
+
+		std::cout << "Saving into file..." << std::endl;
 		map->writeToFile(out_fname);
 		std::cout << "Done." << std::endl;
 

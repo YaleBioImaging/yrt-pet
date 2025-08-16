@@ -30,7 +30,7 @@ public:
 
 	OperatorProjectorParams(const BinIterator* pp_binIter,
 	                        const Scanner& pr_scanner,
-	                        ProjectorUpdaterType p_projectorUpdaterType = ProjectorUpdaterType::DEFAULT3D,
+	                        ProjectorUpdaterType p_projectorUpdaterType = DEFAULT3D,
 	                        float p_tofWidth_ps = 0.f, int p_tofNumStd = 0,
 	                        const std::string& pr_projPsf_fname = "",
 	                        int p_num_rays = 1);

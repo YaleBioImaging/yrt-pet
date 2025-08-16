@@ -33,8 +33,10 @@ public:
 	histo_bin_t getHistogramBin(bin_t id) const override;
 	std::unique_ptr<BinIterator> getBinIter(int numSubsets,
 	                                        int idxSubset) const override;
+	frame_t getDynamicFrame(bin_t id) const override;
 	frame_t getMotionFrame(bin_t id) const override;
 	timestamp_t getTimestamp(bin_t id) const override;
+	size_t getNumDynamicFrames() const override;
 	size_t getNumMotionFrames() const override;
 	float getDurationOfFrame(frame_t frame) const override;
 	timestamp_t getScanDuration() const override;

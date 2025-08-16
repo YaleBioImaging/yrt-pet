@@ -95,11 +95,13 @@ public:
 
 	const OperatorProjectorParams& getProjectorParams() const;
 	const Array2DAlias<float>& getHBasis() const;
+	bool getUpdateH() const;
 	OperatorProjectorParams::ProjectorUpdaterType getProjectorUpdaterType() const;
 	int getNumRays() const;
 	void setHBasis(const Array2DAlias<float>& HBasisAlias);
 	void setProjectorUpdaterType(OperatorProjectorParams::ProjectorUpdaterType projectorUpdaterType);
 	void setNumRays(int p_numRays);
+	void setUpdateH(bool p_updateH);
 
 
 	// ---------- Public members ----------
@@ -165,6 +167,7 @@ protected:
 	virtual const ProjectionData* getMLEMDataBuffer() = 0;
 	virtual ProjectionData* getMLEMDataTmpBuffer() = 0;
 	virtual Corrector& getCorrector() = 0;
+	virtual Array2DBase<float>* getHBasisTmpBuffer() = 0;
 
 	// Common methods
 	virtual void loadSubset(int p_subsetId, bool p_forRecon) = 0;

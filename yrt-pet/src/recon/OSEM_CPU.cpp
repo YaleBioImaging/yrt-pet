@@ -59,7 +59,7 @@ void OSEM_CPU::allocateForSensImgGen()
 
 	if (flagImagePSF)
 	{
-		mp_imageTmpPsf = std::make_unique<ImageOwned>(imageParamsSens);
+		mp_imageTmpPsf = std::make_unique<ImageOwned>(imageParams);
 		reinterpret_cast<ImageOwned*>(mp_imageTmpPsf.get())->allocate();
 	}
 }
@@ -99,7 +99,7 @@ void OSEM_CPU::setupOperatorsForSensImgGen()
 		throw std::runtime_error("Unknown error");
 	}
 
-	setupProjectorUpdater();
+	// setupProjectorUpdater();
 	mp_updater = std::make_unique<OSEMUpdater_CPU>(this);
 }
 
@@ -149,6 +149,11 @@ const ProjectionData* OSEM_CPU::getSensitivityBuffer() const
 ImageBase* OSEM_CPU::getMLEMImageBuffer()
 {
 	return outImage.get();
+}
+
+Array2DBase<float>* OSEM_CPU::getHBasisTmpBuffer()
+{
+	return mp_HNumerator.get();
 }
 
 ImageBase* OSEM_CPU::getImageTmpBuffer(TemporaryImageSpaceBufferType type)
@@ -240,7 +245,7 @@ void OSEM_CPU::allocateForRecon()
 	std::cout << "Applying threshold..." << std::endl;
 	auto applyMask = [this](const Image* maskImage) -> void
 	{
-		getMLEMImageBuffer()->applyThreshold(maskImage, 0.0f, 0.0f, 0.0f, 1.0f,
+		getMLEMImageBuffer()->applyThresholdBroadcast(maskImage, 0.0f, 0.0f, 0.0f, 1.0f,
 		                                     0.0f);
 	};
 	if (maskImage != nullptr)

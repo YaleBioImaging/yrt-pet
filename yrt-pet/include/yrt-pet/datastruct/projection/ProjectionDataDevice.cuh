@@ -54,11 +54,9 @@ public:
 	// the projection values buffer
 	void prepareBatchLORs(int subsetId, int batchId,
 	                      GPULaunchConfig launchConfig,
-	                      const BinIteratorConstrained& binIterConstrained,
-	                      bool flagSensOrRecon);
+	                      const BinIteratorConstrained& binIterConstrained);
 	void precomputeBatchLORs(int subsetId, int batchId,
-	                         const BinIteratorConstrained& binIterConstrained,
-	                         bool flagSensOrRecon);
+	                         const BinIteratorConstrained& binIterConstrained);
 	void loadPrecomputedLORsToDevice(GPULaunchConfig launchConfig);
 
 	// Gather the projection values from the reference ProjectionData object and

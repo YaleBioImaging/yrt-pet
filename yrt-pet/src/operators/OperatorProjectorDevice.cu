@@ -69,9 +69,9 @@ namespace yrt
 {
 OperatorProjectorDevice::OperatorProjectorDevice(
     const OperatorProjectorParams& pr_projParams,
-    const BinIteratorConstrained& pr_binIteratorConstrained,
+    const std::vector<Constraint*>& pr_constraints,
     const cudaStream_t* pp_mainStream, const cudaStream_t* pp_auxStream)
-	: OperatorProjectorBase{pr_projParams, pr_binIteratorConstrained},
+    : OperatorProjectorBase{pr_projParams, pr_constraints},
       DeviceSynchronized{pp_mainStream, pp_auxStream}
 {
 	if (pr_projParams.tofWidth_ps > 0.f)
@@ -165,7 +165,7 @@ void OperatorProjectorDevice::applyA(const Variable* in, Variable* out,
 		const size_t numBatches = dat_out->getBatchSetup(0).getNumBatches();
 
 		std::cout << "Loading batch 1/" << numBatches << "..." << std::endl;
-		dat_out->precomputeBatchLORs(0, 0, binIterConstrained, false);
+		dat_out->precomputeBatchLORs(0, 0, *m_binIterConstrained.get());
 		deviceDat_out->allocateForProjValues({getMainStream(), false});
 
 		for (size_t batchId = 0; batchId < numBatches; batchId++)
@@ -182,8 +182,8 @@ void OperatorProjectorDevice::applyA(const Variable* in, Variable* out,
 			{
 				std::cout << "Loading batch " << batchId + 2 << "/"
 				          << numBatches << "..." << std::endl;
-				dat_out->precomputeBatchLORs(0, batchId + 1, binIterConstrained,
-				                             false);
+				dat_out->precomputeBatchLORs(0, batchId + 1,
+				                             *m_binIterConstrained.get());
 			}
 			std::cout << "Transferring batch to Host..." << std::endl;
 			// This will force a necessary synchronization
@@ -261,7 +261,7 @@ void OperatorProjectorDevice::applyAH(const Variable* in, Variable* out,
 
 		std::cout << "Loading batch 1/" << numBatches << "..." << std::endl;
 		// FIXME-NOW
-		dat_in->precomputeBatchLORs(0, 0, binIterConstrained, false);
+		dat_in->precomputeBatchLORs(0, 0, *m_binIterConstrained.get());
 		deviceDat_in->allocateForProjValues({mainStream, false});
 
 		for (size_t batchId = 0; batchId < numBatches; batchId++)
@@ -287,8 +287,8 @@ void OperatorProjectorDevice::applyAH(const Variable* in, Variable* out,
 			{
 				std::cout << "Loading batch " << batchId + 2 << "/"
 				          << numBatches << "..." << std::endl;
-				dat_in->precomputeBatchLORs(0, batchId + 1, binIterConstrained,
-				                            false);
+				dat_in->precomputeBatchLORs(0, batchId + 1,
+				                            *m_binIterConstrained.get());
 			}
 		}
 

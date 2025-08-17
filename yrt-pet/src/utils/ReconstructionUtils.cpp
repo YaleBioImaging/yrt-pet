@@ -6,6 +6,7 @@
 #include "yrt-pet/utils/ReconstructionUtils.hpp"
 
 #include "yrt-pet/datastruct/IO.hpp"
+#include "yrt-pet/datastruct/projection/BinIteratorConstrained.hpp"
 #include "yrt-pet/datastruct/projection/Histogram3D.hpp"
 #include "yrt-pet/datastruct/projection/ListModeLUT.hpp"
 #include "yrt-pet/geometry/Matrix.hpp"
@@ -480,15 +481,21 @@ static void project(Image* img, ProjectionData* projData,
 	}
 
 	std::unique_ptr<OperatorProjectorBase> oper;
-	BinIteratorConstrained binIteratorConstrained;
-	binIteratorConstrained.addProjVariable(ProjectionPropertyType::LOR);
+	std::vector<std::unique_ptr<Constraint>> constraints;
+	projData->getScanner().collectConstraints(constraints);
+	std::vector<Constraint*> constraintsPtr;
+	for (auto& constraint : constraints)
+	{
+		constraintsPtr.emplace_back(constraint.get());
+	}
 	if (projectorType == OperatorProjector::SIDDON)
 	{
 		if (useGPU)
 		{
 #ifdef BUILD_CUDA
 			oper = std::make_unique<OperatorProjectorSiddon_GPU>(
-			    projParams, &mainStream->getStream(), &auxStream->getStream());
+			    projParams, constraintsPtr, &mainStream->getStream(),
+			    &auxStream->getStream());
 #else
 			throw std::runtime_error(
 			    "Siddon GPU projector not supported because "
@@ -497,8 +504,8 @@ static void project(Image* img, ProjectionData* projData,
 		}
 		else
 		{
-			oper = std::make_unique<OperatorProjectorSiddon>(
-			    projParams, binIteratorConstrained);
+			oper = std::make_unique<OperatorProjectorSiddon>(projParams,
+			                                                 constraintsPtr);
 		}
 	}
 	else if (projectorType == OperatorProjector::DD)
@@ -507,7 +514,8 @@ static void project(Image* img, ProjectionData* projData,
 		{
 #ifdef BUILD_CUDA
 			oper = std::make_unique<OperatorProjectorDD_GPU>(
-			    projParams, &mainStream->getStream(), &auxStream->getStream());
+			    projParams, constraintsPtr, &mainStream->getStream(),
+			    &auxStream->getStream());
 #else
 			throw std::runtime_error(
 			    "Distance-driven GPU projector not supported because "
@@ -516,17 +524,13 @@ static void project(Image* img, ProjectionData* projData,
 		}
 		else
 		{
-			oper = std::make_unique<OperatorProjectorDD>(
-			    projParams, binIteratorConstrained);
+			oper = std::make_unique<OperatorProjectorDD>(projParams,
+			                                             constraintsPtr);
 		}
 	}
 	else
 	{
 		throw std::runtime_error("Unknown error");
-	}
-	for (auto prop : oper->getProjectionPropertyTypes())
-	{
-		binIteratorConstrained.addProjVariable(prop);
 	}
 
 	if constexpr (IS_FWD)
@@ -546,7 +550,8 @@ void forwProject(const Scanner& scanner, const Image& img,
                  OperatorProjector::ProjectorType projectorType, bool useGPU)
 {
 	const auto binIter = projData.getBinIter(1, 0);
-	const OperatorProjectorParams projParams(binIter.get(), scanner);
+	OperatorProjectorParams projParams(scanner);
+	projParams.binIter = binIter.get();
 	forwProject(img, projData, projParams, projectorType, useGPU);
 }
 
@@ -554,7 +559,8 @@ void forwProject(const Scanner& scanner, const Image& img,
                  ProjectionData& projData, const BinIterator& binIterator,
                  OperatorProjector::ProjectorType projectorType, bool useGPU)
 {
-	const OperatorProjectorParams projParams(&binIterator, scanner);
+	OperatorProjectorParams projParams(scanner);
+	projParams.binIter = &binIterator;
 	forwProject(img, projData, projParams, projectorType, useGPU);
 }
 
@@ -571,7 +577,8 @@ void backProject(const Scanner& scanner, Image& img,
                  OperatorProjector::ProjectorType projectorType, bool useGPU)
 {
 	const auto binIter = projData.getBinIter(1, 0);
-	const OperatorProjectorParams projParams(binIter.get(), scanner);
+	OperatorProjectorParams projParams(scanner);
+	projParams.binIter = binIter.get();
 	backProject(img, projData, projParams, projectorType, useGPU);
 }
 
@@ -579,7 +586,8 @@ void backProject(const Scanner& scanner, Image& img,
                  const ProjectionData& projData, const BinIterator& binIterator,
                  OperatorProjector::ProjectorType projectorType, bool useGPU)
 {
-	const OperatorProjectorParams projParams(&binIterator, scanner);
+	OperatorProjectorParams projParams(scanner);
+	projParams.binIter = &binIterator;
 	backProject(img, projData, projParams, projectorType, useGPU);
 }
 

@@ -68,7 +68,8 @@ std::pair<size_t, size_t> OSEM_GPU::calculateMemProj(bool flagSensOrRecon,
 	return {memAvailable, memoryUsagePerLOR};
 }
 
-void OSEM_GPU::setupOperatorsForSensImgGen(OperatorProjectorParams& projParams)
+void OSEM_GPU::setupOperatorsForSensImgGen(
+    const OperatorProjectorParams& projParams)
 {
 	for (int subsetId = 0; subsetId < num_OSEM_subsets; subsetId++)
 	{
@@ -77,15 +78,25 @@ void OSEM_GPU::setupOperatorsForSensImgGen(OperatorProjectorParams& projParams)
 		    mp_corrector->getSensImgGenProjData()->getBinIter(num_OSEM_subsets,
 		                                                      subsetId));
 	}
+
+	std::vector<Constraint*> constraints;
+	if (m_constraints.size() > 0)
+	{
+		for (auto& constraint : m_constraints)
+		{
+			constraints.emplace_back(constraint.get());
+		}
+	}
+
 	if (projectorType == OperatorProjector::DD)
 	{
 		mp_projector = std::make_unique<OperatorProjectorDD_GPU>(
-		    projParams, getMainStream(), getAuxStream());
+			projParams, constraints, getMainStream(), getAuxStream());
 	}
 	else if (projectorType == OperatorProjector::SIDDON)
 	{
 		mp_projector = std::make_unique<OperatorProjectorSiddon_GPU>(
-		    projParams, getMainStream(), getAuxStream());
+		    projParams, constraints, getMainStream(), getAuxStream());
 	}
 	else
 	{
@@ -159,23 +170,26 @@ void OSEM_GPU::endSensImgGen()
 	mpd_tempSensDataInput = nullptr;
 }
 
-void OSEM_GPU::setupOperatorsForRecon()
+void OSEM_GPU::setupOperatorsForRecon(const OperatorProjectorParams& projParams)
 {
-	// Create ProjectorParams object
-	OperatorProjectorParams projParams(
-	    nullptr /* Will be set later at each subset loading */, scanner,
-	    flagProjTOF ? tofWidth_ps : 0.f, flagProjTOF ? tofNumStd : 0,
-	    flagProjPSF ? projPsf_fname : "", numRays);
+	std::vector<Constraint*> constraints;
+	if (m_constraints.size() > 0)
+	{
+		for (auto& constraint : m_constraints)
+		{
+			constraints.emplace_back(constraint.get());
+		}
+	}
 
 	if (projectorType == OperatorProjector::DD)
 	{
 		mp_projector = std::make_unique<OperatorProjectorDD_GPU>(
-		    projParams, getMainStream(), getAuxStream());
+			projParams, constraints, getMainStream(), getAuxStream());
 	}
 	else if (projectorType == OperatorProjector::SIDDON)
 	{
 		mp_projector = std::make_unique<OperatorProjectorSiddon_GPU>(
-		    projParams, getMainStream(), getAuxStream());
+		    projParams, constraints, getMainStream(), getAuxStream());
 	}
 	else
 	{

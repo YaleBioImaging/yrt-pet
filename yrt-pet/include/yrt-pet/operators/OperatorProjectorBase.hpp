@@ -62,8 +62,7 @@ public:
 
 	void setBinIter(const BinIterator* p_binIter);
 
-	virtual std::set<ProjectionPropertyType>
-	    getProjectionPropertyTypes() const;
+	virtual std::set<ProjectionPropertyType> getProjectionPropertyTypes() const;
 
 	void setupBinIteratorConstrained(
 		const std::set<ProjectionPropertyType>& pr_projPropertiesExtra);

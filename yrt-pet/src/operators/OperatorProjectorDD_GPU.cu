@@ -32,13 +32,14 @@ namespace yrt
 {
 
 OperatorProjectorDD_GPU::OperatorProjectorDD_GPU(
-    const OperatorProjectorParams& projParams, const cudaStream_t* mainStream,
+    const OperatorProjectorParams& projParams,
+    const std::vector<Constraint*>& constraints, const cudaStream_t* mainStream,
     const cudaStream_t* auxStream)
-    : OperatorProjectorDevice(projParams, mainStream, auxStream)
+    : OperatorProjectorDevice(projParams, constraints, mainStream, auxStream)
 {
 }
 
-std::vector<ProjectionPropertyType>
+std::set<ProjectionPropertyType>
     OperatorProjectorDD_GPU::getProjectionPropertyTypes() const
 {
 	return {ProjectionPropertyType::DetOrient};

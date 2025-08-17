@@ -31,13 +31,13 @@ void py_setup_projectiondatadevice(py::module& m)
 	c.def(
 	    "prepareBatchLORs",
 	    [](ProjectionDataDevice& self, size_t subsetId, size_t batchId,
-	       BinIteratorConstrained& binIterConstrained, bool flagSensOrRecon)
+	       BinIteratorConstrained& binIterConstrained)
 	    {
 		    self.prepareBatchLORs(subsetId, batchId, {nullptr, true},
-		                          binIterConstrained, flagSensOrRecon);
+		                          binIterConstrained);
 	    },
 	    "Load the LORs of a specific batch in a specific subset", "subsetId"_a,
-	    "batchId"_a, "binIteratorConstrained"_a, "flagSensOrRecon"_a);
+	    "batchId"_a, "binIteratorConstrained"_a);
 
 	c.def("loadProjValuesFromReference", [](ProjectionDataDeviceOwned& self)
 	      { self.loadProjValuesFromReference({nullptr, true}); });
@@ -205,9 +205,9 @@ void ProjectionDataDevice::createBatchSetups(size_t memoryUsagePerLOR,
 
 void ProjectionDataDevice::prepareBatchLORs(
     int subsetId, int batchId, GPULaunchConfig launchConfig,
-    const BinIteratorConstrained& binIterConstrained, bool flagSensOrRecon)
+    const BinIteratorConstrained& binIterConstrained)
 {
-	precomputeBatchLORs(subsetId, batchId, binIterConstrained, flagSensOrRecon);
+	precomputeBatchLORs(subsetId, batchId, binIterConstrained);
 
 	// Necessary bottleneck
 	// Must wait until previous operation using the device buffers is
@@ -224,21 +224,11 @@ void ProjectionDataDevice::prepareBatchLORs(
 }
 
 void ProjectionDataDevice::precomputeBatchLORs(
-    int subsetId, int batchId, const BinIteratorConstrained& binIterConstrained,
-    bool flagSensOrRecon)
+    int subsetId, int batchId, const BinIteratorConstrained& binIterConstrained)
 {
-	if (flagSensOrRecon)
-	{
-		mp_LORs->precomputeBatchLORs<true>(
-		    *mp_binIteratorList.at(subsetId), m_batchSetups.at(subsetId),
-		    subsetId, batchId, *mp_reference, binIterConstrained);
-	}
-	else
-	{
-		mp_LORs->precomputeBatchLORs<false>(
-		    *mp_binIteratorList.at(subsetId), m_batchSetups.at(subsetId),
-		    subsetId, batchId, *mp_reference, binIterConstrained);
-	}
+	mp_LORs->precomputeBatchLORs(
+		*mp_binIteratorList.at(subsetId), m_batchSetups.at(subsetId),
+		subsetId, batchId, *mp_reference, binIterConstrained);
 }
 
 void ProjectionDataDevice::loadPrecomputedLORsToDevice(

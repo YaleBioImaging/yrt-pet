@@ -32,7 +32,6 @@ LORsDevice::LORsDevice()
 	initializeDeviceArrays();
 }
 
-template <bool flagSensOrRecon>
 void LORsDevice::precomputeBatchLORs(
     const BinIterator& binIter, const GPUBatchSetup& batchSetup, int subsetId,
     int batchId, const ProjectionData& reference,
@@ -48,7 +47,7 @@ void LORsDevice::precomputeBatchLORs(
 		const int numThreads = globals::getNumThreads();
 		const size_t blockSize = std::ceil(batchSize / (float)numThreads);
 
-		auto projPropManager = binIterConstrained.getPropertyManagerRecon();
+		auto projPropManager = binIterConstrained.getPropertyManager();
 		m_elementSize = projPropManager.getElementSize();
 		auto projectionProperties = projPropManager.createDataArray(batchSize);
 		auto projectionPropertiesPtr = projectionProperties.get();
@@ -57,7 +56,8 @@ void LORsDevice::precomputeBatchLORs(
 		    batchSize * projPropManager.getElementSize());
 		char* tempBufferProjectionProperties_ptr =
 		    m_tempProjectionProperties.getPointer();
-		auto info = binIterConstrained.getConstraintManager().createDataArray(
+		auto consManager = binIterConstrained.getConstraintManager();
+		auto info = consManager.createDataArray(
 		    numThreads);
 		auto infoPtr = info.get();
 
@@ -67,28 +67,19 @@ void LORsDevice::precomputeBatchLORs(
 
 		util::parallel_do_indexed(
 		    numThreads,
-		    [offset, blockSize, batchSize, &binIterConstrained, projPropManager,
-		     binIter_ptr, &infoPtr, &tempBufferProjectionProperties_ptr,
-		     reference_ptr](int tid)
+		    [offset, blockSize, batchSize, &binIterConstrained, consManager,
+		     projPropManager, binIter_ptr, &infoPtr,
+		     &tempBufferProjectionProperties_ptr, reference_ptr](int tid)
 		    {
 			    for (size_t binIdx = tid * blockSize;
 			         binIdx < std::min({(tid + 1) * blockSize, batchSize});
 			         binIdx++)
 			    {
 				    bin_t bin = binIter_ptr->get(binIdx + offset);
-				    if constexpr (flagSensOrRecon)
-				    {
-					    binIterConstrained.collectInfoSens(
-					        bin, binIdx, *reference_ptr,
-					        tempBufferProjectionProperties_ptr, infoPtr);
-				    }
-				    else
-				    {
-					    binIterConstrained.collectInfoRecon(
-					        bin, binIdx, *reference_ptr,
-					        tempBufferProjectionProperties_ptr, infoPtr);
-				    }
-				    if (binIterConstrained.isValid(infoPtr))
+				    binIterConstrained.collectInfo(
+				        bin, binIdx, *reference_ptr,
+				        tempBufferProjectionProperties_ptr, infoPtr);
+				    if (binIterConstrained.isValid(consManager, infoPtr))
 				    {
 					    reference_ptr->getProjectionProperties(
 					        tempBufferProjectionProperties_ptr, projPropManager,
@@ -96,6 +87,8 @@ void LORsDevice::precomputeBatchLORs(
 				    }
 				    else
 				    {
+					    // Assume first 6 floats of ProjectionProperties are LOR
+					    // end-points
 					    float* ptr = projPropManager.getDataPtr<float>(
 					        tempBufferProjectionProperties_ptr, binIdx,
 					        ProjectionPropertyType::LOR);

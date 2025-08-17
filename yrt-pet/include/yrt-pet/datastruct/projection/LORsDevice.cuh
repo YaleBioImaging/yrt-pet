@@ -24,7 +24,6 @@ class LORsDevice
 public:
 	LORsDevice();
 
-	template <bool flagSensOrRecon>
 	void precomputeBatchLORs(const BinIterator& binIter,
 	                         const GPUBatchSetup& batchSetup, int subsetId,
 	                         int batchId, const ProjectionData& reference,

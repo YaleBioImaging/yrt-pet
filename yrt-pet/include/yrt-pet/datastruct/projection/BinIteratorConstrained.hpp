@@ -12,49 +12,11 @@
 
 #include "yrt-pet/datastruct/projection/ProjectionData.hpp"
 #include "yrt-pet/datastruct/projection/ProjectionProperties.hpp"
+#include "yrt-pet/datastruct/projection/Constraints.hpp"
 #include "yrt-pet/utils/Types.hpp"
 
 namespace yrt
 {
-
-using ConstraintParams = char*;
-using ConstraintManager = PropStructManager<ConstraintVariable>;
-
-class Constraint
-{
-public:
-	bool isValid(const ConstraintManager& manager,
-	             ConstraintParams& info) const;
-	virtual std::vector<ConstraintVariable> getVariables() const = 0;
-protected:
-	std::function<bool(const ConstraintManager&, ConstraintParams&)>
-	    m_constraintFcn;
-};
-
-class ConstraintAngleDiffIndex : public Constraint
-{
-public:
-	ConstraintAngleDiffIndex(int p_minAngleDiffIdx);
-	std::vector<ConstraintVariable> getVariables() const override;
-};
-class ConstraintAngleDiffDeg : public Constraint
-{
-public:
-	ConstraintAngleDiffDeg(float p_minAngleDiffDeg);
-	std::vector<ConstraintVariable> getVariables() const override;
-};
-class ConstraintBlockDiffIndex : public Constraint
-{
-public:
-	ConstraintBlockDiffIndex(int p_minBlockDiffIdx);
-	std::vector<ConstraintVariable> getVariables() const override;
-};
-class ConstraintDetectorMask : public Constraint
-{
-public:
-	ConstraintDetectorMask(const Scanner* scanner);
-	std::vector<ConstraintVariable> getVariables() const override;
-};
 
 class BinIteratorConstrained
 {

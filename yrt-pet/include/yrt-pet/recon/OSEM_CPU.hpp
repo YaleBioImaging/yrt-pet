@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include "yrt-pet/operators/OperatorProjectorBase.hpp"
 #include "yrt-pet/recon/Corrector_CPU.hpp"
 #include "yrt-pet/recon/OSEM.hpp"
 #include "yrt-pet/recon/OSEMUpdater_CPU.hpp"
@@ -29,7 +30,7 @@ public:
 protected:
 	// Sens Image generator driver
 	void setupOperatorsForSensImgGen(
-		OperatorProjectorParams& projParams) override;
+	    const OperatorProjectorParams& projParams) override;
 	void allocateForSensImgGen() override;
 	std::unique_ptr<Image>
 	    getLatestSensitivityImage(bool isLastSubset) override;
@@ -37,7 +38,8 @@ protected:
 	void endSensImgGen() override;
 
 	// Reconstruction driver
-	void setupOperatorsForRecon() override;
+	void setupOperatorsForRecon(
+	    const OperatorProjectorParams& projParams) override;
 	void allocateForRecon() override;
 	void endRecon() override;
 	void completeMLEMIteration() override;

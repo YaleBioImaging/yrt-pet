@@ -168,6 +168,17 @@ Line3D ProjectionData::getArbitraryLOR(bin_t id) const
 	throw std::logic_error("getArbitraryLOR Unimplemented");
 }
 
+std::set<ProjectionPropertyType>
+    ProjectionData::getProjectionPropertyTypes() const
+{
+	std::set<ProjectionPropertyType> projPropertyTypes;
+	if (hasTOF())
+	{
+		projPropertyTypes.insert(ProjectionPropertyType::TOF);
+	}
+	return projPropertyTypes;
+}
+
 void ProjectionData::getProjectionProperties(
     ProjectionProperties& props, const ProjectionPropertyManager& propManager,
     bin_t bin, int tid) const

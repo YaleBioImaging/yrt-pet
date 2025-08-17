@@ -17,6 +17,7 @@
 #include "yrt-pet/utils/Types.hpp"
 
 #include <algorithm>
+#include <vector>
 
 #if BUILD_PYBIND11
 #include <pybind11/pybind11.h>
@@ -29,12 +30,10 @@ void py_setup_operatorprojectorsiddon(py::module& m)
 	auto c = py::class_<OperatorProjectorSiddon, OperatorProjector>(
 	    m, "OperatorProjectorSiddon");
 
-	c.def(py::init<Scanner&, BinIteratorConstrained&, int, float, int>(),
-	      py::arg("scanner"), py::arg("binIteratorConstrained"),
-	      py::arg("num_rays") = 1, py::arg("tofWidth_ps") = 0.f,
-	      py::arg("tofNumStd") = -1);
-	c.def(py::init<const OperatorProjectorParams&, BinIteratorConstrained&>(),
-	      py::arg("projParams"), py::arg("binIteratorConstrained"));
+	// c.def(py::init<const OperatorProjectorParams&>(), py::arg("projParams"));
+	c.def(
+	    "__init__", [](const OperatorProjectorParams& params)
+	    { return OperatorProjectorSiddon(params, {}); }, py::arg("projParams"));
 
 	c.def_property("num_rays", &OperatorProjectorSiddon::getNumRays,
 	               &OperatorProjectorSiddon::setNumRays);
@@ -91,22 +90,12 @@ void py_setup_operatorprojectorsiddon(py::module& m)
 
 namespace yrt
 {
-OperatorProjectorSiddon::OperatorProjectorSiddon(
-    const Scanner& pr_scanner,
-    const BinIteratorConstrained& pr_binIteratorConstrained, int numRays,
-    float tofWidth_ps, int tofNumStd)
-    : OperatorProjector{pr_scanner, pr_binIteratorConstrained, tofWidth_ps,
-                        tofNumStd},
-      m_numRays(numRays)
-{
-	ASSERT(numRays >= 1);
-}
 
 OperatorProjectorSiddon::OperatorProjectorSiddon(
-    const OperatorProjectorParams& p_projParams,
-    const BinIteratorConstrained& pr_binIteratorConstrained)
-    : OperatorProjector(p_projParams, pr_binIteratorConstrained),
-      m_numRays(p_projParams.numRays)
+    const OperatorProjectorParams& pr_projParams,
+    const std::vector<Constraint*>& pr_constraints)
+    : OperatorProjector(pr_projParams, pr_constraints),
+      m_numRays(pr_projParams.numRays)
 {
 	if (m_numRays > 1)
 	{
@@ -130,24 +119,23 @@ void OperatorProjectorSiddon::setNumRays(int n)
 	m_numRays = n;
 }
 
-std::vector<ProjectionPropertyType>
+std::set<ProjectionPropertyType>
     OperatorProjectorSiddon::getProjectionPropertyTypes() const
 {
+	std::set<ProjectionPropertyType> projProperties;
+	projProperties.insert(ProjectionPropertyType::LOR);
 	if (m_numRays > 1)
 	{
-		return {ProjectionPropertyType::DetOrient};
+		projProperties.insert(ProjectionPropertyType::DetOrient);
 	}
-	else
-	{
-		return {};
-	}
+	return projProperties;
 }
 
 float OperatorProjectorSiddon::forwardProjection(
     const Image* img, const ProjectionProperties& projectionProperties,
     int tid) const
 {
-	auto projPropManager = binIterConstrained.getPropertyManagerRecon();
+	auto projPropManager = m_binIterConstrained->getPropertyManager();
 	det_orient_t detOrient;
 	if (m_numRays > 1)
 	{
@@ -172,7 +160,7 @@ void OperatorProjectorSiddon::backProjection(
     Image* img, const ProjectionProperties& projectionProperties,
     float projValue, int tid) const
 {
-	auto projPropManager = binIterConstrained.getPropertyManagerRecon();
+	auto projPropManager = m_binIterConstrained->getPropertyManager();
 	det_orient_t detOrient;
 	if (m_numRays > 1)
 	{

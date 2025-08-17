@@ -12,6 +12,7 @@
 #include "yrt-pet/datastruct/projection/ListMode.hpp"
 #include "yrt-pet/datastruct/projection/ProjectionData.hpp"
 #include "yrt-pet/datastruct/projection/ProjectionList.hpp"
+#include "yrt-pet/datastruct/projection/ProjectionProperties.hpp"
 #include "yrt-pet/datastruct/projection/UniformHistogram.hpp"
 #include "yrt-pet/datastruct/scanner/Scanner.hpp"
 #include "yrt-pet/operators/OperatorProjector.hpp"
@@ -145,7 +146,6 @@ OSEM::OSEM(const Scanner& pr_scanner)
       mp_dataInput(nullptr),
       mp_copiedSensitivityImage(nullptr)
 {
-	m_binIteratorConstrained.addProjVariable(ProjectionPropertyType::LOR);
 }
 
 void OSEM::generateSensitivityImages(const std::string& out_fname)
@@ -364,49 +364,71 @@ void OSEM::loadSubsetInternal(int p_subsetId, bool p_forRecon)
 
 void OSEM::collectConstraints()
 {
-	m_binIteratorConstrained.clearConstraints();
+	m_constraints.clear();
 	if (scanner.hasMask())
 	{
-		m_binIteratorConstrained.addConstraint<ConstraintDetectorMask>(&scanner);
+		m_constraints.emplace_back(
+		    std::make_unique<ConstraintDetectorMask>(&scanner));
 	}
 }
 
 void OSEM::initializeForSensImgGen()
 {
+	// Bin iterators
 	getBinIterators().clear();
 	getBinIterators().reserve(num_OSEM_subsets);
-	OperatorProjectorParams projParams(
-	    nullptr, scanner, 0.f, 0, flagProjPSF ? projPsf_fname : "", numRays);
 
-	setupOperatorsForSensImgGen(projParams);
-	allocateForSensImgGen();
-
+	// Bin iterator constraints
 	collectConstraints();
-	for (auto prop : mp_projector->getProjectionPropertyTypes())
+
+	// Projector
+	OperatorProjectorParams projParams(scanner);
+	if (flagProjPSF)
 	{
-		m_binIteratorConstrained.addProjVariable(prop);
+		projParams.projPsf_fname = projPsf_fname;
 	}
+	projParams.numRays = numRays;
+	projParams.numThreads = globals::getNumThreads();
+	setupOperatorsForSensImgGen(projParams);
+
+	// Allocate buffers
+	allocateForSensImgGen();
 }
 
 void OSEM::initializeForRecon()
 {
+	// Bin iterators
 	getBinIterators().clear();
 	getBinIterators().reserve(num_OSEM_subsets);
-
 	for (int subsetId = 0; subsetId < num_OSEM_subsets; subsetId++)
 	{
 		getBinIterators().push_back(
 		    getDataInput()->getBinIter(num_OSEM_subsets, subsetId));
 	}
 
-	setupOperatorsForRecon();
-	allocateForRecon();
-
+	// Bin iterator constraints
 	collectConstraints();
-	for (auto prop : mp_projector->getProjectionPropertyTypes())
+
+	// Projector
+	OperatorProjectorParams projParams(scanner);
+	if (flagProjPSF)
 	{
-		m_binIteratorConstrained.addProjVariable(prop);
+		projParams.projPsf_fname = projPsf_fname;
 	}
+	projParams.numRays = numRays;
+	projParams.numThreads = globals::getNumThreads();
+	if (flagProjTOF)
+	{
+		projParams.projPropertyTypesExtra = {ProjectionPropertyType::TOF};
+	}
+	if (m_constraints.size() > 0)
+	{
+		projParams.constraints = m_constraints;
+	}
+	setupOperatorsForRecon(projParams);
+
+	// Allocate buffers
+	allocateForRecon();
 }
 
 void OSEM::setSensitivityHistogram(const Histogram* pp_sensitivityData)
@@ -442,7 +464,6 @@ void OSEM::addTOF(float p_tofWidth_ps, int p_tofNumStd)
 	tofWidth_ps = p_tofWidth_ps;
 	tofNumStd = p_tofNumStd;
 	flagProjTOF = true;
-	m_binIteratorConstrained.addProjVariableRecon(ProjectionPropertyType::TOF);
 }
 
 void OSEM::addProjPSF(const std::string& pr_projPsf_fname)

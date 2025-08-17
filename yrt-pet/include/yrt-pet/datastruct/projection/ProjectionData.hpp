@@ -70,6 +70,7 @@ public:
 	virtual Line3D getArbitraryLOR(bin_t id) const;
 
 	// Helper functions
+	virtual std::set<ProjectionPropertyType> getProjectionPropertyTypes() const;
 	virtual void
 	    getProjectionProperties(ProjectionProperties& props,
 	                            const ProjectionPropertyManager& propManager,

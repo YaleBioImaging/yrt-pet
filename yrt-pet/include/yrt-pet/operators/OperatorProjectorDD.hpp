@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include "yrt-pet/datastruct/projection/BinIteratorConstrained.hpp"
 #include "yrt-pet/operators/OperatorProjector.hpp"
 
 #include <vector>
@@ -21,14 +22,8 @@ class OperatorProjectorDD : public OperatorProjector
 {
 public:
 	explicit OperatorProjectorDD(
-	    const Scanner& pr_scanner,
-	    const BinIteratorConstrained& pr_binIteratorConstrained,
-	    float tofWidth_ps = 0.0f, int tofNumStd = -1,
-	    const std::string& projPsf_fname = "");
-
-	explicit OperatorProjectorDD(
-	    const OperatorProjectorParams& p_projParams,
-	    const BinIteratorConstrained& pr_binIteratorConstrained);
+	    const OperatorProjectorParams& pr_projParams,
+	    const std::vector<Constraint*>& pr_constraints = {});
 
 	float forwardProjection(
 	    const Image* in_image, const Line3D& lor, const Vector3D& n1,
@@ -58,7 +53,7 @@ public:
 	                         const ProjectionPsfManager* psfManager = nullptr,
 	                         const float* psfKernel = nullptr);
 
-	std::vector<ProjectionPropertyType>
+	std::set<ProjectionPropertyType>
 	    getProjectionPropertyTypes() const override;
 
 private:

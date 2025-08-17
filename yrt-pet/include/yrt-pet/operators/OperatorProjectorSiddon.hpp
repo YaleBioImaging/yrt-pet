@@ -16,13 +16,8 @@ class OperatorProjectorSiddon : public OperatorProjector
 {
 public:
 	explicit OperatorProjectorSiddon(
-	    const Scanner& pr_scanner,
-	    const BinIteratorConstrained& pr_binIteratorConstrained,
-	    int numRays = 1, float tofWidth_ps = 0.0f, int tofNumStd = -1);
-
-	explicit OperatorProjectorSiddon(
-	    const OperatorProjectorParams& p_projParams,
-	    const BinIteratorConstrained& pr_binIteratorConstrained);
+	    const OperatorProjectorParams& pr_projParams,
+	    const std::vector<Constraint*>& pr_constraints = {});
 
 	float forwardProjection(const Image* img,
 	                        const ProjectionProperties& projectionProperties,
@@ -61,7 +56,7 @@ public:
 	int getNumRays() const;
 	void setNumRays(int n);
 
-	std::vector<ProjectionPropertyType>
+	std::set<ProjectionPropertyType>
 	    getProjectionPropertyTypes() const override;
 
 private:

@@ -26,7 +26,7 @@ void forwProjectToSparseHistogram(const Image& sourceImage,
 	    std::make_unique<UniformHistogram>(projector.getScanner());
 	const size_t numBins = uniformHistogram->count();
 	auto projPropManager =
-	    projector.getBinIterContrained()->getPropertyManagerRecon();
+	    projector.getBinIterContrained()->getPropertyManager();
 
 	SparseHistogram* sparseHistogram_ptr = &sparseHistogram;
 	const UniformHistogram* uniformHistogram_ptr = uniformHistogram.get();

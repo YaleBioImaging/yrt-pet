@@ -76,39 +76,38 @@ void OSEMUpdater_CPU::computeSensitivityImage(Image& destImage) const
 	const size_t blockSize = std::ceil(numBinsMax / (float)numThreads);
 
 	auto binIterConstrained = projector->getBinIterContrained();
-	auto info =
-	    binIterConstrained->getConstraintManager().createDataArray(numThreads);
-	auto infoPtr = info.get();
-	auto projPropManager = binIterConstrained->getPropertyManagerRecon();
-	auto projectionProperties = projPropManager.createDataArray(numThreads);
-	auto projectionPropertiesPtr = projectionProperties.get();
+	auto& projPropManager = binIterConstrained->getPropertyManager();
+	auto& consManager = binIterConstrained->getConstraintManager();
+	auto constraintParams = projector->getConstraintParams();
+	auto projectionProperties = projector->getProjectionProperties();
 
 	util::ProgressDisplayMultiThread progressDisplay(globals::getNumThreads(),
 	                                                 numBinsMax);
 
 	util::parallel_do_indexed(
 	    numThreads,
-	    [blockSize, numBinsMax, sensImgGenProjData, projPropManager,
-	     correctorPtr, projector, destImagePtr, &progressDisplay, &binIter,
-	     &binIterConstrained, &infoPtr, &projectionPropertiesPtr](int tid)
+	    [blockSize, numBinsMax, sensImgGenProjData, consManager,
+	     projPropManager, correctorPtr, projector, destImagePtr,
+	     &progressDisplay, &binIter, &binIterConstrained, &constraintParams,
+	     &projectionProperties](int tid)
 	    {
 		    for (size_t binIdx = tid * blockSize;
 		         binIdx < std::min((tid + 1) * blockSize, numBinsMax); binIdx++)
 		    {
 			    bin_t bin = binIter->get(binIdx);
-			    binIterConstrained->collectInfoSens(
-			        bin, tid, *sensImgGenProjData, projectionPropertiesPtr,
-			        infoPtr);
-			    if (binIterConstrained->isValid(infoPtr))
+			    binIterConstrained->collectInfo(bin, tid, *sensImgGenProjData,
+			                                    projectionProperties,
+			                                    constraintParams);
+			    if (binIterConstrained->isValid(consManager, constraintParams))
 			    {
 				    progressDisplay.progress(tid, 1);
 				    sensImgGenProjData->getProjectionProperties(
-				        projectionPropertiesPtr, projPropManager, bin, tid);
+				        projectionProperties, projPropManager, bin, tid);
 				    const float projValue =
 				        correctorPtr->getMultiplicativeCorrectionFactor(
 				            *sensImgGenProjData, bin);
-				    projector->backProjection(
-				        destImagePtr, projectionPropertiesPtr, projValue);
+				    projector->backProjection(destImagePtr,
+				                              projectionProperties, projValue);
 			    }
 		    }
 	    });
@@ -153,30 +152,30 @@ void OSEMUpdater_CPU::computeEMUpdateImage(const Image& inputImage,
 	}
 
 	int numThreads = globals::getNumThreads();
+
 	auto binIterConstrained = projector->getBinIterContrained();
-	auto info =
-	    binIterConstrained->getConstraintManager().createDataArray(numThreads);
-	auto infoPtr = info.get();
-	auto projPropManager = binIterConstrained->getPropertyManagerRecon();
-	auto projectionProperties = projPropManager.createDataArray(numThreads);
-	auto projectionPropertiesPtr = projectionProperties.get();
+	auto& projPropManager = binIterConstrained->getPropertyManager();
+	auto& consManager = binIterConstrained->getConstraintManager();
+	auto constraintParams = projector->getConstraintParams();
+	auto projectionProperties = projector->getProjectionProperties();
 
 	util::parallel_for_chunked(
 	    numBins, numThreads,
 	    [hasAdditiveCorrection, hasInVivoAttenuation, measurements,
-	     inputImagePtr, projPropManager, correctorPtr, projector, destImagePtr,
-	     &binIter, &binIterConstrained, &infoPtr,
-	     &projectionPropertiesPtr](int binIdx, int tid)
+	     inputImagePtr, consManager, projPropManager, correctorPtr, projector,
+	     destImagePtr, &binIter, &binIterConstrained, &constraintParams,
+	     &projectionProperties](int binIdx, int tid)
 	    {
 		    bin_t bin = binIter->get(binIdx);
-		    binIterConstrained->collectInfoSens(
-		        bin, tid, *measurements, projectionPropertiesPtr, infoPtr);
-		    if (binIterConstrained->isValid(infoPtr))
+		    binIterConstrained->collectInfo(bin, tid, *measurements,
+		                                    projectionProperties,
+		                                    constraintParams);
+		    if (binIterConstrained->isValid(consManager, constraintParams))
 		    {
 			    measurements->getProjectionProperties(
-			        projectionPropertiesPtr, projPropManager, bin, tid);
+			        projectionProperties, projPropManager, bin, tid);
 			    float update = projector->forwardProjection(
-			        inputImagePtr, projectionPropertiesPtr, tid);
+			        inputImagePtr, projectionProperties, tid);
 			    if (hasAdditiveCorrection)
 			    {
 				    update += correctorPtr->getAdditiveCorrectionFactor(bin);
@@ -191,10 +190,9 @@ void OSEMUpdater_CPU::computeEMUpdateImage(const Image& inputImage,
 				        measurements->getProjectionValue(bin);
 				    update = measurement / update;
 				    projector->backProjection(destImagePtr,
-				                              projectionPropertiesPtr, update);
+				                              projectionProperties, update);
 			    }
 		    }
 	    });
-
 }
 }  // namespace yrt

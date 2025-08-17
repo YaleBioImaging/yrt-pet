@@ -32,14 +32,8 @@ public:
 	};
 
 	explicit OperatorProjector(
-	    const Scanner& pr_scanner,
-	    const BinIteratorConstrained& pr_binIteratorConstrained,
-	    float tofWidth_ps = 0.0f, int tofNumStd = -1,
-	    const std::string& projPsf_fname = "");
-
-	explicit OperatorProjector(
-	    const OperatorProjectorParams& p_projParams,
-	    const BinIteratorConstrained& pr_binIteratorConstrained);
+	    const OperatorProjectorParams& pr_projParams,
+	    const std::vector<Constraint*>& pr_constraints = {});
 
 	// Virtual functions
 	virtual float forwardProjection(

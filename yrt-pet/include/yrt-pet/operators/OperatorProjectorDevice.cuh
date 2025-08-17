@@ -66,6 +66,9 @@ private:
 	// Time of flight
 	std::unique_ptr<DeviceObject<TimeOfFlightHelper>> mp_tofHelper;
 
+	// Bin iterator constraints
+	std::unique_ptr<DeviceObject<BinIteratorConstrained>> mp_binIteratorConstrained;
+
 	// For attenuation correction
 	std::unique_ptr<ImageDeviceOwned> mp_attImageDevice;
 	// For attenuation correction

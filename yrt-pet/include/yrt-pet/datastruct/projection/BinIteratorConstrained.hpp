@@ -23,89 +23,70 @@ using ConstraintManager = PropStructManager<ConstraintVariable>;
 class Constraint
 {
 public:
-	bool isValid(ConstraintParams& info) const;
+	bool isValid(const ConstraintManager& manager,
+	             ConstraintParams& info) const;
 	virtual std::vector<ConstraintVariable> getVariables() const = 0;
-
 protected:
-	std::function<bool(ConstraintParams&)> m_constraintFcn;
+	std::function<bool(const ConstraintManager&, ConstraintParams&)>
+	    m_constraintFcn;
 };
 
 class ConstraintAngleDiffIndex : public Constraint
 {
 public:
-	ConstraintAngleDiffIndex(const ConstraintManager& p_manager,
-	                         int p_minAngleDiffIdx);
+	ConstraintAngleDiffIndex(int p_minAngleDiffIdx);
 	std::vector<ConstraintVariable> getVariables() const override;
 };
 class ConstraintAngleDiffDeg : public Constraint
 {
 public:
-	ConstraintAngleDiffDeg(const ConstraintManager& p_manager,
-	                       float p_minAngleDiffDeg);
+	ConstraintAngleDiffDeg(float p_minAngleDiffDeg);
 	std::vector<ConstraintVariable> getVariables() const override;
 };
 class ConstraintBlockDiffIndex : public Constraint
 {
 public:
-	ConstraintBlockDiffIndex(const ConstraintManager& p_manager,
-	                         int p_minBlockDiffIdx);
+	ConstraintBlockDiffIndex(int p_minBlockDiffIdx);
 	std::vector<ConstraintVariable> getVariables() const override;
 };
 class ConstraintDetectorMask : public Constraint
 {
 public:
-	ConstraintDetectorMask(const ConstraintManager& p_manager,
-	                       const Scanner* scanner);
+	ConstraintDetectorMask(const Scanner* scanner);
 	std::vector<ConstraintVariable> getVariables() const override;
 };
 
 class BinIteratorConstrained
 {
 public:
-	BinIteratorConstrained();
+	BinIteratorConstrained(
+	    const std::vector<Constraint*>& constraints,
+	    const std::set<ProjectionPropertyType>& projProperties);
 
-	template <typename C, typename... Args>
-	void addConstraint(Args... args);
 	void clearConstraints();
 
-	void addProjVariable(ProjectionPropertyType prop);
-	void addProjVariableSens(ProjectionPropertyType prop);
-	void addProjVariableRecon(ProjectionPropertyType prop);
 	void setupManagers();
 
-	std::set<ConstraintVariable> collectConstraintVariables();
-	void collectInfoSens(bin_t bin, int tid, const ProjectionData& projData,
-	                     ProjectionProperties& projProps,
-	                     ConstraintParams& consInfo) const;
-	void collectInfoRecon(bin_t bin, int tid,
-	                      const ProjectionData& projData,
-	                      ProjectionProperties& projProps,
-	                      ConstraintParams& consInfo) const;
-	bool isValid(ConstraintParams& info) const;
+	void collectConstraintVariables();
+	void collectInfo(bin_t bin, int tid, const ProjectionData& projData,
+	                 ProjectionProperties& projProps,
+	                 ConstraintParams& consInfo) const;
+	bool isValid(const ConstraintManager& manager,
+	             ConstraintParams& info) const;
 
 	const ConstraintManager& getConstraintManager() const;
-	const ProjectionPropertyManager& getPropertyManagerSens() const;
-	const ProjectionPropertyManager& getPropertyManagerRecon() const;
+	const ProjectionPropertyManager& getPropertyManager() const;
 
 private:
-	const BinIterator* m_binIterBase;
-	std::vector<std::unique_ptr<Constraint>> m_constraints;
+	std::vector<Constraint*> m_constraints;
 
 	// Variables for constraints, sensitivity image, reconstruction
 	std::set<ConstraintVariable> m_consVariables;
 	std::unique_ptr<ConstraintManager> m_constraintManager = nullptr;
 
-	std::set<ProjectionPropertyType> m_projVariablesSens;
-	std::unique_ptr<ProjectionPropertyManager> m_propManagerSens = nullptr;
+	std::set<ProjectionPropertyType> m_projVariables;
+	std::unique_ptr<ProjectionPropertyManager> m_propManager = nullptr;
 
-	std::set<ProjectionPropertyType> m_projVariablesRecon;
-	std::unique_ptr<ProjectionPropertyManager> m_propManagerRecon = nullptr;
-
-	void collectInfo(bin_t bin, int tid, const ProjectionData& projData,
-	                 ProjectionPropertyManager& projPropManager,
-	                 const std::set<ProjectionPropertyType>& projVariables,
-	                 ProjectionProperties& projProps,
-	                 ConstraintParams& consInfo) const;
 };
 
 }  // namespace yrt

@@ -5,8 +5,8 @@
 
 #pragma once
 
-#include "yrt-pet/datastruct/projection/BinIteratorConstrained.hpp"
 #include "yrt-pet/datastruct/image/Image.hpp"
+#include "yrt-pet/datastruct/projection/ProjectionProperties.hpp"
 #include "yrt-pet/datastruct/projection/UniformHistogram.hpp"
 #include "yrt-pet/operators/OperatorProjector.hpp"
 #include "yrt-pet/recon/Corrector.hpp"
@@ -136,13 +136,12 @@ protected:
 
 	std::vector<std::unique_ptr<BinIterator>> m_binIterators;
 	std::vector<std::unique_ptr<Constraint>> m_constraints;
-	BinIteratorConstrained m_binIteratorConstrained;
 
 	// ---------- Virtual pure functions ----------
 
 	// Sens Image generator driver
-	virtual void
-	    setupOperatorsForSensImgGen(OperatorProjectorParams& projParams) = 0;
+	virtual void setupOperatorsForSensImgGen(
+	    const OperatorProjectorParams& projParams) = 0;
 	virtual void allocateForSensImgGen() = 0;
 	virtual std::unique_ptr<Image>
 	    getLatestSensitivityImage(bool isLastSubset) = 0;
@@ -150,7 +149,8 @@ protected:
 	virtual void endSensImgGen() = 0;
 
 	// Reconstruction driver
-	virtual void setupOperatorsForRecon() = 0;
+	virtual void
+	    setupOperatorsForRecon(const OperatorProjectorParams& projParams) = 0;
 	virtual void allocateForRecon() = 0;
 	virtual void computeEMUpdateImage(const ImageBase& inputImage,
 	                                  ImageBase& destImage) = 0;

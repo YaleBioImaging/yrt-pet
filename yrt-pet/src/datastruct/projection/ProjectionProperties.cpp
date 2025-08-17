@@ -63,31 +63,6 @@ std::unique_ptr<char>
 }
 
 template <typename Enum>
-template <typename T>
-T* PropStructManager<Enum>::getDataPtr(char* data, int idx, Enum prop) const
-{
-	return reinterpret_cast<T*>(data + elementSize * idx +
-	                            offsetMap[static_cast<int>(prop)]);
-}
-
-template <typename Enum>
-template <typename T>
-void PropStructManager<Enum>::setDataValue(char* data, int idx, Enum prop,
-                                           T& value) const
-{
-	T* ptr = getDataPtr<T>(data, idx, prop);
-	*ptr = value;
-}
-
-template <typename Enum>
-template <typename T>
-T& PropStructManager<Enum>::getDataValue(char* data, int idx, Enum prop) const
-{
-	T* ptr = getDataPtr<T>(data, idx, prop);
-	return *ptr;
-}
-
-template <typename Enum>
 unsigned int PropStructManager<Enum>::getElementSize() const
 {
 	return elementSize;
@@ -121,8 +96,7 @@ std::ostream& operator<<(std::ostream& oss, const PropStructManager<Enum>& t)
 		if (t.getTypeID() & (1 << i))
 		{
 			auto var = static_cast<Enum>(i);
-			oss << info.at(var).first << ": "
-			    << info.at(var).second
+			oss << info.at(var).first << ": " << info.at(var).second
 			    << " (offset: " << t.getOffset(var) << "), ";
 		}
 	}
@@ -132,71 +106,5 @@ std::ostream& operator<<(std::ostream& oss, const PropStructManager<Enum>& t)
 
 template class PropStructManager<ProjectionPropertyType>;
 template class PropStructManager<ConstraintVariable>;
-
-template float* PropStructManager<ProjectionPropertyType>::getDataPtr(
-    char* data, int idx, ProjectionPropertyType prop) const;
-template Line3D* PropStructManager<ProjectionPropertyType>::getDataPtr(
-    char* data, int idx, ProjectionPropertyType prop) const;
-template det_orient_t* PropStructManager<ProjectionPropertyType>::getDataPtr(
-    char* data, int idx, ProjectionPropertyType prop) const;
-template det_pair_t* PropStructManager<ProjectionPropertyType>::getDataPtr(
-    char* data, int idx, ProjectionPropertyType prop) const;
-template frame_t* PropStructManager<ProjectionPropertyType>::getDataPtr(
-    char* data, int idx, ProjectionPropertyType prop) const;
-
-template void PropStructManager<ProjectionPropertyType>::setDataValue(
-    char* data, int idx, ProjectionPropertyType prop, float&) const;
-template void PropStructManager<ProjectionPropertyType>::setDataValue(
-    char* data, int idx, ProjectionPropertyType prop, Line3D&) const;
-template void PropStructManager<ProjectionPropertyType>::setDataValue(
-    char* data, int idx, ProjectionPropertyType prop, det_orient_t&) const;
-template void PropStructManager<ProjectionPropertyType>::setDataValue(
-    char* data, int idx, ProjectionPropertyType prop, det_pair_t&) const;
-template void PropStructManager<ProjectionPropertyType>::setDataValue(
-    char* data, int idx, ProjectionPropertyType prop, frame_t&) const;
-
-template float& PropStructManager<ProjectionPropertyType>::getDataValue(
-    char* data, int idx, ProjectionPropertyType prop) const;
-template Line3D& PropStructManager<ProjectionPropertyType>::getDataValue(
-    char* data, int idx, ProjectionPropertyType prop) const;
-template det_orient_t& PropStructManager<ProjectionPropertyType>::getDataValue(
-    char* data, int idx, ProjectionPropertyType prop) const;
-template det_pair_t& PropStructManager<ProjectionPropertyType>::getDataValue(
-    char* data, int idx, ProjectionPropertyType prop) const;
-template frame_t& PropStructManager<ProjectionPropertyType>::getDataValue(
-    char* data, int idx, ProjectionPropertyType prop) const;
-
-template float* PropStructManager<ConstraintVariable>::getDataPtr(
-    char* data, int idx, ConstraintVariable prop) const;
-template Line3D* PropStructManager<ConstraintVariable>::getDataPtr(
-    char* data, int idx, ConstraintVariable prop) const;
-template det_orient_t* PropStructManager<ConstraintVariable>::getDataPtr(
-    char* data, int idx, ConstraintVariable prop) const;
-template det_pair_t* PropStructManager<ConstraintVariable>::getDataPtr(
-    char* data, int idx, ConstraintVariable prop) const;
-template frame_t* PropStructManager<ConstraintVariable>::getDataPtr(
-    char* data, int idx, ConstraintVariable prop) const;
-
-template void PropStructManager<ConstraintVariable>::setDataValue(
-    char* data, int idx, ConstraintVariable prop, float&) const;
-template void PropStructManager<ConstraintVariable>::setDataValue(
-    char* data, int idx, ConstraintVariable prop, Line3D&) const;
-template void PropStructManager<ConstraintVariable>::setDataValue(
-    char* data, int idx, ConstraintVariable prop, det_orient_t&) const;
-template void PropStructManager<ConstraintVariable>::setDataValue(
-    char* data, int idx, ConstraintVariable prop, det_pair_t&) const;
-template void PropStructManager<ConstraintVariable>::setDataValue(
-    char* data, int idx, ConstraintVariable prop, frame_t&) const;
-
-template float& PropStructManager<ConstraintVariable>::getDataValue(
-    char* data, int idx, ConstraintVariable prop) const;
-template Line3D& PropStructManager<ConstraintVariable>::getDataValue(
-    char* data, int idx, ConstraintVariable prop) const;
-template det_orient_t& PropStructManager<ConstraintVariable>::getDataValue(
-    char* data, int idx, ConstraintVariable prop) const;
-template det_pair_t& PropStructManager<ConstraintVariable>::getDataValue(
-    char* data, int idx, ConstraintVariable prop) const;
-template frame_t& PropStructManager<ConstraintVariable>::getDataValue(
-    char* data, int idx, ConstraintVariable prop) const;
 
 }  // namespace yrt

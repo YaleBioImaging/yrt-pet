@@ -70,9 +70,17 @@ namespace yrt
 OperatorProjectorDevice::OperatorProjectorDevice(
     const OperatorProjectorParams& pr_projParams,
     const std::vector<Constraint*>& pr_constraints,
-    const cudaStream_t* pp_mainStream, const cudaStream_t* pp_auxStream)
+    const cudaStream_t* pp_mainStream, const cudaStream_t* pp_auxStream,
+    const size_t p_memAvailBytes)
     : OperatorProjectorBase{pr_projParams, pr_constraints},
-      DeviceSynchronized{pp_mainStream, pp_auxStream}
+      DeviceSynchronized{pp_mainStream, pp_auxStream},
+      m_memAvailBytes(
+          p_memAvailBytes == 0 ?
+              static_cast<size_t>(
+                  static_cast<float>(globals::getDeviceInfo(false)) *
+                  DefaultMemoryShare) :
+              p_memAvailBytes),
+      m_batchSize(0ull)
 {
 	if (pr_projParams.tofWidth_ps > 0.f)
 	{
@@ -82,8 +90,11 @@ OperatorProjectorDevice::OperatorProjectorDevice(
 	{
 		setupProjPsfManager(pr_projParams.projPsf_fname);
 	}
-
-	m_batchSize = 0ull;
+	std::set<ProjectionPropertyType> projPropertyTypes =
+	    m_binIterConstrained->getProjPropertyTypes();
+	mp_projPropManager =
+	    std::make_unique<DeviceObject<ProjectionPropertyManager>>(
+	        projPropertyTypes);
 }
 
 void OperatorProjectorDevice::applyA(const Variable* in, Variable* out)
@@ -141,7 +152,9 @@ void OperatorProjectorDevice::applyA(const Variable* in, Variable* out,
 		std::vector<const BinIterator*> binIterators;
 		binIterators.push_back(binIter);  // We project only one subset
 		deviceDat_out = std::make_unique<ProjectionDataDeviceOwned>(
-		    getScanner(), hostDat_out, binIterators);
+		    getScanner(), hostDat_out, binIterators,
+		    m_binIterConstrained->getPropertyManager().getElementSize(),
+		    m_memAvailBytes);
 
 		// Use owned ProjectionDataDevice
 		dat_out = deviceDat_out.get();
@@ -236,7 +249,9 @@ void OperatorProjectorDevice::applyAH(const Variable* in, Variable* out,
 		std::vector<const BinIterator*> binIterators;
 		binIterators.push_back(binIter);  // We project only one subset
 		deviceDat_in = std::make_unique<ProjectionDataDeviceOwned>(
-		    getScanner(), hostDat_in, binIterators);
+		    getScanner(), hostDat_in, binIterators,
+		    m_binIterConstrained->getPropertyManager().getElementSize(),
+		    m_memAvailBytes);
 
 		// Use owned ProjectionDataDevice
 		dat_in = deviceDat_in.get();
@@ -352,6 +367,16 @@ const TimeOfFlightHelper*
 	if (mp_tofHelper != nullptr)
 	{
 		return mp_tofHelper->getDevicePointer();
+	}
+	return nullptr;
+}
+
+const ProjectionPropertyManager*
+    OperatorProjectorDevice::getProjPropManagerDevicePointer() const
+{
+	if (mp_projPropManager != nullptr)
+	{
+		return mp_projPropManager->getDevicePointer();
 	}
 	return nullptr;
 }

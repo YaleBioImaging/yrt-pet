@@ -38,6 +38,7 @@ public:
 
 	const ConstraintManager& getConstraintManager() const;
 	const ProjectionPropertyManager& getPropertyManager() const;
+	const std::set<ProjectionPropertyType>& getProjPropertyTypes() const;
 
 private:
 	std::vector<Constraint*> m_constraints;

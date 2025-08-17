@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include "yrt-pet/datastruct/projection/ProjectionProperties.hpp"
 #include "yrt-pet/operators/OperatorProjectorDevice.cuh"
 
 namespace yrt
@@ -37,9 +38,8 @@ private:
 
 	template <bool IsForward, bool HasTOF, bool HasProjPsf>
 	static void launchKernel(
-	    float* pd_projValues, float* pd_image, const float4* pd_lorDet1Pos,
-	    const float4* pd_lorDet2Pos, const float4* pd_lorDet1Orient,
-	    const float4* pd_lorDet2Orient, const float* pd_lorTOFValue,
+	    float* pd_projValues, float* pd_image, const char* pd_projProperties,
+	    const ProjectionPropertyManager* pd_projPropManager,
 	    const TimeOfFlightHelper* pd_tofHelper, const float* pd_projPsfKernels,
 	    ProjectionPsfProperties projectionPsfProperties,
 	    CUScannerParams scannerParams, CUImageParams imgParams,

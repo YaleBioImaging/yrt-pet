@@ -153,6 +153,17 @@ bool Scanner::hasMask() const
 	return mp_detectors->hasMask();
 }
 
+void Scanner::collectConstraints(
+    std::vector<std::unique_ptr<Constraint>>& constraints) const
+{
+	if (hasMask())
+	{
+		constraints.emplace_back(
+		    std::make_unique<ConstraintDetectorMask>(this));
+	}
+
+}
+
 void Scanner::createLUT(Array2D<float>& lut) const
 {
 	lut.allocate(this->getNumDets(), 6);

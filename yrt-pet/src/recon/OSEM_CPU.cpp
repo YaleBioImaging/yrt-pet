@@ -83,7 +83,7 @@ void OSEM_CPU::setupOperatorsForSensImgGen(
 		}
 	}
 
-	// Create ProjectorParams object
+	// Create projector
 	if (projectorType == OperatorProjector::ProjectorType::SIDDON)
 	{
 		mp_projector =

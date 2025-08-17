@@ -17,10 +17,11 @@ class OperatorProjectorSiddon_GPU : public OperatorProjectorDevice
 public:
 	explicit OperatorProjectorSiddon_GPU(
 	    const OperatorProjectorParams& projParams,
+	    const std::vector<Constraint*>& constraints,
 	    const cudaStream_t* mainStream = nullptr,
 	    const cudaStream_t* auxStream = nullptr);
 
-	std::vector<ProjectionPropertyType>
+	std::set<ProjectionPropertyType>
 	    getProjectionPropertyTypes() const override;
 
 protected:
@@ -43,6 +44,6 @@ private:
 	    CUImageParams imgParams, size_t batchSize, unsigned int gridSize,
 	    unsigned int blockSize, const cudaStream_t* stream, bool synchronize);
 
-	int p_numRays;
+	int m_numRays;
 };
 }  // namespace yrt

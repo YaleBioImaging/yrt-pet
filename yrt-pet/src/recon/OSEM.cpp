@@ -365,11 +365,7 @@ void OSEM::loadSubsetInternal(int p_subsetId, bool p_forRecon)
 void OSEM::collectConstraints()
 {
 	m_constraints.clear();
-	if (scanner.hasMask())
-	{
-		m_constraints.emplace_back(
-		    std::make_unique<ConstraintDetectorMask>(&scanner));
-	}
+	scanner.collectConstraints(m_constraints);
 }
 
 void OSEM::initializeForSensImgGen()
@@ -420,10 +416,6 @@ void OSEM::initializeForRecon()
 	if (flagProjTOF)
 	{
 		projParams.projPropertyTypesExtra = {ProjectionPropertyType::TOF};
-	}
-	if (m_constraints.size() > 0)
-	{
-		projParams.constraints = m_constraints;
 	}
 	setupOperatorsForRecon(projParams);
 

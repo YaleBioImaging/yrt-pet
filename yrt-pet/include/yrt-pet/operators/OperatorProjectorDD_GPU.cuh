@@ -15,11 +15,13 @@ class ImageDevice;
 class OperatorProjectorDD_GPU : public OperatorProjectorDevice
 {
 public:
-	explicit OperatorProjectorDD_GPU(const OperatorProjectorParams& projParams,
-	                                 const cudaStream_t* mainStream = nullptr,
-	                                 const cudaStream_t* auxStream = nullptr);
+	explicit OperatorProjectorDD_GPU(
+	    const OperatorProjectorParams& projParams,
+	    const std::vector<Constraint*>& constraints,
+	    const cudaStream_t* mainStream = nullptr,
+	    const cudaStream_t* auxStream = nullptr);
 
-	std::vector<ProjectionPropertyType>
+	std::set<ProjectionPropertyType>
 	    getProjectionPropertyTypes() const override;
 
 protected:

@@ -11,6 +11,7 @@ set(SOURCES
     datastruct/projection/LORMotion.cpp
     datastruct/projection/ProjectionData.cpp
     datastruct/projection/BinIteratorConstrained.cpp
+    datastruct/projection/Constraints.cpp
     datastruct/projection/ProjectionList.cpp
     datastruct/projection/SparseHistogram.cpp
     datastruct/projection/UniformHistogram.cpp

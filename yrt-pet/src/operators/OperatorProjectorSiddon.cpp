@@ -31,8 +31,8 @@ void py_setup_operatorprojectorsiddon(py::module& m)
 	    m, "OperatorProjectorSiddon");
 
 	// c.def(py::init<const OperatorProjectorParams&>(), py::arg("projParams"));
-	c.def(
-	    "__init__", [](const OperatorProjectorParams& params)
+	c.def("__init__", [](const OperatorProjectorSiddon& self,
+	                     const OperatorProjectorParams& params)
 	    { return OperatorProjectorSiddon(params, {}); }, py::arg("projParams"));
 
 	c.def_property("num_rays", &OperatorProjectorSiddon::getNumRays,

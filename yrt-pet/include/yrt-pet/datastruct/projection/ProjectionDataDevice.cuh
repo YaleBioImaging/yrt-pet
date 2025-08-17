@@ -94,6 +94,7 @@ public:
 
 	virtual float* getProjValuesDevicePointer() = 0;
 	virtual const float* getProjValuesDevicePointer() const = 0;
+	const char* getProjectionPropertiesDevicePointer() const;
 
 	float getProjectionValue(bin_t id) const override;
 	void setProjectionValue(bin_t id, float val) override;

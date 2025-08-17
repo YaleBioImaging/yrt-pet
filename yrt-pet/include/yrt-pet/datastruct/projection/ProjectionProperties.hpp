@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include "yrt-pet/utils/GPUUtils.cuh"
 #include "yrt-pet/utils/Types.hpp"
 
 #include <map>
@@ -46,11 +47,34 @@ public:
 	// Helper functions
 	std::unique_ptr<char> createDataArray(size_t numElements) const;
 	template <typename T>
-	T* getDataPtr(char* data, int idx, Enum prop) const;
+	HOST_DEVICE_CALLABLE inline T* getDataPtr(char* data, size_t idx,
+	                                          Enum prop) const
+	{
+		return reinterpret_cast<T*>(data + elementSize * idx +
+		                            offsetMap[static_cast<int>(prop)]);
+	}
 	template <typename T>
-	void setDataValue(char* data, int idx, Enum prop, T& value) const;
+	HOST_DEVICE_CALLABLE inline const T* getDataPtr(const char* data,
+	                                                size_t idx, Enum prop) const
+	{
+		return reinterpret_cast<const T*>(data + elementSize * idx +
+		                                  offsetMap[static_cast<int>(prop)]);
+	}
+
 	template <typename T>
-	T& getDataValue(char* data, int idx, Enum prop) const;
+	HOST_DEVICE_CALLABLE inline void
+	    setDataValue(char* data, size_t idx, Enum prop, const T& value) const
+	{
+		T* ptr = getDataPtr<T>(data, idx, prop);
+		*ptr = value;
+	}
+	template <typename T>
+	HOST_DEVICE_CALLABLE inline const T&
+	    getDataValue(const char* data, size_t idx, Enum prop) const
+	{
+		const T* ptr = getDataPtr<T>(data, idx, prop);
+		return *ptr;
+	}
 
 	// Accessors
 	unsigned int getElementSize() const;

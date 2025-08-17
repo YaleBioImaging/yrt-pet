@@ -36,6 +36,12 @@ void BinIteratorConstrained::clearConstraints()
 	m_constraintManager = nullptr;
 }
 
+const std::set<ProjectionPropertyType>&
+    BinIteratorConstrained::getProjPropertyTypes() const
+{
+	return m_projVariables;
+}
+
 void BinIteratorConstrained::setupManagers()
 {
 	if (m_constraints.size() > 0)

@@ -410,6 +410,11 @@ size_t ProjectionDataDevice::getLoadedSubsetId() const
 	return mp_LORs->getLoadedSubsetId();
 }
 
+const char* ProjectionDataDevice::getProjectionPropertiesDevicePointer() const
+{
+	return mp_LORs->getProjectionPropertiesDevicePointer();
+}
+
 float ProjectionDataDevice::getProjectionValue(bin_t id) const
 {
 	(void)id;

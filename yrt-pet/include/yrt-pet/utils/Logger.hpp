@@ -40,4 +40,13 @@ public:
 template <int LEVEL>
 inline Logger<LEVEL> log{};
 
+/*
+ * Verbosity logger usage:
+ * yrt::log<1> << "My message" << std::endl; // Standard level
+ * yrt::log<2> << "Number of things: " << 45 << std::endl; // Level 2
+ * yrt::log<3> << "Detailed number of things: " << 92.5 << std::endl; // Level 3
+ * ...
+ * yrt::log<5> << "Debug stuff" << std::endl; // Level 5
+ */
+
 }  // namespace yrt

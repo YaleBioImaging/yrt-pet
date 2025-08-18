@@ -45,7 +45,7 @@ public:
 	PropStructManager(std::set<Enum>& props);
 
 	// Helper functions
-	std::unique_ptr<char> createDataArray(size_t numElements) const;
+	std::unique_ptr<char[]> createDataArray(size_t numElements) const;
 	template <typename T>
 	HOST_DEVICE_CALLABLE inline T* getDataPtr(char* data, size_t idx,
 	                                          Enum prop) const

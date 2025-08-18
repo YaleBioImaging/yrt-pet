@@ -5,7 +5,6 @@
 
 #pragma once
 
-#include "yrt-pet/utils/Assert.hpp"
 #include "yrt-pet/utils/Globals.hpp"
 
 namespace yrt
@@ -29,6 +28,9 @@ public:
 
 	// Special case for manipulators like std::endl
 	Logger& operator<<(std::ostream& (*manip)(std::ostream&));
+
+	// We let verbosity level 0 be complete silence
+	static_assert(LEVEL > 0);
 
 	// We shouldn't allow for more than 5 levels of verbosity
 	static_assert(LEVEL <= 5);

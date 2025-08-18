@@ -5,6 +5,24 @@
 
 #include "yrt-pet/utils/Logger.hpp"
 
+#if BUILD_PYBIND11
+#include <pybind11/numpy.h>
+#include <pybind11/pybind11.h>
+namespace py = pybind11;
+
+namespace yrt
+{
+void py_setup_log(pybind11::module& m)
+{
+	m.def("log1", &log<1>);
+	m.def("log2", &log<2>);
+	m.def("log3", &log<3>);
+	m.def("log4", &log<4>);
+	m.def("log5", &log<5>);
+}
+}  // namespace yrt
+#endif
+
 namespace yrt
 {
 
@@ -18,7 +36,6 @@ Logger<LEVEL>& Logger<LEVEL>::operator<<(std::ostream& (*manip)(std::ostream&))
 	return *this;
 }
 
-template class Logger<0>;  // Not to be used. Only for complete silence
 template class Logger<1>;  // Standard
 template class Logger<2>;
 template class Logger<3>;

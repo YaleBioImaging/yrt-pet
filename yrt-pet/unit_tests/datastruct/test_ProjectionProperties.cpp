@@ -50,7 +50,7 @@ TEST_CASE("proj_props", "[projProps]")
 			const yrt::det_pair_t& det_pair =
 			    propManager.getDataValue<yrt::det_pair_t>(
 			        data.get(), i, yrt::ProjectionPropertyType::DetID);
-			yrt::frame_t frame = propManager.getDataValue<int>(
+			const yrt::frame_t frame = propManager.getDataValue<int>(
 			    data.get(), i, yrt::ProjectionPropertyType::EventFrame);
 			REQUIRE(det_pair.d1 == i);
 			REQUIRE(det_pair.d2 == i + 1);

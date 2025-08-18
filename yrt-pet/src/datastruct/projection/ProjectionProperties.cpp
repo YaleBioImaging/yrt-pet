@@ -55,11 +55,11 @@ std::map<ConstraintVariable, std::pair<std::string, int>>
 }
 
 template <typename Enum>
-std::unique_ptr<char>
+std::unique_ptr<char[]>
     PropStructManager<Enum>::createDataArray(size_t numElements) const
 {
-	return std::make_unique<char>(numElements *
-	                              static_cast<size_t>(elementSize));
+	return std::make_unique<char[]>(numElements *
+	                                static_cast<size_t>(elementSize));
 }
 
 template <typename Enum>

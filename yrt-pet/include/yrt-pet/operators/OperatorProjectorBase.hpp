@@ -80,8 +80,8 @@ protected :
 	// Constraints for bin iterator
 	std::vector<Constraint*> m_constraints;
 	std::unique_ptr<BinIteratorConstrained> m_binIterConstrained;
-	std::unique_ptr<char> m_projectionProperties;
-	std::unique_ptr<char> m_constraintParams;
+	std::unique_ptr<char[]> m_projectionProperties;
+	std::unique_ptr<char[]> m_constraintParams;
 };
 
 }  // namespace yrt

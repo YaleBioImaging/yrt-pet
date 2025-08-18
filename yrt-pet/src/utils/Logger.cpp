@@ -4,6 +4,7 @@
  */
 
 #include "yrt-pet/utils/Logger.hpp"
+#include "yrt-pet/utils/Assert.hpp"
 
 #if BUILD_PYBIND11
 #include <pybind11/numpy.h>
@@ -14,11 +15,32 @@ namespace yrt
 {
 void py_setup_log(pybind11::module& m)
 {
-	m.def("log1", &log<1>);
-	m.def("log2", &log<2>);
-	m.def("log3", &log<3>);
-	m.def("log4", &log<4>);
-	m.def("log5", &log<5>);
+	m.def("log",
+	      [](int level, const std::string& message)
+	      {
+		      ASSERT_MSG(level >= 1 && level <= 5,
+		                 "Log level has to be inclusively between 1 and 5");
+		      if (level == 1)
+		      {
+			      log<1> << message << std::endl;
+		      }
+		      else if (level == 2)
+		      {
+			      log<2> << message << std::endl;
+		      }
+		      else if (level == 3)
+		      {
+			      log<3> << message << std::endl;
+		      }
+		      else if (level == 4)
+		      {
+			      log<4> << message << std::endl;
+		      }
+		      else if (level == 5)
+		      {
+			      log<5> << message << std::endl;
+		      }
+	      });
 }
 }  // namespace yrt
 #endif

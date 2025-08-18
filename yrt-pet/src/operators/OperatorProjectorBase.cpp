@@ -74,7 +74,7 @@ const BinIterator* OperatorProjectorBase::getBinIter() const
 }
 
 const BinIteratorConstrained*
-    OperatorProjectorBase::getBinIterContrained() const
+    OperatorProjectorBase::getBinIterConstrained() const
 {
 	return m_binIterConstrained.get();
 }

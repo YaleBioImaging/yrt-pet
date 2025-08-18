@@ -6,6 +6,7 @@
 #include "catch.hpp"
 
 #include "yrt-pet/datastruct/projection/ProjectionProperties.hpp"
+#include "yrt-pet/geometry/Line3D.hpp"
 #include "yrt-pet/utils/Types.hpp"
 #include <bitset>
 
@@ -46,7 +47,7 @@ TEST_CASE("proj_props", "[projProps]")
 		// Get data
 		for (unsigned int i = 0; i < numElements; i++)
 		{
-			yrt::det_pair_t& det_pair =
+			const yrt::det_pair_t& det_pair =
 			    propManager.getDataValue<yrt::det_pair_t>(
 			        data.get(), i, yrt::ProjectionPropertyType::DetID);
 			yrt::frame_t frame = propManager.getDataValue<int>(

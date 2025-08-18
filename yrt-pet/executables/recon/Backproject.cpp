@@ -9,6 +9,7 @@
 #include "yrt-pet/datastruct/scanner/Scanner.hpp"
 #include "yrt-pet/operators/OperatorProjector.hpp"
 #include "yrt-pet/operators/OperatorPsf.hpp"
+#include "yrt-pet/operators/OperatorVarPsf.hpp"
 #include "yrt-pet/utils/Assert.hpp"
 #include "yrt-pet/utils/Globals.hpp"
 #include "yrt-pet/utils/ReconstructionUtils.hpp"
@@ -164,11 +165,12 @@ int main(int argc, char** argv)
 		const auto binIter =
 		    dataInput->getBinIter(config.getValue<int>("num_subsets"),
 		                          config.getValue<int>("subset_id"));
-		const OperatorProjectorParams projParams(
-		    binIter.get(), *scanner, config.getValue<float>("tof_width_ps"),
-		    config.getValue<int>("tof_n_std"),
-		    config.getValue<std::string>("proj_psf"),
-		    config.getValue<int>("num_rays"));
+		OperatorProjectorParams projParams(*scanner);
+		projParams.binIter = binIter.get();
+		projParams.tofWidth_ps = config.getValue<float>("tof_width_ps");
+		projParams.tofNumStd = config.getValue<int>("tof_n_std");
+		projParams.projPsf_fname = config.getValue<std::string>("proj_psf");
+		projParams.numRays = config.getValue<int>("num_rays");
 
 		const auto projectorType =
 		    io::getProjector(config.getValue<std::string>("projector"));

@@ -52,8 +52,7 @@ Corrector_GPU& OSEM_GPU::getCorrector_GPU()
 	return *mp_corrector;
 }
 
-std::pair<size_t, size_t> OSEM_GPU::calculateMemProj(bool flagSensOrRecon,
-                                                     float shareOfMemoryToUse)
+std::pair<size_t, size_t> OSEM_GPU::calculateMemProj(float shareOfMemoryToUse) const
 {
 	size_t memAvailable = globals::getDeviceInfo(true);
 
@@ -62,8 +61,7 @@ std::pair<size_t, size_t> OSEM_GPU::calculateMemProj(bool flagSensOrRecon,
 	                                   shareOfMemoryToUse);
 
 	auto projPropManager =
-	    flagSensOrRecon ? m_binIteratorConstrained.getPropertyManagerSens() :
-	                      m_binIteratorConstrained.getPropertyManagerRecon();
+		mp_projector->getBinIterConstrained()->getPropertyManager();
 	const size_t memoryUsagePerLOR = projPropManager.getElementSize();
 	return {memAvailable, memoryUsagePerLOR};
 }
@@ -137,7 +135,7 @@ void OSEM_GPU::allocateForSensImgGen()
 
 	// Allocate for projection space
 	auto [memAvailable, memoryUsagePerLOR] =
-	    calculateMemProj(true, DefaultMemoryShare);
+	    calculateMemProj(DefaultMemoryShare);
 	mpd_tempSensDataInput = std::make_unique<ProjectionDataDeviceOwned>(
 	    scanner, mp_corrector->getSensImgGenProjData(), num_OSEM_subsets,
 	    memoryUsagePerLOR, memAvailable);
@@ -273,7 +271,7 @@ void OSEM_GPU::allocateForRecon()
 
 	// Allocate projection-space buffers
 	auto [memAvailable, memoryUsagePerLOR] =
-	    calculateMemProj(false, DefaultMemoryShare);
+	    calculateMemProj(DefaultMemoryShare);
 	const ProjectionData* dataInput = getDataInput();
 	auto dat = std::make_unique<ProjectionDataDeviceOwned>(
 	    scanner, dataInput, binIteratorPtrList, memoryUsagePerLOR,

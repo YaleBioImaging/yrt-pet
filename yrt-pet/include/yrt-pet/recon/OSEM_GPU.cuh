@@ -9,6 +9,7 @@
 #include "yrt-pet/datastruct/image/ImageDevice.cuh"
 #include "yrt-pet/datastruct/projection/ProjectionData.hpp"
 #include "yrt-pet/datastruct/projection/ProjectionDataDevice.cuh"
+#include "yrt-pet/operators/OperatorProjectorBase.hpp"
 #include "yrt-pet/recon/Corrector_GPU.cuh"
 #include "yrt-pet/recon/OSEM.hpp"
 #include "yrt-pet/recon/OSEMUpdater_GPU.cuh"
@@ -73,8 +74,7 @@ public:
 	// Use 90% of what is available
 	static constexpr float DefaultMemoryShare = 0.9f;
 
-	std::pair<size_t, size_t> calculateMemProj(bool flagSensOrRecon,
-	                                           float shareOfMemoryToUse);
+	std::pair<size_t, size_t> calculateMemProj(float shareOfMemoryToUse) const;
 
 private:
 	std::unique_ptr<ImageDeviceOwned> mpd_sensImageBuffer;

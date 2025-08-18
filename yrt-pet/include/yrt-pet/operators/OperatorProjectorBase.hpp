@@ -56,7 +56,7 @@ public:
 
 	const Scanner& getScanner() const;
 	const BinIterator* getBinIter() const;
-	const BinIteratorConstrained* getBinIterContrained() const;
+	const BinIteratorConstrained* getBinIterConstrained() const;
 	ProjectionProperties getProjectionProperties() const;
 	ConstraintParams getConstraintParams() const;
 

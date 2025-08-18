@@ -75,7 +75,7 @@ void OSEMUpdater_CPU::computeSensitivityImage(Image& destImage) const
 	const int numThreads = globals::getNumThreads();
 	const size_t blockSize = std::ceil(numBinsMax / (float)numThreads);
 
-	auto binIterConstrained = projector->getBinIterContrained();
+	auto binIterConstrained = projector->getBinIterConstrained();
 	auto& projPropManager = binIterConstrained->getPropertyManager();
 	auto& consManager = binIterConstrained->getConstraintManager();
 	auto constraintParams = projector->getConstraintParams();
@@ -153,7 +153,7 @@ void OSEMUpdater_CPU::computeEMUpdateImage(const Image& inputImage,
 
 	int numThreads = globals::getNumThreads();
 
-	auto binIterConstrained = projector->getBinIterContrained();
+	auto binIterConstrained = projector->getBinIterConstrained();
 	auto& projPropManager = binIterConstrained->getPropertyManager();
 	auto& consManager = binIterConstrained->getConstraintManager();
 	auto constraintParams = projector->getConstraintParams();

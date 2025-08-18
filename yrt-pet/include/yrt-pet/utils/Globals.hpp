@@ -5,8 +5,10 @@
 
 #pragma once
 
-#include "omp.h"
+#include "yrt-pet/utils/Assert.hpp"
 #include "yrt-pet/utils/Utilities.hpp"
+
+#include "omp.h"
 
 #include <cstddef>
 #include <iostream>
@@ -15,6 +17,36 @@ namespace yrt
 {
 namespace globals
 {
+
+static constexpr int DefaultVerbosityLevel = 1;
+
+inline int& verbosityLevel()
+{
+	static int s_verbosityLevel = []()
+	{
+		// Initialization
+		return DefaultVerbosityLevel;
+	}();
+	return s_verbosityLevel;
+}
+
+inline int getVerbosityLevel()
+{
+	return verbosityLevel();
+}
+
+inline void setVerbosityLevel(int v)
+{
+	if (v <= 0)
+	{
+		verbosityLevel() = 0;  // clamp to zero
+	}
+	else
+	{
+		ASSERT_MSG(v <= 5, "Maximum verbosity level allowed is 5");
+		verbosityLevel() = v;
+	}
+}
 
 inline int& numThreads()
 {

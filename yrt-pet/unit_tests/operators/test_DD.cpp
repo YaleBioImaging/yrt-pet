@@ -83,14 +83,16 @@ TEST_CASE("DD", "[dd]")
 	const ImageSharedPTR img_cpu = std::make_shared<yrt::ImageOwned>(imgParams);
 	toOwned(img_cpu)->allocate();
 	img_cpu->setValue(0.0);
-	yrt::util::backProject(*scanner, *img_cpu, *data, yrt::OperatorProjector::DD, false);
+	yrt::util::backProject(*scanner, *img_cpu, *data,
+	                       yrt::OperatorProjector::DD, false);
 
 	REQUIRE(img_cpu->voxelSum() > 0.0f);
 
 	const ImageSharedPTR img_gpu = std::make_shared<yrt::ImageOwned>(imgParams);
 	toOwned(img_gpu)->allocate();
 	img_gpu->setValue(0.0);
-	yrt::util::backProject(*scanner, *img_gpu, *data, yrt::OperatorProjector::DD, true);
+	yrt::util::backProject(*scanner, *img_gpu, *data,
+	                       yrt::OperatorProjector::DD, true);
 
 	REQUIRE(img_gpu->voxelSum() > 0.0f);
 
@@ -104,13 +106,13 @@ TEST_CASE("DD", "[dd]")
 	projList_cpu->allocate();
 	projList_cpu->clearProjections(0.0f);
 	yrt::util::forwProject(*scanner, imgToFwdProj, *projList_cpu,
-	                  yrt::OperatorProjector::DD, false);
+	                       yrt::OperatorProjector::DD, false);
 
 	auto projList_gpu = std::make_unique<yrt::ProjectionListOwned>(data.get());
 	projList_gpu->allocate();
 	projList_gpu->clearProjections(0.0f);
 	yrt::util::forwProject(*scanner, imgToFwdProj, *projList_gpu,
-	                  yrt::OperatorProjector::DD, true);
+	                       yrt::OperatorProjector::DD, true);
 
 	rmseCpuGpu = yrt::util::test::getRMSE(*projList_cpu, *projList_gpu);
 

@@ -30,7 +30,7 @@ enum class ProjectionPropertyType
 
 enum class ConstraintVariable
 {
-	Det1,
+	Det1 = 0,
 	Det2,
 	AbsDeltaAngleDeg,
 	AbsDeltaAngleIdx,
@@ -101,6 +101,21 @@ using ProjectionProperties = char*;
 using ProjectionPropertyManager = PropStructManager<ProjectionPropertyType>;
 
 template <typename Enum>
-std::ostream& operator<<(std::ostream& oss, const PropStructManager<Enum>& t);
+std::ostream& operator<<(std::ostream& oss, const PropStructManager<Enum>& t)
+{
+	const auto& info = t.getInfo();
+	oss << "[";
+	for (int i = 0; i < static_cast<int>(Enum::COUNT); i++)
+	{
+		if (t.getTypeID() & (1 << i))
+		{
+			auto var = static_cast<Enum>(i);
+			oss << info.at(var).first << ": " << info.at(var).second
+			    << " (offset: " << t.getOffset(var) << "), ";
+		}
+	}
+	oss << "]";
+	return oss;
+}
 
 }  // namespace yrt

@@ -60,5 +60,8 @@ protected:
 
 	// Projection-domain PSF
 	std::unique_ptr<ProjectionPsfManager> mp_projPsfManager;
+
+	// Number of threads
+	int m_numThreads;
 };
 }  // namespace yrt

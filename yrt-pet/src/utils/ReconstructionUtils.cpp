@@ -552,6 +552,7 @@ void forwProject(const Scanner& scanner, const Image& img,
 	const auto binIter = projData.getBinIter(1, 0);
 	OperatorProjectorParams projParams(scanner);
 	projParams.binIter = binIter.get();
+	projParams.numThreads = globals::getNumThreads();
 	forwProject(img, projData, projParams, projectorType, useGPU);
 }
 
@@ -561,6 +562,7 @@ void forwProject(const Scanner& scanner, const Image& img,
 {
 	OperatorProjectorParams projParams(scanner);
 	projParams.binIter = &binIterator;
+	projParams.numThreads = globals::getNumThreads();
 	forwProject(img, projData, projParams, projectorType, useGPU);
 }
 
@@ -579,6 +581,7 @@ void backProject(const Scanner& scanner, Image& img,
 	const auto binIter = projData.getBinIter(1, 0);
 	OperatorProjectorParams projParams(scanner);
 	projParams.binIter = binIter.get();
+	projParams.numThreads = globals::getNumThreads();
 	backProject(img, projData, projParams, projectorType, useGPU);
 }
 
@@ -588,6 +591,7 @@ void backProject(const Scanner& scanner, Image& img,
 {
 	OperatorProjectorParams projParams(scanner);
 	projParams.binIter = &binIterator;
+	projParams.numThreads = globals::getNumThreads();
 	backProject(img, projData, projParams, projectorType, useGPU);
 }
 

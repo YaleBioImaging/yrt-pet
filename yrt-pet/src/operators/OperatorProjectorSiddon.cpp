@@ -107,6 +107,8 @@ OperatorProjectorSiddon::OperatorProjectorSiddon(
 	ASSERT_MSG_WARNING(
 	    mp_projPsfManager == nullptr,
 	    "Siddon does not support Projection space PSF. It will be ignored.");
+	initBinIteratorConstrained(pr_projParams.projPropertyTypesExtra,
+	                           pr_projParams.numThreads);
 }
 
 int OperatorProjectorSiddon::getNumRays() const

@@ -5,10 +5,9 @@
 
 #include "yrt-pet/operators/OperatorProjector.hpp"
 
-#include "yrt-pet/datastruct/projection/BinIteratorConstrained.hpp"
-#include "yrt-pet/utils/Concurrency.hpp"
 #include "yrt-pet/datastruct/image/Image.hpp"
 #include "yrt-pet/datastruct/projection/BinIterator.hpp"
+#include "yrt-pet/datastruct/projection/BinIteratorConstrained.hpp"
 #include "yrt-pet/datastruct/projection/Histogram3D.hpp"
 #include "yrt-pet/geometry/Constants.hpp"
 #include "yrt-pet/utils/Assert.hpp"
@@ -60,7 +59,8 @@ OperatorProjector::OperatorProjector(
     const std::vector<Constraint*>& pr_constraints)
     : OperatorProjectorBase{pr_projParams, pr_constraints},
       mp_tofHelper{nullptr},
-      mp_projPsfManager{nullptr}
+      mp_projPsfManager{nullptr},
+      m_numThreads(pr_projParams.numThreads)
 {
 	if (pr_projParams.tofWidth_ps > 0.f)
 	{
@@ -81,7 +81,6 @@ void OperatorProjector::applyA(const Variable* in, Variable* out)
 	ASSERT_MSG(img != nullptr, "Input variable has to be an Image");
 	ASSERT_MSG(binIter != nullptr, "BinIterator undefined");
 
-	int numThreads = globals::getNumThreads();
 	const size_t numBinsMax = binIter->size();
 
 	// Setup bin iterator
@@ -91,7 +90,7 @@ void OperatorProjector::applyA(const Variable* in, Variable* out)
 	auto projectionProperties = m_projectionProperties.get();
 
 	util::parallel_for_chunked(
-		numBinsMax, numThreads,
+	    numBinsMax, m_numThreads,
 	    [img, dat, consManager, projPropManager, &constraintParams,
 	     &projectionProperties, this](bin_t binIdx, int tid)
 	    {
@@ -117,7 +116,6 @@ void OperatorProjector::applyAH(const Variable* in, Variable* out)
 	ASSERT_MSG(img != nullptr, "Output variable has to be an Image");
 	ASSERT_MSG(binIter != nullptr, "BinIterator undefined");
 
-	int numThreads = globals::getNumThreads();
 	const size_t numBinsMax = binIter->size();
 
 	// Setup bin iterator
@@ -127,7 +125,7 @@ void OperatorProjector::applyAH(const Variable* in, Variable* out)
 	auto projectionProperties = m_projectionProperties.get();
 
 	util::parallel_for_chunked(
-		numBinsMax, numThreads,
+	    numBinsMax, m_numThreads,
 	    [img, dat, consManager, projPropManager, &constraintParams,
 	     &projectionProperties, this](bin_t binIdx, int tid)
 	    {

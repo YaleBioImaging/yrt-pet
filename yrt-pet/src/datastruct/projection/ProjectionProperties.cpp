@@ -86,24 +86,6 @@ bool PropStructManager<Enum>::has(Enum prop) const
 	return type & (1 << static_cast<int>(prop));
 }
 
-template <typename Enum>
-std::ostream& operator<<(std::ostream& oss, const PropStructManager<Enum>& t)
-{
-	const auto& info = t.getInfo();
-	oss << "[";
-	for (int i = 0; i < static_cast<int>(Enum::COUNT); i++)
-	{
-		if (t.getTypeID() & (1 << i))
-		{
-			auto var = static_cast<Enum>(i);
-			oss << info.at(var).first << ": " << info.at(var).second
-			    << " (offset: " << t.getOffset(var) << "), ";
-		}
-	}
-	oss << "]";
-	return oss;
-}
-
 template class PropStructManager<ProjectionPropertyType>;
 template class PropStructManager<ConstraintVariable>;
 

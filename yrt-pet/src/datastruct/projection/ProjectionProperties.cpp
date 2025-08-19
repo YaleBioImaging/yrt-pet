@@ -16,6 +16,7 @@ PropStructManager<Enum>::PropStructManager(std::set<Enum>& props)
 	const auto& info = getInfo();
 	type = 0;
 	elementSize = 0;
+	std::fill(offsetMap, offsetMap + static_cast<int>(Enum::COUNT), -1);
 	for (int i = 0; i < static_cast<int>(Enum::COUNT); i++)
 	{
 		auto var = static_cast<Enum>(i);
@@ -75,7 +76,7 @@ int PropStructManager<Enum>::getTypeID() const
 }
 
 template <typename Enum>
-unsigned int PropStructManager<Enum>::getOffset(Enum prop) const
+int PropStructManager<Enum>::getOffset(Enum prop) const
 {
 	return offsetMap[static_cast<int>(prop)];
 }

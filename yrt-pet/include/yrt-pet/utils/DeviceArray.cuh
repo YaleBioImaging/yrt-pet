@@ -27,7 +27,7 @@ public:
 		}
 	}
 
-	~DeviceArray() { Deallocate({nullptr, true}); }
+	~DeviceArray() { deallocate({nullptr, true}); }
 
 	bool allocate(size_t p_size, GPULaunchConfig p_launchConfig)
 	{
@@ -35,7 +35,7 @@ public:
 		{
 			if (m_size > 0)
 			{
-				Deallocate(p_launchConfig);
+				deallocate(p_launchConfig);
 			}
 			util::allocateDevice(&mpd_data, p_size, p_launchConfig);
 			m_size = p_size;
@@ -60,7 +60,7 @@ public:
 		util::memsetDevice(mpd_data, value, m_size, p_launchConfig);
 	}
 
-	void Deallocate(GPULaunchConfig p_launchConfig)
+	void deallocate(GPULaunchConfig p_launchConfig)
 	{
 		if (m_size > 0)
 		{

@@ -255,7 +255,8 @@ TEST_CASE("histo3d", "[histo]")
 					    (d1 / (scanner->detsPerRing)) % (scanner->numRings);
 					int z2 =
 					    (d2 / (scanner->detsPerRing)) % (scanner->numRings);
-					if (std::abs(z1 - z2) > scanner->maxRingDiff)
+					if (static_cast<size_t>(std::abs(z1 - z2)) >
+					    scanner->maxRingDiff)
 					{
 						continue;
 					}

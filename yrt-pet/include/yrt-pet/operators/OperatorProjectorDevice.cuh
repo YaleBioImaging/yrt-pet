@@ -40,6 +40,10 @@ public:
 
 	static constexpr float DefaultMemoryShare = 0.9f;
 
+	void initBinIteratorConstrained(
+	    const std::set<ProjectionPropertyType>& projPropertyTypesExtra,
+	    const int numThreads) override;
+
 protected:
 	explicit OperatorProjectorDevice(
 	    const OperatorProjectorParams& pr_projParams,

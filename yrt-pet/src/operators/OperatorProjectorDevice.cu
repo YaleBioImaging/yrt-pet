@@ -90,6 +90,14 @@ OperatorProjectorDevice::OperatorProjectorDevice(
 	{
 		setupProjPsfManager(pr_projParams.projPsf_fname);
 	}
+}
+
+void OperatorProjectorDevice::initBinIteratorConstrained(
+    const std::set<ProjectionPropertyType>& projPropertyTypesExtra,
+    const int numThreads)
+{
+	OperatorProjectorBase::initBinIteratorConstrained(projPropertyTypesExtra,
+	                                                  numThreads);
 	std::set<ProjectionPropertyType> projPropertyTypes =
 	    m_binIterConstrained->getProjPropertyTypes();
 	mp_projPropManager =

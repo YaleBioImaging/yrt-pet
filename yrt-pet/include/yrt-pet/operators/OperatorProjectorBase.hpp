@@ -64,6 +64,10 @@ public:
 
 	virtual std::set<ProjectionPropertyType> getProjectionPropertyTypes() const;
 
+	virtual void initBinIteratorConstrained(
+	    const std::set<ProjectionPropertyType>& projPropertyTypesExtra,
+	    const int numThreads);
+
 	void setupBinIteratorConstrained(
 		const std::set<ProjectionPropertyType>& pr_projPropertiesExtra);
 

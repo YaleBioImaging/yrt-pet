@@ -43,6 +43,8 @@ OperatorProjectorDD_GPU::OperatorProjectorDD_GPU(
     const cudaStream_t* auxStream)
     : OperatorProjectorDevice(projParams, constraints, mainStream, auxStream)
 {
+	initBinIteratorConstrained(projParams.projPropertyTypesExtra,
+	                           projParams.numThreads);
 }
 
 std::set<ProjectionPropertyType>

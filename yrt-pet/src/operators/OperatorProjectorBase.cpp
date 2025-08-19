@@ -6,7 +6,6 @@
 #include "yrt-pet/operators/OperatorProjectorBase.hpp"
 #include "yrt-pet/datastruct/projection/BinIteratorConstrained.hpp"
 #include "yrt-pet/datastruct/projection/ProjectionProperties.hpp"
-#include "yrt-pet/utils/Globals.hpp"
 
 #if BUILD_PYBIND11
 #include <pybind11/pybind11.h>
@@ -58,8 +57,14 @@ OperatorProjectorBase::OperatorProjectorBase(
       binIter{pr_projParams.binIter},
       m_constraints(pr_constraints)
 {
-	setupBinIteratorConstrained(pr_projParams.projPropertyTypesExtra);
-	allocateBuffers(pr_projParams.numThreads);
+}
+
+void OperatorProjectorBase::initBinIteratorConstrained(
+    const std::set<ProjectionPropertyType>& projPropertyTypesExtra,
+	const int numThreads)
+{
+	setupBinIteratorConstrained(projPropertyTypesExtra);
+	allocateBuffers(numThreads);
 }
 
 std::set<ProjectionPropertyType>
@@ -118,8 +123,14 @@ void OperatorProjectorBase::allocateBuffers(int numThreads)
 {
 	auto& projPropManager = m_binIterConstrained->getPropertyManager();
 	auto& consManager = m_binIterConstrained->getConstraintManager();
-	m_projectionProperties = projPropManager.createDataArray(numThreads);
-	m_constraintParams = consManager.createDataArray(numThreads);
+	if (projPropManager.getElementSize() > 0)
+	{
+		m_projectionProperties = projPropManager.createDataArray(numThreads);
+	}
+	if (consManager.getElementSize() > 0)
+	{
+		m_constraintParams = consManager.createDataArray(numThreads);
+	}
 }
 
 }  // namespace yrt

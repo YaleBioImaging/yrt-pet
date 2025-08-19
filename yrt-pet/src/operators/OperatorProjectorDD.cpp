@@ -69,6 +69,8 @@ OperatorProjectorDD::OperatorProjectorDD(
     const std::vector<Constraint*>& pr_constraints)
 	: OperatorProjector{pr_projParams, pr_constraints}
 {
+	initBinIteratorConstrained(pr_projParams.projPropertyTypesExtra,
+	                           pr_projParams.numThreads);
 }
 
 std::set<ProjectionPropertyType>

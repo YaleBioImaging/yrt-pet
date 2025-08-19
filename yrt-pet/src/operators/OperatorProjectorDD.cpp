@@ -456,15 +456,15 @@ void OperatorProjectorDD::dd_project_ref(
 							weight *= tof_weight;
 						}
 
-						float* ptr = raw_img_ptr + idx;
 						if constexpr (IS_FWD)
 						{
+							float* ptr = raw_img_ptr + idx;
 							proj_value += (*ptr) * weight;
 						}
 						else
 						{
-#pragma omp atomic
-							*ptr += proj_value * weight;
+							std::atomic_ref<float> atomic_elem(raw_img_ptr[idx]);
+							atomic_elem.fetch_add(proj_value * weight);
 						}
 					}
 				}

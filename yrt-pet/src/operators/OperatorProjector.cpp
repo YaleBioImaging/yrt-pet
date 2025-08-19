@@ -103,7 +103,7 @@ void OperatorProjector::applyA(const Variable* in, Variable* out)
 		    {
 			    dat->getProjectionProperties(projectionProperties,
 			                                 projPropManager, bin, tid);
-			    float imProj = forwardProjection(img, projectionProperties);
+			    float imProj = forwardProjection(img, projectionProperties, tid);
 			    dat->setProjectionValue(bin, static_cast<float>(imProj));
 		    }
 	    });
@@ -143,7 +143,7 @@ void OperatorProjector::applyAH(const Variable* in, Variable* out)
 			    {
 				    return;
 			    }
-			    backProjection(img, projectionProperties, projValue);
+			    backProjection(img, projectionProperties, projValue, tid);
 		    }
 	    });
 }

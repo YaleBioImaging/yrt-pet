@@ -569,9 +569,8 @@ void OperatorProjectorSiddon::project_helper(
 		else
 		{
 			float output = value * weight;
-			float* ptr = &cur_img_ptr[vx];
-#pragma omp atomic
-			*ptr += output;
+			std::atomic_ref<float> atomic_elem(cur_img_ptr[vx]);
+			atomic_elem.fetch_add(output);
 		}
 		a_cur = a_next;
 		ax_next_prev = ax_next;

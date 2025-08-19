@@ -55,6 +55,7 @@ set(SOURCES
     utils/Assert.cpp
     utils/FileReader.cpp
     utils/Globals.cpp
+    utils/Logger.cpp
     utils/ProgressDisplay.cpp
     utils/ProgressDisplayMultiThread.cpp
     utils/RangeList.cpp

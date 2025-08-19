@@ -12,6 +12,9 @@ namespace yrt
 {
 void py_setup_globals(pybind11::module& m)
 {
+	m.def("setVerbosityLevel", &globals::setVerbosityLevel);
+	m.def("getVerbosityLevel", &globals::getVerbosityLevel);
+
 	m.def("setNumThreads", &globals::setNumThreads);
 	m.def("getNumThreads", &globals::getNumThreads);
 

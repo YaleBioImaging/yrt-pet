@@ -57,6 +57,7 @@ void py_setup_operatorprojectorsiddon(py::module& m);
 void py_setup_operatorprojectordd(py::module& m);
 
 void py_setup_globals(py::module& m);
+void py_setup_log(py::module& m);
 
 void py_setup_crystal(py::module& m);
 void py_setup_singlescattersimulator(py::module& m);
@@ -119,6 +120,7 @@ PYBIND11_MODULE(pyyrtpet, m)
 	py_setup_reconstructionutils(m);
 
 	py_setup_globals(m);
+	py_setup_log(m);
 
 	py_setup_crystal(m);
 	py_setup_singlescattersimulator(m);

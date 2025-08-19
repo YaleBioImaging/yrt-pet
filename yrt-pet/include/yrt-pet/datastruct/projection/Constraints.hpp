@@ -22,6 +22,7 @@ public:
 	bool isValid(const ConstraintManager& manager,
 	             ConstraintParams& info) const;
 	virtual std::vector<ConstraintVariable> getVariables() const = 0;
+	virtual ~Constraint() = default;
 protected:
 	std::function<bool(const ConstraintManager&, ConstraintParams&)>
 	    m_constraintFcn;

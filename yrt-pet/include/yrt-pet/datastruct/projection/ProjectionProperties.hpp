@@ -12,6 +12,7 @@
 #include <memory>
 #include <ostream>
 #include <set>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -79,11 +80,56 @@ public:
 	// Accessors
 	unsigned int getElementSize() const;
 	int getTypeID() const;
-	unsigned int getOffset(Enum prop) const;
+	int getOffset(Enum prop) const;
 	bool has(Enum prop) const;
 
 	// Offset table
 	std::map<Enum, std::pair<std::string, int>> getInfo() const;
+
+	template <typename... Args>
+	std::ostringstream print(char* data, size_t elStart = 0,
+	                         size_t elEnd = 1) const
+	{
+		auto info = getInfo();
+		std::ostringstream oss;
+		oss << *this << std::endl;
+		int idx = 0;
+		while (offsetMap[idx] < 0)
+		{
+			idx++;
+		}
+		oss << "idx=" << idx << " ";
+		for (size_t el = elStart; el < elEnd; el++)
+		{
+			// The fold expression will handle the loop at compile time
+			int current_idx = idx;  // Start with the correct index
+
+			// This lambda captures the state and provides a compile-time "loop"
+			auto print_arg = [&, info](auto type_arg)
+			{
+				// Check if idx is valid before printing
+				if (current_idx < static_cast<int>(Enum::COUNT))
+				{
+					Enum var = static_cast<Enum>(current_idx);
+					oss << info.at(var).first << ":"
+					    << getDataValue<decltype(type_arg)>(data, el, var);
+					current_idx++;
+					while (current_idx < static_cast<int>(Enum::COUNT) &&
+					       offsetMap[current_idx] < 0)
+					{
+						current_idx++;
+					}
+				}
+			};
+
+			// Fold expression to apply the lambda to each type in the pack
+			// We use a dummy argument to call the lambda with each type
+			((print_arg(Args{}), oss << ", "), ...);
+
+			oss << std::endl;
+		}
+		return oss;
+	}
 
 private:
 	// Data information

@@ -32,6 +32,11 @@ struct det_orient_t
 {
 	Vector3D d1, d2;
 };
+inline std::ostream& operator<<(std::ostream& oss, const det_orient_t& d)
+{
+	oss << "[" << d.d1 << ", " << d.d2 << "]";
+	return oss;
+}
 
 // Defining an LOR
 using histo_bin_t = std::variant<det_pair_t, bin_t>;

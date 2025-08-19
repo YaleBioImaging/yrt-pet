@@ -7,6 +7,11 @@
 
 #include "yrt-pet/utils/Globals.hpp"
 
+#include <chrono>
+#include <ctime>
+#include <iomanip>
+#include <iostream>
+
 namespace yrt
 {
 
@@ -17,17 +22,22 @@ class Logger
 public:
 	// Custom stream buffer that writes to std::cout if verbosity allows
 	template <typename T>
-	Logger& operator<<(const T& value)
+	Logger& operator()(globals::VerbositySection section, const T& value)
 	{
-		if (globals::getVerbosityLevel() >= LEVEL)
+		if (globals::getVerbosityLevel(section) >= LEVEL)
 		{
-			std::cout << value;
+			const auto now = std::chrono::system_clock::now();
+			const std::time_t t = std::chrono::system_clock::to_time_t(now);
+
+			// Convert to local time
+			const std::tm* tm = std::localtime(&t);
+
+			// Print with i/o manipulators
+			std::cout << "[" << std::put_time(tm, "%Y-%m-%d %H:%M:%S") << "] "
+			          << value << std::endl;
 		}
 		return *this;
 	}
-
-	// Special case for manipulators like std::endl
-	Logger& operator<<(std::ostream& (*manip)(std::ostream&));
 
 	// We let verbosity level 0 be complete silence
 	static_assert(LEVEL > 0);
@@ -42,11 +52,11 @@ inline Logger<LEVEL> log{};
 
 /*
  * Verbosity logger usage:
- * yrt::log<1> << "My message" << std::endl; // Standard level
- * yrt::log<2> << "Number of things: " << 45 << std::endl; // Level 2
- * yrt::log<3> << "Detailed number of things: " << 92.5 << std::endl; // Level 3
+ * yrt::log<1>(GENERAL, "My message"); // Standard level
+ * yrt::log<2>(ALLOCATION, "Number of things: " + std::to_string(45)); // Level
+ * 2 yrt::log<3>(GENERAL, "Detailed info: " + std::to_string(415)); // Level 3
  * ...
- * yrt::log<5> << "Debug stuff" << std::endl; // Level 5
+ * yrt::log<5>(PROJECTOR, "Debug stuff"); // Level 5
  */
 
 }  // namespace yrt

@@ -53,8 +53,8 @@ inline Logger<LEVEL> log{};
 /*
  * Verbosity logger usage:
  * yrt::log<1>(GENERAL, "My message"); // Standard level
- * yrt::log<2>(ALLOCATION, "Number of things: " + std::to_string(45)); // Level
- * 2 yrt::log<3>(GENERAL, "Detailed info: " + std::to_string(415)); // Level 3
+ * yrt::log<2>(ALLOCATION, "Number of things: " + std::to_string(9)); // Level 2
+ * yrt::log<3>(GENERAL, "Detailed info: " + std::to_string(415)); // Level 3
  * ...
  * yrt::log<5>(PROJECTOR, "Debug stuff"); // Level 5
  */

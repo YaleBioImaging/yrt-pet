@@ -50,14 +50,12 @@ OperatorProjectorSiddon_GPU::OperatorProjectorSiddon_GPU(
 std::set<ProjectionPropertyType>
     OperatorProjectorSiddon_GPU::getProjectionPropertyTypes() const
 {
+	std::set<ProjectionPropertyType> props{ProjectionPropertyType::LOR};
 	if (m_numRays > 1)
 	{
-		return {ProjectionPropertyType::DetOrient};
+		props.insert(ProjectionPropertyType::DetOrient);
 	}
-	else
-	{
-		return {};
-	}
+	return props;
 }
 
 void OperatorProjectorSiddon_GPU::applyAOnLoadedBatch(ImageDevice& img,

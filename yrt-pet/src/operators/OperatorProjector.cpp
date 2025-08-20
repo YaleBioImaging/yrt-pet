@@ -98,12 +98,13 @@ void OperatorProjector::applyA(const Variable* in, Variable* out)
 	    {
 		    const bin_t bin = binIter->get(binIdx);
 		    m_binIterConstrained->collectInfo(
-		        bin, tid, *dat, projectionProperties, constraintParams);
+		        bin, tid, tid, *dat, projectionProperties, constraintParams);
 		    if (m_binIterConstrained->isValid(consManager, constraintParams))
 		    {
 			    dat->getProjectionProperties(projectionProperties,
 			                                 projPropManager, bin, tid);
-			    float imProj = forwardProjection(img, projectionProperties, tid);
+			    float imProj =
+			        forwardProjection(img, projectionProperties, tid);
 			    dat->setProjectionValue(bin, static_cast<float>(imProj));
 		    }
 	    });
@@ -133,7 +134,7 @@ void OperatorProjector::applyAH(const Variable* in, Variable* out)
 	    {
 		    const bin_t bin = binIter->get(binIdx);
 		    m_binIterConstrained->collectInfo(
-		        bin, tid, *dat, projectionProperties, constraintParams);
+		        bin, tid, tid, *dat, projectionProperties, constraintParams);
 		    if (m_binIterConstrained->isValid(consManager, constraintParams))
 		    {
 			    dat->getProjectionProperties(projectionProperties,

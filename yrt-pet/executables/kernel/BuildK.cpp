@@ -2,7 +2,6 @@
 #include "yrt-pet/utils/Array.hpp"
 #include "yrt-pet/utils/Assert.hpp"
 
-#include "omp.h"
 #include <cxxopts.hpp>
 
 int main(int argc, char** argv)

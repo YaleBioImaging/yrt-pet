@@ -5,12 +5,15 @@
 
 #pragma once
 
+#include "yrt-pet/utils/Concurrency.hpp"
+#include "yrt-pet/utils/Globals.hpp"
 #include <array>
 #include <cmath>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <memory>
+#include <atomic>
 
 #if BUILD_PYBIND11
 #include <pybind11/pybind11.h>
@@ -364,17 +367,11 @@ public:
 
 		const int totalSize = getSizeTotal();
 		const T* arr = getRawPointer();
+		std::atomic_ref<T> maxValueRef(maxValue);
 
-#pragma omp parallel for reduction(max : maxValue) default(none) \
-    firstprivate(arr, totalSize)
-		for (int i = 0; i < totalSize; i++)
-		{
-			const float val = arr[i];
-			if (val > maxValue)
-			{
-				maxValue = val;
-			}
-		}
+		util::parallel_for_chunked(totalSize, globals::numThreads(),
+		                           [&maxValueRef, arr](size_t i, size_t /*tid*/)
+		                           { maxValueRef.fetch_max(arr[i]); });
 		return maxValue;
 	}
 

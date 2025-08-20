@@ -36,17 +36,18 @@ void ScannerDevice::load(GPULaunchConfig p_launchConfig)
 	const auto detectorSetup_shared = mr_scanner.getDetectorSetup();
 	const DetectorSetup* detectorSetup = detectorSetup_shared.get();
 
-#pragma omp parallel for default(none) \
-    firstprivate(ph_detPos, ph_detOrient, numDets, detectorSetup)
-	for (size_t id_det = 0; id_det < numDets; id_det++)
-	{
-		ph_detPos[id_det].x = detectorSetup->getXpos(id_det);
-		ph_detPos[id_det].y = detectorSetup->getYpos(id_det);
-		ph_detPos[id_det].z = detectorSetup->getZpos(id_det);
-		ph_detOrient[id_det].x = detectorSetup->getXorient(id_det);
-		ph_detOrient[id_det].y = detectorSetup->getYorient(id_det);
-		ph_detOrient[id_det].z = detectorSetup->getZorient(id_det);
-	}
+	util::parallel_for_chunked(
+	    numDets, globals::numThreads(),
+	    [ph_detPos, ph_detOrient, numDets, detectorSetup](size_t id_det,
+	                                                      size_t /*tid*/)
+	    {
+		    ph_detPos[id_det].x = detectorSetup->getXpos(id_det);
+		    ph_detPos[id_det].y = detectorSetup->getYpos(id_det);
+		    ph_detPos[id_det].z = detectorSetup->getZpos(id_det);
+		    ph_detOrient[id_det].x = detectorSetup->getXorient(id_det);
+		    ph_detOrient[id_det].y = detectorSetup->getYorient(id_det);
+		    ph_detOrient[id_det].z = detectorSetup->getZorient(id_det);
+	    });
 
 	mpd_detOrient->copyFromHost(ph_detOrient, numDets, p_launchConfig);
 	mpd_detPos->copyFromHost(ph_detPos, numDets, p_launchConfig);

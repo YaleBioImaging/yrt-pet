@@ -8,11 +8,10 @@
 #include "yrt-pet/utils/Assert.hpp"
 #include "yrt-pet/utils/Utilities.hpp"
 
-#include "omp.h"
-
 #include <array>
 #include <cstddef>
 #include <iostream>
+#include <thread>
 
 namespace yrt
 {
@@ -71,7 +70,7 @@ inline int& numThreads()
 	static int s_num_threads = []()
 	{
 		// Initialization
-		return omp_get_max_threads();
+		return std::thread::hardware_concurrency();
 	}();
 	return s_num_threads;
 }
@@ -79,20 +78,6 @@ inline int& numThreads()
 inline int getNumThreads()
 {
 	return numThreads();
-}
-
-inline void setNumThreads(int t)
-{
-	if (t <= 0)
-	{
-		numThreads() = omp_get_max_threads();
-	}
-	else
-	{
-		numThreads() = t;
-	}
-	std::cout << "Using " << numThreads() << " threads." << std::endl;
-	omp_set_num_threads(numThreads());
 }
 
 static constexpr char DisablePinnedMemoryEnvVar[] =

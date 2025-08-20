@@ -7,6 +7,8 @@
 
 #include "yrt-pet/operators/OperatorProjectorSiddon.hpp"
 #include "yrt-pet/utils/Assert.hpp"
+#include "yrt-pet/utils/Concurrency.hpp"
+#include "yrt-pet/utils/Globals.hpp"
 #include "yrt-pet/utils/Tools.hpp"
 
 namespace yrt
@@ -34,13 +36,14 @@ void Corrector_CPU::precomputeAdditiveCorrectionFactors(
 	const bin_t numBins = measurements.count();
 	std::cout << "Precomputing additive corrections..." << std::endl;
 
-#pragma omp parallel for default(none) \
-    firstprivate(numBins, measurementsPtr, additiveCorrectionsPtr)
-	for (bin_t bin = 0; bin < numBins; bin++)
-	{
-		additiveCorrectionsPtr[bin] =
-		    getAdditiveCorrectionFactor(*measurementsPtr, bin);
-	}
+	util::parallel_for_chunked(
+	    numBins, globals::numThreads(),
+	    [numBins, measurementsPtr, additiveCorrectionsPtr, this](size_t bin,
+	                                                             size_t /*tid*/)
+	    {
+		    additiveCorrectionsPtr[bin] =
+		        getAdditiveCorrectionFactor(*measurementsPtr, bin);
+	    });
 }
 
 void Corrector_CPU::precomputeInVivoAttenuationFactors(
@@ -62,13 +65,14 @@ void Corrector_CPU::precomputeInVivoAttenuationFactors(
 	const size_t numBins = measurements.count();
 	std::cout << "Precomputing in-vivo attenuation corrections..." << std::endl;
 
-#pragma omp parallel for default(none) \
-    firstprivate(numBins, measurementsPtr, inVivoAttenuationFactorsPtr)
-	for (bin_t bin = 0; bin < numBins; bin++)
-	{
-		inVivoAttenuationFactorsPtr[bin] =
-		    getInVivoAttenuationFactor(*measurementsPtr, bin);
-	}
+	util::parallel_for_chunked(
+	    numBins, globals::numThreads(),
+	    [numBins, measurementsPtr, inVivoAttenuationFactorsPtr,
+	     this](size_t bin, size_t /*tid*/)
+	    {
+		    inVivoAttenuationFactorsPtr[bin] =
+		        getInVivoAttenuationFactor(*measurementsPtr, bin);
+	    });
 }
 
 float Corrector_CPU::getMultiplicativeCorrectionFactor(

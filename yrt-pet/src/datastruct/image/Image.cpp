@@ -234,11 +234,14 @@ float Image::voxelSum() const
 	const size_t numVoxels = params.nx * params.ny * params.nz;
 	const float* rawPtr = mp_array->getRawPointer();
 
-#pragma omp parallel for reduction(+ : sum)
-	for (size_t i = 0; i < numVoxels; i++)
+	std::atomic_ref<double> sumRef(sum);
+
+	util::parallel_for_chunked(
+		numVoxels, globals::numThreads(),
+		[rawPtr, &sumRef](size_t i, size_t /*tid*/)
 	{
-		sum += rawPtr[i];
-	}
+		sumRef.fetch_add(rawPtr[i]);
+	});
 
 	return static_cast<float>(sum);
 }
@@ -470,11 +473,9 @@ void Image::operationOnEachVoxelParallel(
 	float* flatPtr = mp_array->getRawPointer();
 	const size_t numVoxels = params.nx * params.ny * params.nz;
 
-#pragma omp parallel for default(none) firstprivate(func, numVoxels, flatPtr)
-	for (size_t i = 0; i < numVoxels; i++)
-	{
-		flatPtr[i] = func(i);
-	}
+	util::parallel_for_chunked(numVoxels, globals::numThreads(),
+	                           [flatPtr, func](size_t i, size_t /*tid*/)
+	                           { flatPtr[i] = func(i); });
 }
 
 // this function writes "image" on disk @ "image_fname"
@@ -628,34 +629,36 @@ void Image::transformImage(const transform_t& t, Image& dest,
 
 	const transform_t inv = util::invertTransform(t);
 
-#pragma omp parallel for default(none) \
-    firstprivate(destRawPtr, nx, ny, nz, num_xy, weight, inv, paramsPtr)
-	for (int i = 0; i < nz; i++)
-	{
-		const float z = paramsPtr->indexToPositionInDimension<0>(i);
+	util::parallel_for_chunked(
+	    nz, globals::numThreads(),
+	    [paramsPtr, nx, ny, num_xy, inv, weight, destRawPtr,
+	     this](size_t i, size_t /*tid*/)
+	    {
+		    const float z = paramsPtr->indexToPositionInDimension<0>(i);
 
-		for (int j = 0; j < ny; j++)
-		{
-			const float y = paramsPtr->indexToPositionInDimension<1>(j);
+		    for (int j = 0; j < ny; j++)
+		    {
+			    const float y = paramsPtr->indexToPositionInDimension<1>(j);
 
-			for (int k = 0; k < nx; k++)
-			{
-				const float x = paramsPtr->indexToPositionInDimension<2>(k);
+			    for (int k = 0; k < nx; k++)
+			    {
+				    const float x = paramsPtr->indexToPositionInDimension<2>(k);
 
-				float newX = x * inv.r00 + y * inv.r01 + z * inv.r02;
-				newX += inv.tx;
-				float newY = x * inv.r10 + y * inv.r11 + z * inv.r12;
-				newY += inv.ty;
-				float newZ = x * inv.r20 + y * inv.r21 + z * inv.r22;
-				newZ += inv.tz;
+				    float newX = x * inv.r00 + y * inv.r01 + z * inv.r02;
+				    newX += inv.tx;
+				    float newY = x * inv.r10 + y * inv.r11 + z * inv.r12;
+				    newY += inv.ty;
+				    float newZ = x * inv.r20 + y * inv.r21 + z * inv.r22;
+				    newZ += inv.tz;
 
-				const float valueFromOriginalImage =
-				    weight * interpolateImage({newX, newY, newZ});
+				    const float valueFromOriginalImage =
+				        weight * interpolateImage({newX, newY, newZ});
 
-				destRawPtr[i * num_xy + j * nx + k] += valueFromOriginalImage;
-			}
-		}
-	}
+				    destRawPtr[i * num_xy + j * nx + k] +=
+				        valueFromOriginalImage;
+			    }
+		    }
+	    });
 }
 
 std::unique_ptr<ImageOwned> Image::transformImage(const transform_t& t) const

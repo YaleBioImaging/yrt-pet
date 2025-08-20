@@ -9,10 +9,10 @@
 #include "yrt-pet/datastruct/projection/SparseHistogram.hpp"
 #include "yrt-pet/datastruct/scanner/Scanner.hpp"
 #include "yrt-pet/utils/Assert.hpp"
+#include "yrt-pet/utils/Concurrency.hpp"
 #include "yrt-pet/utils/Globals.hpp"
 #include "yrt-pet/utils/ReconstructionUtils.hpp"
 
-#include "omp.h"
 #include <cxxopts.hpp>
 #include <iostream>
 
@@ -75,7 +75,6 @@ int main(int argc, char** argv)
 		auto out_fname = config.getValue<std::string>("out");
 		int numThreads = config.getValue<int>("num_threads");
 
-		globals::setNumThreads(numThreads);
 		std::cout << "Initializing scanner..." << std::endl;
 		auto scanner = std::make_unique<Scanner>(scanner_fname);
 
@@ -94,25 +93,26 @@ int main(int argc, char** argv)
 		ListModeLUTOwned* lmOut_ptr = lmOut.get();
 		const ProjectionData* dataInput_ptr = dataInput.get();
 
-#pragma omp parallel for default(none), \
-    firstprivate(lmOut_ptr, dataInput_ptr, numEvents, hasTOF, hasRandoms)
-		for (bin_t evId = 0; evId < numEvents; evId++)
-		{
-			lmOut_ptr->setTimestampOfEvent(evId,
-			                               dataInput_ptr->getTimestamp(evId));
-			auto [d1, d2] = dataInput_ptr->getDetectorPair(evId);
-			lmOut_ptr->setDetectorIdsOfEvent(evId, d1, d2);
-			if (hasTOF)
-			{
-				lmOut_ptr->setTOFValueOfEvent(evId,
-				                              dataInput_ptr->getTOFValue(evId));
-			}
-			if (hasRandoms)
-			{
-				lmOut_ptr->setRandomsEstimateOfEvent(
-				    evId, dataInput_ptr->getRandomsEstimate(evId));
-			}
-		}
+		util::parallel_for_chunked(
+		    numEvents, numThreads,
+		    [lmOut_ptr, dataInput_ptr, numEvents, hasTOF,
+		     hasRandoms](size_t evId, size_t /*tid*/)
+		    {
+			    lmOut_ptr->setTimestampOfEvent(
+			        evId, dataInput_ptr->getTimestamp(evId));
+			    auto [d1, d2] = dataInput_ptr->getDetectorPair(evId);
+			    lmOut_ptr->setDetectorIdsOfEvent(evId, d1, d2);
+			    if (hasTOF)
+			    {
+				    lmOut_ptr->setTOFValueOfEvent(
+				        evId, dataInput_ptr->getTOFValue(evId));
+			    }
+			    if (hasRandoms)
+			    {
+				    lmOut_ptr->setRandomsEstimateOfEvent(
+				        evId, dataInput_ptr->getRandomsEstimate(evId));
+			    }
+		    });
 
 		std::cout << "Writing file..." << std::endl;
 		lmOut->writeToFile(out_fname);

@@ -163,6 +163,7 @@ void ListModeLUTDOIOwned::readFromFile(const std::string& listMode_fname)
 	size_t numEventsBatch = 1ull << 15;
 	auto buff =
 	    std::make_unique<unsigned char[]>(numEventsBatch * sizeOfAnEvent);
+	auto buffPtr = buff.get();
 	size_t eventStart = 0;
 	while (eventStart < numEvents)
 	{
@@ -171,62 +172,60 @@ void ListModeLUTDOIOwned::readFromFile(const std::string& listMode_fname)
 		size_t readSize = numEventsBatchCurr * sizeOfAnEvent;
 		fin.read((char*)buff.get(), readSize);
 
-#pragma omp parallel for default(none),                                     \
-    shared(mp_timestamps, mp_detectorId1, mp_detectorId2, mp_doi1, mp_doi2, \
-               buff, mp_tof_ps),                                            \
-    firstprivate(numEventsBatchCurr, sizeOfAnEvent, eventStart, numDets,    \
-                     hasTOF, hasRandoms)
-		for (size_t i = 0; i < numEventsBatchCurr; i++)
-		{
-			const size_t eventPos = eventStart + i;
-			size_t bufferPos = sizeOfAnEvent * i;
+		util::parallel_for_chunked(
+		    numEventsBatchCurr, globals::numThreads(),
+		    [eventStart, sizeOfAnEvent, buffPtr, numDets, hasTOF, hasRandoms,
+		     this](size_t i, size_t /*tid*/)
+		    {
+			    const size_t eventPos = eventStart + i;
+			    size_t bufferPos = sizeOfAnEvent * i;
 
-			const timestamp_t timestamp =
-			    *reinterpret_cast<timestamp_t*>(&(buff[bufferPos]));
-			bufferPos += sizeof(timestamp_t);
+			    const timestamp_t timestamp =
+			        *reinterpret_cast<timestamp_t*>(&(buffPtr[bufferPos]));
+			    bufferPos += sizeof(timestamp_t);
 
-			const det_id_t d1 =
-			    *(reinterpret_cast<det_id_t*>(&(buff[bufferPos])));
-			bufferPos += sizeof(det_id_t);
+			    const det_id_t d1 =
+			        *(reinterpret_cast<det_id_t*>(&(buffPtr[bufferPos])));
+			    bufferPos += sizeof(det_id_t);
 
-			const unsigned char doi1 = buff[bufferPos];
-			bufferPos += sizeof(unsigned char);
+			    const unsigned char doi1 = buffPtr[bufferPos];
+			    bufferPos += sizeof(unsigned char);
 
-			const det_id_t d2 =
-			    *(reinterpret_cast<det_id_t*>(&(buff[bufferPos])));
-			bufferPos += sizeof(det_id_t);
+			    const det_id_t d2 =
+			        *(reinterpret_cast<det_id_t*>(&(buffPtr[bufferPos])));
+			    bufferPos += sizeof(det_id_t);
 
-			const unsigned char doi2 = buff[bufferPos];
-			bufferPos += sizeof(unsigned char);
+			    const unsigned char doi2 = buffPtr[bufferPos];
+			    bufferPos += sizeof(unsigned char);
 
-			if (CHECK_LIKELY(d1 < numDets && d2 < numDets))
-			{
-				(*mp_timestamps)[eventPos] = timestamp;
-				(*mp_detectorId1)[eventPos] = d1;
-				(*mp_doi1)[eventPos] = doi1;
-				(*mp_detectorId2)[eventPos] = d2;
-				(*mp_doi2)[eventPos] = doi2;
-				if (hasTOF)
-				{
-					(*mp_tof_ps)[eventPos] =
-					    *(reinterpret_cast<float*>(&(buff[bufferPos])));
-					bufferPos += sizeof(float);
-				}
-				if (hasRandoms)
-				{
-					(*mp_randoms)[eventPos] =
-					    *(reinterpret_cast<float*>(&(buff[bufferPos])));
-					// Uncomment this if we add another field:
-					// bufferPos += sizeof(float);
-				}
-			}
-			else
-			{
-				throw std::invalid_argument(
-				    "Detectors invalid in list-mode event " +
-				    std::to_string(eventPos));
-			}
-		}
+			    if (CHECK_LIKELY(d1 < numDets && d2 < numDets))
+			    {
+				    (*mp_timestamps)[eventPos] = timestamp;
+				    (*mp_detectorId1)[eventPos] = d1;
+				    (*mp_doi1)[eventPos] = doi1;
+				    (*mp_detectorId2)[eventPos] = d2;
+				    (*mp_doi2)[eventPos] = doi2;
+				    if (hasTOF)
+				    {
+					    (*mp_tof_ps)[eventPos] =
+					        *(reinterpret_cast<float*>(&(buffPtr[bufferPos])));
+					    bufferPos += sizeof(float);
+				    }
+				    if (hasRandoms)
+				    {
+					    (*mp_randoms)[eventPos] =
+					        *(reinterpret_cast<float*>(&(buffPtr[bufferPos])));
+					    // Uncomment this if we add another field:
+					    // bufferPos += sizeof(float);
+				    }
+			    }
+			    else
+			    {
+				    throw std::invalid_argument(
+				        "Detectors invalid in list-mode event " +
+				        std::to_string(eventPos));
+			    }
+		    });
 		eventStart += numEventsBatchCurr;
 	}
 }

@@ -7,10 +7,10 @@
 
 #include "yrt-pet/datastruct/projection/ProjectionData.hpp"
 #include "yrt-pet/operators/OperatorProjectorDevice.cuh"
+#include "yrt-pet/utils/Concurrency.hpp"
+#include "yrt-pet/utils/Globals.hpp"
 #include "yrt-pet/utils/PageLockedBuffer.cuh"
 #include "yrt-pet/utils/ReconstructionUtils.hpp"
-
-#include "omp.h"
 
 namespace yrt
 {
@@ -60,36 +60,34 @@ void LORsDevice::precomputeBatchLORs(const BinIterator& binIter,
 		auto* binIter_ptr = &binIter;
 		const ProjectionData* reference_ptr = &reference;
 
-		bin_t binId;
-		size_t binIdx;
-#pragma omp parallel for default(none) private(binIdx, binId)                \
-    firstprivate(offset, batchSize, binIter_ptr, tempBufferLorDet1Pos_ptr,   \
-                     tempBufferLorDet2Pos_ptr, tempBufferLorDet1Orient_ptr,  \
-                     tempBufferLorDet2Orient_ptr, tempBufferLorTOFValue_ptr, \
-                     reference_ptr, m_hasTOF)
-		for (binIdx = 0; binIdx < batchSize; binIdx++)
-		{
-			binId = binIter_ptr->get(binIdx + offset);
-			auto [lor, tofValue, det1Orient, det2Orient] =
-			    reference_ptr->getProjectionProperties(binId);
+		util::parallel_for_chunked(
+		    batchSize, globals::numThreads(),
+		    [binIter_ptr, offset, reference_ptr, tempBufferLorDet1Pos_ptr,
+		     tempBufferLorDet2Pos_ptr, tempBufferLorDet1Orient_ptr,
+		     tempBufferLorDet2Orient_ptr, tempBufferLorTOFValue_ptr,
+		     this](size_t binIdx, size_t /*tid*/)
+		    {
+			    bin_t binId = binIter_ptr->get(binIdx + offset);
+			    auto [lor, tofValue, det1Orient, det2Orient] =
+			        reference_ptr->getProjectionProperties(binId);
 
-			tempBufferLorDet1Pos_ptr[binIdx].x = lor.point1.x;
-			tempBufferLorDet1Pos_ptr[binIdx].y = lor.point1.y;
-			tempBufferLorDet1Pos_ptr[binIdx].z = lor.point1.z;
-			tempBufferLorDet2Pos_ptr[binIdx].x = lor.point2.x;
-			tempBufferLorDet2Pos_ptr[binIdx].y = lor.point2.y;
-			tempBufferLorDet2Pos_ptr[binIdx].z = lor.point2.z;
-			tempBufferLorDet1Orient_ptr[binIdx].x = det1Orient.x;
-			tempBufferLorDet1Orient_ptr[binIdx].y = det1Orient.y;
-			tempBufferLorDet1Orient_ptr[binIdx].z = det1Orient.z;
-			tempBufferLorDet2Orient_ptr[binIdx].x = det2Orient.x;
-			tempBufferLorDet2Orient_ptr[binIdx].y = det2Orient.y;
-			tempBufferLorDet2Orient_ptr[binIdx].z = det2Orient.z;
-			if (m_hasTOF)
-			{
-				tempBufferLorTOFValue_ptr[binIdx] = tofValue;
-			}
-		}
+			    tempBufferLorDet1Pos_ptr[binIdx].x = lor.point1.x;
+			    tempBufferLorDet1Pos_ptr[binIdx].y = lor.point1.y;
+			    tempBufferLorDet1Pos_ptr[binIdx].z = lor.point1.z;
+			    tempBufferLorDet2Pos_ptr[binIdx].x = lor.point2.x;
+			    tempBufferLorDet2Pos_ptr[binIdx].y = lor.point2.y;
+			    tempBufferLorDet2Pos_ptr[binIdx].z = lor.point2.z;
+			    tempBufferLorDet1Orient_ptr[binIdx].x = det1Orient.x;
+			    tempBufferLorDet1Orient_ptr[binIdx].y = det1Orient.y;
+			    tempBufferLorDet1Orient_ptr[binIdx].z = det1Orient.z;
+			    tempBufferLorDet2Orient_ptr[binIdx].x = det2Orient.x;
+			    tempBufferLorDet2Orient_ptr[binIdx].y = det2Orient.y;
+			    tempBufferLorDet2Orient_ptr[binIdx].z = det2Orient.z;
+			    if (m_hasTOF)
+			    {
+				    tempBufferLorTOFValue_ptr[binIdx] = tofValue;
+			    }
+		    });
 
 		m_precomputedBatchSize = batchSize;
 		m_precomputedBatchId = batchId;

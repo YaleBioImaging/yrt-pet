@@ -13,6 +13,7 @@
 #include "yrt-pet/operators/OperatorProjectorSiddon.hpp"
 #include "yrt-pet/recon/OSEM_CPU.hpp"
 #include "yrt-pet/utils/Assert.hpp"
+#include "yrt-pet/utils/Concurrency.hpp"
 #include "yrt-pet/utils/Globals.hpp"
 #include "yrt-pet/utils/ProgressDisplay.hpp"
 #include "yrt-pet/utils/ProgressDisplayMultiThread.hpp"
@@ -142,11 +143,10 @@ void histogram3DToListModeLUT(const Histogram3D* histo, ListModeLUTOwned* lmOut,
 
 	// Phase 1: calculate sum of histogram values
 	double sum = 0.0;
-#pragma omp parallel for reduction(+ : sum)
-	for (bin_t binId = 0; binId < histo->count(); binId++)
-	{
-		sum += dataPtr[binId];
-	}
+	std::atomic_ref<double> sumRef(sum);
+	util::parallel_for_chunked(histo->count(), globals::numThreads(),
+	                           [dataPtr, &sumRef](size_t binId, size_t /*tid*/)
+	                           { sumRef.fetch_add(dataPtr[binId]); });
 
 	// Default target number of events (histogram sum)
 	if (numEvents == 0)
@@ -155,11 +155,14 @@ void histogram3DToListModeLUT(const Histogram3D* histo, ListModeLUTOwned* lmOut,
 	}
 	// Phase 2: calculate actual number of events
 	size_t sumInt = 0.0;
-#pragma omp parallel for reduction(+ : sumInt)
-	for (bin_t binId = 0; binId < histo->count(); binId++)
-	{
-		sumInt += std::lround(dataPtr[binId] / sum * (double)numEvents);
-	}
+	std::atomic_ref<size_t> sumIntRef(sumInt);
+	util::parallel_for_chunked(
+	    histo->count(), globals::numThreads(),
+	    [dataPtr, sum, numEvents, &sumIntRef](size_t binId, size_t /*tid*/)
+	    {
+		    sumIntRef.fetch_add(
+		        std::lround(dataPtr[binId] / sum * (double)numEvents));
+	    });
 
 	// Allocate list-mode data
 	lmOut->allocate(sumInt);
@@ -173,18 +176,20 @@ void histogram3DToListModeLUT(const Histogram3D* histo, ListModeLUTOwned* lmOut,
 		partialSums.allocate(numThreads);
 
 		// Phase 3: prepare partial sums for parallelization
-#pragma omp parallel for num_threads(numThreads)
-		for (int ti = 0; ti < numThreads; ti++)
-		{
-			bin_t binStart = ti * numBinsPerThread;
-			bin_t binEnd =
-			    std::min(histo->count() - 1, binStart + numBinsPerThread - 1);
-			for (bin_t binId = binStart; binId <= binEnd; binId++)
-			{
-				partialSums[ti] +=
-				    std::lround(dataPtr[binId] / sum * (double)numEvents);
-			}
-		}
+		util::parallel_do_indexed(
+		    numThreads,
+		    [numBinsPerThread, histo, &partialSums, dataPtr, sum,
+		     numEvents](size_t ti)
+		    {
+			    bin_t binStart = ti * numBinsPerThread;
+			    bin_t binEnd = std::min(histo->count() - 1,
+			                            binStart + numBinsPerThread - 1);
+			    for (bin_t binId = binStart; binId <= binEnd; binId++)
+			    {
+				    partialSums[ti] +=
+				        std::lround(dataPtr[binId] / sum * (double)numEvents);
+			    }
+		    });
 
 		// Calculate indices
 		Array1D<size_t> lmStartIdx;
@@ -196,27 +201,29 @@ void histogram3DToListModeLUT(const Histogram3D* histo, ListModeLUTOwned* lmOut,
 		}
 
 		// Phase 4: create events by block
-#pragma omp parallel for num_threads(numThreads)
-		for (int ti = 0; ti < numThreads; ti++)
-		{
-			bin_t binStart = ti * numBinsPerThread;
-			bin_t binEnd =
-			    std::min(histo->count() - 1, binStart + numBinsPerThread - 1);
-			bin_t eventId = lmStartIdx[ti];
-			for (bin_t binId = binStart; binId <= binEnd; binId++)
-			{
-				if (dataPtr[binId] != 0.f)
-				{
-					auto [d1, d2] = histo->getDetectorPair(binId);
-					int numEventsBin =
-					    std::lround(dataPtr[binId] / sum * (double)numEvents);
-					for (int ei = 0; ei < numEventsBin; ei++)
-					{
-						lmOut->setDetectorIdsOfEvent(eventId++, d1, d2);
-					}
-				}
-			}
-		}
+		util::parallel_do_indexed(
+		    numThreads,
+		    [numBinsPerThread, histo, &lmStartIdx, dataPtr, sum, numEvents,
+		     lmOut](size_t ti)
+		    {
+			    bin_t binStart = ti * numBinsPerThread;
+			    bin_t binEnd = std::min(histo->count() - 1,
+			                            binStart + numBinsPerThread - 1);
+			    bin_t eventId = lmStartIdx[ti];
+			    for (bin_t binId = binStart; binId <= binEnd; binId++)
+			    {
+				    if (dataPtr[binId] != 0.f)
+				    {
+					    auto [d1, d2] = histo->getDetectorPair(binId);
+					    int numEventsBin = std::lround(dataPtr[binId] / sum *
+					                                   (double)numEvents);
+					    for (int ei = 0; ei < numEventsBin; ei++)
+					    {
+						    lmOut->setDetectorIdsOfEvent(eventId++, d1, d2);
+					    }
+				    }
+			    }
+		    });
 	}
 	else
 	{
@@ -350,38 +357,38 @@ void convertToHistogram3D(const ProjectionData& dat, Histogram3D& histoOut)
 
 	const Histogram3D* histoOut_constptr = &histoOut;
 	const ProjectionData* dat_constptr = &dat;
-#pragma omp parallel for default(none)                            \
-    firstprivate(histoDataPointer, numDatBins, histoOut_constptr, \
-                     dat_constptr) shared(progressBar)
-	for (bin_t datBin = 0; datBin < numDatBins; ++datBin)
-	{
-		if constexpr (PrintProgress)
-		{
-			progressBar.progress(omp_get_thread_num(), 1);
-		}
+	util::parallel_for_chunked(
+	    numDatBins, globals::numThreads(),
+	    [&progressBar, dat_constptr, histoOut_constptr,
+	     histoDataPointer](size_t datBin, size_t tid)
+	    {
+		    if constexpr (PrintProgress)
+		    {
+			    progressBar.progress(tid, 1);
+		    }
 
-		const float projValue = dat_constptr->getProjectionValue(datBin);
-		if (projValue > 0)
-		{
-			const auto [d1, d2] = dat_constptr->getDetectorPair(datBin);
-			if (d1 == d2)
-			{
-				// Do not crash
-				continue;
-			}
-			const bin_t histoBin =
-			    histoOut_constptr->getBinIdFromDetPair(d1, d2);
-			if constexpr (RequiresAtomicAccumulation)
-			{
-#pragma omp atomic
-				histoDataPointer[histoBin] += projValue;
-			}
-			else
-			{
-				histoDataPointer[histoBin] += projValue;
-			}
-		}
-	}
+		    const float projValue = dat_constptr->getProjectionValue(datBin);
+		    if (projValue > 0)
+		    {
+			    const auto [d1, d2] = dat_constptr->getDetectorPair(datBin);
+			    if (d1 == d2)
+			    {
+				    // Do not crash
+				    return;
+			    }
+			    const bin_t histoBin =
+			        histoOut_constptr->getBinIdFromDetPair(d1, d2);
+			    if constexpr (RequiresAtomicAccumulation)
+			    {
+				    std::atomic_ref<float> outRef(histoDataPointer[histoBin]);
+				    outRef.fetch_add(projValue);
+			    }
+			    else
+			    {
+				    histoDataPointer[histoBin] += projValue;
+			    }
+		    }
+	    });
 }
 template void convertToHistogram3D<true, true>(const ProjectionData&,
                                                Histogram3D&);

@@ -7,6 +7,7 @@
 #include "yrt-pet/geometry/Constants.hpp"
 
 #include "yrt-pet/geometry/Matrix.hpp"
+#include "yrt-pet/utils/Concurrency.hpp"
 #include "yrt-pet/utils/Globals.hpp"
 
 #include <stdexcept>
@@ -92,12 +93,9 @@ void ProjectionData::operationOnEachBin(const std::function<float(bin_t)>& func)
 void ProjectionData::operationOnEachBinParallel(
     const std::function<float(bin_t)>& func)
 {
-	bin_t i;
-#pragma omp parallel for default(none) private(i), firstprivate(func)
-	for (i = 0u; i < count(); i++)
-	{
-		setProjectionValue(i, func(i));
-	}
+	util::parallel_for_chunked(count(), globals::numThreads(),
+	                           [func, this](size_t i, size_t /*tid*/)
+	                           { setProjectionValue(i, func(i)); });
 }
 
 bool ProjectionData::isUniform() const
@@ -259,18 +257,19 @@ void ProjectionData::divideMeasurements(const ProjectionData* measurements,
                                         const BinIterator* binIter)
 {
 	const bin_t numBins = binIter->size();
-#pragma omp parallel for default(none) \
-    firstprivate(numBins, binIter, measurements)
-	for (bin_t binIdx = 0; binIdx < numBins; binIdx++)
-	{
-		const bin_t bin = binIter->get(binIdx);
-		const float projValue = getProjectionValue(bin);
-		// to prevent numerical instability
-		if (projValue > EPS_FLT)
-		{
-			setProjectionValue(bin, measurements->getProjectionValue(bin) /
-			                            projValue);
-		}
-	}
+	util::parallel_for_chunked(
+	    numBins, globals::numThreads(),
+	    [binIter, measurements, this](size_t binIdx, size_t /*tid*/)
+
+	    {
+		    const bin_t bin = binIter->get(binIdx);
+		    const float projValue = getProjectionValue(bin);
+		    // to prevent numerical instability
+		    if (projValue > EPS_FLT)
+		    {
+			    setProjectionValue(bin, measurements->getProjectionValue(bin) /
+			                                projValue);
+		    }
+	    });
 }
 }  // namespace yrt

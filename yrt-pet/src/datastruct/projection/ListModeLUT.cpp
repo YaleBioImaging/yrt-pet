@@ -229,6 +229,7 @@ void ListModeLUTOwned::readFromFile(const std::string& listMode_fname)
 
 	// Read content of file
 	auto buff = std::make_unique<uint32_t[]>(bufferSize);
+	auto buffPtr = buff.get();
 	size_t posStart = 0;
 	while (posStart < numEvents)
 	{
@@ -237,41 +238,41 @@ void ListModeLUTOwned::readFromFile(const std::string& listMode_fname)
 		fin.read(reinterpret_cast<char*>(buff.get()),
 		         (readSize / numFields) * numFields * sizeof(float));
 
-#pragma omp parallel for default(none),                                     \
-    shared(mp_timestamps, mp_detectorId1, mp_detectorId2, buff, mp_tof_ps), \
-    firstprivate(readSize, numFields, posStart, numDets, hasTOF, hasRandoms)
-		for (size_t i = 0; i < readSize / numFields; i++)
-		{
-			const size_t eventPos = posStart + i;
-			size_t bufferPos = numFields * i;
+		util::parallel_for_chunked(
+		    readSize / numFields, globals::numThreads(),
+		    [posStart, numFields, numDets, buffPtr, hasTOF, hasRandoms,
+		     this](size_t i, size_t /*tid*/)
+		    {
+			    const size_t eventPos = posStart + i;
+			    size_t bufferPos = numFields * i;
 
-			const timestamp_t timestamp = buff[bufferPos++];
-			const det_id_t d1 = buff[bufferPos++];
-			const det_id_t d2 = buff[bufferPos++];
+			    const timestamp_t timestamp = buffPtr[bufferPos++];
+			    const det_id_t d1 = buffPtr[bufferPos++];
+			    const det_id_t d2 = buffPtr[bufferPos++];
 
-			if (CHECK_LIKELY(d1 < numDets && d2 < numDets))
-			{
-				(*mp_timestamps)[eventPos] = timestamp;
-				(*mp_detectorId1)[eventPos] = d1;
-				(*mp_detectorId2)[eventPos] = d2;
-				if (hasTOF)
-				{
-					std::memcpy(&mp_tof_ps->getRawPointer()[eventPos],
-					            &buff[bufferPos++], sizeof(float));
-				}
-				if (hasRandoms)
-				{
-					std::memcpy(&mp_randoms->getRawPointer()[eventPos],
-					            &buff[bufferPos++], sizeof(float));
-				}
-			}
-			else
-			{
-				throw std::invalid_argument(
-				    "Detectors invalid in list-mode event " +
-				    std::to_string(eventPos));
-			}
-		}
+			    if (CHECK_LIKELY(d1 < numDets && d2 < numDets))
+			    {
+				    (*mp_timestamps)[eventPos] = timestamp;
+				    (*mp_detectorId1)[eventPos] = d1;
+				    (*mp_detectorId2)[eventPos] = d2;
+				    if (hasTOF)
+				    {
+					    std::memcpy(&mp_tof_ps->getRawPointer()[eventPos],
+					                &buffPtr[bufferPos++], sizeof(float));
+				    }
+				    if (hasRandoms)
+				    {
+					    std::memcpy(&mp_randoms->getRawPointer()[eventPos],
+					                &buffPtr[bufferPos++], sizeof(float));
+				    }
+			    }
+			    else
+			    {
+				    throw std::invalid_argument(
+				        "Detectors invalid in list-mode event " +
+				        std::to_string(eventPos));
+			    }
+		    });
 		posStart += readSize / numFields;
 	}
 }

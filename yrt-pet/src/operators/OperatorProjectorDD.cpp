@@ -38,7 +38,7 @@ void py_setup_operatorprojectordd(py::module& m)
 	       const Line3D& lor, const Vector3D& n1, const Vector3D& n2,
 	       const TimeOfFlightHelper* tofHelper, float tofValue) -> float
 	    {
-		    return self.forwardProjection(in_image, lor, n1, n2, tofHelper,
+		    return self.forwardProjection(in_image, lor, n1, n2, 0, tofHelper,
 		                                  tofValue, nullptr);
 	    },
 	    py::arg("in_image"), py::arg("lor"), py::arg("n1"), py::arg("n2"),
@@ -49,7 +49,7 @@ void py_setup_operatorprojectordd(py::module& m)
 	       const Vector3D& n1, const Vector3D& n2, float proj_value,
 	       const TimeOfFlightHelper* tofHelper, float tofValue)
 	    {
-		    self.backProjection(in_image, lor, n1, n2, proj_value, tofHelper,
+		    self.backProjection(in_image, lor, n1, n2, proj_value, 0, tofHelper,
 		                        tofValue, nullptr);
 	    },
 	    py::arg("in_image"), py::arg("lor"), py::arg("n1"), py::arg("n2"),
@@ -78,28 +78,29 @@ OperatorProjectorDD::OperatorProjectorDD(
 }
 
 float OperatorProjectorDD::forwardProjection(
-    const Image* img, const ProjectionProperties& projectionProperties) const
+    const Image* img, const ProjectionProperties& projectionProperties,
+    int tid) const
 {
 	return forwardProjection(
 	    img, projectionProperties.lor, projectionProperties.det1Orient,
-	    projectionProperties.det2Orient, mp_tofHelper.get(),
+	    projectionProperties.det2Orient, tid, mp_tofHelper.get(),
 	    projectionProperties.tofValue, mp_projPsfManager.get());
 }
 
 void OperatorProjectorDD::backProjection(
     Image* img, const ProjectionProperties& projectionProperties,
-    float projValue) const
+    float projValue, int tid) const
 {
 	backProjection(
 	    img, projectionProperties.lor, projectionProperties.det1Orient,
-	    projectionProperties.det2Orient, projValue, mp_tofHelper.get(),
+	    projectionProperties.det2Orient, projValue, tid, mp_tofHelper.get(),
 	    projectionProperties.tofValue, mp_projPsfManager.get());
 }
 
 float OperatorProjectorDD::forwardProjection(
     const Image* in_image, const Line3D& lor, const Vector3D& n1,
-    const Vector3D& n2, const TimeOfFlightHelper* tofHelper, float tofValue,
-    const ProjectionPsfManager* psfManager) const
+    const Vector3D& n2, int /*tid*/, const TimeOfFlightHelper* tofHelper,
+    float tofValue, const ProjectionPsfManager* psfManager) const
 {
 	float v = 0;
 	if (tofHelper != nullptr)
@@ -117,8 +118,8 @@ float OperatorProjectorDD::forwardProjection(
 
 void OperatorProjectorDD::backProjection(
     Image* in_image, const Line3D& lor, const Vector3D& n1, const Vector3D& n2,
-    float proj_value, const TimeOfFlightHelper* tofHelper, float tofValue,
-    const ProjectionPsfManager* psfManager) const
+    float proj_value, int /*tid*/, const TimeOfFlightHelper* tofHelper,
+    float tofValue, const ProjectionPsfManager* psfManager) const
 {
 	if (tofHelper != nullptr)
 	{
@@ -432,15 +433,16 @@ void OperatorProjectorDD::dd_project_ref(
 							weight *= tof_weight;
 						}
 
-						float* ptr = raw_img_ptr + idx;
 						if constexpr (IS_FWD)
 						{
+							float* ptr = raw_img_ptr + idx;
 							proj_value += (*ptr) * weight;
 						}
 						else
 						{
-#pragma omp atomic
-							*ptr += proj_value * weight;
+							std::atomic_ref<float> atomic_elem(
+							    raw_img_ptr[idx]);
+							atomic_elem.fetch_add(proj_value * weight);
 						}
 					}
 				}

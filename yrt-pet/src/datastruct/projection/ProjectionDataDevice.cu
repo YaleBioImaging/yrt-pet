@@ -9,9 +9,9 @@
 #include "yrt-pet/datastruct/projection/UniformHistogram.hpp"
 #include "yrt-pet/operators/OperatorProjectorDevice.cuh"
 #include "yrt-pet/utils/Assert.hpp"
+#include "yrt-pet/utils/Concurrency.hpp"
 #include "yrt-pet/utils/Globals.hpp"
 
-#include "omp.h"
 #include <utility>
 
 #if BUILD_PYBIND11
@@ -307,42 +307,44 @@ void ProjectionDataDevice::loadProjValuesFromHostInternal(
 		    getBatchSetup(getPrecomputedSubsetId()).getBatchSize(0);
 		const size_t offset = getPrecomputedBatchId() * firstBatchSize;
 
-		size_t binIdx;
-		bin_t binId;
 		if (histo == nullptr)
 		{
 			// TODO: Add optimization if loading from ProjectionList (since its
 			//  memory is contiguous)
 
 			// Fill the buffer using the source directly
-#pragma omp parallel for default(none) private(binIdx, binId) \
-    firstprivate(offset, binIter, projValuesBuffer, src, batchSize)
-			for (binIdx = 0; binIdx < batchSize; binIdx++)
-			{
-				binId = binIter->get(binIdx + offset);
-				if constexpr (GatherRandoms)
-				{
-					projValuesBuffer[binIdx] = src->getRandomsEstimate(binId);
-				}
-				else
-				{
-					projValuesBuffer[binIdx] = src->getProjectionValue(binId);
-				}
-			}
+			util::parallel_for_chunked(
+			    batchSize, globals::numThreads(),
+			    [offset, &binIter, projValuesBuffer, src,
+			     batchSize](size_t binIdx, size_t /*tid*/)
+			    {
+				    bin_t binId = binIter->get(binIdx + offset);
+				    if constexpr (GatherRandoms)
+				    {
+					    projValuesBuffer[binIdx] =
+					        src->getRandomsEstimate(binId);
+				    }
+				    else
+				    {
+					    projValuesBuffer[binIdx] =
+					        src->getProjectionValue(binId);
+				    }
+			    });
 		}
 		else
 		{
 			// Fill the buffer using the corresponding value in the histogram
 			histo_bin_t histoBin;
-#pragma omp parallel for default(none) private(binIdx, binId, histoBin) \
-    firstprivate(offset, binIter, projValuesBuffer, src, batchSize, histo)
-			for (binIdx = 0; binIdx < batchSize; binIdx++)
-			{
-				binId = binIter->get(binIdx + offset);
-				histoBin = src->getHistogramBin(binId);
-				projValuesBuffer[binIdx] =
-				    histo->getProjectionValueFromHistogramBin(histoBin);
-			}
+			util::parallel_for_chunked(
+			    batchSize, globals::numThreads(),
+			    [offset, binIter, projValuesBuffer, src, batchSize,
+			     histo](size_t binIdx, size_t /*tid*/)
+			    {
+				    bin_t binId = binIter->get(binIdx + offset);
+				    histo_bin_t histoBin = src->getHistogramBin(binId);
+				    projValuesBuffer[binIdx] =
+				        histo->getProjectionValueFromHistogramBin(histoBin);
+			    });
 		}
 
 		util::copyHostToDevice(getProjValuesDevicePointer(), projValuesBuffer,
@@ -371,15 +373,14 @@ void ProjectionDataDevice::transferProjValuesToHost(
 	    m_batchSetups.at(getLoadedSubsetId()).getBatchSize(0);
 	const size_t offset = getLoadedBatchId() * firstBatchSize;
 
-	size_t binIdx;
-	bin_t binId;
-#pragma omp parallel for default(none) private(binIdx, binId) \
-    firstprivate(offset, binIter, projValuesBuffer, projDataDest, batchSize)
-	for (binIdx = 0; binIdx < batchSize; binIdx++)
-	{
-		binId = binIter->get(binIdx + offset);
-		projDataDest->setProjectionValue(binId, projValuesBuffer[binIdx]);
-	}
+	util::parallel_for_chunked(batchSize, globals::numThreads(),
+	                           [binIter, offset, projDataDest,
+	                            projValuesBuffer](size_t binIdx, size_t /*tid*/)
+	                           {
+		                           bin_t binId = binIter->get(binIdx + offset);
+		                           projDataDest->setProjectionValue(
+		                               binId, projValuesBuffer[binIdx]);
+	                           });
 }
 
 size_t ProjectionDataDevice::getPrecomputedBatchSize() const

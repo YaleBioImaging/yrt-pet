@@ -251,56 +251,57 @@ void OperatorVarPsf::varconvolve(const Image* in, Image* out) const
 	float x_center = nx * vx / 2.0f;
 	float y_center = ny * vy / 2.0f;
 	float z_center = nz * vz / 2.0f;
-	float temp_x, temp_y, temp_z;
-	int i, j, k, ii, jj, kk;
 
-#pragma omp parallel for private(temp_x, temp_y, temp_z, i, j, k, ii, jj, kk) \
-    shared(outPtr)
-	for (int pp = 0; pp < nx * ny * nz; pp++)
-	{
-		i = pp % nx;
-		j = (pp / nx) % ny;
-		k = pp / (nx * ny);
-		temp_x = std::abs((i + 0.5) * vx - x_center);
-		temp_y = std::abs((j + 0.5) * vy - y_center);
-		temp_z = std::abs((k + 0.5) * vz - z_center);
-		auto& kernel = findNearestKernel(temp_x, temp_y, temp_z);
+	util::parallel_for_chunked(
+	    nx * ny * nz, globals::numThreads(),
+	    [nx, ny, nz, vx, vy, vz, x_center, y_center, z_center, inPtr, outPtr,
+	     this](size_t pp, size_t /*tid*/)
+	    {
+		    int i = pp % nx;
+		    int j = (pp / nx) % ny;
+		    int k = pp / (nx * ny);
+		    float temp_x = std::abs((i + 0.5) * vx - x_center);
+		    float temp_y = std::abs((j + 0.5) * vy - y_center);
+		    float temp_z = std::abs((k + 0.5) * vz - z_center);
+		    auto& kernel = findNearestKernel(temp_x, temp_y, temp_z);
 
-		int kernel_size_x = kernel.getHalfSizeX();
-		int kernel_size_y = kernel.getHalfSizeY();
-		int kernel_size_z = kernel.getHalfSizeZ();
+		    int kernel_size_x = kernel.getHalfSizeX();
+		    int kernel_size_y = kernel.getHalfSizeY();
+		    int kernel_size_z = kernel.getHalfSizeZ();
 
-		auto& psf_kernel = kernel.getArray();
-		int idx = 0;
-		float temp1 = inPtr[IDX3(i, j, k, nx, ny)];
+		    auto& psf_kernel = kernel.getArray();
+		    int idx = 0;
+		    float temp1 = inPtr[IDX3(i, j, k, nx, ny)];
 
-		for (int z_diff = -kernel_size_z; z_diff <= kernel_size_z; ++z_diff)
-		{
-			for (int y_diff = -kernel_size_y; y_diff <= kernel_size_y; ++y_diff)
-			{
-				for (int x_diff = -kernel_size_x; x_diff <= kernel_size_x;
-				     ++x_diff, ++idx)
-				{
-					ii = util::circular(nx, i + x_diff);
-					jj = util::circular(ny, j + y_diff);
-					kk = util::circular(nz, k + z_diff);
+		    for (int z_diff = -kernel_size_z; z_diff <= kernel_size_z; ++z_diff)
+		    {
+			    for (int y_diff = -kernel_size_y; y_diff <= kernel_size_y;
+			         ++y_diff)
+			    {
+				    for (int x_diff = -kernel_size_x; x_diff <= kernel_size_x;
+				         ++x_diff, ++idx)
+				    {
+					    int ii = util::circular(nx, i + x_diff);
+					    int jj = util::circular(ny, j + y_diff);
+					    int kk = util::circular(nz, k + z_diff);
 
-					if constexpr (IS_FWD)
-					{
-						outPtr[IDX3(i, j, k, nx, ny)] +=
-						    inPtr[IDX3(ii, jj, kk, nx, ny)] *
-						    psf_kernel.getFlat(idx);
-					}
-					else
-					{
-#pragma omp atomic
-						outPtr[IDX3(ii, jj, kk, nx, ny)] +=
-						    temp1 * psf_kernel.getFlat(idx);
-					}
-				}
-			}
-		}
-	}
+					    if constexpr (IS_FWD)
+					    {
+						    outPtr[IDX3(i, j, k, nx, ny)] +=
+						        inPtr[IDX3(ii, jj, kk, nx, ny)] *
+						        psf_kernel.getFlat(idx);
+					    }
+					    else
+					    {
+						    std::atomic_ref<float> atomic_elem(
+						        outPtr[IDX3(ii, jj, kk, nx, ny)]);
+						    atomic_elem.fetch_add(temp1 *
+						                          psf_kernel.getFlat(idx));
+					    }
+				    }
+			    }
+		    }
+	    });
 }
 
 void OperatorVarPsf::setRangeAndGap(float xRange, float xGap, float yRange,

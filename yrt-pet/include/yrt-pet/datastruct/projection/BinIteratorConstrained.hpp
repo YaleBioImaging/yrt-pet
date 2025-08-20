@@ -10,9 +10,9 @@
 #include <unordered_map>
 #include <vector>
 
+#include "yrt-pet/datastruct/projection/Constraints.hpp"
 #include "yrt-pet/datastruct/projection/ProjectionData.hpp"
 #include "yrt-pet/datastruct/projection/ProjectionProperties.hpp"
-#include "yrt-pet/datastruct/projection/Constraints.hpp"
 #include "yrt-pet/utils/Types.hpp"
 
 namespace yrt
@@ -30,7 +30,8 @@ public:
 	void setupManagers();
 
 	void collectConstraintVariables();
-	void collectInfo(bin_t bin, int tid, const ProjectionData& projData,
+	void collectInfo(bin_t bin, size_t projIdx, int consIdx,
+	                 const ProjectionData& projData,
 	                 ProjectionProperties& projProps,
 	                 ConstraintParams& consInfo) const;
 	bool isValid(const ConstraintManager& manager,
@@ -49,7 +50,6 @@ private:
 
 	std::set<ProjectionPropertyType> m_projVariables;
 	std::unique_ptr<ProjectionPropertyManager> m_propManager = nullptr;
-
 };
 
 }  // namespace yrt

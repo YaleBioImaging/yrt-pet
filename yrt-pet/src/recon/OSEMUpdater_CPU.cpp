@@ -43,7 +43,7 @@ void OSEMUpdater_CPU::computeSensitivityImage(Image& destImage) const
 
 #pragma omp parallel for default(none)                                      \
     firstprivate(sensImgGenProjData, correctorPtr, projector, destImagePtr, \
-                 binIter, numBins) shared(progressDisplay)
+                     binIter, numBins) shared(progressDisplay)
 	for (bin_t binIdx = 0; binIdx < numBins; binIdx++)
 	{
 		progressDisplay.progress(omp_get_thread_num(), 1);
@@ -95,9 +95,9 @@ void OSEMUpdater_CPU::computeSensitivityImage(Image& destImage) const
 		         binIdx < std::min((tid + 1) * blockSize, numBinsMax); binIdx++)
 		    {
 			    bin_t bin = binIter->get(binIdx);
-			    binIterConstrained->collectInfo(bin, tid, *sensImgGenProjData,
-			                                    projectionProperties,
-			                                    constraintParams);
+			    binIterConstrained->collectInfo(
+			        bin, tid, tid, *sensImgGenProjData, projectionProperties,
+			        constraintParams);
 			    if (binIterConstrained->isValid(consManager, constraintParams))
 			    {
 				    progressDisplay.progress(tid, 1);
@@ -167,7 +167,7 @@ void OSEMUpdater_CPU::computeEMUpdateImage(const Image& inputImage,
 	     &projectionProperties](int binIdx, int tid)
 	    {
 		    bin_t bin = binIter->get(binIdx);
-		    binIterConstrained->collectInfo(bin, tid, *measurements,
+		    binIterConstrained->collectInfo(bin, tid, tid, *measurements,
 		                                    projectionProperties,
 		                                    constraintParams);
 		    if (binIterConstrained->isValid(consManager, constraintParams))

@@ -57,8 +57,7 @@ void LORsDevice::precomputeBatchLORs(
 		char* tempBufferProjectionProperties_ptr =
 		    m_tempProjectionProperties.getPointer();
 		auto consManager = binIterConstrained.getConstraintManager();
-		auto info = consManager.createDataArray(
-		    numThreads);
+		auto info = consManager.createDataArray(numThreads);
 		auto infoPtr = info.get();
 
 		const size_t offset = batchId * batchSetup.getBatchSize(0);
@@ -77,13 +76,13 @@ void LORsDevice::precomputeBatchLORs(
 			    {
 				    bin_t bin = binIter_ptr->get(binIdx + offset);
 				    binIterConstrained.collectInfo(
-				        bin, binIdx, *reference_ptr,
+				        bin, binIdx, tid, *reference_ptr,
 				        tempBufferProjectionProperties_ptr, infoPtr);
 				    if (binIterConstrained.isValid(consManager, infoPtr))
 				    {
 					    reference_ptr->getProjectionProperties(
 					        tempBufferProjectionProperties_ptr, projPropManager,
-					        bin, tid);
+					        bin, binIdx);
 				    }
 				    else
 				    {
@@ -92,7 +91,7 @@ void LORsDevice::precomputeBatchLORs(
 					    float* ptr = projPropManager.getDataPtr<float>(
 					        tempBufferProjectionProperties_ptr, binIdx,
 					        ProjectionPropertyType::LOR);
-					    memset(ptr, 0, 6 * sizeof(float));
+					    memset(ptr, 0, sizeof(Line3D));
 				    }
 			    }
 		    });
@@ -163,8 +162,7 @@ void LORsDevice::allocateForPrecomputedLORsIfNeeded(
 {
 	ASSERT_MSG(m_precomputedBatchSize > 0, "No batch of LORs precomputed");
 	const bool hasAllocated = mp_projectionProperties->allocate(
-		m_precomputedBatchSize * m_elementSize,
-		{launchConfig.stream, false});
+	    m_precomputedBatchSize * m_elementSize, {launchConfig.stream, false});
 
 	if (hasAllocated && launchConfig.synchronize)
 	{

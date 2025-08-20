@@ -22,8 +22,7 @@ namespace yrt
 BinIteratorConstrained::BinIteratorConstrained(
     const std::vector<Constraint*>& constraints,
     const std::set<ProjectionPropertyType>& projVariables)
-	: m_constraints(constraints),
-	  m_projVariables(projVariables)
+    : m_constraints(constraints), m_projVariables(projVariables)
 {
 	setupManagers();
 	collectConstraintVariables();
@@ -48,8 +47,7 @@ void BinIteratorConstrained::setupManagers()
 	{
 		collectConstraintVariables();
 	}
-	m_constraintManager =
-		std::make_unique<ConstraintManager>(m_consVariables);
+	m_constraintManager = std::make_unique<ConstraintManager>(m_consVariables);
 	m_propManager =
 	    std::make_unique<ProjectionPropertyManager>(m_projVariables);
 }
@@ -78,9 +76,10 @@ const ProjectionPropertyManager&
 	return *m_propManager.get();
 }
 
-void BinIteratorConstrained::collectInfo(
-    bin_t bin, int tid, const ProjectionData& projData,
-    ProjectionProperties& projProps, ConstraintParams& consInfo) const
+void BinIteratorConstrained::collectInfo(bin_t bin, size_t projIdx, int consIdx,
+                                         const ProjectionData& projData,
+                                         ProjectionProperties& projProps,
+                                         ConstraintParams& consInfo) const
 {
 	det_pair_t detPair;
 
@@ -93,7 +92,8 @@ void BinIteratorConstrained::collectInfo(
 	    m_consVariables.find(ConstraintVariable::AbsDeltaBlockIdx) !=
 	    m_consVariables.end();
 	bool needsDetPair = m_projVariables.find(ProjectionPropertyType::DetID) !=
-		m_projVariables.end() || needsPlaneIdx || needsPlaneBlock;
+	                        m_projVariables.end() ||
+	                    needsPlaneIdx || needsPlaneBlock;
 
 	if (needsDetPair)
 	{
@@ -102,12 +102,12 @@ void BinIteratorConstrained::collectInfo(
 	if (m_projVariables.find(ProjectionPropertyType::DetID) !=
 	    m_projVariables.end())
 	{
-		m_propManager->setDataValue(projProps, tid,
+		m_propManager->setDataValue(projProps, projIdx,
 		                            ProjectionPropertyType::DetID, detPair);
 	}
 
 	bool needsLOR =
-		m_projVariables.find(ProjectionPropertyType::LOR) !=
+	    m_projVariables.find(ProjectionPropertyType::LOR) !=
 	        m_projVariables.end() ||
 	    m_consVariables.find(ConstraintVariable::AbsDeltaAngleDeg) !=
 	        m_consVariables.end();
@@ -115,7 +115,7 @@ void BinIteratorConstrained::collectInfo(
 	if (needsLOR)
 	{
 		lor = projData.getLOR(bin);
-		m_propManager->setDataValue(projProps, tid,
+		m_propManager->setDataValue(projProps, projIdx,
 		                            ProjectionPropertyType::LOR, lor);
 	}
 	const Scanner* scanner = &projData.getScanner();
@@ -128,7 +128,7 @@ void BinIteratorConstrained::collectInfo(
 		float a2 = std::atan2(lor.point2.y, lor.point2.x);
 		float diff = util::periodicDiff(a1, a2, (float)(2.f * PI));
 		m_constraintManager->setDataValue(
-		    consInfo, tid, ConstraintVariable::AbsDeltaAngleDeg, diff);
+		    consInfo, consIdx, ConstraintVariable::AbsDeltaAngleDeg, diff);
 	}
 
 	int d1xyi;
@@ -144,7 +144,7 @@ void BinIteratorConstrained::collectInfo(
 		int diff = util::periodicDiff(d1xyi, d2xyi,
 		                              static_cast<int>(scanner->detsPerRing));
 		m_constraintManager->setDataValue(
-		    consInfo, tid, ConstraintVariable::AbsDeltaAngleIdx, diff);
+		    consInfo, consIdx, ConstraintVariable::AbsDeltaAngleIdx, diff);
 	}
 
 	int d1bi;
@@ -160,7 +160,7 @@ void BinIteratorConstrained::collectInfo(
 		int diff = util::periodicDiff(d1bi, d2bi,
 		                              static_cast<int>(scanner->detsPerBlock));
 		m_constraintManager->setDataValue(
-		    consInfo, tid, ConstraintVariable::AbsDeltaBlockIdx, diff);
+		    consInfo, consIdx, ConstraintVariable::AbsDeltaBlockIdx, diff);
 	}
 }
 

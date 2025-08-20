@@ -10,6 +10,7 @@
 
 #include "omp.h"
 
+#include <array>
 #include <cstddef>
 #include <iostream>
 
@@ -18,33 +19,50 @@ namespace yrt
 namespace globals
 {
 
+enum class VerbositySection
+{
+	GENERAL = 0,
+	ALLOCATION,
+	FILESYSTEM,
+	IMAGE,
+	PROJECTOR,
+	CORRECTOR,
+	OPTIMIZER,
+	COUNT
+};
+
 static constexpr int DefaultVerbosityLevel = 1;
 
-inline int& verbosityLevel()
+inline int& verbosityLevel(VerbositySection section)
 {
-	static int s_verbosityLevel = []()
+	static constexpr int NumVerbositySections =
+	    static_cast<int>(VerbositySection::COUNT);
+
+	static std::array<int, NumVerbositySections> s_verbosityLevels = []
 	{
-		// Initialization
-		return DefaultVerbosityLevel;
+		std::array<int, NumVerbositySections> arr{};
+		arr.fill(DefaultVerbosityLevel);  // initialize all sections
+		return arr;
 	}();
-	return s_verbosityLevel;
+
+	return s_verbosityLevels[static_cast<int>(section)];
 }
 
-inline int getVerbosityLevel()
+inline int getVerbosityLevel(VerbositySection section)
 {
-	return verbosityLevel();
+	return verbosityLevel(section);
 }
 
-inline void setVerbosityLevel(int v)
+inline void setVerbosityLevel(VerbositySection section, int v)
 {
 	if (v <= 0)
 	{
-		verbosityLevel() = 0;  // clamp to zero
+		verbosityLevel(section) = 0;  // clamp to zero
 	}
 	else
 	{
 		ASSERT_MSG(v <= 5, "Maximum verbosity level allowed is 5");
-		verbosityLevel() = v;
+		verbosityLevel(section) = v;
 	}
 }
 

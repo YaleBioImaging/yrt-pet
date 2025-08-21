@@ -8,8 +8,6 @@
 #include "yrt-pet/geometry/MultiRayGenerator.hpp"
 #include "yrt-pet/operators/OperatorProjector.hpp"
 
-#include "omp.h"
-
 namespace yrt
 {
 class Image;
@@ -21,24 +19,24 @@ public:
 	                                 float tofWidth_ps = 0.0f,
 	                                 int tofNumStd = -1);
 
-	explicit
-	    OperatorProjectorSiddon(const OperatorProjectorParams& p_projParams);
+	explicit OperatorProjectorSiddon(
+	    const OperatorProjectorParams& p_projParams);
 
-	float forwardProjection(
-	    const Image* img,
-	    const ProjectionProperties& projectionProperties) const override;
+	float forwardProjection(const Image* img,
+	                        const ProjectionProperties& projectionProperties,
+	                        int tid) const override;
 
 	void backProjection(Image* img,
 	                    const ProjectionProperties& projectionProperties,
-	                    float projValue) const override;
+	                    float projValue, int tid) const override;
 
 	// Projection
 	float forwardProjection(const Image* img, const Line3D& lor,
-	                        const Vector3D& n1, const Vector3D& n2,
+	                        const Vector3D& n1, const Vector3D& n2, int tid,
 	                        const TimeOfFlightHelper* tofHelper = nullptr,
 	                        float tofValue = 0.f) const;
 	void backProjection(Image* img, const Line3D& lor, const Vector3D& n1,
-	                    const Vector3D& n2, float projValue,
+	                    const Vector3D& n2, float projValue, int tid,
 	                    const TimeOfFlightHelper* tofHelper = nullptr,
 	                    float tofValue = 0.f) const;
 

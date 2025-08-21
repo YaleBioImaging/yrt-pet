@@ -39,11 +39,11 @@ public:
 	// Virtual functions
 	virtual float forwardProjection(
 	    const Image* image,
-	    const ProjectionProperties& projectionProperties) const = 0;
+	    const ProjectionProperties& projectionProperties, int tid) const = 0;
 	virtual void
 	    backProjection(Image* image,
 	                   const ProjectionProperties& projectionProperties,
-	                   float projValue) const = 0;
+	                   float projValue, int tid) const = 0;
 
 	void applyA(const Variable* in, Variable* out) override;
 	void applyAH(const Variable* in, Variable* out) override;

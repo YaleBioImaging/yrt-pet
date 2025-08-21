@@ -28,23 +28,23 @@ public:
 
 	float forwardProjection(
 	    const Image* in_image, const Line3D& lor, const Vector3D& n1,
-	    const Vector3D& n2, const TimeOfFlightHelper* tofHelper = nullptr,
-	    float tofValue = 0.0f,
+	    const Vector3D& n2, int tid,
+	    const TimeOfFlightHelper* tofHelper = nullptr, float tofValue = 0.0f,
 	    const ProjectionPsfManager* psfManager = nullptr) const;
 
 	void backProjection(Image* in_image, const Line3D& lor, const Vector3D& n1,
-	                    const Vector3D& n2, float proj_value,
+	                    const Vector3D& n2, float proj_value, int tid,
 	                    const TimeOfFlightHelper* tofHelper = nullptr,
 	                    float tofValue = 0.0f,
 	                    const ProjectionPsfManager* psfManager = nullptr) const;
 
-	float forwardProjection(
-	    const Image* img,
-	    const ProjectionProperties& projectionProperties) const override;
+	float forwardProjection(const Image* img,
+	                        const ProjectionProperties& projectionProperties,
+	                        int tid) const override;
 
 	void backProjection(Image* img,
 	                    const ProjectionProperties& projectionProperties,
-	                    float projValue) const override;
+	                    float projValue, int tid) const override;
 
 	static float get_overlap_safe(float p0, float p1, float d0, float d1);
 	static float get_overlap_safe(float p0, float p1, float d0, float d1,

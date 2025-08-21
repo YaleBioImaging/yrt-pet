@@ -52,7 +52,13 @@ TEST_CASE("array1d", "[array]")
 		REQUIRE((*arr)[4] == (*arr2)[4]);
 		REQUIRE(arr2->getSize(0) == 10);
 	}
+
+	SECTION("array1d-max")
+	{
+		REQUIRE(arr->getMaxValue() == 9);
+	}
 }
+
 TEST_CASE("array2d", "[array]")
 {
 

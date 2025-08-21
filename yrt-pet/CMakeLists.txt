@@ -1,6 +1,6 @@
 # Jinsong Ouyang, 03-2019
 
-cmake_minimum_required(VERSION 3.21)
+cmake_minimum_required(VERSION 3.28)
 project(yrt-pet VERSION 0.0.1 LANGUAGES CXX)
 
 
@@ -11,7 +11,7 @@ find_package(ZLIB REQUIRED)
 include(ExternalProject)
 
 # Program requirements
-find_package(OpenMP REQUIRED)
+
 
 # User options
 option(BUILD_PYBIND11 "Build python bindings using pybind11" ON)
@@ -50,8 +50,8 @@ if (USE_CUDA)
 endif (USE_CUDA)
 
 # Common variables
-set(YRTPET_COMPILE_FEATURES cxx_std_17)
-set(YRTPET_LINK_LIBRARIES OpenMP::OpenMP_CXX ZLIB::ZLIB)
+set(YRTPET_COMPILE_FEATURES cxx_std_20)
+set(YRTPET_LINK_LIBRARIES ZLIB::ZLIB)
 set(YRTPET_INCLUDE_DIRECTORIES)
 set(YRTPET_LIB_NAME yrtpet)
 
@@ -79,7 +79,7 @@ function(setup_target TARGET JSON CXXOPTS PYBIND11)
     target_link_libraries(${TARGET} PUBLIC ${YRTPET_LINK_LIBRARIES})
     target_compile_options(${TARGET} PRIVATE
         $<$<COMPILE_LANGUAGE:CXX>:-pedantic>
-        "$<$<COMPILE_LANGUAGE:CUDA>:--compiler-options=-fopenmp>")
+        "$<$<COMPILE_LANGUAGE:CUDA>:>")
     if (${JSON})
         target_link_libraries(${TARGET} PUBLIC JSON)
     endif ()

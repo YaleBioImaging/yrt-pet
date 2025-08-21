@@ -12,8 +12,6 @@
 #include "yrt-pet/utils/Globals.hpp"
 #include "yrt-pet/utils/ProgressDisplay.hpp"
 
-#include "omp.h"
-
 namespace yrt
 {
 namespace util
@@ -47,7 +45,7 @@ void forwProjectToSparseHistogram(const Image& sourceImage,
 		    uniformHistogram_ptr->getProjectionProperties(bin);
 
 		const float projValue = projector_ptr->forwardProjection(
-		    sourceImage_ptr, projectionProperties);
+			sourceImage_ptr, projectionProperties, 0);
 
 		if (std::abs(projValue) > SMALL)
 		{

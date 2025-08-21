@@ -70,7 +70,7 @@ T simpleReduceArray(const U* array, size_t length, std::function<T(T, T)> func,
                     T init, size_t threadCnt = 1)
 {
     std::vector<T> workspace;
-	workspace.reserve(threadCnt);
+	workspace.resize(threadCnt);
 	std::fill(workspace.begin(), workspace.end(), init);
 
     parallel_for_chunked(length, threadCnt,

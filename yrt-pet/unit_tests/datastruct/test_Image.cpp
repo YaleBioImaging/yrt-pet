@@ -174,7 +174,7 @@ TEST_CASE("image-readwrite", "[image]")
 		sum += imgData_ptr[i];
 	}
 
-	REQUIRE(img1.voxelSum() == static_cast<float>(sum);
+	REQUIRE(img1.voxelSum() == static_cast<float>(sum));
 
 	img1.writeToFile(tmpImage_fname);
 	img1.writeToFile(tmpCompressedImage_fname);

@@ -1,6 +1,12 @@
+/*
+ * This file is subject to the terms and conditions defined in
+ * file 'LICENSE.txt', which is part of this source code package.
+ */
+
 #include "yrt-pet/kernel/Kernel.hpp"
 #include "yrt-pet/utils/Array.hpp"
 #include "yrt-pet/utils/Assert.hpp"
+#include "yrt-pet/utils/Globals.hpp"
 
 #include <cxxopts.hpp>
 
@@ -17,7 +23,7 @@ int main(int argc, char** argv)
 		int num_k = 10;
 		float sigma2 = 1;
 		std::string mode = "neighbors";
-		int num_threads = omp_get_max_threads();
+		int num_threads = yrt::globals::getNumThreads();
 
 		// Parse command line arguments
 		cxxopts::Options options(argv[0],

@@ -129,7 +129,7 @@ std::unique_ptr<ImageDevice> timeAverageMoveImageDevice(
 
 	// Populate transforms and weights buffers
 	util::parallel_for_chunked(
-	    numFramesUsed, globals::numThreads(),
+	    numFramesUsed, globals::getNumThreads(),
 	    [frameStart, invTransforms_ptr, weights_ptr, scanDuration,
 	     lorMotion_ptr](size_t frame_i, size_t /*tid*/)
 	    {

@@ -144,8 +144,8 @@ void histogram3DToListModeLUT(const Histogram3D* histo, ListModeLUTOwned* lmOut,
 	// Phase 1: calculate sum of histogram values
 	double sum = 0.0;
 	std::atomic_ref<double> sumRef(sum);
-	util::parallel_for_chunked(histo->count(), globals::numThreads(),
-	                           [dataPtr, &sumRef](size_t binId, size_t /*tid*/)
+	util::parallel_for_chunked(histo->count(), globals::getNumThreads(),
+	                           [dataPtr, &sumRef](bin_t binId, size_t /*tid*/)
 	                           { sumRef.fetch_add(dataPtr[binId]); });
 
 	// Default target number of events (histogram sum)
@@ -157,8 +157,8 @@ void histogram3DToListModeLUT(const Histogram3D* histo, ListModeLUTOwned* lmOut,
 	size_t sumInt = 0.0;
 	std::atomic_ref<size_t> sumIntRef(sumInt);
 	util::parallel_for_chunked(
-	    histo->count(), globals::numThreads(),
-	    [dataPtr, sum, numEvents, &sumIntRef](size_t binId, size_t /*tid*/)
+	    histo->count(), globals::getNumThreads(),
+	    [dataPtr, sum, numEvents, &sumIntRef](bin_t binId, size_t /*tid*/)
 	    {
 		    sumIntRef.fetch_add(
 		        std::lround(dataPtr[binId] / sum * (double)numEvents));
@@ -179,7 +179,7 @@ void histogram3DToListModeLUT(const Histogram3D* histo, ListModeLUTOwned* lmOut,
 		util::parallel_do_indexed(
 		    numThreads,
 		    [numBinsPerThread, histo, &partialSums, dataPtr, sum,
-		     numEvents](size_t ti)
+		     numEvents](int ti)
 		    {
 			    bin_t binStart = ti * numBinsPerThread;
 			    bin_t binEnd = std::min(histo->count() - 1,
@@ -204,7 +204,7 @@ void histogram3DToListModeLUT(const Histogram3D* histo, ListModeLUTOwned* lmOut,
 		util::parallel_do_indexed(
 		    numThreads,
 		    [numBinsPerThread, histo, &lmStartIdx, dataPtr, sum, numEvents,
-		     lmOut](size_t ti)
+		     lmOut](int ti)
 		    {
 			    bin_t binStart = ti * numBinsPerThread;
 			    bin_t binEnd = std::min(histo->count() - 1,
@@ -358,9 +358,9 @@ void convertToHistogram3D(const ProjectionData& dat, Histogram3D& histoOut)
 	const Histogram3D* histoOut_constptr = &histoOut;
 	const ProjectionData* dat_constptr = &dat;
 	util::parallel_for_chunked(
-	    numDatBins, globals::numThreads(),
+	    numDatBins, globals::getNumThreads(),
 	    [&progressBar, dat_constptr, histoOut_constptr,
-	     histoDataPointer](size_t datBin, size_t tid)
+	     histoDataPointer](bin_t datBin, size_t tid)
 	    {
 		    if constexpr (PrintProgress)
 		    {

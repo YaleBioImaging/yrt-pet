@@ -36,9 +36,9 @@ void OSEMUpdater_CPU::computeSensitivityImage(Image& destImage) const
 	                                                 numBins);
 
 	util::parallel_for_chunked(
-	    numBins, globals::numThreads(),
+	    numBins, globals::getNumThreads(),
 	    [&progressDisplay, binIter, sensImgGenProjData, correctorPtr, projector,
-	     destImagePtr](size_t binIdx, size_t tid)
+	     destImagePtr](bin_t binIdx, size_t tid)
 	    {
 		    progressDisplay.progress(tid, 1);
 
@@ -94,10 +94,10 @@ void OSEMUpdater_CPU::computeEMUpdateImage(const Image& inputImage,
 	}
 
 	util::parallel_for_chunked(
-	    numBins, globals::numThreads(),
+	    numBins, globals::getNumThreads(),
 	    [binIter, measurements, projector, inputImagePtr, hasAdditiveCorrection,
 	     hasInVivoAttenuation, correctorPtr,
-	     destImagePtr](size_t binIdx, size_t tid)
+	     destImagePtr](bin_t binIdx, size_t tid)
 	    {
 		    const bin_t bin = binIter->get(binIdx);
 

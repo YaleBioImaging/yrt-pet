@@ -111,7 +111,7 @@ int main(int argc, char** argv)
 
 		util::parallel_for_chunked(
 		    numBins, numThreads,
-		    [numBins, mapsPtr, dataInputPtr, numDets](size_t bin,
+		    [numBins, mapsPtr, dataInputPtr, numDets](bin_t bin,
 		                                              size_t threadId)
 		    {
 			    const det_pair_t detPair = dataInputPtr->getDetectorPair(bin);

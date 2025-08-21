@@ -167,10 +167,14 @@ TEST_CASE("image-readwrite", "[image]")
 	// Fill the image with random values
 	float* imgData_ptr = img1.getRawPointer();
 	int numVoxels = nx * ny * nz;
+	double sum = 0.0;
 	for (int i = 0; i < numVoxels; i++)
 	{
 		imgData_ptr[i] = imageDataDistribution(engine);
+		sum += imgData_ptr[i];
 	}
+
+	REQUIRE(img1.voxelSum() == static_cast<float>(sum);
 
 	img1.writeToFile(tmpImage_fname);
 	img1.writeToFile(tmpCompressedImage_fname);

@@ -37,8 +37,8 @@ void Corrector_CPU::precomputeAdditiveCorrectionFactors(
 	std::cout << "Precomputing additive corrections..." << std::endl;
 
 	util::parallel_for_chunked(
-	    numBins, globals::numThreads(),
-	    [numBins, measurementsPtr, additiveCorrectionsPtr, this](size_t bin,
+	    numBins, globals::getNumThreads(),
+	    [numBins, measurementsPtr, additiveCorrectionsPtr, this](bin_t bin,
 	                                                             size_t /*tid*/)
 	    {
 		    additiveCorrectionsPtr[bin] =
@@ -66,9 +66,9 @@ void Corrector_CPU::precomputeInVivoAttenuationFactors(
 	std::cout << "Precomputing in-vivo attenuation corrections..." << std::endl;
 
 	util::parallel_for_chunked(
-	    numBins, globals::numThreads(),
+	    numBins, globals::getNumThreads(),
 	    [numBins, measurementsPtr, inVivoAttenuationFactorsPtr,
-	     this](size_t bin, size_t /*tid*/)
+	     this](bin_t bin, size_t /*tid*/)
 	    {
 		    inVivoAttenuationFactorsPtr[bin] =
 		        getInVivoAttenuationFactor(*measurementsPtr, bin);

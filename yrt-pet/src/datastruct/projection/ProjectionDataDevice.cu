@@ -314,9 +314,9 @@ void ProjectionDataDevice::loadProjValuesFromHostInternal(
 
 			// Fill the buffer using the source directly
 			util::parallel_for_chunked(
-			    batchSize, globals::numThreads(),
+			    batchSize, globals::getNumThreads(),
 			    [offset, &binIter, projValuesBuffer, src,
-			     batchSize](size_t binIdx, size_t /*tid*/)
+			     batchSize](bin_t binIdx, size_t /*tid*/)
 			    {
 				    bin_t binId = binIter->get(binIdx + offset);
 				    if constexpr (GatherRandoms)
@@ -334,11 +334,10 @@ void ProjectionDataDevice::loadProjValuesFromHostInternal(
 		else
 		{
 			// Fill the buffer using the corresponding value in the histogram
-			histo_bin_t histoBin;
 			util::parallel_for_chunked(
-			    batchSize, globals::numThreads(),
+			    batchSize, globals::getNumThreads(),
 			    [offset, binIter, projValuesBuffer, src, batchSize,
-			     histo](size_t binIdx, size_t /*tid*/)
+			     histo](bin_t binIdx, size_t /*tid*/)
 			    {
 				    bin_t binId = binIter->get(binIdx + offset);
 				    histo_bin_t histoBin = src->getHistogramBin(binId);
@@ -373,9 +372,9 @@ void ProjectionDataDevice::transferProjValuesToHost(
 	    m_batchSetups.at(getLoadedSubsetId()).getBatchSize(0);
 	const size_t offset = getLoadedBatchId() * firstBatchSize;
 
-	util::parallel_for_chunked(batchSize, globals::numThreads(),
+	util::parallel_for_chunked(batchSize, globals::getNumThreads(),
 	                           [binIter, offset, projDataDest,
-	                            projValuesBuffer](size_t binIdx, size_t /*tid*/)
+	                            projValuesBuffer](bin_t binIdx, size_t /*tid*/)
 	                           {
 		                           bin_t binId = binIter->get(binIdx + offset);
 		                           projDataDest->setProjectionValue(

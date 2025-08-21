@@ -29,7 +29,7 @@ fold_bin = _helper.fold_bin
 #  If neither CPU or GPU is specified, test is assumed to be ran on the CPU
 # %% Tests
 
-def test_omp_multithreading():
+def test_multithreading():
     yrt.setNumThreads(8)
     num_threads = yrt.getNumThreads()
     assert (num_threads == 8)

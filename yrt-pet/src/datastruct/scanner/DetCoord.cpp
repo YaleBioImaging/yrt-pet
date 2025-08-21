@@ -285,7 +285,7 @@ void DetCoordOwned::readFromFile(const std::string& filename)
 	float* zOrient_ptr = mp_Zorient->getRawPointer();
 	const float* buff_ptr = buff.get();
 
-	util::parallel_for_chunked(numDets, globals::numThreads(),
+	util::parallel_for_chunked(numDets, globals::getNumThreads(),
 	                           [xPos_ptr, yPos_ptr, zPos_ptr, xOrient_ptr,
 	                            yOrient_ptr, zOrient_ptr,
 	                            buff_ptr](size_t i, size_t /*tid*/)

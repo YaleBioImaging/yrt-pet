@@ -5,6 +5,9 @@
 
 #pragma once
 
+#include <atomic>
+#include <functional>
+#include <stdexcept>
 #include <thread>
 #include <vector>
 
@@ -60,6 +63,27 @@ void parallel_for_chunked(size_t total, size_t threadCnt, Func fn)
 	{
 		th.join();
 	}
+}
+
+template <typename T, typename U>
+T simpleReduceArray(const U* array, size_t length, std::function<T(T, T)> func,
+                    T init, size_t threadCnt = 1)
+{
+    std::vector<T> workspace;
+	workspace.reserve(threadCnt);
+	std::fill(workspace.begin(), workspace.end(), init);
+
+    parallel_for_chunked(length, threadCnt,
+                         [array, &workspace, func, init](size_t i, size_t tid)
+                         {
+                             workspace[tid] = func(workspace[tid], array[i]);
+                         });
+    T output = init;
+    for (size_t tid = 0; tid < threadCnt; tid++)
+    {
+        output = func(output, workspace[tid]);
+    }
+    return output;
 }
 
 }  // namespace yrt::util

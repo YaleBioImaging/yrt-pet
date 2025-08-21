@@ -11,6 +11,7 @@
 #include "yrt-pet/geometry/Matrix.hpp"
 #include "yrt-pet/geometry/TransformUtils.hpp"
 #include "yrt-pet/utils/Assert.hpp"
+#include "yrt-pet/utils/Concurrency.hpp"
 #include "yrt-pet/utils/Tools.hpp"
 #include "yrt-pet/utils/Types.hpp"
 #include "yrt-pet/utils/Utilities.hpp"
@@ -228,22 +229,14 @@ void Image::addFirstImageToSecond(ImageBase* secondImage) const
 float Image::voxelSum() const
 {
 	// Use double to avoid precision loss
-	double sum = 0.0;
-
 	const ImageParams& params = getParams();
 	const size_t numVoxels = params.nx * params.ny * params.nz;
 	const float* rawPtr = mp_array->getRawPointer();
+	std::function<double(double, double)> func_sum = [](double a, double b)
+	{ return a + b; };
 
-	std::atomic_ref<double> sumRef(sum);
-
-	util::parallel_for_chunked(
-		numVoxels, globals::numThreads(),
-		[rawPtr, &sumRef](size_t i, size_t /*tid*/)
-	{
-		sumRef.fetch_add(rawPtr[i]);
-	});
-
-	return static_cast<float>(sum);
+	return util::simpleReduceArray(rawPtr, numVoxels, func_sum, 0.0,
+	                               globals::getNumThreads());
 }
 
 void Image::multWithScalar(float scalar)
@@ -473,7 +466,7 @@ void Image::operationOnEachVoxelParallel(
 	float* flatPtr = mp_array->getRawPointer();
 	const size_t numVoxels = params.nx * params.ny * params.nz;
 
-	util::parallel_for_chunked(numVoxels, globals::numThreads(),
+	util::parallel_for_chunked(numVoxels, globals::getNumThreads(),
 	                           [flatPtr, func](size_t i, size_t /*tid*/)
 	                           { flatPtr[i] = func(i); });
 }
@@ -630,7 +623,7 @@ void Image::transformImage(const transform_t& t, Image& dest,
 	const transform_t inv = util::invertTransform(t);
 
 	util::parallel_for_chunked(
-	    nz, globals::numThreads(),
+	    nz, globals::getNumThreads(),
 	    [paramsPtr, nx, ny, num_xy, inv, weight, destRawPtr,
 	     this](size_t i, size_t /*tid*/)
 	    {

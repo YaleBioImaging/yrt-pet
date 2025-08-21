@@ -239,7 +239,7 @@ void ListModeLUTOwned::readFromFile(const std::string& listMode_fname)
 		         (readSize / numFields) * numFields * sizeof(float));
 
 		util::parallel_for_chunked(
-		    readSize / numFields, globals::numThreads(),
+		    readSize / numFields, globals::getNumThreads(),
 		    [posStart, numFields, numDets, buffPtr, hasTOF, hasRandoms,
 		     this](size_t i, size_t /*tid*/)
 		    {

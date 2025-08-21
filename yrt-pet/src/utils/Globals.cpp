@@ -29,6 +29,7 @@ void py_setup_globals(pybind11::module& m)
 	      "level"_a);
 	m.def("getVerbosityLevel", &globals::getVerbosityLevel, "section"_a);
 
+	m.def("setNumThreads", &globals::setNumThreads);
 	m.def("getNumThreads", &globals::getNumThreads);
 
 	m.def("isPinnedMemoryEnabled", &globals::isPinnedMemoryEnabled);

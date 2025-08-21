@@ -57,9 +57,9 @@ void Corrector_GPU::precomputeAdditiveCorrectionFactors(
 	const ProjectionData* measurementsPtr = &measurements;
 
 	util::parallel_for_chunked(
-	    numBins, globals::numThreads(),
-	    [additiveCorrectionsPtr, mp_attenuationImage, measurementsPtr,
-	     histogrammedACFs, numBins](size_t bin, size_t /*tid*/)
+	    numBins, globals::getNumThreads(),
+	    [additiveCorrectionsPtr, measurementsPtr, histogrammedACFs, numBins,
+	     this](bin_t bin, size_t /*tid*/)
 	    {
 		    const histo_bin_t histoBin = measurementsPtr->getHistogramBin(bin);
 
@@ -118,9 +118,9 @@ void Corrector_GPU::precomputeInVivoAttenuationFactors(
 		          << std::endl;
 
 		util::parallel_for_chunked(
-		    numBins, globals::numThreads(),
-		    [numBins, measurements, inVivoAttenuationFactorsPtr](size_t bin,
-		                                                         size_t /*tid*/)
+		    numBins, globals::getNumThreads(),
+		    [numBins, &measurements, inVivoAttenuationFactorsPtr,
+		     this](bin_t bin, size_t /*tid*/)
 		    {
 			    const histo_bin_t histoBin = measurements.getHistogramBin(bin);
 			    inVivoAttenuationFactorsPtr[bin] =

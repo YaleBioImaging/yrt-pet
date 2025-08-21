@@ -37,7 +37,7 @@ void ScannerDevice::load(GPULaunchConfig p_launchConfig)
 	const DetectorSetup* detectorSetup = detectorSetup_shared.get();
 
 	util::parallel_for_chunked(
-	    numDets, globals::numThreads(),
+	    numDets, globals::getNumThreads(),
 	    [ph_detPos, ph_detOrient, numDets, detectorSetup](size_t id_det,
 	                                                      size_t /*tid*/)
 	    {

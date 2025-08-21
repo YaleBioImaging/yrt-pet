@@ -5,15 +5,21 @@
 
 #pragma once
 
+#include "Concurrency.hpp"
+#include "Globals.hpp"
 #include "yrt-pet/utils/Concurrency.hpp"
 #include "yrt-pet/utils/Globals.hpp"
 #include <array>
+#include <atomic>
 #include <cmath>
+#include <execution>
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <iostream>
+#include <limits>
 #include <memory>
-#include <atomic>
+#include <numeric>
 
 #if BUILD_PYBIND11
 #include <pybind11/pybind11.h>
@@ -363,16 +369,12 @@ public:
 
 	T getMaxValue() const
 	{
-		T maxValue = std::numeric_limits<T>::lowest();
-
-		const int totalSize = getSizeTotal();
+		const size_t totalSize = getSizeTotal();
 		const T* arr = getRawPointer();
-		std::atomic_ref<T> maxValueRef(maxValue);
-
-		util::parallel_for_chunked(totalSize, globals::numThreads(),
-		                           [&maxValueRef, arr](size_t i, size_t /*tid*/)
-		                           { maxValueRef.fetch_max(arr[i]); });
-		return maxValue;
+		std::function<T(T, T)> func_max = [](T a, T b) { return std::max(a, b); };
+		return util::simpleReduceArray(
+		    arr, totalSize, func_max,
+		    std::numeric_limits<T>::lowest(), globals::getNumThreads());
 	}
 
 	// Copy from array object (memory must be allocated and appropriately sized)

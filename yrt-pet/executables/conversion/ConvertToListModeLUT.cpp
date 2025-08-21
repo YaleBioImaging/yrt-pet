@@ -75,6 +75,7 @@ int main(int argc, char** argv)
 		auto out_fname = config.getValue<std::string>("out");
 		int numThreads = config.getValue<int>("num_threads");
 
+		globals::setNumThreads(numThreads);
 		std::cout << "Initializing scanner..." << std::endl;
 		auto scanner = std::make_unique<Scanner>(scanner_fname);
 
@@ -94,7 +95,7 @@ int main(int argc, char** argv)
 		const ProjectionData* dataInput_ptr = dataInput.get();
 
 		util::parallel_for_chunked(
-		    numEvents, numThreads,
+			numEvents, globals::getNumThreads(),
 		    [lmOut_ptr, dataInput_ptr, numEvents, hasTOF,
 		     hasRandoms](size_t evId, size_t /*tid*/)
 		    {

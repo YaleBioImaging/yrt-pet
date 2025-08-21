@@ -80,6 +80,19 @@ inline int getNumThreads()
 	return numThreads();
 }
 
+inline void setNumThreads(int t)
+{
+    if (t <= 0)
+    {
+        numThreads() = std::thread::hardware_concurrency();
+    }
+    else
+    {
+        numThreads() = t;
+    }
+    std::cout << "Using " << numThreads() << " threads." << std::endl;
+}
+
 static constexpr char DisablePinnedMemoryEnvVar[] =
     "YRTPET_DISABLE_PINNED_MEMORY";
 

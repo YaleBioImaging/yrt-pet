@@ -37,7 +37,8 @@ std::unique_ptr<ImageOwned>
 
 
 template <bool RequiresAtomic, bool PrintProgress = true>
-void convertToHistogram3D(const ProjectionData& dat, Histogram3D& histoOut);
+void convertToHistogram3D(const ProjectionData& dat, Histogram3D& histoOut,
+                          const Array3DBase<float>* detectorMask = nullptr);
 
 Line3D getNativeLOR(const Scanner& scanner, const ProjectionData& dat,
                     bin_t binId);

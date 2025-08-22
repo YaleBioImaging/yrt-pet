@@ -38,13 +38,22 @@ void py_setup_reconstructionutils(pybind11::module& m)
 {
 	m.def("histogram3DToListModeLUT", &util::histogram3DToListModeLUT);
 	m.def(
-	    "convertToHistogram3D", [](const Histogram& dat, Histogram3D& histoOut)
-	    { util::convertToHistogram3D<false>(dat, histoOut); },
-	    py::arg("histogramDataInput"), py::arg("histoOut"));
+	    "convertToHistogram3D",
+	    [](const Histogram& dat, Histogram3D& histoOut,
+	       const Array3DBase<float>* detectorMask)
+	    {
+		    util::convertToHistogram3D<false, true>(dat, histoOut,
+		                                            detectorMask);
+	    },
+	    "histogramDataInput"_a, "histoOut"_a, "detectorMask"_a = nullptr);
 	m.def(
-	    "convertToHistogram3D", [](const ListMode& dat, Histogram3D& histoOut)
-	    { util::convertToHistogram3D<true>(dat, histoOut); },
-	    py::arg("listmodeDataInput"), py::arg("histoOut"));
+	    "convertToHistogram3D",
+	    [](const ListMode& dat, Histogram3D& histoOut,
+	       const Array3DBase<float>* detectorMask)
+	    {
+		    util::convertToHistogram3D<true, true>(dat, histoOut, detectorMask);
+	    },
+	    "listmodeDataInput"_a, "histoOut"_a, "detectorMask"_a = nullptr);
 	m.def(
 	    "createOSEM",
 	    [](const Scanner& scanner, bool useGPU)
@@ -89,10 +98,8 @@ void py_setup_reconstructionutils(pybind11::module& m)
 	          ProjectionData& projData, const BinIterator& binIterator,
 	          OperatorProjector::ProjectorType projectorType, bool useGPU)>(
 	          &util::forwProject),
-	      py::arg("scanner"), py::arg("img"), py::arg("projData"),
-	      py::arg("binIterator"),
-	      py::arg("projectorType") = OperatorProjector::SIDDON,
-	      "useGPU"_a = false);
+	      "scanner"_a, "img"_a, "projData"_a, "binIterator"_a,
+	      "projectorType"_a = OperatorProjector::SIDDON, "useGPU"_a = false);
 	m.def("forwProject",
 	      static_cast<void (*)(const Image& img, ProjectionData& projData,
 	                           const OperatorProjectorParams& projParams,
@@ -130,9 +137,7 @@ void py_setup_reconstructionutils(pybind11::module& m)
 
 #endif
 
-namespace yrt
-{
-namespace util
+namespace yrt::util
 {
 
 void histogram3DToListModeLUT(const Histogram3D* histo, ListModeLUTOwned* lmOut,
@@ -346,8 +351,11 @@ template std::unique_ptr<ImageOwned>
                                 const Image* unmovedImage,
                                 timestamp_t timeStart, timestamp_t timeStop);
 
-template <bool RequiresAtomicAccumulation, bool PrintProgress>
-void convertToHistogram3D(const ProjectionData& dat, Histogram3D& histoOut)
+// Helper function
+template <bool RequiresAtomicAccumulation, bool UseFilter, bool PrintProgress>
+void convertToHistogram3DInternal(const ProjectionData& dat,
+                                  Histogram3D& histoOut,
+                                  const Array3DBase<float>* detectorMask)
 {
 	float* histoDataPointer = histoOut.getData().getRawPointer();
 	const size_t numDatBins = dat.count();
@@ -359,8 +367,8 @@ void convertToHistogram3D(const ProjectionData& dat, Histogram3D& histoOut)
 	const ProjectionData* dat_constptr = &dat;
 	util::parallelForChunked(
 	    numDatBins, globals::getNumThreads(),
-	    [&progressBar, dat_constptr, histoOut_constptr,
-	     histoDataPointer](bin_t datBin, size_t tid)
+	    [&progressBar, dat_constptr, histoOut_constptr, histoDataPointer,
+	     detectorMask](bin_t datBin, size_t tid)
 	    {
 		    if constexpr (PrintProgress)
 		    {
@@ -376,6 +384,20 @@ void convertToHistogram3D(const ProjectionData& dat, Histogram3D& histoOut)
 				    // Do not crash
 				    return;
 			    }
+
+			    if constexpr (UseFilter)
+			    {
+				    bool skipEvent = false;
+				    skipEvent |= detectorMask->getFlat(d1) == 0.0f;
+				    skipEvent |= detectorMask->getFlat(d2) == 0.0f;
+
+				    if (skipEvent)
+				    {
+					    // Continue to next event
+					    return;
+				    }
+			    }
+
 			    const bin_t histoBin =
 			        histoOut_constptr->getBinIdFromDetPair(d1, d2);
 			    if constexpr (RequiresAtomicAccumulation)
@@ -390,14 +412,34 @@ void convertToHistogram3D(const ProjectionData& dat, Histogram3D& histoOut)
 		    }
 	    });
 }
+
+template <bool RequiresAtomic, bool PrintProgress = true>
+void convertToHistogram3D(const ProjectionData& dat, Histogram3D& histoOut,
+                          const Array3DBase<float>* detectorMask)
+{
+	if (detectorMask != nullptr)
+	{
+		convertToHistogram3DInternal<RequiresAtomic, true, PrintProgress>(
+		    dat, histoOut, detectorMask);
+	}
+	else
+	{
+		convertToHistogram3DInternal<RequiresAtomic, false, PrintProgress>(
+		    dat, histoOut, detectorMask);
+	}
+}
 template void convertToHistogram3D<true, true>(const ProjectionData&,
-                                               Histogram3D&);
+                                               Histogram3D&,
+                                               const Array3DBase<float>*);
 template void convertToHistogram3D<false, true>(const ProjectionData&,
-                                                Histogram3D&);
+                                                Histogram3D&,
+                                                const Array3DBase<float>*);
 template void convertToHistogram3D<true, false>(const ProjectionData&,
-                                                Histogram3D&);
+                                                Histogram3D&,
+                                                const Array3DBase<float>*);
 template void convertToHistogram3D<false, false>(const ProjectionData&,
-                                                 Histogram3D&);
+                                                 Histogram3D&,
+                                                 const Array3DBase<float>*);
 
 Line3D getNativeLOR(const Scanner& scanner, const ProjectionData& dat,
                     bin_t binId)
@@ -602,5 +644,4 @@ void backProject(Image& img, const ProjectionData& projData,
 	               projectorType, useGPU);
 }
 
-}  // namespace util
-}  // namespace yrt
+}  // namespace yrt::util

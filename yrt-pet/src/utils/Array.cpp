@@ -59,6 +59,8 @@ void declare_array(pybind11::module& m, std::string type_str)
 
 void py_setup_array(pybind11::module& m)
 {
+	// TODO: Add Python bindings for the "Alias" type
+
 	// Add common array types
 	PY_DECLARE_ARRAY(float, 1);
 	PY_DECLARE_ARRAY(float, 2);

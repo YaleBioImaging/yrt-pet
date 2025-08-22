@@ -42,6 +42,11 @@ int main(int argc, char** argv)
 		    "Input listmode file format. Possible values: " +
 		        io::possibleFormats(plugin::InputFormatsChoice::ONLYLISTMODES),
 		    true, io::TypeOfArgument::STRING, "", inputGroup, "f");
+		registry.registerArgument("mask",
+		                          "Detector mask in RAWD format (to disable "
+		                          "a given set of detectors)",
+		                          false, io::TypeOfArgument::STRING, "",
+		                          inputGroup);
 
 		registry.registerArgument("out", "Output listmode filename", true,
 		                          io::TypeOfArgument::STRING, "", outputGroup,
@@ -72,10 +77,13 @@ int main(int argc, char** argv)
 		auto scanner_fname = config.getValue<std::string>("scanner");
 		auto input_fname = config.getValue<std::string>("input");
 		auto input_format = config.getValue<std::string>("format");
+		auto mask_fname = config.getValue<std::string>("mask");
 		auto out_fname = config.getValue<std::string>("out");
 		int numThreads = config.getValue<int>("num_threads");
 
 		globals::setNumThreads(numThreads);
+		numThreads = globals::getNumThreads();
+
 		std::cout << "Initializing scanner..." << std::endl;
 		auto scanner = std::make_unique<Scanner>(scanner_fname);
 
@@ -84,6 +92,15 @@ int main(int argc, char** argv)
 		    input_fname, input_format, *scanner, config.getAllArguments());
 		const bool hasTOF = dataInput->hasTOF();
 		const bool hasRandoms = dataInput->hasRandomsEstimates();
+
+		std::unique_ptr<Array3D<float>> detectorMask = nullptr;
+		if (!mask_fname.empty())
+		{
+			std::cout << "Reading detector mask..." << std::endl;
+			detectorMask = std::make_unique<Array3D<float>>();
+			detectorMask->readFromFile(mask_fname);
+		}
+		const Array3D<float>* detectorMask_ptr = detectorMask.get();
 
 		std::cout << "Generating output ListModeLUT..." << std::endl;
 		auto lmOut =
@@ -95,13 +112,30 @@ int main(int argc, char** argv)
 		const ProjectionData* dataInput_ptr = dataInput.get();
 
 		util::parallelForChunked(
-		    numEvents, globals::getNumThreads(),
-		    [lmOut_ptr, dataInput_ptr, hasTOF, hasRandoms](size_t evId,
+		    numEvents, numThreads,
+		    [lmOut_ptr, dataInput_ptr, detectorMask_ptr, hasTOF, hasRandoms](size_t evId,
 		                                                   size_t /*tid*/)
 		    {
 			    lmOut_ptr->setTimestampOfEvent(
 			        evId, dataInput_ptr->getTimestamp(evId));
 			    auto [d1, d2] = dataInput_ptr->getDetectorPair(evId);
+
+			    if (detectorMask_ptr != nullptr)
+			    {
+				    bool skipEvent = false;
+				    skipEvent |= detectorMask_ptr->getFlat(d1) == 0.0f;
+				    skipEvent |= detectorMask_ptr->getFlat(d2) == 0.0f;
+
+				    if (skipEvent)
+				    {
+					    // Put 0,0 as detector pair to disable event
+					    lmOut_ptr->setDetectorIdsOfEvent(evId, 0, 0);
+
+					    // Go to next event
+					    return;
+				    }
+			    }
+
 			    lmOut_ptr->setDetectorIdsOfEvent(evId, d1, d2);
 			    if (hasTOF)
 			    {

@@ -93,10 +93,12 @@ public:
 	std::unique_ptr<Array2D<float>> getHBasisCopy() const;
 	void setUpdateH(bool updateH);
 	bool getUpdateH() const;
-
+	void setHBasisWrite(const Array2DBase<float>& pr_HWrite);
+	const Array2DAlias<float>& getHBasisWrite();
 
 protected:
-	Array2DAlias<float> mp_HBasis;
+	Array2DAlias<float> mp_HBasis;  // used by forward/back math (read-only)
+	Array2DAlias<float> mp_HWrite;  // used only when m_updateH==true (accumulate)
 	bool m_updateH = false;
 	int m_rank = 1;
 	int m_numDynamicFrames = 1;

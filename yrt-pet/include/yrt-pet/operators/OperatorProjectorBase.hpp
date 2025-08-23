@@ -33,7 +33,7 @@ public:
 	                        ProjectorUpdaterType p_projectorUpdaterType = DEFAULT3D,
 	                        float p_tofWidth_ps = 0.f, int p_tofNumStd = 0,
 	                        const std::string& pr_projPsf_fname = "",
-	                        int p_num_rays = 1);
+	                        int p_num_rays = 1, bool p_updateH = false);
 
 	OperatorProjectorParams(const OperatorProjectorParams& other);
 
@@ -54,6 +54,9 @@ public:
 
 	// Multi-ray siddon only
 	int numRays;
+
+	// Optional bool for H-update in LR updater
+	bool updateH;
 
 
 };

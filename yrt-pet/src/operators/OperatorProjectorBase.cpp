@@ -66,6 +66,7 @@ void py_setup_operatorprojectorparams(py::module& m)
 	py::keep_alive<1, 2>()  // keep the buffer owner alive
 );
 
+	c.def_readwrite("updateH", &OperatorProjectorParams::updateH);
 	c.def_readwrite("tofWidth_ps", &OperatorProjectorParams::tofWidth_ps);
 	c.def_readwrite("tofNumStd", &OperatorProjectorParams::tofNumStd);
 	c.def_readwrite("projPsf_fname", &OperatorProjectorParams::projPsf_fname);
@@ -94,16 +95,17 @@ namespace yrt
 
 OperatorProjectorParams::OperatorProjectorParams(
     const BinIterator* pp_binIter, const Scanner& pr_scanner,
-    OperatorProjectorParams::ProjectorUpdaterType p_projectorUpdaterType,
+    ProjectorUpdaterType p_projectorUpdaterType,
     float p_tofWidth_ps, int p_tofNumStd, const std::string& pr_projPsf_fname,
-    int p_num_rays)
+    int p_num_rays, bool p_updateH)
     : binIter(pp_binIter),
       scanner(pr_scanner),
       projectorUpdaterType(p_projectorUpdaterType),
       tofWidth_ps(p_tofWidth_ps),
       tofNumStd(p_tofNumStd),
       projPsf_fname(pr_projPsf_fname),
-      numRays(p_num_rays)
+      numRays(p_num_rays),
+      updateH(p_updateH)
 {
 	if (tofWidth_ps > 0.f)
 	{
@@ -124,6 +126,7 @@ OperatorProjectorParams::OperatorProjectorParams(const OperatorProjectorParams& 
       , tofNumStd(other.tofNumStd)
       , projPsf_fname(other.projPsf_fname)
       , numRays(other.numRays)
+      , updateH(other.updateH)
 {
 	HBasis.bind(other.HBasis);
 }

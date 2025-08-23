@@ -203,6 +203,14 @@ void OperatorProjectorUpdaterLR::setHBasis(const Array2DBase<float>& pr_HBasis) 
 	m_numDynamicFrames = static_cast<int>(dims[1]);
 }
 
+void OperatorProjectorUpdaterLR::setHBasisWrite(const Array2DBase<float>& pr_HWrite) {
+	mp_HWrite.bind(pr_HWrite);
+}
+
+const Array2DAlias<float>& OperatorProjectorUpdaterLR::getHBasisWrite() {
+	return mp_HWrite;
+}
+
 //void OperatorProjectorUpdaterLR::setHBasis(const Array2D<float>& HBasis) {
 //	auto dims = HBasis.getDims(); // [rank, numTimeFrames]
 //	if (dims[0] == 0 || dims[1] == 0) {
@@ -237,7 +245,6 @@ float OperatorProjectorUpdaterLR::forwardUpdate(
 {
 	float cur_img_lr_val = 0.0f;
 	const float* H_ptr = mp_HBasis.getRawPointer();
-//	const int nt = static_cast<int>(dynamicFrames);
 
 	for (int l = 0; l < m_rank; ++l)
 	{
@@ -248,15 +255,47 @@ float OperatorProjectorUpdaterLR::forwardUpdate(
 	return weight * cur_img_lr_val;
 }
 
+// void OperatorProjectorUpdaterLR::backUpdate(
+//     float value, float weight, float* cur_img_ptr,
+//     int offset_x, frame_t dynamicFrame, size_t numVoxelPerFrame)
+// {
+// 	const float Ay = value * weight;
+// 	float* H_ptr = mp_HBasis.getRawPointer();
+//
+// 	if (! m_updateH)
+// 	{
+// 		for (int l = 0; l < m_rank; ++l)
+// 		{
+// 			const float cur_H_ptr = *(H_ptr + l * m_numDynamicFrames + dynamicFrame);
+// 			const size_t offset_rank = l * numVoxelPerFrame;
+// 			const float output = Ay * cur_H_ptr;
+// 			float* ptr = &cur_img_ptr[offset_x + offset_rank];
+// #pragma omp atomic
+// 			*ptr += output;
+// 		}
+// 	}
+// 	else {
+// 		for (int l = 0; l < m_rank; ++l) {
+// 			const size_t offset_rank = l * numVoxelPerFrame;
+// 			const float output = Ay * cur_img_ptr[offset_x + offset_rank];
+// 			float* ptr = H_ptr + l * m_numDynamicFrames + dynamicFrame;
+// #pragma omp atomic
+// 			*ptr += output;
+// 		}
+// 	}
+//
+// }
+
+
 void OperatorProjectorUpdaterLR::backUpdate(
-    float value, float weight, float* cur_img_ptr,
-    int offset_x, frame_t dynamicFrame, size_t numVoxelPerFrame)
+	float value, float weight, float* cur_img_ptr,
+	int offset_x, frame_t dynamicFrame, size_t numVoxelPerFrame)
 {
 	const float Ay = value * weight;
-	float* H_ptr = mp_HBasis.getRawPointer();
 
-	if (! m_updateH)
+	if (!m_updateH)
 	{
+		const float* H_ptr = mp_HBasis.getRawPointer();
 		for (int l = 0; l < m_rank; ++l)
 		{
 			const float cur_H_ptr = *(H_ptr + l * m_numDynamicFrames + dynamicFrame);
@@ -267,6 +306,7 @@ void OperatorProjectorUpdaterLR::backUpdate(
 		}
 	}
 	else {
+		float* H_ptr = mp_HWrite.getRawPointer();
 		for (int l = 0; l < m_rank; ++l) {
 			const size_t offset_rank = l * numVoxelPerFrame;
 			const float output = Ay * cur_img_ptr[offset_x + offset_rank];
@@ -274,7 +314,6 @@ void OperatorProjectorUpdaterLR::backUpdate(
 			atomic_elem.fetch_add(output);
 		}
 	}
-
 }
 
 

@@ -313,7 +313,7 @@ void ProjectionDataDevice::loadProjValuesFromHostInternal(
 			//  memory is contiguous)
 
 			// Fill the buffer using the source directly
-			util::parallel_for_chunked(
+			util::parallelForChunked(
 			    batchSize, globals::getNumThreads(),
 			    [offset, &binIter, projValuesBuffer, src,
 			     batchSize](bin_t binIdx, size_t /*tid*/)
@@ -334,7 +334,7 @@ void ProjectionDataDevice::loadProjValuesFromHostInternal(
 		else
 		{
 			// Fill the buffer using the corresponding value in the histogram
-			util::parallel_for_chunked(
+			util::parallelForChunked(
 			    batchSize, globals::getNumThreads(),
 			    [offset, binIter, projValuesBuffer, src, batchSize,
 			     histo](bin_t binIdx, size_t /*tid*/)
@@ -372,14 +372,14 @@ void ProjectionDataDevice::transferProjValuesToHost(
 	    m_batchSetups.at(getLoadedSubsetId()).getBatchSize(0);
 	const size_t offset = getLoadedBatchId() * firstBatchSize;
 
-	util::parallel_for_chunked(batchSize, globals::getNumThreads(),
-	                           [binIter, offset, projDataDest,
-	                            projValuesBuffer](bin_t binIdx, size_t /*tid*/)
-	                           {
-		                           bin_t binId = binIter->get(binIdx + offset);
-		                           projDataDest->setProjectionValue(
-		                               binId, projValuesBuffer[binIdx]);
-	                           });
+	util::parallelForChunked(batchSize, globals::getNumThreads(),
+	                         [binIter, offset, projDataDest,
+	                          projValuesBuffer](bin_t binIdx, size_t /*tid*/)
+	                         {
+		                         bin_t binId = binIter->get(binIdx + offset);
+		                         projDataDest->setProjectionValue(
+			                         binId, projValuesBuffer[binIdx]);
+	                         });
 }
 
 size_t ProjectionDataDevice::getPrecomputedBatchSize() const

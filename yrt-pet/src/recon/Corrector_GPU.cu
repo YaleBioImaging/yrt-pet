@@ -56,7 +56,7 @@ void Corrector_GPU::precomputeAdditiveCorrectionFactors(
 
 	const ProjectionData* measurementsPtr = &measurements;
 
-	util::parallel_for_chunked(
+	util::parallelForChunked(
 	    numBins, globals::getNumThreads(),
 	    [additiveCorrectionsPtr, measurementsPtr, histogrammedACFs, numBins,
 	     this](bin_t bin, size_t /*tid*/)
@@ -117,7 +117,7 @@ void Corrector_GPU::precomputeInVivoAttenuationFactors(
 		std::cout << "Gathering in-vivo ACFs to prepare for precorrection..."
 		          << std::endl;
 
-		util::parallel_for_chunked(
+		util::parallelForChunked(
 		    numBins, globals::getNumThreads(),
 		    [numBins, &measurements, inVivoAttenuationFactorsPtr,
 		     this](bin_t bin, size_t /*tid*/)

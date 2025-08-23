@@ -95,18 +95,18 @@ void OperatorProjector::applyA(const Variable* in, Variable* out)
 	ASSERT_MSG(img != nullptr, "Input variable has to be an Image");
 	ASSERT_MSG(binIter != nullptr, "BinIterator undefined");
 
-	util::parallel_for_chunked(binIter->size(), globals::getNumThreads(),
-	                           [img, dat, this](size_t binIdx, size_t tid)
-	                           {
-		                           const bin_t bin = binIter->get(binIdx);
+	util::parallelForChunked(binIter->size(), globals::getNumThreads(),
+	                         [img, dat, this](size_t binIdx, size_t tid)
+	                         {
+		                         const bin_t bin = binIter->get(binIdx);
 
-		                           ProjectionProperties projectionProperties =
-		                               dat->getProjectionProperties(bin);
+		                         ProjectionProperties projectionProperties =
+			                         dat->getProjectionProperties(bin);
 
-		                           const float imProj = forwardProjection(
-			                           img, projectionProperties, tid);
+		                         const float imProj = forwardProjection(
+			                         img, projectionProperties, tid);
 
-		                           dat->setProjectionValue(bin, imProj);
+		                         dat->setProjectionValue(bin, imProj);
 	                           });
 }
 
@@ -119,7 +119,7 @@ void OperatorProjector::applyAH(const Variable* in, Variable* out)
 	ASSERT_MSG(img != nullptr, "Output variable has to be an Image");
 	ASSERT_MSG(binIter != nullptr, "BinIterator undefined");
 
-	util::parallel_for_chunked(
+	util::parallelForChunked(
 	    binIter->size(), globals::getNumThreads(),
 	    [img, dat, this](size_t binIdx, size_t tid)
 	    {

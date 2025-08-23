@@ -172,7 +172,7 @@ void ListModeLUTDOIOwned::readFromFile(const std::string& listMode_fname)
 		size_t readSize = numEventsBatchCurr * sizeOfAnEvent;
 		fin.read((char*)buff.get(), readSize);
 
-		util::parallel_for_chunked(
+		util::parallelForChunked(
 		    numEventsBatchCurr, globals::getNumThreads(),
 		    [eventStart, sizeOfAnEvent, buffPtr, numDets, hasTOF, hasRandoms,
 		     this](size_t i, size_t /*tid*/)

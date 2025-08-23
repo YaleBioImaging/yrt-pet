@@ -93,9 +93,9 @@ void ProjectionData::operationOnEachBin(const std::function<float(bin_t)>& func)
 void ProjectionData::operationOnEachBinParallel(
     const std::function<float(bin_t)>& func)
 {
-	util::parallel_for_chunked(count(), globals::getNumThreads(),
-	                           [func, this](size_t i, size_t /*tid*/)
-	                           { setProjectionValue(i, func(i)); });
+	util::parallelForChunked(count(), globals::getNumThreads(),
+	                         [func, this](size_t i, size_t /*tid*/)
+	                         { setProjectionValue(i, func(i)); });
 }
 
 bool ProjectionData::isUniform() const
@@ -257,7 +257,7 @@ void ProjectionData::divideMeasurements(const ProjectionData* measurements,
                                         const BinIterator* binIter)
 {
 	const bin_t numBins = binIter->size();
-	util::parallel_for_chunked(
+	util::parallelForChunked(
 	    numBins, globals::getNumThreads(),
 	    [binIter, measurements, this](bin_t binIdx, size_t /*tid*/)
 

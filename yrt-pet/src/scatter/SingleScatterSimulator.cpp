@@ -219,7 +219,7 @@ void SingleScatterSimulator::runSSS(size_t numberZ, size_t numberPhi,
 	const int numThreads = globals::getNumThreads();
 	util::ProgressDisplayMultiThread progressBar{numThreads, progressMax, 5};
 
-	util::parallel_for_chunked(
+	util::parallelForChunked(
 	    num_i_z * num_i_phi * num_i_r, globals::getNumThreads(),
 	    [num_i_phi, num_i_r, &progressBar, &scatterHisto,
 	     this](size_t binIdx, size_t threadNum)

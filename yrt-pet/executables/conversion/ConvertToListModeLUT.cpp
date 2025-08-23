@@ -94,7 +94,7 @@ int main(int argc, char** argv)
 		ListModeLUTOwned* lmOut_ptr = lmOut.get();
 		const ProjectionData* dataInput_ptr = dataInput.get();
 
-		util::parallel_for_chunked(
+		util::parallelForChunked(
 			numEvents, globals::getNumThreads(),
 		    [lmOut_ptr, dataInput_ptr, numEvents, hasTOF,
 		     hasRandoms](size_t evId, size_t /*tid*/)

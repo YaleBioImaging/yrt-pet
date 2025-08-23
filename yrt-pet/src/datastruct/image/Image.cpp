@@ -466,9 +466,9 @@ void Image::operationOnEachVoxelParallel(
 	float* flatPtr = mp_array->getRawPointer();
 	const size_t numVoxels = params.nx * params.ny * params.nz;
 
-	util::parallel_for_chunked(numVoxels, globals::getNumThreads(),
-	                           [flatPtr, func](size_t i, size_t /*tid*/)
-	                           { flatPtr[i] = func(i); });
+	util::parallelForChunked(numVoxels, globals::getNumThreads(),
+	                         [flatPtr, func](size_t i, size_t /*tid*/)
+	                         { flatPtr[i] = func(i); });
 }
 
 // this function writes "image" on disk @ "image_fname"
@@ -622,7 +622,7 @@ void Image::transformImage(const transform_t& t, Image& dest,
 
 	const transform_t inv = util::invertTransform(t);
 
-	util::parallel_for_chunked(
+	util::parallelForChunked(
 	    nz, globals::getNumThreads(),
 	    [paramsPtr, nx, ny, num_xy, inv, weight, destRawPtr,
 	     this](size_t i, size_t /*tid*/)

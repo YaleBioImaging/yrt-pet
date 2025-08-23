@@ -285,18 +285,18 @@ void DetCoordOwned::readFromFile(const std::string& filename)
 	float* zOrient_ptr = mp_Zorient->getRawPointer();
 	const float* buff_ptr = buff.get();
 
-	util::parallel_for_chunked(numDets, globals::getNumThreads(),
-	                           [xPos_ptr, yPos_ptr, zPos_ptr, xOrient_ptr,
-	                            yOrient_ptr, zOrient_ptr,
-	                            buff_ptr](size_t i, size_t /*tid*/)
-	                           {
-		                           xPos_ptr[i] = buff_ptr[6 * i + 0];
-		                           yPos_ptr[i] = buff_ptr[6 * i + 1];
-		                           zPos_ptr[i] = buff_ptr[6 * i + 2];
-		                           xOrient_ptr[i] = buff_ptr[6 * i + 3];
-		                           yOrient_ptr[i] = buff_ptr[6 * i + 4];
-		                           zOrient_ptr[i] = buff_ptr[6 * i + 5];
-	                           });
+	util::parallelForChunked(numDets, globals::getNumThreads(),
+	                         [xPos_ptr, yPos_ptr, zPos_ptr, xOrient_ptr,
+	                          yOrient_ptr, zOrient_ptr,
+	                          buff_ptr](size_t i, size_t /*tid*/)
+	                         {
+		                         xPos_ptr[i] = buff_ptr[6 * i + 0];
+		                         yPos_ptr[i] = buff_ptr[6 * i + 1];
+		                         zPos_ptr[i] = buff_ptr[6 * i + 2];
+		                         xOrient_ptr[i] = buff_ptr[6 * i + 3];
+		                         yOrient_ptr[i] = buff_ptr[6 * i + 4];
+		                         zOrient_ptr[i] = buff_ptr[6 * i + 5];
+	                         });
 
 	fin.close();
 }

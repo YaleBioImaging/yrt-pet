@@ -252,7 +252,7 @@ void OperatorVarPsf::varconvolve(const Image* in, Image* out) const
 	float y_center = ny * vy / 2.0f;
 	float z_center = nz * vz / 2.0f;
 
-	util::parallel_for_chunked(
+	util::parallelForChunked(
 	    nx * ny * nz, globals::getNumThreads(),
 	    [nx, ny, nz, vx, vy, vz, x_center, y_center, z_center, inPtr, outPtr,
 	     this](size_t pp, size_t /*tid*/)

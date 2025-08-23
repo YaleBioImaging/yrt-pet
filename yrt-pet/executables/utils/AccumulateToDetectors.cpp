@@ -109,7 +109,7 @@ int main(int argc, char** argv)
 		auto* mapsPtr = maps.data();
 		ProjectionData* dataInputPtr = dataInput.get();
 
-		util::parallel_for_chunked(
+		util::parallelForChunked(
 		    numBins, numThreads,
 		    [numBins, mapsPtr, dataInputPtr, numDets](bin_t bin,
 		                                              size_t threadId)

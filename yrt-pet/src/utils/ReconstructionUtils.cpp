@@ -144,9 +144,9 @@ void histogram3DToListModeLUT(const Histogram3D* histo, ListModeLUTOwned* lmOut,
 	// Phase 1: calculate sum of histogram values
 	double sum = 0.0;
 	std::atomic_ref<double> sumRef(sum);
-	util::parallel_for_chunked(histo->count(), globals::getNumThreads(),
-	                           [dataPtr, &sumRef](bin_t binId, size_t /*tid*/)
-	                           { sumRef.fetch_add(dataPtr[binId]); });
+	util::parallelForChunked(histo->count(), globals::getNumThreads(),
+	                         [dataPtr, &sumRef](bin_t binId, size_t /*tid*/)
+	                         { sumRef.fetch_add(dataPtr[binId]); });
 
 	// Default target number of events (histogram sum)
 	if (numEvents == 0)
@@ -156,7 +156,7 @@ void histogram3DToListModeLUT(const Histogram3D* histo, ListModeLUTOwned* lmOut,
 	// Phase 2: calculate actual number of events
 	size_t sumInt = 0.0;
 	std::atomic_ref<size_t> sumIntRef(sumInt);
-	util::parallel_for_chunked(
+	util::parallelForChunked(
 	    histo->count(), globals::getNumThreads(),
 	    [dataPtr, sum, numEvents, &sumIntRef](bin_t binId, size_t /*tid*/)
 	    {
@@ -176,7 +176,7 @@ void histogram3DToListModeLUT(const Histogram3D* histo, ListModeLUTOwned* lmOut,
 		partialSums.allocate(numThreads);
 
 		// Phase 3: prepare partial sums for parallelization
-		util::parallel_do_indexed(
+		util::parallelDoIndexed(
 		    numThreads,
 		    [numBinsPerThread, histo, &partialSums, dataPtr, sum,
 		     numEvents](int ti)
@@ -201,7 +201,7 @@ void histogram3DToListModeLUT(const Histogram3D* histo, ListModeLUTOwned* lmOut,
 		}
 
 		// Phase 4: create events by block
-		util::parallel_do_indexed(
+		util::parallelDoIndexed(
 		    numThreads,
 		    [numBinsPerThread, histo, &lmStartIdx, dataPtr, sum, numEvents,
 		     lmOut](int ti)
@@ -357,7 +357,7 @@ void convertToHistogram3D(const ProjectionData& dat, Histogram3D& histoOut)
 
 	const Histogram3D* histoOut_constptr = &histoOut;
 	const ProjectionData* dat_constptr = &dat;
-	util::parallel_for_chunked(
+	util::parallelForChunked(
 	    numDatBins, globals::getNumThreads(),
 	    [&progressBar, dat_constptr, histoOut_constptr,
 	     histoDataPointer](bin_t datBin, size_t tid)

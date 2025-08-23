@@ -303,7 +303,7 @@ void solveSRTM2Basis(const T* tac_all, T* kin_out, const T* kin_p,
 	auto tac_buff = std::make_unique<T[]>(num_frames * num_threads);
 	auto tac_buff_ptr = tac_buff.get();
 
-	util::parallel_for_chunked(
+	util::parallelForChunked(
 	    num_pix, num_threads,
 	    [tac_buff_ptr, tac_all, num_frames, num_pix, num_kappa, A_all, B_all,
 	     A_n_inv_all, kappa_list, W, alpha, kin_p, Lambda, k2p,
@@ -402,7 +402,7 @@ void solveSRTMBasis(const T* tac_all, T* kin_out, const T* kin_p,
 	auto tac_buff = std::make_unique<T[]>(num_frames * num_threads);
 	auto tac_buff_ptr = tac_buff.get();
 
-	util::parallel_for_chunked(
+	util::parallelForChunked(
 	    num_pix, num_threads,
 	    [tac_buff_ptr, tac_all, num_frames, num_pix, num_kappa, A_all, B_all,
 	     Rinv_Qt_all, kappa_list, W, alpha, kin_p, Lambda,
@@ -514,7 +514,7 @@ void solveSRTMBasisJoint(const T* tac_all, T* kin_out, const T* kin_p,
 	auto tac_buff = std::make_unique<T[]>(2 * num_frames * num_threads);
 	auto tac_buff_ptr = tac_buff.get();
 
-	util::parallel_for_chunked(
+	util::parallelForChunked(
 	    num_pix, num_threads,
 	    [tac_buff_ptr, tac_all, num_frames, num_pix, num_kappa, A_all, B_all,
 	     Rinv_Qt_all, kappa_list, W, alpha, kin_p, Lambda,

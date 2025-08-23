@@ -26,7 +26,7 @@ void kernel::build_K_neighbors(float* x, float* k, int* k_i, int* k_j,
 	size_t num_neighbors = (2 * W + 1) * (2 * W + 1) * (2 * W + 1);
 	float sc = -1.0f / (2.0f * sigma2);
 
-	util::parallel_for_chunked(
+	util::parallelForChunked(
 	    numPixels, numThreads,
 	    [nx, ny, nz, num_neighbors, x, W, k, k_i, k_j, sc](size_t i,
 	                                                       size_t /*tid*/)
@@ -74,7 +74,7 @@ void kernel::build_K_knn_neighbors(float* x, float* k, int* k_i, int* k_j,
 	auto cmp = [](std::pair<size_t, float> left, std::pair<size_t, float> right)
 	{ return left.second < right.second; };
 
-	util::parallel_for_chunked(
+	util::parallelForChunked(
 	    numPixels, numThreads,
 	    [idxBufferPtr, valBufferPtr, num_k, nx, ny, nz, cmp, W, P, sc, x, k,
 	     k_i, k_j](size_t i, size_t tid)
@@ -172,7 +172,7 @@ void kernel::build_K_full(float* x, float* k, int* k_i, int* k_j, size_t nz,
 	auto cmp = [](std::pair<size_t, float> left, std::pair<size_t, float> right)
 	{ return left.second < right.second; };
 
-	util::parallel_for_chunked(
+	util::parallelForChunked(
 	    numPixels, numThreads,
 	    [numPixels, num_k, nx, ny, nz, cmp, sc, x, k, k_i, k_j](size_t i,
 	                                                            size_t /*tid*/)

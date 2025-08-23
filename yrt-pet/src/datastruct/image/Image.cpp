@@ -499,25 +499,22 @@ void Image::writeToFile(const std::string& fname) const
 	    "The NIfTI image file extension should be either .nii or .nii.gz");
 
 	const ImageParams& params = getParams();
-	const int dims[] = {4, params.nx, params.ny, params.nz, getNumFrames()};
+	const int nt = getNumFrames();
+	const bool is4D = (nt > 1);
+	const int dims[8] = {is4D ? 4 : 3, params.nx, params.ny, params.nz, nt, 1, 1, 1};
 	nifti_image* nim = nifti_make_new_nim(dims, NIFTI_TYPE_FLOAT32, 0);
 	nim->nx = params.nx;
 	nim->ny = params.ny;
 	nim->nz = params.nz;
-	nim->nt = getNumFrames();
+	nim->nt = nt;
 	nim->nbyper = sizeof(float);
 	nim->datatype = NIFTI_TYPE_FLOAT32;
 	nim->pixdim[0] = 0.0f;
-	nim->dx = params.vx;
-	nim->dy = params.vy;
-	nim->dz = params.vz;
+	nim->pixdim[1] = nim->dx = params.vx;
+	nim->pixdim[2] = nim->dy = params.vy;
+	nim->pixdim[3] = nim->dz = params.vz;
 	// todo: is pixel spacing along time always 1 by default?
-	nim->dt = 1;
-	nim->pixdim[1] = params.vx;
-	nim->pixdim[2] = params.vy;
-	nim->pixdim[3] = params.vz;
-	// todo: is pixel spacing along time always 1 by default?
-	nim->pixdim[4] = 1;
+	nim->pixdim[4] = nim->dt = 1;
 	nim->scl_slope = 1.0f;
 	nim->scl_inter = 0.0f;
 	nim->data =
@@ -534,6 +531,7 @@ void Image::writeToFile(const std::string& fname) const
 	    -offsetToOrigin(params.off_y, params.vy, params.length_y);
 	nim->sto_xyz.m[2][3] =
 	    offsetToOrigin(params.off_z, params.vz, params.length_z);
+	nim->sto_ijk = nifti_mat44_inverse(nim->sto_xyz);
 	nim->xyz_units = NIFTI_UNITS_MM;
 	nim->time_units = NIFTI_UNITS_SEC;
 	nim->nifti_type = NIFTI_FTYPE_NIFTI1_1;
@@ -643,7 +641,7 @@ void Image::updateEMThresholdRankScaled(ImageBase* updateImg,
 	auto params = this->getParams();
 	const auto rank = this->getNumFrames();
 	const size_t J = params.nx * params.ny * params.nz;
-	const float* norm_ptr_r = norm_ptr;
+	// const float* norm_ptr_r = norm_ptr;
 
 	// Precompute to avoid divides inside the hot loop
 	std::vector<float> inv_c(rank), thr_r(rank);
@@ -891,13 +889,18 @@ void ImageOwned::readFromFile(const std::string& fname)
 	else
 	{
 		ImageParams newParams;
+		const bool is4D = niftiImage->dim[0] == 4;
 		newParams.vx = voxelSpacing[0];
 		newParams.vy = voxelSpacing[1];
 		newParams.vz = voxelSpacing[2];
-		ASSERT_MSG(niftiImage->dim[0] == 4, "NIfTI Image's dim[0] is not 4");
+		ASSERT_MSG(niftiImage->dim[0] == 4 || niftiImage->dim[0] == 3, "NIfTI Image's dim[0] is not 3 or 4");
 		newParams.nx = niftiImage->dim[1];
 		newParams.ny = niftiImage->dim[2];
 		newParams.nz = niftiImage->dim[3];
+		if (is4D)
+		{
+			newParams.num_frames = niftiImage->dim[4];
+		}
 		newParams.off_x = originToOffset(imgOrigin[0], newParams.vx,
 		                                 newParams.vx * newParams.nx);
 		newParams.off_y = originToOffset(imgOrigin[1], newParams.vy,
@@ -1023,6 +1026,10 @@ void ImageOwned::checkImageParamsWithGivenImage(float voxelSpacing[3],
 	ASSERT_MSG(dim[1] == params.nx, "Size mismatch in X dimension");
 	ASSERT_MSG(dim[2] == params.ny, "Size mismatch in Y dimension");
 	ASSERT_MSG(dim[3] == params.nz, "Size mismatch in Z dimension");
+	if (dim[0] == 4)
+	{
+		ASSERT_MSG(dim[4] == params.num_frames, "Size mismatch in time dimension");
+	}
 
 	const float expectedOffsetX =
 	    originToOffset(imgOrigin[0], params.vx, params.length_x);

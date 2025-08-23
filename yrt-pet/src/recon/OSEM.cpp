@@ -112,8 +112,6 @@ void py_setup_osem(pybind11::module& m)
 	     py::return_value_policy::reference_internal);
 	c.def("getHBasis", &OSEM::getHBasis,
 	      py::return_value_policy::reference_internal);
-	c.def("getHBasis", &OSEM::getUpdateH,
-	  py::return_value_policy::reference_internal);
 	c.def("getUpdateH", &OSEM::getUpdateH);
 	c.def("getProjectorUpdaterType",&OSEM::getProjectorUpdaterType);
 	c.def("getNumRays",&OSEM::getNumRays);
@@ -210,29 +208,12 @@ const Array2DAlias<float>& OSEM::getHBasis() const {
 
 bool OSEM::getUpdateH() const
 {
-	if (auto* proj = dynamic_cast<OperatorProjector*>(mp_projector.get())) {
-		if (auto* lr = dynamic_cast<OperatorProjectorUpdaterLR*>(proj->getUpdater())) {
-			return lr->getUpdateH();
-		}
-		throw std::runtime_error("ProjectorUpdater type needs to be "
-			"OperatorProjectorUpdaterLR to get updateH");
-	}
-	throw std::runtime_error("Could not dynamic cast mp_projector to "
-						  "OperatorProjector class");
-
+	return projectorParams.updateH;
 }
 
 void OSEM::setUpdateH(bool p_updateH)
 {
-	if (auto* proj = dynamic_cast<OperatorProjector*>(mp_projector.get())) {
-		if (auto* lr = dynamic_cast<OperatorProjectorUpdaterLR*>(proj->getUpdater())) {
-			return lr->setUpdateH(p_updateH);
-		}
-		throw std::runtime_error("ProjectorUpdater type needs to be "
-			"OperatorProjectorUpdaterLR to get updateH");
-	}
-	throw std::runtime_error("Could not dynamic cast mp_projector to "
-						  "OperatorProjector class");
+	projectorParams.updateH = p_updateH;
 }
 
 OperatorProjectorParams::ProjectorUpdaterType OSEM::getProjectorUpdaterType() const
@@ -657,6 +638,28 @@ Image* OSEM::getSensitivityImage(int subsetId)
 	return m_sensitivityImages.at(subsetId);
 }
 
+void OSEM::dumpHBasis(const Array2DAlias<float>& H, const char* tag) {
+	auto dims = H.getDims();                 // {R, T}
+	const size_t R = dims[0], T = dims[1];
+	const size_t showR = std::min<size_t>(R, 8);   // limit output
+	const size_t showT = std::min<size_t>(T, 30);
+
+	std::printf("HBasis%s%s (R=%zu, T=%zu)\n",
+				tag ? " " : "", tag ? tag : "", R, T);
+
+	// If your alias supports H[r][t], use it; otherwise index flat: Hptr[r*T + t]
+	for (size_t r = 0; r < showR; ++r) {
+		std::printf("r=%zu:", r);
+		for (size_t t = 0; t < showT; ++t) {
+			std::printf(" %.6g", H[r][t]);
+		}
+		if (showT < T) std::printf(" ...");
+		std::printf("\n");
+	}
+	if (showR < R) std::printf("...\n");
+	std::fflush(stdout);
+}
+
 template<bool IS_DYNAMIC>
 void apply_update(ImageBase*, ImageBase*, const ImageBase*,
                   const float*, float);
@@ -716,7 +719,6 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 	}
 
 	getCorrector().setup();
-
 	initializeForRecon();
 
 	// Calculate factor to use for sensitivity image DEFAULT4D and LR
@@ -728,12 +730,21 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 	std::vector<float> c_r;
 	int rank;
 	int T = 0;
-	bool p_updateH = false;
-	auto* HNumerator = dynamic_cast<Array2D<float>*>(getHBasisTmpBuffer());
-	Array2DAlias<float> HNumAlias;
+	allocateHBasisTmpBuffer();
+	auto* HBuffer = dynamic_cast<Array2D<float>*>(getHBasisTmpBuffer());
+	// std::unique_ptr<Array2D<float>> HBuffer = std::make_unique<Array2D<float>>();
+
 	if (auto* proj = dynamic_cast<OperatorProjector*>(mp_projector.get())) {
 		if (auto* lr = dynamic_cast<OperatorProjectorUpdaterLR*>(proj->getUpdater())) {
-			p_updateH = lr->getUpdateH();
+			if (lr->getUpdateH() != projectorParams.updateH)
+			{
+				throw std::logic_error("member updateH of OperatorProjectorUpdaterLR is "
+						   "different than input updateH in projectorParams");
+			}
+		}
+		else
+		{
+			throw std::runtime_error("l.753 proj->getUpdater could not be cast to OperatorProjectorUpdaterLR");
 		}
 	}
 
@@ -744,7 +755,7 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 		T = static_cast<int>(dims[1]);
 
 		c_r.resize(rank, 0.f);
-		if (!p_updateH)
+		if (!projectorParams.updateH)
 			for (int r = 0; r < rank; ++r) {
 				for (int t = 0; t < T; ++t)
 				{
@@ -759,6 +770,17 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 			ASSERT_MSG(W_img && s_img, "check: W_img && s_img");
 			const float* W_ptr = W_img->getRawPointer();
 			const float* s_ptr = s_img->getRawPointer();
+
+			if (W_ptr == nullptr)
+			{
+				throw std::logic_error("W_img->getRawPointer() gives nullptr");
+			}
+
+			if (s_ptr == nullptr)
+			{
+				throw std::logic_error("s_img->getRawPointer() gives nullptr");
+			}
+
 #pragma omp parallel for
 			for (int r = 0; r < rank; ++r) {
 				const auto* Wr = W_ptr + r * J;
@@ -769,20 +791,24 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 				}
 				c_r[r] = acc;
 			}
-			// if (!HNumerator) mp_HNumerator = std::make_unique<Array2D<float>>();
-			// (Re)allocate HNumerator if needed
-			if (HNumerator->getSize(0) != static_cast<size_t>(rank) ||
-				HNumerator->getSize(1) != static_cast<size_t>(T)) {
-				HNumerator->allocate(rank, T);
-				}
-			HNumerator->fill(0.f);
+			HBuffer->fill(0.f);
 			// Redirect LR updater to write into the H numerator buffer
-			HNumAlias.bind(*HNumerator);
-			if (auto* proj = dynamic_cast<OperatorProjector*>(mp_projector.get())) {
-				if (auto* lr = dynamic_cast<OperatorProjectorUpdaterLR*>(proj->getUpdater())) {
+			if (auto* proj = reinterpret_cast<OperatorProjector*>(mp_projector.get())) {
+				if (auto* lr = dynamic_cast<OperatorProjectorUpdaterLR*>(proj->getUpdater()))
+				{
 					lr->setUpdateH(true);            // switch to H accumulation mode
-					lr->setHBasis(HNumAlias);       // write into m_HNumerator
+					lr->setHBasis(projectorParams.HBasis);
+					lr->setHBasisWrite(*HBuffer);       // write into mp_HWrite
+					printf("set HBasisWrite for OperatorProjectorUpdaterLR");
 				}
+				else
+				{
+					throw std::runtime_error("proj->getUpdater could not be cast to OperatorProjectorUpdaterLR");
+				}
+			}
+			else
+			{
+				throw std::runtime_error("mp_projector could not be cast to OperatorProjector");
 			}
 		}
 		// todo: if any c_r <= 0, handle it (skip rank or clamp) ??
@@ -811,6 +837,9 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 			// SET TMP VARIABLES TO 0
 			getImageTmpBuffer(TemporaryImageSpaceBufferType::EM_RATIO)
 			    ->setValue(0.0);
+			if (isLowRank && projectorParams.updateH) {
+				HBuffer->fill(0.0f);
+			}
 
 			ImageBase* mlemImage_rp;
 			if (flagImagePSF)
@@ -829,11 +858,19 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 				mlemImage_rp = getMLEMImageBuffer();
 			}
 
-			if (isLowRank && p_updateH) HNumerator->fill(0.f);
-
-			computeEMUpdateImage(
-			    *mlemImage_rp,
-			    *getImageTmpBuffer(TemporaryImageSpaceBufferType::EM_RATIO));
+			if (!projectorParams.updateH)
+			{
+				computeEMUpdateImage(
+					*mlemImage_rp,
+					*getImageTmpBuffer(TemporaryImageSpaceBufferType::EM_RATIO));
+			}
+			else
+			{
+				// When updating H, destImage must be the actual image (and not
+				// a zeroed buffer) to retrieve the value from the image during backudpate
+				computeEMUpdateImage(*mlemImage_rp,
+					*mlemImage_rp);
+			}
 
 			// PSF
 			if (flagImagePSF)
@@ -846,7 +883,7 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 			}
 
 			// UPDATE
-			if (!p_updateH)
+			if (!projectorParams.updateH)
 			{
 				ImageBase* updateImage =
 				    flagImagePSF
@@ -863,18 +900,18 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 			}
 			else
 			{
-				float*       H_ptr   = projectorParams.HBasis.getRawPointer();
-				const float* Num_ptr = HNumerator->getRawPointer();
+				float*       H_old_ptr = projectorParams.HBasis.getRawPointer(); // current H
+				const float* Hnum_ptr  = HBuffer->getRawPointer();               // numerator accumulated this subset
 
+				// H_new := H_old * (Hnum / c_r)
 				for (int r = 0; r < rank; ++r) {
 					const float denom = std::max(c_r[r], EPS_FLT);
 					const float inv   = 1.0f / denom;
-					float*       Hr = H_ptr   + r * T;
-					const float* Nr = Num_ptr + r * T;
+					float*       Hr  = H_old_ptr + r * T;
+					const float* Nr  = Hnum_ptr  + r * T;
 #pragma omp simd
-					for (int t = 0; t < T; ++t)
-					{
-						Hr[t] *= Nr[t] * inv;
+					for (int t = 0; t < T; ++t) {
+						Hr[t] = Hr[t] * (Nr[t] * inv); // write the *new H* back over H_old
 					}
 				}
 			}
@@ -891,7 +928,7 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 	}
 
 	// restore H Basis
-	if (isLowRank && p_updateH) {
+	if (isLowRank && projectorParams.updateH) {
 		if (auto* proj = dynamic_cast<OperatorProjector*>(mp_projector.get())) {
 			if (auto* lr = dynamic_cast<OperatorProjectorUpdaterLR*>(proj->getUpdater())) {
 				lr->setHBasis(projectorParams.HBasis); // point back to real H

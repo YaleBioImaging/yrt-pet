@@ -79,7 +79,7 @@ void OSEM_CPU::setupOperatorsForSensImgGen()
 	}
 
 	// Create ProjectorParams object only for sensitivity image, without TOF
-	// Todo: projectorUpdaterType for sens image is just DEFAULT3D?
+	// Todo: projectorUpdaterType for sens image is always just DEFAULT3D?
 	OperatorProjectorParams projParams(
 	    nullptr /* Will be set later at each subset loading */, scanner,
 	    OperatorProjectorParams::DEFAULT3D, 0.f, 0,
@@ -154,6 +154,16 @@ ImageBase* OSEM_CPU::getMLEMImageBuffer()
 Array2DBase<float>* OSEM_CPU::getHBasisTmpBuffer()
 {
 	return mp_HNumerator.get();
+}
+
+void OSEM_CPU::allocateHBasisTmpBuffer()
+{
+	if (!mp_HNumerator)
+		mp_HNumerator = std::make_unique<Array2D<float>>();
+	const auto dims = projectorParams.HBasis.getDims();   // std::array<size_t,2>
+	const int rank = static_cast<int>(dims[0]);
+	const int T = static_cast<int>(dims[1]);
+	mp_HNumerator->allocate(rank, T);
 }
 
 ImageBase* OSEM_CPU::getImageTmpBuffer(TemporaryImageSpaceBufferType type)

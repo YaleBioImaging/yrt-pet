@@ -47,6 +47,7 @@ protected:
 	const ProjectionData* getSensitivityBuffer() const;
 	ImageBase* getMLEMImageBuffer() override;
 	Array2DBase<float>* getHBasisTmpBuffer() override;
+	void allocateHBasisTmpBuffer() override;
 	ImageBase* getImageTmpBuffer(TemporaryImageSpaceBufferType type) override;
 	const ProjectionData* getMLEMDataBuffer() override;
 	ProjectionData* getMLEMDataTmpBuffer() override;

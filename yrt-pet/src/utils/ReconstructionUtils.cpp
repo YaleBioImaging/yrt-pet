@@ -40,7 +40,7 @@ void py_setup_reconstructionutils(pybind11::module& m)
 	m.def(
 	    "convertToHistogram3D",
 	    [](const Histogram& dat, Histogram3D& histoOut,
-	       const Array3DBase<float>* detectorMask)
+	       const Array3D<float>* detectorMask)
 	    {
 		    util::convertToHistogram3D<false, true>(dat, histoOut,
 		                                            detectorMask);
@@ -49,7 +49,7 @@ void py_setup_reconstructionutils(pybind11::module& m)
 	m.def(
 	    "convertToHistogram3D",
 	    [](const ListMode& dat, Histogram3D& histoOut,
-	       const Array3DBase<float>* detectorMask)
+	       const Array3D<float>* detectorMask)
 	    {
 		    util::convertToHistogram3D<true, true>(dat, histoOut, detectorMask);
 	    },

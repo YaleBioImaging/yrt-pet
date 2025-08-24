@@ -32,6 +32,10 @@ void py_setup_histogram3d(pybind11::module& m)
 	c.def("writeToFile", &Histogram3D::writeToFile, py::arg("fname"));
 	c.def("getShape", [](const Histogram3D& self)
 	      { return py::make_tuple(self.numZBin, self.numPhi, self.numR); });
+	c.def("getData",
+	      static_cast<const Array3DBase<float>& (Histogram3D::*)() const>(
+	          &Histogram3D::getData),
+	      py::return_value_policy::reference_internal);
 	c.def("getBinIdFromCoords", &Histogram3D::getBinIdFromCoords, py::arg("r"),
 	      py::arg("phi"), py::arg("z_bin"));
 	c.def(

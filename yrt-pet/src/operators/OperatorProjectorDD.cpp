@@ -29,7 +29,8 @@ void py_setup_operatorprojectordd(py::module& m)
 	auto c = py::class_<OperatorProjectorDD, OperatorProjector>(
 	    m, "OperatorProjectorDD");
 
-	c.def(py::init<const OperatorProjectorParams&>(), "projParams"_a);
+	c.def(py::init<const OperatorProjectorParams&, std::vector<Constraint*>>(),
+	      "projParams"_a, "constraints"_a);
 
 	c.def(
 	    "forwardProjection",
@@ -76,7 +77,7 @@ OperatorProjectorDD::OperatorProjectorDD(
 std::set<ProjectionPropertyType>
     OperatorProjectorDD::getProjectionPropertyTypes() const
 {
-	return {ProjectionPropertyType::LOR, ProjectionPropertyType::DetOrient};
+	return {ProjectionPropertyType::LOR, ProjectionPropertyType::DETORIENT};
 }
 
 float OperatorProjectorDD::forwardProjection(
@@ -85,7 +86,7 @@ float OperatorProjectorDD::forwardProjection(
 {
 	auto projPropManager = m_binIterConstrained->getPropertyManager();
 	det_orient_t detOrient = projPropManager.getDataValue<det_orient_t>(
-	    projectionProperties, tid, ProjectionPropertyType::DetOrient);
+	    projectionProperties, tid, ProjectionPropertyType::DETORIENT);
 	float tofValue = 0.f;
 	if (projPropManager.has(ProjectionPropertyType::TOF))
 	{
@@ -106,7 +107,7 @@ void OperatorProjectorDD::backProjection(
 {
 	auto projPropManager = m_binIterConstrained->getPropertyManager();
 	det_orient_t detOrient = projPropManager.getDataValue<det_orient_t>(
-	    projectionProperties, tid, ProjectionPropertyType::DetOrient);
+	    projectionProperties, tid, ProjectionPropertyType::DETORIENT);
 	float tofValue = 0.f;
 	if (projPropManager.has(ProjectionPropertyType::TOF))
 	{

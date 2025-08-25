@@ -7,6 +7,26 @@
 #include "yrt-pet/geometry/Line3D.hpp"
 #include <stdexcept>
 
+#if BUILD_PYBIND11
+#include <pybind11/pybind11.h>
+
+namespace yrt
+{
+
+void py_setup_projectionpropertytype(pybind11::module& m)
+{
+	pybind11::enum_<ProjectionPropertyType>(m, "ProjectionPropertyType")
+	    .value("DETID", ProjectionPropertyType::DETID)
+	    .value("LOR", ProjectionPropertyType::LOR)
+	    .value("DETORIENT", ProjectionPropertyType::DETORIENT)
+	    .value("TOF", ProjectionPropertyType::TOF)
+	    .value("EVENTFRAME", ProjectionPropertyType::EVENTFRAME)
+	    .export_values();
+}
+}  // namespace yrt
+
+#endif
+
 namespace yrt
 {
 
@@ -34,25 +54,25 @@ std::map<ProjectionPropertyType, std::pair<std::string, int>>
     PropStructManager<ProjectionPropertyType>::getInfo() const
 {
 	return std::map<ProjectionPropertyType, std::pair<std::string, int>>{
-	    {ProjectionPropertyType::DetID, {"DET_ID", sizeof(det_pair_t)}},
+	    {ProjectionPropertyType::DETID, {"DET_ID", sizeof(det_pair_t)}},
 	    {ProjectionPropertyType::LOR, {"LOR", sizeof(Line3D)}},
-	    {ProjectionPropertyType::DetOrient, {"ORIENT", sizeof(det_orient_t)}},
+	    {ProjectionPropertyType::DETORIENT, {"ORIENT", sizeof(det_orient_t)}},
 	    {ProjectionPropertyType::TOF, {"TOF", sizeof(float)}},
-	    {ProjectionPropertyType::EventFrame, {"FRAME", sizeof(frame_t)}}};
+	    {ProjectionPropertyType::EVENTFRAME, {"FRAME", sizeof(frame_t)}}};
 }
 template <>
 std::map<ConstraintVariable, std::pair<std::string, int>>
     PropStructManager<ConstraintVariable>::getInfo() const
 {
 	return std::map<ConstraintVariable, std::pair<std::string, int>>{
-	    {ConstraintVariable::Det1, {"Det1", sizeof(det_id_t)}},
-	    {ConstraintVariable::Det2, {"Det2", sizeof(det_id_t)}},
-	    {ConstraintVariable::AbsDeltaAngleDeg,
-	     {"AbsDeltaAngleDeg", sizeof(float)}},
-	    {ConstraintVariable::AbsDeltaAngleIdx,
-	     {"AbsDeltaAngleIdx", sizeof(int)}},
-	    {ConstraintVariable::AbsDeltaBlockIdx,
-	     {"AbsDeltaBlockIdx", sizeof(int)}}};
+	    {ConstraintVariable::DET1, {"DET1", sizeof(float)}},
+	    {ConstraintVariable::DET2, {"DET2", sizeof(float)}},
+	    {ConstraintVariable::ABSDELTAANGLEDEG,
+	     {"ABSDELTAANGLEDEG", sizeof(float)}},
+	    {ConstraintVariable::ABSDELTAANGLEIDX,
+	     {"ABSDELTAANGLEIDX", sizeof(int)}},
+	    {ConstraintVariable::ABSDELTABLOCKIDX,
+	     {"ABSDELTABLOCKIDX", sizeof(int)}}};
 }
 
 template <typename Enum>

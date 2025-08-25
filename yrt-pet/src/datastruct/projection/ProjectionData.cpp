@@ -200,13 +200,13 @@ void ProjectionData::getProjectionProperties(
 		                         tofValue);
 	}
 
-	if (propManager.has(ProjectionPropertyType::DetOrient))
+	if (propManager.has(ProjectionPropertyType::DETORIENT))
 	{
 		auto [d1, d2] = getDetectorPair(bin);
 		const Vector3D det1Orient = mr_scanner.getDetectorOrient(d1);
 		const Vector3D det2Orient = mr_scanner.getDetectorOrient(d2);
 		det_orient_t detOrient{det1Orient, det2Orient};
-		propManager.setDataValue(props, tid, ProjectionPropertyType::DetOrient,
+		propManager.setDataValue(props, tid, ProjectionPropertyType::DETORIENT,
 		                         detOrient);
 	}
 }

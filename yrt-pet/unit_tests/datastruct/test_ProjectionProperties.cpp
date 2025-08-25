@@ -25,8 +25,8 @@ TEST_CASE("proj_props", "[projProps]")
 	SECTION("props-simple-elementSize")
 	{
 		std::set<yrt::ProjectionPropertyType> variables;
-		variables.insert(yrt::ProjectionPropertyType::DetID);
-		variables.insert(yrt::ProjectionPropertyType::EventFrame);
+		variables.insert(yrt::ProjectionPropertyType::DETID);
+		variables.insert(yrt::ProjectionPropertyType::EVENTFRAME);
 		yrt::PropStructManager<yrt::ProjectionPropertyType> propManager(
 		    variables);
 
@@ -39,19 +39,19 @@ TEST_CASE("proj_props", "[projProps]")
 			d.d1 = i;
 			d.d2 = i + 1;
 			propManager.setDataValue(data.get(), i,
-			                         yrt::ProjectionPropertyType::DetID, d);
+			                         yrt::ProjectionPropertyType::DETID, d);
 			yrt::frame_t frame = 12 + i;
 			propManager.setDataValue(
-			    data.get(), i, yrt::ProjectionPropertyType::EventFrame, frame);
+			    data.get(), i, yrt::ProjectionPropertyType::EVENTFRAME, frame);
 		}
 		// Get data
 		for (unsigned int i = 0; i < numElements; i++)
 		{
 			const yrt::det_pair_t& det_pair =
 			    propManager.getDataValue<yrt::det_pair_t>(
-			        data.get(), i, yrt::ProjectionPropertyType::DetID);
+			        data.get(), i, yrt::ProjectionPropertyType::DETID);
 			const yrt::frame_t frame = propManager.getDataValue<int>(
-			    data.get(), i, yrt::ProjectionPropertyType::EventFrame);
+			    data.get(), i, yrt::ProjectionPropertyType::EVENTFRAME);
 			REQUIRE(det_pair.d1 == i);
 			REQUIRE(det_pair.d2 == i + 1);
 			REQUIRE(frame == static_cast<yrt::frame_t>(12 + i));

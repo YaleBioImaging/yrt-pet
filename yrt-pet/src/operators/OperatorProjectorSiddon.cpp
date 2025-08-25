@@ -21,7 +21,10 @@
 
 #if BUILD_PYBIND11
 #include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
+
 namespace py = pybind11;
+using namespace py::literals;
 
 namespace yrt
 {
@@ -29,12 +32,8 @@ void py_setup_operatorprojectorsiddon(py::module& m)
 {
 	auto c = py::class_<OperatorProjectorSiddon, OperatorProjector>(
 	    m, "OperatorProjectorSiddon");
-
-	// c.def(py::init<const OperatorProjectorParams&>(), py::arg("projParams"));
-	c.def("__init__", [](const OperatorProjectorSiddon& self,
-	                     const OperatorProjectorParams& params)
-	    { return OperatorProjectorSiddon(params, {}); }, py::arg("projParams"));
-
+	c.def(py::init<const OperatorProjectorParams&, std::vector<Constraint*>>(),
+	      "projParams"_a, "constraints"_a);
 	c.def_property("num_rays", &OperatorProjectorSiddon::getNumRays,
 	               &OperatorProjectorSiddon::setNumRays);
 	c.def(
@@ -128,7 +127,7 @@ std::set<ProjectionPropertyType>
 	projProperties.insert(ProjectionPropertyType::LOR);
 	if (m_numRays > 1)
 	{
-		projProperties.insert(ProjectionPropertyType::DetOrient);
+		projProperties.insert(ProjectionPropertyType::DETORIENT);
 	}
 	return projProperties;
 }
@@ -141,9 +140,9 @@ float OperatorProjectorSiddon::forwardProjection(
 	det_orient_t detOrient;
 	if (m_numRays > 1)
 	{
-		ASSERT(projPropManager.has(ProjectionPropertyType::DetOrient));
+		ASSERT(projPropManager.has(ProjectionPropertyType::DETORIENT));
 		detOrient = projPropManager.getDataValue<det_orient_t>(
-		    projectionProperties, tid, ProjectionPropertyType::DetOrient);
+		    projectionProperties, tid, ProjectionPropertyType::DETORIENT);
 	}
 	float tofValue = 0.f;
 	if (projPropManager.has(ProjectionPropertyType::TOF))
@@ -166,9 +165,9 @@ void OperatorProjectorSiddon::backProjection(
 	det_orient_t detOrient;
 	if (m_numRays > 1)
 	{
-		ASSERT(projPropManager.has(ProjectionPropertyType::DetOrient));
+		ASSERT(projPropManager.has(ProjectionPropertyType::DETORIENT));
 		detOrient = projPropManager.getDataValue<det_orient_t>(
-		    projectionProperties, tid, ProjectionPropertyType::DetOrient);
+		    projectionProperties, tid, ProjectionPropertyType::DETORIENT);
 	}
 	float tofValue = 0.f;
 	if (projPropManager.has(ProjectionPropertyType::TOF))

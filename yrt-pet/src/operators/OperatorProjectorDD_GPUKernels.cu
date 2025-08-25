@@ -68,7 +68,7 @@ __global__ void OperatorProjectorDDCU_kernel(
 
 		const float* detOrient = pd_projPropManager->getDataPtr<float>(
 		    pd_projectionProperties, eventId,
-		    ProjectionPropertyType::DetOrient);
+		    ProjectionPropertyType::DETORIENT);
 		float3 n1{detOrient[0], detOrient[1], detOrient[2]};
 		float3 n2{detOrient[3], detOrient[4], detOrient[5]};
 		const float3 d1_minus_d2 = d1 - d2;

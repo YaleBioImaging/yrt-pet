@@ -53,7 +53,7 @@ std::set<ProjectionPropertyType>
 	std::set<ProjectionPropertyType> props{ProjectionPropertyType::LOR};
 	if (m_numRays > 1)
 	{
-		props.insert(ProjectionPropertyType::DetOrient);
+		props.insert(ProjectionPropertyType::DETORIENT);
 	}
 	return props;
 }

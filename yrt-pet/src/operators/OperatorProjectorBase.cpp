@@ -9,6 +9,7 @@
 
 #if BUILD_PYBIND11
 #include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
 
 namespace py = pybind11;
 
@@ -24,6 +25,8 @@ void py_setup_operatorprojectorparams(py::module& m)
 	c.def_readwrite("projPsf_fname", &OperatorProjectorParams::projPsf_fname);
 	c.def_readwrite("num_rays", &OperatorProjectorParams::numRays);
 	c.def_readwrite("num_threads", &OperatorProjectorParams::numThreads);
+	c.def_readwrite("proj_property_types_extra",
+	                &OperatorProjectorParams::projPropertyTypesExtra);
 }
 
 void py_setup_operatorprojectorbase(py::module& m)

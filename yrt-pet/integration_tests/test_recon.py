@@ -233,11 +233,10 @@ def _test_savant_sim_ultra_micro_hotspot_motion_post_recon_mc(keyword: str):
     assert ret == 0
 
     out_img = yrt.ImageOwned(img_params, out_file)
-    ref_img = yrt.ImageOwned(img_params, os.path.join(fold_savant_sim,
-                                                      "ref",
-                                                      "ultra_micro_hotspot_" +
-                                                      keyword +
-                                                      "_post_recon_mc.nii.gz"))
+    ref_img = yrt.ImageOwned(
+        img_params, os.path.join(fold_savant_sim, "ref",
+                                 "ultra_micro_hotspot_" + keyword +
+                                 "_post_recon_mc.nii.gz"))
 
     nrmse = _helper.get_nrmse(np.array(out_img, copy=False),
                               np.array(ref_img, copy=False))
@@ -354,7 +353,8 @@ def _test_savant_sim_ultra_micro_hotspot_nomotion_osem_6rays(use_gpu: bool):
     scanner = yrt.Scanner(os.path.join(fold_savant_sim, "SAVANT_sim.json"))
     dataset = yrt.ListModeLUTOwned(
         scanner,
-        os.path.join(fold_savant_sim, "ultra_micro_hotspot", "nomotion.lmDat"))
+        os.path.join(fold_savant_sim, "ultra_micro_hotspot",
+                     "nomotion.lmDat"))
     sens_img = yrt.ImageOwned(
         img_params, os.path.join(fold_savant_sim, "images",
                                  "sens_image_siddon_6rays.nii.gz"))
@@ -479,7 +479,8 @@ def test_uhr2d_shepp_logan_osem_his_exec():
                                                   "img_params_2d.json")
     recon_exec_str += " --out " + out_recon_path
     recon_exec_str += " --out_sens " + out_sens_path
-    recon_exec_str += " --input " + os.path.join(fold_uhr2d, "shepp_logan.his")
+    recon_exec_str += " --input " + os.path.join(fold_uhr2d,
+                                                 "shepp_logan.his")
     recon_exec_str += " --format H"
     recon_exec_str += " --num_subsets 5"
     recon_exec_str += " --num_iterations 100"
@@ -521,8 +522,8 @@ def test_large_flat_panel_xcat_osem_tof_siddon():
     dataset = yrt.ListModeLUTDOIOwned(
         scanner, os.path.join(fold_xcat, "sim_4min_49ps.lmDoiDat"),
         flag_tof=True)
-    sens_img = yrt.ImageOwned(img_params,
-                              os.path.join(fold_xcat, "sens_image_siddon.nii"))
+    sens_img = yrt.ImageOwned(
+        img_params, os.path.join(fold_xcat, "sens_image_siddon.nii"))
 
     osem = yrt.createOSEM(scanner)
     osem.setImageParams(img_params)
@@ -559,7 +560,8 @@ def test_large_flat_panel_xcat_osem_tof_dd_gpu_exec():
     exec_str += ' --scanner ' + os.path.join(fold_large_flat_panel,
                                              "large_flat_panel.json")
     exec_str += ' --params ' + os.path.join(fold_xcat, "img_params_3mm.json")
-    exec_str += ' --input ' + os.path.join(fold_xcat, "sim_4min_49ps.lmDoiDat")
+    exec_str += ' --input ' + os.path.join(fold_xcat,
+                                           "sim_4min_49ps.lmDoiDat")
     exec_str += ' --format LM-DOI --projector DD --gpu'
     exec_str += ' --sens ' + os.path.join(fold_xcat, "sens_image_dd.nii")
     exec_str += ' --flag_tof --tof_width_ps 70 --tof_n_std 5'

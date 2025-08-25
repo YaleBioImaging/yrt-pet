@@ -22,7 +22,8 @@ def get_test_folders():
         raise RuntimeError("Environment variable " + env_out
                            + " need to be set")
     if not os.path.exists(fold_data_from_env):
-        raise RuntimeError("Path specified by " + env_data + " does not exist.")
+        raise RuntimeError("Path specified by " + env_data +
+                           " does not exist.")
     if not os.path.exists(fold_out_from_env):
         os.mkdir(fold_out_from_env)
 

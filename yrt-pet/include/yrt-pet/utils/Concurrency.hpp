@@ -69,21 +69,19 @@ template <typename T, typename U>
 T simpleReduceArray(const U* array, size_t length, std::function<T(T, T)> func,
                     T init, size_t numThreads = 1)
 {
-    std::vector<T> workspace;
+	std::vector<T> workspace;
 	workspace.resize(numThreads);
 	std::fill(workspace.begin(), workspace.end(), init);
 
-    parallelForChunked(length, numThreads,
-                       [array, &workspace, func, init](size_t i, size_t tid)
-                       {
-	                       workspace[tid] = func(workspace[tid], array[i]);
-                       });
-    T output = init;
-    for (size_t tid = 0; tid < numThreads; tid++)
-    {
-        output = func(output, workspace[tid]);
-    }
-    return output;
+	parallelForChunked(length, numThreads,
+	                   [array, &workspace, func](size_t i, size_t tid)
+	                   { workspace[tid] = func(workspace[tid], array[i]); });
+	T output = init;
+	for (size_t tid = 0; tid < numThreads; tid++)
+	{
+		output = func(output, workspace[tid]);
+	}
+	return output;
 }
 
 }  // namespace yrt::util

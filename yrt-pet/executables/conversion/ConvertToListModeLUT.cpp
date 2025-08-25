@@ -95,9 +95,9 @@ int main(int argc, char** argv)
 		const ProjectionData* dataInput_ptr = dataInput.get();
 
 		util::parallelForChunked(
-			numEvents, globals::getNumThreads(),
-		    [lmOut_ptr, dataInput_ptr, numEvents, hasTOF,
-		     hasRandoms](size_t evId, size_t /*tid*/)
+		    numEvents, globals::getNumThreads(),
+		    [lmOut_ptr, dataInput_ptr, hasTOF, hasRandoms](size_t evId,
+		                                                   size_t /*tid*/)
 		    {
 			    lmOut_ptr->setTimestampOfEvent(
 			        evId, dataInput_ptr->getTimestamp(evId));

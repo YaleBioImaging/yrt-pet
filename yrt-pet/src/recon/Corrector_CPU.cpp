@@ -36,14 +36,14 @@ void Corrector_CPU::precomputeAdditiveCorrectionFactors(
 	const bin_t numBins = measurements.count();
 	std::cout << "Precomputing additive corrections..." << std::endl;
 
-	util::parallelForChunked(
-	    numBins, globals::getNumThreads(),
-	    [numBins, measurementsPtr, additiveCorrectionsPtr, this](bin_t bin,
-	                                                             size_t /*tid*/)
-	    {
-		    additiveCorrectionsPtr[bin] =
-		        getAdditiveCorrectionFactor(*measurementsPtr, bin);
-	    });
+	util::parallelForChunked(numBins, globals::getNumThreads(),
+	                         [measurementsPtr, additiveCorrectionsPtr,
+	                          this](bin_t bin, size_t /*tid*/)
+	                         {
+		                         additiveCorrectionsPtr[bin] =
+		                             getAdditiveCorrectionFactor(
+		                                 *measurementsPtr, bin);
+	                         });
 }
 
 void Corrector_CPU::precomputeInVivoAttenuationFactors(
@@ -65,14 +65,14 @@ void Corrector_CPU::precomputeInVivoAttenuationFactors(
 	const size_t numBins = measurements.count();
 	std::cout << "Precomputing in-vivo attenuation corrections..." << std::endl;
 
-	util::parallelForChunked(
-	    numBins, globals::getNumThreads(),
-	    [numBins, measurementsPtr, inVivoAttenuationFactorsPtr,
-	     this](bin_t bin, size_t /*tid*/)
-	    {
-		    inVivoAttenuationFactorsPtr[bin] =
-		        getInVivoAttenuationFactor(*measurementsPtr, bin);
-	    });
+	util::parallelForChunked(numBins, globals::getNumThreads(),
+	                         [measurementsPtr, inVivoAttenuationFactorsPtr,
+	                          this](bin_t bin, size_t /*tid*/)
+	                         {
+		                         inVivoAttenuationFactorsPtr[bin] =
+		                             getInVivoAttenuationFactor(
+		                                 *measurementsPtr, bin);
+	                         });
 }
 
 float Corrector_CPU::getMultiplicativeCorrectionFactor(

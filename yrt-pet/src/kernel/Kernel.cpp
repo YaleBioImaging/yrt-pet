@@ -174,8 +174,7 @@ void kernel::build_K_full(float* x, float* k, int* k_i, int* k_j, size_t nz,
 
 	util::parallelForChunked(
 	    numPixels, numThreads,
-	    [numPixels, num_k, nx, ny, nz, cmp, sc, x, k, k_i, k_j](size_t i,
-	                                                            size_t /*tid*/)
+	    [numPixels, num_k, cmp, sc, x, k, k_i, k_j](size_t i, size_t /*tid*/)
 	    {
 		    float v0 = x[i];
 

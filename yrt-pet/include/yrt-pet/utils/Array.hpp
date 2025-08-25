@@ -12,7 +12,6 @@
 #include <array>
 #include <atomic>
 #include <cmath>
-#include <execution>
 #include <filesystem>
 #include <fstream>
 #include <functional>

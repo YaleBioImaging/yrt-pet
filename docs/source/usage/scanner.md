@@ -8,8 +8,8 @@ binary format.
 
 The following parameters in the JSON file define the scanner:
 
-- `VERSION` : Scanner file format version. The current version is `3.1`.  *
-  *\[Mandatory\]**
+- `VERSION` : Scanner file format version. The current version is `3.1`.
+  **\[Mandatory\]**
 - `scannerName` : Scanner name. This is value is not used in the reconstruction.
   **\[Mandatory\]**
 - `detCoord`: Path to the LUT file. The path is relative to the JSON file's
@@ -18,11 +18,11 @@ The following parameters in the JSON file define the scanner:
       properties.
       (deprecated feature)
 - `axialFOV` : Axial Field-of-View (mm).  **\[Mandatory\]**
-- `crystalSize_trans` : Crystal size in the transaxial dimension (mm).  *
-  *\[Mandatory\]**
+- `crystalSize_trans` : Crystal size in the transaxial dimension (mm).
+  **\[Mandatory\]**
 - `crystalSize_z` : Crystal size in the axial dimension (mm).  **\[Mandatory\]**
-- `crystalDepth` : Crystal size in the direction of its orientation (mm).  *
-  *\[Mandatory\]**
+- `crystalDepth` : Crystal size in the direction of its orientation (mm).
+  **\[Mandatory\]**
 - `scannerRadius` : Scanner radius (mm).  **\[Mandatory\]**
 - `detsPerRing` : Number of detectors per ring.  **\[Mandatory\]**
 - `numRings` : Number of rings.  **\[Mandatory\]**

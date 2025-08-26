@@ -66,7 +66,7 @@ namespace yrt
 OperatorProjectorDD::OperatorProjectorDD(
     const OperatorProjectorParams& pr_projParams,
     const std::vector<Constraint*>& pr_constraints)
-	: OperatorProjector{pr_projParams, pr_constraints}
+    : OperatorProjector{pr_projParams, pr_constraints}
 {
 	initBinIteratorConstrained(pr_projParams.projPropertyTypesExtra,
 	                           pr_projParams.numThreads);

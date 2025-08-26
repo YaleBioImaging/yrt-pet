@@ -28,10 +28,8 @@ void py_setup_operatorprojectordd(py::module& m)
 {
 	auto c = py::class_<OperatorProjectorDD, OperatorProjector>(
 	    m, "OperatorProjectorDD");
-
 	c.def(py::init<const OperatorProjectorParams&, std::vector<Constraint*>>(),
 	      "projParams"_a, "constraints"_a);
-
 	c.def(
 	    "forwardProjection",
 	    [](const OperatorProjectorDD& self, const Image* in_image,

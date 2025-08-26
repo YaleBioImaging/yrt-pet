@@ -84,31 +84,27 @@ void OSEMUpdater_CPU::computeSensitivityImage(Image& destImage) const
 	util::ProgressDisplayMultiThread progressDisplay(globals::getNumThreads(),
 	                                                 numBinsMax);
 
-	util::parallel_do_indexed(
-	    numThreads,
+	util::parallel_for_chunked(
+	    numBinsMax, numThreads,
 	    [blockSize, numBinsMax, sensImgGenProjData, consManager,
 	     projPropManager, correctorPtr, projector, destImagePtr,
 	     &progressDisplay, &binIter, &binIterConstrained, &constraintParams,
-	     &projectionProperties](int tid)
+	     &projectionProperties](size_t binIdx, int tid)
 	    {
-		    for (size_t binIdx = tid * blockSize;
-		         binIdx < std::min((tid + 1) * blockSize, numBinsMax); binIdx++)
+		    bin_t bin = binIter->get(binIdx);
+		    binIterConstrained->collectInfo(bin, tid, tid, *sensImgGenProjData,
+		                                    projectionProperties,
+		                                    constraintParams);
+		    if (binIterConstrained->isValid(consManager, constraintParams))
 		    {
-			    bin_t bin = binIter->get(binIdx);
-			    binIterConstrained->collectInfo(
-			        bin, tid, tid, *sensImgGenProjData, projectionProperties,
-			        constraintParams);
-			    if (binIterConstrained->isValid(consManager, constraintParams))
-			    {
-				    progressDisplay.progress(tid, 1);
-				    sensImgGenProjData->getProjectionProperties(
-				        projectionProperties, projPropManager, bin, tid);
-				    const float projValue =
-				        correctorPtr->getMultiplicativeCorrectionFactor(
-				            *sensImgGenProjData, bin);
-				    projector->backProjection(destImagePtr,
-				                              projectionProperties, projValue);
-			    }
+			    progressDisplay.progress(tid, 1);
+			    sensImgGenProjData->getProjectionProperties(
+			        projectionProperties, projPropManager, bin, tid);
+			    const float projValue =
+			        correctorPtr->getMultiplicativeCorrectionFactor(
+			            *sensImgGenProjData, bin);
+			    projector->backProjection(destImagePtr, projectionProperties,
+			                              projValue, tid);
 		    }
 	    });
 }
@@ -189,8 +185,8 @@ void OSEMUpdater_CPU::computeEMUpdateImage(const Image& inputImage,
 				    const float measurement =
 				        measurements->getProjectionValue(bin);
 				    update = measurement / update;
-				    projector->backProjection(destImagePtr,
-				                              projectionProperties, update);
+				    projector->backProjection(
+				        destImagePtr, projectionProperties, update, tid);
 			    }
 		    }
 	    });

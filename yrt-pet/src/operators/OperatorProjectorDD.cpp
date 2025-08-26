@@ -30,6 +30,7 @@ void py_setup_operatorprojectordd(py::module& m)
 	    m, "OperatorProjectorDD");
 	c.def(py::init<const OperatorProjectorParams&, std::vector<Constraint*>>(),
 	      "projParams"_a, "constraints"_a);
+	c.def(py::init<const OperatorProjectorParams&>(), "projParams"_a);
 	c.def(
 	    "forwardProjection",
 	    [](const OperatorProjectorDD& self, const Image* in_image,
@@ -95,7 +96,7 @@ float OperatorProjectorDD::forwardProjection(
 	    img,
 	    projPropManager.getDataValue<Line3D>(projectionProperties, tid,
 	                                         ProjectionPropertyType::LOR),
-	    detOrient.d1, detOrient.d2, mp_tofHelper.get(), tofValue,
+	    detOrient.d1, detOrient.d2, tid, mp_tofHelper.get(), tofValue,
 	    mp_projPsfManager.get());
 }
 
@@ -115,8 +116,8 @@ void OperatorProjectorDD::backProjection(
 	backProjection(img,
 	               projPropManager.getDataValue<Line3D>(
 	                   projectionProperties, tid, ProjectionPropertyType::LOR),
-	               detOrient.d1, detOrient.d2, projValue, mp_tofHelper.get(),
-	               tofValue, mp_projPsfManager.get());
+	               detOrient.d1, detOrient.d2, projValue, tid,
+	               mp_tofHelper.get(), tofValue, mp_projPsfManager.get());
 }
 
 float OperatorProjectorDD::forwardProjection(

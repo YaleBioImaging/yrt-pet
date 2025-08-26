@@ -27,40 +27,6 @@ OSEMUpdater_CPU::OSEMUpdater_CPU(OSEM_CPU* pp_osem) : mp_osem(pp_osem)
 	ASSERT(mp_osem != nullptr);
 }
 
-#if 0
-void OSEMUpdater_CPU::computeSensitivityImage(Image& destImage) const
-{
-	const OperatorProjector* projector = mp_osem->getProjector();
-	const BinIterator* binIter = projector->getBinIter();
-	const bin_t numBins = binIter->size();
-	const Corrector_CPU& corrector = mp_osem->getCorrector_CPU();
-	const Corrector_CPU* correctorPtr = &corrector;
-	const ProjectionData* sensImgGenProjData =
-	    corrector.getSensImgGenProjData();
-	Image* destImagePtr = &destImage;
-	util::ProgressDisplayMultiThread progressDisplay(globals::getNumThreads(),
-	                                                 numBins);
-
-#pragma omp parallel for default(none)                                      \
-    firstprivate(sensImgGenProjData, correctorPtr, projector, destImagePtr, \
-                     binIter, numBins) shared(progressDisplay)
-	for (bin_t binIdx = 0; binIdx < numBins; binIdx++)
-	{
-		progressDisplay.progress(omp_get_thread_num(), 1);
-
-		    const bin_t bin = binIter->get(binIdx);
-
-		    const ProjectionProperties projectionProperties =
-		        sensImgGenProjData->getProjectionProperties(bin);
-
-		const float projValue = correctorPtr->getMultiplicativeCorrectionFactor(
-			*sensImgGenProjData, bin);
-
-		    projector->backProjection(destImagePtr, projectionProperties,
-		                              projValue, tid);
-	    });
-}
-#else
 void OSEMUpdater_CPU::computeSensitivityImage(Image& destImage) const
 {
 	const OperatorProjector* projector = mp_osem->getProjector();
@@ -84,7 +50,7 @@ void OSEMUpdater_CPU::computeSensitivityImage(Image& destImage) const
 	util::ProgressDisplayMultiThread progressDisplay(globals::getNumThreads(),
 	                                                 numBinsMax);
 
-	util::parallel_for_chunked(
+	util::parallelForChunked(
 	    numBinsMax, numThreads,
 	    [blockSize, numBinsMax, sensImgGenProjData, consManager,
 	     projPropManager, correctorPtr, projector, destImagePtr,
@@ -108,7 +74,6 @@ void OSEMUpdater_CPU::computeSensitivityImage(Image& destImage) const
 		    }
 	    });
 }
-#endif
 
 void OSEMUpdater_CPU::computeEMUpdateImage(const Image& inputImage,
                                            Image& destImage) const
@@ -155,7 +120,7 @@ void OSEMUpdater_CPU::computeEMUpdateImage(const Image& inputImage,
 	auto constraintParams = projector->getConstraintParams();
 	auto projectionProperties = projector->getProjectionProperties();
 
-	util::parallel_for_chunked(
+	util::parallelForChunked(
 	    numBins, numThreads,
 	    [hasAdditiveCorrection, hasInVivoAttenuation, measurements,
 	     inputImagePtr, consManager, projPropManager, correctorPtr, projector,

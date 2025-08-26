@@ -64,7 +64,7 @@ void LORsDevice::precomputeBatchLORs(
 		auto* binIter_ptr = &binIter;
 		const ProjectionData* reference_ptr = &reference;
 
-		util::parallel_do_indexed(
+		util::parallelDoIndexed(
 		    numThreads,
 		    [offset, blockSize, batchSize, &binIterConstrained, consManager,
 		     projPropManager, binIter_ptr, &infoPtr,

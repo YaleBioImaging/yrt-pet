@@ -52,7 +52,8 @@ Corrector_GPU& OSEM_GPU::getCorrector_GPU()
 	return *mp_corrector;
 }
 
-std::pair<size_t, size_t> OSEM_GPU::calculateMemProj(float shareOfMemoryToUse) const
+std::pair<size_t, size_t>
+    OSEM_GPU::calculateMemProj(float shareOfMemoryToUse) const
 {
 	size_t memAvailable = globals::getDeviceInfo(true);
 
@@ -61,7 +62,7 @@ std::pair<size_t, size_t> OSEM_GPU::calculateMemProj(float shareOfMemoryToUse) c
 	                                   shareOfMemoryToUse);
 
 	auto projPropManager =
-		mp_projector->getBinIterConstrained()->getPropertyManager();
+	    mp_projector->getBinIterConstrained()->getPropertyManager();
 	const size_t memoryUsagePerLOR = projPropManager.getElementSize();
 	return {memAvailable, memoryUsagePerLOR};
 }
@@ -89,7 +90,7 @@ void OSEM_GPU::setupOperatorsForSensImgGen(
 	if (projectorType == OperatorProjector::DD)
 	{
 		mp_projector = std::make_unique<OperatorProjectorDD_GPU>(
-			projParams, constraints, getMainStream(), getAuxStream());
+		    projParams, constraints, getMainStream(), getAuxStream());
 	}
 	else if (projectorType == OperatorProjector::SIDDON)
 	{
@@ -137,8 +138,8 @@ void OSEM_GPU::allocateForSensImgGen()
 	auto [memAvailable, memoryUsagePerLOR] =
 	    calculateMemProj(DefaultMemoryShare);
 	mpd_tempSensDataInput = std::make_unique<ProjectionDataDeviceOwned>(
-	    scanner, mp_corrector->getSensImgGenProjData(), num_OSEM_subsets,
-	    memoryUsagePerLOR, memAvailable);
+	    scanner, mp_corrector->getSensImgGenProjData(), memoryUsagePerLOR,
+	    memAvailable, num_OSEM_subsets);
 
 	// Make sure the corrector buffer is properly defined
 	mp_corrector->initializeTemporaryDeviceBuffer(mpd_tempSensDataInput.get());
@@ -182,7 +183,7 @@ void OSEM_GPU::setupOperatorsForRecon(const OperatorProjectorParams& projParams)
 	if (projectorType == OperatorProjector::DD)
 	{
 		mp_projector = std::make_unique<OperatorProjectorDD_GPU>(
-			projParams, constraints, getMainStream(), getAuxStream());
+		    projParams, constraints, getMainStream(), getAuxStream());
 	}
 	else if (projectorType == OperatorProjector::SIDDON)
 	{

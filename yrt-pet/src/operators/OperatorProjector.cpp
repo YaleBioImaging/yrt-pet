@@ -89,7 +89,7 @@ void OperatorProjector::applyA(const Variable* in, Variable* out)
 	auto constraintParams = m_constraintParams.get();
 	auto projectionProperties = m_projectionProperties.get();
 
-	util::parallel_for_chunked(
+	util::parallelForChunked(
 	    numBinsMax, m_numThreads,
 	    [img, dat, consManager, projPropManager, &constraintParams,
 	     &projectionProperties, this](bin_t binIdx, int tid)
@@ -125,7 +125,7 @@ void OperatorProjector::applyAH(const Variable* in, Variable* out)
 	auto constraintParams = m_constraintParams.get();
 	auto projectionProperties = m_projectionProperties.get();
 
-	util::parallel_for_chunked(
+	util::parallelForChunked(
 	    numBinsMax, m_numThreads,
 	    [img, dat, consManager, projPropManager, &constraintParams,
 	     &projectionProperties, this](bin_t binIdx, int tid)

@@ -6,6 +6,7 @@
 #include "yrt-pet/operators/OperatorProjectorBase.hpp"
 #include "yrt-pet/datastruct/projection/BinIteratorConstrained.hpp"
 #include "yrt-pet/datastruct/projection/ProjectionProperties.hpp"
+#include "yrt-pet/utils/Globals.hpp"
 
 #if BUILD_PYBIND11
 #include <pybind11/pybind11.h>
@@ -20,6 +21,7 @@ void py_setup_operatorprojectorparams(py::module& m)
 {
 	auto c = py::class_<OperatorProjectorParams>(m, "OperatorProjectorParams");
 	c.def(py::init<Scanner&>(), py::arg("scanner"));
+	c.def_readwrite("binIter", &OperatorProjectorParams::binIter);
 	c.def_readwrite("tofWidth_ps", &OperatorProjectorParams::tofWidth_ps);
 	c.def_readwrite("tofNumStd", &OperatorProjectorParams::tofNumStd);
 	c.def_readwrite("projPsf_fname", &OperatorProjectorParams::projPsf_fname);
@@ -49,7 +51,7 @@ OperatorProjectorParams::OperatorProjectorParams(const Scanner& pr_scanner)
       tofNumStd(0),
       projPsf_fname(""),
       numRays(1),
-      numThreads(1)
+      numThreads(globals::getNumThreads())
 {
 }
 

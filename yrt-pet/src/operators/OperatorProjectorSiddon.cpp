@@ -34,6 +34,7 @@ void py_setup_operatorprojectorsiddon(py::module& m)
 	    m, "OperatorProjectorSiddon");
 	c.def(py::init<const OperatorProjectorParams&, std::vector<Constraint*>>(),
 	      "projParams"_a, "constraints"_a);
+	c.def(py::init<const OperatorProjectorParams&>(), "projParams"_a);
 	c.def_property("num_rays", &OperatorProjectorSiddon::getNumRays,
 	               &OperatorProjectorSiddon::setNumRays);
 	c.def(
@@ -99,9 +100,8 @@ OperatorProjectorSiddon::OperatorProjectorSiddon(
 	if (m_numRays > 1)
 	{
 		mp_lineGen = std::make_unique<std::vector<MultiRayGenerator>>(
-		    m_numThreads,
-		    MultiRayGenerator{scanner.crystalSize_z,
-		                      scanner.crystalSize_trans});
+		    m_numThreads, MultiRayGenerator{scanner.crystalSize_z,
+		                                    scanner.crystalSize_trans});
 	}
 	ASSERT_MSG_WARNING(
 	    mp_projPsfManager == nullptr,
@@ -154,7 +154,7 @@ float OperatorProjectorSiddon::forwardProjection(
 	    img,
 	    projPropManager.getDataValue<Line3D>(projectionProperties, tid,
 	                                         ProjectionPropertyType::LOR),
-	    detOrient.d1, detOrient.d2, mp_tofHelper.get(), tofValue);
+	    detOrient.d1, detOrient.d2, tid, mp_tofHelper.get(), tofValue);
 }
 
 void OperatorProjectorSiddon::backProjection(
@@ -178,8 +178,8 @@ void OperatorProjectorSiddon::backProjection(
 	backProjection(img,
 	               projPropManager.getDataValue<Line3D>(
 	                   projectionProperties, tid, ProjectionPropertyType::LOR),
-	               detOrient.d1, detOrient.d2, projValue, mp_tofHelper.get(),
-	               tofValue);
+	               detOrient.d1, detOrient.d2, projValue, tid,
+	               mp_tofHelper.get(), tofValue);
 }
 
 float OperatorProjectorSiddon::forwardProjection(

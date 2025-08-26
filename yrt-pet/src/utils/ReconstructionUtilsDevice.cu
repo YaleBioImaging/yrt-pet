@@ -128,18 +128,19 @@ std::unique_ptr<ImageDevice> timeAverageMoveImageDevice(
 	const LORMotion* lorMotion_ptr = &lorMotion;
 
 	// Populate transforms and weights buffers
-#pragma omp parallel for default(none)                                      \
-    firstprivate(frameStart, numFramesUsed, invTransforms_ptr, weights_ptr, \
-                     scanDuration, lorMotion_ptr)
-	for (frame_t frame_i = 0; frame_i < numFramesUsed; frame_i++)
-	{
-		const frame_t frame = frame_i + frameStart;
-		const transform_t transform = lorMotion_ptr->getTransform(frame);
-		const float weight = lorMotion_ptr->getDuration(frame) / scanDuration;
+	util::parallelForChunked(
+	    numFramesUsed, globals::getNumThreads(),
+	    [frameStart, invTransforms_ptr, weights_ptr, scanDuration,
+	     lorMotion_ptr](size_t frame_i, size_t /*tid*/)
+	    {
+		    const frame_t frame = frame_i + frameStart;
+		    const transform_t transform = lorMotion_ptr->getTransform(frame);
+		    const float weight =
+		        lorMotion_ptr->getDuration(frame) / scanDuration;
 
-		invTransforms_ptr[frame_i] = invertTransform(transform);
-		weights_ptr[frame_i] = weight;
-	}
+		    invTransforms_ptr[frame_i] = invertTransform(transform);
+		    weights_ptr[frame_i] = weight;
+	    });
 
 	// Transfer transforms and weights
 	DeviceArray<transform_t> transformsDevice{numFramesUsed,

@@ -56,43 +56,43 @@ void Corrector_GPU::precomputeAdditiveCorrectionFactors(
 
 	const ProjectionData* measurementsPtr = &measurements;
 
-#pragma omp parallel for default(none)                                         \
-    firstprivate(additiveCorrectionsPtr, mp_attenuationImage, measurementsPtr, \
-                     histogrammedACFs, numBins)
-	for (bin_t bin = 0; bin < numBins; bin++)
-	{
-		const histo_bin_t histoBin = measurementsPtr->getHistogramBin(bin);
+	util::parallelForChunked(
+	    numBins, globals::getNumThreads(),
+	    [additiveCorrectionsPtr, measurementsPtr, histogrammedACFs, numBins,
+	     this](bin_t bin, size_t /*tid*/)
+	    {
+		    const histo_bin_t histoBin = measurementsPtr->getHistogramBin(bin);
 
-		const float randomsEstimate =
-		    getRandomsEstimate(*measurementsPtr, bin, histoBin);
+		    const float randomsEstimate =
+		        getRandomsEstimate(*measurementsPtr, bin, histoBin);
 
-		const float scatterEstimate = getScatterEstimate(histoBin);
+		    const float scatterEstimate = getScatterEstimate(histoBin);
 
-		const float sensitivity = getSensitivity(histoBin);
+		    const float sensitivity = getSensitivity(histoBin);
 
-		float acf = 1.0f;
+		    float acf = 1.0f;
 
-		if (histogrammedACFs)
-		{
-			// ACF was not precomputed in the additive corrections buffer
-			acf = getTotalACFFromHistogram(histoBin);
-		}
-		else if (mp_attenuationImage != nullptr)
-		{
-			// ACFs were precomputed in the additive corrections buffer
-			acf = additiveCorrectionsPtr[bin];
-		}
+		    if (histogrammedACFs)
+		    {
+			    // ACF was not precomputed in the additive corrections buffer
+			    acf = getTotalACFFromHistogram(histoBin);
+		    }
+		    else if (mp_attenuationImage != nullptr)
+		    {
+			    // ACFs were precomputed in the additive corrections buffer
+			    acf = additiveCorrectionsPtr[bin];
+		    }
 
-		if (acf > StabilityEpsilon && sensitivity > StabilityEpsilon)
-		{
-			additiveCorrectionsPtr[bin] =
-			    (randomsEstimate + scatterEstimate) / (sensitivity * acf);
-		}
-		else
-		{
-			additiveCorrectionsPtr[bin] = 0.0f;
-		}
-	}
+		    if (acf > StabilityEpsilon && sensitivity > StabilityEpsilon)
+		    {
+			    additiveCorrectionsPtr[bin] =
+			        (randomsEstimate + scatterEstimate) / (sensitivity * acf);
+		    }
+		    else
+		    {
+			    additiveCorrectionsPtr[bin] = 0.0f;
+		    }
+	    });
 }
 
 void Corrector_GPU::precomputeInVivoAttenuationFactors(
@@ -117,14 +117,15 @@ void Corrector_GPU::precomputeInVivoAttenuationFactors(
 		std::cout << "Gathering in-vivo ACFs to prepare for precorrection..."
 		          << std::endl;
 
-#pragma omp parallel for default(none) \
-    firstprivate(numBins, measurements, inVivoAttenuationFactorsPtr)
-		for (bin_t bin = 0; bin < numBins; bin++)
-		{
-			const histo_bin_t histoBin = measurements.getHistogramBin(bin);
-			inVivoAttenuationFactorsPtr[bin] =
-			    mp_inVivoAcf->getProjectionValueFromHistogramBin(histoBin);
-		}
+		util::parallelForChunked(
+		    numBins, globals::getNumThreads(),
+		    [numBins, &measurements, inVivoAttenuationFactorsPtr,
+		     this](bin_t bin, size_t /*tid*/)
+		    {
+			    const histo_bin_t histoBin = measurements.getHistogramBin(bin);
+			    inVivoAttenuationFactorsPtr[bin] =
+			        mp_inVivoAcf->getProjectionValueFromHistogramBin(histoBin);
+		    });
 	}
 	else if (mp_inVivoAttenuationImage != nullptr)
 	{

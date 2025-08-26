@@ -6,7 +6,6 @@
 - CUDA toolkit if compiling using GPU (ON by default)
 - An internet connection to download the `cxxopts`, `nlohmann/json`,
   and `catch2` libraries
-- OpenMP, but this is baked into most compilers
 - zlib, to read NIfTI images in `.nii.gz` format, but this is pre-installed
   in most Unix distributions
 
@@ -110,12 +109,8 @@ With `[ON/OFF]` being replaced by the desired configuration
           versions match, the command will either print `True` or `False`.
             - `True` if the project was compiled with `-DUSE_CUDA=ON`
             - `False` if the project was compiled with `-DUSE_CUDA=OFF`
-- YRT-PET uses OpenMP to parallelize most of the code. By default,
-  YRT-PET will use the maximum amount of threads available. If the environment
-  variable `OMP_NUM_THREADS` is set, YRT-PET will use that number instead.
-    - It is common within HPC cluster infrastructures to override this
-      environment variable to a smaller number like 4. Beware of such situations
-      if computation time is a constraint.
+- YRT-PET uses `std::thread` for parallelization. By default, YRT-PET will use
+  the maximum amount of available threads.
 - I get an error that looks like:
     ```
     CMake Error at /usr/share/cmake-3.29/Modules/CMakeDetermineCompilerId.cmake:814 (message):

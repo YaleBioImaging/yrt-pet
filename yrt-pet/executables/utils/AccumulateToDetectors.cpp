@@ -109,19 +109,18 @@ int main(int argc, char** argv)
 		auto* mapsPtr = maps.data();
 		ProjectionData* dataInputPtr = dataInput.get();
 
-#pragma omp parallel for default(none) \
-    firstprivate(numBins, mapsPtr, dataInputPtr, numDets, numThreads)
-		for (bin_t bin = 0; bin < numBins; ++bin)
-		{
-			int threadId = omp_get_thread_num();
-			const det_pair_t detPair = dataInputPtr->getDetectorPair(bin);
-			const float projValue = dataInputPtr->getProjectionValue(bin);
-			ASSERT_MSG(detPair.d1 < numDets && detPair.d2 < numDets,
-			           "Invalid Detector Id");
-			ASSERT(threadId < numThreads);
-			mapsPtr[threadId]->incrementFlat(detPair.d1, projValue);
-			mapsPtr[threadId]->incrementFlat(detPair.d2, projValue);
-		}
+		util::parallelForChunked(
+		    numBins, numThreads,
+		    [numBins, mapsPtr, dataInputPtr, numDets](bin_t bin,
+		                                              size_t threadId)
+		    {
+			    const det_pair_t detPair = dataInputPtr->getDetectorPair(bin);
+			    const float projValue = dataInputPtr->getProjectionValue(bin);
+			    ASSERT_MSG(detPair.d1 < numDets && detPair.d2 < numDets,
+			               "Invalid Detector Id");
+			    mapsPtr[threadId]->incrementFlat(detPair.d1, projValue);
+			    mapsPtr[threadId]->incrementFlat(detPair.d2, projValue);
+		    });
 
 		// Reduction (accumulate what each thread accumulated)
 		std::cout << "Reduction..." << std::endl;

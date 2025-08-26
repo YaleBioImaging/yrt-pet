@@ -36,25 +36,28 @@ void py_setup_operatorprojectorsiddon(py::module& m)
 	    "forwardProjection",
 	    [](const OperatorProjectorSiddon& self, const Image* in_image,
 	       const Line3D& lor, const Vector3D& n1, const Vector3D& n2,
-	       const TimeOfFlightHelper* tofHelper, float tofValue) -> float {
-		    return self.forwardProjection(in_image, lor, n1, n2, tofHelper,
+	       const int tid, const TimeOfFlightHelper* tofHelper,
+	       float tofValue) -> float
+	    {
+		    return self.forwardProjection(in_image, lor, n1, n2, tid, tofHelper,
 		                                  tofValue);
 	    },
 	    py::arg("in_image"), py::arg("lor"), py::arg("n1"), py::arg("n2"),
-	    py::arg("tofHelper") = nullptr, py::arg("tofValue") = 0.0f);
+	    py::arg("tid") = 0, py::arg("tofHelper") = nullptr,
+	    py::arg("tofValue") = 0.0f);
 	c.def(
 	    "backProjection",
 	    [](const OperatorProjectorSiddon& self, Image* in_image,
 	       const Line3D& lor, const Vector3D& n1, const Vector3D& n2,
-	       float proj_value, const TimeOfFlightHelper* tofHelper,
+	       float proj_value, int tid, const TimeOfFlightHelper* tofHelper,
 	       float tofValue) -> void
 	    {
-		    self.backProjection(in_image, lor, n1, n2, proj_value, tofHelper,
-		                        tofValue);
+		    self.backProjection(in_image, lor, n1, n2, proj_value, tid,
+		                        tofHelper, tofValue);
 	    },
 	    py::arg("in_image"), py::arg("lor"), py::arg("n1"), py::arg("n2"),
-	    py::arg("proj_value"), py::arg("tofHelper") = nullptr,
-	    py::arg("tofValue") = 0.0f);
+	    py::arg("proj_value"), py::arg("tid") = 0,
+	    py::arg("tofHelper") = nullptr, py::arg("tofValue") = 0.0f);
 	c.def_static(
 	    "singleBackProjection",
 	    [](Image* in_image, const Line3D& lor, float proj_value,
@@ -117,27 +120,28 @@ void OperatorProjectorSiddon::setNumRays(int n)
 }
 
 float OperatorProjectorSiddon::forwardProjection(
-    const Image* img, const ProjectionProperties& projectionProperties) const
+    const Image* img, const ProjectionProperties& projectionProperties,
+    int tid) const
 {
 	return forwardProjection(img, projectionProperties.lor,
 	                         projectionProperties.det1Orient,
-	                         projectionProperties.det2Orient,
+	                         projectionProperties.det2Orient, tid,
 	                         mp_tofHelper.get(), projectionProperties.tofValue);
 }
 
 void OperatorProjectorSiddon::backProjection(
     Image* img, const ProjectionProperties& projectionProperties,
-    float projValue) const
+    float projValue, int tid) const
 {
 	backProjection(img, projectionProperties.lor,
 	               projectionProperties.det1Orient,
-	               projectionProperties.det2Orient, projValue,
+	               projectionProperties.det2Orient, projValue, tid,
 	               mp_tofHelper.get(), projectionProperties.tofValue);
 }
 
 float OperatorProjectorSiddon::forwardProjection(
     const Image* img, const Line3D& lor, const Vector3D& n1, const Vector3D& n2,
-    const TimeOfFlightHelper* tofHelper, float tofValue) const
+    int tid, const TimeOfFlightHelper* tofHelper, float tofValue) const
 {
 	const ImageParams& params = img->getParams();
 	const Vector3D offsetVec = {params.off_x, params.off_y, params.off_z};
@@ -147,7 +151,7 @@ float OperatorProjectorSiddon::forwardProjection(
 	int currThread = 0;
 	if (m_numRays > 1)
 	{
-		currThread = omp_get_thread_num();
+		currThread = tid;
 		ASSERT(mp_lineGen != nullptr);
 		mp_lineGen->at(currThread).setupGenerator(lor, n1, n2);
 	}
@@ -186,7 +190,8 @@ float OperatorProjectorSiddon::forwardProjection(
 
 void OperatorProjectorSiddon::backProjection(
     Image* img, const Line3D& lor, const Vector3D& n1, const Vector3D& n2,
-    float projValue, const TimeOfFlightHelper* tofHelper, float tofValue) const
+    float projValue, int tid, const TimeOfFlightHelper* tofHelper,
+    float tofValue) const
 {
 	const ImageParams& params = img->getParams();
 	const Vector3D offsetVec = {params.off_x, params.off_y, params.off_z};
@@ -197,7 +202,7 @@ void OperatorProjectorSiddon::backProjection(
 	if (m_numRays > 1)
 	{
 		ASSERT(mp_lineGen != nullptr);
-		currThread = omp_get_thread_num();
+		currThread = tid;
 		mp_lineGen->at(currThread).setupGenerator(lor, n1, n2);
 		projValuePerLor = projValue / static_cast<float>(m_numRays);
 	}
@@ -524,9 +529,8 @@ void OperatorProjectorSiddon::project_helper(
 		else
 		{
 			float output = value * weight;
-			float* ptr = &cur_img_ptr[vx];
-#pragma omp atomic
-			*ptr += output;
+			std::atomic_ref<float> atomic_elem(cur_img_ptr[vx]);
+			atomic_elem.fetch_add(output);
 		}
 		a_cur = a_next;
 		ax_next_prev = ax_next;

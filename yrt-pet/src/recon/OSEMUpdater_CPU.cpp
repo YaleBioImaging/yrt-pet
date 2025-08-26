@@ -9,6 +9,7 @@
 #include "yrt-pet/recon/Corrector_CPU.hpp"
 #include "yrt-pet/recon/OSEM_CPU.hpp"
 #include "yrt-pet/utils/Assert.hpp"
+#include "yrt-pet/utils/Concurrency.hpp"
 #include "yrt-pet/utils/Globals.hpp"
 #include "yrt-pet/utils/ProgressDisplayMultiThread.hpp"
 
@@ -34,24 +35,25 @@ void OSEMUpdater_CPU::computeSensitivityImage(Image& destImage) const
 	util::ProgressDisplayMultiThread progressDisplay(globals::getNumThreads(),
 	                                                 numBins);
 
-#pragma omp parallel for default(none)                                      \
-    firstprivate(sensImgGenProjData, correctorPtr, projector, destImagePtr, \
-                     binIter, numBins) shared(progressDisplay)
-	for (bin_t binIdx = 0; binIdx < numBins; binIdx++)
-	{
-		progressDisplay.progress(omp_get_thread_num(), 1);
+	util::parallelForChunked(
+	    numBins, globals::getNumThreads(),
+	    [&progressDisplay, binIter, sensImgGenProjData, correctorPtr, projector,
+	     destImagePtr](bin_t binIdx, size_t tid)
+	    {
+		    progressDisplay.progress(tid, 1);
 
-		const bin_t bin = binIter->get(binIdx);
+		    const bin_t bin = binIter->get(binIdx);
 
-		const ProjectionProperties projectionProperties =
-		    sensImgGenProjData->getProjectionProperties(bin);
+		    const ProjectionProperties projectionProperties =
+		        sensImgGenProjData->getProjectionProperties(bin);
 
-		const float projValue = correctorPtr->getMultiplicativeCorrectionFactor(
-		    *sensImgGenProjData, bin);
+		    const float projValue =
+		        correctorPtr->getMultiplicativeCorrectionFactor(
+		            *sensImgGenProjData, bin);
 
-		projector->backProjection(destImagePtr, projectionProperties,
-		                          projValue);
-	}
+		    projector->backProjection(destImagePtr, projectionProperties,
+		                              projValue, tid);
+	    });
 }
 
 void OSEMUpdater_CPU::computeEMUpdateImage(const Image& inputImage,
@@ -91,38 +93,39 @@ void OSEMUpdater_CPU::computeEMUpdateImage(const Image& inputImage,
 		    "measurements");
 	}
 
-#pragma omp parallel for default(none) firstprivate(                        \
-        hasAdditiveCorrection, hasInVivoAttenuation, binIter, measurements, \
-            projector, correctorPtr, destImagePtr, inputImagePtr, numBins)
-	for (bin_t binIdx = 0; binIdx < numBins; binIdx++)
-	{
-		const bin_t bin = binIter->get(binIdx);
+	util::parallelForChunked(
+	    numBins, globals::getNumThreads(),
+	    [binIter, measurements, projector, inputImagePtr, hasAdditiveCorrection,
+	     hasInVivoAttenuation, correctorPtr,
+	     destImagePtr](bin_t binIdx, size_t tid)
+	    {
+		    const bin_t bin = binIter->get(binIdx);
 
-		const ProjectionProperties projectionProperties =
-		    measurements->getProjectionProperties(bin);
+		    const ProjectionProperties projectionProperties =
+		        measurements->getProjectionProperties(bin);
 
-		float update =
-		    projector->forwardProjection(inputImagePtr, projectionProperties);
+		    float update = projector->forwardProjection(
+		        inputImagePtr, projectionProperties, tid);
 
-		if (hasAdditiveCorrection)
-		{
-			update += correctorPtr->getAdditiveCorrectionFactor(bin);
-		}
+		    if (hasAdditiveCorrection)
+		    {
+			    update += correctorPtr->getAdditiveCorrectionFactor(bin);
+		    }
 
-		if (hasInVivoAttenuation)
-		{
-			update *= correctorPtr->getInVivoAttenuationFactor(bin);
-		}
+		    if (hasInVivoAttenuation)
+		    {
+			    update *= correctorPtr->getInVivoAttenuationFactor(bin);
+		    }
 
-		if (update > EPS_FLT)  // to prevent numerical instability
-		{
-			const float measurement = measurements->getProjectionValue(bin);
+		    if (update > EPS_FLT)  // to prevent numerical instability
+		    {
+			    const float measurement = measurements->getProjectionValue(bin);
 
-			update = measurement / update;
+			    update = measurement / update;
 
-			projector->backProjection(destImagePtr, projectionProperties,
-			                          update);
-		}
-	}
+			    projector->backProjection(destImagePtr, projectionProperties,
+			                              update, tid);
+		    }
+	    });
 }
 }  // namespace yrt

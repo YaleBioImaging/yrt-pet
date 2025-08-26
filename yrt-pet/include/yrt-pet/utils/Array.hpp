@@ -5,12 +5,20 @@
 
 #pragma once
 
+#include "Concurrency.hpp"
+#include "Globals.hpp"
+#include "yrt-pet/utils/Concurrency.hpp"
+#include "yrt-pet/utils/Globals.hpp"
 #include <array>
+#include <atomic>
 #include <cmath>
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <iostream>
+#include <limits>
 #include <memory>
+#include <numeric>
 
 #if BUILD_PYBIND11
 #include <pybind11/pybind11.h>
@@ -360,22 +368,12 @@ public:
 
 	T getMaxValue() const
 	{
-		T maxValue = std::numeric_limits<T>::lowest();
-
-		const int totalSize = getSizeTotal();
+		const size_t totalSize = getSizeTotal();
 		const T* arr = getRawPointer();
-
-#pragma omp parallel for reduction(max : maxValue) default(none) \
-    firstprivate(arr, totalSize)
-		for (int i = 0; i < totalSize; i++)
-		{
-			const float val = arr[i];
-			if (val > maxValue)
-			{
-				maxValue = val;
-			}
-		}
-		return maxValue;
+		std::function<T(T, T)> func_max = [](T a, T b) { return std::max(a, b); };
+		return util::simpleReduceArray(
+		    arr, totalSize, func_max,
+		    std::numeric_limits<T>::lowest(), globals::getNumThreads());
 	}
 
 	// Copy from array object (memory must be allocated and appropriately sized)

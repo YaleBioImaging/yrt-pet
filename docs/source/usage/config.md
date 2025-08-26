@@ -1,21 +1,17 @@
 # YRT-PET Configuration
 
 ## Number of threads
-Since YRT-PET currently uses the OpenMP library to parallelize work, the thread
-selection is managed by that library.
-Check if the environment variable `OMP_NUM_THREADS` is set. This variable will
-act as the default number of threads used when calling YRT-PET without
-specifying `--num_threads`.
-If `OMP_NUM_THREADS` is unset, by default, OpenMP will select all available
-threads on the machine, regardless of other processes.
+Since YRT-PET currently uses the `std::thread` library to parallelize work, the
+thread selection is managed by that library.  YRT-PET uses the maximum number of
+available threads unless the `--num_threads` is passed to the executables.
 
-Alternatively, one can run YRT-PET (or any process) using `taskset` to limit
-CPU core selection.
+Alternatively, one can run YRT-PET (or any process) using `taskset` to limit CPU
+core selection.
 
 ### From Python
-Using the Python bindings, it is possible to call `yrt.setNumThreads(...)` to set the number of
-threads OpenMP will use for parallelized operations. This will not alter any
-environment variable, it will only affect the current process.
+Using the Python bindings, it is possible to call `yrt.setNumThreads(...)` to
+set the number of threads that will used for parallelized operations. This will
+only affect the current process.
 
 The `yrt.getNumThreads()` function also exists to gather that information.
 
@@ -29,9 +25,8 @@ It is possible, however, to disable this behavior by setting the
 
 ## From Python
 Using the Python bindings, it is possible to call
-`yrt.setPinnedMemoryEnabled(...)` to define this option.
-This will not alter any environment variable, it will only affect the current
-process.
+`yrt.setPinnedMemoryEnabled(...)` to define this option.  This will not alter
+any environment variable, it will only affect the current process.
 
 The `yrt.isPinnedMemoryEnabled()` function also exists to gather that
 information.

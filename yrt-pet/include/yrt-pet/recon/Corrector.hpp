@@ -21,6 +21,7 @@ class Corrector
 {
 public:
 	explicit Corrector(const Scanner& pr_scanner);
+	virtual ~Corrector() = default;
 
 	virtual void precomputeAdditiveCorrectionFactors(
 	    const ProjectionData& measurements) = 0;

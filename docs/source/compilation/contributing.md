@@ -57,14 +57,13 @@ We use clang-format for the code formatting. The variable naming standard goes w
 
 ## Reconstruction code basis
 - Core coding language: C++ with c++20 standard
-    - Interface for python
-- Build system: cmake
+    - Interface for Python
+- Build system: `cmake`
 - Testing tools:
-    - C++: *catch2*
-    - python: pytest
-- Multi-threading: openMP
-    - *Using MPI? Not sure planned*
-- GPU: CUDA
+    - C++: `catch2`
+    - Python: `pytest`
+- Multi-threading: `std::thread`
+- GPU: `CUDA`
 
 ## Priority functionality
 - [ ] Scatter estimation with Time-of-flight

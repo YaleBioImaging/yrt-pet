@@ -16,8 +16,6 @@
 #include "yrt-pet/utils/ReconstructionUtils.hpp"
 #include "yrt-pet/utils/Tools.hpp"
 
-#include "omp.h"
-
 
 #if BUILD_PYBIND11
 #include <pybind11/pybind11.h>
@@ -221,42 +219,39 @@ void SingleScatterSimulator::runSSS(size_t numberZ, size_t numberPhi,
 	const int numThreads = globals::getNumThreads();
 	util::ProgressDisplayMultiThread progressBar{numThreads, progressMax, 5};
 
-#pragma omp parallel for schedule(static, 1) collapse(3) shared(progressBar)
-	for (size_t z_i = 0; z_i < num_i_z; z_i++)
-	{
-		for (size_t phi_i = 0; phi_i < num_i_phi; phi_i++)
-		{
-			for (size_t r_i = 0; r_i < num_i_r; r_i++)
-			{
-				const int threadNum = omp_get_thread_num();
-				progressBar.progress(threadNum, 1);
+	util::parallelForChunked(
+	    num_i_z * num_i_phi * num_i_r, globals::getNumThreads(),
+	    [num_i_phi, num_i_r, &progressBar, &scatterHisto,
+	     this](size_t binIdx, size_t threadNum)
+	    {
+		    size_t z_i = binIdx / (num_i_phi * num_i_r);
+		    size_t rem_z = binIdx - z_i * num_i_phi * num_i_r;
+		    size_t phi_i = rem_z / num_i_r;
+		    size_t r_i = rem_z % num_i_r;
+		    progressBar.progress(threadNum, 1);
 
-				const size_t z = m_zBinSamples[z_i];
-				const size_t phi = m_phiSamples[phi_i];
-				const size_t r = m_rSamples[r_i];
+		    const size_t z = m_zBinSamples[z_i];
+		    const size_t phi = m_phiSamples[phi_i];
+		    const size_t r = m_rSamples[r_i];
 
-				// Compute current LOR
-				const size_t scatterHistoBinId =
-				    scatterHisto.getBinIdFromCoords(r, phi, z);
+		    // Compute current LOR
+		    const size_t scatterHistoBinId =
+		        scatterHisto.getBinIdFromCoords(r, phi, z);
 
-				const auto [d1, d2] =
-				    scatterHisto.getDetectorPair(scatterHistoBinId);
-				const Vector3D p1 = mr_scanner.getDetectorPos(d1);
-				const Vector3D p2 = mr_scanner.getDetectorPos(d2);
-				const Vector3D n1 = mr_scanner.getDetectorOrient(d1);
-				const Vector3D n2 = mr_scanner.getDetectorOrient(d2);
+		    const auto [d1, d2] =
+		        scatterHisto.getDetectorPair(scatterHistoBinId);
+		    const Vector3D p1 = mr_scanner.getDetectorPos(d1);
+		    const Vector3D p2 = mr_scanner.getDetectorPos(d2);
+		    const Vector3D n1 = mr_scanner.getDetectorOrient(d1);
+		    const Vector3D n2 = mr_scanner.getDetectorOrient(d2);
 
-				const Line3D lor{p1, p2};
+		    const Line3D lor{p1, p2};
 
-				const float scatterResult =
-				    computeSingleScatterInLOR(lor, n1, n2);
-				if (scatterResult <= 0.0)
-					continue;  // Ignore irrelevant lines?
-				scatterHisto.setProjectionValue(scatterHistoBinId,
-				                                scatterResult);
-			}
-		}
-	}
+		    const float scatterResult = computeSingleScatterInLOR(lor, n1, n2);
+		    if (scatterResult <= 0.0)
+			    return;  // Ignore irrelevant lines?
+		    scatterHisto.setProjectionValue(scatterHistoBinId, scatterResult);
+	    });
 
 	std::cout << "Scatter simulation completed, running linear interpolation "
 	             "to fill gaps..."

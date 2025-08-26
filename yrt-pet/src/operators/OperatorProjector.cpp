@@ -10,11 +10,10 @@
 #include "yrt-pet/datastruct/projection/Histogram3D.hpp"
 #include "yrt-pet/geometry/Constants.hpp"
 #include "yrt-pet/utils/Assert.hpp"
+#include "yrt-pet/utils/Concurrency.hpp"
 #include "yrt-pet/utils/Globals.hpp"
 #include "yrt-pet/utils/ReconstructionUtils.hpp"
 #include "yrt-pet/utils/Tools.hpp"
-
-#include "omp.h"
 
 
 #if BUILD_PYBIND11
@@ -96,18 +95,19 @@ void OperatorProjector::applyA(const Variable* in, Variable* out)
 	ASSERT_MSG(img != nullptr, "Input variable has to be an Image");
 	ASSERT_MSG(binIter != nullptr, "BinIterator undefined");
 
-#pragma omp parallel for default(none) firstprivate(binIter, img, dat)
-	for (bin_t binIdx = 0; binIdx < binIter->size(); binIdx++)
-	{
-		const bin_t bin = binIter->get(binIdx);
+	util::parallelForChunked(binIter->size(), globals::getNumThreads(),
+	                         [img, dat, this](size_t binIdx, size_t tid)
+	                         {
+		                         const bin_t bin = binIter->get(binIdx);
 
-		ProjectionProperties projectionProperties =
-		    dat->getProjectionProperties(bin);
+		                         ProjectionProperties projectionProperties =
+			                         dat->getProjectionProperties(bin);
 
-		const float imProj = forwardProjection(img, projectionProperties);
+		                         const float imProj = forwardProjection(
+			                         img, projectionProperties, tid);
 
-		dat->setProjectionValue(bin, imProj);
-	}
+		                         dat->setProjectionValue(bin, imProj);
+	                           });
 }
 
 void OperatorProjector::applyAH(const Variable* in, Variable* out)
@@ -119,23 +119,24 @@ void OperatorProjector::applyAH(const Variable* in, Variable* out)
 	ASSERT_MSG(img != nullptr, "Output variable has to be an Image");
 	ASSERT_MSG(binIter != nullptr, "BinIterator undefined");
 
-#pragma omp parallel for default(none) firstprivate(binIter, img, dat)
-	for (bin_t binIdx = 0; binIdx < binIter->size(); binIdx++)
-	{
-		const bin_t bin = binIter->get(binIdx);
+	util::parallelForChunked(
+	    binIter->size(), globals::getNumThreads(),
+	    [img, dat, this](size_t binIdx, size_t tid)
+	    {
+		    const bin_t bin = binIter->get(binIdx);
 
-		ProjectionProperties projectionProperties =
-		    dat->getProjectionProperties(bin);
+		    ProjectionProperties projectionProperties =
+		        dat->getProjectionProperties(bin);
 
-		float projValue = dat->getProjectionValue(bin);
+		    float projValue = dat->getProjectionValue(bin);
 
-		if (std::abs(projValue) == 0.0f)
-		{
-			continue;
-		}
+		    if (std::abs(projValue) == 0.0f)
+		    {
+			    return;
+		    }
 
-		backProjection(img, projectionProperties, projValue);
-	}
+		    backProjection(img, projectionProperties, projValue, tid);
+	    });
 }
 
 void OperatorProjector::addTOF(float tofWidth_ps, int tofNumStd)

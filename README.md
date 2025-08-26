@@ -64,7 +64,6 @@ more thorough documentation on the python library is still to be written.
 - CUDA toolkit if compiling using GPU (ON by default)
 - An internet connection to download the `cxxopts`, `nlohmann/json`,
   and `catch2` libraries
-- OpenMP, but this is baked into most compilers
 - zlib, to read NIfTI images in `.nii.gz` format, but this is pre-installed
   in most Unix distributions
 

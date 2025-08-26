@@ -6,6 +6,7 @@ project(yrt-pet VERSION 0.0.1 LANGUAGES CXX)
 
 # # Dependencies
 find_package(ZLIB REQUIRED)
+find_package(Threads REQUIRED)
 
 # CMake tools
 include(ExternalProject)
@@ -51,7 +52,7 @@ endif (USE_CUDA)
 
 # Common variables
 set(YRTPET_COMPILE_FEATURES cxx_std_20)
-set(YRTPET_LINK_LIBRARIES ZLIB::ZLIB)
+set(YRTPET_LINK_LIBRARIES ZLIB::ZLIB ${CMAKE_THREAD_LIBS_INIT})
 set(YRTPET_INCLUDE_DIRECTORIES)
 set(YRTPET_LIB_NAME yrtpet)
 

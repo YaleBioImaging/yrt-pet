@@ -413,7 +413,7 @@ void convertToHistogram3DInternal(const ProjectionData& dat,
 	    });
 }
 
-template <bool RequiresAtomic, bool PrintProgress = true>
+template <bool RequiresAtomic, bool PrintProgress>
 void convertToHistogram3D(const ProjectionData& dat, Histogram3D& histoOut,
                           const Array3DBase<float>* detectorMask)
 {

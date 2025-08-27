@@ -15,6 +15,7 @@
 #if BUILD_PYBIND11
 #include <pybind11/pybind11.h>
 namespace py = pybind11;
+using namespace py::literals;
 
 namespace yrt
 {
@@ -22,13 +23,9 @@ void py_setup_operatorprojectorsiddon_gpu(py::module& m)
 {
 	auto c = py::class_<OperatorProjectorSiddon_GPU, OperatorProjectorDevice>(
 	    m, "OperatorProjectorSiddon_GPU");
-	// c.def(py::init<const OperatorProjectorParams&>(), py::arg("projParams"));
-	c.def(
-	    "__init__",
-	    [](const OperatorProjectorSiddon_GPU& self,
-	       const OperatorProjectorParams& params)
-	    { return OperatorProjectorSiddon_GPU(params, {}); },
-	    py::arg("projParams"));
+	c.def(py::init<const OperatorProjectorParams&, std::vector<Constraint*>>(),
+	      "projParams"_a, "constraints"_a);
+	c.def(py::init<const OperatorProjectorParams&>(), "projParams"_a);
 }
 }  // namespace yrt
 

@@ -416,6 +416,8 @@ void OSEM::initializeForRecon()
 	if (flagProjTOF)
 	{
 		projParams.projPropertyTypesExtra = {ProjectionPropertyType::TOF};
+		projParams.tofWidth_ps = tofWidth_ps;
+		projParams.tofNumStd = tofNumStd;
 	}
 	setupOperatorsForRecon(projParams);
 

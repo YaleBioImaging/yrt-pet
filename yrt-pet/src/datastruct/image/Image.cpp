@@ -650,22 +650,20 @@ void Image::updateEMThresholdRankScaled(ImageBase* updateImg,
 		thr_r[r] = threshold * inv_c[r];   // == threshold / c_r[r]
 	}
 
-// Parallelize across rank slabs (optional)
-#pragma omp parallel for schedule(static)
-	for (size_t j = 0; j < J; j++) {
-		const float s = norm_ptr[j];
-#pragma omp simd
-	for (int r2 = 0; r2 < rank; r2++) {
-			// const float cr    = c_r[r];
-			// const float thr_r = threshold / c_r[r];       // s[j] > threshold/cr
-			// float* ptr_r = ptr + r * J;
-			// const float* up_ptr_r = up_ptr + r * J;
-			if (s > thr_r[r2]) {
+	util::parallelForChunked(
+		J * rank, globals::getNumThreads(),
+		[norm_ptr, thr_r, up_ptr, inv_c, ptr, rank, J](size_t i, int /*tid*/)
+		{
+			size_t j = i / rank;
+			int r2 = i % rank;
+			const float s = norm_ptr[j];
+			if (s > thr_r[r2])
+			{
 				const auto idx = r2 * J + j;
 				ptr[idx] *= (up_ptr[idx] * inv_c[r2]) / s;
 			}
 		}
-	}
+		);
 }
 
 float Image::dotProduct(const Image& y) const
@@ -1065,41 +1063,6 @@ float Image::offsetToOrigin(float off, float voxelSize, float length)
 {
 	return off - 0.5f * length + 0.5f * voxelSize;
 }
-
-template <int Dimension>
-float Image::indexToPositionInDimension(int index) const
-{
-	static_assert(Dimension >= 0 && Dimension < 3);
-	const ImageParams& params = getParams();
-	float voxelSize, length, offset;
-	if constexpr (Dimension == 0)
-	{
-		voxelSize = params.vz;
-		length = params.length_z;
-		offset = params.off_z;
-	}
-	else if constexpr (Dimension == 1)
-	{
-		voxelSize = params.vy;
-		length = params.length_y;
-		offset = params.off_y;
-	}
-	else if constexpr (Dimension == 2)
-	{
-		voxelSize = params.vx;
-		length = params.length_x;
-		offset = params.off_x;
-	}
-	else
-	{
-		throw std::runtime_error("Unknown error");
-	}
-	return util::indexToPosition(index, voxelSize, length, offset);
-}
-
-template float Image::indexToPositionInDimension<0>(int index) const;
-template float Image::indexToPositionInDimension<1>(int index) const;
-template float Image::indexToPositionInDimension<2>(int index) const;
 
 ImageAlias::ImageAlias(const ImageParams& imgParams) : Image{imgParams}
 {

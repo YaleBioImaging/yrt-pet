@@ -68,7 +68,7 @@ void LORsDevice::precomputeBatchLORs(const BinIterator& binIter,
 		     this](size_t binIdx, size_t /*tid*/)
 		    {
 			    bin_t binId = binIter_ptr->get(binIdx + offset);
-			    auto [lor, tofValue, det1Orient, det2Orient] =
+			    auto [lor, tofValue, det1Orient, det2Orient, dynamicFrame] =
 			        reference_ptr->getProjectionProperties(binId);
 
 			    tempBufferLorDet1Pos_ptr[binIdx].x = lor.point1.x;

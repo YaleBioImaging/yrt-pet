@@ -66,8 +66,11 @@ void OSEM_GPU::setupOperatorsForSensImgGen()
 	}
 	// Create ProjectorParams object
 	OperatorProjectorParams projParams(
-	    nullptr /* Will be set later at each subset loading */, scanner, 0.f, 0,
-	    flagProjPSF ? projPsf_fname : "", numRays);
+	    nullptr /* Will be set later at each subset loading */, scanner,
+	    OperatorProjectorParams::DEFAULT3D, 0.f, 0,
+	    !projectorParams.projPsf_fname.empty() ?
+	    projectorParams.projPsf_fname : "",
+	    projectorParams.numRays);
 
 	if (projectorType == OperatorProjector::DD)
 	{
@@ -160,27 +163,22 @@ void OSEM_GPU::setupOperatorsForRecon()
 		    getDataInput()->getBinIter(num_OSEM_subsets, subsetId));
 	}
 
-	// Create ProjectorParams object
-	OperatorProjectorParams projParams(
-	    nullptr /* Will be set later at each subset loading */, scanner,
-	    flagProjTOF ? tofWidth_ps : 0.f, flagProjTOF ? tofNumStd : 0,
-	    flagProjPSF ? projPsf_fname : "", numRays);
-
 	if (projectorType == OperatorProjector::DD)
 	{
 		mp_projector = std::make_unique<OperatorProjectorDD_GPU>(
-		    projParams, getMainStream(), getAuxStream());
+		    projectorParams, getMainStream(), getAuxStream());
 	}
 	else if (projectorType == OperatorProjector::SIDDON)
 	{
 		mp_projector = std::make_unique<OperatorProjectorSiddon_GPU>(
-		    projParams, getMainStream(), getAuxStream());
+		    projectorParams, getMainStream(), getAuxStream());
 	}
 	else
 	{
 		throw std::runtime_error("Unknown error");
 	}
 
+	setupProjectorUpdater();
 	mp_updater = std::make_unique<OSEMUpdater_GPU>(this);
 }
 
@@ -433,4 +431,19 @@ const cudaStream_t* OSEM_GPU::getMainStream() const
 {
 	return &m_mainStream.getStream();
 }
+
+void OSEM_GPU::setupProjectorUpdater()
+{
+	auto projector = reinterpret_cast<OperatorProjectorDevice*>(mp_projector.get());
+	//projector->setupUpdater(projectorParams);
+}
+
+Array2DBase<float>* OSEM_GPU::getHBasisTmpBuffer()
+{
+	return nullptr;
+}
+void OSEM_GPU::allocateHBasisTmpBuffer()
+{
+}
+
 }  // namespace yrt

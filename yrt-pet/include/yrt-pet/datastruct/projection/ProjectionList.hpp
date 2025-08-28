@@ -38,7 +38,7 @@ public:
 	timestamp_t getTimestamp(bin_t id) const override;
 	size_t getNumDynamicFrames() const override;
 	size_t getNumMotionFrames() const override;
-	float getDurationOfFrame(frame_t frame) const override;
+	float getDurationOfMotionFrame(frame_t frame) const override;
 	timestamp_t getScanDuration() const override;
 	bool isUniform() const override;
 	bool hasRandomsEstimates() const override;

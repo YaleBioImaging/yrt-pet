@@ -290,6 +290,19 @@ void ImageDevice::applyThresholdDevice(const ImageDevice* maskImg,
 	cudaCheckError();
 }
 
+void ImageDevice::applyThresholdBroadcast(const ImageBase* maskImg, float threshold,
+                                          float val_le_scale, float val_le_off,
+                                          float val_gt_scale, float val_gt_off)
+{
+}
+
+void ImageDevice::updateEMThresholdRankScaled(ImageBase* updateImg,
+                                              const ImageBase* normImg,
+                                              const float* c_r,
+                                              float threshold)
+{
+}
+
 void ImageDevice::applyThreshold(const ImageBase* maskImg, float threshold,
                                  float val_le_scale, float val_le_off,
                                  float val_gt_scale, float val_gt_off)

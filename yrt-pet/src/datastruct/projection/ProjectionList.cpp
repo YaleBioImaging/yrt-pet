@@ -116,9 +116,9 @@ size_t ProjectionList::getNumMotionFrames() const
 	return mp_reference->getNumMotionFrames();
 }
 
-float ProjectionList::getDurationOfFrame(frame_t frame) const
+float ProjectionList::getDurationOfMotionFrame(frame_t frame) const
 {
-	return mp_reference->getDurationOfFrame(frame);
+	return mp_reference->getDurationOfMotionFrame(frame);
 }
 
 timestamp_t ProjectionList::getScanDuration() const

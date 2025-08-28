@@ -41,7 +41,7 @@ void py_setup_operatorprojectorsiddon(py::module& m)
 	       const int tid, frame_t dynamicFrame, const TimeOfFlightHelper* tofHelper,
 	       float tofValue) -> float
 	    {
-		    return self.forwardProjection(in_image, lor, n1, n2, tid, eventTimeFrame, tofHelper,
+		    return self.forwardProjection(in_image, lor, n1, n2, tid, dynamicFrame, tofHelper,
 		                                  tofValue);
 	    },
 	    py::arg("in_image"), py::arg("lor"), py::arg("n1"), py::arg("n2"),
@@ -51,7 +51,7 @@ void py_setup_operatorprojectorsiddon(py::module& m)
 	    "backProjection",
 	    [](const OperatorProjectorSiddon& self, Image* in_image,
 	       const Line3D& lor, const Vector3D& n1, const Vector3D& n2,
-	       float proj_value, int tid, int eventTimeFrame, const TimeOfFlightHelper* tofHelper,
+	       float proj_value, int tid, frame_t dynamicFrame, const TimeOfFlightHelper* tofHelper,
 	       float tofValue) -> void
 	    {
 		    self.backProjection(in_image, lor, n1, n2, proj_value, tid,

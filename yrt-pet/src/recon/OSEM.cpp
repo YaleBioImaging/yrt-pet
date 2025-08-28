@@ -781,16 +781,14 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 				throw std::logic_error("s_img->getRawPointer() gives nullptr");
 			}
 
-#pragma omp parallel for
-			for (int r = 0; r < rank; ++r) {
+			for (int r = 0; r < rank; ++r)
+			{
 				const auto* Wr = W_ptr + r * J;
-				float acc = 0.f;
-#pragma omp simd reduction(+:acc)
-				for (size_t j = 0; j < J; ++j) {
-					acc += Wr[j] * s_ptr[j];
-				}
-				c_r[r] = acc;
+				const std::function<float(float, float)> func_sum = [](float a, float b) { return a + b; };
+				c_r[r] = util::simpleReduceArray(Wr, J, func_sum,
+				                                 0.f, globals::getNumThreads());
 			}
+
 			HBuffer->fill(0.f);
 			// Redirect LR updater to write into the H numerator buffer
 			if (auto* proj = reinterpret_cast<OperatorProjector*>(mp_projector.get())) {
@@ -904,16 +902,19 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 				const float* Hnum_ptr  = HBuffer->getRawPointer();               // numerator accumulated this subset
 
 				// H_new := H_old * (Hnum / c_r)
-				for (int r = 0; r < rank; ++r) {
-					const float denom = std::max(c_r[r], EPS_FLT);
-					const float inv   = 1.0f / denom;
-					float*       Hr  = H_old_ptr + r * T;
-					const float* Nr  = Hnum_ptr  + r * T;
-#pragma omp simd
-					for (int t = 0; t < T; ++t) {
-						Hr[t] = Hr[t] * (Nr[t] * inv); // write the *new H* back over H_old
-					}
-				}
+				util::parallelForChunked(
+					T, globals::getNumThreads(),
+					[rank, T, c_r, H_old_ptr, Hnum_ptr](int t, int /*tid*/)
+					{
+						for (int r = 0; r < rank; ++r)
+						{
+							const float denom = std::max(c_r[r], EPS_FLT);
+							const float inv   = 1.0f / denom;
+							float*       Hr  = H_old_ptr + r * T;
+							const float* Nr  = Hnum_ptr  + r * T;
+							Hr[t] = Hr[t] * (Nr[t] * inv); // write the *new H* back over H_old
+						}
+					});
 			}
 		}
 		if (saveIterRanges.isIn(iter + 1))

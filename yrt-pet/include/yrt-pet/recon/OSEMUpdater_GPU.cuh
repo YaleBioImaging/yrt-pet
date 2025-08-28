@@ -12,7 +12,7 @@ namespace yrt
 {
 class OSEM_GPU;
 
-class OSEMUpdater_GPU : OSEMUpdater
+class OSEMUpdater_GPU : public OSEMUpdater
 {
 public:
 	explicit OSEMUpdater_GPU(OSEM_GPU* pp_osem);

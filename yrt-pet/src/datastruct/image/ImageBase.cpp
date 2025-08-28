@@ -26,7 +26,7 @@ void py_setup_imageparams(py::module& m)
 {
 	auto c = py::class_<ImageParams>(m, "ImageParams");
 	c.def(py::init<>());
-	c.def(py::init<int, int, int, float, float, float, float, float, float>(),
+	c.def(py::init<int, int, int, float, float, float, float, float, float, int>(),
 	      "nx"_a, "ny"_a, "nz"_a, "length_x"_a, "length_y"_a, "length_z"_a,
 	      "offset_x"_a = 0., "offset_y"_a = 0., "offset_z"_a = 0., "num_frames"_a = 1);
 	c.def(py::init<std::string>());

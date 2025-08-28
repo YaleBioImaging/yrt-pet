@@ -29,6 +29,7 @@ public:
 	const Corrector_GPU& getCorrector_GPU() const;
 	Corrector_GPU& getCorrector_GPU();
 	OperatorProjectorDevice* getProjector() const;
+	void setupProjectorUpdater() override;
 	const cudaStream_t* getAuxStream() const;
 	const cudaStream_t* getMainStream() const;
 
@@ -62,6 +63,8 @@ public:
 	ProjectionDataDeviceOwned* getMLEMDataDeviceBuffer();
 	const ProjectionDataDeviceOwned* getMLEMDataTmpDeviceBuffer() const;
 	ProjectionDataDeviceOwned* getMLEMDataTmpDeviceBuffer();
+	Array2DBase<float>* getHBasisTmpBuffer() override;
+	void allocateHBasisTmpBuffer() override;
 
 	// Common methods
 	void loadSubset(int subsetId, bool forRecon) override;

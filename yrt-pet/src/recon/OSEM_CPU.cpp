@@ -99,7 +99,6 @@ void OSEM_CPU::setupOperatorsForSensImgGen()
 		throw std::runtime_error("Unknown error");
 	}
 
-	// setupProjectorUpdater();
 	mp_updater = std::make_unique<OSEMUpdater_CPU>(this);
 }
 
@@ -256,7 +255,7 @@ void OSEM_CPU::allocateForRecon()
 	auto applyMask = [this](const Image* maskImage) -> void
 	{
 		getMLEMImageBuffer()->applyThresholdBroadcast(maskImage, 0.0f, 0.0f, 0.0f, 1.0f,
-		                                     0.0f);
+		                                              0.0f);
 	};
 	if (maskImage != nullptr)
 	{

@@ -30,11 +30,11 @@ public:
 	                       CrystalMaterial p_crystalMaterial, int seedi);
 
 	void runSSS(size_t numberZ, size_t numberPhi, size_t numberR,
-	            Histogram3D& scatterHisto, int eventTimeFrame);
+	            Histogram3D& scatterHisto, int dynamicFrame);
 
 	float computeSingleScatterInLOR(const Line3D& lor, const Vector3D& n1,
 	                                const Vector3D& n2,
-	                                int eventTimeFrame) const;
+	                                int dynamicFrame) const;
 
 	Vector3D getSamplePoint(int i) const;
 	int getNumSamples() const;

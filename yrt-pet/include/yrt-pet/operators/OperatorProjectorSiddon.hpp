@@ -33,11 +33,12 @@ public:
 	// Projection
 	float forwardProjection(const Image* img, const Line3D& lor,
 	                        const Vector3D& n1, const Vector3D& n2, int tid,
+	                        frame_t dynamicFrame = 0,
 	                        const TimeOfFlightHelper* tofHelper = nullptr,
 	                        float tofValue = 0.f) const;
 	void backProjection(Image* img, const Line3D& lor, const Vector3D& n1,
 	                    const Vector3D& n2, float projValue, int tid,
-	                    int eventTimeFrame = 0,
+	                    frame_t dynamicFrame = 0,
 	                    const TimeOfFlightHelper* tofHelper = nullptr,
 	                    float tofValue = 0.f) const;
 
@@ -45,13 +46,13 @@ public:
 	static float
 	    singleForwardProjection(const Image* img, const Line3D& lor,
 	                            OperatorProjectorUpdater& updater,
-	                            int eventTimeFrame = 0,
+	                            frame_t dynamicFrame = 0,
 	                            const TimeOfFlightHelper* tofHelper = nullptr,
 	                            float tofValue = 0.f);
 	static void
 	    singleBackProjection(Image* img, const Line3D& lor, float projValue,
 	                         OperatorProjectorUpdater& updater,
-	                         int eventTimeFrame = 0,
+	                         frame_t dynamicFrame = 0,
 	                         const TimeOfFlightHelper* tofHelper = nullptr,
 	                         float tofValue = 0.f);
 

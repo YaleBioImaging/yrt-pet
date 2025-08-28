@@ -37,8 +37,14 @@ public:
 	void applyThreshold(const ImageBase* maskImg, float threshold,
 	                    float val_le_scale, float val_le_off,
 	                    float val_gt_scale, float val_gt_off) override;
+	void applyThresholdBroadcast(const ImageBase* maskImg, float threshold,
+	                             float val_le_scale, float val_le_off,
+	                             float val_gt_scale, float val_gt_off) override;
 	void updateEMThreshold(ImageBase* updateImg, const ImageBase* normImg,
 	                       float threshold) override;
+	void updateEMThresholdRankScaled(ImageBase* updateImg, const ImageBase* normImg,
+	                                 const float* c_r,
+	                                 float threshold) override;
 	void writeToFile(const std::string& image_fname) const override;
 
 	void copyFromHostImage(const Image* imSrc, bool synchronize);

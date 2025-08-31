@@ -56,13 +56,13 @@ ConstraintAngleDiffIndex::ConstraintAngleDiffIndex(int p_minAngleDiffIdx)
 	                                      ConstraintParams& info)
 	{
 		int absDeltaAngleIdx = manager.getDataValue<int>(
-		    info, 0, ConstraintVariable::ABSDELTAANGLEIDX);
+		    info, 0, ConstraintVariable::ABS_DELTA_ANGLE_IDX);
 		return absDeltaAngleIdx >= p_minAngleDiffIdx;
 	};
 }
 std::vector<ConstraintVariable> ConstraintAngleDiffIndex::getVariables() const
 {
-	return {ConstraintVariable::ABSDELTAANGLEIDX};
+	return {ConstraintVariable::ABS_DELTA_ANGLE_IDX};
 }
 
 // Minimum angle difference constraint (angle)
@@ -72,13 +72,13 @@ ConstraintAngleDiffDeg::ConstraintAngleDiffDeg(float p_minAngleDiffDeg)
 	                                      ConstraintParams& info)
 	{
 		float absDeltaAngleDeg = manager.getDataValue<float>(
-		    info, 0, ConstraintVariable::ABSDELTAANGLEDEG);
+		    info, 0, ConstraintVariable::ABS_DELTA_ANGLE_DEG);
 		return absDeltaAngleDeg >= p_minAngleDiffDeg;
 	};
 }
 std::vector<ConstraintVariable> ConstraintAngleDiffDeg::getVariables() const
 {
-	return {ConstraintVariable::ABSDELTAANGLEDEG};
+	return {ConstraintVariable::ABS_DELTA_ANGLE_DEG};
 }
 
 // Minimum angle difference constraint (index)
@@ -88,13 +88,13 @@ ConstraintBlockDiffIndex::ConstraintBlockDiffIndex(int p_minBlockDiffIdx)
 	                                      ConstraintParams& info)
 	{
 		int absDeltaBlockIdx = manager.getDataValue<int>(
-		    info, 0, ConstraintVariable::ABSDELTABLOCKIDX);
+		    info, 0, ConstraintVariable::ABS_DELTA_BLOCK_IDX);
 		return absDeltaBlockIdx >= p_minBlockDiffIdx;
 	};
 }
 std::vector<ConstraintVariable> ConstraintBlockDiffIndex::getVariables() const
 {
-	return {ConstraintVariable::ABSDELTABLOCKIDX};
+	return {ConstraintVariable::ABS_DELTA_BLOCK_IDX};
 }
 
 // Detector mask

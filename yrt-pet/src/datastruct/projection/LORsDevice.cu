@@ -45,15 +45,12 @@ void LORsDevice::precomputeBatchLORs(
 
 		const size_t batchSize = batchSetup.getBatchSize(batchId);
 		const int numThreads = globals::getNumThreads();
-		const size_t blockSize = std::ceil(batchSize / (float)numThreads);
 
 		auto projPropManager = binIterConstrained.getPropertyManager();
 		m_elementSize = projPropManager.getElementSize();
-		auto projectionProperties = projPropManager.createDataArray(batchSize);
-		auto projectionPropertiesPtr = projectionProperties.get();
 
-		m_tempProjectionProperties.reAllocateIfNeeded(
-		    batchSize * projPropManager.getElementSize());
+		m_tempProjectionProperties.reAllocateIfNeeded(batchSize *
+		                                              m_elementSize);
 		char* tempBufferProjectionProperties_ptr =
 		    m_tempProjectionProperties.getPointer();
 		auto consManager = binIterConstrained.getConstraintManager();
@@ -64,38 +61,33 @@ void LORsDevice::precomputeBatchLORs(
 		auto* binIter_ptr = &binIter;
 		const ProjectionData* reference_ptr = &reference;
 
-		util::parallelDoIndexed(
-		    numThreads,
-		    [offset, blockSize, batchSize, &binIterConstrained, consManager,
+		util::parallelForChunked(
+			batchSize, numThreads,
+		    [offset, batchSize, &binIterConstrained, consManager,
 		     projPropManager, binIter_ptr, &infoPtr,
-		     &tempBufferProjectionProperties_ptr, reference_ptr](int tid)
+		     &tempBufferProjectionProperties_ptr,
+		     reference_ptr](size_t binIdx, int tid)
 		    {
-			    for (size_t binIdx = tid * blockSize;
-			         binIdx < std::min({(tid + 1) * blockSize, batchSize});
-			         binIdx++)
+			    bin_t bin = binIter_ptr->get(binIdx + offset);
+			    binIterConstrained.collectInfo(
+			        bin, binIdx, tid, *reference_ptr,
+			        tempBufferProjectionProperties_ptr, infoPtr);
+			    if (binIterConstrained.isValid(consManager, infoPtr))
 			    {
-				    bin_t bin = binIter_ptr->get(binIdx + offset);
-				    binIterConstrained.collectInfo(
-				        bin, binIdx, tid, *reference_ptr,
-				        tempBufferProjectionProperties_ptr, infoPtr);
-				    if (binIterConstrained.isValid(consManager, infoPtr))
-				    {
-					    reference_ptr->getProjectionProperties(
-					        tempBufferProjectionProperties_ptr, projPropManager,
-					        bin, binIdx);
-				    }
-				    else
-				    {
-					    // Assume first 6 floats of ProjectionProperties are LOR
-					    // end-points
-					    float* ptr = projPropManager.getDataPtr<float>(
-					        tempBufferProjectionProperties_ptr, binIdx,
-					        ProjectionPropertyType::LOR);
-					    memset(ptr, 0, sizeof(Line3D));
-				    }
+				    reference_ptr->getProjectionProperties(
+				        tempBufferProjectionProperties_ptr, projPropManager,
+				        bin, binIdx);
+			    }
+			    else
+			    {
+				    // Assume first 6 floats of ProjectionProperties are LOR
+				    // end-points
+				    float* ptr = projPropManager.getDataPtr<float>(
+				        tempBufferProjectionProperties_ptr, binIdx,
+				        ProjectionPropertyType::LOR);
+				    memset(ptr, 0, sizeof(Line3D));
 			    }
 		    });
-
 
 		m_precomputedBatchSize = batchSize;
 		m_precomputedBatchId = batchId;

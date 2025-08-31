@@ -16,11 +16,11 @@ namespace yrt
 void py_setup_projectionpropertytype(pybind11::module& m)
 {
 	pybind11::enum_<ProjectionPropertyType>(m, "ProjectionPropertyType")
-	    .value("DETID", ProjectionPropertyType::DETID)
+	    .value("DETID", ProjectionPropertyType::DET_ID)
 	    .value("LOR", ProjectionPropertyType::LOR)
-	    .value("DETORIENT", ProjectionPropertyType::DETORIENT)
+	    .value("DETORIENT", ProjectionPropertyType::DET_ORIENT)
 	    .value("TOF", ProjectionPropertyType::TOF)
-	    .value("EVENTFRAME", ProjectionPropertyType::EVENTFRAME)
+	    .value("EVENTFRAME", ProjectionPropertyType::DYNAMIC_FRAME)
 	    .export_values();
 }
 }  // namespace yrt
@@ -54,11 +54,11 @@ std::map<ProjectionPropertyType, std::pair<std::string, int>>
     PropStructManager<ProjectionPropertyType>::getInfo() const
 {
 	return std::map<ProjectionPropertyType, std::pair<std::string, int>>{
-	    {ProjectionPropertyType::DETID, {"DET_ID", sizeof(det_pair_t)}},
+	    {ProjectionPropertyType::DET_ID, {"DET_ID", sizeof(det_pair_t)}},
 	    {ProjectionPropertyType::LOR, {"LOR", sizeof(Line3D)}},
-	    {ProjectionPropertyType::DETORIENT, {"ORIENT", sizeof(det_orient_t)}},
+	    {ProjectionPropertyType::DET_ORIENT, {"ORIENT", sizeof(det_orient_t)}},
 	    {ProjectionPropertyType::TOF, {"TOF", sizeof(float)}},
-	    {ProjectionPropertyType::EVENTFRAME, {"FRAME", sizeof(frame_t)}}};
+	    {ProjectionPropertyType::DYNAMIC_FRAME, {"FRAME", sizeof(frame_t)}}};
 }
 template <>
 std::map<ConstraintVariable, std::pair<std::string, int>>
@@ -67,11 +67,11 @@ std::map<ConstraintVariable, std::pair<std::string, int>>
 	return std::map<ConstraintVariable, std::pair<std::string, int>>{
 	    {ConstraintVariable::DET1, {"DET1", sizeof(float)}},
 	    {ConstraintVariable::DET2, {"DET2", sizeof(float)}},
-	    {ConstraintVariable::ABSDELTAANGLEDEG,
+	    {ConstraintVariable::ABS_DELTA_ANGLE_DEG,
 	     {"ABSDELTAANGLEDEG", sizeof(float)}},
-	    {ConstraintVariable::ABSDELTAANGLEIDX,
+	    {ConstraintVariable::ABS_DELTA_ANGLE_IDX,
 	     {"ABSDELTAANGLEIDX", sizeof(int)}},
-	    {ConstraintVariable::ABSDELTABLOCKIDX,
+	    {ConstraintVariable::ABS_DELTA_BLOCK_IDX,
 	     {"ABSDELTABLOCKIDX", sizeof(int)}}};
 }
 

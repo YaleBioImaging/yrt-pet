@@ -127,7 +127,7 @@ std::set<ProjectionPropertyType>
 	projProperties.insert(ProjectionPropertyType::LOR);
 	if (m_numRays > 1)
 	{
-		projProperties.insert(ProjectionPropertyType::DETORIENT);
+		projProperties.insert(ProjectionPropertyType::DET_ORIENT);
 	}
 	return projProperties;
 }
@@ -140,9 +140,9 @@ float OperatorProjectorSiddon::forwardProjection(
 	det_orient_t detOrient;
 	if (m_numRays > 1)
 	{
-		ASSERT(projPropManager.has(ProjectionPropertyType::DETORIENT));
+		ASSERT(projPropManager.has(ProjectionPropertyType::DET_ORIENT));
 		detOrient = projPropManager.getDataValue<det_orient_t>(
-		    projectionProperties, tid, ProjectionPropertyType::DETORIENT);
+		    projectionProperties, tid, ProjectionPropertyType::DET_ORIENT);
 	}
 	float tofValue = 0.f;
 	if (projPropManager.has(ProjectionPropertyType::TOF))
@@ -165,9 +165,9 @@ void OperatorProjectorSiddon::backProjection(
 	det_orient_t detOrient;
 	if (m_numRays > 1)
 	{
-		ASSERT(projPropManager.has(ProjectionPropertyType::DETORIENT));
+		ASSERT(projPropManager.has(ProjectionPropertyType::DET_ORIENT));
 		detOrient = projPropManager.getDataValue<det_orient_t>(
-		    projectionProperties, tid, ProjectionPropertyType::DETORIENT);
+		    projectionProperties, tid, ProjectionPropertyType::DET_ORIENT);
 	}
 	float tofValue = 0.f;
 	if (projPropManager.has(ProjectionPropertyType::TOF))

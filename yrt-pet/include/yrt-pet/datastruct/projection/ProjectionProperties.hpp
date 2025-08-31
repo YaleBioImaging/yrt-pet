@@ -21,11 +21,11 @@ namespace yrt
 
 enum class ProjectionPropertyType
 {
-	DETID = 0,
+	DET_ID = 0,
 	LOR,
-	DETORIENT,
+	DET_ORIENT,
 	TOF,
-	EVENTFRAME,
+	DYNAMIC_FRAME,
 	COUNT
 };
 
@@ -33,9 +33,9 @@ enum class ConstraintVariable
 {
 	DET1 = 0,
 	DET2,
-	ABSDELTAANGLEDEG,
-	ABSDELTAANGLEIDX,
-	ABSDELTABLOCKIDX,
+	ABS_DELTA_ANGLE_DEG,
+	ABS_DELTA_ANGLE_IDX,
+	ABS_DELTA_BLOCK_IDX,
 	COUNT
 };
 

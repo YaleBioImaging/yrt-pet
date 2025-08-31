@@ -98,7 +98,7 @@ __global__ void OperatorProjectorSiddonCU_kernel(
 		{
 			detOrient = pd_projPropManager->getDataPtr<float>(
 			    pd_projectionProperties, eventId,
-			    ProjectionPropertyType::DETORIENT);
+			    ProjectionPropertyType::DET_ORIENT);
 			float3 n1{detOrient[0], detOrient[1], detOrient[2]};
 			float3 n2{detOrient[3], detOrient[4], detOrient[5]};
 			state = setupMultiRays(13, eventId, n1, n2, parallelToTrans1,

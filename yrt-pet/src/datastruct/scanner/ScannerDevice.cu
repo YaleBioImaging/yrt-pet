@@ -14,8 +14,8 @@ ScannerDevice::ScannerDevice(const Scanner& pr_scanner,
                              const cudaStream_t* pp_stream)
     : mr_scanner(pr_scanner), isAllocated(false), isLoaded(false)
 {
-	mpd_detPos = std::make_unique<DeviceArray<float4>>();
-	mpd_detOrient = std::make_unique<DeviceArray<float4>>();
+	mpd_detPos = std::make_unique<DeviceArray<float3>>();
+	mpd_detOrient = std::make_unique<DeviceArray<float3>>();
 	// Constructors should be synchronized
 	load({pp_stream, true});
 }
@@ -29,9 +29,9 @@ void ScannerDevice::load(GPULaunchConfig p_launchConfig)
 
 	// We use a single large buffer to store two sets of data
 	const size_t numDets = mr_scanner.getNumDets();
-	PageLockedBuffer<float4> tempBuffer(numDets * 2);
-	float4* ph_detPos = tempBuffer.getPointer();
-	float4* ph_detOrient = ph_detPos + numDets;
+	PageLockedBuffer<float3> tempBuffer(numDets * 2);
+	float3* ph_detPos = tempBuffer.getPointer();
+	float3* ph_detOrient = ph_detPos + numDets;
 
 	const auto detectorSetup_shared = mr_scanner.getDetectorSetup();
 	const DetectorSetup* detectorSetup = detectorSetup_shared.get();
@@ -62,11 +62,11 @@ void ScannerDevice::allocate(GPULaunchConfig p_launchConfig)
 	isAllocated = true;
 }
 
-const float4* ScannerDevice::getDetPosDevicePointer() const
+const float3* ScannerDevice::getDetPosDevicePointer() const
 {
 	return mpd_detPos->getDevicePointer();
 }
-const float4* ScannerDevice::getDetOrientDevicePointer() const
+const float3* ScannerDevice::getDetOrientDevicePointer() const
 {
 	return mpd_detOrient->getDevicePointer();
 }

@@ -47,7 +47,7 @@ OperatorProjectorDD_GPU::OperatorProjectorDD_GPU(
 std::set<ProjectionPropertyType>
     OperatorProjectorDD_GPU::getProjectionPropertyTypes() const
 {
-	return {ProjectionPropertyType::LOR, ProjectionPropertyType::DETORIENT};
+	return {ProjectionPropertyType::LOR, ProjectionPropertyType::DET_ORIENT};
 }
 
 void OperatorProjectorDD_GPU::applyAOnLoadedBatch(ImageDevice& img,

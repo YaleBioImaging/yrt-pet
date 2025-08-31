@@ -76,7 +76,7 @@ OperatorProjectorDD::OperatorProjectorDD(
 std::set<ProjectionPropertyType>
     OperatorProjectorDD::getProjectionPropertyTypes() const
 {
-	return {ProjectionPropertyType::LOR, ProjectionPropertyType::DETORIENT};
+	return {ProjectionPropertyType::LOR, ProjectionPropertyType::DET_ORIENT};
 }
 
 float OperatorProjectorDD::forwardProjection(
@@ -85,7 +85,7 @@ float OperatorProjectorDD::forwardProjection(
 {
 	auto projPropManager = m_binIterConstrained->getPropertyManager();
 	det_orient_t detOrient = projPropManager.getDataValue<det_orient_t>(
-	    projectionProperties, tid, ProjectionPropertyType::DETORIENT);
+	    projectionProperties, tid, ProjectionPropertyType::DET_ORIENT);
 	float tofValue = 0.f;
 	if (projPropManager.has(ProjectionPropertyType::TOF))
 	{
@@ -106,7 +106,7 @@ void OperatorProjectorDD::backProjection(
 {
 	auto projPropManager = m_binIterConstrained->getPropertyManager();
 	det_orient_t detOrient = projPropManager.getDataValue<det_orient_t>(
-	    projectionProperties, tid, ProjectionPropertyType::DETORIENT);
+	    projectionProperties, tid, ProjectionPropertyType::DET_ORIENT);
 	float tofValue = 0.f;
 	if (projPropManager.has(ProjectionPropertyType::TOF))
 	{

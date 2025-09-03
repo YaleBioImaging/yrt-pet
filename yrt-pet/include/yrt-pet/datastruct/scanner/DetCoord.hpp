@@ -61,7 +61,7 @@ protected:
 	std::unique_ptr<DetectorMask> mp_mask;
 };
 
-class DetCoordAlias : public DetCoord
+class DetCoordAlias final : public DetCoord
 {
 public:
 	DetCoordAlias();
@@ -71,7 +71,7 @@ public:
 	          Array1DBase<float>* Yorient, Array1DBase<float>* Zorient);
 };
 
-class DetCoordOwned : public DetCoord
+class DetCoordOwned final : public DetCoord
 {
 public:
 	DetCoordOwned();

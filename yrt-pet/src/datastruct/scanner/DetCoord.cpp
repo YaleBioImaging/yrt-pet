@@ -251,17 +251,13 @@ void DetCoord::writeToFile(const std::string& detCoord_fname) const
 	}
 	for (size_t j = 0; j < getNumDets(); j++)
 	{
-		float Xpos10 = (*mp_Xpos)[j];
-		float Ypos10 = (*mp_Ypos)[j];
-		float Zpos10 = (*mp_Zpos)[j];
+		file.write(reinterpret_cast<char*>(&(*mp_Xpos)[j]), sizeof(float));
+		file.write(reinterpret_cast<char*>(&(*mp_Ypos)[j]), sizeof(float));
+		file.write(reinterpret_cast<char*>(&(*mp_Zpos)[j]), sizeof(float));
 
-		file.write((char*)(&(Xpos10)), sizeof(float));
-		file.write((char*)(&(Ypos10)), sizeof(float));
-		file.write((char*)(&(Zpos10)), sizeof(float));
-
-		file.write((char*)(&((*mp_Xorient)[j])), sizeof(float));
-		file.write((char*)(&((*mp_Yorient)[j])), sizeof(float));
-		file.write((char*)(&((*mp_Zorient)[j])), sizeof(float));
+		file.write(reinterpret_cast<char*>(&(*mp_Xorient)[j]), sizeof(float));
+		file.write(reinterpret_cast<char*>(&(*mp_Yorient)[j]), sizeof(float));
+		file.write(reinterpret_cast<char*>(&(*mp_Zorient)[j]), sizeof(float));
 	}
 }
 

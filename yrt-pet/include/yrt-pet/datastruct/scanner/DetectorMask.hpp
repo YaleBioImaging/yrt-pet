@@ -16,10 +16,11 @@ class DetectorMask
 {
 public:
 	explicit DetectorMask(const std::string& pr_fname);
-	explicit DetectorMask(const Array1DBase<bool>& pr_maskArray);
+	explicit DetectorMask(const Array1DBase<bool>& pr_data);
+	DetectorMask(const DetectorMask& other); // Copy constructor
 
 	// Legacy format
-	explicit DetectorMask(const Array3DBase<float>& pr_maskArray);
+	explicit DetectorMask(const Array3DBase<float>& pr_data);
 
 	void readFromFile(const std::string& fname);
 
@@ -33,7 +34,7 @@ public:
 	void writeToFile(const std::string& fname) const;
 
 private:
-	std::unique_ptr<Array1D<bool>> mp_maskArray;
+	std::unique_ptr<Array1D<bool>> mp_data;
 };
 
 }  // namespace yrt

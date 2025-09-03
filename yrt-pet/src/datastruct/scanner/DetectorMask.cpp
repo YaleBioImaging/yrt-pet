@@ -47,62 +47,68 @@ DetectorMask::DetectorMask(const std::string& pr_fname)
 	readFromFile(pr_fname);
 }
 
-DetectorMask::DetectorMask(const Array1DBase<bool>& pr_maskArray)
+DetectorMask::DetectorMask(const Array1DBase<bool>& pr_data)
 {
-	mp_maskArray = std::make_unique<Array1D<bool>>();
-	mp_maskArray->copy(pr_maskArray);
+	mp_data = std::make_unique<Array1D<bool>>();
+	mp_data->copy(pr_data);
 }
 
-DetectorMask::DetectorMask(const Array3DBase<float>& pr_maskArray)
+DetectorMask::DetectorMask(const Array3DBase<float>& pr_data)
 {
-	mp_maskArray = std::make_unique<Array1D<bool>>();
+	mp_data = std::make_unique<Array1D<bool>>();
 
-	const size_t size = pr_maskArray.getSizeTotal();
-	mp_maskArray->allocate(size);
+	const size_t size = pr_data.getSizeTotal();
+	mp_data->allocate(size);
 
 	for (size_t i = 0; i < size; ++i)
 	{
-		mp_maskArray->setFlat(i, pr_maskArray.getFlat(i) > 0.0f);
+		mp_data->setFlat(i, pr_data.getFlat(i) > 0.0f);
 	}
+}
+
+DetectorMask::DetectorMask(const DetectorMask& other)
+{
+	mp_data = std::make_unique<Array1D<bool>>();
+	mp_data->copy(other.getData());
 }
 
 void DetectorMask::readFromFile(const std::string& fname)
 {
-	mp_maskArray = std::make_unique<Array1D<bool>>();
-	mp_maskArray->readFromFile(fname);
+	mp_data = std::make_unique<Array1D<bool>>();
+	mp_data->readFromFile(fname);
 }
 
 Array1D<bool>& DetectorMask::getData()
 {
-	ASSERT(mp_maskArray != nullptr);
-	return *mp_maskArray;
+	ASSERT(mp_data != nullptr);
+	return *mp_data;
 }
 
 const Array1D<bool>& DetectorMask::getData() const
 {
-	ASSERT(mp_maskArray != nullptr);
-	return *mp_maskArray;
+	ASSERT(mp_data != nullptr);
+	return *mp_data;
 }
 
 bool DetectorMask::checkAgainstScanner(const Scanner& scanner) const
 {
-	return scanner.getNumDets() == mp_maskArray->getSizeTotal();
+	return scanner.getNumDets() == mp_data->getSizeTotal();
 }
 
 size_t DetectorMask::getNumDets() const
 {
-	return mp_maskArray->getSizeTotal();
+	return mp_data->getSizeTotal();
 }
 
 bool DetectorMask::checkDetector(size_t detId) const
 {
 	// Assumes that mp_maskArray != nullptr
-	return mp_maskArray->getFlat(detId);
+	return mp_data->getFlat(detId);
 }
 
 void DetectorMask::writeToFile(const std::string& fname) const
 {
-	mp_maskArray->writeToFile(fname);
+	mp_data->writeToFile(fname);
 }
 
 }  // namespace yrt

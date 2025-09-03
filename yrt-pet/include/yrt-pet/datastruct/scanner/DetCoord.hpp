@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include "yrt-pet/datastruct/scanner/DetectorMask.hpp"
 #include "yrt-pet/datastruct/scanner/DetectorSetup.hpp"
 #include "yrt-pet/utils/Array.hpp"
 
@@ -24,8 +25,13 @@ public:
 	float getXorient(det_id_t detID) const override;
 	float getYorient(det_id_t detID) const override;
 	float getZorient(det_id_t detID) const override;
+
+	void addMask(const std::string& mask_fname);  // Reads mask from file
+	void addMask(const DetectorMask& mask);       // Copies the given mask
 	bool isDetectorAllowed(det_id_t det) const override;
+
 	void writeToFile(const std::string& detCoord_fname) const override;
+
 	virtual void setXpos(det_id_t detID, float f);
 	virtual void setYpos(det_id_t detID, float f);
 	virtual void setZpos(det_id_t detID, float f);
@@ -33,22 +39,13 @@ public:
 	virtual void setYorient(det_id_t detID, float f);
 	virtual void setZorient(det_id_t detID, float f);
 
-	Array1DBase<float>* getXposArrayRef() const { return (mp_Xpos.get()); }
-	Array1DBase<float>* getYposArrayRef() const { return (mp_Ypos.get()); }
-	Array1DBase<float>* getZposArrayRef() const { return (mp_Zpos.get()); }
-	Array1DBase<float>* getXorientArrayRef() const
-	{
-		return (mp_Xorient.get());
-	}
-	Array1DBase<float>* getYorientArrayRef() const
-	{
-		return (mp_Yorient.get());
-	}
-	Array1DBase<float>* getZorientArrayRef() const
-	{
-		return (mp_Zorient.get());
-	}
-	Array1DBase<bool>* getMaskArrayRef() const;
+	Array1DBase<float>* getXposArrayRef() const;
+	Array1DBase<float>* getYposArrayRef() const;
+	Array1DBase<float>* getZposArrayRef() const;
+	Array1DBase<float>* getXorientArrayRef() const;
+	Array1DBase<float>* getYorientArrayRef() const;
+	Array1DBase<float>* getZorientArrayRef() const;
+	DetectorMask* getMask() const;
 	bool hasMask() const override;
 
 protected:
@@ -61,7 +58,7 @@ protected:
 	std::unique_ptr<Array1DBase<float>> mp_Xorient;
 	std::unique_ptr<Array1DBase<float>> mp_Yorient;
 	std::unique_ptr<Array1DBase<float>> mp_Zorient;
-	std::unique_ptr<Array1DBase<bool>> mp_Mask;
+	std::unique_ptr<DetectorMask> mp_mask;
 };
 
 class DetCoordAlias : public DetCoord
@@ -71,18 +68,17 @@ public:
 	void bind(DetCoord* p_detCoord);
 	void bind(Array1DBase<float>* Xpos, Array1DBase<float>* Ypos,
 	          Array1DBase<float>* Zpos, Array1DBase<float>* Xorient,
-	          Array1DBase<float>* Yorient, Array1DBase<float>* Zorient,
-	          Array1DBase<bool>* detMask = nullptr);
+	          Array1DBase<float>* Yorient, Array1DBase<float>* Zorient);
 };
 
 class DetCoordOwned : public DetCoord
 {
 public:
 	DetCoordOwned();
-	DetCoordOwned(const std::string& filename,
-	              const std::string& maskFilename = "");
-	void allocate(size_t numDets, bool hasDetMask);
+	explicit DetCoordOwned(const std::string& filename,
+	                       const std::string& mask_fname = "");
+	void allocate(size_t numDets);
 	void readFromFile(const std::string& filename,
-	                  const std::string& maskFilename = "");
+	                  const std::string& mask_fname = "");
 };
 }  // namespace yrt

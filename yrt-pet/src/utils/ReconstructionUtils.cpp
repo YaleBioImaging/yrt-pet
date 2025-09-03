@@ -7,7 +7,10 @@
 
 #include "yrt-pet/datastruct/IO.hpp"
 #include "yrt-pet/datastruct/projection/Histogram3D.hpp"
+#include "yrt-pet/datastruct/projection/LORMotion.hpp"
 #include "yrt-pet/datastruct/projection/ListModeLUT.hpp"
+#include "yrt-pet/datastruct/projection/ProjectionData.hpp"
+#include "yrt-pet/datastruct/scanner/DetectorMask.hpp"
 #include "yrt-pet/geometry/Matrix.hpp"
 #include "yrt-pet/operators/OperatorProjectorDD.hpp"
 #include "yrt-pet/operators/OperatorProjectorSiddon.hpp"
@@ -16,7 +19,6 @@
 #include "yrt-pet/utils/Concurrency.hpp"
 #include "yrt-pet/utils/Globals.hpp"
 #include "yrt-pet/utils/ProgressDisplay.hpp"
-#include "yrt-pet/utils/ProgressDisplayMultiThread.hpp"
 #include "yrt-pet/utils/Tools.hpp"
 
 #if BUILD_CUDA
@@ -40,7 +42,7 @@ void py_setup_reconstructionutils(pybind11::module& m)
 	m.def(
 	    "convertToHistogram3D",
 	    [](const Histogram& dat, Histogram3D& histoOut,
-	       const Array3D<float>* detectorMask)
+	       const DetectorMask* detectorMask)
 	    {
 		    util::convertToHistogram3D<false, true>(dat, histoOut,
 		                                            detectorMask);
@@ -49,7 +51,7 @@ void py_setup_reconstructionutils(pybind11::module& m)
 	m.def(
 	    "convertToHistogram3D",
 	    [](const ListMode& dat, Histogram3D& histoOut,
-	       const Array3D<float>* detectorMask)
+	       const DetectorMask* detectorMask)
 	    {
 		    util::convertToHistogram3D<true, true>(dat, histoOut, detectorMask);
 	    },
@@ -78,7 +80,6 @@ void py_setup_reconstructionutils(pybind11::module& m)
 	          &util::timeAverageMoveImage),
 	      "lorMotion"_a, "unmovedSensImage"_a, "timeStart"_a, "timeStop"_a,
 	      "Blur a given image based on given motion information");
-
 
 	m.def("generateTORRandomDOI", &util::generateTORRandomDOI, "scanner"_a,
 	      "d1"_a, "d2"_a, "vmax"_a);
@@ -355,13 +356,12 @@ template std::unique_ptr<ImageOwned>
 template <bool RequiresAtomicAccumulation, bool UseFilter, bool PrintProgress>
 void convertToHistogram3DInternal(const ProjectionData& dat,
                                   Histogram3D& histoOut,
-                                  const Array3DBase<float>* detectorMask)
+                                  const DetectorMask* detectorMask)
 {
 	float* histoDataPointer = histoOut.getData().getRawPointer();
 	const size_t numDatBins = dat.count();
 
-	ProgressDisplayMultiThread progressBar(globals::getNumThreads(), numDatBins,
-	                                       5);
+	ProgressDisplay progressBar(numDatBins, 5);
 
 	const Histogram3D* histoOut_constptr = &histoOut;
 	const ProjectionData* dat_constptr = &dat;
@@ -372,7 +372,10 @@ void convertToHistogram3DInternal(const ProjectionData& dat,
 	    {
 		    if constexpr (PrintProgress)
 		    {
-			    progressBar.progress(tid, 1);
+			    if (tid == 0)
+			    {
+				    progressBar.progress(datBin);
+			    }
 		    }
 
 		    const float projValue = dat_constptr->getProjectionValue(datBin);
@@ -388,8 +391,8 @@ void convertToHistogram3DInternal(const ProjectionData& dat,
 			    if constexpr (UseFilter)
 			    {
 				    bool skipEvent = false;
-				    skipEvent |= detectorMask->getFlat(d1) == 0.0f;
-				    skipEvent |= detectorMask->getFlat(d2) == 0.0f;
+				    skipEvent |= detectorMask->checkDetector(d1);
+				    skipEvent |= detectorMask->checkDetector(d2);
 
 				    if (skipEvent)
 				    {
@@ -403,7 +406,7 @@ void convertToHistogram3DInternal(const ProjectionData& dat,
 			    if constexpr (RequiresAtomicAccumulation)
 			    {
 				    std::atomic_ref<float> outRef(histoDataPointer[histoBin]);
-				    outRef.fetch_add(projValue);
+				    outRef += projValue;
 			    }
 			    else
 			    {
@@ -415,7 +418,7 @@ void convertToHistogram3DInternal(const ProjectionData& dat,
 
 template <bool RequiresAtomic, bool PrintProgress>
 void convertToHistogram3D(const ProjectionData& dat, Histogram3D& histoOut,
-                          const Array3DBase<float>* detectorMask)
+                          const DetectorMask* detectorMask)
 {
 	if (detectorMask != nullptr)
 	{
@@ -430,16 +433,16 @@ void convertToHistogram3D(const ProjectionData& dat, Histogram3D& histoOut,
 }
 template void convertToHistogram3D<true, true>(const ProjectionData&,
                                                Histogram3D&,
-                                               const Array3DBase<float>*);
+                                               const DetectorMask*);
 template void convertToHistogram3D<false, true>(const ProjectionData&,
                                                 Histogram3D&,
-                                                const Array3DBase<float>*);
+                                                const DetectorMask*);
 template void convertToHistogram3D<true, false>(const ProjectionData&,
                                                 Histogram3D&,
-                                                const Array3DBase<float>*);
+                                                const DetectorMask*);
 template void convertToHistogram3D<false, false>(const ProjectionData&,
                                                  Histogram3D&,
-                                                 const Array3DBase<float>*);
+                                                 const DetectorMask*);
 
 Line3D getNativeLOR(const Scanner& scanner, const ProjectionData& dat,
                     bin_t binId)

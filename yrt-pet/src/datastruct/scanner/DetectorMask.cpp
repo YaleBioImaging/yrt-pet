@@ -96,6 +96,7 @@ size_t DetectorMask::getNumDets() const
 
 bool DetectorMask::checkDetector(size_t detId) const
 {
+	// Assumes that mp_maskArray != nullptr
 	return mp_maskArray->getFlat(detId);
 }
 

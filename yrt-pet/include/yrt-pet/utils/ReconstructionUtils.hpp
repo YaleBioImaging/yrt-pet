@@ -5,8 +5,6 @@
 
 #pragma once
 
-#include "yrt-pet/datastruct/projection/LORMotion.hpp"
-#include "yrt-pet/datastruct/projection/ProjectionData.hpp"
 #include "yrt-pet/recon/OSEM.hpp"
 
 #include <memory>
@@ -14,9 +12,12 @@
 namespace yrt
 {
 
-class ListModeLUTOwned;
+class DetectorMask;
 class Histogram3D;
 class ListMode;
+class ListModeLUTOwned;
+class LORMotion;
+class ProjectionData;
 
 namespace util
 {
@@ -38,7 +39,7 @@ std::unique_ptr<ImageOwned>
 
 template <bool RequiresAtomic, bool PrintProgress = true>
 void convertToHistogram3D(const ProjectionData& dat, Histogram3D& histoOut,
-                          const Array3DBase<float>* detectorMask = nullptr);
+                          const DetectorMask* detectorMask = nullptr);
 
 Line3D getNativeLOR(const Scanner& scanner, const ProjectionData& dat,
                     bin_t binId);

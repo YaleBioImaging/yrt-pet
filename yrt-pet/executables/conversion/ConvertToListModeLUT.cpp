@@ -6,11 +6,12 @@
 #include "../PluginOptionsHelper.hpp"
 #include "yrt-pet/datastruct/IO.hpp"
 #include "yrt-pet/datastruct/projection/ListModeLUT.hpp"
-#include "yrt-pet/datastruct/projection/SparseHistogram.hpp"
+#include "yrt-pet/datastruct/scanner/DetectorMask.hpp"
 #include "yrt-pet/datastruct/scanner/Scanner.hpp"
 #include "yrt-pet/utils/Assert.hpp"
 #include "yrt-pet/utils/Concurrency.hpp"
 #include "yrt-pet/utils/Globals.hpp"
+#include "yrt-pet/utils/ProgressDisplay.hpp"
 #include "yrt-pet/utils/ReconstructionUtils.hpp"
 
 #include <cxxopts.hpp>
@@ -93,14 +94,13 @@ int main(int argc, char** argv)
 		const bool hasTOF = dataInput->hasTOF();
 		const bool hasRandoms = dataInput->hasRandomsEstimates();
 
-		std::unique_ptr<Array3D<float>> detectorMask = nullptr;
+		std::unique_ptr<DetectorMask> detectorMask = nullptr;
 		if (!mask_fname.empty())
 		{
 			std::cout << "Reading detector mask..." << std::endl;
-			detectorMask = std::make_unique<Array3D<float>>();
-			detectorMask->readFromFile(mask_fname);
+			detectorMask = std::make_unique<DetectorMask>(mask_fname);
 		}
-		const Array3D<float>* detectorMask_ptr = detectorMask.get();
+		const DetectorMask* detectorMask_ptr = detectorMask.get();
 
 		std::cout << "Generating output ListModeLUT..." << std::endl;
 		auto lmOut =
@@ -111,11 +111,18 @@ int main(int argc, char** argv)
 		ListModeLUTOwned* lmOut_ptr = lmOut.get();
 		const ProjectionData* dataInput_ptr = dataInput.get();
 
+		util::ProgressDisplay progressBar(numEvents, 5);
+
 		util::parallelForChunked(
 		    numEvents, numThreads,
-		    [lmOut_ptr, dataInput_ptr, detectorMask_ptr, hasTOF, hasRandoms](size_t evId,
-		                                                   size_t /*tid*/)
+		    [&progressBar, lmOut_ptr, dataInput_ptr, detectorMask_ptr, hasTOF,
+		     hasRandoms](size_t evId, size_t tid)
 		    {
+			    if (tid == 0)
+			    {
+				    progressBar.progress(evId);
+			    }
+
 			    lmOut_ptr->setTimestampOfEvent(
 			        evId, dataInput_ptr->getTimestamp(evId));
 			    auto [d1, d2] = dataInput_ptr->getDetectorPair(evId);
@@ -123,8 +130,8 @@ int main(int argc, char** argv)
 			    if (detectorMask_ptr != nullptr)
 			    {
 				    bool skipEvent = false;
-				    skipEvent |= detectorMask_ptr->getFlat(d1) == 0.0f;
-				    skipEvent |= detectorMask_ptr->getFlat(d2) == 0.0f;
+				    skipEvent |= detectorMask_ptr->checkDetector(d1);
+				    skipEvent |= detectorMask_ptr->checkDetector(d2);
 
 				    if (skipEvent)
 				    {

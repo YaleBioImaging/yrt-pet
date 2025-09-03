@@ -7,6 +7,7 @@
 #include "yrt-pet/datastruct/IO.hpp"
 #include "yrt-pet/datastruct/projection/Histogram3D.hpp"
 #include "yrt-pet/datastruct/projection/SparseHistogram.hpp"
+#include "yrt-pet/datastruct/scanner/DetectorMask.hpp"
 #include "yrt-pet/datastruct/scanner/Scanner.hpp"
 #include "yrt-pet/utils/Assert.hpp"
 #include "yrt-pet/utils/Globals.hpp"
@@ -88,14 +89,14 @@ int main(int argc, char** argv)
 		std::cout << "Initializing scanner..." << std::endl;
 		auto scanner = std::make_unique<Scanner>(scanner_fname);
 
-		std::unique_ptr<Array3D<float>> detectorMask = nullptr;
+		std::unique_ptr<DetectorMask> detectorMask = nullptr;
 		if (!mask_fname.empty())
 		{
 			std::cout << "Reading detector mask..." << std::endl;
-			detectorMask = std::make_unique<Array3D<float>>();
-			detectorMask->readFromFile(mask_fname);
+			detectorMask = std::make_unique<DetectorMask>(mask_fname);
+			ASSERT(detectorMask->checkAgainstScanner(*scanner));
 		}
-		const Array3D<float>* detectorMask_ptr = detectorMask.get();
+		const DetectorMask* detectorMask_ptr = detectorMask.get();
 
 		std::cout << "Reading input data..." << std::endl;
 		std::unique_ptr<ProjectionData> dataInput = io::openProjectionData(

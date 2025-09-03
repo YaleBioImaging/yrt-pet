@@ -1,0 +1,34 @@
+/*
+ * This file is subject to the terms and conditions defined in
+ * file 'LICENSE.txt', which is part of this source code package.
+ */
+
+#pragma once
+
+#include "yrt-pet/utils/Array.hpp"
+
+namespace yrt
+{
+class Scanner;
+
+class DetectorMask
+{
+public:
+	explicit DetectorMask(const std::string& pr_fname);
+	explicit DetectorMask(const Array1DBase<bool>& pr_maskArray);
+
+	// Legacy format
+	explicit DetectorMask(const Array3DBase<float>& pr_maskArray);
+
+	Array1D<bool>& getData();
+	const Array1D<bool>& getData() const;
+
+	bool checkAgainstScanner(const Scanner& scanner) const;
+	bool checkDetector(size_t detId) const;
+
+	void writeToFile(const std::string& fname) const;
+
+private:
+	std::unique_ptr<Array1D<bool>> mp_maskArray;
+};
+}  // namespace yrt

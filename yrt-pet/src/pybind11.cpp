@@ -37,6 +37,7 @@ void py_setup_listmode(py::module& m);
 void py_setup_listmodelut(py::module& m);
 void py_setup_listmodelutdoi(py::module& m);
 void py_setup_projectionlist(py::module& m);
+void py_setup_detectormask(py::module& m);
 void py_setup_detectorsetup(py::module& m);
 void py_setup_osem(py::module& m);
 void py_setup_reconstructionutils(py::module& m);
@@ -100,6 +101,7 @@ PYBIND11_MODULE(pyyrtpet, m)
 	py_setup_listmodelut(m);
 	py_setup_listmodelutdoi(m);
 	py_setup_projectionlist(m);
+	py_setup_detectormask(m);
 	py_setup_detectorsetup(m);
 	py_setup_scanner(m);
 	py_setup_detcoord(m);

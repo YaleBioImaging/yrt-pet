@@ -17,6 +17,7 @@ set(SOURCES
     datastruct/projection/UniformHistogram.cpp
     datastruct/projection/ProjectionProperties.cpp
     datastruct/scanner/DetCoord.cpp
+    datastruct/scanner/DetectorMask.cpp
     datastruct/scanner/DetectorSetup.cpp
     datastruct/scanner/DetRegular.cpp
     datastruct/scanner/Scanner.cpp

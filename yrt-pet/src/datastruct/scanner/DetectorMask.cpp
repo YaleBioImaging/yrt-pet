@@ -44,8 +44,7 @@ namespace yrt
 
 DetectorMask::DetectorMask(const std::string& pr_fname)
 {
-	mp_maskArray = std::make_unique<Array1D<bool>>();
-	mp_maskArray->readFromFile(pr_fname);
+	readFromFile(pr_fname);
 }
 
 DetectorMask::DetectorMask(const Array1DBase<bool>& pr_maskArray)
@@ -67,6 +66,12 @@ DetectorMask::DetectorMask(const Array3DBase<float>& pr_maskArray)
 	}
 }
 
+void DetectorMask::readFromFile(const std::string& fname)
+{
+	mp_maskArray = std::make_unique<Array1D<bool>>();
+	mp_maskArray->readFromFile(fname);
+}
+
 Array1D<bool>& DetectorMask::getData()
 {
 	ASSERT(mp_maskArray != nullptr);
@@ -82,6 +87,11 @@ const Array1D<bool>& DetectorMask::getData() const
 bool DetectorMask::checkAgainstScanner(const Scanner& scanner) const
 {
 	return scanner.getNumDets() == mp_maskArray->getSizeTotal();
+}
+
+size_t DetectorMask::getNumDets() const
+{
+	return mp_maskArray->getSizeTotal();
 }
 
 bool DetectorMask::checkDetector(size_t detId) const

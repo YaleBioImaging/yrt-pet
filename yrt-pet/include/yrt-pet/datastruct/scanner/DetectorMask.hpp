@@ -9,6 +9,7 @@
 
 namespace yrt
 {
+
 class Scanner;
 
 class DetectorMask
@@ -20,10 +21,13 @@ public:
 	// Legacy format
 	explicit DetectorMask(const Array3DBase<float>& pr_maskArray);
 
+	void readFromFile(const std::string& fname);
+
 	Array1D<bool>& getData();
 	const Array1D<bool>& getData() const;
 
 	bool checkAgainstScanner(const Scanner& scanner) const;
+	size_t getNumDets() const;
 	bool checkDetector(size_t detId) const;
 
 	void writeToFile(const std::string& fname) const;
@@ -31,4 +35,5 @@ public:
 private:
 	std::unique_ptr<Array1D<bool>> mp_maskArray;
 };
+
 }  // namespace yrt

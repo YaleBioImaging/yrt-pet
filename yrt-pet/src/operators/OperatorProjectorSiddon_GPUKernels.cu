@@ -157,7 +157,7 @@ __global__ void OperatorProjectorSiddonCU_kernel(
 				{
 					t0 = 1.0;
 					t1 = 0.0;
-					return;
+					continue;
 				}
 				t0 = (-B - sqrt(Delta)) / (2 * A);
 				t1 = (-B + sqrt(Delta)) / (2 * A);
@@ -230,7 +230,7 @@ __global__ void OperatorProjectorSiddonCU_kernel(
 			    (inv_p12_z >= 0.0f && p1.z > z1) ||
 			    (inv_p12_z < 0.0f && p1.z < z0))
 			{
-				return;
+				continue;
 			}
 			// Move starting point inside FOV
 			float ax_next = flat_x ? FLT_MAX : ax_min;

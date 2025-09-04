@@ -355,9 +355,10 @@ def _test_savant_sim_ultra_micro_hotspot_nomotion_osem_6rays(use_gpu: bool):
         scanner,
         os.path.join(fold_savant_sim, "ultra_micro_hotspot",
                      "nomotion.lmDat"))
+    gpu_str = 'gpu' if use_gpu else 'cpu'
     sens_img = yrt.ImageOwned(
         img_params, os.path.join(fold_savant_sim, "images",
-                                 "sens_image_siddon_6rays.nii.gz"))
+                                 f"sens_image_siddon_6rays_{gpu_str}.nii.gz"))
 
     osem = yrt.createOSEM(scanner, use_gpu)
     osem.setImageParams(img_params)

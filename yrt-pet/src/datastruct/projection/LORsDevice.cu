@@ -62,7 +62,7 @@ void LORsDevice::precomputeBatchLORs(
 		const ProjectionData* reference_ptr = &reference;
 
 		util::parallelForChunked(
-			batchSize, numThreads,
+		    batchSize, numThreads,
 		    [offset, batchSize, &binIterConstrained, consManager,
 		     projPropManager, binIter_ptr, &infoPtr,
 		     &tempBufferProjectionProperties_ptr,

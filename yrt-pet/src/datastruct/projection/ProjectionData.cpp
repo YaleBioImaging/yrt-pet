@@ -181,7 +181,7 @@ std::set<ProjectionPropertyType>
 
 void ProjectionData::getProjectionProperties(
     ProjectionProperties& props, const ProjectionPropertyManager& propManager,
-    bin_t bin, int tid) const
+    bin_t bin, size_t tid) const
 {
 	if (propManager.has(ProjectionPropertyType::LOR))
 	{

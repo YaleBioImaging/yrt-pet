@@ -5,7 +5,7 @@
 
 #pragma once
 
-#include "yrt-pet/datastruct/projection/BinIteratorConstrained.hpp"
+#include "yrt-pet/datastruct/projection/BinFilter.hpp"
 #include "yrt-pet/operators/OperatorProjector.hpp"
 
 #include <vector>
@@ -37,13 +37,13 @@ public:
 	                    float tofValue = 0.0f,
 	                    const ProjectionPsfManager* psfManager = nullptr) const;
 
-	float forwardProjection(
-	    const Image* img,
-	    const ProjectionProperties& projectionProperties, int tid = 0) const override;
+	float forwardProjection(const Image* img,
+	                        const ProjectionProperties& projectionProperties,
+	                        size_t pos = 0) const override;
 
 	void backProjection(Image* img,
 	                    const ProjectionProperties& projectionProperties,
-	                    float projValue, int tid = 0) const override;
+	                    float projValue, size_t pos = 0) const override;
 
 	static float get_overlap_safe(float p0, float p1, float d0, float d1);
 	static float get_overlap_safe(float p0, float p1, float d0, float d1,

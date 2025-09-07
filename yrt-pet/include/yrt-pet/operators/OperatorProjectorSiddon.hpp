@@ -21,11 +21,11 @@ public:
 
 	float forwardProjection(const Image* img,
 	                        const ProjectionProperties& projectionProperties,
-	                        int tid = 0) const override;
+	                        size_t pos = 0) const override;
 
 	void backProjection(Image* img,
 	                    const ProjectionProperties& projectionProperties,
-	                    float projValue, int tid = 0) const override;
+	                    float projValue, size_t pos = 0) const override;
 
 	// Projection
 	float forwardProjection(const Image* img, const Line3D& lor,

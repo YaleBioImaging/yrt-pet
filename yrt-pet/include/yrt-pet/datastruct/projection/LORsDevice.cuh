@@ -5,8 +5,8 @@
 
 #pragma once
 
+#include "yrt-pet/datastruct/projection/BinFilter.hpp"
 #include "yrt-pet/datastruct/projection/BinIterator.hpp"
-#include "yrt-pet/datastruct/projection/BinIteratorConstrained.hpp"
 #include "yrt-pet/datastruct/scanner/ScannerDevice.cuh"
 #include "yrt-pet/utils/GPUTypes.cuh"
 #include "yrt-pet/utils/PageLockedBuffer.cuh"
@@ -27,7 +27,7 @@ public:
 	void precomputeBatchLORs(const BinIterator& binIter,
 	                         const GPUBatchSetup& batchSetup, int subsetId,
 	                         int batchId, const ProjectionData& reference,
-	                         const BinIteratorConstrained& binIterConstrained);
+	                         const BinFilter& binFilter);
 	void loadPrecomputedLORsToDevice(GPULaunchConfig launchConfig);
 
 	// Gets the size of the last precomputed batch
@@ -64,4 +64,4 @@ private:
 	int m_loadedBatchId;
 	int m_loadedSubsetId;
 };
-}
+}  // namespace yrt

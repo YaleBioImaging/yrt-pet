@@ -7,7 +7,6 @@
 
 #include "yrt-pet/datastruct/IO.hpp"
 #include "yrt-pet/datastruct/image/Image.hpp"
-#include "yrt-pet/datastruct/projection/BinIteratorConstrained.hpp"
 #include "yrt-pet/datastruct/projection/Histogram3D.hpp"
 #include "yrt-pet/datastruct/projection/ListMode.hpp"
 #include "yrt-pet/datastruct/projection/ProjectionData.hpp"

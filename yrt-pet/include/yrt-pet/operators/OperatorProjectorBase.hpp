@@ -5,7 +5,7 @@
 
 #pragma once
 
-#include "yrt-pet/datastruct/projection/BinIteratorConstrained.hpp"
+#include "yrt-pet/datastruct/projection/BinFilter.hpp"
 #include "yrt-pet/datastruct/projection/ProjectionData.hpp"
 #include "yrt-pet/datastruct/projection/ProjectionProperties.hpp"
 #include "yrt-pet/operators/Operator.hpp"
@@ -56,7 +56,7 @@ public:
 
 	const Scanner& getScanner() const;
 	const BinIterator* getBinIter() const;
-	const BinIteratorConstrained* getBinIterConstrained() const;
+	const BinFilter* getBinFilter() const;
 	ProjectionProperties getProjectionProperties() const;
 	ConstraintParams getConstraintParams() const;
 
@@ -64,16 +64,16 @@ public:
 
 	virtual std::set<ProjectionPropertyType> getProjectionPropertyTypes() const;
 
-	virtual void initBinIteratorConstrained(
+	virtual void initBinFilter(
 	    const std::set<ProjectionPropertyType>& projPropertyTypesExtra,
 	    const int numThreads);
 
-	void setupBinIteratorConstrained(
-		const std::set<ProjectionPropertyType>& pr_projPropertiesExtra);
+	void setupBinFilter(
+	    const std::set<ProjectionPropertyType>& pr_projPropertiesExtra);
 
 	void allocateBuffers(int numThreads);
 
-protected :
+protected:
 	// To take scanner properties into account
 	const Scanner& scanner;
 
@@ -83,7 +83,7 @@ protected :
 
 	// Constraints for bin iterator
 	std::vector<Constraint*> m_constraints;
-	std::unique_ptr<BinIteratorConstrained> m_binIterConstrained;
+	std::unique_ptr<BinFilter> m_binFilter;
 	std::unique_ptr<char[]> m_projectionProperties;
 	std::unique_ptr<char[]> m_constraintParams;
 };

@@ -3,7 +3,7 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "yrt-pet/datastruct/projection/BinIteratorConstrained.hpp"
+#include "yrt-pet/datastruct/projection/BinFilter.hpp"
 
 #include <cmath>
 #include <cstdlib>
@@ -18,8 +18,8 @@
 namespace yrt
 {
 
-// Constrained bin iterator
-BinIteratorConstrained::BinIteratorConstrained(
+// Bin filter/extractor
+BinFilter::BinFilter(
     const std::vector<Constraint*>& constraints,
     const std::set<ProjectionPropertyType>& projVariables)
     : m_constraints(constraints), m_projVariables(projVariables)
@@ -28,7 +28,7 @@ BinIteratorConstrained::BinIteratorConstrained(
 	collectConstraintVariables();
 }
 
-void BinIteratorConstrained::clearConstraints()
+void BinFilter::clearConstraints()
 {
 	m_constraints.clear();
 	m_consVariables.clear();
@@ -36,12 +36,12 @@ void BinIteratorConstrained::clearConstraints()
 }
 
 const std::set<ProjectionPropertyType>&
-    BinIteratorConstrained::getProjPropertyTypes() const
+    BinFilter::getProjPropertyTypes() const
 {
 	return m_projVariables;
 }
 
-void BinIteratorConstrained::setupManagers()
+void BinFilter::setupManagers()
 {
 	if (m_constraints.size() > 0)
 	{
@@ -52,7 +52,7 @@ void BinIteratorConstrained::setupManagers()
 	    std::make_unique<ProjectionPropertyManager>(m_projVariables);
 }
 
-void BinIteratorConstrained::collectConstraintVariables()
+void BinFilter::collectConstraintVariables()
 {
 	// List variables required by constraints
 	for (auto& constraint : m_constraints)
@@ -65,18 +65,18 @@ void BinIteratorConstrained::collectConstraintVariables()
 }
 
 
-const ConstraintManager& BinIteratorConstrained::getConstraintManager() const
+const ConstraintManager& BinFilter::getConstraintManager() const
 {
 	return *m_constraintManager.get();
 }
 
 const ProjectionPropertyManager&
-    BinIteratorConstrained::getPropertyManager() const
+    BinFilter::getPropertyManager() const
 {
 	return *m_propManager.get();
 }
 
-void BinIteratorConstrained::collectInfo(bin_t bin, size_t projIdx, int consIdx,
+void BinFilter::collectInfo(bin_t bin, size_t projIdx, int consIdx,
                                          const ProjectionData& projData,
                                          ProjectionProperties& projProps,
                                          ConstraintParams& consInfo) const
@@ -164,7 +164,7 @@ void BinIteratorConstrained::collectInfo(bin_t bin, size_t projIdx, int consIdx,
 	}
 }
 
-bool BinIteratorConstrained::isValid(const ConstraintManager& manager,
+bool BinFilter::isValid(const ConstraintManager& manager,
                                      ConstraintParams& info) const
 {
 	for (auto& constraint : m_constraints)

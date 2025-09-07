@@ -40,8 +40,7 @@ OperatorProjectorSiddon_GPU::OperatorProjectorSiddon_GPU(
     : OperatorProjectorDevice(projParams, constraints, mainStream, auxStream),
       m_numRays{projParams.numRays}
 {
-	initBinIteratorConstrained(projParams.projPropertyTypesExtra,
-	                           projParams.numThreads);
+	initBinFilter(projParams.projPropertyTypesExtra, projParams.numThreads);
 }
 
 std::set<ProjectionPropertyType>

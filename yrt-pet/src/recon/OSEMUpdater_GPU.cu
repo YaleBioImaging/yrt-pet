@@ -29,7 +29,7 @@ void OSEMUpdater_GPU::computeSensitivityImage(ImageDevice& destImage) const
 	    mp_osem->getSensitivityDataDeviceBuffer();
 	const int numBatchesInCurrentSubset =
 	    sensDataBuffer->getNumBatches(currentSubset);
-	const BinIteratorConstrained* binIterConstrained = projector->getBinIterConstrained();
+	const BinFilter* binFilter = projector->getBinFilter();
 
 	bool loadGlobalScalingFactor = !corrector.hasMultiplicativeCorrection();
 
@@ -38,8 +38,7 @@ void OSEMUpdater_GPU::computeSensitivityImage(ImageDevice& destImage) const
 		std::cout << "Loading batch " << batch + 1 << "/"
 		          << numBatchesInCurrentSubset << "..." << std::endl;
 
-		sensDataBuffer->precomputeBatchLORs(currentSubset, batch,
-		                                    *binIterConstrained);
+		sensDataBuffer->precomputeBatchLORs(currentSubset, batch, *binFilter);
 
 		// Allocate for the projection values
 		const bool hasReallocated =
@@ -128,7 +127,7 @@ void OSEMUpdater_GPU::computeEMUpdateImage(const ImageDevice& inputImage,
 	    mp_osem->getMLEMDataTmpDeviceBuffer();
 	const ProjectionDataDevice* correctorTempBuffer =
 	    corrector.getTemporaryDeviceBuffer();
-	const BinIteratorConstrained* binIterConstrained = projector->getBinIterConstrained();
+	const BinFilter* binFilter = projector->getBinFilter();
 
 	ASSERT(projector != nullptr);
 	ASSERT(measurementsDevice != nullptr);
@@ -143,7 +142,7 @@ void OSEMUpdater_GPU::computeEMUpdateImage(const ImageDevice& inputImage,
 		std::cout << "Batch " << batch + 1 << "/" << numBatchesInCurrentSubset
 		          << "..." << std::endl;
 		measurementsDevice->precomputeBatchLORs(currentSubset, batch,
-		                                        *binIterConstrained);
+		                                        *binFilter);
 
 		measurementsDevice->allocateForProjValues({mainStream, false});
 		measurementsDevice->loadPrecomputedLORsToDevice({mainStream, false});

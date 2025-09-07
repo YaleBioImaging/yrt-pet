@@ -32,10 +32,11 @@ LORsDevice::LORsDevice()
 	initializeDeviceArrays();
 }
 
-void LORsDevice::precomputeBatchLORs(
-    const BinIterator& binIter, const GPUBatchSetup& batchSetup, int subsetId,
-    int batchId, const ProjectionData& reference,
-    const BinIteratorConstrained& binIterConstrained)
+void LORsDevice::precomputeBatchLORs(const BinIterator& binIter,
+                                     const GPUBatchSetup& batchSetup,
+                                     int subsetId, int batchId,
+                                     const ProjectionData& reference,
+                                     const BinFilter& binFilter)
 {
 	if (m_precomputedSubsetId != subsetId || m_precomputedBatchId != batchId ||
 	    m_areLORsPrecomputed == false)
@@ -46,14 +47,14 @@ void LORsDevice::precomputeBatchLORs(
 		const size_t batchSize = batchSetup.getBatchSize(batchId);
 		const int numThreads = globals::getNumThreads();
 
-		auto projPropManager = binIterConstrained.getPropertyManager();
+		auto projPropManager = binFilter.getPropertyManager();
 		m_elementSize = projPropManager.getElementSize();
 
 		m_tempProjectionProperties.reAllocateIfNeeded(batchSize *
 		                                              m_elementSize);
 		char* tempBufferProjectionProperties_ptr =
 		    m_tempProjectionProperties.getPointer();
-		auto consManager = binIterConstrained.getConstraintManager();
+		auto consManager = binFilter.getConstraintManager();
 		auto info = consManager.createDataArray(numThreads);
 		auto infoPtr = info.get();
 
@@ -63,16 +64,15 @@ void LORsDevice::precomputeBatchLORs(
 
 		util::parallelForChunked(
 		    batchSize, numThreads,
-		    [offset, batchSize, &binIterConstrained, consManager,
-		     projPropManager, binIter_ptr, &infoPtr,
-		     &tempBufferProjectionProperties_ptr,
+		    [offset, batchSize, &binFilter, consManager, projPropManager,
+		     binIter_ptr, &infoPtr, &tempBufferProjectionProperties_ptr,
 		     reference_ptr](size_t binIdx, int tid)
 		    {
 			    bin_t bin = binIter_ptr->get(binIdx + offset);
-			    binIterConstrained.collectInfo(
-			        bin, binIdx, tid, *reference_ptr,
-			        tempBufferProjectionProperties_ptr, infoPtr);
-			    if (binIterConstrained.isValid(consManager, infoPtr))
+			    binFilter.collectInfo(bin, binIdx, tid, *reference_ptr,
+			                          tempBufferProjectionProperties_ptr,
+			                          infoPtr);
+			    if (binFilter.isValid(consManager, infoPtr))
 			    {
 				    reference_ptr->getProjectionProperties(
 				        tempBufferProjectionProperties_ptr, projPropManager,

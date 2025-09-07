@@ -6,8 +6,8 @@
 #include "yrt-pet/operators/OperatorProjector.hpp"
 
 #include "yrt-pet/datastruct/image/Image.hpp"
+#include "yrt-pet/datastruct/projection/BinFilter.hpp"
 #include "yrt-pet/datastruct/projection/BinIterator.hpp"
-#include "yrt-pet/datastruct/projection/BinIteratorConstrained.hpp"
 #include "yrt-pet/datastruct/projection/Histogram3D.hpp"
 #include "yrt-pet/geometry/Constants.hpp"
 #include "yrt-pet/utils/Assert.hpp"
@@ -84,8 +84,8 @@ void OperatorProjector::applyA(const Variable* in, Variable* out)
 	const size_t numBinsMax = binIter->size();
 
 	// Setup bin iterator
-	auto& projPropManager = m_binIterConstrained->getPropertyManager();
-	auto& consManager = m_binIterConstrained->getConstraintManager();
+	auto& projPropManager = m_binFilter->getPropertyManager();
+	auto& consManager = m_binFilter->getConstraintManager();
 	auto constraintParams = m_constraintParams.get();
 	auto projectionProperties = m_projectionProperties.get();
 
@@ -95,9 +95,9 @@ void OperatorProjector::applyA(const Variable* in, Variable* out)
 	     &projectionProperties, this](bin_t binIdx, int tid)
 	    {
 		    const bin_t bin = binIter->get(binIdx);
-		    m_binIterConstrained->collectInfo(
-		        bin, tid, tid, *dat, projectionProperties, constraintParams);
-		    if (m_binIterConstrained->isValid(consManager, constraintParams))
+		    m_binFilter->collectInfo(bin, tid, tid, *dat, projectionProperties,
+		                             constraintParams);
+		    if (m_binFilter->isValid(consManager, constraintParams))
 		    {
 			    dat->getProjectionProperties(projectionProperties,
 			                                 projPropManager, bin, tid);
@@ -120,8 +120,8 @@ void OperatorProjector::applyAH(const Variable* in, Variable* out)
 	const size_t numBinsMax = binIter->size();
 
 	// Setup bin iterator
-	auto& projPropManager = m_binIterConstrained->getPropertyManager();
-	auto& consManager = m_binIterConstrained->getConstraintManager();
+	auto& projPropManager = m_binFilter->getPropertyManager();
+	auto& consManager = m_binFilter->getConstraintManager();
 	auto constraintParams = m_constraintParams.get();
 	auto projectionProperties = m_projectionProperties.get();
 
@@ -131,9 +131,9 @@ void OperatorProjector::applyAH(const Variable* in, Variable* out)
 	     &projectionProperties, this](bin_t binIdx, int tid)
 	    {
 		    const bin_t bin = binIter->get(binIdx);
-		    m_binIterConstrained->collectInfo(
-		        bin, tid, tid, *dat, projectionProperties, constraintParams);
-		    if (m_binIterConstrained->isValid(consManager, constraintParams))
+		    m_binFilter->collectInfo(bin, tid, tid, *dat, projectionProperties,
+		                             constraintParams);
+		    if (m_binFilter->isValid(consManager, constraintParams))
 		    {
 			    dat->getProjectionProperties(projectionProperties,
 			                                 projPropManager, bin, tid);

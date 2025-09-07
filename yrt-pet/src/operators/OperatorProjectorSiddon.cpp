@@ -6,7 +6,7 @@
 #include "yrt-pet/operators/OperatorProjectorSiddon.hpp"
 
 #include "yrt-pet/datastruct/image/Image.hpp"
-#include "yrt-pet/datastruct/projection/BinIteratorConstrained.hpp"
+#include "yrt-pet/datastruct/projection/BinFilter.hpp"
 #include "yrt-pet/datastruct/projection/ProjectionProperties.hpp"
 #include "yrt-pet/datastruct/scanner/Scanner.hpp"
 #include "yrt-pet/geometry/Line3D.hpp"
@@ -106,8 +106,8 @@ OperatorProjectorSiddon::OperatorProjectorSiddon(
 	ASSERT_MSG_WARNING(
 	    mp_projPsfManager == nullptr,
 	    "Siddon does not support Projection space PSF. It will be ignored.");
-	initBinIteratorConstrained(pr_projParams.projPropertyTypesExtra,
-	                           pr_projParams.numThreads);
+	initBinFilter(pr_projParams.projPropertyTypesExtra,
+	              pr_projParams.numThreads);
 }
 
 int OperatorProjectorSiddon::getNumRays() const
@@ -134,51 +134,51 @@ std::set<ProjectionPropertyType>
 
 float OperatorProjectorSiddon::forwardProjection(
     const Image* img, const ProjectionProperties& projectionProperties,
-    int tid) const
+    size_t pos) const
 {
-	auto projPropManager = m_binIterConstrained->getPropertyManager();
+	auto projPropManager = m_binFilter->getPropertyManager();
 	det_orient_t detOrient;
 	if (m_numRays > 1)
 	{
 		ASSERT(projPropManager.has(ProjectionPropertyType::DET_ORIENT));
 		detOrient = projPropManager.getDataValue<det_orient_t>(
-		    projectionProperties, tid, ProjectionPropertyType::DET_ORIENT);
+		    projectionProperties, pos, ProjectionPropertyType::DET_ORIENT);
 	}
 	float tofValue = 0.f;
 	if (projPropManager.has(ProjectionPropertyType::TOF))
 	{
 		tofValue = projPropManager.getDataValue<float>(
-		    projectionProperties, tid, ProjectionPropertyType::TOF);
+		    projectionProperties, pos, ProjectionPropertyType::TOF);
 	}
 	return forwardProjection(
 	    img,
-	    projPropManager.getDataValue<Line3D>(projectionProperties, tid,
+	    projPropManager.getDataValue<Line3D>(projectionProperties, pos,
 	                                         ProjectionPropertyType::LOR),
-	    detOrient.d1, detOrient.d2, tid, mp_tofHelper.get(), tofValue);
+	    detOrient.d1, detOrient.d2, pos, mp_tofHelper.get(), tofValue);
 }
 
 void OperatorProjectorSiddon::backProjection(
     Image* img, const ProjectionProperties& projectionProperties,
-    float projValue, int tid) const
+    float projValue, size_t pos) const
 {
-	auto projPropManager = m_binIterConstrained->getPropertyManager();
+	auto projPropManager = m_binFilter->getPropertyManager();
 	det_orient_t detOrient;
 	if (m_numRays > 1)
 	{
 		ASSERT(projPropManager.has(ProjectionPropertyType::DET_ORIENT));
 		detOrient = projPropManager.getDataValue<det_orient_t>(
-		    projectionProperties, tid, ProjectionPropertyType::DET_ORIENT);
+		    projectionProperties, pos, ProjectionPropertyType::DET_ORIENT);
 	}
 	float tofValue = 0.f;
 	if (projPropManager.has(ProjectionPropertyType::TOF))
 	{
 		tofValue = projPropManager.getDataValue<float>(
-		    projectionProperties, tid, ProjectionPropertyType::TOF);
+		    projectionProperties, pos, ProjectionPropertyType::TOF);
 	}
 	backProjection(img,
 	               projPropManager.getDataValue<Line3D>(
-	                   projectionProperties, tid, ProjectionPropertyType::LOR),
-	               detOrient.d1, detOrient.d2, projValue, tid,
+	                   projectionProperties, pos, ProjectionPropertyType::LOR),
+	               detOrient.d1, detOrient.d2, projValue, pos,
 	               mp_tofHelper.get(), tofValue);
 }
 

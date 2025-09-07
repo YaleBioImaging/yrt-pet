@@ -6,7 +6,6 @@
 #include "yrt-pet/utils/ReconstructionUtils.hpp"
 
 #include "yrt-pet/datastruct/IO.hpp"
-#include "yrt-pet/datastruct/projection/BinIteratorConstrained.hpp"
 #include "yrt-pet/datastruct/projection/Histogram3D.hpp"
 #include "yrt-pet/datastruct/projection/ListModeLUT.hpp"
 #include "yrt-pet/geometry/Matrix.hpp"

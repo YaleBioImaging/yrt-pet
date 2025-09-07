@@ -4,7 +4,7 @@
  */
 
 #include "yrt-pet/operators/OperatorProjectorBase.hpp"
-#include "yrt-pet/datastruct/projection/BinIteratorConstrained.hpp"
+#include "yrt-pet/datastruct/projection/BinFilter.hpp"
 #include "yrt-pet/datastruct/projection/ProjectionProperties.hpp"
 #include "yrt-pet/utils/Globals.hpp"
 
@@ -56,19 +56,19 @@ OperatorProjectorParams::OperatorProjectorParams(const Scanner& pr_scanner)
 }
 
 OperatorProjectorBase::OperatorProjectorBase(
-	const OperatorProjectorParams& pr_projParams,
-	const std::vector<Constraint*>& pr_constraints)
+    const OperatorProjectorParams& pr_projParams,
+    const std::vector<Constraint*>& pr_constraints)
     : scanner(pr_projParams.scanner),
       binIter{pr_projParams.binIter},
       m_constraints(pr_constraints)
 {
 }
 
-void OperatorProjectorBase::initBinIteratorConstrained(
+void OperatorProjectorBase::initBinFilter(
     const std::set<ProjectionPropertyType>& projPropertyTypesExtra,
-	const int numThreads)
+    const int numThreads)
 {
-	setupBinIteratorConstrained(projPropertyTypesExtra);
+	setupBinFilter(projPropertyTypesExtra);
 	allocateBuffers(numThreads);
 }
 
@@ -83,10 +83,9 @@ const BinIterator* OperatorProjectorBase::getBinIter() const
 	return binIter;
 }
 
-const BinIteratorConstrained*
-    OperatorProjectorBase::getBinIterConstrained() const
+const BinFilter* OperatorProjectorBase::getBinFilter() const
 {
-	return m_binIterConstrained.get();
+	return m_binFilter.get();
 }
 
 const Scanner& OperatorProjectorBase::getScanner() const
@@ -109,8 +108,8 @@ void OperatorProjectorBase::setBinIter(const BinIterator* p_binIter)
 	binIter = p_binIter;
 }
 
-void OperatorProjectorBase::setupBinIteratorConstrained(
-	const std::set<ProjectionPropertyType>& pr_projPropertiesExtra)
+void OperatorProjectorBase::setupBinFilter(
+    const std::set<ProjectionPropertyType>& pr_projPropertiesExtra)
 {
 	// Determine projection property types from projector
 	auto projProperties = getProjectionPropertyTypes();
@@ -119,15 +118,14 @@ void OperatorProjectorBase::setupBinIteratorConstrained(
 		projProperties.insert(prop);
 	}
 	// Determine constraints from scanner
-	m_binIterConstrained = std::make_unique<BinIteratorConstrained>(
-		m_constraints, projProperties);
-	m_binIterConstrained->setupManagers();
+	m_binFilter = std::make_unique<BinFilter>(m_constraints, projProperties);
+	m_binFilter->setupManagers();
 }
 
 void OperatorProjectorBase::allocateBuffers(int numThreads)
 {
-	auto& projPropManager = m_binIterConstrained->getPropertyManager();
-	auto& consManager = m_binIterConstrained->getConstraintManager();
+	auto& projPropManager = m_binFilter->getPropertyManager();
+	auto& consManager = m_binFilter->getConstraintManager();
 	if (projPropManager.getElementSize() > 0)
 	{
 		m_projectionProperties = projPropManager.createDataArray(numThreads);

@@ -92,14 +92,13 @@ OperatorProjectorDevice::OperatorProjectorDevice(
 	}
 }
 
-void OperatorProjectorDevice::initBinIteratorConstrained(
+void OperatorProjectorDevice::initBinFilter(
     const std::set<ProjectionPropertyType>& projPropertyTypesExtra,
     const int numThreads)
 {
-	OperatorProjectorBase::initBinIteratorConstrained(projPropertyTypesExtra,
-	                                                  numThreads);
+	OperatorProjectorBase::initBinFilter(projPropertyTypesExtra, numThreads);
 	std::set<ProjectionPropertyType> projPropertyTypes =
-	    m_binIterConstrained->getProjPropertyTypes();
+	    m_binFilter->getProjPropertyTypes();
 	mp_projPropManager =
 	    std::make_unique<DeviceObject<ProjectionPropertyManager>>(
 	        projPropertyTypes);
@@ -161,7 +160,7 @@ void OperatorProjectorDevice::applyA(const Variable* in, Variable* out,
 		binIterators.push_back(binIter);  // We project only one subset
 		deviceDat_out = std::make_unique<ProjectionDataDeviceOwned>(
 		    getScanner(), hostDat_out, binIterators,
-		    m_binIterConstrained->getPropertyManager().getElementSize(),
+		    m_binFilter->getPropertyManager().getElementSize(),
 		    m_memAvailBytes);
 
 		// Use owned ProjectionDataDevice
@@ -186,7 +185,7 @@ void OperatorProjectorDevice::applyA(const Variable* in, Variable* out,
 		const size_t numBatches = dat_out->getBatchSetup(0).getNumBatches();
 
 		std::cout << "Loading batch 1/" << numBatches << "..." << std::endl;
-		dat_out->precomputeBatchLORs(0, 0, *m_binIterConstrained.get());
+		dat_out->precomputeBatchLORs(0, 0, *m_binFilter.get());
 		deviceDat_out->allocateForProjValues({getMainStream(), false});
 
 		for (size_t batchId = 0; batchId < numBatches; batchId++)
@@ -204,7 +203,7 @@ void OperatorProjectorDevice::applyA(const Variable* in, Variable* out,
 				std::cout << "Loading batch " << batchId + 2 << "/"
 				          << numBatches << "..." << std::endl;
 				dat_out->precomputeBatchLORs(0, batchId + 1,
-				                             *m_binIterConstrained.get());
+				                             *m_binFilter.get());
 			}
 			std::cout << "Transferring batch to Host..." << std::endl;
 			// This will force a necessary synchronization
@@ -258,7 +257,7 @@ void OperatorProjectorDevice::applyAH(const Variable* in, Variable* out,
 		binIterators.push_back(binIter);  // We project only one subset
 		deviceDat_in = std::make_unique<ProjectionDataDeviceOwned>(
 		    getScanner(), hostDat_in, binIterators,
-		    m_binIterConstrained->getPropertyManager().getElementSize(),
+		    m_binFilter->getPropertyManager().getElementSize(),
 		    m_memAvailBytes);
 
 		// Use owned ProjectionDataDevice
@@ -284,7 +283,7 @@ void OperatorProjectorDevice::applyAH(const Variable* in, Variable* out,
 
 		std::cout << "Loading batch 1/" << numBatches << "..." << std::endl;
 		// FIXME-NOW
-		dat_in->precomputeBatchLORs(0, 0, *m_binIterConstrained.get());
+		dat_in->precomputeBatchLORs(0, 0, *m_binFilter.get());
 		deviceDat_in->allocateForProjValues({mainStream, false});
 
 		for (size_t batchId = 0; batchId < numBatches; batchId++)
@@ -310,8 +309,7 @@ void OperatorProjectorDevice::applyAH(const Variable* in, Variable* out,
 			{
 				std::cout << "Loading batch " << batchId + 2 << "/"
 				          << numBatches << "..." << std::endl;
-				dat_in->precomputeBatchLORs(0, batchId + 1,
-				                            *m_binIterConstrained.get());
+				dat_in->precomputeBatchLORs(0, batchId + 1, *m_binFilter.get());
 			}
 		}
 

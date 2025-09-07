@@ -25,8 +25,7 @@ void forwProjectToSparseHistogram(const Image& sourceImage,
 	const auto uniformHistogram =
 	    std::make_unique<UniformHistogram>(projector.getScanner());
 	const size_t numBins = uniformHistogram->count();
-	auto projPropManager =
-	    projector.getBinIterConstrained()->getPropertyManager();
+	auto projPropManager = projector.getBinFilter()->getPropertyManager();
 
 	SparseHistogram* sparseHistogram_ptr = &sparseHistogram;
 	const UniformHistogram* uniformHistogram_ptr = uniformHistogram.get();
@@ -49,7 +48,7 @@ void forwProjectToSparseHistogram(const Image& sourceImage,
 		                                              projPropManager, bin, 0);
 
 		const float projValue = projector_ptr->forwardProjection(
-			sourceImage_ptr, projectionProperties.get());
+		    sourceImage_ptr, projectionProperties.get());
 
 		if (std::abs(projValue) > SMALL)
 		{

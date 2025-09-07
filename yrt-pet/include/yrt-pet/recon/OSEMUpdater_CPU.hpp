@@ -10,7 +10,7 @@
 #include "yrt-pet/operators/OperatorProjector.hpp"
 #include "yrt-pet/recon/Corrector_CPU.hpp"
 #include "yrt-pet/utils/ProgressDisplayMultiThread.hpp"
-#include "yrt-pet/datastruct/projection/BinIteratorConstrained.hpp"
+#include "yrt-pet/datastruct/projection/BinFilter.hpp"
 
 namespace yrt
 {
@@ -22,23 +22,6 @@ class OSEMUpdater_CPU
 {
 public:
 	explicit OSEMUpdater_CPU(OSEM_CPU* pp_osem);
-
-	/*
-	 * Thread function for sensitivity image generation.
-	 * This function loops over bins, filters invalid bins and performs
-	 * backprojection.
-	 */
-	void backprojectBin(int tid, const BinIteratorConstrained& binIter,
-	                    const OperatorProjector& projector,
-	                    const Corrector_CPU* correctorPtr,
-	                    const ProjectionData& sensImgGenProjData,
-	                    Image* destImagePtr,
-	                    util::ProgressDisplayMultiThread& progressDisplay,
-	                    size_t numBinsMax, const BinIterator& binIterProj,
-	                    size_t blockSize,
-	                    std::set<ConstraintVariable>& variables,
-	                    std::set<ProjectionPropertyType>& projVariables,
-	                    ConstraintParams* infoT) const;
 
 	/*
 	 * This function computes the sensitivity image to use as denominator for

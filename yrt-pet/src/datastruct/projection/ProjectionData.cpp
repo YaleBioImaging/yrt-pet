@@ -181,12 +181,12 @@ std::set<ProjectionPropertyType>
 
 void ProjectionData::getProjectionProperties(
     ProjectionProperties& props, const ProjectionPropertyManager& propManager,
-    bin_t bin, size_t tid) const
+    bin_t bin, size_t pos) const
 {
 	if (propManager.has(ProjectionPropertyType::LOR))
 	{
 		const Line3D lor = getLOR(bin);
-		propManager.setDataValue(props, tid, ProjectionPropertyType::LOR, lor);
+		propManager.setDataValue(props, pos, ProjectionPropertyType::LOR, lor);
 	}
 
 	if (propManager.has(ProjectionPropertyType::TOF))
@@ -196,7 +196,7 @@ void ProjectionData::getProjectionProperties(
 		{
 			tofValue = getTOFValue(bin);
 		}
-		propManager.setDataValue(props, tid, ProjectionPropertyType::TOF,
+		propManager.setDataValue(props, pos, ProjectionPropertyType::TOF,
 		                         tofValue);
 	}
 
@@ -206,7 +206,7 @@ void ProjectionData::getProjectionProperties(
 		const Vector3D det1Orient = mr_scanner.getDetectorOrient(d1);
 		const Vector3D det2Orient = mr_scanner.getDetectorOrient(d2);
 		det_orient_t detOrient{det1Orient, det2Orient};
-		propManager.setDataValue(props, tid, ProjectionPropertyType::DET_ORIENT,
+		propManager.setDataValue(props, pos, ProjectionPropertyType::DET_ORIENT,
 		                         detOrient);
 	}
 }

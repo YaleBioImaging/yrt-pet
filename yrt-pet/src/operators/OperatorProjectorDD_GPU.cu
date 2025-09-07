@@ -40,8 +40,7 @@ OperatorProjectorDD_GPU::OperatorProjectorDD_GPU(
     const cudaStream_t* auxStream)
     : OperatorProjectorDevice(projParams, constraints, mainStream, auxStream)
 {
-	initBinIteratorConstrained(projParams.projPropertyTypesExtra,
-	                           projParams.numThreads);
+	initBinFilter(projParams.projPropertyTypesExtra, projParams.numThreads);
 }
 
 std::set<ProjectionPropertyType>
@@ -72,7 +71,7 @@ void OperatorProjectorDD_GPU::applyOnLoadedBatch(ProjectionDataDevice& dat,
 	const auto cuScannerParams = getCUScannerParams(getScanner());
 	const auto cuImageParams = getCUImageParams(img.getParams());
 	const ProjectionPropertyManager* projPropManager =
-		getProjPropManagerDevicePointer();
+	    getProjPropManagerDevicePointer();
 	const TimeOfFlightHelper* tofHelperDevicePointer =
 	    getTOFHelperDevicePointer();
 	const float* projPsfDevicePointer =

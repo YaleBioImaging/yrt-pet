@@ -5,7 +5,7 @@
 
 #pragma once
 
-#include "BinIteratorConstrained.hpp"
+#include "BinFilter.hpp"
 #include "yrt-pet/datastruct/image/ImageBase.hpp"
 #include "yrt-pet/datastruct/projection/LORsDevice.cuh"
 #include "yrt-pet/datastruct/projection/ProjectionData.hpp"
@@ -54,9 +54,9 @@ public:
 	// the projection values buffer
 	void prepareBatchLORs(int subsetId, int batchId,
 	                      GPULaunchConfig launchConfig,
-	                      const BinIteratorConstrained& binIterConstrained);
+	                      const BinFilter& binFilter);
 	void precomputeBatchLORs(int subsetId, int batchId,
-	                         const BinIteratorConstrained& binIterConstrained);
+	                         const BinFilter& binFilter);
 	void loadPrecomputedLORsToDevice(GPULaunchConfig launchConfig);
 
 	// Gather the projection values from the reference ProjectionData object and

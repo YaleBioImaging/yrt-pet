@@ -40,7 +40,7 @@ public:
 
 	static constexpr float DefaultMemoryShare = 0.9f;
 
-	void initBinIteratorConstrained(
+	void initBinFilter(
 	    const std::set<ProjectionPropertyType>& projPropertyTypesExtra,
 	    const int numThreads) override;
 
@@ -49,8 +49,7 @@ protected:
 	    const OperatorProjectorParams& pr_projParams,
 	    const std::vector<Constraint*>& pr_constraints,
 	    const cudaStream_t* pp_mainStream = nullptr,
-	    const cudaStream_t* pp_auxStream = nullptr,
-	    size_t p_memAvailBytes = 0);
+	    const cudaStream_t* pp_auxStream = nullptr, size_t p_memAvailBytes = 0);
 
 	// These must run on the main stream
 	virtual void applyAOnLoadedBatch(ImageDevice& img,

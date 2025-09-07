@@ -61,8 +61,7 @@ std::pair<size_t, size_t>
 	memAvailable = static_cast<size_t>(static_cast<float>(memAvailable) *
 	                                   shareOfMemoryToUse);
 
-	auto projPropManager =
-	    mp_projector->getBinIterConstrained()->getPropertyManager();
+	auto projPropManager = mp_projector->getBinFilter()->getPropertyManager();
 	const size_t memoryUsagePerLOR = projPropManager.getElementSize();
 	return {memAvailable, memoryUsagePerLOR};
 }

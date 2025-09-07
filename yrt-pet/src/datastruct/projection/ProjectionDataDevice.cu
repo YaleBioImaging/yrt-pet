@@ -31,13 +31,12 @@ void py_setup_projectiondatadevice(py::module& m)
 	c.def(
 	    "prepareBatchLORs",
 	    [](ProjectionDataDevice& self, size_t subsetId, size_t batchId,
-	       BinIteratorConstrained& binIterConstrained)
-	    {
+	       BinFilter& binFilter) {
 		    self.prepareBatchLORs(subsetId, batchId, {nullptr, true},
-		                          binIterConstrained);
+		                          binFilter);
 	    },
 	    "Load the LORs of a specific batch in a specific subset", "subsetId"_a,
-	    "batchId"_a, "binIteratorConstrained"_a);
+	    "batchId"_a, "binFilter"_a);
 
 	c.def("loadProjValuesFromReference", [](ProjectionDataDeviceOwned& self)
 	      { self.loadProjValuesFromReference({nullptr, true}); });
@@ -203,11 +202,11 @@ void ProjectionDataDevice::createBatchSetups(size_t memoryUsagePerLOR,
 	}
 }
 
-void ProjectionDataDevice::prepareBatchLORs(
-    int subsetId, int batchId, GPULaunchConfig launchConfig,
-    const BinIteratorConstrained& binIterConstrained)
+void ProjectionDataDevice::prepareBatchLORs(int subsetId, int batchId,
+                                            GPULaunchConfig launchConfig,
+                                            const BinFilter& binFilter)
 {
-	precomputeBatchLORs(subsetId, batchId, binIterConstrained);
+	precomputeBatchLORs(subsetId, batchId, binFilter);
 
 	// Necessary bottleneck
 	// Must wait until previous operation using the device buffers is
@@ -223,12 +222,12 @@ void ProjectionDataDevice::prepareBatchLORs(
 	loadPrecomputedLORsToDevice(launchConfig);
 }
 
-void ProjectionDataDevice::precomputeBatchLORs(
-    int subsetId, int batchId, const BinIteratorConstrained& binIterConstrained)
+void ProjectionDataDevice::precomputeBatchLORs(int subsetId, int batchId,
+                                               const BinFilter& binFilter)
 {
-	mp_LORs->precomputeBatchLORs(
-		*mp_binIteratorList.at(subsetId), m_batchSetups.at(subsetId),
-		subsetId, batchId, *mp_reference, binIterConstrained);
+	mp_LORs->precomputeBatchLORs(*mp_binIteratorList.at(subsetId),
+	                             m_batchSetups.at(subsetId), subsetId, batchId,
+	                             *mp_reference, binFilter);
 }
 
 void ProjectionDataDevice::loadPrecomputedLORsToDevice(
@@ -311,23 +310,23 @@ void ProjectionDataDevice::loadProjValuesFromHostInternal(
 			//  memory is contiguous)
 
 			// Fill the buffer using the source directly
-			util::parallelForChunked(
-			    batchSize, globals::getNumThreads(),
-			    [offset, &binIter, projValuesBuffer, src,
-			     batchSize](bin_t binIdx, size_t /*tid*/)
-			    {
-				    bin_t binId = binIter->get(binIdx + offset);
-				    if constexpr (GatherRandoms)
-				    {
-					    projValuesBuffer[binIdx] =
-					        src->getRandomsEstimate(binId);
-				    }
-				    else
-				    {
-					    projValuesBuffer[binIdx] =
-					        src->getProjectionValue(binId);
-				    }
-			    });
+			util::parallelForChunked(batchSize, globals::getNumThreads(),
+			                         [offset, &binIter, projValuesBuffer, src,
+			                          batchSize](bin_t binIdx, size_t /*tid*/)
+			                         {
+				                         bin_t binId =
+				                             binIter->get(binIdx + offset);
+				                         if constexpr (GatherRandoms)
+				                         {
+					                         projValuesBuffer[binIdx] =
+					                             src->getRandomsEstimate(binId);
+				                         }
+				                         else
+				                         {
+					                         projValuesBuffer[binIdx] =
+					                             src->getProjectionValue(binId);
+				                         }
+			                         });
 		}
 		else
 		{
@@ -376,7 +375,7 @@ void ProjectionDataDevice::transferProjValuesToHost(
 	                         {
 		                         bin_t binId = binIter->get(binIdx + offset);
 		                         projDataDest->setProjectionValue(
-			                         binId, projValuesBuffer[binIdx]);
+		                             binId, projValuesBuffer[binIdx]);
 	                         });
 }
 

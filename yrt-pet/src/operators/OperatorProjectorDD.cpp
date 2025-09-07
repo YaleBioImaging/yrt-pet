@@ -69,8 +69,8 @@ OperatorProjectorDD::OperatorProjectorDD(
     const std::vector<Constraint*>& pr_constraints)
     : OperatorProjector{pr_projParams, pr_constraints}
 {
-	initBinIteratorConstrained(pr_projParams.projPropertyTypesExtra,
-	                           pr_projParams.numThreads);
+	initBinFilter(pr_projParams.projPropertyTypesExtra,
+	              pr_projParams.numThreads);
 }
 
 std::set<ProjectionPropertyType>
@@ -81,42 +81,42 @@ std::set<ProjectionPropertyType>
 
 float OperatorProjectorDD::forwardProjection(
     const Image* img, const ProjectionProperties& projectionProperties,
-    int tid) const
+    size_t pos) const
 {
-	auto projPropManager = m_binIterConstrained->getPropertyManager();
+	auto projPropManager = m_binFilter->getPropertyManager();
 	det_orient_t detOrient = projPropManager.getDataValue<det_orient_t>(
-	    projectionProperties, tid, ProjectionPropertyType::DET_ORIENT);
+	    projectionProperties, pos, ProjectionPropertyType::DET_ORIENT);
 	float tofValue = 0.f;
 	if (projPropManager.has(ProjectionPropertyType::TOF))
 	{
 		tofValue = projPropManager.getDataValue<float>(
-		    projectionProperties, tid, ProjectionPropertyType::TOF);
+		    projectionProperties, pos, ProjectionPropertyType::TOF);
 	}
 	return forwardProjection(
 	    img,
-	    projPropManager.getDataValue<Line3D>(projectionProperties, tid,
+	    projPropManager.getDataValue<Line3D>(projectionProperties, pos,
 	                                         ProjectionPropertyType::LOR),
-	    detOrient.d1, detOrient.d2, tid, mp_tofHelper.get(), tofValue,
+	    detOrient.d1, detOrient.d2, pos, mp_tofHelper.get(), tofValue,
 	    mp_projPsfManager.get());
 }
 
 void OperatorProjectorDD::backProjection(
     Image* img, const ProjectionProperties& projectionProperties,
-    float projValue, int tid) const
+    float projValue, size_t pos) const
 {
-	auto projPropManager = m_binIterConstrained->getPropertyManager();
+	auto projPropManager = m_binFilter->getPropertyManager();
 	det_orient_t detOrient = projPropManager.getDataValue<det_orient_t>(
-	    projectionProperties, tid, ProjectionPropertyType::DET_ORIENT);
+	    projectionProperties, pos, ProjectionPropertyType::DET_ORIENT);
 	float tofValue = 0.f;
 	if (projPropManager.has(ProjectionPropertyType::TOF))
 	{
 		tofValue = projPropManager.getDataValue<float>(
-		    projectionProperties, tid, ProjectionPropertyType::TOF);
+		    projectionProperties, pos, ProjectionPropertyType::TOF);
 	}
 	backProjection(img,
 	               projPropManager.getDataValue<Line3D>(
-	                   projectionProperties, tid, ProjectionPropertyType::LOR),
-	               detOrient.d1, detOrient.d2, projValue, tid,
+	                   projectionProperties, pos, ProjectionPropertyType::LOR),
+	               detOrient.d1, detOrient.d2, projValue, pos,
 	               mp_tofHelper.get(), tofValue, mp_projPsfManager.get());
 }
 

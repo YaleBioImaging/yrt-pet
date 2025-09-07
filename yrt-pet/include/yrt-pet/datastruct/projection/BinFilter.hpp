@@ -18,10 +18,10 @@
 namespace yrt
 {
 
-class BinIteratorConstrained
+class BinFilter
 {
 public:
-	BinIteratorConstrained(
+	BinFilter(
 	    const std::vector<Constraint*>& constraints,
 	    const std::set<ProjectionPropertyType>& projProperties);
 

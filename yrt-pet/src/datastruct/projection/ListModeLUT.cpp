@@ -108,16 +108,36 @@ void py_setup_listmodelut(py::module& m)
 	c_alias.def(py::init<const Scanner&, bool, bool>(), "scanner"_a,
 	            "flag_tof"_a = false, "flag_randoms"_a = false);
 
-	c_alias.def("bind",
-	            static_cast<void (ListModeLUTAlias::*)(
-	                pybind11::array_t<timestamp_t, pybind11::array::c_style>*,
-	                pybind11::array_t<det_id_t, pybind11::array::c_style>*,
-	                pybind11::array_t<det_id_t, pybind11::array::c_style>*,
-	                pybind11::array_t<float, pybind11::array::c_style>*,
-	                pybind11::array_t<float, pybind11::array::c_style>*)>(
-	                &ListModeLUTAlias::bind),
-	            "timestamps"_a, "detector_ids1"_a, "detector_ids2"_a,
-	            "tof_ps"_a = nullptr, "randoms"_a = nullptr);
+	c_alias.def(
+	    "bind",
+	    [](ListModeLUTAlias& self,
+	       pybind11::array_t<timestamp_t, pybind11::array::c_style>* ts,
+	       pybind11::array_t<det_id_t, pybind11::array::c_style>* d1s,
+	       pybind11::array_t<det_id_t, pybind11::array::c_style>* d2s)
+	    { self.bind(ts, d1s, d2s, nullptr, nullptr); },
+	    "timestamps"_a, "detector_ids1"_a, "detector_ids2"_a);
+
+	c_alias.def(
+	    "bind",
+	    [](ListModeLUTAlias& self,
+	       pybind11::array_t<timestamp_t, pybind11::array::c_style>* ts,
+	       pybind11::array_t<det_id_t, pybind11::array::c_style>* d1s,
+	       pybind11::array_t<det_id_t, pybind11::array::c_style>* d2s,
+	       pybind11::array_t<float, pybind11::array::c_style>* tofs)
+	    { self.bind(ts, d1s, d2s, tofs, nullptr); },
+	    "timestamps"_a, "detector_ids1"_a, "detector_ids2"_a, "tofs_ps"_a);
+
+	c_alias.def(
+	    "bindNoTOF",
+	    [](ListModeLUTAlias& self,
+	       pybind11::array_t<timestamp_t, pybind11::array::c_style>* ts,
+	       pybind11::array_t<det_id_t, pybind11::array::c_style>* d1s,
+	       pybind11::array_t<det_id_t, pybind11::array::c_style>* d2s,
+	       pybind11::array_t<float, pybind11::array::c_style>* randoms)
+	    { self.bind(ts, d1s, d2s, nullptr, randoms); },
+	    "timestamps"_a, "detector_ids1"_a, "detector_ids2"_a, "randoms"_a,
+	    "Same function for binding as the other, but for binding with randoms "
+	    "and without TOF");
 
 	auto c_owned =
 	    py::class_<ListModeLUTOwned, ListModeLUT>(m, "ListModeLUTOwned");
@@ -584,7 +604,7 @@ void ListModeLUTAlias::bind(
 	if (pp_randoms != nullptr)
 	{
 		ASSERT_MSG(hasRandomsEstimates(),
-		           "The ListMode was not created with flag_tof at true");
+		           "The ListMode was not created with flag_randoms at true");
 		pybind11::buffer_info buffer = pp_randoms->request();
 		ASSERT_MSG(buffer.ndim == 1,
 		           "The randoms estimates array has to be 1-dimensional");

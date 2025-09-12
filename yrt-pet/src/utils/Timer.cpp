@@ -60,8 +60,9 @@ double Timer::getElapsedMilliseconds() const
 double Timer::getElapsedSeconds() const
 {
 	return std::chrono::duration_cast<
-			   std::chrono::duration<double, std::chrono::seconds>>(getElapsedTime())
-		.count();
+	           std::chrono::duration<double, std::ratio<1, 1>>>(
+	           getElapsedTime())
+	    .count();
 }
 
 }  // namespace util

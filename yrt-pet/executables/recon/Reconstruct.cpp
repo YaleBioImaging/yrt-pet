@@ -24,12 +24,12 @@ void printTimingStatistics(const util::Timer& ioTimer,
                            const util::Timer& sensTimer,
                            const util::Timer& reconTimer)
 {
-	std::cout << "I/O time: " << ioTimer.getElapsedMilliseconds() << "ms"
+	std::cout << "I/O time: " << ioTimer.getElapsedSeconds() << "s"
 	          << std::endl;
 	std::cout << "Sensitivity generation time: "
-	          << sensTimer.getElapsedMilliseconds() << "ms" << std::endl;
-	std::cout << "Reconstruction time: " << reconTimer.getElapsedMilliseconds()
-	          << "ms" << std::endl;
+	          << sensTimer.getElapsedSeconds() << "s" << std::endl;
+	std::cout << "Reconstruction time: " << reconTimer.getElapsedSeconds()
+	          << "s" << std::endl;
 }
 
 void addImagePSFtoReconIfNeeded(OSEM& osem, std::string psf_fname,

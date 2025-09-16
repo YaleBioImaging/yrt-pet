@@ -781,12 +781,26 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 				throw std::logic_error("s_img->getRawPointer() gives nullptr");
 			}
 
+			const int numThreads = globals::getNumThreads();
+
 			for (int r = 0; r < rank; ++r)
 			{
+				std::vector<float> cr_threadLocal(numThreads, 0.f);
 				const auto* Wr = W_ptr + r * J;
-				const std::function<float(float, float)> func_sum = [](float a, float b) { return a + b; };
-				c_r[r] = util::simpleReduceArray(Wr, J, func_sum,
-				                                 0.f, globals::getNumThreads());
+
+				util::parallelForChunked(J, numThreads, [&](size_t j, size_t tid)
+				{
+					cr_threadLocal[tid] += Wr[j] * s_ptr[j];
+				});
+
+				float cr = 0.0f;
+
+				for (int t = 0 ; t < numThreads; ++t)
+				{
+					cr += cr_threadLocal[t];
+				}
+
+				c_r[r] = cr;
 			}
 
 			HBuffer->fill(0.f);
@@ -901,30 +915,20 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 				float*       H_old_ptr = projectorParams.HBasis.getRawPointer(); // current H
 				const float* Hnum_ptr  = HBuffer->getRawPointer();               // numerator accumulated this subset
 
-				for (int r = 0; r < rank; ++r) {
-					const float denom = std::max(c_r[r], EPS_FLT);
-					const float inv   = 1.0f / denom;
-					float*       Hr  = H_old_ptr + r * T;
-					const float* Nr  = Hnum_ptr  + r * T;
-					for (int t = 0; t < T; ++t) {
-						Hr[t] = Hr[t] * (Nr[t] * inv); // write the *new H* back over H_old
-					}
-				}
-
 				// H_new := H_old * (Hnum / c_r)
-				// util::parallelForChunked(
-				// 	T, globals::getNumThreads(),
-				// 	[rank, T, c_r, H_old_ptr, Hnum_ptr](int t, int /*tid*/)
-				// 	{
-				// 		for (int r = 0; r < rank; ++r)
-				// 		{
-				// 			const float denom = std::max(c_r[r], EPS_FLT);
-				// 			const float inv   = 1.0f / denom;
-				// 			float*       Hr  = H_old_ptr + r * T;
-				// 			const float* Nr  = Hnum_ptr  + r * T;
-				// 			Hr[t] = Hr[t] * (Nr[t] * inv); // write the *new H* back over H_old
-				// 		}
-				// 	});
+				util::parallelForChunked(
+					T, globals::getNumThreads(),
+					[rank, T, c_r, H_old_ptr, Hnum_ptr](int t, int /*tid*/)
+					{
+						for (int r = 0; r < rank; ++r)
+						{
+							const float denom = std::max(c_r[r], EPS_FLT);
+							const float inv   = 1.0f / denom;
+							float*       Hr  = H_old_ptr + r * T;
+							const float* Nr  = Hnum_ptr  + r * T;
+							Hr[t] = Hr[t] * (Nr[t] * inv); // write the *new H* back over H_old
+						}
+					});
 			}
 		}
 		if (saveIterRanges.isIn(iter + 1))

@@ -44,7 +44,7 @@ void py_setup_listmodelutdoi(py::module& m)
 	                pybind11::array_t<float, pybind11::array::c_style>*)>(
 	                &ListModeLUTDOIAlias::bind),
 	            "timestamps"_a, "detector_ids1"_a, "detector_ids2"_a, "doi1"_a,
-	            "doi2"_a, "tof_ps"_a, "randoms"_a);
+	            "doi2"_a, "tof_ps"_a = nullptr, "randoms"_a = nullptr);
 
 
 	auto c_owned = py::class_<ListModeLUTDOIOwned, ListModeLUTDOI>(

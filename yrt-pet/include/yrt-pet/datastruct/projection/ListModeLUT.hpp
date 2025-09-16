@@ -86,11 +86,10 @@ public:
 #if BUILD_PYBIND11
 	void bind(
 	    pybind11::array_t<timestamp_t, pybind11::array::c_style>* pp_timestamps,
-	    pybind11::array_t<det_id_t, pybind11::array::c_style>* pp_detector_ids1,
-	    pybind11::array_t<det_id_t, pybind11::array::c_style>* pp_detector_ids2,
-	    pybind11::array_t<float, pybind11::array::c_style>* pp_tof_ps = nullptr,
-	    pybind11::array_t<float, pybind11::array::c_style>* pp_randoms =
-	        nullptr);
+	    pybind11::array_t<det_id_t, pybind11::array::c_style>* pp_detectorIds1,
+	    pybind11::array_t<det_id_t, pybind11::array::c_style>* pp_detectorIds2,
+	    pybind11::array_t<float, pybind11::array::c_style>* pp_tof_ps,
+	    pybind11::array_t<float, pybind11::array::c_style>* pp_randoms);
 #endif
 };
 

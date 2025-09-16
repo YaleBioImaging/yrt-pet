@@ -734,21 +734,20 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 	auto* HBuffer = dynamic_cast<Array2D<float>*>(getHBasisTmpBuffer());
 	// std::unique_ptr<Array2D<float>> HBuffer = std::make_unique<Array2D<float>>();
 
-	if (auto* proj = dynamic_cast<OperatorProjector*>(mp_projector.get())) {
-		if (auto* lr = dynamic_cast<OperatorProjectorUpdaterLR*>(proj->getUpdater())) {
-			if (lr->getUpdateH() != projectorParams.updateH)
+	if (isLowRank) {
+		if (auto* proj = dynamic_cast<OperatorProjector*>(mp_projector.get())) {
+			if (auto* lr = dynamic_cast<OperatorProjectorUpdaterLR*>(proj->getUpdater())) {
+				if (lr->getUpdateH() != projectorParams.updateH)
+				{
+					throw std::logic_error("member updateH of OperatorProjectorUpdaterLR is "
+							   "different than input updateH in projectorParams");
+				}
+			}
+			else
 			{
-				throw std::logic_error("member updateH of OperatorProjectorUpdaterLR is "
-						   "different than input updateH in projectorParams");
+				throw std::runtime_error("proj->getUpdater could not be cast to OperatorProjectorUpdaterLR");
 			}
 		}
-		else
-		{
-			throw std::runtime_error("l.753 proj->getUpdater could not be cast to OperatorProjectorUpdaterLR");
-		}
-	}
-
-	if (isLowRank) {
 		// HBasis is rank x T
 		const auto dims = projectorParams.HBasis.getDims();   // std::array<size_t,2>
 		rank = static_cast<int>(dims[0]);

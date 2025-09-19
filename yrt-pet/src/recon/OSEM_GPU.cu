@@ -273,9 +273,11 @@ void OSEM_GPU::allocateForRecon()
 	auto [memAvailable, memoryUsagePerLOR] =
 	    calculateMemProj(DefaultMemoryShare);
 	const ProjectionData* dataInput = getDataInput();
+	int numFloatValues = 1 + mp_corrector->hasAdditiveCorrection(*dataInput) +
+		mp_corrector->hasInVivoAttenuation();
 	auto dat = std::make_unique<ProjectionDataDeviceOwned>(
-	    scanner, dataInput, binIteratorPtrList, memoryUsagePerLOR,
-	    memAvailable);
+	    scanner, dataInput, binIteratorPtrList,
+	    memoryUsagePerLOR + numFloatValues * sizeof(float), memAvailable);
 	auto datTmp = std::make_unique<ProjectionDataDeviceOwned>(dat.get());
 
 	mpd_dat = std::move(dat);

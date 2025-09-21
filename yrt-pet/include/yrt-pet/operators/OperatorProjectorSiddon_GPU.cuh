@@ -25,6 +25,9 @@ public:
 	std::set<ProjectionPropertyType>
 	    getProjectionPropertyTypes() const override;
 
+	int getNumRays() const;
+	void setNumRays(int n);
+
 protected:
 	void applyAOnLoadedBatch(ImageDevice& img, ProjectionDataDevice& dat,
 	                         bool synchronize) override;

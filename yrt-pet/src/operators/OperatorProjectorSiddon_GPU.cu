@@ -26,6 +26,8 @@ void py_setup_operatorprojectorsiddon_gpu(py::module& m)
 	c.def(py::init<const OperatorProjectorParams&, std::vector<Constraint*>>(),
 	      "projParams"_a, "constraints"_a);
 	c.def(py::init<const OperatorProjectorParams&>(), "projParams"_a);
+	c.def_property("num_rays", &OperatorProjectorSiddon_GPU::getNumRays,
+	               &OperatorProjectorSiddon_GPU::setNumRays);
 }
 }  // namespace yrt
 
@@ -52,6 +54,16 @@ std::set<ProjectionPropertyType>
 		props.insert(ProjectionPropertyType::DET_ORIENT);
 	}
 	return props;
+}
+
+int OperatorProjectorSiddon_GPU::getNumRays() const
+{
+	return m_numRays;
+}
+
+void OperatorProjectorSiddon_GPU::setNumRays(int n)
+{
+	m_numRays = n;
 }
 
 void OperatorProjectorSiddon_GPU::applyAOnLoadedBatch(ImageDevice& img,

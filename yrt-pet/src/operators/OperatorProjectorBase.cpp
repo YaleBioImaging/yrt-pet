@@ -37,6 +37,9 @@ void py_setup_operatorprojectorbase(py::module& m)
 	    py::class_<OperatorProjectorBase, Operator>(m, "OperatorProjectorBase");
 	c.def("getBinIter", &OperatorProjectorBase::getBinIter);
 	c.def("getScanner", &OperatorProjectorBase::getScanner);
+
+	c.def("getBinFilter", &OperatorProjectorBase::getBinFilter);
+	c.def("getElementSize", &OperatorProjectorBase::getElementSize);
 }
 }  // namespace yrt
 
@@ -101,6 +104,11 @@ ProjectionProperties OperatorProjectorBase::getProjectionProperties() const
 ConstraintParams OperatorProjectorBase::getConstraintParams() const
 {
 	return m_constraintParams.get();
+}
+
+unsigned int OperatorProjectorBase::getElementSize() const
+{
+	return getBinFilter()->getPropertyManager().getElementSize();
 }
 
 void OperatorProjectorBase::setBinIter(const BinIterator* p_binIter)

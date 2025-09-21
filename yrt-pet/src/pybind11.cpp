@@ -53,6 +53,7 @@ void py_setup_operatorpsf(py::module& m);
 void py_setup_operatorvarpsf(py::module& m);
 void py_setup_operatorprojectorparams(py::module& m);
 void py_setup_projectionpropertytype(py::module& m);
+void py_setup_binfilter(py::module& m);
 void py_setup_constraints(py::module& m);
 void py_setup_operatorprojectorbase(py::module& m);
 void py_setup_operatorprojector(py::module& m);
@@ -67,6 +68,7 @@ void py_setup_singlescattersimulator(py::module& m);
 void py_setup_scatterestimator(py::module& m);
 
 #ifdef BUILD_CUDA
+void py_setup_gpuutils(py::module&);
 void py_setup_imagedevice(py::module&);
 void py_setup_projectiondatadevice(py::module& m);
 void py_setup_operatorpsfdevice(py::module& m);
@@ -119,6 +121,7 @@ PYBIND11_MODULE(pyyrtpet, m)
 	py_setup_operatorprojector(m);
 	py_setup_operatorprojectorparams(m);
 	py_setup_projectionpropertytype(m);
+	py_setup_binfilter(m);
 	py_setup_constraints(m);
 	py_setup_operatorprojectorsiddon(m);
 	py_setup_operatorprojectordd(m);
@@ -133,6 +136,7 @@ PYBIND11_MODULE(pyyrtpet, m)
 	py_setup_scatterestimator(m);
 
 #ifdef BUILD_CUDA
+	py_setup_gpuutils(m);
 	py_setup_imagedevice(m);
 	py_setup_projectiondatadevice(m);
 	py_setup_operatorpsfdevice(m);

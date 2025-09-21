@@ -5,6 +5,21 @@
 
 #include "yrt-pet/utils/GPUUtils.cuh"
 
+#if BUILD_PYBIND11
+#include <pybind11/pybind11.h>
+
+namespace py = pybind11;
+using namespace pybind11::literals;
+
+namespace yrt
+{
+void py_setup_gpuutils(py::module& m)
+{
+	m.def("getAvailableVRAM", &globals::getDeviceInfo, "verbose"_a = false);
+}
+}  // namespace yrt
+#endif
+
 namespace yrt
 {
 

@@ -15,6 +15,34 @@
 #include "yrt-pet/utils/Tools.hpp"
 #include "yrt-pet/utils/Types.hpp"
 
+#if BUILD_PYBIND11
+
+#include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
+
+namespace py = pybind11;
+using namespace py::literals;
+
+namespace yrt
+{
+void py_setup_binfilter(py::module& m)
+{
+	auto c = py::class_<BinFilter>(m, "BinFilter");
+	c.def(py::init<const std::vector<Constraint*>&,
+	               const std::set<ProjectionPropertyType>&>(),
+	      "contraints"_a, "projProperties"_a);
+	c.def("clearConstraints", &BinFilter::clearConstraints);
+	c.def("setupManagers", &BinFilter::setupManagers);
+	c.def("collectConstraintVariables", &BinFilter::collectConstraintVariables);
+
+	c.def("getConstraintManager", &BinFilter::getConstraintManager);
+	c.def("getPropertyManager", &BinFilter::getPropertyManager);
+	c.def("getProjPropertyTypes", &BinFilter::getProjPropertyTypes);
+}
+}  // namespace yrt
+
+#endif
+
 namespace yrt
 {
 

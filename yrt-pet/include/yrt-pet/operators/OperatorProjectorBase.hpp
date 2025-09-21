@@ -60,6 +60,8 @@ public:
 	ProjectionProperties getProjectionProperties() const;
 	ConstraintParams getConstraintParams() const;
 
+	unsigned int getElementSize() const;
+
 	void setBinIter(const BinIterator* p_binIter);
 
 	virtual std::set<ProjectionPropertyType> getProjectionPropertyTypes() const;

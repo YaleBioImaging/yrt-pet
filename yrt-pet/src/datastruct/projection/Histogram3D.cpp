@@ -226,7 +226,11 @@ void Histogram3DOwned::readFromFile(const std::string& filename)
 	{
 		mp_data->readFromFile(filename, dims);
 	}
-	catch (const std::exception& e)
+	catch (const std::filesystem::filesystem_error& e)
+	{
+		throw std::runtime_error("The file given is inexistant");
+	}
+	catch (const std::runtime_error& e)
 	{
 		throw std::runtime_error(
 		    "Error during Histogram initialization either the scanner\'s "

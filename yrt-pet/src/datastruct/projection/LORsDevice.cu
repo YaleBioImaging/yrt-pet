@@ -58,7 +58,7 @@ void LORsDevice::precomputeBatchLORs(const BinIterator& binIter,
 		auto info = consManager.createDataArray(numThreads);
 		auto infoPtr = info.get();
 
-		const size_t offset = batchId * batchSetup.getBatchSize(0);
+		const size_t offset = static_cast<size_t>(batchId) * batchSetup.getBatchSize(0);
 		auto* binIter_ptr = &binIter;
 		const ProjectionData* reference_ptr = &reference;
 

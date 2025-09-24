@@ -136,9 +136,12 @@ void OSEM_GPU::allocateForSensImgGen()
 	// Allocate for projection space
 	auto [memAvailable, memoryUsagePerLOR] =
 	    calculateMemProj(DefaultMemoryShare);
+	int numFloatValues =
+	    static_cast<int>(mp_corrector->isTemporaryDeviceBufferNeededForSens());
 	mpd_tempSensDataInput = std::make_unique<ProjectionDataDeviceOwned>(
-	    scanner, mp_corrector->getSensImgGenProjData(), memoryUsagePerLOR,
-	    memAvailable, num_OSEM_subsets);
+	    scanner, mp_corrector->getSensImgGenProjData(),
+	    memoryUsagePerLOR + numFloatValues * sizeof(float), memAvailable,
+	    num_OSEM_subsets);
 
 	// Make sure the corrector buffer is properly defined
 	mp_corrector->initializeTemporaryDeviceBuffer(mpd_tempSensDataInput.get());
@@ -273,8 +276,12 @@ void OSEM_GPU::allocateForRecon()
 	auto [memAvailable, memoryUsagePerLOR] =
 	    calculateMemProj(DefaultMemoryShare);
 	const ProjectionData* dataInput = getDataInput();
-	int numFloatValues = 1 + mp_corrector->hasAdditiveCorrection(*dataInput) +
-		mp_corrector->hasInVivoAttenuation();
+	// Add one float for mpd_datTmp (float for mpd_dat is accounted for in
+	// createBatchSetups)
+	int numFloatValues =
+	    1 +
+	    static_cast<int>(
+	        mp_corrector->isTemporaryDeviceBufferNeededForRecon(*dataInput));
 	auto dat = std::make_unique<ProjectionDataDeviceOwned>(
 	    scanner, dataInput, binIteratorPtrList,
 	    memoryUsagePerLOR + numFloatValues * sizeof(float), memAvailable);

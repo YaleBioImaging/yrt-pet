@@ -282,7 +282,6 @@ void OperatorProjectorDevice::applyAH(const Variable* in, Variable* out,
 		const cudaStream_t* mainStream = getMainStream();
 
 		std::cout << "Loading batch 1/" << numBatches << "..." << std::endl;
-		// FIXME-NOW
 		dat_in->precomputeBatchLORs(0, 0, *m_binFilter.get());
 		deviceDat_in->allocateForProjValues({mainStream, false});
 

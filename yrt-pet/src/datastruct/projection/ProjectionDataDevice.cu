@@ -38,20 +38,26 @@ void py_setup_projectiondatadevice(py::module& m)
 	    "Load the LORs of a specific batch in a specific subset", "subsetId"_a,
 	    "batchId"_a, "binFilter"_a);
 
-	c.def("loadProjValuesFromReference", [](ProjectionDataDeviceOwned& self)
-	      { self.loadProjValuesFromReference({nullptr, true}); });
+	c.def("loadProjValuesFromReference",
+	      [](ProjectionDataDeviceOwned& self) {
+		      self.loadProjValuesFromReference({nullptr, true});
+	      });
 	c.def("loadProjValuesFromHost",
-	      [](ProjectionDataDevice& self, const ProjectionData* src)
-	      { self.loadProjValuesFromHost(src, {nullptr, true}); });
+	      [](ProjectionDataDevice& self, const ProjectionData* src) {
+		      self.loadProjValuesFromHost(src, {nullptr, true});
+	      });
 	c.def("loadProjValuesFromHostRandoms",
-	      [](ProjectionDataDevice& self, const ProjectionData* src)
-	      { self.loadProjValuesFromHostRandoms(src, {nullptr, true}); });
+	      [](ProjectionDataDevice& self, const ProjectionData* src) {
+		      self.loadProjValuesFromHostRandoms(src, {nullptr, true});
+	      });
 	c.def("loadProjValuesFromHostHistogram",
-	      [](ProjectionDataDevice& self, const Histogram* histo)
-	      { self.loadProjValuesFromHostHistogram(histo, {nullptr, true}); });
+	      [](ProjectionDataDevice& self, const Histogram* histo) {
+		      self.loadProjValuesFromHostHistogram(histo, {nullptr, true});
+	      });
 	c.def("loadProjValuesFromHost",
-	      [](ProjectionDataDevice& self, const Histogram* histo)
-	      { self.loadProjValuesFromHostHistogram(histo, {nullptr, true}); });
+	      [](ProjectionDataDevice& self, const Histogram* histo) {
+		      self.loadProjValuesFromHostHistogram(histo, {nullptr, true});
+	      });
 
 	c.def("transferProjValuesToHost",
 	      [](const ProjectionDataDevice& self, ProjectionData* dest)
@@ -75,8 +81,10 @@ void py_setup_projectiondatadevice(py::module& m)
 	            "Create a ProjectionDataDevice from an existing one. They will "
 	            "share the LORs",
 	            "orig"_a);
-	c_owned.def("allocateForProjValues", [](ProjectionDataDeviceOwned& self)
-	            { self.allocateForProjValues({nullptr, true}); });
+	c_owned.def("allocateForProjValues",
+	            [](ProjectionDataDeviceOwned& self) {
+		            self.allocateForProjValues({nullptr, true});
+	            });
 
 	auto c_alias = py::class_<ProjectionDataDeviceAlias, ProjectionDataDevice>(
 	    m, "ProjectionDataDeviceAlias");
@@ -449,7 +457,7 @@ void ProjectionDataDevice::clearProjectionsDevice(float value,
 	{
 		clearProjections_kernel<<<launchParams.gridSize, launchParams.blockSize,
 		                          0, *launchConfig.stream>>>(
-		    getProjValuesDevicePointer(), value, static_cast<int>(batchSize));
+		    getProjValuesDevicePointer(), value, batchSize);
 		if (launchConfig.synchronize)
 		{
 			cudaStreamSynchronize(*launchConfig.stream);
@@ -459,7 +467,7 @@ void ProjectionDataDevice::clearProjectionsDevice(float value,
 	{
 		clearProjections_kernel<<<launchParams.gridSize,
 		                          launchParams.blockSize>>>(
-		    getProjValuesDevicePointer(), value, static_cast<int>(batchSize));
+		    getProjValuesDevicePointer(), value, batchSize);
 		if (launchConfig.synchronize)
 		{
 			cudaDeviceSynchronize();
@@ -518,7 +526,7 @@ void ProjectionDataDevice::divideMeasurementsDevice(
 		                            launchParams.blockSize, 0,
 		                            *launchConfig.stream>>>(
 		    measurements_device->getProjValuesDevicePointer(),
-		    getProjValuesDevicePointer(), static_cast<int>(batchSize));
+		    getProjValuesDevicePointer(), batchSize);
 		if (launchConfig.synchronize)
 		{
 			cudaStreamSynchronize(*launchConfig.stream);
@@ -529,7 +537,7 @@ void ProjectionDataDevice::divideMeasurementsDevice(
 		divideMeasurements_kernel<<<launchParams.gridSize,
 		                            launchParams.blockSize>>>(
 		    measurements_device->getProjValuesDevicePointer(),
-		    getProjValuesDevicePointer(), static_cast<int>(batchSize));
+		    getProjValuesDevicePointer(), batchSize);
 		if (launchConfig.synchronize)
 		{
 			cudaDeviceSynchronize();
@@ -550,7 +558,7 @@ void ProjectionDataDevice::invertProjValuesDevice(GPULaunchConfig launchConfig)
 		invertProjValues_kernel<<<launchParams.gridSize, launchParams.blockSize,
 		                          0, *launchConfig.stream>>>(
 		    getProjValuesDevicePointer(), getProjValuesDevicePointer(),
-		    static_cast<int>(batchSize));
+		    batchSize);
 		if (launchConfig.synchronize)
 		{
 			cudaStreamSynchronize(*launchConfig.stream);
@@ -561,7 +569,7 @@ void ProjectionDataDevice::invertProjValuesDevice(GPULaunchConfig launchConfig)
 		invertProjValues_kernel<<<launchParams.gridSize,
 		                          launchParams.blockSize>>>(
 		    getProjValuesDevicePointer(), getProjValuesDevicePointer(),
-		    static_cast<int>(batchSize));
+		    batchSize);
 		if (launchConfig.synchronize)
 		{
 			cudaDeviceSynchronize();
@@ -584,7 +592,7 @@ void ProjectionDataDevice::addProjValues(const ProjectionDataDevice* projValues,
 		addProjValues_kernel<<<launchParams.gridSize, launchParams.blockSize, 0,
 		                       *launchConfig.stream>>>(
 		    projValues->getProjValuesDevicePointer(),
-		    getProjValuesDevicePointer(), static_cast<int>(batchSize));
+		    getProjValuesDevicePointer(), batchSize);
 		if (launchConfig.synchronize)
 		{
 			cudaStreamSynchronize(*launchConfig.stream);
@@ -594,7 +602,7 @@ void ProjectionDataDevice::addProjValues(const ProjectionDataDevice* projValues,
 	{
 		addProjValues_kernel<<<launchParams.gridSize, launchParams.blockSize>>>(
 		    projValues->getProjValuesDevicePointer(),
-		    getProjValuesDevicePointer(), static_cast<int>(batchSize));
+		    getProjValuesDevicePointer(), batchSize);
 		if (launchConfig.synchronize)
 		{
 			cudaDeviceSynchronize();
@@ -615,7 +623,7 @@ void ProjectionDataDevice::convertToACFsDevice(GPULaunchConfig launchConfig)
 		convertToACFs_kernel<<<launchParams.gridSize, launchParams.blockSize, 0,
 		                       *launchConfig.stream>>>(
 		    getProjValuesDevicePointer(), getProjValuesDevicePointer(), 0.1f,
-		    static_cast<int>(batchSize));
+		    batchSize);
 		if (launchConfig.synchronize)
 		{
 			cudaStreamSynchronize(*launchConfig.stream);
@@ -625,7 +633,7 @@ void ProjectionDataDevice::convertToACFsDevice(GPULaunchConfig launchConfig)
 	{
 		convertToACFs_kernel<<<launchParams.gridSize, launchParams.blockSize>>>(
 		    getProjValuesDevicePointer(), getProjValuesDevicePointer(), 0.1f,
-		    static_cast<int>(batchSize));
+		    batchSize);
 		if (launchConfig.synchronize)
 		{
 			cudaDeviceSynchronize();
@@ -648,7 +656,7 @@ void ProjectionDataDevice::multiplyProjValues(
 		                            launchParams.blockSize, 0,
 		                            *launchConfig.stream>>>(
 		    projValues->getProjValuesDevicePointer(),
-		    getProjValuesDevicePointer(), static_cast<int>(batchSize));
+		    getProjValuesDevicePointer(), batchSize);
 		if (launchConfig.synchronize)
 		{
 			cudaStreamSynchronize(*launchConfig.stream);
@@ -659,7 +667,7 @@ void ProjectionDataDevice::multiplyProjValues(
 		multiplyProjValues_kernel<<<launchParams.gridSize,
 		                            launchParams.blockSize>>>(
 		    projValues->getProjValuesDevicePointer(),
-		    getProjValuesDevicePointer(), static_cast<int>(batchSize));
+		    getProjValuesDevicePointer(), batchSize);
 		if (launchConfig.synchronize)
 		{
 			cudaDeviceSynchronize();
@@ -681,7 +689,7 @@ void ProjectionDataDevice::multiplyProjValues(float scalar,
 		multiplyProjValues_kernel<<<launchParams.gridSize,
 		                            launchParams.blockSize, 0,
 		                            *launchConfig.stream>>>(
-		    scalar, getProjValuesDevicePointer(), static_cast<int>(batchSize));
+		    scalar, getProjValuesDevicePointer(), batchSize);
 		if (launchConfig.synchronize)
 		{
 			cudaStreamSynchronize(*launchConfig.stream);
@@ -691,7 +699,7 @@ void ProjectionDataDevice::multiplyProjValues(float scalar,
 	{
 		multiplyProjValues_kernel<<<launchParams.gridSize,
 		                            launchParams.blockSize>>>(
-		    scalar, getProjValuesDevicePointer(), static_cast<int>(batchSize));
+		    scalar, getProjValuesDevicePointer(), batchSize);
 		if (launchConfig.synchronize)
 		{
 			cudaDeviceSynchronize();

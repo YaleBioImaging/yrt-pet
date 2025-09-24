@@ -12,7 +12,7 @@ namespace yrt
 {
 __global__ void divideMeasurements_kernel(const float* d_dataIn,
                                           float* d_dataOut,
-                                          const int maxNumberOfEvents)
+                                          const size_t maxNumberOfEvents)
 {
 	const long eventId = blockIdx.x * blockDim.x + threadIdx.x;
 	if (eventId < maxNumberOfEvents)
@@ -25,7 +25,7 @@ __global__ void divideMeasurements_kernel(const float* d_dataIn,
 }
 
 __global__ void addProjValues_kernel(const float* d_dataIn, float* d_dataOut,
-                                     const int maxNumberOfEvents)
+                                     const size_t maxNumberOfEvents)
 {
 	const long eventId = blockIdx.x * blockDim.x + threadIdx.x;
 	if (eventId < maxNumberOfEvents)
@@ -35,7 +35,7 @@ __global__ void addProjValues_kernel(const float* d_dataIn, float* d_dataOut,
 }
 
 __global__ void invertProjValues_kernel(const float* d_dataIn, float* d_dataOut,
-                                        const int maxNumberOfEvents)
+                                        const size_t maxNumberOfEvents)
 {
 	const long eventId = blockIdx.x * blockDim.x + threadIdx.x;
 	if (eventId < maxNumberOfEvents)
@@ -53,7 +53,7 @@ __global__ void invertProjValues_kernel(const float* d_dataIn, float* d_dataOut,
 
 __global__ void convertToACFs_kernel(const float* d_dataIn, float* d_dataOut,
                                      const float unitFactor,
-                                     const int maxNumberOfEvents)
+                                     const size_t maxNumberOfEvents)
 {
 	const long eventId = blockIdx.x * blockDim.x + threadIdx.x;
 	if (eventId < maxNumberOfEvents)
@@ -64,7 +64,7 @@ __global__ void convertToACFs_kernel(const float* d_dataIn, float* d_dataOut,
 
 __global__ void multiplyProjValues_kernel(const float* d_dataIn,
                                           float* d_dataOut,
-                                          const int maxNumberOfEvents)
+                                          const size_t maxNumberOfEvents)
 {
 	const long eventId = blockIdx.x * blockDim.x + threadIdx.x;
 	if (eventId < maxNumberOfEvents)
@@ -74,7 +74,7 @@ __global__ void multiplyProjValues_kernel(const float* d_dataIn,
 }
 
 __global__ void multiplyProjValues_kernel(float scalar, float* d_dataOut,
-                                          const int maxNumberOfEvents)
+                                          const size_t maxNumberOfEvents)
 {
 	const long eventId = blockIdx.x * blockDim.x + threadIdx.x;
 	if (eventId < maxNumberOfEvents)
@@ -84,7 +84,7 @@ __global__ void multiplyProjValues_kernel(float scalar, float* d_dataOut,
 }
 
 __global__ void clearProjections_kernel(float* d_dataIn, float value,
-                                        const int maxNumberOfEvents)
+                                        const size_t maxNumberOfEvents)
 {
 	const long eventId = blockIdx.x * blockDim.x + threadIdx.x;
 	if (eventId < maxNumberOfEvents)

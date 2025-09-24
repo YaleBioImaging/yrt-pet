@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <bitset>
 #include <functional>
 #include <set>
 #include <unordered_map>
@@ -21,17 +22,32 @@ namespace yrt
 class BinFilter
 {
 public:
-	BinFilter(
-	    const std::vector<Constraint*>& constraints,
-	    const std::set<ProjectionPropertyType>& projProperties);
+	enum class CollectInfoFlag
+	{
+		PlaneIdx = 0,
+		PlaneBlock,
+		DetPair,
+		DetID,
+		LOR,
+		AbsDeltaAngleDeg,
+		AbsDeltaAngleIdx,
+		AbsDeltaBlockIdx,
+		COUNT
+	};
+	using CollectInfoFlags =
+	    std::bitset<static_cast<size_t>(BinFilter::CollectInfoFlag::COUNT)>;
+	BinFilter(const std::vector<Constraint*>& constraints,
+	          const std::set<ProjectionPropertyType>& projProperties);
 
 	void clearConstraints();
 
 	void setupManagers();
 
 	void collectConstraintVariables();
+	void collectFlags(CollectInfoFlags& collectFlags) const;
 	void collectInfo(bin_t bin, size_t projIdx, int consIdx,
 	                 const ProjectionData& projData,
+	                 const CollectInfoFlags& collectFlags,
 	                 ProjectionProperties& projProps,
 	                 ConstraintParams& consInfo) const;
 	bool isValid(const ConstraintManager& manager,

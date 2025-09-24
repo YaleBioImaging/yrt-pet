@@ -46,6 +46,8 @@ void OSEMUpdater_CPU::computeSensitivityImage(Image& destImage) const
 	auto& consManager = binFilter->getConstraintManager();
 	auto constraintParams = projector->getConstraintParams();
 	auto projectionProperties = projector->getProjectionProperties();
+	BinFilter::CollectInfoFlags collectInfoFlags(false);
+	binFilter->collectFlags(collectInfoFlags);
 
 	util::ProgressDisplayMultiThread progressDisplay(globals::getNumThreads(),
 	                                                 numBinsMax);
@@ -53,13 +55,14 @@ void OSEMUpdater_CPU::computeSensitivityImage(Image& destImage) const
 	util::parallelForChunked(
 	    numBinsMax, numThreads,
 	    [blockSize, numBinsMax, sensImgGenProjData, consManager,
-	     projPropManager, correctorPtr, projector, destImagePtr,
-	     &progressDisplay, &binIter, &binFilter, &constraintParams,
-	     &projectionProperties](size_t binIdx, int tid)
+	     projPropManager, collectInfoFlags, correctorPtr, projector,
+	     destImagePtr, &progressDisplay, &binIter, &binFilter,
+	     &constraintParams, &projectionProperties](size_t binIdx, int tid)
 	    {
 		    bin_t bin = binIter->get(binIdx);
 		    binFilter->collectInfo(bin, tid, tid, *sensImgGenProjData,
-		                           projectionProperties, constraintParams);
+		                           collectInfoFlags, projectionProperties,
+		                           constraintParams);
 		    if (binFilter->isValid(consManager, constraintParams))
 		    {
 			    progressDisplay.progress(tid, 1);
@@ -118,17 +121,20 @@ void OSEMUpdater_CPU::computeEMUpdateImage(const Image& inputImage,
 	auto& consManager = binFilter->getConstraintManager();
 	auto constraintParams = projector->getConstraintParams();
 	auto projectionProperties = projector->getProjectionProperties();
+	BinFilter::CollectInfoFlags collectInfoFlags(false);
+	binFilter->collectFlags(collectInfoFlags);
 
 	util::parallelForChunked(
 	    numBins, numThreads,
 	    [hasAdditiveCorrection, hasInVivoAttenuation, measurements,
-	     inputImagePtr, consManager, projPropManager, correctorPtr, projector,
-	     destImagePtr, &binIter, &binFilter, &constraintParams,
-	     &projectionProperties](int binIdx, int tid)
+	     inputImagePtr, consManager, projPropManager, collectInfoFlags,
+	     correctorPtr, projector, destImagePtr, &binIter, &binFilter,
+	     &constraintParams, &projectionProperties](int binIdx, int tid)
 	    {
 		    bin_t bin = binIter->get(binIdx);
 		    binFilter->collectInfo(bin, tid, tid, *measurements,
-		                           projectionProperties, constraintParams);
+		                           collectInfoFlags, projectionProperties,
+		                           constraintParams);
 		    if (binFilter->isValid(consManager, constraintParams))
 		    {
 			    measurements->getProjectionProperties(

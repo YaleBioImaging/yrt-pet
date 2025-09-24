@@ -88,15 +88,17 @@ void OperatorProjector::applyA(const Variable* in, Variable* out)
 	auto& consManager = m_binFilter->getConstraintManager();
 	auto constraintParams = m_constraintParams.get();
 	auto projectionProperties = m_projectionProperties.get();
+	BinFilter::CollectInfoFlags collectInfoFlags(false);
+	m_binFilter->collectFlags(collectInfoFlags);
 
 	util::parallelForChunked(
 	    numBinsMax, m_numThreads,
-	    [img, dat, consManager, projPropManager, &constraintParams,
-	     &projectionProperties, this](bin_t binIdx, int tid)
+	    [img, dat, consManager, projPropManager, collectInfoFlags,
+	     &constraintParams, &projectionProperties, this](bin_t binIdx, int tid)
 	    {
 		    const bin_t bin = binIter->get(binIdx);
-		    m_binFilter->collectInfo(bin, tid, tid, *dat, projectionProperties,
-		                             constraintParams);
+		    m_binFilter->collectInfo(bin, tid, tid, *dat, collectInfoFlags,
+		                             projectionProperties, constraintParams);
 		    if (m_binFilter->isValid(consManager, constraintParams))
 		    {
 			    dat->getProjectionProperties(projectionProperties,
@@ -124,15 +126,17 @@ void OperatorProjector::applyAH(const Variable* in, Variable* out)
 	auto& consManager = m_binFilter->getConstraintManager();
 	auto constraintParams = m_constraintParams.get();
 	auto projectionProperties = m_projectionProperties.get();
+	BinFilter::CollectInfoFlags collectInfoFlags(false);
+	m_binFilter->collectFlags(collectInfoFlags);
 
 	util::parallelForChunked(
 	    numBinsMax, m_numThreads,
-	    [img, dat, consManager, projPropManager, &constraintParams,
-	     &projectionProperties, this](bin_t binIdx, int tid)
+	    [img, dat, consManager, projPropManager, collectInfoFlags,
+	     &constraintParams, &projectionProperties, this](bin_t binIdx, int tid)
 	    {
 		    const bin_t bin = binIter->get(binIdx);
-		    m_binFilter->collectInfo(bin, tid, tid, *dat, projectionProperties,
-		                             constraintParams);
+		    m_binFilter->collectInfo(bin, tid, tid, *dat, collectInfoFlags,
+		                             projectionProperties, constraintParams);
 		    if (m_binFilter->isValid(consManager, constraintParams))
 		    {
 			    dat->getProjectionProperties(projectionProperties,

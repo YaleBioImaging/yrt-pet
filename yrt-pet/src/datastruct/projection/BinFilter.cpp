@@ -19,9 +19,8 @@ namespace yrt
 {
 
 // Bin filter/extractor
-BinFilter::BinFilter(
-    const std::vector<Constraint*>& constraints,
-    const std::set<ProjectionPropertyType>& projVariables)
+BinFilter::BinFilter(const std::vector<Constraint*>& constraints,
+                     const std::set<ProjectionPropertyType>& projVariables)
     : m_constraints(constraints), m_projVariables(projVariables)
 {
 	setupManagers();
@@ -35,8 +34,7 @@ void BinFilter::clearConstraints()
 	m_constraintManager = nullptr;
 }
 
-const std::set<ProjectionPropertyType>&
-    BinFilter::getProjPropertyTypes() const
+const std::set<ProjectionPropertyType>& BinFilter::getProjPropertyTypes() const
 {
 	return m_projVariables;
 }
@@ -70,49 +68,65 @@ const ConstraintManager& BinFilter::getConstraintManager() const
 	return *m_constraintManager.get();
 }
 
-const ProjectionPropertyManager&
-    BinFilter::getPropertyManager() const
+const ProjectionPropertyManager& BinFilter::getPropertyManager() const
 {
 	return *m_propManager.get();
 }
 
-void BinFilter::collectInfo(bin_t bin, size_t projIdx, int consIdx,
-                                         const ProjectionData& projData,
-                                         ProjectionProperties& projProps,
-                                         ConstraintParams& consInfo) const
+void BinFilter::collectFlags(CollectInfoFlags& collectFlags) const
 {
-	det_pair_t detPair;
-
-	bool needsPlaneIdx =
+	collectFlags[static_cast<size_t>(CollectInfoFlag::PlaneIdx)] =
 	    m_consVariables.find(ConstraintVariable::ABS_DELTA_ANGLE_IDX) !=
 	        m_consVariables.end() ||
 	    m_consVariables.find(ConstraintVariable::ABS_DELTA_BLOCK_IDX) !=
 	        m_consVariables.end();
-	bool needsPlaneBlock =
+	collectFlags[static_cast<size_t>(CollectInfoFlag::PlaneBlock)] =
 	    m_consVariables.find(ConstraintVariable::ABS_DELTA_BLOCK_IDX) !=
 	    m_consVariables.end();
-	bool needsDetPair = m_projVariables.find(ProjectionPropertyType::DET_ID) !=
-	                        m_projVariables.end() ||
-	                    needsPlaneIdx || needsPlaneBlock;
+	collectFlags[static_cast<size_t>(CollectInfoFlag::DetPair)] =
+	    m_projVariables.find(ProjectionPropertyType::DET_ID) !=
+	        m_projVariables.end() ||
+	    collectFlags[static_cast<size_t>(CollectInfoFlag::PlaneIdx)] ||
+	    collectFlags[static_cast<size_t>(CollectInfoFlag::PlaneBlock)];
+	collectFlags[static_cast<size_t>(CollectInfoFlag::DetID)] =
+	    m_projVariables.find(ProjectionPropertyType::DET_ID) !=
+	    m_projVariables.end();
+	collectFlags[static_cast<size_t>(CollectInfoFlag::LOR)] =
+	    m_projVariables.find(ProjectionPropertyType::LOR) !=
+	        m_projVariables.end() ||
+	    m_consVariables.find(ConstraintVariable::ABS_DELTA_ANGLE_DEG) !=
+	        m_consVariables.end();
+	collectFlags[static_cast<size_t>(CollectInfoFlag::AbsDeltaAngleDeg)] =
+	    m_consVariables.find(ConstraintVariable::ABS_DELTA_ANGLE_DEG) !=
+	    m_consVariables.end();
+	collectFlags[static_cast<size_t>(CollectInfoFlag::AbsDeltaAngleIdx)] =
+	    m_consVariables.find(ConstraintVariable::ABS_DELTA_ANGLE_IDX) !=
+	    m_consVariables.end();
+	collectFlags[static_cast<size_t>(CollectInfoFlag::AbsDeltaBlockIdx)] =
+	    m_consVariables.find(ConstraintVariable::ABS_DELTA_BLOCK_IDX) !=
+	    m_consVariables.end();
+}
 
-	if (needsDetPair)
+void BinFilter::collectInfo(bin_t bin, size_t projIdx, int consIdx,
+                            const ProjectionData& projData,
+                            const CollectInfoFlags& collectFlags,
+                            ProjectionProperties& projProps,
+                            ConstraintParams& consInfo) const
+{
+	det_pair_t detPair;
+
+	if (collectFlags[static_cast<size_t>(CollectInfoFlag::DetPair)])
 	{
 		detPair = projData.getDetectorPair(bin);
 	}
-	if (m_projVariables.find(ProjectionPropertyType::DET_ID) !=
-	    m_projVariables.end())
+	if (collectFlags[static_cast<size_t>(CollectInfoFlag::DetID)])
 	{
 		m_propManager->setDataValue(projProps, projIdx,
 		                            ProjectionPropertyType::DET_ID, detPair);
 	}
 
-	bool needsLOR =
-	    m_projVariables.find(ProjectionPropertyType::LOR) !=
-	        m_projVariables.end() ||
-	    m_consVariables.find(ConstraintVariable::ABS_DELTA_ANGLE_DEG) !=
-	        m_consVariables.end();
 	Line3D lor;
-	if (needsLOR)
+	if (collectFlags[static_cast<size_t>(CollectInfoFlag::LOR)])
 	{
 		lor = projData.getLOR(bin);
 		m_propManager->setDataValue(projProps, projIdx,
@@ -120,8 +134,7 @@ void BinFilter::collectInfo(bin_t bin, size_t projIdx, int consIdx,
 	}
 	const Scanner* scanner = &projData.getScanner();
 
-	if (m_consVariables.find(ConstraintVariable::ABS_DELTA_ANGLE_DEG) !=
-	    m_consVariables.end())
+	if (collectFlags[static_cast<size_t>(CollectInfoFlag::AbsDeltaAngleDeg)])
 	{
 		// In-plane angle
 		float a1 = std::atan2(lor.point1.y, lor.point1.x);
@@ -133,13 +146,12 @@ void BinFilter::collectInfo(bin_t bin, size_t projIdx, int consIdx,
 
 	int d1xyi;
 	int d2xyi;
-	if (needsPlaneIdx)
+	if (collectFlags[static_cast<size_t>(CollectInfoFlag::PlaneIdx)])
 	{
 		d1xyi = detPair.d1 % scanner->detsPerRing;
 		d2xyi = detPair.d2 % scanner->detsPerRing;
 	}
-	if (m_consVariables.find(ConstraintVariable::ABS_DELTA_ANGLE_IDX) !=
-	    m_consVariables.end())
+	if (collectFlags[static_cast<size_t>(CollectInfoFlag::AbsDeltaAngleIdx)])
 	{
 		int diff = util::periodicDiff(d1xyi, d2xyi,
 		                              static_cast<int>(scanner->detsPerRing));
@@ -149,13 +161,12 @@ void BinFilter::collectInfo(bin_t bin, size_t projIdx, int consIdx,
 
 	int d1bi;
 	int d2bi;
-	if (needsPlaneBlock)
+	if (collectFlags[static_cast<size_t>(CollectInfoFlag::PlaneBlock)])
 	{
 		d1bi = d1xyi / scanner->detsPerBlock;
 		d2bi = d2xyi / scanner->detsPerBlock;
 	}
-	if (m_consVariables.find(ConstraintVariable::ABS_DELTA_BLOCK_IDX) !=
-	    m_consVariables.end())
+	if (collectFlags[static_cast<size_t>(CollectInfoFlag::AbsDeltaBlockIdx)])
 	{
 		int diff = util::periodicDiff(d1bi, d2bi,
 		                              static_cast<int>(scanner->detsPerBlock));
@@ -165,7 +176,7 @@ void BinFilter::collectInfo(bin_t bin, size_t projIdx, int consIdx,
 }
 
 bool BinFilter::isValid(const ConstraintManager& manager,
-                                     ConstraintParams& info) const
+                        ConstraintParams& info) const
 {
 	for (auto& constraint : m_constraints)
 	{

@@ -57,6 +57,8 @@ void LORsDevice::precomputeBatchLORs(const BinIterator& binIter,
 		auto consManager = binFilter.getConstraintManager();
 		auto info = consManager.createDataArray(numThreads);
 		auto infoPtr = info.get();
+		BinFilter::CollectInfoFlags collectInfoFlags(false);
+		binFilter.collectFlags(collectInfoFlags);
 
 		const size_t offset = static_cast<size_t>(batchId) * batchSetup.getBatchSize(0);
 		auto* binIter_ptr = &binIter;
@@ -65,13 +67,14 @@ void LORsDevice::precomputeBatchLORs(const BinIterator& binIter,
 		util::parallelForChunked(
 		    batchSize, numThreads,
 		    [offset, batchSize, &binFilter, consManager, projPropManager,
-		     binIter_ptr, &infoPtr, &tempBufferProjectionProperties_ptr,
+		     collectInfoFlags, binIter_ptr, &infoPtr,
+		     &tempBufferProjectionProperties_ptr,
 		     reference_ptr](size_t binIdx, int tid)
 		    {
 			    bin_t bin = binIter_ptr->get(binIdx + offset);
-			    binFilter.collectInfo(bin, binIdx, tid, *reference_ptr,
-			                          tempBufferProjectionProperties_ptr,
-			                          infoPtr);
+			    binFilter.collectInfo(
+			        bin, binIdx, tid, *reference_ptr, collectInfoFlags,
+			        tempBufferProjectionProperties_ptr, infoPtr);
 			    if (binFilter.isValid(consManager, infoPtr))
 			    {
 				    reference_ptr->getProjectionProperties(

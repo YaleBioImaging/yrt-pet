@@ -361,7 +361,7 @@ void OperatorPsfDevice::convolveDevice(const ImageDevice& inputImage,
 	const auto* stream = getMainStream();
 
 	allocateTemporaryDeviceImageIfNeeded(params, {stream, true});
-	float* pd_intermediaryImage = mpd_intermediaryImage->getDevicePointer();
+	float* pd_intermediaryImage = mpd_intermediaryImage->getDevicePointer();//zty:?
 
 	const float* pd_kernelX = kernelX.getDevicePointer();
 	const float* pd_kernelY = kernelY.getDevicePointer();

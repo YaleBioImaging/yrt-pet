@@ -248,4 +248,77 @@ template __global__ void convolve3DSeparable_kernel<2>(const float* input,
                                                        int kernelSize, int nx,
                                                        int ny, int nz);
 
+__global__ void convolve3D_kernel_F(const float* input, float* output,
+								  const float* kernel,
+								  int kernelSizeX, int kernelSizeY, int kernelSizeZ,
+								  int nx, int ny, int nz)
+{
+	const int x = blockIdx.x * blockDim.x + threadIdx.x;
+	const int y = blockIdx.y * blockDim.y + threadIdx.y;
+	const int z = blockIdx.z * blockDim.z + threadIdx.z;
+
+	if (x >= nx || y >= ny || z >= nz) return;
+
+	float sum = 0.0f;
+
+	const int halfX = kernelSizeX / 2;
+	const int halfY = kernelSizeY / 2;
+	const int halfZ = kernelSizeZ / 2;
+
+	for (int kz = -halfZ; kz <= halfZ; kz++) {
+		for (int ky = -halfY; ky <= halfY; ky++) {
+			for (int kx = -halfX; kx <= halfX; kx++) {
+				int r_x = circular(nx, x + kx);
+				int r_y = circular(ny, y + ky);
+				int r_z = circular(nz, z + kz);
+
+				int imgIdx = idx3(r_x, r_y, r_z, nx, ny);
+
+				int kernelIdx = (kz + halfZ) * (kernelSizeY * kernelSizeX)
+							  + (ky + halfY) * kernelSizeX
+							  + (kx + halfX);
+
+				sum += kernel[kernelIdx] * input[imgIdx];
+			}
+		}
+	}
+	output[idx3(x, y, z, nx, ny)] = sum;
+}
+
+__global__ void convolve3D_kernel_T(const float* input, float* output,
+								  const float* kernel,
+								  int kernelSizeX, int kernelSizeY, int kernelSizeZ,
+								  int nx, int ny, int nz)
+{
+	const int x = blockIdx.x * blockDim.x + threadIdx.x;
+	const int y = blockIdx.y * blockDim.y + threadIdx.y;
+	const int z = blockIdx.z * blockDim.z + threadIdx.z;
+
+	if (x >= nx || y >= ny || z >= nz) return;
+
+	float temp1 = input[idx3(x, y, z, nx, ny)];
+
+	const int halfX = kernelSizeX / 2;
+	const int halfY = kernelSizeY / 2;
+	const int halfZ = kernelSizeZ / 2;
+
+	for (int kz = -halfZ; kz <= halfZ; kz++) {
+		for (int ky = -halfY; ky <= halfY; ky++) {
+			for (int kx = -halfX; kx <= halfX; kx++) {
+				int r_x = circular(nx, x + kx);
+				int r_y = circular(ny, y + ky);
+				int r_z = circular(nz, z + kz);
+
+				int outIdx = idx3(r_x, r_y, r_z, nx, ny);
+
+				int kernelIdx = (kz + halfZ) * (kernelSizeY * kernelSizeX)
+							  + (ky + halfY) * kernelSizeX
+							  + (kx + halfX);
+
+				atomicAdd(&output[outIdx], temp1 * kernel[kernelIdx]);
+			}
+		}
+	}
+}
+
 }  // namespace yrt

@@ -13,49 +13,43 @@
 #incldue <>
 namespace py = pybind11;
 
+namespace yrt
+{
 void py_setup_operatorpsfdevice(py::module& m)
 {
-	auto c = py::class_<OperatorPsfDevice, OperatorPsf>(m, "OperatorPsfDevice");
-	c.def(py::init<>());
-	c.def(py::init<const std::string&>());
-	c.def("convolve",
-	      static_cast<void (OperatorPsfDevice::*)(
-	          const Image* in, Image* out, const std::vector<float>& kernelX,
-	          const std::vector<float>& kernelY,
-	          const std::vector<float>& kernelZ) const>(
-	          &OperatorPsfDevice::convolve));
-	c.def("convolve",
-	      [](const OperatorPsfDevice& self, const ImageDevice& inputImageDevice,
-	         ImageDevice& outputImageDevice, const std::vector<float>& kernelX,
-	         const std::vector<float>& kernelY,
-	         const std::vector<float>& kernelZ)
-	      {
-		      self.convolve(inputImageDevice, outputImageDevice, kernelX,
-		                    kernelY, kernelZ, true);
-	      });
+	auto c = py::class_<OperatorVarPsfDevice, OperatorVarPsf>(m, "OperatorVarPsfDevice");
+	c.def(py::init<const ImageParams&>());
+	c.def(py::init<const std::string&, const ImageParams&>());
+	c.def("readFromFile", &OperatorVarPsfDevice::readFromFile, py::arg("fname"),
+		  "Read the variant PSF from CSV LUT");
 	c.def(
-	    "applyA",
-	    [](OperatorPsfDevice& self, const Image* img_in, Image* img_out)
-	    { self.applyA(img_in, img_out); }, py::arg("img_in"),
-	    py::arg("img_out"));
+		"applyA",
+		[](OperatorVarPsfDevice& self, const Image* img_in, Image* img_out)
+		{ self.applyA(img_in, img_out); }, py::arg("img_in"),
+		py::arg("img_out"));
 	c.def(
-	    "applyAH",
-	    [](OperatorPsfDevice& self, const Image* img_in, Image* img_out)
-	    { self.applyAH(img_in, img_out); }, py::arg("img_in"),
-	    py::arg("img_out"));
+		"applyAH",
+		[](OperatorVarPsfDevice& self, const Image* img_in, Image* img_out)
+		{ self.applyAH(img_in, img_out); }, py::arg("img_in"),
+		py::arg("img_out"));
 	c.def(
-	    "applyA",
-	    [](OperatorPsfDevice& self, const ImageDevice* img_in,
-	       ImageDevice* img_out) { self.applyA(img_in, img_out); },
-	    py::arg("img_in"), py::arg("img_out"));
+		"applyA",
+		[](OperatorVarPsfDevice& self, const ImageDevice* img_in,
+		   ImageDevice* img_out) { self.applyA(img_in, img_out); },
+		py::arg("img_in"), py::arg("img_out"));
 	c.def(
-	    "applyAH",
-	    [](OperatorPsfDevice& self, const ImageDevice* img_in,
-	       ImageDevice* img_out) { self.applyAH(img_in, img_out); },
-	    py::arg("img_in"), py::arg("img_out"));
+		"applyAH",
+		[](OperatorVarPsfDevice& self, const ImageDevice* img_in,
+		   ImageDevice* img_out) { self.applyAH(img_in, img_out); },
+		py::arg("img_in"), py::arg("img_out"));
+}
 }
 #endif
 
+namespace yrt
+{
+
+}
 OperatorVarPsfDevice::OperatorVarPsfDevice(const cudaStream_t* pp_stream, const ImageParams& p_imageParams)
     : DeviceSynchronized{pp_stream, pp_stream},
       OperatorVarPsf{}
@@ -131,6 +125,78 @@ void OperatorVarPsfDevice::allocateTemporaryDeviceImageIfNeeded(
 		mpd_intermediaryImage->allocate(config.synchronize);
 	}
 }
+
+template <bool IS_FWD>
+void OperatorPsfDevice::varconvolveDevice(const ImageDevice& inputImage,
+									   ImageDevice& outputImage, bool synchronize) const
+{
+	const ImageParams& params = inputImage.getParams();
+	ASSERT_MSG(params.isSameDimensionsAs(outputImage.getParams()),
+			   "Image parameters mismatch");
+
+	const float* pd_inputImage = inputImage.getDevicePointer();
+	float* pd_outputImage = outputImage.getDevicePointer();
+	ASSERT_MSG(pd_inputImage != nullptr,
+			   "Input device Image not allocated yet");
+	ASSERT_MSG(pd_outputImage != nullptr,
+			   "Output device Image not allocated yet");
+
+	const auto* stream = getMainStream();
+
+
+
+
+	int pp = blockIdx.x * blockDim.x + threadIdx.x;
+    if (pp >= nx * ny * nz) return;
+
+    int i = pp % nx;
+    int j = (pp / nx) % ny;
+    int k = pp / (nx * ny);
+
+    float temp_x = abs((i + 0.5) * vx - x_center);
+    float temp_y = abs((j + 0.5) * vy - y_center);
+    float temp_z = abs((k + 0.5) * vz - z_center);
+
+    // Finding the nearest kernel (simplified for illustration)
+    int best_idx = 0;
+    float best_dist = FLT_MAX;
+    for (int idx = 0; idx < num_kernels; ++idx) {
+        float dist = (temp_x - sigma_lookup[idx].x) * (temp_x - sigma_lookup[idx].x) +
+                     (temp_y - sigma_lookup[idx].y) * (temp_y - sigma_lookup[idx].y) +
+                     (temp_z - sigma_lookup[idx].z) * (temp_z - sigma_lookup[idx].z);
+        if (dist < best_dist) {
+            best_dist = dist;
+            best_idx = idx;
+        }
+    }
+    const Sigma& chosen_sigma = sigma_lookup[best_idx];
+
+    int kernel_size_x = min(4, max(1, static_cast<int>(floor((chosen_sigma.sigmax * chosen_sigma.kernel_width_control) / vx)) - 1));
+    int kernel_size_y = min(4, max(1, static_cast<int>(floor((chosen_sigma.sigmay * chosen_sigma.kernel_width_control) / vy)) - 1));
+    int kernel_size_z = min(4, max(1, static_cast<int>(floor((chosen_sigma.sigmaz * chosen_sigma.kernel_width_control) / vz)) - 1));
+
+    const float* psf_kernel = chosen_sigma.psf_kernel;
+
+    int idx = 0;
+    float temp1 = inPtr[IDX3(i, j, k, nx, ny)];
+
+    for (int z_diff = -kernel_size_z; z_diff <= kernel_size_z; ++z_diff) {
+        for (int y_diff = -kernel_size_y; y_diff <= kernel_size_y; ++y_diff) {
+            for (int x_diff = -kernel_size_x; x_diff <= kernel_size_x; ++x_diff, ++idx) {
+                int ii = util::circular(nx, i + x_diff);
+                int jj = util::circular(ny, j + y_diff);
+                int kk = util::circular(nz, k + z_diff);
+
+                if (IS_FWD) {
+                    atomicAdd(&outPtr[IDX3(i, j, k, nx, ny)], inPtr[IDX3(ii, jj, kk, nx, ny)] * psf_kernel[idx]);
+                } else {
+                    atomicAdd(&outPtr[IDX3(ii, jj, kk, nx, ny)], temp1 * psf_kernel[idx]);
+                }
+            }
+        }
+    }
+}
+
 
 template <bool Transpose>
 void OperatorVarPsfDevice::apply(const Variable* in, Variable* out,

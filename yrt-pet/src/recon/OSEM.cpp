@@ -1035,10 +1035,10 @@ void apply_update(ImageBase* destImage,
                   const float eps)
 {
 	if constexpr (IS_DYNAMIC) {
-		dynamic_cast<Image*>(destImage)->updateEMThresholdRankScaled(
+		destImage->updateEMThresholdRankScaled(
 			numerator, norm, c_r, eps);
 	} else {
-		dynamic_cast<Image*>(destImage)->updateEMThreshold(
+		destImage->updateEMThreshold(
 		    numerator, norm, eps);
 	}
 }

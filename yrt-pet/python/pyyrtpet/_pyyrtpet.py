@@ -82,25 +82,38 @@ class DataFileRawd:
 class ProjectionOper:
     def __init__(self, scanner: yrt.Scanner, img_params: yrt.ImageParams,
                  projData: yrt.ProjectionData, projector='Siddon',
+                 updater_type='DEFAULT4D',
                  idx_subset=0, num_subsets=1,
                  tof_width_ps=None, tof_n_std=0,
-                 proj_psf_fname=None, num_rays=1):
+                 proj_psf_fname=None, num_rays=1, H_basis=None, update_H=False):
         self._scanner = scanner
         self._img_params = img_params
         self._projData = projData
+        self._updater_type = updater_type
+        self._update_H = update_H
+        self._H_basis = H_basis
+        self._rank = img_params.num_frames
         self._idx_subset = idx_subset
         self._num_subsets = num_subsets
         self._binIter = self._projData.getBinIter(self._num_subsets,
                                                   self._idx_subset)
         proj_f = getattr(yrt, 'OperatorProjector{}'.format(projector))
         self._proj_params = yrt.OperatorProjectorParams(
-            self._binIter, self._scanner,
+            self._binIter, self._scanner, getattr(yrt.OperatorProjectorParams, updater_type),
             tof_width_ps or np.float32(0), tof_n_std or np.int32(0),
             proj_psf_fname or '', num_rays)
-        self._oper = proj_f(self._proj_params)
 
+        if updater_type == 'LR':
+            self._proj_params.setHBasisFromNumpy(H_basis)
+            self._rank = H_basis.shape[0]
+
+        self._oper = proj_f(self._proj_params)
+        if updater_type == 'LR':
+            self._oper.setUpdaterLRUpdateH(update_H)
+
+        self._image_shape = (self._rank, self._img_params.nz, self._img_params.ny, self._img_params.nx)
         self._x = np.require(np.zeros(
-            [self._img_params.nz, self._img_params.ny, self._img_params.nx],
+            self._image_shape,
             dtype=np.float32), requirements=['C_CONTIGUOUS'])
         self._y = np.require(np.zeros(self._projData.count(),
                                       dtype=np.float32),

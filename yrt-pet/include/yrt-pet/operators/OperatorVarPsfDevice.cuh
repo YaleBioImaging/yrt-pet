@@ -15,6 +15,14 @@
 namespace yrt
 {
 
+struct DeviceVarPsf
+{
+	float* kernels;     // flatten kernel data
+	int*   offsets;     // The starting position of each kernel in the kernels array
+	int*   sizes;       // The size of each kernel (number of elements)
+	int    numKernels;  // kernel number
+};
+
 class OperatorVarPsfDevice : public DeviceSynchronized, public OperatorPsfDevice, public OperatorVarPsf
 {
 public:
@@ -22,8 +30,9 @@ public:
 	explicit OperatorVarPsfDevice(const std::string& pr_imagePsf_fname,
 							   const cudaStream_t* pp_stream = nullptr, const ImageParams& p_imageParams);
 
-	void readFromFile(const std::string& pr_imagePsf_fname) override;
-	void readFromFile(const std::string& pr_imagePsf_fname, bool p_synchronize);
+	void copyVarPsfToDevice(bool synchronize = true);// copy kernel LUT to device: allocate and upload
+	//void readFromFile(const std::string& pr_imagePsf_fname) override;
+	//void readFromFile(const std::string& pr_imagePsf_fname, bool p_synchronize);
 
 	void allocateTemporaryDeviceImageIfNeeded(const ImageParams& params,
 	                                          GPULaunchConfig config) const;
@@ -42,12 +51,24 @@ protected:
 	mutable std::unique_ptr<ImageDeviceOwned> mpd_intermediaryImage;
 
 private:
+	// flattened GPU storage
+	std::unique_ptr<DeviceArray<float>> mpd_kernelsFlat;
+	std::unique_ptr<DeviceArray<int>> mpd_kernelOffsets;
+	std::unique_ptr<DeviceArray<int>> mpd_kernelDims;       // triples: kx,ky,kz per kernel
+	std::unique_ptr<DeviceArray<int>> mpd_kernelHalfSizes; // triples: hx,hy,hz per kernel
+	std::unique_ptr<DeviceArray<int>> mpd_kernelLUT;
+
 	std::vector<std::unique_ptr<DeviceArray<float>>> mpd_kernelLUT;
 	void readFromFileInternal(const std::string& pr_imagePsf_fname,
 	                          bool p_synchronize);
-	static void initDeviceArrayIfNeeded(
-	    std::unique_ptr<DeviceArray<float>>& ppd_kernel);
-	void allocateDeviceArray(DeviceArray<float>& prd_kernel, size_t newSize,
-	                         bool synchronize);
+	//static void initDeviceArrayIfNeeded(
+	 //   std::unique_ptr<DeviceArray<float>>& ppd_kernel);
+	void flattenKernelsToDevice(bool synchronize);
+	void allocateDeviceArraysVarPsf(size_t nKernels, size_t totalKernelSize, bool synchronize);
+
+	// scalar parameters copied to kernels as args
+	int lut_x_dim = 0, lut_y_dim = 0, lut_z_dim = 0;
+	float d_xGap = 0.f, d_yGap = 0.f, d_zGap = 0.f;
+	float d_xCenter = 0.f, d_yCenter = 0.f, d_zCenter = 0.f;
 };
 }  // namespace yrt

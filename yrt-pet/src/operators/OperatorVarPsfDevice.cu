@@ -49,7 +49,6 @@ void py_setup_operatorpsfdevice(py::module& m)
 namespace yrt
 {
 
-}
 OperatorVarPsfDevice::OperatorVarPsfDevice(const cudaStream_t* pp_stream, const ImageParams& p_imageParams)
     : DeviceSynchronized{pp_stream, pp_stream},
       OperatorVarPsf{}
@@ -61,56 +60,88 @@ OperatorVarPsfDevice::OperatorVarPsfDevice(const std::string& pr_imagePsf_fname,
                                      const cudaStream_t* pp_stream, const ImageParams& p_imageParams)
     : OperatorVarPsfDevice{pp_stream}
 {
-	// Constructors should be synchronized
-	readFromFileInternal(pr_imagePsf_fname, true);
+	OperatorVarPsf::readFromFileInternal(pr_imagePsf_fname);
+	copyVarPsfToDevice(true);
 }
 
-void OperatorVarPsfDevice::readFromFileInternal(
-    const std::string& pr_imagePsf_fname, bool p_synchronize)
+DeviceVarPsf OperatorVarPsfDevice::copyVarPsfToDevice(const yrt::OperatorVarPsf& cpuVarPsf, bool synchronize)
 {
-	OperatorVarPsf::readFromFile(pr_imagePsf_fname);
-	copyToDevice(p_synchronize);
-}
+	using KernelPtr = std::unique_ptr<yrt::ConvolutionKernel>;
+	const auto& kernelLUT = cpuVarPsf.m_kernelLUT;
 
-void OperatorVarPsfDevice::readFromFile(const std::string& pr_imagePsf_fname)
-{
-	readFromFileInternal(pr_imagePsf_fname, true);
-}
+	int numKernels = static_cast<int>(kernelLUT.size());
+	std::vector<int> sizes(numKernels);
+	std::vector<int> offsets(numKernels);
 
-void OperatorVarPsfDevice::readFromFile(const std::string& pr_imagePsf_fname,
-                                     bool p_synchronize)
-{
-	readFromFileInternal(pr_imagePsf_fname, p_synchronize);
-}
+	//flatten kernel
+	std::vector<float> allData;
+	int currentOffset = 0;
+	for (int i = 0; i < numKernels; i++) {
+		const auto& kernel = *kernelLUT[i];
+		const auto& arr = kernel.getArray();
 
-void OperatorVarPsfDevice::copyToDevice(bool synchronize)
-{
-	const GPULaunchConfig launchConfig{getAuxStream(), synchronize};
+		int sx = arr.getSizeX();
+		int sy = arr.getSizeY();
+		int sz = arr.getSizeZ();
+		int size = sx * sy * sz;
 
-	initDeviceArraysIfNeeded();
-	allocateDeviceArrays(synchronize);
+		sizes[i] = size;
+		offsets[i] = currentOffset;
 
-	for (size_t i = 0; i < m_kernelLUT.size(); ++i)
-	{
-		if (mpd_kernelLUT.size() <= i)
-		{
-			mpd_kernelLUT.emplace_back(std::make_unique<DeviceArray<float>>());
+		for (int z = 0; z < sz; z++) {
+			for (int y = 0; y < sy; y++) {
+				for (int x = 0; x < sx; x++) {
+					allData.push_back(arr(x,y,z));
+				}
+			}
 		}
-
-		const auto& kernelArray = m_kernelLUT[i]->getArray();
-		if (!mpd_kernelLUT[i]->isAllocated())
-		{
-			mpd_kernelLUT[i]->allocate(kernelArray.getSizeTotal(), launchConfig);
-		}
-
-		mpd_kernelLUT[i]->copyFromHost(kernelArray.getPointer(),
-									   kernelArray.getSizeTotal(), launchConfig);
+		currentOffset += size;
 	}
 
+	//allocate GPU memory
+	DeviceVarPsf dVarPsf;
+	dVarPsf.numKernels = numKernels;
+
+	cudaMalloc(&dVarPsf.kernels, allData.size() * sizeof(float));
+	cudaMalloc(&dVarPsf.offsets, numKernels * sizeof(int));
+	cudaMalloc(&dVarPsf.sizes,   numKernels * sizeof(int));
+
+	// 拷贝数据到 device
+	cudaMemcpy(dVarPsf.kernels, allData.data(),
+			   allData.size() * sizeof(float), cudaMemcpyHostToDevice);
+	cudaMemcpy(dVarPsf.offsets, offsets.data(),
+			   numKernels * sizeof(int), cudaMemcpyHostToDevice);
+	cudaMemcpy(dVarPsf.sizes, sizes.data(),
+			   numKernels * sizeof(int), cudaMemcpyHostToDevice);
+
+	return dVarPsf;
+	//?? free device memory after using?
+}
+
+void OperatorVarPsfDevice::allocateDeviceArraysVarPsf(size_t nKernels, size_t totalKernelSize, bool synchronize)
+//??not sure if need
+{
+	initDeviceArrayIfNeeded(mpd_kernelsFlat);
+	initDeviceArrayIfNeeded(mpd_kernelOffsets);
+	initDeviceArrayIfNeeded(mpd_kernelDims);
+	initDeviceArrayIfNeeded(mpd_kernelHalfSizes);
+	initDeviceArrayIfNeeded(mpd_kernelLUT);
+
+	mpd_kernelsFlat->allocate(totalKernelSize, {getAuxStream(), synchronize});
+	mpd_kernelOffsets->allocate(nKernels, {getAuxStream(), synchronize});
+	mpd_kernelDims->allocate(nKernels * 3, {getAuxStream(), synchronize});
+	mpd_kernelHalfSizes->allocate(nKernels * 3, {getAuxStream(), synchronize});
+
+	// LUT dims
+	int x_dim = static_cast<int>(std::floor(m_xRange / m_xGap)) + 1;
+	int y_dim = static_cast<int>(std::floor(m_yRange / m_yGap)) + 1;
+	int z_dim = static_cast<int>(std::floor(m_zRange / m_zGap)) + 1;
+	mpd_kernelLUT->allocate(static_cast<size_t>(x_dim) * y_dim * z_dim, {getAuxStream(), synchronize});
 }
 
 void OperatorVarPsfDevice::allocateTemporaryDeviceImageIfNeeded(
     const ImageParams& params, GPULaunchConfig config) const
+//??not sure if need
 {
 	const auto* stream = config.stream;
 	if (mpd_intermediaryImage == nullptr ||
@@ -130,72 +161,52 @@ template <bool IS_FWD>
 void OperatorPsfDevice::varconvolveDevice(const ImageDevice& inputImage,
 									   ImageDevice& outputImage, bool synchronize) const
 {
-	const ImageParams& params = inputImage.getParams();
-	ASSERT_MSG(params.isSameDimensionsAs(outputImage.getParams()),
-			   "Image parameters mismatch");
+	const float* pd_input = inputImage.getDevicePointer();
+	float* pd_output = outputImage.getDevicePointer();
+	const float* pd_kernelsFlat = mpd_kernelsFlat->getDevicePointer();
+	const int* pd_kernelOffsets = mpd_kernelOffsets->getDevicePointer();
+	const int* pd_kernelDims = mpd_kernelDims->getDevicePointer();
+	const int* pd_kernelHalf = mpd_kernelHalfSizes->getDevicePointer();
+	const int* pd_kernelLUT = mpd_kernelLUT->getDevicePointer();
 
-	const float* pd_inputImage = inputImage.getDevicePointer();
-	float* pd_outputImage = outputImage.getDevicePointer();
-	ASSERT_MSG(pd_inputImage != nullptr,
-			   "Input device Image not allocated yet");
-	ASSERT_MSG(pd_outputImage != nullptr,
-			   "Output device Image not allocated yet");
+	int nx = inputImage.getParams().nx;
+	int ny = inputImage.getParams().ny;
+	int nz = inputImage.getParams().nz;
 
-	const auto* stream = getMainStream();
+	const cudaStream_t* stream = getMainStream();
 
-
-
-
-	int pp = blockIdx.x * blockDim.x + threadIdx.x;
-    if (pp >= nx * ny * nz) return;
-
-    int i = pp % nx;
-    int j = (pp / nx) % ny;
-    int k = pp / (nx * ny);
-
-    float temp_x = abs((i + 0.5) * vx - x_center);
-    float temp_y = abs((j + 0.5) * vy - y_center);
-    float temp_z = abs((k + 0.5) * vz - z_center);
-
-    // Finding the nearest kernel (simplified for illustration)
-    int best_idx = 0;
-    float best_dist = FLT_MAX;
-    for (int idx = 0; idx < num_kernels; ++idx) {
-        float dist = (temp_x - sigma_lookup[idx].x) * (temp_x - sigma_lookup[idx].x) +
-                     (temp_y - sigma_lookup[idx].y) * (temp_y - sigma_lookup[idx].y) +
-                     (temp_z - sigma_lookup[idx].z) * (temp_z - sigma_lookup[idx].z);
-        if (dist < best_dist) {
-            best_dist = dist;
-            best_idx = idx;
-        }
-    }
-    const Sigma& chosen_sigma = sigma_lookup[best_idx];
-
-    int kernel_size_x = min(4, max(1, static_cast<int>(floor((chosen_sigma.sigmax * chosen_sigma.kernel_width_control) / vx)) - 1));
-    int kernel_size_y = min(4, max(1, static_cast<int>(floor((chosen_sigma.sigmay * chosen_sigma.kernel_width_control) / vy)) - 1));
-    int kernel_size_z = min(4, max(1, static_cast<int>(floor((chosen_sigma.sigmaz * chosen_sigma.kernel_width_control) / vz)) - 1));
-
-    const float* psf_kernel = chosen_sigma.psf_kernel;
-
-    int idx = 0;
-    float temp1 = inPtr[IDX3(i, j, k, nx, ny)];
-
-    for (int z_diff = -kernel_size_z; z_diff <= kernel_size_z; ++z_diff) {
-        for (int y_diff = -kernel_size_y; y_diff <= kernel_size_y; ++y_diff) {
-            for (int x_diff = -kernel_size_x; x_diff <= kernel_size_x; ++x_diff, ++idx) {
-                int ii = util::circular(nx, i + x_diff);
-                int jj = util::circular(ny, j + y_diff);
-                int kk = util::circular(nz, k + z_diff);
-
-                if (IS_FWD) {
-                    atomicAdd(&outPtr[IDX3(i, j, k, nx, ny)], inPtr[IDX3(ii, jj, kk, nx, ny)] * psf_kernel[idx]);
-                } else {
-                    atomicAdd(&outPtr[IDX3(ii, jj, kk, nx, ny)], temp1 * psf_kernel[idx]);
-                }
-            }
-        }
-    }
+	if constexpr (IS_FWD)
+	{
+		convolve3D_kernel_F(pd_input, pd_output,
+			pd_kernelsFlat, pd_kernelOffsets, pd_kernelDims, pd_kernelHalf,
+			pd_kernelLUT,
+			lut_x_dim, lut_y_dim, lut_z_dim,
+			d_xGap, d_yGap, d_zGap, d_xCenter, d_yCenter, d_zCenter,
+			nx, ny, nz);
+	}
+	else
+	{
+		cudaMemsetAsync(pd_output, 0, sizeof(float)*total, (stream? *stream: 0));
+		convolve3D_kernel_T(pd_input, pd_output,
+			pd_kernelsFlat, pd_kernelOffsets, pd_kernelDims, pd_kernelHalf,
+			pd_kernelLUT,
+			lut_x_dim, lut_y_dim, lut_z_dim,
+			d_xGap, d_yGap, d_zGap, d_xCenter, d_yCenter, d_zCenter,
+			nx, ny, nz);
+	}
+	if (synchronize) {
+		if (stream) cudaStreamSynchronize(*stream);
+		else cudaDeviceSynchronize();
+	}
+	cudaCheckError();
 }
+//?? 9/26/25 write here
+
+
+
+
+
+
 
 
 template <bool Transpose>
@@ -497,4 +508,5 @@ void OperatorVarPsfDevice::convolveDevice(const ImageDevice& inputImage,
 	}
 
 	cudaCheckError();
+}
 }

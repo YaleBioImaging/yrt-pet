@@ -550,15 +550,15 @@ void OperatorProjectorSiddon::project_helper(
 		{
 			const size_t numVoxelsPerFrame = params.nx * params.ny * params.nz;
 			value += updater.forwardUpdate(weight, cur_img_ptr,
-										   vx, dynamicFrame,
-										   numVoxelsPerFrame);
+			                               vx, dynamicFrame,
+			                               numVoxelsPerFrame);
 		}
 		else
 		{
 			const size_t numVoxelsPerFrame = params.nx * params.ny * params.nz;
 			updater.backUpdate(value, weight, cur_img_ptr,
-							   vx, dynamicFrame,
-							   numVoxelsPerFrame);
+			                   vx, dynamicFrame,
+			                   numVoxelsPerFrame);
 		}
 		a_cur = a_next;
 		ax_next_prev = ax_next;

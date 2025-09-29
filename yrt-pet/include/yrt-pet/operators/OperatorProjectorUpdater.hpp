@@ -21,15 +21,15 @@ public:
 	virtual ~OperatorProjectorUpdater() = default;
 
 	virtual float forwardUpdate(
-	    float weight, float* cur_img_ptr,
-	    int offset_x, int dynamicFrame = 0,
-	    size_t numVoxelPerFrame = 0
-	) const = 0;
+		float weight, float* cur_img_ptr,
+		size_t offset, frame_t dynamicFrame = 0,
+		size_t numVoxelPerFrame = 0
+		) const = 0;
 	virtual void backUpdate(
-	    float value, float weight, float* cur_img_ptr,
-	    int offset_x, int dynamicFrame = 0,
-	    size_t numVoxelPerFrame = 0
-	    ) = 0;
+		float value, float weight, float* cur_img_ptr,
+		size_t offset, frame_t dynamicFrame = 0,
+		size_t numVoxelPerFrame = 0
+		) = 0;
 };
 
 
@@ -39,16 +39,16 @@ public:
 	OperatorProjectorUpdaterDefault3D() = default;
 
 	float forwardUpdate(
-	    float weight, float* cur_img_ptr,
-	    int offset_x, int dynamicFrame = 0,
-	    size_t numVoxelPerFrame = 0
-	) const override;
+		float weight, float* cur_img_ptr,
+		size_t offset, frame_t dynamicFrame = 0,
+		size_t numVoxelPerFrame = 0
+		) const override;
 
 	void backUpdate(
-	    float value, float weight, float* cur_img_ptr,
-	    int offset_x, int dynamicFrame = 0,
-	    size_t numVoxelPerFrame = 0
-	    ) override;
+		float value, float weight, float* cur_img_ptr,
+		size_t offset, frame_t dynamicFrame = 0,
+		size_t numVoxelPerFrame = 0
+		) override;
 };
 
 class OperatorProjectorUpdaterDefault4D : public OperatorProjectorUpdater
@@ -57,16 +57,16 @@ public:
 	OperatorProjectorUpdaterDefault4D() = default;
 
 	float forwardUpdate(
-	    float weight, float* cur_img_ptr,
-	    int offset_x, int dynamicFrame,
-	    size_t numVoxelPerFrame
-	) const override;
+		float weight, float* cur_img_ptr,
+		size_t offset, frame_t dynamicFrame,
+		size_t numVoxelPerFrame
+		) const override;
 
 	void backUpdate(
-	    float value, float weight, float* cur_img_ptr,
-	    int offset_x, int dynamicFrame,
-	    size_t numVoxelPerFrame
-	    ) override;
+		float value, float weight, float* cur_img_ptr,
+		size_t offset, frame_t dynamicFrame,
+		size_t numVoxelPerFrame
+		) override;
 };
 
 class OperatorProjectorUpdaterLR : public OperatorProjectorUpdater
@@ -75,16 +75,16 @@ public:
 	OperatorProjectorUpdaterLR(const Array2DBase<float>& pr_HBasis);
 
 	float forwardUpdate(
-	    float weight, float* cur_img_ptr,
-	    int offset_x, int dynamicFrame,
-	    size_t numVoxelPerFrame
-	) const override;
+		float weight, float* cur_img_ptr,
+		size_t offset, frame_t dynamicFrame,
+		size_t numVoxelPerFrame
+		) const override;
 
 	void backUpdate(
-	    float value, float weight, float* cur_img_ptr,
-	    int offset_x, int dynamicFrame,
-	    size_t numVoxelPerFrame
-	) override;
+		float value, float weight, float* cur_img_ptr,
+		size_t offset, frame_t dynamicFrame,
+		size_t numVoxelPerFrame
+		) override;
 
 //	void setHBasis(const Array2D<float>& HBasis);
 	void setHBasis(const Array2DBase<float>& pr_HBasis);

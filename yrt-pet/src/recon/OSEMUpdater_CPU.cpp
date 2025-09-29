@@ -129,7 +129,7 @@ void OSEMUpdater_CPU::computeEMUpdateImage(const Image& inputImage,
 	    [hasAdditiveCorrection, hasInVivoAttenuation, measurements,
 	     inputImagePtr, consManager, projPropManager, collectInfoFlags,
 	     correctorPtr, projector, destImagePtr, &binIter, &binFilter,
-	     &constraintParams, &projectionProperties](int binIdx, int tid)
+	     &constraintParams, &projectionProperties](size_t binIdx, int tid)
 	    {
 		    bin_t bin = binIter->get(binIdx);
 		    binFilter->collectInfo(bin, tid, tid, *measurements,

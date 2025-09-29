@@ -27,16 +27,16 @@ public:
 	explicit OperatorProjectorDD(const OperatorProjectorParams& p_projParams);
 
 	float forwardProjection(
-	    const Image* in_image, const Line3D& lor, const Vector3D& n1,
-	    const Vector3D& n2, int tid,
-	    const TimeOfFlightHelper* tofHelper = nullptr, float tofValue = 0.0f,
-	    const ProjectionPsfManager* psfManager = nullptr) const;
+		const Image* in_image, const Line3D& lor, const Vector3D& n1,
+		const Vector3D& n2, int tid,
+		frame_t dynamicFrame = 0, const TimeOfFlightHelper* tofHelper = nullptr,
+		float tofValue = 0.0f, const ProjectionPsfManager* psfManager = nullptr) const;
 
 	void backProjection(Image* in_image, const Line3D& lor, const Vector3D& n1,
 	                    const Vector3D& n2, float proj_value, int tid,
+	                    frame_t dynamicFrame = 0,
 	                    const TimeOfFlightHelper* tofHelper = nullptr,
-	                    float tofValue = 0.0f,
-	                    const ProjectionPsfManager* psfManager = nullptr) const;
+	                    float tofValue = 0.0f, const ProjectionPsfManager* psfManager = nullptr) const;
 
 	float forwardProjection(const Image* img,
 	                        const ProjectionProperties& projectionProperties,
@@ -59,8 +59,9 @@ private:
 	template <bool IS_FWD, bool FLAG_TOF>
 	void dd_project_ref(Image* in_image, const Line3D& lor, const Vector3D& n1,
 	                    const Vector3D& n2, float& proj_value,
-	                    const TimeOfFlightHelper* tofHelper = nullptr,
-	                    float tofValue = 0.f,
+	                    OperatorProjectorUpdater& updater,
+	                    frame_t dynamicFrame = 0,
+	                    const TimeOfFlightHelper* tofHelper = nullptr, float tofValue = 0.f,
 	                    const ProjectionPsfManager* psfManager = nullptr) const;
 };
 

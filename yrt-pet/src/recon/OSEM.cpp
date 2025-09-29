@@ -647,7 +647,6 @@ void OSEM::dumpHBasis(const Array2DAlias<float>& H, const char* tag) {
 	std::printf("HBasis%s%s (R=%zu, T=%zu)\n",
 				tag ? " " : "", tag ? tag : "", R, T);
 
-	// If your alias supports H[r][t], use it; otherwise index flat: Hptr[r*T + t]
 	for (size_t r = 0; r < showR; ++r) {
 		std::printf("r=%zu:", r);
 		for (size_t t = 0; t < showT; ++t) {

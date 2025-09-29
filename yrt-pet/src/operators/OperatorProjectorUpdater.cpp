@@ -28,7 +28,7 @@ void py_setup_operatorprojectorupdater(py::module& m)
 			  frame_t dynamicFrame,
 			  size_t numVoxelPerFrame) -> float {
 			 return self.forwardUpdate(weight, in_image->getRawPointer(),
-			 offset_x, dynamicFrame, numVoxelPerFrame);
+			                           offset_x, dynamicFrame, numVoxelPerFrame);
 		   },
 		   py::arg("weight"), py::arg("in_image"),
 		   py::arg("offset_x"), py::arg("dynamicFrame") = 0,
@@ -42,7 +42,7 @@ void py_setup_operatorprojectorupdater(py::module& m)
 				  frame_t dynamicFrame,
 				  size_t numVoxelPerFrame) -> void {
 				 self.backUpdate(value, weight, in_image->getRawPointer(),
-				 offset_x, dynamicFrame, numVoxelPerFrame);
+				                 offset_x, dynamicFrame, numVoxelPerFrame);
 				 },
 			   py::arg("value"), py::arg("weight"), py::arg("in_image"),
 			   py::arg("offset_x"), py::arg("dynamicFrame") = 0,
@@ -112,43 +112,43 @@ namespace yrt
 {
 
 float OperatorProjectorUpdaterDefault3D::forwardUpdate(
-    float weight, float* cur_img_ptr,
-    int offset_x, frame_t dynamicFrame,
-    size_t numVoxelPerFrame) const
+	float weight, float* cur_img_ptr,
+	size_t offset, frame_t dynamicFrame,
+	size_t numVoxelPerFrame) const
 {
 	(void) dynamicFrame;
 	(void) numVoxelPerFrame;
-	return weight * cur_img_ptr[offset_x];
+	return weight * cur_img_ptr[offset];
 }
 
 void OperatorProjectorUpdaterDefault3D::backUpdate(
-    float value, float weight, float* cur_img_ptr,
-    int offset_x, frame_t dynamicFrame,
-    size_t numVoxelPerFrame)
+	float value, float weight, float* cur_img_ptr,
+	size_t offset, frame_t dynamicFrame,
+	size_t numVoxelPerFrame)
 {
 	(void) dynamicFrame;
 	(void) numVoxelPerFrame;
 	float output = value * weight;
-	std::atomic_ref<float> atomic_elem(cur_img_ptr[offset_x]);
+	std::atomic_ref<float> atomic_elem(cur_img_ptr[offset]);
 	atomic_elem.fetch_add(output);
 }
 
 
 float OperatorProjectorUpdaterDefault4D::forwardUpdate(
-    float weight, float* cur_img_ptr,
-    int offset_x, frame_t dynamicFrame,
-    size_t numVoxelPerFrame) const
+	float weight, float* cur_img_ptr,
+	size_t offset, frame_t dynamicFrame,
+	size_t numVoxelPerFrame) const
 {
-	return weight * cur_img_ptr[dynamicFrame * numVoxelPerFrame + offset_x];
+	return weight * cur_img_ptr[dynamicFrame * numVoxelPerFrame + offset];
 }
 
 void OperatorProjectorUpdaterDefault4D::backUpdate(
-    float value, float weight, float* cur_img_ptr,
-    int offset_x, frame_t dynamicFrame,
-    size_t numVoxelPerFrame)
+	float value, float weight, float* cur_img_ptr,
+	size_t offset, frame_t dynamicFrame,
+	size_t numVoxelPerFrame)
 {
 	float output = value * weight;
-	std::atomic_ref<float> atomic_elem(cur_img_ptr[dynamicFrame * numVoxelPerFrame + offset_x]);
+	std::atomic_ref<float> atomic_elem(cur_img_ptr[dynamicFrame * numVoxelPerFrame + offset]);
 	atomic_elem.fetch_add(output);
 }
 
@@ -240,8 +240,8 @@ bool OperatorProjectorUpdaterLR::getUpdateH() const {
 
 
 float OperatorProjectorUpdaterLR::forwardUpdate(
-    float weight, float* cur_img_ptr,
-    int offset_x, frame_t dynamicFrame, size_t numVoxelPerFrame) const
+	float weight, float* cur_img_ptr,
+	size_t offset, frame_t dynamicFrame, size_t numVoxelPerFrame) const
 {
 	float cur_img_lr_val = 0.0f;
 	const float* H_ptr = mp_HBasis.getRawPointer();
@@ -250,7 +250,7 @@ float OperatorProjectorUpdaterLR::forwardUpdate(
 	{
 		float cur_H_ptr = *(H_ptr + l * m_numDynamicFrames + dynamicFrame);
 		const size_t offset_rank = l * numVoxelPerFrame;
-		cur_img_lr_val += cur_img_ptr[offset_x + offset_rank] * cur_H_ptr;
+		cur_img_lr_val += cur_img_ptr[offset + offset_rank] * cur_H_ptr;
 	}
 	return weight * cur_img_lr_val;
 }
@@ -289,7 +289,7 @@ float OperatorProjectorUpdaterLR::forwardUpdate(
 
 void OperatorProjectorUpdaterLR::backUpdate(
 	float value, float weight, float* cur_img_ptr,
-	int offset_x, frame_t dynamicFrame, size_t numVoxelPerFrame)
+	size_t offset, frame_t dynamicFrame, size_t numVoxelPerFrame)
 {
 	const float Ay = value * weight;
 
@@ -301,7 +301,7 @@ void OperatorProjectorUpdaterLR::backUpdate(
 			const float cur_H_ptr = *(H_ptr + l * m_numDynamicFrames + dynamicFrame);
 			const size_t offset_rank = l * numVoxelPerFrame;
 			const float output = Ay * cur_H_ptr;
-			std::atomic_ref<float> atomic_elem(cur_img_ptr[offset_x + offset_rank]);
+			std::atomic_ref<float> atomic_elem(cur_img_ptr[offset + offset_rank]);
 			atomic_elem.fetch_add(output);
 		}
 	}
@@ -309,7 +309,7 @@ void OperatorProjectorUpdaterLR::backUpdate(
 		float* H_ptr = mp_HWrite.getRawPointer();
 		for (int l = 0; l < m_rank; ++l) {
 			const size_t offset_rank = l * numVoxelPerFrame;
-			const float output = Ay * cur_img_ptr[offset_x + offset_rank];
+			const float output = Ay * cur_img_ptr[offset + offset_rank];
 			std::atomic_ref<float> atomic_elem(H_ptr[l * m_numDynamicFrames + dynamicFrame]);
 			atomic_elem.fetch_add(output);
 		}

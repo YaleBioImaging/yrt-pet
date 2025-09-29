@@ -116,7 +116,5 @@ protected:
 
 	bool m_attenuationSetupComplete;
 
-	// Updater for forward and back-projection
-	std::shared_ptr<OperatorProjectorUpdater> mp_updater;
 };
 }  // namespace yrt

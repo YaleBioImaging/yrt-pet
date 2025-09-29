@@ -63,28 +63,28 @@ void py_setup_operatorprojectorsiddon(py::module& m)
 	c.def_static(
 	    "singleBackProjection",
 	    [](Image* in_image, const Line3D& lor, float proj_value,
-	       OperatorProjectorUpdater& updater, frame_t dynamicFrame,
+	       OperatorProjectorUpdater* updater, frame_t dynamicFrame,
 	       const TimeOfFlightHelper* tofHelper, float tofValue) -> void
 	    {
 		    OperatorProjectorSiddon::singleBackProjection(
-		        in_image, lor, proj_value, updater, dynamicFrame,
-		        tofHelper, tofValue);
+			    in_image, lor, proj_value, updater, dynamicFrame,
+			    tofHelper, tofValue);
 	    },
 	    py::arg("in_image"), py::arg("lor"), py::arg("proj_value"),
-	    py::arg("updater"), py::arg("dynamicFrame") = 0,
+	    py::arg("updater") = nullptr, py::arg("dynamicFrame") = 0,
 	    py::arg("tofHelper") = nullptr, py::arg("tofValue") = 0.0f);
 	c.def_static(
 	    "singleForwardProjection",
 	    [](const Image* in_image, const Line3D& lor,
-	       OperatorProjectorUpdater& updater, frame_t dynamicFrame,
+	       OperatorProjectorUpdater* updater, frame_t dynamicFrame,
 	       const TimeOfFlightHelper* tofHelper, float tofValue) -> float
 	    {
 		    return OperatorProjectorSiddon::singleForwardProjection(
-		        in_image, lor, updater, dynamicFrame,
-		        tofHelper, tofValue);
+			    in_image, lor, updater, dynamicFrame,
+			    tofHelper, tofValue);
 	    },
 	    py::arg("in_image"), py::arg("lor"),
-	    py::arg("updater"), py::arg("dynamicFrame") = 0,
+	    py::arg("updater") = nullptr, py::arg("dynamicFrame") = 0,
 	    py::arg("tofHelper") = nullptr,
 	    py::arg("tofValue") = 0.0f);
 }
@@ -244,41 +244,57 @@ void OperatorProjectorSiddon::backProjection(
 }
 
 float OperatorProjectorSiddon::singleForwardProjection(
-    const Image* img, const Line3D& lor, OperatorProjectorUpdater& updater,
-    frame_t dynamicFrame, const TimeOfFlightHelper* tofHelper,
-    float tofValue)
+	const Image* img, const Line3D& lor, OperatorProjectorUpdater* updater,
+	frame_t dynamicFrame, const TimeOfFlightHelper* tofHelper,
+	float tofValue)
 {
 	float v;
+	std::unique_ptr<OperatorProjectorUpdaterDefault3D> u;
+	OperatorProjectorUpdater* up = updater;
+	if (up == nullptr)
+	{
+		u = std::make_unique<OperatorProjectorUpdaterDefault3D>();
+		up = u.get();
+	}
+
 	if (tofHelper != nullptr)
 	{
 		project_helper<true, true, true>(const_cast<Image*>(img), lor, v,
-		                                 updater, dynamicFrame,
+		                                 *up, dynamicFrame,
 		                                 tofHelper, tofValue);
 	}
 	else
 	{
 		project_helper<true, true, false>(const_cast<Image*>(img), lor, v,
-		                                  updater, dynamicFrame,
+		                                  *up, dynamicFrame,
 		                                  tofHelper, tofValue);
 	}
 	return v;
 }
 
 void OperatorProjectorSiddon::singleBackProjection(
-    Image* img, const Line3D& lor, float projValue,
-    OperatorProjectorUpdater& updater, frame_t dynamicFrame,
-    const TimeOfFlightHelper* tofHelper, float tofValue)
+	Image* img, const Line3D& lor, float projValue,
+	OperatorProjectorUpdater* updater, frame_t dynamicFrame,
+	const TimeOfFlightHelper* tofHelper, float tofValue)
 {
+	std::unique_ptr<OperatorProjectorUpdaterDefault3D> u;
+	OperatorProjectorUpdater* up = updater;
+	if (up == nullptr)
+	{
+		u = std::make_unique<OperatorProjectorUpdaterDefault3D>();
+		up = u.get();
+	}
+
 	if (tofHelper != nullptr)
 	{
-		project_helper<false, true, true>(img, lor, projValue, updater,
+		project_helper<false, true, true>(img, lor, projValue, *up,
 		                                  dynamicFrame,
 		                                  tofHelper,
 		                                  tofValue);
 	}
 	else
 	{
-		project_helper<false, true, false>(img, lor, projValue, updater,
+		project_helper<false, true, false>(img, lor, projValue, *up,
 		                                   dynamicFrame,
 		                                   tofHelper,
 		                                   tofValue);

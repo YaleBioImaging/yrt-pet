@@ -26,7 +26,7 @@ double bp_dot(const Line3D& lor, Image* img_bp, const Image* img,
 {
 	img_bp->setValue(0.0);
 	OperatorProjectorSiddon::singleBackProjection(img_bp, lor, proj_val,
-	                                              updater);
+	                                              &updater);
 	return img->dotProduct(*img_bp);
 }
 
@@ -95,7 +95,7 @@ TEST_CASE("Siddon-simple", "[siddon]")
 			INFO(rseed_str + " i=" + std::to_string(i));
 			double proj_val =
 			    yrt::OperatorProjectorSiddon::singleForwardProjection(img.get(),
-			                                                          lor, updater);
+				    lor);
 			REQUIRE(proj_val == Approx(2 * fov_radius));
 
 			// Adjoint
@@ -131,7 +131,7 @@ TEST_CASE("Siddon-simple", "[siddon]")
 			INFO(rseed_str + " i=" + std::to_string(i));
 			double proj_val =
 			    yrt::OperatorProjectorSiddon::singleForwardProjection(img.get(),
-			                                                          lor, updater);
+				    lor, &updater);
 			REQUIRE(proj_val == Approx((p1 - p2).getNorm()));
 
 			// Adjoint
@@ -166,7 +166,7 @@ TEST_CASE("Siddon-simple", "[siddon]")
 			INFO(rseed_str + " i=" + std::to_string(i));
 			float proj_val =
 			    yrt::OperatorProjectorSiddon::singleForwardProjection(img.get(),
-			                                                          lor, updater);
+				    lor, &updater);
 			REQUIRE(proj_val == Approx(integral_ref));
 			// Adjoint
 			double proj_val_t = rand() / (double)RAND_MAX * proj_val;
@@ -194,7 +194,7 @@ TEST_CASE("Siddon-simple", "[siddon]")
 			yrt::Line3D lor{p1, p2};
 			double proj_val =
 			    yrt::OperatorProjectorSiddon::singleForwardProjection(img.get(),
-			                                                          lor, updater);
+				    lor, &updater);
 			REQUIRE(proj_val == Approx(0.f));
 			// Adjoint
 			double proj_val_t = rand() / (double)RAND_MAX * proj_val;
@@ -217,7 +217,7 @@ TEST_CASE("Siddon-simple", "[siddon]")
 			yrt::Line3D lor{p1, p2};
 			double proj_val =
 			    yrt::OperatorProjectorSiddon::singleForwardProjection(img.get(),
-			                                                          lor, updater);
+				    lor, &updater);
 			REQUIRE(proj_val == Approx(0.f));
 			// Adjoint
 			double proj_val_t = rand() / (double)RAND_MAX * proj_val;
@@ -242,7 +242,7 @@ TEST_CASE("Siddon-simple", "[siddon]")
 			yrt::Line3D lor{p1, p2};
 			float proj_val =
 			    yrt::OperatorProjectorSiddon::singleForwardProjection(img.get(),
-			                                                          lor, updater);
+				    lor, &updater);
 			REQUIRE(proj_val == Approx(0.f));
 			// Adjoint
 			double proj_val_t = rand() / (double)RAND_MAX * proj_val;
@@ -277,7 +277,7 @@ TEST_CASE("Siddon-simple", "[siddon]")
 			INFO(rseed_str + " i=" + std::to_string(i));
 			double proj_val =
 			    yrt::OperatorProjectorSiddon::singleForwardProjection(img.get(),
-			                                                          lor, updater);
+				    lor, &updater);
 			REQUIRE(proj_val == Approx(integral_ref));
 			// Adjoint
 			double proj_val_t = rand() / (double)RAND_MAX * proj_val;
@@ -342,7 +342,7 @@ TEST_CASE("Siddon-simple", "[siddon]")
 			INFO("axis i=" + std::to_string(i));
 			double proj_val =
 			    yrt::OperatorProjectorSiddon::singleForwardProjection(img.get(),
-			                                                          lor, updater);
+				    lor, &updater);
 			REQUIRE(proj_val == Approx(l_ref));
 			// Adjoint
 			double proj_val_t = rand() / (double)RAND_MAX * proj_val;
@@ -442,7 +442,7 @@ TEST_CASE("Siddon-random", "[siddon]")
 			// Use Siddon implementation to compute projection
 			double proj_val =
 			    yrt::OperatorProjectorSiddon::singleForwardProjection(img.get(),
-			                                                          lor, updater);
+				    lor, &updater);
 			// Compute reference
 			double proj_ref = 0.0;
 			double t1;
@@ -579,7 +579,7 @@ TEST_CASE("Siddon-bugs", "[siddon]")
 		yrt::Vector3D p2{0, 0, -26.4292};
 		yrt::Line3D lor{p1, p2};
 		double proj_val = yrt::OperatorProjectorSiddon::singleForwardProjection(
-		    img.get(), lor, updater);
+			img.get(), lor, &updater);
 		REQUIRE(proj_val == Approx(v * sz));
 	}
 
@@ -622,7 +622,7 @@ TEST_CASE("Siddon-bugs", "[siddon]")
 		yrt::Vector3D p2{19.74, 0.0, 13.200009};
 		yrt::Line3D lor{p1, p2};
 		double proj_val = yrt::OperatorProjectorSiddon::singleForwardProjection(
-		    img.get(), lor, updater);
+			img.get(), lor, &updater);
 		REQUIRE(proj_val > 0.0f);
 
 		float proj_val_slow;
@@ -685,7 +685,7 @@ TEST_CASE("Siddon-bugs", "[siddon]")
 			yrt::Line3D lor{p1, p2};
 			double proj_val =
 			    yrt::OperatorProjectorSiddon::singleForwardProjection(img.get(),
-			                                                          lor, updater);
+				    lor, &updater);
 			float proj_val_slow;
 			yrt::OperatorProjectorSiddon::project_helper<true, false, false>(
 			    img.get(), lor, proj_val_slow, updater);
@@ -699,7 +699,7 @@ TEST_CASE("Siddon-bugs", "[siddon]")
 			yrt::Line3D lor{p1, p2};
 			double proj_val =
 			    yrt::OperatorProjectorSiddon::singleForwardProjection(img.get(),
-			                                                          lor, updater);
+				    lor, &updater);
 			float proj_val_slow;
 			yrt::OperatorProjectorSiddon::project_helper<true, false, false>(
 			    img.get(), lor, proj_val_slow, updater);
@@ -713,7 +713,7 @@ TEST_CASE("Siddon-bugs", "[siddon]")
 			yrt::Line3D lor{p1, p2};
 			double proj_val =
 			    yrt::OperatorProjectorSiddon::singleForwardProjection(img.get(),
-			                                                          lor, updater);
+				    lor, &updater);
 			float proj_val_slow;
 			yrt::OperatorProjectorSiddon::project_helper<true, false, false>(
 			    img.get(), lor, proj_val_slow, updater);
@@ -727,7 +727,7 @@ TEST_CASE("Siddon-bugs", "[siddon]")
 			yrt::Line3D lor{p1, p2};
 			double proj_val =
 			    yrt::OperatorProjectorSiddon::singleForwardProjection(img.get(),
-			                                                          lor, updater);
+				    lor, &updater);
 			float proj_val_slow;
 			yrt::OperatorProjectorSiddon::project_helper<true, false, false>(
 			    img.get(), lor, proj_val_slow, updater);

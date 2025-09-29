@@ -676,6 +676,7 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 		printf("Getting ImageParams from Sensitivity Image...");
 	}
 
+	printf("\n before sens im \n");
 	const int expectedNumberOfSensImages = getExpectedSensImagesAmount();
 	if (expectedNumberOfSensImages !=
 	    static_cast<int>(m_sensitivityImages.size()))
@@ -716,9 +717,11 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 			    1.0f / (static_cast<float>(num_OSEM_subsets)));
 		}
 	}
-
+	printf("\n after sens im, before getCorrector \n");
 	getCorrector().setup();
+	printf("\n after getCorrector, before initializeForRecon \n");
 	initializeForRecon();
+	printf("\n after initializeForRecon \n");
 
 	// Calculate factor to use for sensitivity image DEFAULT4D and LR
 	const bool IS_DYNAMIC =

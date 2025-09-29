@@ -360,7 +360,7 @@ void DetCoordOwned::readFromFile(const std::string& filename,
 		size_t fileSizeMask = end - begin;
 		size_t numBool = fileSizeMask / sizeof(bool);
 		if (fileSizeMask <= 0 || fileSizeMask % sizeof(bool) != 0 ||
-		    numBool != numElem)
+		    numBool != numDets)
 		{
 			throw std::logic_error("Error: Input mask file has incorrect size");
 		}

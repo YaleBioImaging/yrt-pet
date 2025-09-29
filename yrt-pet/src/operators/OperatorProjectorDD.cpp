@@ -36,24 +36,26 @@ void py_setup_operatorprojectordd(py::module& m)
 	    "forwardProjection",
 	    [](const OperatorProjectorDD& self, const Image* in_image,
 	       const Line3D& lor, const Vector3D& n1, const Vector3D& n2,
+	       frame_t dynamicFrame,
 	       const TimeOfFlightHelper* tofHelper, float tofValue) -> float
 	    {
-		    return self.forwardProjection(in_image, lor, n1, n2, 0, tofHelper,
-		                                  tofValue, nullptr);
+		    return self.forwardProjection(in_image, lor, n1, n2, 0, dynamicFrame,
+		                                  tofHelper, tofValue, nullptr);
 	    },
 	    py::arg("in_image"), py::arg("lor"), py::arg("n1"), py::arg("n2"),
+	    py::arg("dynamicFrame") = 0,
 	    py::arg("tofHelper") = nullptr, py::arg("tofValue") = 0.0f);
 	c.def(
 	    "backProjection",
 	    [](const OperatorProjectorDD& self, Image* in_image, const Line3D& lor,
-	       const Vector3D& n1, const Vector3D& n2, float proj_value,
+	       const Vector3D& n1, const Vector3D& n2, float proj_value, frame_t dynamicFrame,
 	       const TimeOfFlightHelper* tofHelper, float tofValue)
 	    {
-		    self.backProjection(in_image, lor, n1, n2, proj_value, 0, tofHelper,
-		                        tofValue, nullptr);
+		    self.backProjection(in_image, lor, n1, n2, proj_value, 0, dynamicFrame,
+		                        tofHelper, tofValue, nullptr);
 	    },
 	    py::arg("in_image"), py::arg("lor"), py::arg("n1"), py::arg("n2"),
-	    py::arg("proj_value"), py::arg("tofHelper") = nullptr,
+	    py::arg("proj_value"), py::arg("dynamicFrame") = 0, py::arg("tofHelper") = nullptr,
 	    py::arg("tofValue") = 0.0f);
 
 	c.def_static("get_overlap", &OperatorProjectorDD::get_overlap);
@@ -82,9 +84,9 @@ float OperatorProjectorDD::forwardProjection(
     int tid) const
 {
 	return forwardProjection(
-	    img, projectionProperties.lor, projectionProperties.det1Orient,
-	    projectionProperties.det2Orient, tid, mp_tofHelper.get(),
-	    projectionProperties.tofValue, mp_projPsfManager.get());
+		img, projectionProperties.lor, projectionProperties.det1Orient,
+		projectionProperties.det2Orient, tid, projectionProperties.dynamicFrame,
+		mp_tofHelper.get(), projectionProperties.tofValue, mp_projPsfManager.get());
 }
 
 void OperatorProjectorDD::backProjection(
@@ -92,44 +94,44 @@ void OperatorProjectorDD::backProjection(
     float projValue, int tid) const
 {
 	backProjection(
-	    img, projectionProperties.lor, projectionProperties.det1Orient,
-	    projectionProperties.det2Orient, projValue, tid, mp_tofHelper.get(),
-	    projectionProperties.tofValue, mp_projPsfManager.get());
+		img, projectionProperties.lor, projectionProperties.det1Orient,
+		projectionProperties.det2Orient, projValue, tid, projectionProperties.dynamicFrame,
+		mp_tofHelper.get(), projectionProperties.tofValue, mp_projPsfManager.get());
 }
 
 float OperatorProjectorDD::forwardProjection(
-    const Image* in_image, const Line3D& lor, const Vector3D& n1,
-    const Vector3D& n2, int /*tid*/, const TimeOfFlightHelper* tofHelper,
-    float tofValue, const ProjectionPsfManager* psfManager) const
+	const Image* in_image, const Line3D& lor, const Vector3D& n1,
+	const Vector3D& n2, int /*tid*/, frame_t dynamicFrame,
+	const TimeOfFlightHelper* tofHelper, float tofValue, const ProjectionPsfManager* psfManager) const
 {
 	float v = 0;
 	if (tofHelper != nullptr)
 	{
 		dd_project_ref<true, true>(const_cast<Image*>(in_image), lor, n1, n2, v,
-		                           tofHelper, tofValue, psfManager);
+		                           *mp_updater.get(), dynamicFrame, tofHelper, tofValue, psfManager);
 	}
 	else
 	{
 		dd_project_ref<true, false>(const_cast<Image*>(in_image), lor, n1, n2,
-		                            v, nullptr, tofValue, psfManager);
+		                            v, *mp_updater.get(), dynamicFrame, nullptr, tofValue, psfManager);
 	}
 	return v;
 }
 
 void OperatorProjectorDD::backProjection(
-    Image* in_image, const Line3D& lor, const Vector3D& n1, const Vector3D& n2,
-    float proj_value, int /*tid*/, const TimeOfFlightHelper* tofHelper,
-    float tofValue, const ProjectionPsfManager* psfManager) const
+	Image* in_image, const Line3D& lor, const Vector3D& n1, const Vector3D& n2,
+	float proj_value, int /*tid*/, frame_t dynamicFrame,
+	const TimeOfFlightHelper* tofHelper, float tofValue, const ProjectionPsfManager* psfManager) const
 {
 	if (tofHelper != nullptr)
 	{
 		dd_project_ref<false, true>(in_image, lor, n1, n2, proj_value,
-		                            tofHelper, tofValue, psfManager);
+		                            *mp_updater.get(), dynamicFrame, tofHelper, tofValue, psfManager);
 	}
 	else
 	{
 		dd_project_ref<false, false>(in_image, lor, n1, n2, proj_value,
-		                             tofHelper, tofValue, psfManager);
+		                             *mp_updater.get(), dynamicFrame, tofHelper, tofValue, psfManager);
 	}
 }
 
@@ -161,9 +163,9 @@ float OperatorProjectorDD::get_overlap(const float p0, const float p1,
 
 template <bool IS_FWD, bool FLAG_TOF>
 void OperatorProjectorDD::dd_project_ref(
-    Image* in_image, const Line3D& lor, const Vector3D& n1, const Vector3D& n2,
-    float& proj_value, const TimeOfFlightHelper* tofHelper, float tofValue,
-    const ProjectionPsfManager* psfManager) const
+	Image* in_image, const Line3D& lor, const Vector3D& n1, const Vector3D& n2,
+	float& proj_value, OperatorProjectorUpdater& updater, frame_t dynamicFrame,
+	const TimeOfFlightHelper* tofHelper, float tofValue, const ProjectionPsfManager* psfManager) const
 {
 	if constexpr (IS_FWD)
 	{
@@ -435,14 +437,17 @@ void OperatorProjectorDD::dd_project_ref(
 
 						if constexpr (IS_FWD)
 						{
-							float* ptr = raw_img_ptr + idx;
-							proj_value += (*ptr) * weight;
+							const size_t numVoxelsPerFrame = params.nx * params.ny * params.nz;
+							proj_value += updater.forwardUpdate(weight, raw_img_ptr,
+								idx, dynamicFrame, numVoxelsPerFrame);
+
 						}
 						else
 						{
-							std::atomic_ref<float> atomic_elem(
-							    raw_img_ptr[idx]);
-							atomic_elem.fetch_add(proj_value * weight);
+							const size_t numVoxelsPerFrame = params.nx * params.ny * params.nz;
+							updater.backUpdate(proj_value, weight, raw_img_ptr,
+											   idx, dynamicFrame,
+											   numVoxelsPerFrame);
 						}
 					}
 				}
@@ -452,16 +457,16 @@ void OperatorProjectorDD::dd_project_ref(
 }
 
 template void OperatorProjectorDD::dd_project_ref<true, false>(
-    Image*, const Line3D&, const Vector3D&, const Vector3D&, float&,
-    const TimeOfFlightHelper*, float, const ProjectionPsfManager*) const;
+	Image*, const Line3D&, const Vector3D&, const Vector3D&, float&,
+	OperatorProjectorUpdater& updater, frame_t dynamicFrame, const TimeOfFlightHelper*, float, const ProjectionPsfManager*) const;
 template void OperatorProjectorDD::dd_project_ref<false, false>(
-    Image*, const Line3D&, const Vector3D&, const Vector3D&, float&,
-    const TimeOfFlightHelper*, float, const ProjectionPsfManager*) const;
+	Image*, const Line3D&, const Vector3D&, const Vector3D&, float&,
+	OperatorProjectorUpdater& updater, frame_t dynamicFrame, const TimeOfFlightHelper*, float, const ProjectionPsfManager*) const;
 template void OperatorProjectorDD::dd_project_ref<true, true>(
-    Image*, const Line3D&, const Vector3D&, const Vector3D&, float&,
-    const TimeOfFlightHelper*, float, const ProjectionPsfManager*) const;
+	Image*, const Line3D&, const Vector3D&, const Vector3D&, float&,
+	OperatorProjectorUpdater& updater, frame_t dynamicFrame, const TimeOfFlightHelper*, float, const ProjectionPsfManager*) const;
 template void OperatorProjectorDD::dd_project_ref<false, true>(
-    Image*, const Line3D&, const Vector3D&, const Vector3D&, float&,
-    const TimeOfFlightHelper*, float, const ProjectionPsfManager*) const;
+	Image*, const Line3D&, const Vector3D&, const Vector3D&, float&,
+	OperatorProjectorUpdater& updater, frame_t dynamicFrame, const TimeOfFlightHelper*, float, const ProjectionPsfManager*) const;
 
 }  // namespace yrt

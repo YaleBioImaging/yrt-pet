@@ -7,8 +7,10 @@
 
 #include "yrt-pet/datastruct/image/Image.hpp"
 #include "yrt-pet/datastruct/projection/Histogram3D.hpp"
+#include "yrt-pet/datastruct/projection/ProjectionData.hpp"
 #include "yrt-pet/datastruct/scanner/Scanner.hpp"
 #include "yrt-pet/geometry/Constants.hpp"
+#include "yrt-pet/operators/OperatorProjector.hpp"
 #include "yrt-pet/operators/OperatorProjectorSiddon.hpp"
 #include "yrt-pet/utils/Assert.hpp"
 #include "yrt-pet/utils/Globals.hpp"
@@ -62,6 +64,9 @@ SingleScatterSimulator::SingleScatterSimulator(
       m_crystalMaterial(p_crystalMaterial)
 {
 	const ImageParams& mu_params = mr_mu.getParams();
+	// Projector
+	mp_proj = std::make_unique<OperatorProjectorSiddon>(mr_scanner);
+
 	// YP low level discriminatory energy
 	m_energyLLD = mr_scanner.energyLLD;
 
@@ -306,7 +311,7 @@ void SingleScatterSimulator::runSSS(size_t numberZ, size_t numberPhi,
 
 // YP LOR in which to compute the scatter contribution
 float SingleScatterSimulator::computeSingleScatterInLOR(
-	const Line3D& lor, const Vector3D& n1, const Vector3D& n2) const
+    const Line3D& lor, const Vector3D& n1, const Vector3D& n2) const
 {
 	int i;
 	float res = 0., dist1, dist2, energy, cosa, mu_scaling_factor;
@@ -367,13 +372,13 @@ float SingleScatterSimulator::computeSingleScatterInLOR(
 		dsigcompdomega = getKleinNishina(cosa);
 
 		// compute I1 and I2:
-		att_s_1_511 =
-		    OperatorProjectorSiddon::singleForwardProjection(&mr_mu, lor_1_s) /
-		    10.0;
+		ProjectionProperties projProps_1, projProps_2;
+		projProps_1.lor = lor_1_s;
+		projProps_2.lor = lor_2_s;
+		att_s_1_511 = mp_proj->forwardProjection(&mr_mu, projProps_1, 0) / 10.0;
 
 		att_s_1 = att_s_1_511 * mu_scaling_factor;
-		lamb_s_1 = OperatorProjectorSiddon::singleForwardProjection(&mr_lambda,
-			lor_1_s);
+		lamb_s_1 = mp_proj->forwardProjection(&mr_lambda, projProps_1, 0);
 		delta_1 = getIntersectionLengthLORCrystal(lor_1_s);
 		if (delta_1 > 10 * m_crystalDepth)
 		{
@@ -384,12 +389,10 @@ float SingleScatterSimulator::computeSingleScatterInLOR(
 			exit(-1);
 		}
 
-		att_s_2_511 =
-		    OperatorProjectorSiddon::singleForwardProjection(&mr_mu, lor_2_s) /
-		    10.0;
+		att_s_2_511 = mp_proj->forwardProjection(&mr_mu, projProps_2, 0) / 10.0;
 
 		att_s_2 = att_s_2_511 * mu_scaling_factor;
-		lamb_s_2 = OperatorProjectorSiddon::singleForwardProjection(&mr_lambda, lor_2_s);
+		lamb_s_2 = mp_proj->forwardProjection(&mr_lambda, projProps_2, 0);
 		delta_2 = getIntersectionLengthLORCrystal(lor_2_s);
 
 		// Check that the distance between the two cylinders is not too big

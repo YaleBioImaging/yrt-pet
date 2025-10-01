@@ -45,16 +45,20 @@ public:
 	// Without Multi-ray siddon
 	static float
 	    singleForwardProjection(const Image* img, const Line3D& lor,
-	                            OperatorProjectorUpdater* updater = nullptr,
-	                            frame_t dynamicFrame = 0,
 	                            const TimeOfFlightHelper* tofHelper = nullptr,
 	                            float tofValue = 0.f);
 	static void
 	    singleBackProjection(Image* img, const Line3D& lor, float projValue,
-	                         OperatorProjectorUpdater* updater = nullptr,
-	                         frame_t dynamicFrame = 0,
 	                         const TimeOfFlightHelper* tofHelper = nullptr,
 	                         float tofValue = 0.f);
+	static float singleForwardProjection(
+	    const Image* img, const Line3D& lor, OperatorProjectorUpdater& updater,
+	    frame_t dynamicFrame = 0, const TimeOfFlightHelper* tofHelper = nullptr,
+	    float tofValue = 0.f);
+	static void singleBackProjection(
+	    Image* img, const Line3D& lor, float projValue,
+	    OperatorProjectorUpdater& updater, frame_t dynamicFrame = 0,
+	    const TimeOfFlightHelper* tofHelper = nullptr, float tofValue = 0.f);
 
 
 	template <bool IS_FWD, bool FLAG_INCR, bool FLAG_TOF>

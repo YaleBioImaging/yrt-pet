@@ -12,6 +12,7 @@
 #include "yrt-pet/utils/Globals.hpp"
 #include "yrt-pet/utils/ProgressDisplay.hpp"
 #include "yrt-pet/utils/ReconstructionUtils.hpp"
+#include "yrt-pet/utils/ReconstructionUtilsDevice.cuh"
 #include "yrt-pet/utils/Timer.hpp"
 
 #include <ctime>
@@ -276,6 +277,8 @@ int main(int argc, char** argv)
 			    "pre-existing sensitivity image(s) were provided.");
 		}
 
+		const bool useGPU = config.getValue<bool>("gpu");
+
 		const auto dataInputFormat = config.getValue<std::string>("format");
 		const auto dataInputFilename = config.getValue<std::string>("input");
 		ASSERT_MSG(dataInputFilename.empty() == dataInputFormat.empty(),
@@ -300,8 +303,7 @@ int main(int argc, char** argv)
 		    std::make_unique<Scanner>(config.getValue<std::string>("scanner"));
 		auto projectorType =
 		    io::getProjector(config.getValue<std::string>("projector"));
-		std::unique_ptr<OSEM> osem =
-		    util::createOSEM(*scanner, config.getValue<bool>("gpu"));
+		std::unique_ptr<OSEM> osem = util::createOSEM(*scanner, useGPU);
 
 		osem->num_MLEM_iterations = config.getValue<int>("num_iterations");
 		osem->num_OSEM_subsets = config.getValue<int>("num_subsets");
@@ -503,8 +505,21 @@ int main(int argc, char** argv)
 				if (dataInput == nullptr)
 				{
 					// Time average move based on all the frames
-					movedSensImage = util::timeAverageMoveImage(
-					    *lorMotion, unmovedSensImage);
+					if (useGPU)
+					{
+#if BUILD_CUDA
+						auto movedSensImageDevice =
+						    util::timeAverageMoveImageDevice(
+						        *lorMotion, unmovedSensImage, {});
+						movedSensImageDevice->transferToHostMemory(
+						    movedSensImage.get());
+#endif
+					}
+					else
+					{
+						movedSensImage = util::timeAverageMoveImage(
+						    *lorMotion, unmovedSensImage);
+					}
 				}
 				else
 				{
@@ -512,8 +527,22 @@ int main(int argc, char** argv)
 					const timestamp_t timeStart = dataInput->getTimestamp(0);
 					const timestamp_t timeStop =
 					    dataInput->getTimestamp(dataInput->count() - 1);
-					movedSensImage = util::timeAverageMoveImage(
-					    *lorMotion, unmovedSensImage, timeStart, timeStop);
+					if (useGPU)
+					{
+#if BUILD_CUDA
+						auto movedSensImageDevice =
+						    util::timeAverageMoveImageDevice(
+						        *lorMotion, unmovedSensImage, timeStart,
+						        timeStop, {});
+						movedSensImageDevice->transferToHostMemory(
+						    movedSensImage.get());
+#endif
+					}
+					else
+					{
+						movedSensImage = util::timeAverageMoveImage(
+						    *lorMotion, unmovedSensImage, timeStart, timeStop);
+					}
 				}
 
 				sensTimer.pause();

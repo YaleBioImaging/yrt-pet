@@ -25,19 +25,19 @@ class Histogram;
 class OperatorProjector : public OperatorProjectorBase
 {
 public:
-
-	explicit OperatorProjector(const Scanner& pr_scanner,
-	                           float tofWidth_ps = 0.0f, int tofNumStd = -1,
-	                           const std::string& projPsf_fname = "",
-	                           OperatorProjectorParams::ProjectorUpdaterType projectorUpdaterType =
-	                               OperatorProjectorParams::DEFAULT3D);
+	explicit OperatorProjector(
+	    const Scanner& pr_scanner, float tofWidth_ps = 0.0f, int tofNumStd = -1,
+	    const std::string& projPsf_fname = "",
+	    OperatorProjectorParams::ProjectorUpdaterType projectorUpdaterType =
+	        OperatorProjectorParams::DEFAULT3D);
 
 	explicit OperatorProjector(const OperatorProjectorParams& p_projParams);
 
 	// Virtual functions
-	virtual float forwardProjection(
-	    const Image* image,
-	    const ProjectionProperties& projectionProperties, int tid) const = 0;
+	virtual float
+	    forwardProjection(const Image* image,
+	                      const ProjectionProperties& projectionProperties,
+	                      int tid) const = 0;
 	virtual void
 	    backProjection(Image* image,
 	                   const ProjectionProperties& projectionProperties,

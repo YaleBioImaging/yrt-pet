@@ -26,7 +26,7 @@ double bp_dot(const Line3D& lor, Image* img_bp, const Image* img,
 {
 	img_bp->setValue(0.0);
 	OperatorProjectorSiddon::singleBackProjection(img_bp, lor, proj_val,
-	                                              &updater);
+	                                              updater);
 	return img->dotProduct(*img_bp);
 }
 
@@ -34,8 +34,8 @@ double bp_dot_slow(const Line3D& lor, Image* img_bp, const Image* img,
                    float proj_val, OperatorProjectorUpdater& updater)
 {
 	img_bp->setValue(0.0);
-	OperatorProjectorSiddon::project_helper<false, false, false>(img_bp, lor,
-	                                                             proj_val, updater);
+	OperatorProjectorSiddon::project_helper<false, false, false>(
+	    img_bp, lor, proj_val, updater);
 	return img->dotProduct(*img_bp);
 }
 }  // namespace yrt
@@ -65,20 +65,21 @@ TEST_CASE("Siddon-simple", "[siddon]")
 	img_bp->setValue(0.0);
 	float fov_radius = img->getRadius();
 
-//	int numTimeFrames = 1;
-//	int rank = 5;
-//	yrt::Array2D<float> HBasis;
-//	HBasis.allocate(rank, numTimeFrames);
-//
-//	for (int l = 0; l < rank; ++l) {
-//		for (int t = 0; t < numTimeFrames; ++t) {
-//			// using flat access: row l, col t
-//			std::array<size_t, 2> idx = {static_cast<size_t>(l), static_cast<size_t>(t)};
-//			HBasis.set(idx, static_cast<float>(l) + 0.1f * t);
-//		}
-//	}
-//	yrt::OperatorProjectorUpdaterLR updater;
-//	updater.setHBasis(HBasis);
+	//	int numTimeFrames = 1;
+	//	int rank = 5;
+	//	yrt::Array2D<float> HBasis;
+	//	HBasis.allocate(rank, numTimeFrames);
+	//
+	//	for (int l = 0; l < rank; ++l) {
+	//		for (int t = 0; t < numTimeFrames; ++t) {
+	//			// using flat access: row l, col t
+	//			std::array<size_t, 2> idx = {static_cast<size_t>(l),
+	//static_cast<size_t>(t)}; 			HBasis.set(idx, static_cast<float>(l) + 0.1f *
+	//t);
+	//		}
+	//	}
+	//	yrt::OperatorProjectorUpdaterLR updater;
+	//	updater.setHBasis(HBasis);
 
 	yrt::OperatorProjectorUpdaterDefault3D updater;
 
@@ -94,14 +95,15 @@ TEST_CASE("Siddon-simple", "[siddon]")
 			yrt::Line3D lor{p1, p2};
 			INFO(rseed_str + " i=" + std::to_string(i));
 			double proj_val =
-			    yrt::OperatorProjectorSiddon::singleForwardProjection(img.get(),
-				    lor);
+			    yrt::OperatorProjectorSiddon::singleForwardProjection(
+			        img.get(), lor, updater);
 			REQUIRE(proj_val == Approx(2 * fov_radius));
 
 			// Adjoint
 			double proj_val_t = rand() / (double)RAND_MAX * proj_val;
 			double dot_Ax_y = proj_val * proj_val_t;
-			double dot_x_Aty = bp_dot(lor, img_bp.get(), img.get(), proj_val_t, updater);
+			double dot_x_Aty =
+			    bp_dot(lor, img_bp.get(), img.get(), proj_val_t, updater);
 			REQUIRE(dot_Ax_y == Approx(dot_x_Aty));
 
 			// Slow version of ray tracing
@@ -130,14 +132,15 @@ TEST_CASE("Siddon-simple", "[siddon]")
 			yrt::Line3D lor{p1, p2};
 			INFO(rseed_str + " i=" + std::to_string(i));
 			double proj_val =
-			    yrt::OperatorProjectorSiddon::singleForwardProjection(img.get(),
-				    lor, &updater);
+			    yrt::OperatorProjectorSiddon::singleForwardProjection(
+			        img.get(), lor, updater);
 			REQUIRE(proj_val == Approx((p1 - p2).getNorm()));
 
 			// Adjoint
 			double proj_val_t = rand() / (double)RAND_MAX * proj_val;
 			double dot_Ax_y = proj_val * proj_val_t;
-			double dot_x_Aty = bp_dot(lor, img_bp.get(), img.get(), proj_val_t, updater);
+			double dot_x_Aty =
+			    bp_dot(lor, img_bp.get(), img.get(), proj_val_t, updater);
 			REQUIRE(dot_Ax_y == Approx(dot_x_Aty));
 
 			// Slow version of ray tracing
@@ -165,13 +168,14 @@ TEST_CASE("Siddon-simple", "[siddon]")
 			    2 * sqrtf(std::max(0.0f, fov_radius * fov_radius - y0 * y0));
 			INFO(rseed_str + " i=" + std::to_string(i));
 			float proj_val =
-			    yrt::OperatorProjectorSiddon::singleForwardProjection(img.get(),
-				    lor, &updater);
+			    yrt::OperatorProjectorSiddon::singleForwardProjection(
+			        img.get(), lor, updater);
 			REQUIRE(proj_val == Approx(integral_ref));
 			// Adjoint
 			double proj_val_t = rand() / (double)RAND_MAX * proj_val;
 			double dot_Ax_y = proj_val * proj_val_t;
-			double dot_x_Aty = bp_dot(lor, img_bp.get(), img.get(), proj_val_t, updater);
+			double dot_x_Aty =
+			    bp_dot(lor, img_bp.get(), img.get(), proj_val_t, updater);
 			REQUIRE(dot_Ax_y == Approx(dot_x_Aty));
 
 			// Slow version of ray tracing
@@ -193,13 +197,14 @@ TEST_CASE("Siddon-simple", "[siddon]")
 			yrt::Vector3D p2{2 * sx, p1.y, p1.z};
 			yrt::Line3D lor{p1, p2};
 			double proj_val =
-			    yrt::OperatorProjectorSiddon::singleForwardProjection(img.get(),
-				    lor, &updater);
+			    yrt::OperatorProjectorSiddon::singleForwardProjection(
+			        img.get(), lor, updater);
 			REQUIRE(proj_val == Approx(0.f));
 			// Adjoint
 			double proj_val_t = rand() / (double)RAND_MAX * proj_val;
 			double dot_Ax_y = proj_val * proj_val_t;
-			double dot_x_Aty = bp_dot(lor, img_bp.get(), img.get(), proj_val_t, updater);
+			double dot_x_Aty =
+			    bp_dot(lor, img_bp.get(), img.get(), proj_val_t, updater);
 			REQUIRE(dot_Ax_y == Approx(dot_x_Aty));
 
 			// Slow version of ray tracing
@@ -216,13 +221,14 @@ TEST_CASE("Siddon-simple", "[siddon]")
 			yrt::Vector3D p2{2 * sx, sy, p1.z};
 			yrt::Line3D lor{p1, p2};
 			double proj_val =
-			    yrt::OperatorProjectorSiddon::singleForwardProjection(img.get(),
-				    lor, &updater);
+			    yrt::OperatorProjectorSiddon::singleForwardProjection(
+			        img.get(), lor, updater);
 			REQUIRE(proj_val == Approx(0.f));
 			// Adjoint
 			double proj_val_t = rand() / (double)RAND_MAX * proj_val;
 			double dot_Ax_y = proj_val * proj_val_t;
-			double dot_x_Aty = bp_dot(lor, img_bp.get(), img.get(), proj_val_t, updater);
+			double dot_x_Aty =
+			    bp_dot(lor, img_bp.get(), img.get(), proj_val_t, updater);
 			REQUIRE(dot_Ax_y == Approx(dot_x_Aty));
 
 			// Slow version of ray tracing
@@ -241,13 +247,14 @@ TEST_CASE("Siddon-simple", "[siddon]")
 			yrt::Vector3D p2{sx, 0.0f, p1.z + delta_z};
 			yrt::Line3D lor{p1, p2};
 			float proj_val =
-			    yrt::OperatorProjectorSiddon::singleForwardProjection(img.get(),
-				    lor, &updater);
+			    yrt::OperatorProjectorSiddon::singleForwardProjection(
+			        img.get(), lor, updater);
 			REQUIRE(proj_val == Approx(0.f));
 			// Adjoint
 			double proj_val_t = rand() / (double)RAND_MAX * proj_val;
 			double dot_Ax_y = proj_val * proj_val_t;
-			double dot_x_Aty = bp_dot(lor, img_bp.get(), img.get(), proj_val_t, updater);
+			double dot_x_Aty =
+			    bp_dot(lor, img_bp.get(), img.get(), proj_val_t, updater);
 			REQUIRE(dot_Ax_y == Approx(dot_x_Aty));
 
 			// Slow version of ray tracing
@@ -276,13 +283,14 @@ TEST_CASE("Siddon-simple", "[siddon]")
 			    sqrtf(4.f * fov_radius * fov_radius + (z2 - z1) * (z2 - z1));
 			INFO(rseed_str + " i=" + std::to_string(i));
 			double proj_val =
-			    yrt::OperatorProjectorSiddon::singleForwardProjection(img.get(),
-				    lor, &updater);
+			    yrt::OperatorProjectorSiddon::singleForwardProjection(
+			        img.get(), lor, updater);
 			REQUIRE(proj_val == Approx(integral_ref));
 			// Adjoint
 			double proj_val_t = rand() / (double)RAND_MAX * proj_val;
 			double dot_Ax_y = proj_val * proj_val_t;
-			double dot_x_Aty = bp_dot(lor, img_bp.get(), img.get(), proj_val_t, updater);
+			double dot_x_Aty =
+			    bp_dot(lor, img_bp.get(), img.get(), proj_val_t, updater);
 			REQUIRE(dot_Ax_y == Approx(dot_x_Aty));
 
 			// Slow version of ray tracing
@@ -341,13 +349,14 @@ TEST_CASE("Siddon-simple", "[siddon]")
 			yrt::Line3D lor{p1, p2};
 			INFO("axis i=" + std::to_string(i));
 			double proj_val =
-			    yrt::OperatorProjectorSiddon::singleForwardProjection(img.get(),
-				    lor, &updater);
+			    yrt::OperatorProjectorSiddon::singleForwardProjection(
+			        img.get(), lor, updater);
 			REQUIRE(proj_val == Approx(l_ref));
 			// Adjoint
 			double proj_val_t = rand() / (double)RAND_MAX * proj_val;
 			double dot_Ax_y = proj_val * proj_val_t;
-			double dot_x_Aty = bp_dot(lor, img_bp.get(), img.get(), proj_val_t, updater);
+			double dot_x_Aty =
+			    bp_dot(lor, img_bp.get(), img.get(), proj_val_t, updater);
 			REQUIRE(dot_Ax_y == Approx(dot_x_Aty));
 
 			// Slow version of ray tracing
@@ -406,19 +415,20 @@ TEST_CASE("Siddon-random", "[siddon]")
 	double dy = sy / ny;
 	double dz = sz / nz;
 
-//	int rank = 5;
-//	yrt::Array2D<float> HBasis;
-//	HBasis.allocate(rank, numTimeFrames);
-//
-//	for (int l = 0; l < rank; ++l) {
-//		for (int t = 0; t < numTimeFrames; ++t) {
-//			// using flat access: row l, col t
-//			std::array<size_t, 2> idx = {static_cast<size_t>(l), static_cast<size_t>(t)};
-//			HBasis.set(idx, static_cast<float>(l) + 0.1f * t);
-//		}
-//	}
-//	yrt::OperatorProjectorUpdaterLR updater;
-//	updater.setHBasis(HBasis);
+	//	int rank = 5;
+	//	yrt::Array2D<float> HBasis;
+	//	HBasis.allocate(rank, numTimeFrames);
+	//
+	//	for (int l = 0; l < rank; ++l) {
+	//		for (int t = 0; t < numTimeFrames; ++t) {
+	//			// using flat access: row l, col t
+	//			std::array<size_t, 2> idx = {static_cast<size_t>(l),
+	//static_cast<size_t>(t)}; 			HBasis.set(idx, static_cast<float>(l) + 0.1f *
+	//t);
+	//		}
+	//	}
+	//	yrt::OperatorProjectorUpdaterLR updater;
+	//	updater.setHBasis(HBasis);
 
 	yrt::OperatorProjectorUpdaterDefault3D updater;
 
@@ -441,8 +451,8 @@ TEST_CASE("Siddon-random", "[siddon]")
 
 			// Use Siddon implementation to compute projection
 			double proj_val =
-			    yrt::OperatorProjectorSiddon::singleForwardProjection(img.get(),
-				    lor, &updater);
+			    yrt::OperatorProjectorSiddon::singleForwardProjection(
+			        img.get(), lor, updater);
 			// Compute reference
 			double proj_ref = 0.0;
 			double t1;
@@ -523,7 +533,8 @@ TEST_CASE("Siddon-random", "[siddon]")
 			// Adjoint
 			double proj_val_t = rand() / (double)RAND_MAX * proj_val;
 			double dot_Ax_y = proj_val * proj_val_t;
-			double dot_x_Aty = bp_dot(lor, img_bp.get(), img.get(), proj_val_t, updater);
+			double dot_x_Aty =
+			    bp_dot(lor, img_bp.get(), img.get(), proj_val_t, updater);
 			REQUIRE(dot_Ax_y == Approx(dot_x_Aty).epsilon(0.001));
 
 			// Slow version of ray tracing
@@ -558,20 +569,21 @@ TEST_CASE("Siddon-bugs", "[siddon]")
 		double v = rand() / (double)RAND_MAX * 1000.0;
 		img->setValue(v);
 
-//		int rank = 5;
-//		int numTimeFrames = 1;
-//		yrt::Array2D<float> HBasis;
-//		HBasis.allocate(rank, numTimeFrames);
-//
-//		for (int l = 0; l < rank; ++l) {
-//			for (int t = 0; t < numTimeFrames; ++t) {
-//				// using flat access: row l, col t
-//				std::array<size_t, 2> idx = {static_cast<size_t>(l), static_cast<size_t>(t)};
-//				HBasis.set(idx, static_cast<float>(l) + 0.1f * t);
-//			}
-//		}
-//		yrt::OperatorProjectorUpdaterLR updater;
-//		updater.setHBasis(HBasis);
+		//		int rank = 5;
+		//		int numTimeFrames = 1;
+		//		yrt::Array2D<float> HBasis;
+		//		HBasis.allocate(rank, numTimeFrames);
+		//
+		//		for (int l = 0; l < rank; ++l) {
+		//			for (int t = 0; t < numTimeFrames; ++t) {
+		//				// using flat access: row l, col t
+		//				std::array<size_t, 2> idx = {static_cast<size_t>(l),
+		//static_cast<size_t>(t)}; 				HBasis.set(idx, static_cast<float>(l) + 0.1f
+		//* t);
+		//			}
+		//		}
+		//		yrt::OperatorProjectorUpdaterLR updater;
+		//		updater.setHBasis(HBasis);
 
 		yrt::OperatorProjectorUpdaterDefault3D updater;
 
@@ -579,7 +591,7 @@ TEST_CASE("Siddon-bugs", "[siddon]")
 		yrt::Vector3D p2{0, 0, -26.4292};
 		yrt::Line3D lor{p1, p2};
 		double proj_val = yrt::OperatorProjectorSiddon::singleForwardProjection(
-			img.get(), lor, &updater);
+		    img.get(), lor, updater);
 		REQUIRE(proj_val == Approx(v * sz));
 	}
 
@@ -601,20 +613,21 @@ TEST_CASE("Siddon-bugs", "[siddon]")
 		double v = rand() / (double)RAND_MAX * 1000.0;
 		img->setValue(v);
 
-//		int numTimeFrames = 1;
-//		int rank = 5;
-//		yrt::Array2D<float> HBasis;
-//		HBasis.allocate(rank, numTimeFrames);
-//
-//		for (int l = 0; l < rank; ++l) {
-//			for (int t = 0; t < numTimeFrames; ++t) {
-//				// using flat access: row l, col t
-//				std::array<size_t, 2> idx = {static_cast<size_t>(l), static_cast<size_t>(t)};
-//				HBasis.set(idx, static_cast<float>(l) + 0.1f * t);
-//			}
-//		}
-//		yrt::OperatorProjectorUpdaterLR updater;
-//		updater.setHBasis(HBasis);
+		//		int numTimeFrames = 1;
+		//		int rank = 5;
+		//		yrt::Array2D<float> HBasis;
+		//		HBasis.allocate(rank, numTimeFrames);
+		//
+		//		for (int l = 0; l < rank; ++l) {
+		//			for (int t = 0; t < numTimeFrames; ++t) {
+		//				// using flat access: row l, col t
+		//				std::array<size_t, 2> idx = {static_cast<size_t>(l),
+		//static_cast<size_t>(t)}; 				HBasis.set(idx, static_cast<float>(l) + 0.1f
+		//* t);
+		//			}
+		//		}
+		//		yrt::OperatorProjectorUpdaterLR updater;
+		//		updater.setHBasis(HBasis);
 
 		yrt::OperatorProjectorUpdaterDefault3D updater;
 
@@ -622,7 +635,7 @@ TEST_CASE("Siddon-bugs", "[siddon]")
 		yrt::Vector3D p2{19.74, 0.0, 13.200009};
 		yrt::Line3D lor{p1, p2};
 		double proj_val = yrt::OperatorProjectorSiddon::singleForwardProjection(
-			img.get(), lor, &updater);
+		    img.get(), lor, updater);
 		REQUIRE(proj_val > 0.0f);
 
 		float proj_val_slow;
@@ -656,25 +669,27 @@ TEST_CASE("Siddon-bugs", "[siddon]")
 				{
 					for (size_t i = 0; i < nx; i++)
 					{
-						img_arr[f][k][j][i] = rand() / (double)RAND_MAX * 10 - 5.0;
+						img_arr[f][k][j][i] =
+						    rand() / (double)RAND_MAX * 10 - 5.0;
 					}
 				}
 			}
 		}
 
-//		int rank = 5;
-//		yrt::Array2D<float> HBasis;
-//		HBasis.allocate(rank, numTimeFrames);
-//
-//		for (int l = 0; l < rank; ++l) {
-//			for (int t = 0; t < numTimeFrames; ++t) {
-//				// using flat access: row l, col t
-//				std::array<size_t, 2> idx = {static_cast<size_t>(l), static_cast<size_t>(t)};
-//				HBasis.set(idx, static_cast<float>(l) + 0.1f * t);
-//			}
-//		}
-//		yrt::OperatorProjectorUpdaterLR updater;
-//		updater.setHBasis(HBasis);
+		//		int rank = 5;
+		//		yrt::Array2D<float> HBasis;
+		//		HBasis.allocate(rank, numTimeFrames);
+		//
+		//		for (int l = 0; l < rank; ++l) {
+		//			for (int t = 0; t < numTimeFrames; ++t) {
+		//				// using flat access: row l, col t
+		//				std::array<size_t, 2> idx = {static_cast<size_t>(l),
+		//static_cast<size_t>(t)}; 				HBasis.set(idx, static_cast<float>(l) + 0.1f
+		//* t);
+		//			}
+		//		}
+		//		yrt::OperatorProjectorUpdaterLR updater;
+		//		updater.setHBasis(HBasis);
 
 		yrt::OperatorProjectorUpdaterDefault3D updater;
 
@@ -684,8 +699,8 @@ TEST_CASE("Siddon-bugs", "[siddon]")
 			yrt::Vector3D p2{2.0, 1.0, 0.0};
 			yrt::Line3D lor{p1, p2};
 			double proj_val =
-			    yrt::OperatorProjectorSiddon::singleForwardProjection(img.get(),
-				    lor, &updater);
+			    yrt::OperatorProjectorSiddon::singleForwardProjection(
+			        img.get(), lor, updater);
 			float proj_val_slow;
 			yrt::OperatorProjectorSiddon::project_helper<true, false, false>(
 			    img.get(), lor, proj_val_slow, updater);
@@ -698,8 +713,8 @@ TEST_CASE("Siddon-bugs", "[siddon]")
 			yrt::Vector3D p2{2.0, 0.0, 1.0};
 			yrt::Line3D lor{p1, p2};
 			double proj_val =
-			    yrt::OperatorProjectorSiddon::singleForwardProjection(img.get(),
-				    lor, &updater);
+			    yrt::OperatorProjectorSiddon::singleForwardProjection(
+			        img.get(), lor, updater);
 			float proj_val_slow;
 			yrt::OperatorProjectorSiddon::project_helper<true, false, false>(
 			    img.get(), lor, proj_val_slow, updater);
@@ -712,8 +727,8 @@ TEST_CASE("Siddon-bugs", "[siddon]")
 			yrt::Vector3D p2{0.0, 2.0, 1.0};
 			yrt::Line3D lor{p1, p2};
 			double proj_val =
-			    yrt::OperatorProjectorSiddon::singleForwardProjection(img.get(),
-				    lor, &updater);
+			    yrt::OperatorProjectorSiddon::singleForwardProjection(
+			        img.get(), lor, updater);
 			float proj_val_slow;
 			yrt::OperatorProjectorSiddon::project_helper<true, false, false>(
 			    img.get(), lor, proj_val_slow, updater);
@@ -726,8 +741,8 @@ TEST_CASE("Siddon-bugs", "[siddon]")
 			yrt::Vector3D p2{2.0, 2.0, 2.0};
 			yrt::Line3D lor{p1, p2};
 			double proj_val =
-			    yrt::OperatorProjectorSiddon::singleForwardProjection(img.get(),
-				    lor, &updater);
+			    yrt::OperatorProjectorSiddon::singleForwardProjection(
+			        img.get(), lor, updater);
 			float proj_val_slow;
 			yrt::OperatorProjectorSiddon::project_helper<true, false, false>(
 			    img.get(), lor, proj_val_slow, updater);

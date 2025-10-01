@@ -7,6 +7,7 @@
 
 #include "yrt-pet/geometry/Cylinder.hpp"
 #include "yrt-pet/geometry/Plane.hpp"
+#include "yrt-pet/operators/OperatorProjector.hpp"
 #include "yrt-pet/scatter/Crystal.hpp"
 #include "yrt-pet/operators/OperatorProjectorUpdater.hpp"
 
@@ -62,7 +63,7 @@ private:
 	Plane m_endPlate1, m_endPlate2;
 
 	// Updater for forward and back-projection
-	std::shared_ptr<OperatorProjectorUpdater> mp_updater;
+	std::unique_ptr<OperatorProjector> mp_proj;
 };
 
 }  // namespace scatter

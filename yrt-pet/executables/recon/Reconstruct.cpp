@@ -511,6 +511,9 @@ int main(int argc, char** argv)
 						auto movedSensImageDevice =
 						    util::timeAverageMoveImageDevice(
 						        *lorMotion, unmovedSensImage, {});
+						movedSensImage = std::make_unique<ImageOwned>(
+						    unmovedSensImage->getParams());
+						movedSensImage->allocate();
 						movedSensImageDevice->transferToHostMemory(
 						    movedSensImage.get());
 #endif
@@ -534,6 +537,9 @@ int main(int argc, char** argv)
 						    util::timeAverageMoveImageDevice(
 						        *lorMotion, unmovedSensImage, timeStart,
 						        timeStop, {});
+						movedSensImage = std::make_unique<ImageOwned>(
+						    unmovedSensImage->getParams());
+						movedSensImage->allocate();
 						movedSensImageDevice->transferToHostMemory(
 						    movedSensImage.get());
 #endif

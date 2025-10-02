@@ -15,17 +15,17 @@
 namespace yrt
 {
 
-struct DeviceVarPsf
-{
-	float* kernels;     // flatten kernel data
-	int*   offsets;     // The starting position of each kernel in the kernels array
-	int*   sizes;       // The size of each kernel (number of elements)
-	int    numKernels;  // kernel number
-};
-
 class OperatorVarPsfDevice : public DeviceSynchronized, public OperatorPsfDevice, public OperatorVarPsf
 {
 public:
+	struct DeviceVarPsf
+	{
+		float* kernels;     // flatten kernel data
+		int*   offsets;     // The starting position of each kernel in the kernels array
+		int*   sizes;       // The size of each kernel (number of elements)
+		int    numKernels;  // kernel number
+	};
+
 	explicit OperatorVarPsfDevice(const cudaStream_t* pp_stream = nullptr, const ImageParams& p_imageParams);
 	explicit OperatorVarPsfDevice(const std::string& pr_imagePsf_fname,
 							   const cudaStream_t* pp_stream = nullptr, const ImageParams& p_imageParams);
@@ -37,10 +37,10 @@ public:
 	void allocateTemporaryDeviceImageIfNeeded(const ImageParams& params,
 	                                          GPULaunchConfig config) const;
 
-	void applyA(const Variable* in, Variable* out) override;
-	void applyAH(const Variable* in, Variable* out) override;
-	void applyA(const Variable* in, Variable* out, bool synchronize) const;
-	void applyAH(const Variable* in, Variable* out, bool synchronize) const;
+	//void applyA(const Variable* in, Variable* out) override;
+	//void applyAH(const Variable* in, Variable* out) override;
+	//void applyA(const Variable* in, Variable* out, bool synchronize) const;
+	//void applyAH(const Variable* in, Variable* out, bool synchronize) const;
 
 protected:
 	void initDeviceArraysIfNeeded();
@@ -58,7 +58,10 @@ private:
 	std::unique_ptr<DeviceArray<int>> mpd_kernelHalfSizes; // triples: hx,hy,hz per kernel
 	std::unique_ptr<DeviceArray<int>> mpd_kernelLUT;
 
-	std::vector<std::unique_ptr<DeviceArray<float>>> mpd_kernelLUT;
+	static void initDeviceArrayIfNeeded(
+		std::unique_ptr<DeviceArray<float>>& ppd_kernel);
+
+	//std::vector<std::unique_ptr<DeviceArray<float>>> mpd_kernelLUT;
 	void readFromFileInternal(const std::string& pr_imagePsf_fname,
 	                          bool p_synchronize);
 	//static void initDeviceArrayIfNeeded(

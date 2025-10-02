@@ -110,7 +110,7 @@ void OperatorPsfDevice::copyToDevice(bool synchronize)
 	const GPULaunchConfig launchConfig{getAuxStream(), synchronize};
 
 	initDeviceArraysIfNeeded();
-	allocateDeviceArrays(synchronize);
+	allocateDeviceArrays(synchronize); //10.2 write
 
 	mpd_kernelX->copyFromHost(m_kernelX.data(), m_kernelX.size(), launchConfig);
 	mpd_kernelY->copyFromHost(m_kernelY.data(), m_kernelY.size(), launchConfig);

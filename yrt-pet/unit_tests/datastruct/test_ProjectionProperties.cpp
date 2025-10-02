@@ -22,7 +22,7 @@ TEST_CASE("proj_props", "[projProps]")
 		        sizeof(yrt::Line3D) + sizeof(float));
 	}
 
-	SECTION("props-simple-elementSize")
+	SECTION("props-simple-get-set")
 	{
 		std::set<yrt::ProjectionPropertyType> variables;
 		variables.insert(yrt::ProjectionPropertyType::DET_ID);

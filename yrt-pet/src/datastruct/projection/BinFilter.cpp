@@ -114,7 +114,6 @@ void BinFilter::collectInfo(bin_t bin, size_t projIdx, int consIdx,
                             ConstraintParams& consInfo) const
 {
 	det_pair_t detPair;
-
 	if (collectFlags[static_cast<size_t>(CollectInfoFlag::DetPair)])
 	{
 		detPair = projData.getDetectorPair(bin);
@@ -132,6 +131,7 @@ void BinFilter::collectInfo(bin_t bin, size_t projIdx, int consIdx,
 		m_propManager->setDataValue(projProps, projIdx,
 		                            ProjectionPropertyType::LOR, lor);
 	}
+
 	const Scanner* scanner = &projData.getScanner();
 
 	if (collectFlags[static_cast<size_t>(CollectInfoFlag::AbsDeltaAngleDeg)])
@@ -168,8 +168,9 @@ void BinFilter::collectInfo(bin_t bin, size_t projIdx, int consIdx,
 	}
 	if (collectFlags[static_cast<size_t>(CollectInfoFlag::AbsDeltaBlockIdx)])
 	{
-		int diff = util::periodicDiff(d1bi, d2bi,
-		                              static_cast<int>(scanner->detsPerBlock));
+		size_t numBlocks = scanner->detsPerRing / scanner->detsPerBlock;
+		int diff = std::abs(
+		    util::periodicDiff(d1bi, d2bi, static_cast<int>(numBlocks)));
 		m_constraintManager->setDataValue(
 		    consInfo, consIdx, ConstraintVariable::ABS_DELTA_BLOCK_IDX, diff);
 	}

@@ -57,9 +57,11 @@ void testBinFilterHelper(yrt::Scanner& scanner, yrt::Constraint& constraint,
 	}
 	for (size_t i = 0; i < testLORs.size(); i++)
 	{
-		INFO(std::format("Line {} (d1={} d2={} valid? {})", i,
-		                 testLORs[i].first.d1, testLORs[i].first.d2,
-		                 testLORs[i].second));
+		INFO(("Line " + std::to_string(i) +
+		      " (d1=" + std::to_string(testLORs[i].first.d1) +
+		      " d2=" + std::to_string(testLORs[i].first.d2) + " valid? " +
+		      std::to_string(testLORs[i].second) + ")")
+		         .c_str());
 		REQUIRE(binFilter.isValid(consManager, constraintParamsPtr, i) ==
 		        testLORs[i].second);
 	}

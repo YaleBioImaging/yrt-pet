@@ -21,7 +21,7 @@ def make_scanner():
     # Create scanner
     scanner = yrt.Scanner(scannerName='test_scanner', axialFOV=25,
                           crystalSize_z=2.0, crystalSize_trans=2.0,
-                          crystalDepth=10.0, scannerRadius=30.0,
+                          crystalDepth=10.0, scannerRadius=160.8748637480274,
                           detsPerRing=512, numRings=8, numDOI=1, maxRingDiff=7,
                           minAngDiff=0, detsPerBlock=32)
     det_coords = yrt.DetRegular(scanner)

@@ -28,6 +28,8 @@ public:
 		PlaneBlock,
 		DetPair,
 		DetID,
+		Det1,
+		Det2,
 		LOR,
 		AbsDeltaAngleDeg,
 		AbsDeltaAngleIdx,
@@ -51,7 +53,7 @@ public:
 	                 ProjectionProperties& projProps,
 	                 ConstraintParams& consInfo) const;
 	bool isValid(const ConstraintManager& manager,
-	             ConstraintParams& info) const;
+	             ConstraintParams& info, size_t pos) const;
 
 	const ConstraintManager& getConstraintManager() const;
 	const ProjectionPropertyManager& getPropertyManager() const;

@@ -75,7 +75,7 @@ void LORsDevice::precomputeBatchLORs(const BinIterator& binIter,
 			    binFilter.collectInfo(
 			        bin, binIdx, tid, *reference_ptr, collectInfoFlags,
 			        tempBufferProjectionProperties_ptr, infoPtr);
-			    if (binFilter.isValid(consManager, infoPtr))
+			    if (binFilter.isValid(consManager, infoPtr, tid))
 			    {
 				    reference_ptr->getProjectionProperties(
 				        tempBufferProjectionProperties_ptr, projPropManager,

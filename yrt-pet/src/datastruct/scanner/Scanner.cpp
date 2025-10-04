@@ -161,7 +161,6 @@ void Scanner::collectConstraints(
 		constraints.emplace_back(
 		    std::make_unique<ConstraintDetectorMask>(this));
 	}
-
 }
 
 void Scanner::createLUT(Array2D<float>& lut) const
@@ -217,7 +216,7 @@ void Scanner::readFromString(const std::string& fileContents)
 
 	std::string detMask;
 	const bool isDetMaskGiven =
-		util::getParam<std::string>(&j, &detMask, "detMask", "", false);
+	    util::getParam<std::string>(&j, &detMask, "detMask", "", false);
 
 	util::getParam<float>(
 	    &j, &axialFOV, "axialFOV", 0.0, true,

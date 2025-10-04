@@ -63,7 +63,7 @@ void OSEMUpdater_CPU::computeSensitivityImage(Image& destImage) const
 		    binFilter->collectInfo(bin, tid, tid, *sensImgGenProjData,
 		                           collectInfoFlags, projectionProperties,
 		                           constraintParams);
-		    if (binFilter->isValid(consManager, constraintParams))
+		    if (binFilter->isValid(consManager, constraintParams, tid))
 		    {
 			    progressDisplay.progress(tid, 1);
 			    sensImgGenProjData->getProjectionProperties(
@@ -135,7 +135,7 @@ void OSEMUpdater_CPU::computeEMUpdateImage(const Image& inputImage,
 		    binFilter->collectInfo(bin, tid, tid, *measurements,
 		                           collectInfoFlags, projectionProperties,
 		                           constraintParams);
-		    if (binFilter->isValid(consManager, constraintParams))
+		    if (binFilter->isValid(consManager, constraintParams, tid))
 		    {
 			    measurements->getProjectionProperties(
 			        projectionProperties, projPropManager, bin, tid);

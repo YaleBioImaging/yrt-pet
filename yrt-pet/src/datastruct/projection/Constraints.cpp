@@ -40,9 +40,9 @@ namespace yrt
 // Constraints
 
 bool Constraint::isValid(const ConstraintManager& manager,
-                         ConstraintParams& info) const
+                         ConstraintParams& info, size_t pos) const
 {
-	return m_constraintFcn(manager, info);
+	return m_constraintFcn(manager, info, pos);
 }
 std::vector<ConstraintVariable> Constraint::getVariables() const
 {
@@ -53,10 +53,10 @@ std::vector<ConstraintVariable> Constraint::getVariables() const
 ConstraintAngleDiffIndex::ConstraintAngleDiffIndex(int p_minAngleDiffIdx)
 {
 	m_constraintFcn = [p_minAngleDiffIdx](const ConstraintManager& manager,
-	                                      ConstraintParams& info)
+	                                      ConstraintParams& info, size_t pos)
 	{
 		int absDeltaAngleIdx = manager.getDataValue<int>(
-		    info, 0, ConstraintVariable::ABS_DELTA_ANGLE_IDX);
+		    info, pos, ConstraintVariable::ABS_DELTA_ANGLE_IDX);
 		return absDeltaAngleIdx >= p_minAngleDiffIdx;
 	};
 }
@@ -69,10 +69,10 @@ std::vector<ConstraintVariable> ConstraintAngleDiffIndex::getVariables() const
 ConstraintAngleDiffDeg::ConstraintAngleDiffDeg(float p_minAngleDiffDeg)
 {
 	m_constraintFcn = [p_minAngleDiffDeg](const ConstraintManager& manager,
-	                                      ConstraintParams& info)
+	                                      ConstraintParams& info, size_t pos)
 	{
 		float absDeltaAngleDeg = manager.getDataValue<float>(
-		    info, 0, ConstraintVariable::ABS_DELTA_ANGLE_DEG);
+		    info, pos, ConstraintVariable::ABS_DELTA_ANGLE_DEG);
 		return absDeltaAngleDeg >= p_minAngleDiffDeg;
 	};
 }
@@ -85,10 +85,10 @@ std::vector<ConstraintVariable> ConstraintAngleDiffDeg::getVariables() const
 ConstraintBlockDiffIndex::ConstraintBlockDiffIndex(int p_minBlockDiffIdx)
 {
 	m_constraintFcn = [p_minBlockDiffIdx](const ConstraintManager& manager,
-	                                      ConstraintParams& info)
+	                                      ConstraintParams& info, size_t pos)
 	{
 		int absDeltaBlockIdx = manager.getDataValue<int>(
-		    info, 0, ConstraintVariable::ABS_DELTA_BLOCK_IDX);
+		    info, pos, ConstraintVariable::ABS_DELTA_BLOCK_IDX);
 		return absDeltaBlockIdx >= p_minBlockDiffIdx;
 	};
 }
@@ -100,13 +100,13 @@ std::vector<ConstraintVariable> ConstraintBlockDiffIndex::getVariables() const
 // Detector mask
 ConstraintDetectorMask::ConstraintDetectorMask(const Scanner* scanner)
 {
-	m_constraintFcn =
-	    [scanner](const ConstraintManager& manager, ConstraintParams& info)
+	m_constraintFcn = [scanner](const ConstraintManager& manager,
+	                            ConstraintParams& info, size_t pos)
 	{
 		det_id_t d1 =
-		    manager.getDataValue<det_id_t>(info, 0, ConstraintVariable::DET1);
+		    manager.getDataValue<det_id_t>(info, pos, ConstraintVariable::DET1);
 		det_id_t d2 =
-		    manager.getDataValue<det_id_t>(info, 0, ConstraintVariable::DET2);
+		    manager.getDataValue<det_id_t>(info, pos, ConstraintVariable::DET2);
 		return (scanner->isDetectorAllowed(d1) &&
 		        scanner->isDetectorAllowed(d2));
 	};

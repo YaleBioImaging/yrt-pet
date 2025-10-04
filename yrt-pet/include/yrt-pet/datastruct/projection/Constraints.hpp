@@ -20,11 +20,11 @@ class Constraint
 {
 public:
 	bool isValid(const ConstraintManager& manager,
-	             ConstraintParams& info) const;
+	             ConstraintParams& info, size_t pos) const;
 	virtual std::vector<ConstraintVariable> getVariables() const = 0;
 	virtual ~Constraint() = default;
 protected:
-	std::function<bool(const ConstraintManager&, ConstraintParams&)>
+	std::function<bool(const ConstraintManager&, ConstraintParams&, size_t)>
 	    m_constraintFcn;
 };
 

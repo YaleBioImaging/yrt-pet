@@ -10,8 +10,10 @@
 #include "yrt-pet/datastruct/projection/Constraints.hpp"
 #include "yrt-pet/datastruct/projection/ListModeLUT.hpp"
 #include "yrt-pet/datastruct/projection/ProjectionProperties.hpp"
+#include "yrt-pet/datastruct/scanner/DetCoord.hpp"
 #include "yrt-pet/geometry/Constants.hpp"
 #include "yrt-pet/geometry/Vector3D.hpp"
+#include "yrt-pet/utils/Array.hpp"
 #include "yrt-pet/utils/Types.hpp"
 
 #include <cstdint>
@@ -19,7 +21,7 @@
 
 using TestLOR = std::vector<std::pair<yrt::det_pair_t, bool>>;
 
-void testIndexDiffHelper(yrt::Scanner& scanner, yrt::Constraint& constraint,
+void testBinFilterHelper(yrt::Scanner& scanner, yrt::Constraint& constraint,
                          TestLOR& testLORs)
 {
 	std::vector<yrt::Constraint*> constraints;
@@ -32,11 +34,12 @@ void testIndexDiffHelper(yrt::Scanner& scanner, yrt::Constraint& constraint,
 	binFilter.collectFlags(collectFlags);
 
 	auto& projPropManager = binFilter.getPropertyManager();
-	auto projectionProperties = projPropManager.createDataArray(1);
+	auto projectionProperties =
+	    projPropManager.createDataArray(testLORs.size());
 	auto projectionPropertiesPtr = projectionProperties.get();
 
 	auto& consManager = binFilter.getConstraintManager();
-	auto constraintParams = consManager.createDataArray(1);
+	auto constraintParams = consManager.createDataArray(testLORs.size());
 	auto constraintParamsPtr = constraintParams.get();
 
 	yrt::ListModeLUTOwned projData(scanner);
@@ -49,12 +52,15 @@ void testIndexDiffHelper(yrt::Scanner& scanner, yrt::Constraint& constraint,
 
 	for (size_t i = 0; i < testLORs.size(); i++)
 	{
-		binFilter.collectInfo(i, 0, 0, projData, collectFlags,
+		binFilter.collectInfo(i, i, i, projData, collectFlags,
 		                      projectionPropertiesPtr, constraintParamsPtr);
+	}
+	for (size_t i = 0; i < testLORs.size(); i++)
+	{
 		INFO(std::format("Line {} (d1={} d2={} valid? {})", i,
 		                 testLORs[i].first.d1, testLORs[i].first.d2,
 		                 testLORs[i].second));
-		REQUIRE(binFilter.isValid(consManager, constraintParamsPtr) ==
+		REQUIRE(binFilter.isValid(consManager, constraintParamsPtr, i) ==
 		        testLORs[i].second);
 	}
 }
@@ -96,7 +102,7 @@ TEST_CASE("binfilter", "[binfilter]")
 		         static_cast<uint32_t>(scanner->detsPerRing - 1),
 		     },
 		     true}};
-		testIndexDiffHelper(*scanner.get(), *constraint.get(), lors);
+		testBinFilterHelper(*scanner.get(), *constraint.get(), lors);
 	}
 
 	SECTION("angle_idx-diff")
@@ -107,7 +113,7 @@ TEST_CASE("binfilter", "[binfilter]")
 		    {{100, 105}, true},
 		    {{static_cast<uint32_t>(scanner->detsPerRing - 1), 3}, false},
 		    {{static_cast<uint32_t>(scanner->detsPerRing - 1), 4}, true}};
-		testIndexDiffHelper(*scanner.get(), *constraint.get(), lors);
+		testBinFilterHelper(*scanner.get(), *constraint.get(), lors);
 	}
 
 	SECTION("angle_deg-diff")
@@ -126,6 +132,47 @@ TEST_CASE("binfilter", "[binfilter]")
 			float angle = angleBetweenVectors(p1, p2) / yrt::PI * 180.f;
 			lors.push_back({{d1, d2}, angle >= angleMin});
 		}
-		testIndexDiffHelper(*scanner.get(), *constraint.get(), lors);
+		testBinFilterHelper(*scanner.get(), *constraint.get(), lors);
+	}
+
+	SECTION("scanner_mask")
+	{
+		// Get coordinates from scanner
+		auto detCoords =
+		    static_cast<yrt::DetCoord*>(scanner->getDetectorSetup().get());
+		// Scanner mask
+		yrt::Array1D<bool> mask;
+		mask.allocate(scanner->getNumDets());
+		std::fill(&mask[0], &mask[mask.getSizeTotal() - 1], true);
+		for (size_t detID = 0; detID < scanner->getNumDets(); detID++)
+		{
+			if ((detID % scanner->detsPerRing) < 10)
+			{
+				mask[detID] = false;
+			}
+		}
+
+		// Create scanner object with mask
+		std::shared_ptr<yrt::DetCoordAlias> detCoordsMask =
+		    std::make_shared<yrt::DetCoordAlias>();
+		detCoordsMask->bind(
+		    detCoords->getXposArrayRef(), detCoords->getYposArrayRef(),
+		    detCoords->getZposArrayRef(), detCoords->getXorientArrayRef(),
+		    detCoords->getYorientArrayRef(), detCoords->getZorientArrayRef(),
+		    &mask);
+		auto scannerMasked = yrt::util::test::makeScanner();
+		scannerMasked->setDetectorSetup(detCoordsMask);
+
+		// Collect constraints
+		auto constraints = std::vector<std::unique_ptr<yrt::Constraint>>();
+		scannerMasked->collectConstraints(constraints);
+		REQUIRE(constraints.size() == 1);
+
+		TestLOR lors;
+		for (yrt::det_id_t idx = 0; idx < 20; idx++)
+		{
+			lors.push_back({{20, idx}, (idx % scanner->detsPerRing) >= 10});
+		}
+		testBinFilterHelper(*scanner.get(), *constraints[0].get(), lors);
 	}
 }

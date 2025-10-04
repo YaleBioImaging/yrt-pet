@@ -83,14 +83,21 @@ void BinFilter::collectFlags(CollectInfoFlags& collectFlags) const
 	collectFlags[static_cast<size_t>(CollectInfoFlag::PlaneBlock)] =
 	    m_consVariables.find(ConstraintVariable::ABS_DELTA_BLOCK_IDX) !=
 	    m_consVariables.end();
-	collectFlags[static_cast<size_t>(CollectInfoFlag::DetPair)] =
-	    m_projVariables.find(ProjectionPropertyType::DET_ID) !=
-	        m_projVariables.end() ||
-	    collectFlags[static_cast<size_t>(CollectInfoFlag::PlaneIdx)] ||
-	    collectFlags[static_cast<size_t>(CollectInfoFlag::PlaneBlock)];
 	collectFlags[static_cast<size_t>(CollectInfoFlag::DetID)] =
 	    m_projVariables.find(ProjectionPropertyType::DET_ID) !=
 	    m_projVariables.end();
+	collectFlags[static_cast<size_t>(CollectInfoFlag::Det1)] =
+	    m_consVariables.find(ConstraintVariable::DET1) !=
+	    m_consVariables.end();
+	collectFlags[static_cast<size_t>(CollectInfoFlag::Det2)] =
+	    m_consVariables.find(ConstraintVariable::DET2) !=
+	    m_consVariables.end();
+	collectFlags[static_cast<size_t>(CollectInfoFlag::DetPair)] =
+		collectFlags[static_cast<size_t>(CollectInfoFlag::DetID)] ||
+		collectFlags[static_cast<size_t>(CollectInfoFlag::Det1)] ||
+		collectFlags[static_cast<size_t>(CollectInfoFlag::Det2)] ||
+		collectFlags[static_cast<size_t>(CollectInfoFlag::PlaneIdx)] ||
+	    collectFlags[static_cast<size_t>(CollectInfoFlag::PlaneBlock)];
 	collectFlags[static_cast<size_t>(CollectInfoFlag::LOR)] =
 	    m_projVariables.find(ProjectionPropertyType::LOR) !=
 	        m_projVariables.end() ||
@@ -122,6 +129,16 @@ void BinFilter::collectInfo(bin_t bin, size_t projIdx, int consIdx,
 	{
 		m_propManager->setDataValue(projProps, projIdx,
 		                            ProjectionPropertyType::DET_ID, detPair);
+	}
+	if (collectFlags[static_cast<size_t>(CollectInfoFlag::Det1)])
+	{
+		m_constraintManager->setDataValue(consInfo, consIdx,
+		                                  ConstraintVariable::DET1, detPair.d1);
+	}
+	if (collectFlags[static_cast<size_t>(CollectInfoFlag::Det2)])
+	{
+		m_constraintManager->setDataValue(consInfo, consIdx,
+		                                  ConstraintVariable::DET2, detPair.d2);
 	}
 
 	Line3D lor;
@@ -177,11 +194,11 @@ void BinFilter::collectInfo(bin_t bin, size_t projIdx, int consIdx,
 }
 
 bool BinFilter::isValid(const ConstraintManager& manager,
-                        ConstraintParams& info) const
+                        ConstraintParams& info, size_t pos) const
 {
 	for (auto& constraint : m_constraints)
 	{
-		if (!constraint->isValid(manager, info))
+		if (!constraint->isValid(manager, info, pos))
 		{
 			return false;
 		}

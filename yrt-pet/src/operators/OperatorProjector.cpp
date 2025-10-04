@@ -99,7 +99,7 @@ void OperatorProjector::applyA(const Variable* in, Variable* out)
 		    const bin_t bin = binIter->get(binIdx);
 		    m_binFilter->collectInfo(bin, tid, tid, *dat, collectInfoFlags,
 		                             projectionProperties, constraintParams);
-		    if (m_binFilter->isValid(consManager, constraintParams))
+		    if (m_binFilter->isValid(consManager, constraintParams, tid))
 		    {
 			    dat->getProjectionProperties(projectionProperties,
 			                                 projPropManager, bin, tid);
@@ -137,7 +137,7 @@ void OperatorProjector::applyAH(const Variable* in, Variable* out)
 		    const bin_t bin = binIter->get(binIdx);
 		    m_binFilter->collectInfo(bin, tid, tid, *dat, collectInfoFlags,
 		                             projectionProperties, constraintParams);
-		    if (m_binFilter->isValid(consManager, constraintParams))
+		    if (m_binFilter->isValid(consManager, constraintParams, tid))
 		    {
 			    dat->getProjectionProperties(projectionProperties,
 			                                 projPropManager, bin, tid);

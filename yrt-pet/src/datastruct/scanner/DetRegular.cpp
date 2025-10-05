@@ -8,7 +8,6 @@
 #include "yrt-pet/geometry/Constants.hpp"
 
 #include <cstdlib>
-#include <format>
 #include <fstream>
 
 #if BUILD_PYBIND11

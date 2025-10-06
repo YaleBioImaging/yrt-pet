@@ -45,6 +45,13 @@ The following properties are used only in scatter estimation:
 - `energyLLD` : Energy Low-Level-Discriminant (keV). Only used in Scatter
   estimation.
 
+An optional field can be used to mask detectors:
+
+- `detMask` : Path to mask file.  The mask file stores one boolean per detector
+  (in the same order as the LUT file): `true` if the detector is acive, `false`
+  if it is masked.  The file is store in binary format, without header, and with
+  one byte per detector.
+
 ### Example
 
 Here's an example of a Scanner's JSON file

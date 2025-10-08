@@ -21,7 +21,9 @@ void py_setup_detectormask(pybind11::module& m)
 	auto c = py::class_<DetectorMask>(m, "DetectorMask", py::buffer_protocol());
 	c.def(py::init<const std::string&>(), "fname"_a);
 	c.def(py::init<const Array1DBase<bool>&>(), "maskArray"_a);
-	c.def("checkAgainstScanner", &DetectorMask::checkAgainstScanner);
+	c.def(py::init<const Array3DBase<float>&>(), "maskArray"_a);
+	c.def(py::init<const DetectorMask&>(), "other"_a);
+	c.def("readFromFile", &DetectorMask::readFromFile, "fname"_a);
 	c.def_buffer(
 	    [](DetectorMask& self) -> py::buffer_info
 	    {
@@ -30,10 +32,13 @@ void py_setup_detectormask(pybind11::module& m)
 		                           py::format_descriptor<bool>::format(), 1,
 		                           d.getDims(), d.getStrides());
 	    });
+	c.def("checkAgainstScanner", &DetectorMask::checkAgainstScanner);
 	c.def("getData",
 	      static_cast<const Array1D<bool>& (DetectorMask::*)() const>(
 	          &DetectorMask::getData));
+	c.def("getNumDets", &DetectorMask::getNumDets);
 	c.def("checkDetector", &DetectorMask::checkDetector, "detId"_a);
+	c.def("writeToFile", &DetectorMask::writeToFile, "fname"_a);
 }
 
 }  // namespace yrt

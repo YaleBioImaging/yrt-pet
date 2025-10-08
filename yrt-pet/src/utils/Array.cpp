@@ -71,6 +71,9 @@ void py_setup_array(pybind11::module& m)
 	PY_DECLARE_ARRAY(int, 1);
 	PY_DECLARE_ARRAY(int, 2);
 	PY_DECLARE_ARRAY(int, 3);
+	PY_DECLARE_ARRAY(bool, 1);
+	PY_DECLARE_ARRAY(bool, 2);
+	PY_DECLARE_ARRAY(bool, 3);
 }
 
 }  // namespace yrt

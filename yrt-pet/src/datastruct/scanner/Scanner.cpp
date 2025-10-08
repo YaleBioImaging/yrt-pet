@@ -6,6 +6,7 @@
 #include "yrt-pet/datastruct/scanner/Scanner.hpp"
 
 #include "yrt-pet/datastruct/scanner/DetRegular.hpp"
+#include "yrt-pet/datastruct/scanner/DetCoord.hpp"
 #include "yrt-pet/datastruct/scanner/DetectorSetup.hpp"
 #include "yrt-pet/geometry/Constants.hpp"
 #include "yrt-pet/utils/Assert.hpp"
@@ -40,6 +41,8 @@ void py_setup_scanner(pybind11::module& m)
 	c.def("getDetectorPos", &Scanner::getDetectorPos, "det_id"_a);
 	c.def("getDetectorOrient", &Scanner::getDetectorOrient, "det_id"_a);
 	c.def("isDetectorAllowed", &Scanner::isDetectorAllowed, "det_id"_a);
+	c.def("isValid", &Scanner::isValid);
+	c.def("hasMask", &Scanner::hasMask);
 	c.def_readwrite("scannerName", &Scanner::scannerName);
 	c.def_readwrite("axialFOV", &Scanner::axialFOV);
 	c.def_readwrite("crystalSize_z", &Scanner::crystalSize_z);

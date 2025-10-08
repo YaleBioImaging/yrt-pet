@@ -5,7 +5,6 @@
 
 #pragma once
 
-#include "yrt-pet/datastruct/scanner/DetectorMask.hpp"
 #include "yrt-pet/datastruct/scanner/DetectorSetup.hpp"
 #include "yrt-pet/utils/Array.hpp"
 
@@ -26,8 +25,6 @@ public:
 	float getYorient(det_id_t detID) const override;
 	float getZorient(det_id_t detID) const override;
 
-	void addMask(const std::string& mask_fname);  // Reads mask from file
-	void addMask(const DetectorMask& mask);       // Copies the given mask
 	bool isDetectorAllowed(det_id_t det) const override;
 
 	void writeToFile(const std::string& detCoord_fname) const override;
@@ -45,8 +42,6 @@ public:
 	Array1DBase<float>* getXorientArrayRef() const;
 	Array1DBase<float>* getYorientArrayRef() const;
 	Array1DBase<float>* getZorientArrayRef() const;
-	DetectorMask* getMask() const;
-	bool hasMask() const override;
 
 protected:
 	DetCoord();
@@ -58,7 +53,6 @@ protected:
 	std::unique_ptr<Array1DBase<float>> mp_Xorient;
 	std::unique_ptr<Array1DBase<float>> mp_Yorient;
 	std::unique_ptr<Array1DBase<float>> mp_Zorient;
-	std::unique_ptr<DetectorMask> mp_mask;
 };
 
 class DetCoordAlias final : public DetCoord

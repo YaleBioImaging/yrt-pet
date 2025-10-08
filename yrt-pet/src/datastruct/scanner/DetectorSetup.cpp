@@ -41,15 +41,35 @@ Vector3D DetectorSetup::getOrient(det_id_t id) const
 	return {getXorient(id), getYorient(id), getZorient(id)};
 }
 
-bool DetectorSetup::isDetectorAllowed(det_id_t det) const
+bool DetectorSetup::isDetectorAllowed(det_id_t id) const
 {
-	(void) det;
+	if (hasMask())
+	{
+		return mp_mask->isDetectorEnabled(id);
+	}
+	// Allow everything by default
 	return true;
 }
 
 bool DetectorSetup::hasMask() const
 {
-	return false;
+	return mp_mask != nullptr;
+}
+
+DetectorMask& DetectorSetup::getMask()
+{
+	ASSERT(mp_mask != nullptr);
+	return *mp_mask;
+}
+
+void DetectorSetup::addMask(const std::string& mask_fname)
+{
+	mp_mask = std::make_unique<DetectorMask>(mask_fname);
+}
+void DetectorSetup::addMask(const DetectorMask& mask)
+{
+	// Calls the copy constructor
+	mp_mask = std::make_unique<DetectorMask>(mask);
 }
 
 }  // namespace yrt

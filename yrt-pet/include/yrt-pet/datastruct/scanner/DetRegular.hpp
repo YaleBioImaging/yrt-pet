@@ -6,7 +6,6 @@
 #pragma once
 
 #include "yrt-pet/datastruct/scanner/DetectorSetup.hpp"
-#include "yrt-pet/datastruct/scanner/Scanner.hpp"
 #include "yrt-pet/utils/Array.hpp"
 
 #include <memory>
@@ -16,7 +15,8 @@ namespace yrt
 class DetRegular : public DetectorSetup
 {
 public:
-	DetRegular(Scanner* pp_scanner);
+	explicit DetRegular(const Scanner* pp_scanner);
+	~DetRegular() override = default;
 	void generateLUT();
 
 	size_t getNumDets() const override;
@@ -43,8 +43,7 @@ public:
 	Array1D<float>* getYorientArrayRef() const { return (mp_Yorient.get()); }
 	Array1D<float>* getZorientArrayRef() const { return (mp_Zorient.get()); }
 
-	Scanner* getScanner() { return mp_scanner; }
-	virtual ~DetRegular() {}
+	const Scanner* getScanner() const { return mp_scanner; }
 
 protected:
 	void allocate();
@@ -56,6 +55,6 @@ protected:
 	std::unique_ptr<Array1D<float>> mp_Xorient;
 	std::unique_ptr<Array1D<float>> mp_Yorient;
 	std::unique_ptr<Array1D<float>> mp_Zorient;
-	Scanner* mp_scanner;
+	const Scanner* mp_scanner;
 };
 }  // namespace yrt

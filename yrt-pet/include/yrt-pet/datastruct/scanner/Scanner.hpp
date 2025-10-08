@@ -6,11 +6,12 @@
 #pragma once
 
 #include "yrt-pet/datastruct/projection/Constraints.hpp"
-#include "yrt-pet/datastruct/scanner/DetCoord.hpp"
+#include "yrt-pet/datastruct/scanner/DetectorSetup.hpp"
 #include "yrt-pet/geometry/Vector3D.hpp"
 
 #include <filesystem>
 #include <string>
+#include <memory>
 
 #define SCANNER_FILE_VERSION 3.1
 

@@ -95,7 +95,7 @@ void py_setup_detcoord(py::module& m)
 		      return py::array_t<float>(buf_info);
 	      });
 	c.def("getMask",
-	      [](const DetCoord& self)
+	      [](DetCoord& self)
 	      {
 		      ASSERT_MSG(self.hasMask(), "No mask defined");
 		      return self.getMask();
@@ -389,26 +389,6 @@ float DetCoord::getZorient(det_id_t detID) const
 	return (*mp_Zorient)[detID];
 }
 
-void DetCoord::addMask(const std::string& mask_fname)
-{
-	mp_mask = std::make_unique<DetectorMask>(mask_fname);
-}
-
-void DetCoord::addMask(const DetectorMask& mask)
-{
-	// Calls the copy constructor
-	mp_mask = std::make_unique<DetectorMask>(mask);
-}
-
-bool DetCoord::isDetectorAllowed(det_id_t det) const
-{
-	if (!hasMask())
-	{
-		return false;
-	}
-	return mp_mask->checkDetector(det);
-}
-
 void DetCoord::setXpos(det_id_t detID, float f)
 {
 	(*mp_Xpos)[detID] = f;
@@ -467,16 +447,6 @@ Array1DBase<float>* DetCoord::getZorientArrayRef() const
 size_t DetCoord::getNumDets() const
 {
 	return this->mp_Xpos->getSize(0);
-}
-
-DetectorMask* DetCoord::getMask() const
-{
-	return (mp_mask.get());
-}
-
-bool DetCoord::hasMask() const
-{
-	return mp_mask != nullptr;
 }
 
 }  // namespace yrt

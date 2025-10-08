@@ -126,6 +126,11 @@ int main(int argc, char** argv)
 		registry.registerArgument(
 		    "move_sens", "Move the provided sensitivity image based on motion",
 		    false, io::TypeOfArgument::BOOL, false, sensitivityGroup);
+		registry.registerArgument("detmask",
+		                          "Detector mask (will override the "
+		                          "\"detMask\" member in the scanner's JSON)",
+		                          false, io::TypeOfArgument::STRING, "",
+		                          sensitivityGroup);
 
 		// Input data parameters
 		registry.registerArgument("input", "Input file", false,
@@ -301,6 +306,11 @@ int main(int argc, char** argv)
 		std::cout << "Initializing scanner..." << std::endl;
 		auto scanner =
 		    std::make_unique<Scanner>(config.getValue<std::string>("scanner"));
+		auto detMask_fname = config.getValue<std::string>("detmask");
+		if (!detMask_fname.empty())
+		{
+			scanner->addMask(detMask_fname);
+		}
 		auto projectorType =
 		    io::getProjector(config.getValue<std::string>("projector"));
 		std::unique_ptr<OSEM> osem = util::createOSEM(*scanner, useGPU);

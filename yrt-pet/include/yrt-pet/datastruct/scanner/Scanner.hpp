@@ -46,6 +46,10 @@ public:
 
 	void collectConstraints(
 	    std::vector<std::unique_ptr<Constraint>>& constraints) const;
+
+	void addMask(const std::string& mask_fname);
+	void addMask(const DetectorMask& mask);
+
 public:
 	std::string scannerName;
 	float axialFOV, crystalSize_z, crystalSize_trans, crystalDepth,

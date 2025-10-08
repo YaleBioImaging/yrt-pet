@@ -5,8 +5,8 @@
 
 #include "yrt-pet/datastruct/scanner/Scanner.hpp"
 
-#include "yrt-pet/datastruct/scanner/DetRegular.hpp"
 #include "yrt-pet/datastruct/scanner/DetCoord.hpp"
+#include "yrt-pet/datastruct/scanner/DetRegular.hpp"
 #include "yrt-pet/datastruct/scanner/DetectorSetup.hpp"
 #include "yrt-pet/geometry/Constants.hpp"
 #include "yrt-pet/utils/Assert.hpp"
@@ -165,6 +165,16 @@ void Scanner::collectConstraints(
 		constraints.emplace_back(
 		    std::make_unique<ConstraintDetectorMask>(this));
 	}
+}
+
+void Scanner::addMask(const std::string& mask_fname)
+{
+	mp_detectors->addMask(mask_fname);
+}
+
+void Scanner::addMask(const DetectorMask& mask)
+{
+	mp_detectors->addMask(mask);
 }
 
 void Scanner::createLUT(Array2D<float>& lut) const

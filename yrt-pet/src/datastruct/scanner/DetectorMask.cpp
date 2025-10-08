@@ -19,6 +19,7 @@ namespace yrt
 void py_setup_detectormask(pybind11::module& m)
 {
 	auto c = py::class_<DetectorMask>(m, "DetectorMask", py::buffer_protocol());
+	c.def(py::init<size_t>(), "numDets"_a);
 	c.def(py::init<const std::string&>(), "fname"_a);
 	c.def(py::init<const Array1DBase<bool>&>(), "maskArray"_a);
 	c.def(py::init<const Array3DBase<float>&>(), "maskArray"_a);
@@ -36,9 +37,19 @@ void py_setup_detectormask(pybind11::module& m)
 	c.def("getData",
 	      static_cast<const Array1D<bool>& (DetectorMask::*)() const>(
 	          &DetectorMask::getData));
+	c.def("enableAllDetectors", &DetectorMask::enableAllDetectors);
+	c.def("disableAllDetectors", &DetectorMask::disableAllDetectors);
+	c.def("enableDetector", &DetectorMask::enableDetector, "detId"_a);
+	c.def("disableDetector", &DetectorMask::disableDetector, "detId"_a);
 	c.def("getNumDets", &DetectorMask::getNumDets);
 	c.def("checkDetector", &DetectorMask::checkDetector, "detId"_a);
 	c.def("writeToFile", &DetectorMask::writeToFile, "fname"_a);
+	c.def("logicalAndWithOther", &DetectorMask::logicalAndWithOther, "other"_a);
+	c.def("logicalOrWithOther", &DetectorMask::logicalOrWithOther, "other"_a);
+	c.def("logicalXorWithOther", &DetectorMask::logicalXorWithOther, "other"_a);
+	c.def("logicalNandWithOther", &DetectorMask::logicalNandWithOther,
+	      "other"_a);
+	c.def("countEnabledDetectors", &DetectorMask::countEnabledDetectors);
 }
 
 }  // namespace yrt
@@ -46,6 +57,12 @@ void py_setup_detectormask(pybind11::module& m)
 
 namespace yrt
 {
+
+DetectorMask::DetectorMask(size_t numDets)
+{
+	mp_data = std::make_unique<Array1D<bool>>();
+	mp_data->allocate(numDets);
+}
 
 DetectorMask::DetectorMask(const std::string& pr_fname)
 {
@@ -95,6 +112,26 @@ const Array1D<bool>& DetectorMask::getData() const
 	return *mp_data;
 }
 
+void DetectorMask::enableAllDetectors()
+{
+	mp_data->fill(true);
+}
+
+void DetectorMask::disableAllDetectors()
+{
+	mp_data->fill(false);
+}
+
+void DetectorMask::enableDetector(det_id_t detId)
+{
+	setDetectorEnabled(detId, true);
+}
+
+void DetectorMask::disableDetector(det_id_t detId)
+{
+	setDetectorEnabled(detId, false);
+}
+
 bool DetectorMask::checkAgainstScanner(const Scanner& scanner) const
 {
 	return scanner.getNumDets() == mp_data->getSizeTotal();
@@ -105,7 +142,12 @@ size_t DetectorMask::getNumDets() const
 	return mp_data->getSizeTotal();
 }
 
-bool DetectorMask::checkDetector(size_t detId) const
+bool DetectorMask::checkDetector(det_id_t detId) const
+{
+	return isDetectorEnabled(detId);
+}
+
+bool DetectorMask::isDetectorEnabled(det_id_t detId) const
 {
 	// Assumes that mp_maskArray != nullptr
 	return mp_data->getFlat(detId);
@@ -114,6 +156,78 @@ bool DetectorMask::checkDetector(size_t detId) const
 void DetectorMask::writeToFile(const std::string& fname) const
 {
 	mp_data->writeToFile(fname);
+}
+
+void DetectorMask::logicalAndWithOther(const DetectorMask& other)
+{
+	logicalOperWithOther<BinaryOperations::AND>(other);
+}
+
+void DetectorMask::logicalOrWithOther(const DetectorMask& other)
+{
+	logicalOperWithOther<BinaryOperations::OR>(other);
+}
+
+void DetectorMask::logicalXorWithOther(const DetectorMask& other)
+{
+	logicalOperWithOther<BinaryOperations::XOR>(other);
+}
+
+void DetectorMask::logicalNandWithOther(const DetectorMask& other)
+{
+	logicalOperWithOther<BinaryOperations::NAND>(other);
+}
+
+size_t DetectorMask::countEnabledDetectors() const
+{
+	size_t numEnabledDetectors = 0;
+	const size_t numDets = getNumDets();
+	for (det_id_t detId = 0; detId < numDets; ++detId)
+	{
+		if (isDetectorEnabled(detId))
+		{
+			numEnabledDetectors++;
+		}
+	}
+	return numEnabledDetectors;
+}
+
+void DetectorMask::setDetectorEnabled(det_id_t detId, bool enabled)
+{
+	mp_data->setFlat(detId, enabled);
+}
+
+template <DetectorMask::BinaryOperations Oper>
+void DetectorMask::logicalOperWithOther(const DetectorMask& other)
+{
+	size_t numDets = getNumDets();
+	ASSERT_MSG(getNumDets() == other.getNumDets(),
+	           "Size mismatch between the two detector masks");
+	util::parallelForChunked(
+	    numDets, globals::getNumThreads(),
+	    [&](det_id_t detId, unsigned int /*threadId*/)
+	    {
+		    if constexpr (Oper == BinaryOperations::AND)
+		    {
+			    setDetectorEnabled(detId, isDetectorEnabled(detId) &&
+			                                  other.isDetectorEnabled(detId));
+		    }
+		    else if constexpr (Oper == BinaryOperations::OR)
+		    {
+			    setDetectorEnabled(detId, isDetectorEnabled(detId) ||
+			                                  other.isDetectorEnabled(detId));
+		    }
+		    else if constexpr (Oper == BinaryOperations::XOR)
+		    {
+			    setDetectorEnabled(detId, isDetectorEnabled(detId) !=
+			                                  other.isDetectorEnabled(detId));
+		    }
+		    else if constexpr (Oper == BinaryOperations::NAND)
+		    {
+			    setDetectorEnabled(detId, !(isDetectorEnabled(detId) &&
+			                                other.isDetectorEnabled(detId)));
+		    }
+	    });
 }
 
 }  // namespace yrt

@@ -63,7 +63,7 @@ public:
 	                            const ProjectionPropertyManager& propManager,
 	                            bin_t bin, size_t pos) const;
 
-	Line3D getLOR(bin_t bin) const;
+	Line3D getLOR(bin_t bin, const det_pair_t* detPair = nullptr) const;
 	virtual void clearProjections(float value);
 	virtual void divideMeasurements(const ProjectionData* measurements,
 	                                const BinIterator* binIter);

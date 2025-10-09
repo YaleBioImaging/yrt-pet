@@ -22,10 +22,12 @@ namespace yrt
 enum class ProjectionPropertyType
 {
 	DET_ID = 0,
+	TIMESTAMP,
 	LOR,
 	DET_ORIENT,
 	TOF,
 	DYNAMIC_FRAME,
+	RANDOMS_ESTIMATE,
 	COUNT
 };
 

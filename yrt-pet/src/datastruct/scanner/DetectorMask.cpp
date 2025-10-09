@@ -72,6 +72,7 @@ DetectorMask::DetectorMask(const std::string& pr_fname)
 DetectorMask::DetectorMask(const Array1DBase<bool>& pr_data)
 {
 	mp_data = std::make_unique<Array1D<bool>>();
+	mp_data->allocate(pr_data.getSizeTotal());
 	mp_data->copy(pr_data);
 }
 
@@ -91,6 +92,7 @@ DetectorMask::DetectorMask(const Array3DBase<float>& pr_data)
 DetectorMask::DetectorMask(const DetectorMask& other)
 {
 	mp_data = std::make_unique<Array1D<bool>>();
+	mp_data->allocate(other.getNumDets());
 	mp_data->copy(other.getData());
 }
 

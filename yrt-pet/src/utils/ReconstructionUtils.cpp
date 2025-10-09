@@ -10,6 +10,7 @@
 #include "yrt-pet/datastruct/projection/LORMotion.hpp"
 #include "yrt-pet/datastruct/projection/ListModeLUT.hpp"
 #include "yrt-pet/datastruct/projection/ProjectionData.hpp"
+#include "yrt-pet/datastruct/projection/ProjectionProperties.hpp"
 #include "yrt-pet/datastruct/scanner/DetectorMask.hpp"
 #include "yrt-pet/geometry/Matrix.hpp"
 #include "yrt-pet/operators/OperatorProjectorDD.hpp"
@@ -39,6 +40,7 @@ namespace yrt
 void py_setup_reconstructionutils(pybind11::module& m)
 {
 	m.def("histogram3DToListModeLUT", &util::histogram3DToListModeLUT);
+	m.def("compareListModes", &util::compareListModes);
 	m.def(
 	    "convertToHistogram3D",
 	    [](const Histogram& dat, Histogram3D& histoOut,
@@ -248,6 +250,114 @@ void histogram3DToListModeLUT(const Histogram3D* histo, ListModeLUTOwned* lmOut,
 			}
 		}
 	}
+}
+
+size_t compareListModes(const ListMode& lm1, const ListMode& lm2)
+{
+	const size_t numEvents = lm1.count();
+
+	const bool hasTOF = lm1.hasTOF();
+	const bool hasRandoms = lm1.hasRandomsEstimates();
+	const bool hasMotion = lm1.hasMotion();
+	const bool hasArbitraryLORs = lm1.hasArbitraryLORs();
+	const bool isUniform = lm1.isUniform();
+
+	ASSERT_MSG(numEvents == lm2.count(),
+	           "The two listmodes given do not have the same number of events");
+	ASSERT_MSG(hasTOF == lm2.hasTOF(),
+	           "One given list-mode has TOF while the other one doesn't");
+	ASSERT_MSG(hasRandoms == lm2.hasRandomsEstimates(),
+	           "One given list-mode has randoms estimates while the other one "
+	           "doesn't");
+	ASSERT_MSG(hasMotion == lm2.hasMotion(),
+	           "One given list-mode is bound to motion information while the "
+	           "other one isn't");
+	ASSERT_MSG(
+	    hasArbitraryLORs == lm2.hasArbitraryLORs(),
+	    "One given list-mode has arbitrary LORs while the other one doesn't");
+	ASSERT_MSG(isUniform == lm2.isUniform(),
+	           "One given list-mode is uniform while the other one isn't");
+
+	ASSERT_MSG(!hasArbitraryLORs,
+	           "This function does not support list-modes with arbitrary LORs");
+
+	const int numThreads = globals::getNumThreads();
+	std::vector<size_t> numMismatchesPerThread(numThreads, 0ull);
+
+	std::set<ProjectionPropertyType> variables;
+	variables.insert(ProjectionPropertyType::DET_ID);
+	if (hasTOF)
+	{
+		variables.insert(ProjectionPropertyType::TOF);
+	}
+	if (hasRandoms)
+	{
+		variables.insert(ProjectionPropertyType::RANDOMS_ESTIMATE);
+	}
+	ProjectionPropertyManager propManager(variables);
+
+	auto props = propManager.createDataArray(2 * numThreads);
+	char* props_ptr = props.get();
+
+	parallelForChunked(
+	    numEvents, numThreads,
+	    [&](size_t evId, unsigned int threadId)
+	    {
+		    const size_t lm1Index = 2 * threadId + 0;
+		    const size_t lm2Index = 2 * threadId + 1;
+
+		    lm1.getProjectionProperties(props_ptr, propManager, evId, lm1Index);
+		    lm2.getProjectionProperties(props_ptr, propManager, evId, lm2Index);
+
+		    // Check detector pair
+		    const det_pair_t detPair1 = propManager.getDataValue<det_pair_t>(
+		        props_ptr, lm1Index, ProjectionPropertyType::DET_ID);
+		    const det_pair_t detPair2 = propManager.getDataValue<det_pair_t>(
+		        props_ptr, lm2Index, ProjectionPropertyType::DET_ID);
+		    if (detPair1.d1 != detPair2.d1 || detPair1.d2 != detPair2.d2)
+		    {
+			    numMismatchesPerThread[threadId]++;
+			    return;
+		    }
+
+		    // Check TOF if needed
+		    if (hasTOF)
+		    {
+			    const float tof1 = propManager.getDataValue<float>(
+			        props_ptr, lm1Index, ProjectionPropertyType::TOF);
+			    const float tof2 = propManager.getDataValue<float>(
+			        props_ptr, lm2Index, ProjectionPropertyType::TOF);
+			    if (tof1 != tof2)
+			    {
+				    numMismatchesPerThread[threadId]++;
+				    return;
+			    }
+		    }
+
+		    // Check randoms estimates if needed
+		    if (hasRandoms)
+		    {
+			    const float randoms1 = propManager.getDataValue<float>(
+			        props_ptr, lm1Index,
+			        ProjectionPropertyType::RANDOMS_ESTIMATE);
+			    const float randoms2 = propManager.getDataValue<float>(
+			        props_ptr, lm2Index,
+			        ProjectionPropertyType::RANDOMS_ESTIMATE);
+			    if (randoms1 != randoms2)
+			    {
+				    numMismatchesPerThread[threadId]++;
+				    return;
+			    }
+		    }
+	    });
+
+	// Sum each thread's sum
+	size_t numMismatches = 0ull;
+	for (const size_t numMismatchInThread : numMismatchesPerThread)
+	{
+		numMismatches += numMismatchInThread;
+	}
+	return numMismatches;
 }
 
 std::tuple<timestamp_t, timestamp_t>

@@ -25,6 +25,9 @@ namespace util
 void histogram3DToListModeLUT(const Histogram3D* histo, ListModeLUTOwned* lmOut,
                               size_t numEvents = 0);
 
+// Returns the number of mismatched events
+size_t compareListModes(const ListMode& lm1, const ListMode& lm2);
+
 std::tuple<timestamp_t, timestamp_t>
     getFullTimeRange(const LORMotion& lorMotion);
 

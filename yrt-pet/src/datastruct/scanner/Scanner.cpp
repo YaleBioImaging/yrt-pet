@@ -272,16 +272,18 @@ void Scanner::readFromString(const std::string& fileContents)
 		    std::to_string(SCANNER_FILE_VERSION));
 	}
 
+	// Get detector mask
+	fs::path detMask_path = "";
+	if (isDetMaskGiven)
+	{
+		detMask_path = m_scannerPath.parent_path() / fs::path(detMask);
+	}
+
 	// Join paths for DetCoord
 	if (isDetCoordGiven)
 	{
 		const fs::path detCoord_path =
 		    m_scannerPath.parent_path() / fs::path(detCoord);
-		fs::path detMask_path = "";
-		if (isDetMaskGiven)
-		{
-			detMask_path = m_scannerPath.parent_path() / fs::path(detMask);
-		}
 		mp_detectors = std::make_shared<DetCoordOwned>(detCoord_path.string(),
 		                                               detMask_path.string());
 		if (mp_detectors->getNumDets() != getTheoreticalNumDets())
@@ -294,6 +296,11 @@ void Scanner::readFromString(const std::string& fileContents)
 	{
 		mp_detectors = std::make_shared<DetRegular>(this);
 		reinterpret_cast<DetRegular*>(mp_detectors.get())->generateLUT();
+		if (isDetMaskGiven)
+		{
+			ASSERT(!detMask_path.empty()); // Sanity check
+			mp_detectors->addMask(detMask_path);
+		}
 	}
 
 	ASSERT_MSG(

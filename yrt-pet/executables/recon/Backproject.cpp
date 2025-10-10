@@ -43,6 +43,11 @@ int main(int argc, char** argv)
 		registry.registerArgument(
 		    "lor_motion", "Motion CSV file for motion correction", false,
 		    io::TypeOfArgument::STRING, "", inputGroup, "m");
+		registry.registerArgument("detmask",
+		                          "Detector mask (will override the "
+		                          "\"detMask\" member in the scanner's JSON)",
+		                          false, io::TypeOfArgument::STRING, "",
+		                          inputGroup);
 
 #if BUILD_CUDA
 		registry.registerArgument("gpu", "Use GPU acceleration", false,
@@ -117,9 +122,15 @@ int main(int argc, char** argv)
 			return -1;
 		}
 
+		globals::setNumThreads(config.getValue<int>("num_threads"));
+
 		const auto scanner =
 		    std::make_unique<Scanner>(config.getValue<std::string>("scanner"));
-		globals::setNumThreads(config.getValue<int>("num_threads"));
+		auto detMask_fname = config.getValue<std::string>("detmask");
+		if (!detMask_fname.empty())
+		{
+			scanner->addMask(detMask_fname);
+		}
 
 		// Output image
 		std::cout << "Preparing output image..." << std::endl;

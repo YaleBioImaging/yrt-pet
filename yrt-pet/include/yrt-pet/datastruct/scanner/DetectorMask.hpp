@@ -54,6 +54,7 @@ public:
 	void logicalNandWithOther(const DetectorMask& other);
 
 	size_t countEnabledDetectors() const;
+	size_t countDisabledDetectors() const;
 
 private:
 	enum class BinaryOperations

@@ -50,6 +50,7 @@ void py_setup_detectormask(pybind11::module& m)
 	c.def("logicalNandWithOther", &DetectorMask::logicalNandWithOther,
 	      "other"_a);
 	c.def("countEnabledDetectors", &DetectorMask::countEnabledDetectors);
+	c.def("countDisabledDetectors", &DetectorMask::countDisabledDetectors);
 }
 
 }  // namespace yrt
@@ -192,6 +193,11 @@ size_t DetectorMask::countEnabledDetectors() const
 		}
 	}
 	return numEnabledDetectors;
+}
+
+size_t DetectorMask::countDisabledDetectors() const
+{
+	return getNumDets() - countEnabledDetectors();
 }
 
 void DetectorMask::setDetectorEnabled(det_id_t detId, bool enabled)

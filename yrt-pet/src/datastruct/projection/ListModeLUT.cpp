@@ -611,7 +611,7 @@ void ListModeLUTAlias::bind(
 		ASSERT_MSG(buffer.shape[0] == count,
 		           "randoms estimates array is not of coherent size with the "
 		           "other arrays");
-		static_cast<Array1DAlias<float>*>(mp_tof_ps.get())
+		static_cast<Array1DAlias<float>*>(mp_randoms.get())
 		    ->bind(reinterpret_cast<float*>(buffer.ptr), buffer.shape[0]);
 	}
 }

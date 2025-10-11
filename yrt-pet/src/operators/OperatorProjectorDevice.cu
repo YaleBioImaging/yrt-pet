@@ -147,6 +147,13 @@ void OperatorProjectorDevice::applyA(const Variable* in, Variable* out,
 		isProjDataDeviceOwned = true;
 	}
 
+	if (getTOFHelperDevicePointer())
+	{
+		ASSERT_MSG(dat_out->hasTOF(),
+		           "Projector configured with TOF but "
+		           "input data has no TOF information");
+	}
+
 	if (!isProjDataDeviceOwned)
 	{
 		applyAOnLoadedBatch(*img_in, *dat_out, synchronize);

@@ -19,19 +19,6 @@
 namespace yrt
 {
 class BinIterator;
-// enum class ProjectionPropertiesVariable;
-// enum class ConstraintVariable;
-// using ConstraintParams = char*;
-// using ProjectionProperties = char*;
-// using ProjectionPropertyManager = PropStructManager<ProjectionPropertyType>;
-
-// struct ProjectionProperties
-// {
-// 	bin_t bin;
-// 	Line3D lor;
-// 	float tofValue;
-// 	det_orient_t detOrient;
-// };
 
 class ProjectionData : public Variable
 {

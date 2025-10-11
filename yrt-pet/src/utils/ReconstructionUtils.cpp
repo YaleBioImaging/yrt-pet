@@ -41,6 +41,7 @@ void py_setup_reconstructionutils(pybind11::module& m)
 {
 	m.def("histogram3DToListModeLUT", &util::histogram3DToListModeLUT);
 	m.def("compareListModes", &util::compareListModes);
+
 	m.def(
 	    "convertToHistogram3D",
 	    [](const Histogram& dat, Histogram3D& histoOut,
@@ -58,6 +59,20 @@ void py_setup_reconstructionutils(pybind11::module& m)
 		    util::convertToHistogram3D<true, true>(dat, histoOut, detectorMask);
 	    },
 	    "listmodeDataInput"_a, "histoOut"_a, "detectorMask"_a = nullptr);
+	m.def(
+	    "convertToHistogram3D",
+	    [](const Histogram& dat, const DetectorMask* detectorMask)
+	    { return util::convertToHistogram3D<false, true>(dat, detectorMask); },
+	    "histogramDataInput"_a, "histoOut"_a, "detectorMask"_a = nullptr);
+	m.def(
+	    "convertToHistogram3D",
+	    [](const ListMode& dat, const DetectorMask* detectorMask)
+	    { return util::convertToHistogram3D<true, true>(dat, detectorMask); },
+	    "listmodeDataInput"_a, "histoOut"_a, "detectorMask"_a = nullptr);
+
+	m.def("convertToListModeLUT", &util::convertToListModeLUT<true>,
+	      "listmode"_a, "detectorMask"_a = nullptr);
+
 	m.def(
 	    "createOSEM",
 	    [](const Scanner& scanner, bool useGPU)
@@ -530,6 +545,10 @@ template <bool RequiresAtomic, bool PrintProgress>
 void convertToHistogram3D(const ProjectionData& dat, Histogram3D& histoOut,
                           const DetectorMask* detectorMask)
 {
+	ASSERT_MSG(dat.getScanner().getNumDets() ==
+	               histoOut.getScanner().getNumDets(),
+	           "The projection-space dataset and the histogram provided point "
+	           "to scanners with a different number of detectors");
 	if (detectorMask != nullptr)
 	{
 		convertToHistogram3DInternal<RequiresAtomic, true, PrintProgress>(
@@ -553,6 +572,94 @@ template void convertToHistogram3D<true, false>(const ProjectionData&,
 template void convertToHistogram3D<false, false>(const ProjectionData&,
                                                  Histogram3D&,
                                                  const DetectorMask*);
+
+template <bool RequiresAtomic, bool PrintProgress>
+std::unique_ptr<Histogram3DOwned>
+    convertToHistogram3D(const ProjectionData& dat,
+                         const DetectorMask* detectorMask)
+{
+	const Scanner& scanner = dat.getScanner();
+	auto histogram3D = std::make_unique<Histogram3DOwned>(scanner);
+	histogram3D->allocate();
+	histogram3D->clearProjections(0);
+	convertToHistogram3D<RequiresAtomic, PrintProgress>(dat, *histogram3D,
+	                                                    detectorMask);
+	return histogram3D;
+}
+template std::unique_ptr<Histogram3DOwned>
+    convertToHistogram3D<true, true>(const ProjectionData& dat,
+                                     const DetectorMask* detectorMask);
+template std::unique_ptr<Histogram3DOwned>
+    convertToHistogram3D<false, true>(const ProjectionData& dat,
+                                      const DetectorMask* detectorMask);
+template std::unique_ptr<Histogram3DOwned>
+    convertToHistogram3D<true, false>(const ProjectionData& dat,
+                                      const DetectorMask* detectorMask);
+template std::unique_ptr<Histogram3DOwned>
+    convertToHistogram3D<false, false>(const ProjectionData& dat,
+                                       const DetectorMask* detectorMask);
+
+template <bool PrintProgress>
+std::unique_ptr<ListModeLUTOwned>
+    convertToListModeLUT(const ListMode& lm, const DetectorMask* detectorMask)
+{
+	const Scanner& scanner = lm.getScanner();
+	const bool hasTOF = lm.hasTOF();
+	const bool hasRandoms = lm.hasRandomsEstimates();
+
+	auto lmOut =
+	    std::make_unique<ListModeLUTOwned>(scanner, hasTOF, hasRandoms);
+	const size_t numEvents = lm.count();
+	ASSERT(numEvents > 0);
+	lmOut->allocate(numEvents);
+
+	ProgressDisplay progressBar(numEvents, 5);
+
+	util::parallelForChunked(
+	    numEvents, globals::getNumThreads(),
+	    [&progressBar, lmOut, lm, detectorMask, hasTOF, hasRandoms](size_t evId,
+	                                                                size_t tid)
+	    {
+		    if constexpr (PrintProgress)
+		    {
+			    if (tid == 0)
+			    {
+				    progressBar.progress(evId);
+			    }
+		    }
+
+		    lmOut->setTimestampOfEvent(evId, lm.getTimestamp(evId));
+		    auto [d1, d2] = lm.getDetectorPair(evId);
+
+		    if (detectorMask != nullptr)
+		    {
+			    bool skipEvent = false;
+			    skipEvent |= detectorMask->checkDetector(d1);
+			    skipEvent |= detectorMask->checkDetector(d2);
+
+			    if (skipEvent)
+			    {
+				    // Put 0,0 as detector pair to disable event
+				    lmOut->setDetectorIdsOfEvent(evId, 0, 0);
+
+				    // Go to next event
+				    return;
+			    }
+		    }
+
+		    lmOut->setDetectorIdsOfEvent(evId, d1, d2);
+		    if (hasTOF)
+		    {
+			    lmOut->setTOFValueOfEvent(evId, lm.getTOFValue(evId));
+		    }
+		    if (hasRandoms)
+		    {
+			    lmOut->setRandomsEstimateOfEvent(evId,
+			                                     lm.getRandomsEstimate(evId));
+		    }
+	    });
+	return lmOut;
+}
 
 Line3D getNativeLOR(const Scanner& scanner, const ProjectionData& dat,
                     bin_t binId)

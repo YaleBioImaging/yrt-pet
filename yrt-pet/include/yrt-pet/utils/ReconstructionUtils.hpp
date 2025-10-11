@@ -44,6 +44,15 @@ template <bool RequiresAtomic, bool PrintProgress = true>
 void convertToHistogram3D(const ProjectionData& dat, Histogram3D& histoOut,
                           const DetectorMask* detectorMask = nullptr);
 
+template <bool RequiresAtomic, bool PrintProgress = true>
+std::unique_ptr<Histogram3DOwned> convertToHistogram3D(const ProjectionData& dat,
+						  const DetectorMask* detectorMask = nullptr);
+
+template <bool PrintProgress = true>
+std::unique_ptr<ListModeLUTOwned> convertToListModeLUT(const ListMode& lm,
+						  const DetectorMask* detectorMask = nullptr);
+
+
 Line3D getNativeLOR(const Scanner& scanner, const ProjectionData& dat,
                     bin_t binId);
 

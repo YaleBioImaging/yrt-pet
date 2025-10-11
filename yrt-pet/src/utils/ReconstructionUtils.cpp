@@ -660,6 +660,12 @@ std::unique_ptr<ListModeLUTOwned>
 	    });
 	return lmOut;
 }
+template std::unique_ptr<ListModeLUTOwned>
+    convertToListModeLUT<true>(const ListMode& lm,
+                               const DetectorMask* detectorMask);
+template std::unique_ptr<ListModeLUTOwned>
+    convertToListModeLUT<false>(const ListMode& lm,
+                                const DetectorMask* detectorMask);
 
 Line3D getNativeLOR(const Scanner& scanner, const ProjectionData& dat,
                     bin_t binId)

@@ -362,6 +362,8 @@ void Histogram3D::getDetPairFromCoords(coord_t r, coord_t phi, coord_t z_bin,
 void Histogram3D::getCoordsFromDetPair(det_id_t d1, det_id_t d2, coord_t& r,
                                        coord_t& phi, coord_t& z_bin) const
 {
+	ASSERT_MSG(d1 != 0 || d2 != 0, "Disabled detector pair (0,0)");
+
 	coord_t r_ring;
 	if (d1 > d2)
 		std::swap(d1, d2);
@@ -590,6 +592,11 @@ float Histogram3D::getProjectionValueFromHistogramBin(
 
 	// use the detector pair
 	const auto [d1, d2] = std::get<det_pair_t>(histoBinId);
+	if (d1 == 0 && d2 == 0)
+	{
+		// Skip disabled detector pairs
+		return 0.0f;
+	}
 	const bin_t binId = getBinIdFromDetPair(d1, d2);
 	return getProjectionValue(binId);
 }

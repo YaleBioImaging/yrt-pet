@@ -63,12 +63,12 @@ void py_setup_reconstructionutils(pybind11::module& m)
 	    "convertToHistogram3D",
 	    [](const Histogram& dat, const DetectorMask* detectorMask)
 	    { return util::convertToHistogram3D<false, true>(dat, detectorMask); },
-	    "histogramDataInput"_a, "histoOut"_a, "detectorMask"_a = nullptr);
+	    "histogramDataInput"_a, "detectorMask"_a = nullptr);
 	m.def(
 	    "convertToHistogram3D",
 	    [](const ListMode& dat, const DetectorMask* detectorMask)
 	    { return util::convertToHistogram3D<true, true>(dat, detectorMask); },
-	    "listmodeDataInput"_a, "histoOut"_a, "detectorMask"_a = nullptr);
+	    "listmodeDataInput"_a, "detectorMask"_a = nullptr);
 
 	m.def("convertToListModeLUT", &util::convertToListModeLUT<true>,
 	      "listmode"_a, "detectorMask"_a = nullptr);
@@ -617,8 +617,8 @@ std::unique_ptr<ListModeLUTOwned>
 
 	util::parallelForChunked(
 	    numEvents, globals::getNumThreads(),
-	    [&progressBar, lmOut, lm, detectorMask, hasTOF, hasRandoms](size_t evId,
-	                                                                size_t tid)
+	    [&progressBar, &lmOut, &lm, detectorMask, hasTOF,
+	     hasRandoms](size_t evId, size_t tid)
 	    {
 		    if constexpr (PrintProgress)
 		    {

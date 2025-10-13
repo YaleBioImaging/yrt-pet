@@ -127,7 +127,8 @@ T periodicDiff(const T& a, const T& b, const T& period)
 	}
 	else
 	{
-		throw std::invalid_argument("Only float or integer types supported");
+		throw std::invalid_argument(
+		    "Only floating-point or integer types supported");
 	}
 }
 template float periodicDiff(const float&, const float&, const float&);

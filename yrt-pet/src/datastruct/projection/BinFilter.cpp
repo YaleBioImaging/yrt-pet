@@ -139,7 +139,7 @@ void BinFilter::collectInfo(bin_t bin, size_t projIdx, int consIdx,
 		// In-plane angle
 		float a1 = std::atan2(lor.point1.y, lor.point1.x);
 		float a2 = std::atan2(lor.point2.y, lor.point2.x);
-		float diff = util::periodicDiff(a1, a2, (float)(2.f * PI));
+		float diff = util::periodicDiff(a1, a2, (float)(2.f * PI)) / PI * 180.f;
 		m_constraintManager->setDataValue(
 		    consInfo, consIdx, ConstraintVariable::ABS_DELTA_ANGLE_DEG, diff);
 	}
@@ -153,8 +153,8 @@ void BinFilter::collectInfo(bin_t bin, size_t projIdx, int consIdx,
 	}
 	if (collectFlags[static_cast<size_t>(CollectInfoFlag::AbsDeltaAngleIdx)])
 	{
-		int diff = util::periodicDiff(d1xyi, d2xyi,
-		                              static_cast<int>(scanner->detsPerRing));
+		int diff = std::abs(util::periodicDiff(
+		    d1xyi, d2xyi, static_cast<int>(scanner->detsPerRing)));
 		m_constraintManager->setDataValue(
 		    consInfo, consIdx, ConstraintVariable::ABS_DELTA_ANGLE_IDX, diff);
 	}

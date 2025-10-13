@@ -7,11 +7,12 @@
 
 #include "yrt-pet/datastruct/image/ImageDevice.cuh"
 #include "yrt-pet/datastruct/projection/ProjectionDataDevice.cuh"
-#include "yrt-pet/operators/OperatorProjectorDevice.cuh"
 #include "yrt-pet/recon/Corrector.hpp"
 
 namespace yrt
 {
+
+class OperatorProjectorDevice;
 
 class Corrector_GPU : public Corrector
 {

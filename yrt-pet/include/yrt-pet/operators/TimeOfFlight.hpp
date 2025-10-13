@@ -16,7 +16,38 @@ namespace yrt
 class TimeOfFlightHelper
 {
 public:
-	explicit TimeOfFlightHelper(float tof_width_ps, int tof_n_std = -1);
+	HOST_DEVICE_CALLABLE explicit TimeOfFlightHelper(float tof_width_ps, int tof_n_std = -1)
+	{
+		const double tof_width_mm = tof_width_ps * SPEED_OF_LIGHT_MM_PS * 0.5;
+		// FWHM = sigma 2 sqrt(2 ln 2)
+		m_sigma = tof_width_mm / (2 * sqrtf(2 * logf(2)));
+		if (tof_n_std <= 0)
+		{
+			m_truncWidth_mm = -1.f;
+		}
+		else
+		{
+			m_truncWidth_mm = tof_n_std * m_sigma;
+		}
+		m_norm = 1 / (std::sqrt(2 * PI) * m_sigma);
+	}
+
+	HOST_DEVICE_CALLABLE float getSigma() const
+	{
+		return m_sigma;
+	}
+
+	HOST_DEVICE_CALLABLE float getTruncWidth() const
+	{
+		return m_truncWidth_mm;
+	}
+
+	HOST_DEVICE_CALLABLE float getNorm() const
+	{
+		return m_norm;
+	}
+
+	~TimeOfFlightHelper() = default;
 
 	HOST_DEVICE_CALLABLE inline void getAlphaRange(float& alpha_min,
 	                                               float& alpha_max,
@@ -50,10 +81,6 @@ public:
 		const float x_cent_norm = (0.5f * (offLo_mm + offHi_mm) - pc) / m_sigma;
 		return exp(-0.5f * x_cent_norm * x_cent_norm) * m_norm;
 	}
-
-	float getSigma() const;
-	float getTruncWidth() const;
-	float getNorm() const;
 
 private:
 	// FWHM

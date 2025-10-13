@@ -8,66 +8,77 @@
 #include "yrt-pet/utils/Assert.hpp"
 #include "yrt-pet/utils/GPUUtils.cuh"
 
+#if BUILD_CUDA
+
 namespace yrt
 {
+
+// --- device-side placement-new / destructor kernels ---
+template <typename T, typename... Args>
+__global__ void __yrt_construct_on_device(void* mem, Args... args) {
+	// Constructs T at address mem using placement-new.
+	new (mem) T(std::forward<Args>(args)...);
+}
+
+template <typename T>
+__global__ void __yrt_destroy_on_device(T* obj) {
+	obj->~T();
+}
+
 
 template <typename T>
 class DeviceObject
 {
 public:
+	DeviceObject() = delete;
+
 	template <typename... Args>
-	DeviceObject(Args&&... args) : m_hostSideObject(std::forward<Args>(args)...)
+	explicit DeviceObject(Args&&... args)
+		: mpd_object(nullptr)
 	{
-		// Allocate on device
-		cudaMalloc(&mpd_deviceSideObject, sizeof(T));
-		// Copy to device
-		cudaMemcpy(mpd_deviceSideObject, &m_hostSideObject, sizeof(T),
-		           cudaMemcpyHostToDevice);
-		// Synchronize
+		// 1) Allocate raw storage on device
+		util::allocateDevice(&mpd_object, 1, {});
+
+		// 2) Construct the object *on device* with placement-new
+		__yrt_construct_on_device<T, Args...>
+			<<<1, 1>>>(mpd_object, std::forward<Args>(args)...);
+
 		cudaDeviceSynchronize();
 		ASSERT(cudaCheckError());
 	}
 
-	~DeviceObject() { cudaFree(mpd_deviceSideObject); }
-
-	void syncFromHostToDevice(const cudaStream_t* pp_stream = nullptr)
-	{
-		if (pp_stream != nullptr)
-		{
-			cudaMemcpyAsync(mpd_deviceSideObject, &m_hostSideObject, sizeof(T),
-			                cudaMemcpyHostToDevice, *pp_stream);
+	~DeviceObject() {
+		if (mpd_object) {
+			// Call device-side destructor, then free storage
+			__yrt_destroy_on_device<T><<<1, 1>>>(reinterpret_cast<T*>(mpd_object));
+			// Best-effort; avoid throwing from destructors
+			cudaDeviceSynchronize();
+			util::deallocateDevice(mpd_object, {});
 		}
-		else
-		{
-			cudaMemcpy(mpd_deviceSideObject, &m_hostSideObject, sizeof(T),
-			           cudaMemcpyHostToDevice);
-		}
-		ASSERT(cudaCheckError());
 	}
 
-	void syncFromDeviceToHost(const cudaStream_t* pp_stream = nullptr)
-	{
-		if (pp_stream != nullptr)
-		{
-			cudaMemcpyAsync(&m_hostSideObject, mpd_deviceSideObject, sizeof(T),
-			                cudaMemcpyDeviceToHost, *pp_stream);
+	DeviceObject(const DeviceObject&)            = delete;
+	DeviceObject& operator=(const DeviceObject&) = delete;
+
+	DeviceObject(DeviceObject&& other) noexcept : mpd_object(other.mpd_object) {
+		other.mpd_object = nullptr;
+	}
+	DeviceObject& operator=(DeviceObject&& other) noexcept {
+		if (this != &other) {
+			this->~DeviceObject();
+			mpd_object = other.mpd_object;
+			other.mpd_object = nullptr;
 		}
-		else
-		{
-			cudaMemcpy(&m_hostSideObject, mpd_deviceSideObject, sizeof(T),
-			           cudaMemcpyDeviceToHost);
-		}
-		ASSERT(cudaCheckError());
+		return *this;
 	}
 
-	T& getHostObject() { return m_hostSideObject; }
-	const T& getHostObject() const { return m_hostSideObject; }
-	const T* getDevicePointer() const { return mpd_deviceSideObject; }
-	T* getDevicePointer() { return mpd_deviceSideObject; }
+	const T* getDevicePointer() const { return mpd_object; }
+	T* getDevicePointer() { return mpd_object; }
 
 private:
-	T m_hostSideObject;
-	T* mpd_deviceSideObject;
+	T* mpd_object;
 };
 
 }  // namespace yrt
+
+#endif // BUILD_CUDA

@@ -20,8 +20,7 @@
 #include "yrt-pet/utils/Tools.hpp"
 
 #if BUILD_CUDA
-#include "yrt-pet/operators/OperatorProjectorDD_GPU.cuh"
-#include "yrt-pet/operators/OperatorProjectorSiddon_GPU.cuh"
+#include "yrt-pet/utils/ReconstructionUtilsDevice.cuh"
 #include "yrt-pet/recon/OSEM_GPU.cuh"
 #endif
 
@@ -478,47 +477,26 @@ static void project(Image* img, ProjectionData* projData,
 		                         "not compiled with CUDA");
 #endif
 	}
-
 	std::unique_ptr<OperatorProjectorBase> oper;
-	if (projectorType == OperatorProjector::SIDDON)
+	if (useGPU)
 	{
-		if (useGPU)
-		{
-#ifdef BUILD_CUDA
-			oper = std::make_unique<OperatorProjectorSiddon_GPU>(
-			    projParams, &mainStream->getStream(), &auxStream->getStream());
-#else
-			throw std::runtime_error(
-			    "Siddon GPU projector not supported because "
-			    "project was not compiled with CUDA");
-#endif
-		}
-		else
-		{
-			oper = std::make_unique<OperatorProjectorSiddon>(projParams);
-		}
-	}
-	else if (projectorType == OperatorProjector::DD)
-	{
-		if (useGPU)
-		{
-#ifdef BUILD_CUDA
-			oper = std::make_unique<OperatorProjectorDD_GPU>(
-			    projParams, &mainStream->getStream(), &auxStream->getStream());
-#else
-			throw std::runtime_error(
-			    "Distance-driven GPU projector not supported because "
-			    "project was not compiled with CUDA");
-#endif
-		}
-		else
-		{
-			oper = std::make_unique<OperatorProjectorDD>(projParams);
-		}
+		oper = createOperatorProjectorDevice(projectorType, projParams,
+			&mainStream->getStream(), &auxStream->getStream());
 	}
 	else
 	{
-		throw std::runtime_error("Unknown error");
+		if (projectorType == OperatorProjector::SIDDON)
+		{
+			oper = std::make_unique<OperatorProjectorSiddon>(projParams);
+		}
+		else if (projectorType == OperatorProjector::DD)
+		{
+			oper = std::make_unique<OperatorProjectorDD>(projParams);
+		}
+		else
+		{
+			throw std::runtime_error("Unknown error");
+		}
 	}
 
 	if constexpr (IS_FWD)

@@ -4,6 +4,8 @@
  */
 
 #include "yrt-pet/utils/ReconstructionUtilsDevice.cuh"
+#include "yrt-pet/operators/OperatorProjectorDD_GPU.cuh"
+#include "yrt-pet/operators/OperatorProjectorSiddon_GPU.cuh"
 
 #include "yrt-pet/datastruct/image/ImageDevice.cuh"
 #include "yrt-pet/datastruct/image/ImageSpaceKernels.cuh"
@@ -191,6 +193,39 @@ std::unique_ptr<ImageDevice> timeAverageMoveImageDevice(
 
 
 	return outImage;
+}
+
+std::unique_ptr<OperatorProjectorBase> createOperatorProjectorDevice(
+	OperatorProjectorBase::ProjectorType projType,
+	const OperatorProjectorParams& projParams, const cudaStream_t* mainStream,
+	const cudaStream_t* auxStream)
+{
+	if (projType == OperatorProjector::SIDDON)
+	{
+#ifdef BUILD_CUDA
+		return std::make_unique<OperatorProjectorSiddon_GPU>(
+			projParams, mainStream, auxStream);
+#else
+		throw std::runtime_error(
+			"Siddon GPU projector not supported because "
+			"project was not compiled with CUDA");
+#endif
+	}
+	else if (projType == OperatorProjector::DD)
+	{
+#ifdef BUILD_CUDA
+		return std::make_unique<OperatorProjectorDD_GPU>(
+			projParams, mainStream, auxStream);
+#else
+		throw std::runtime_error(
+			"Distance-driven GPU projector not supported because "
+			"project was not compiled with CUDA");
+#endif
+	}
+	else
+	{
+		throw std::runtime_error("Unknown error");
+	}
 }
 
 }  // namespace yrt::util

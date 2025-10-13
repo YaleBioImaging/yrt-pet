@@ -53,7 +53,7 @@ void DetRegular::generateLUT()
 		{
 			// Gap between each ring (Currently, equal distance)
 			float z_gap = mp_scanner->axialFOV / ((float)mp_scanner->numRings);
-			float z_pos = -mp_scanner->axialFOV / 2.0 + ring * z_gap;
+			float z_pos = -mp_scanner->axialFOV / 2.0 + (ring + 0.5) * z_gap;
 			for (size_t block = 0; block < num_blocks; block++)
 			{
 				float block_angle = block * TWOPI / num_blocks;

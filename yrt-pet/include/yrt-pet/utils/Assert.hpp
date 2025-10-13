@@ -21,10 +21,10 @@ void assertion_failed_msg(char const* expr, char const* msg,
 #define CHECK_LIKELY(x) __builtin_expect(x, 1)
 
 /* clang-format off */
-#define ASSERT(expr) (CHECK_LIKELY(!!(expr))? ((void)0): assertion_failed(#expr, __PRETTY_FUNCTION__, __FILE__, __LINE__, true))
-#define ASSERT_MSG(expr, msg) (CHECK_LIKELY(!!(expr))? ((void)0): assertion_failed_msg(#expr, msg, __PRETTY_FUNCTION__, __FILE__, __LINE__, true))
-#define ASSERT_WARNING(expr) (CHECK_LIKELY(!!(expr))? ((void)0): assertion_failed(#expr, __PRETTY_FUNCTION__, __FILE__, __LINE__, false))
-#define ASSERT_MSG_WARNING(expr, msg) (CHECK_LIKELY(!!(expr))? ((void)0): assertion_failed_msg(#expr, msg, __PRETTY_FUNCTION__, __FILE__, __LINE__, false))
+#define ASSERT(expr) (CHECK_LIKELY(!!(expr))? ((void)0): yrt::assertion_failed(#expr, __PRETTY_FUNCTION__, __FILE__, __LINE__, true))
+#define ASSERT_MSG(expr, msg) (CHECK_LIKELY(!!(expr))? ((void)0): yrt::assertion_failed_msg(#expr, msg, __PRETTY_FUNCTION__, __FILE__, __LINE__, true))
+#define ASSERT_WARNING(expr) (CHECK_LIKELY(!!(expr))? ((void)0): yrt::assertion_failed(#expr, __PRETTY_FUNCTION__, __FILE__, __LINE__, false))
+#define ASSERT_MSG_WARNING(expr, msg) (CHECK_LIKELY(!!(expr))? ((void)0): yrt::assertion_failed_msg(#expr, msg, __PRETTY_FUNCTION__, __FILE__, __LINE__, false))
 /* clang-format on */
 
 namespace util

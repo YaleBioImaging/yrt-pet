@@ -104,4 +104,23 @@ protected:
 	int m_numDynamicFrames = 1;
 };
 
+class OperatorProjectorUpdaterLRDualUpdate : public OperatorProjectorUpdater
+{
+public:
+	OperatorProjectorUpdaterLRDualUpdate(const Array2DBase<float>& pr_HBasis);
+
+	void backUpdate(
+		float value, float weight, float* cur_img_ptr,
+		size_t offset, frame_t dynamicFrame,
+		size_t numVoxelPerFrame
+		) override;
+
+protected:
+	Array2DAlias<float> mp_HBasis;  // used by forward/back math (read-only)
+	Array2DAlias<float> mp_HWrite;  // used only when m_updateH==true (accumulate)
+	bool m_updateH = true;
+	int m_rank = 1;
+	int m_numDynamicFrames = 1;
+};
+
 }  // namespace yrt

@@ -25,7 +25,8 @@ public:
 	{
 		DEFAULT3D = 0,
 		DEFAULT4D,
-		LR
+		LR,
+		LRDUALUPDATE
 	};
 
 	OperatorProjectorParams(const BinIterator* pp_binIter,

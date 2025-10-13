@@ -255,38 +255,6 @@ float OperatorProjectorUpdaterLR::forwardUpdate(
 	return weight * cur_img_lr_val;
 }
 
-// void OperatorProjectorUpdaterLR::backUpdate(
-//     float value, float weight, float* cur_img_ptr,
-//     int offset_x, frame_t dynamicFrame, size_t numVoxelPerFrame)
-// {
-// 	const float Ay = value * weight;
-// 	float* H_ptr = mp_HBasis.getRawPointer();
-//
-// 	if (! m_updateH)
-// 	{
-// 		for (int l = 0; l < m_rank; ++l)
-// 		{
-// 			const float cur_H_ptr = *(H_ptr + l * m_numDynamicFrames + dynamicFrame);
-// 			const size_t offset_rank = l * numVoxelPerFrame;
-// 			const float output = Ay * cur_H_ptr;
-// 			float* ptr = &cur_img_ptr[offset_x + offset_rank];
-// #pragma omp atomic
-// 			*ptr += output;
-// 		}
-// 	}
-// 	else {
-// 		for (int l = 0; l < m_rank; ++l) {
-// 			const size_t offset_rank = l * numVoxelPerFrame;
-// 			const float output = Ay * cur_img_ptr[offset_x + offset_rank];
-// 			float* ptr = H_ptr + l * m_numDynamicFrames + dynamicFrame;
-// #pragma omp atomic
-// 			*ptr += output;
-// 		}
-// 	}
-//
-// }
-
-
 void OperatorProjectorUpdaterLR::backUpdate(
 	float value, float weight, float* cur_img_ptr,
 	size_t offset, frame_t dynamicFrame, size_t numVoxelPerFrame)
@@ -315,6 +283,29 @@ void OperatorProjectorUpdaterLR::backUpdate(
 		}
 	}
 }
+
+
+void OperatorProjectorUpdaterLRDualUpdate::backUpdate(
+	float value, float weight, float* cur_img_ptr,
+	size_t offset, frame_t dynamicFrame, size_t numVoxelPerFrame)
+{
+	const float Ay = value * weight;
+	const float* H_ptr_read = mp_HBasis.getRawPointer();
+	float* H_ptr_write = mp_HWrite.getRawPointer();
+	for (int l = 0; l < m_rank; ++l)
+	{
+		const float cur_H_ptr = *(H_ptr_read + l * m_numDynamicFrames + dynamicFrame);
+		const size_t offset_rank = l * numVoxelPerFrame;
+		const float outputWUpdate = Ay * cur_H_ptr;
+		const float outputHUpdate = Ay * cur_img_ptr[offset + offset_rank];
+		std::atomic_ref<float> atomic_elemW(cur_img_ptr[offset + offset_rank]);
+		atomic_elemW.fetch_add(outputWUpdate);
+		std::atomic_ref<float> atomic_elemH(H_ptr_write[l * m_numDynamicFrames + dynamicFrame]);
+		atomic_elemH.fetch_add(outputHUpdate);
+	}
+
+}
+
 
 
 } // namespace yrt

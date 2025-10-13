@@ -95,6 +95,9 @@ public:
 	bool getUpdateH() const;
 	void setHBasisWrite(const Array2DBase<float>& pr_HWrite);
 	const Array2DAlias<float>& getHBasisWrite();
+	void setCurrentImgBuffer(ImageBase* img);
+	const float* getCurrentImgBuffer() const;
+	float* m_currentImg;
 
 protected:
 	Array2DAlias<float> mp_HBasis;  // used by forward/back math (read-only)
@@ -104,10 +107,10 @@ protected:
 	int m_numDynamicFrames = 1;
 };
 
-class OperatorProjectorUpdaterLRDualUpdate : public OperatorProjectorUpdater
+class OperatorProjectorUpdaterLRDualUpdate : public OperatorProjectorUpdaterLR
 {
 public:
-	OperatorProjectorUpdaterLRDualUpdate(const Array2DBase<float>& pr_HBasis);
+	using OperatorProjectorUpdaterLR::OperatorProjectorUpdaterLR;
 
 	void backUpdate(
 		float value, float weight, float* cur_img_ptr,

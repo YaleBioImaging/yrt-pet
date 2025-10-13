@@ -167,9 +167,16 @@ protected:
 	virtual const ProjectionData* getMLEMDataBuffer() = 0;
 	virtual ProjectionData* getMLEMDataTmpBuffer() = 0;
 	virtual Corrector& getCorrector() = 0;
+
+	// Abstract LR methods
 	virtual Array2DBase<float>* getHBasisTmpBuffer() = 0;
 	virtual void allocateHBasisTmpBuffer() = 0;
+	virtual void initializeHBasisTmpBuffer() = 0;
+	virtual void generateWUpdateSensScaling(float* c) = 0;
+	virtual void generateHUpdateSensScaling(float* c) = 0;
+
 	static void dumpHBasis(const Array2DAlias<float>& H, const char* tag = nullptr);
+
 
 	// Common methods
 	virtual void loadSubset(int p_subsetId, bool p_forRecon) = 0;

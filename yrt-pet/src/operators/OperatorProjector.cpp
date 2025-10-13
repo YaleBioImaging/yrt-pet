@@ -278,6 +278,25 @@ void OperatorProjector::setupUpdater(
 							"OperatorProjectorUpdaterLR to get/set updateH");
 		}
 	}
+	else if (p_projParams.projectorUpdaterType == OperatorProjectorParams::LRDUALUPDATE)
+	{
+		if (p_projParams.HBasis.getSizeTotal() == 0)
+		{
+			throw std::invalid_argument(
+				"LRDUALUPDATE updater was requested but HBasis is empty");
+		}
+		setUpdater(
+			std::make_unique<OperatorProjectorUpdaterLRDualUpdate>(p_projParams.HBasis));
+		if (auto* updaterLR = dynamic_cast<OperatorProjectorUpdaterLRDualUpdate*>(mp_updater.get()))
+		{
+			updaterLR->setUpdateH(p_projParams.updateH);
+		}
+		else
+		{
+			throw std::runtime_error("OperatorProjectorUpdater type needs to be "
+							"OperatorProjectorUpdaterLRDualUpdate to get/set updateH");
+		}
+	}
 	else
 	{
 		throw std::invalid_argument("ProjectorUpdaterType not valid");

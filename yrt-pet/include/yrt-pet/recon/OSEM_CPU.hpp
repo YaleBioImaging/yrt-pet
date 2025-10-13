@@ -57,6 +57,11 @@ protected:
 	void computeEMUpdateImage(const ImageBase& inputImage,
 	                          ImageBase& destImage) override;
 
+	// LR methods
+	void initializeHBasisTmpBuffer() override;
+	void generateWUpdateSensScaling(float* c) override;
+	void generateHUpdateSensScaling(float* c) override;
+
 private:
 	// For sensitivity image generation
 	std::unique_ptr<Image> mp_tempSensImageBuffer;

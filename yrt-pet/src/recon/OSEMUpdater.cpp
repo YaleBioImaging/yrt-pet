@@ -64,7 +64,7 @@ void py_setup_osem_updater(pybind11::module& m)
 	      py::return_value_policy::reference);
 
 	// CPU subclass
-	auto c_cpu = py::class_<OSEMUpdater_CPU, OSEMUpdater>(m, "OSEMUpdaterCPU");
+	auto c_cpu = py::class_<OSEMUpdater_CPU, OSEMUpdater>(m, "OSEMUpdater_CPU");
 	c_cpu.def(py::init<OSEM_CPU*>(), py::arg("osem_cpu"));
 	c_cpu.def("computeSensitivityImage", [](OSEMUpdater_CPU& self, Image& dest)
 	          { self.computeSensitivityImage(dest); });

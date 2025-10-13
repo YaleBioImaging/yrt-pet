@@ -460,7 +460,8 @@ void OperatorProjectorSiddon::project_helper(
 	// Prepare data pointer (this assumes that the data is stored as a
 	// contiguous array)
 	float* raw_img_ptr = img->getRawPointer();
-	float* cur_img_ptr = nullptr;
+	// float* cur_img_ptr = nullptr;
+	size_t offset_img_ptr = 0;
 	int num_x = params.nx;
 	int num_xy = params.nx * params.ny;
 
@@ -523,7 +524,7 @@ void OperatorProjectorSiddon::project_helper(
 			           inv_dy);
 			vz = (int)((p1.z + a_mid * (p2.z - p1.z) + params.length_z / 2.0f) *
 			           inv_dz);
-			cur_img_ptr = raw_img_ptr + vz * num_xy + vy * num_x;
+			offset_img_ptr = vz * num_xy + vy * num_x;
 			flag_first = false;
 			if (vx < 0 || vx >= params.nx || vy < 0 || vy >= params.ny ||
 			    vz < 0 || vz >= params.nz)
@@ -550,7 +551,7 @@ void OperatorProjectorSiddon::project_helper(
 				}
 				else
 				{
-					cur_img_ptr += dir_y * num_x;
+					offset_img_ptr += dir_y * num_x;
 				}
 			}
 			if (dir_prev & SIDDON_DIR::DIR_Z)
@@ -562,7 +563,7 @@ void OperatorProjectorSiddon::project_helper(
 				}
 				else
 				{
-					cur_img_ptr += dir_z * num_xy;
+					offset_img_ptr += dir_z * num_xy;
 				}
 			}
 		}
@@ -572,20 +573,20 @@ void OperatorProjectorSiddon::project_helper(
 		}
 		dir_prev = dir_next;
 		float weight = (a_next - a_cur) * d_norm;
+		const size_t numVoxelsPerFrame = params.nx * params.ny * params.nz;
+		const size_t totalOffset = vx + offset_img_ptr;
 		if (FLAG_TOF)
 		{
 			weight *= tof_weight;
 		}
 		if (IS_FWD)
 		{
-			const size_t numVoxelsPerFrame = params.nx * params.ny * params.nz;
-			value += updater.forwardUpdate(weight, cur_img_ptr, vx,
+			value += updater.forwardUpdate(weight, raw_img_ptr, totalOffset,
 			                               dynamicFrame, numVoxelsPerFrame);
 		}
 		else
 		{
-			const size_t numVoxelsPerFrame = params.nx * params.ny * params.nz;
-			updater.backUpdate(value, weight, cur_img_ptr, vx, dynamicFrame,
+			updater.backUpdate(value, weight, raw_img_ptr, totalOffset, dynamicFrame,
 			                   numVoxelsPerFrame);
 		}
 		a_cur = a_next;

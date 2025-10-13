@@ -727,9 +727,13 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 	const bool IS_DYNAMIC =
 		(projectorParams.projectorUpdaterType != OperatorProjectorParams::DEFAULT3D);
 	const bool isLowRank =
-		(projectorParams.projectorUpdaterType == OperatorProjectorParams::LR);
+		(projectorParams.projectorUpdaterType == OperatorProjectorParams::LR ||
+			projectorParams.projectorUpdaterType == OperatorProjectorParams::LRDUALUPDATE);
+	const bool dualUpdate =
+		(projectorParams.projectorUpdaterType == OperatorProjectorParams::LRDUALUPDATE);
 
-	std::vector<float> c_r;
+	std::vector<float> c_WUpdate_r;
+	std::vector<float> c_Hupdate_r;
 	int rank;
 	int T = 0;
 	allocateHBasisTmpBuffer();
@@ -737,6 +741,7 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 	// std::unique_ptr<Array2D<float>> HBuffer = std::make_unique<Array2D<float>>();
 
 	if (isLowRank) {
+		// Check LR Updater
 		if (auto* proj = dynamic_cast<OperatorProjector*>(mp_projector.get())) {
 			if (auto* lr = dynamic_cast<OperatorProjectorUpdaterLR*>(proj->getUpdater())) {
 				if (lr->getUpdateH() != projectorParams.updateH)
@@ -750,68 +755,30 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 				throw std::runtime_error("proj->getUpdater could not be cast to OperatorProjectorUpdaterLR");
 			}
 		}
+
 		// HBasis is rank x T
 		const auto dims = projectorParams.HBasis.getDims();   // std::array<size_t,2>
 		rank = static_cast<int>(dims[0]);
 		T = static_cast<int>(dims[1]);
 
-		c_r.resize(rank, 0.f);
-		if (!projectorParams.updateH)
-			for (int r = 0; r < rank; ++r) {
-				for (int t = 0; t < T; ++t)
-				{
-					c_r[r] += projectorParams.HBasis[r][t];
-				}
-			}
-		else
+		if (!projectorParams.updateH || dualUpdate)
 		{
-			const size_t J = imageParams.nx * imageParams.ny * imageParams.nz;
-			const auto* W_img = dynamic_cast<Image*>(getMLEMImageBuffer());
-			const auto* s_img = dynamic_cast<Image*>(getSensImageBuffer());
-			ASSERT_MSG(W_img && s_img, "check: W_img && s_img");
-			const float* W_ptr = W_img->getRawPointer();
-			const float* s_ptr = s_img->getRawPointer();
-
-			if (W_ptr == nullptr)
-			{
-				throw std::logic_error("W_img->getRawPointer() gives nullptr");
-			}
-
-			if (s_ptr == nullptr)
-			{
-				throw std::logic_error("s_img->getRawPointer() gives nullptr");
-			}
-
-			const int numThreads = globals::getNumThreads();
-
-			for (int r = 0; r < rank; ++r)
-			{
-				std::vector<float> cr_threadLocal(numThreads, 0.f);
-				const auto* Wr = W_ptr + r * J;
-
-				util::parallelForChunked(J, numThreads, [&](size_t j, size_t tid)
-				{
-					cr_threadLocal[tid] += Wr[j] * s_ptr[j];
-				});
-
-				float cr = 0.0f;
-
-				for (int t = 0 ; t < numThreads; ++t)
-				{
-					cr += cr_threadLocal[t];
-				}
-
-				c_r[r] = cr;
-			}
-
+			c_WUpdate_r.resize(rank, 0.f);
+			generateWUpdateSensScaling(c_WUpdate_r.data());
+		}
+		if (projectorParams.updateH || dualUpdate)
+		{
+			c_Hupdate_r.resize(rank, 0.f);
+			generateHUpdateSensScaling(c_Hupdate_r.data());
 			HBuffer->fill(0.f);
-			// Redirect LR updater to write into the H numerator buffer
 			if (auto* proj = reinterpret_cast<OperatorProjector*>(mp_projector.get())) {
 				if (auto* lr = dynamic_cast<OperatorProjectorUpdaterLR*>(proj->getUpdater()))
 				{
-					lr->setUpdateH(true);            // switch to H accumulation mode
+					lr->setUpdateH(projectorParams.updateH);            // switch to H accumulation mode
 					lr->setHBasis(projectorParams.HBasis);
 					lr->setHBasisWrite(*HBuffer);       // write into mp_HWrite
+					lr->setCurrentImgBuffer(outImage.get());
+					// todo: remove outImage to direct towards mlemImage_rp in case PSF is used
 					printf("set HBasisWrite for OperatorProjectorUpdaterLR");
 				}
 				else
@@ -824,11 +791,12 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 				throw std::runtime_error("mp_projector could not be cast to OperatorProjector");
 			}
 		}
-		// todo: if any c_r <= 0, handle it (skip rank or clamp) ??
 	}
-	else {
-		rank = imageParams.num_frames;
-		c_r.resize(rank, 1.f);
+	else
+	{
+		// 4D dynamic case
+		T = imageParams.num_frames;
+		c_WUpdate_r.resize(T, 1.f);
 	}
 
 	const int numDigitsInFilename = util::numberOfDigits(num_MLEM_iterations);
@@ -850,8 +818,10 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 			// SET TMP VARIABLES TO 0
 			getImageTmpBuffer(TemporaryImageSpaceBufferType::EM_RATIO)
 			    ->setValue(0.0);
-			if (isLowRank && projectorParams.updateH) {
-				HBuffer->fill(0.0f);
+			if ((isLowRank && projectorParams.updateH) || dualUpdate) {
+				printf("\n initialize HBasisTmpBuffer with zeros.\n");
+				HBuffer->fill(0.f);
+				printf("\n HBasisTmpBuffer initialized with zeros.\n");
 			}
 
 			ImageBase* mlemImage_rp;
@@ -871,8 +841,9 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 				mlemImage_rp = getMLEMImageBuffer();
 			}
 
-			if (!projectorParams.updateH)
+			if (!projectorParams.updateH || dualUpdate)
 			{
+				printf("\n Compute EM (1).\n");
 				computeEMUpdateImage(
 					*mlemImage_rp,
 					*getImageTmpBuffer(TemporaryImageSpaceBufferType::EM_RATIO));
@@ -881,6 +852,7 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 			{
 				// When updating H, destImage must be the actual image (and not
 				// a zeroed buffer) to retrieve the value from the image during backudpate
+				printf("\n Compute EM (2).\n");
 				computeEMUpdateImage(*mlemImage_rp,
 					*mlemImage_rp);
 			}
@@ -896,40 +868,60 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 			}
 
 			// UPDATE
-			if (!projectorParams.updateH)
+			if (!projectorParams.updateH || dualUpdate)
 			{
 				ImageBase* updateImage =
 				    flagImagePSF
 				        ? getImageTmpBuffer(TemporaryImageSpaceBufferType::PSF)
 				        : getImageTmpBuffer(TemporaryImageSpaceBufferType::EM_RATIO);
-
+				printf("\n Apply EM W Update \n");
 				if (IS_DYNAMIC) {
 					apply_update<true>(getMLEMImageBuffer(), updateImage, getSensImageBuffer(),
-									   c_r.data(), EPS_FLT);
+									   c_WUpdate_r.data(), EPS_FLT);
 				} else {
 					apply_update<false>(getMLEMImageBuffer(), updateImage, getSensImageBuffer(),
 										nullptr, EPS_FLT);
 				}
 			}
-			else
+			if ((projectorParams.updateH || dualUpdate) && (iter > 0))
 			{
+				printf("\n Apply EM H Update \n");
 				float*       H_old_ptr = projectorParams.HBasis.getRawPointer(); // current H
 				const float* Hnum_ptr  = HBuffer->getRawPointer();               // numerator accumulated this subset
+
+				printf("\n --- Before Update --- \n");
+				double sum = 0.0;
+				for (int i = 0; i < rank*T; ++i) sum += H_old_ptr[i];
+				printf("sum(H)=%.6g, mean(H)=%.6g\n", sum, sum / (rank*T));
+
 
 				// H_new := H_old * (Hnum / c_r)
 				util::parallelForChunked(
 					T, globals::getNumThreads(),
-					[rank, T, c_r, H_old_ptr, Hnum_ptr](int t, int /*tid*/)
+					[rank, T, c_Hupdate_r, H_old_ptr, Hnum_ptr](int t, int /*tid*/)
 					{
 						for (int r = 0; r < rank; ++r)
 						{
-							const float denom = std::max(c_r[r], EPS_FLT);
+							const float denom = std::max(c_Hupdate_r[r], EPS_FLT);
 							const float inv   = 1.0f / denom;
 							float*       Hr  = H_old_ptr + r * T;
 							const float* Nr  = Hnum_ptr  + r * T;
 							Hr[t] = Hr[t] * (Nr[t] * inv); // write the *new H* back over H_old
 						}
 					});
+
+				printf("\n --- After Update --- \n");
+				double sum_after = 0.0;
+				for (int i = 0; i < rank * T; ++i) sum_after += H_old_ptr[i];
+				printf("sum(H)=%.6g, mean(H)=%.6g\n", sum_after, sum_after / (rank*T));
+
+			}
+
+			if (dualUpdate && (iter > 0))
+			{
+				printf("\n Updating LR Sensitivity image scaling...\n");
+				generateWUpdateSensScaling(c_WUpdate_r.data());
+				generateHUpdateSensScaling(c_Hupdate_r.data());
 			}
 		}
 		if (saveIterRanges.isIn(iter + 1))
@@ -1046,9 +1038,6 @@ void apply_update(ImageBase* destImage,
 }
 
 
-// Instantiation of template for LR EM update
-//template<bool IS_DYNAMIC>
-//void apply_update(ImageBase*, ImageBase*, const ImageBase*, float,
-//                  const float*, int);
+
 
 }  // namespace yrt

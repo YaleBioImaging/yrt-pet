@@ -66,6 +66,11 @@ public:
 	Array2DBase<float>* getHBasisTmpBuffer() override;
 	void allocateHBasisTmpBuffer() override;
 
+	// LR methods
+	void initializeHBasisTmpBuffer() override;
+	void generateWUpdateSensScaling(float* c) override;
+	void generateHUpdateSensScaling(float* c) override;
+
 	// Common methods
 	void loadSubset(int subsetId, bool forRecon) override;
 	void addImagePSF(const std::string& p_imagePsf_fname,

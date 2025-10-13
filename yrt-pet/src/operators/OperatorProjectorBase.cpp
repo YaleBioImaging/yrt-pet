@@ -21,6 +21,7 @@ void py_setup_operatorprojectorparams(py::module& m)
 	    .value("DEFAULT3D", OperatorProjectorParams::ProjectorUpdaterType::DEFAULT3D)
 	    .value("DEFAULT4D", OperatorProjectorParams::ProjectorUpdaterType::DEFAULT4D)
 	    .value("LR", OperatorProjectorParams::ProjectorUpdaterType::LR)
+	    .value("LRDUALUPDATE", OperatorProjectorParams::ProjectorUpdaterType::LRDUALUPDATE)
 	    .export_values();
 
 	c.def(

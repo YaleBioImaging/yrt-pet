@@ -446,4 +446,10 @@ void OSEM_GPU::allocateHBasisTmpBuffer()
 {
 }
 
+void OSEM_GPU::initializeHBasisTmpBuffer() {}
+
+void OSEM_GPU::generateWUpdateSensScaling(float* c) {}
+
+void OSEM_GPU::generateHUpdateSensScaling(float* c) {}
+
 }  // namespace yrt

@@ -5,6 +5,8 @@
 
 #include "yrt-pet/datastruct/image/Image.hpp"
 #include "yrt-pet/operators/OperatorProjectorUpdater.hpp"
+
+#include "yrt-pet/datastruct/image/ImageDevice.cuh"
 #include "yrt-pet/utils/Types.hpp"
 
 
@@ -211,6 +213,23 @@ const Array2DAlias<float>& OperatorProjectorUpdaterLR::getHBasisWrite() {
 	return mp_HWrite;
 }
 
+void OperatorProjectorUpdaterLR::setCurrentImgBuffer(ImageBase* img)
+{
+	if (auto* imgCPU = dynamic_cast<ImageOwned*>(img))
+		m_currentImg = imgCPU->getRawPointer();
+	else if (auto* imgGPU = dynamic_cast<ImageDevice*>(img))
+		m_currentImg = imgGPU->getDevicePointer();
+	else
+		throw std::runtime_error("Unsupported image type");
+
+	ASSERT_MSG(m_currentImg != nullptr, "Null image data pointer");
+}
+
+const float* OperatorProjectorUpdaterLR::getCurrentImgBuffer() const
+{
+	return m_currentImg;
+}
+
 //void OperatorProjectorUpdaterLR::setHBasis(const Array2D<float>& HBasis) {
 //	auto dims = HBasis.getDims(); // [rank, numTimeFrames]
 //	if (dims[0] == 0 || dims[1] == 0) {
@@ -286,24 +305,24 @@ void OperatorProjectorUpdaterLR::backUpdate(
 
 
 void OperatorProjectorUpdaterLRDualUpdate::backUpdate(
-	float value, float weight, float* cur_img_ptr,
+	float value, float weight, float* raw_img_ptr,
 	size_t offset, frame_t dynamicFrame, size_t numVoxelPerFrame)
 {
 	const float Ay = value * weight;
 	const float* H_ptr_read = mp_HBasis.getRawPointer();
+	const float* W_ptr_read = this->getCurrentImgBuffer();
 	float* H_ptr_write = mp_HWrite.getRawPointer();
 	for (int l = 0; l < m_rank; ++l)
 	{
 		const float cur_H_ptr = *(H_ptr_read + l * m_numDynamicFrames + dynamicFrame);
 		const size_t offset_rank = l * numVoxelPerFrame;
 		const float outputWUpdate = Ay * cur_H_ptr;
-		const float outputHUpdate = Ay * cur_img_ptr[offset + offset_rank];
-		std::atomic_ref<float> atomic_elemW(cur_img_ptr[offset + offset_rank]);
+		const float outputHUpdate = Ay * W_ptr_read[offset + offset_rank];
+		std::atomic_ref<float> atomic_elemW(raw_img_ptr[offset + offset_rank]);
 		atomic_elemW.fetch_add(outputWUpdate);
 		std::atomic_ref<float> atomic_elemH(H_ptr_write[l * m_numDynamicFrames + dynamicFrame]);
 		atomic_elemH.fetch_add(outputHUpdate);
 	}
-
 }
 
 

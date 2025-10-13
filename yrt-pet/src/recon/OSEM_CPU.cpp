@@ -155,6 +155,11 @@ Array2DBase<float>* OSEM_CPU::getHBasisTmpBuffer()
 	return mp_HNumerator.get();
 }
 
+void OSEM_CPU::initializeHBasisTmpBuffer()
+{
+	return mp_HNumerator->fill(0.f);
+}
+
 void OSEM_CPU::allocateHBasisTmpBuffer()
 {
 	if (!mp_HNumerator)
@@ -308,6 +313,69 @@ void OSEM_CPU::computeEMUpdateImage(const ImageBase& inputImage,
 	auto& inputImageHost = dynamic_cast<const Image&>(inputImage);
 	auto& destImageHost = dynamic_cast<Image&>(destImage);
 	mp_updater->computeEMUpdateImage(inputImageHost, destImageHost);
+}
+
+
+void OSEM_CPU::generateWUpdateSensScaling(float* c_WUpdate_r)
+{
+
+	// HBasis is rank x T
+	const auto dims = projectorParams.HBasis.getDims();
+	const int rank = static_cast<int>(dims[0]);
+	const int T = static_cast<int>(dims[1]);
+
+	for (int r = 0; r < rank; ++r) {
+		for (int t = 0; t < T; ++t)
+		{
+			c_WUpdate_r[r] += projectorParams.HBasis[r][t];
+		}
+	}
+
+}
+
+void OSEM_CPU::generateHUpdateSensScaling(float* c_HUpdate_r)
+{
+	const size_t J = imageParams.nx * imageParams.ny * imageParams.nz;
+	const auto* W_img = dynamic_cast<Image*>(getMLEMImageBuffer());
+	const auto* s_img = dynamic_cast<Image*>(getSensImageBuffer());
+	ASSERT_MSG(W_img && s_img, "check: W_img && s_img");
+	const float* W_ptr = W_img->getRawPointer();
+	const float* s_ptr = s_img->getRawPointer();
+	const auto dims = projectorParams.HBasis.getDims();
+	const int rank = static_cast<int>(dims[0]);
+
+	if (W_ptr == nullptr)
+	{
+		throw std::logic_error("W_img->getRawPointer() gives nullptr");
+	}
+
+	if (s_ptr == nullptr)
+	{
+		throw std::logic_error("s_img->getRawPointer() gives nullptr");
+	}
+
+	const int numThreads = globals::getNumThreads();
+
+	for (int r = 0; r < rank; ++r)
+	{
+		std::vector<float> cr_threadLocal(numThreads, 0.f);
+		const auto* Wr = W_ptr + r * J;
+
+		util::parallelForChunked(J, numThreads, [&](size_t j, size_t tid)
+		{
+			cr_threadLocal[tid] += Wr[j] * s_ptr[j];
+		});
+
+		float cr = 0.0f;
+
+		for (int t = 0 ; t < numThreads; ++t)
+		{
+			cr += cr_threadLocal[t];
+		}
+
+		c_HUpdate_r[r] = cr;
+	}
+
 }
 
 void OSEM_CPU::completeMLEMIteration() {}

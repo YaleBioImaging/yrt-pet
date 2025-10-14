@@ -5,7 +5,12 @@
 
 #pragma once
 
+#include <set>
+
 #include "yrt-pet/operators/OperatorProjector.hpp"
+#include "yrt-pet/recon/Corrector_CPU.hpp"
+#include "yrt-pet/utils/ProgressDisplayMultiThread.hpp"
+#include "yrt-pet/datastruct/projection/BinFilter.hpp"
 
 namespace yrt
 {

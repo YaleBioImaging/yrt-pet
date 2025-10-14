@@ -4,9 +4,13 @@
  */
 
 #include "yrt-pet/operators/OperatorProjectorBase.hpp"
+#include "yrt-pet/datastruct/projection/BinFilter.hpp"
+#include "yrt-pet/datastruct/projection/ProjectionProperties.hpp"
+#include "yrt-pet/utils/Globals.hpp"
 
 #if BUILD_PYBIND11
 #include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
 
 namespace py = pybind11;
 
@@ -16,15 +20,15 @@ namespace yrt
 void py_setup_operatorprojectorparams(py::module& m)
 {
 	auto c = py::class_<OperatorProjectorParams>(m, "OperatorProjectorParams");
-	c.def(
-	    py::init<BinIterator*, Scanner&, float, int, const std::string&, int>(),
-	    py::arg("binIter"), py::arg("scanner"), py::arg("tofWidth_ps") = 0.f,
-	    py::arg("tofNumStd") = -1, py::arg("projPsf_fname") = "",
-	    py::arg("num_rays") = 1);
+	c.def(py::init<Scanner&>(), py::arg("scanner"));
+	c.def_readwrite("binIter", &OperatorProjectorParams::binIter);
 	c.def_readwrite("tofWidth_ps", &OperatorProjectorParams::tofWidth_ps);
 	c.def_readwrite("tofNumStd", &OperatorProjectorParams::tofNumStd);
 	c.def_readwrite("projPsf_fname", &OperatorProjectorParams::projPsf_fname);
 	c.def_readwrite("num_rays", &OperatorProjectorParams::numRays);
+	c.def_readwrite("num_threads", &OperatorProjectorParams::numThreads);
+	c.def_readwrite("proj_property_types_extra",
+	                &OperatorProjectorParams::projPropertyTypesExtra);
 }
 
 void py_setup_operatorprojectorbase(py::module& m)
@@ -41,28 +45,37 @@ void py_setup_operatorprojectorbase(py::module& m)
 namespace yrt
 {
 
-OperatorProjectorParams::OperatorProjectorParams(
-    const BinIterator* pp_binIter, const Scanner& pr_scanner,
-    float p_tofWidth_ps, int p_tofNumStd, const std::string& pr_projPsf_fname,
-    int p_num_rays)
-    : binIter(pp_binIter),
-      scanner(pr_scanner),
-      tofWidth_ps(p_tofWidth_ps),
-      tofNumStd(p_tofNumStd),
-      projPsf_fname(pr_projPsf_fname),
-      numRays(p_num_rays)
+OperatorProjectorParams::OperatorProjectorParams(const Scanner& pr_scanner)
+    : scanner(pr_scanner),
+      tofWidth_ps(0.f),
+      tofNumStd(0),
+      projPsf_fname(""),
+      numRays(1),
+      numThreads(globals::getNumThreads())
 {
 }
 
 OperatorProjectorBase::OperatorProjectorBase(
-    const OperatorProjectorParams& p_projParams)
-    : scanner(p_projParams.scanner), binIter(p_projParams.binIter)
+    const OperatorProjectorParams& pr_projParams,
+    const std::vector<Constraint*>& pr_constraints)
+    : scanner(pr_projParams.scanner),
+      binIter{pr_projParams.binIter},
+      m_constraints(pr_constraints)
 {
 }
 
-OperatorProjectorBase::OperatorProjectorBase(const Scanner& pr_scanner)
-    : scanner(pr_scanner), binIter{nullptr}
+void OperatorProjectorBase::initBinFilter(
+    const std::set<ProjectionPropertyType>& projPropertyTypesExtra,
+    const int numThreads)
 {
+	setupBinFilter(projPropertyTypesExtra);
+	allocateBuffers(numThreads);
+}
+
+std::set<ProjectionPropertyType>
+    OperatorProjectorBase::getProjectionPropertyTypes() const
+{
+	return {};
 }
 
 const BinIterator* OperatorProjectorBase::getBinIter() const
@@ -70,13 +83,57 @@ const BinIterator* OperatorProjectorBase::getBinIter() const
 	return binIter;
 }
 
+const BinFilter* OperatorProjectorBase::getBinFilter() const
+{
+	return m_binFilter.get();
+}
+
 const Scanner& OperatorProjectorBase::getScanner() const
 {
 	return scanner;
+}
+
+ProjectionProperties OperatorProjectorBase::getProjectionProperties() const
+{
+	return m_projectionProperties.get();
+}
+
+ConstraintParams OperatorProjectorBase::getConstraintParams() const
+{
+	return m_constraintParams.get();
 }
 
 void OperatorProjectorBase::setBinIter(const BinIterator* p_binIter)
 {
 	binIter = p_binIter;
 }
+
+void OperatorProjectorBase::setupBinFilter(
+    const std::set<ProjectionPropertyType>& pr_projPropertiesExtra)
+{
+	// Determine projection property types from projector
+	auto projProperties = getProjectionPropertyTypes();
+	for (auto prop : pr_projPropertiesExtra)
+	{
+		projProperties.insert(prop);
+	}
+	// Determine constraints from scanner
+	m_binFilter = std::make_unique<BinFilter>(m_constraints, projProperties);
+	m_binFilter->setupManagers();
+}
+
+void OperatorProjectorBase::allocateBuffers(int numThreads)
+{
+	auto& projPropManager = m_binFilter->getPropertyManager();
+	auto& consManager = m_binFilter->getConstraintManager();
+	if (projPropManager.getElementSize() > 0)
+	{
+		m_projectionProperties = projPropManager.createDataArray(numThreads);
+	}
+	if (consManager.getElementSize() > 0)
+	{
+		m_constraintParams = consManager.createDataArray(numThreads);
+	}
+}
+
 }  // namespace yrt

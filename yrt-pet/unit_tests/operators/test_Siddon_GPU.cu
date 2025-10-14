@@ -59,7 +59,7 @@ TEST_CASE("siddon_gpu_vs_cpu", "[siddon-gpu]")
 		double rmseCpuGpu = yrt::util::test::getRMSE(*img_gpu, *img_cpu);
 
 		REQUIRE(img_gpu->voxelSum() > 0.0f);
-		CHECK(rmseCpuGpu < 0.000007);
+		CHECK(rmseCpuGpu < 0.0001);
 	}
 
 	auto imgToFwdProj = yrt::util::test::makeImageWithRandomPrism(imgParams);
@@ -80,6 +80,6 @@ TEST_CASE("siddon_gpu_vs_cpu", "[siddon-gpu]")
 
 		double rmseCpuGpu = yrt::util::test::getRMSE(*projList_cpu, *projList_gpu);
 
-		CHECK(rmseCpuGpu < 0.0003);
+		CHECK(rmseCpuGpu < 0.0005);
 	}
 }

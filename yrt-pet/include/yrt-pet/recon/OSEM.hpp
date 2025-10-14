@@ -6,12 +6,12 @@
 #pragma once
 
 #include "yrt-pet/datastruct/image/Image.hpp"
+#include "yrt-pet/datastruct/projection/ProjectionProperties.hpp"
 #include "yrt-pet/datastruct/projection/UniformHistogram.hpp"
 #include "yrt-pet/operators/OperatorProjector.hpp"
-#include "yrt-pet/operators/OperatorPsf.hpp"
-#include "yrt-pet/operators/OperatorVarPsf.hpp"
 #include "yrt-pet/recon/Corrector.hpp"
 #include "yrt-pet/utils/RangeList.hpp"
+#include <vector>
 
 #if BUILD_PYBIND11
 #include <pybind11/pybind11.h>
@@ -134,10 +134,14 @@ protected:
 	ImageParams imageParams;
 	std::unique_ptr<ImageOwned> outImage;  // Note: This is a host image
 
+	std::vector<std::unique_ptr<BinIterator>> m_binIterators;
+	std::vector<std::unique_ptr<Constraint>> m_constraints;
+
 	// ---------- Virtual pure functions ----------
 
 	// Sens Image generator driver
-	virtual void setupOperatorsForSensImgGen() = 0;
+	virtual void setupOperatorsForSensImgGen(
+	    const OperatorProjectorParams& projParams) = 0;
 	virtual void allocateForSensImgGen() = 0;
 	virtual std::unique_ptr<Image>
 	    getLatestSensitivityImage(bool isLastSubset) = 0;
@@ -145,7 +149,8 @@ protected:
 	virtual void endSensImgGen() = 0;
 
 	// Reconstruction driver
-	virtual void setupOperatorsForRecon() = 0;
+	virtual void
+	    setupOperatorsForRecon(const OperatorProjectorParams& projParams) = 0;
 	virtual void allocateForRecon() = 0;
 	virtual void computeEMUpdateImage(const ImageBase& inputImage,
 	                                  ImageBase& destImage) = 0;
@@ -172,8 +177,7 @@ private:
 	    bool saveOnDisk, const std::string& out_fname, bool saveOnMemory,
 	    std::vector<std::unique_ptr<Image>>& sensImages);
 	void initializeForRecon();
-
-	std::vector<std::unique_ptr<BinIterator>> m_binIterators;
+	void collectConstraints();
 
 	const ProjectionData* mp_dataInput;
 

@@ -8,62 +8,6 @@
 #include <cooperative_groups.h>
 #include <cuda_runtime.h>
 
-__device__ inline float4 operator+(const float4& a, const float4& b)
-{
-	return make_float4(a.x + b.x, a.y + b.y, a.z + b.z, a.w + b.w);
-}
-
-__device__ inline float4& operator+=(float4& a, const float4& b)
-{
-	a.x += b.x;
-	a.y += b.y;
-	a.z += b.z;
-	a.w += b.w;
-	return a;
-}
-
-__device__ inline float4 operator-(const float4& a, const float4& b)
-{
-	return make_float4(a.x - b.x, a.y - b.y, a.z - b.z, a.w - b.w);
-}
-
-__device__ inline float4& operator-=(float4& a, const float4& b)
-{
-	a.x -= b.x;
-	a.y -= b.y;
-	a.z -= b.z;
-	a.w -= b.w;
-	return a;
-}
-
-__device__ inline float4 operator*(const float4& a, const float f)
-{
-	return make_float4(a.x * f, a.y * f, a.z * f, a.w * f);
-}
-
-__device__ inline float4& operator*=(float4& a, const float4& b)
-{
-	a.x *= b.x;
-	a.y *= b.y;
-	a.z *= b.z;
-	a.w *= b.w;
-	return a;
-}
-
-__device__ inline float4 operator/(const float4& a, const float f)
-{
-	return make_float4(a.x / f, a.y / f, a.z / f, a.w / f);
-}
-
-__device__ inline float4& operator/=(float4& a, const float4& b)
-{
-	a.x /= b.x;
-	a.y /= b.y;
-	a.z /= b.z;
-	a.w /= b.w;
-	return a;
-}
-
 __device__ inline float3 operator+(const float3& a, const float3& b)
 {
 	return make_float3(a.x + b.x, a.y + b.y, a.z + b.z);
@@ -124,24 +68,10 @@ __device__ inline void normalize(float3& v)
 	v.z /= norm;
 }
 
-__device__ inline void normalize(float4& v)
-{
-	const float norm = norm3df(v.x, v.y, v.z);
-	v.x /= norm;
-	v.y /= norm;
-	v.z /= norm;
-}
-
 __device__ inline float3 cross(const float3& a, const float3& b)
 {
 	return make_float3(a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z,
 	                   a.x * b.y - a.y * b.x);
-}
-
-__device__ inline float4 cross(const float4& a, const float4& b)
-{
-	return make_float4(a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z,
-	                   a.x * b.y - a.y * b.x, 0);
 }
 
 

@@ -9,6 +9,7 @@
 #include "yrt-pet/datastruct/image/ImageDevice.cuh"
 #include "yrt-pet/datastruct/projection/ProjectionData.hpp"
 #include "yrt-pet/datastruct/projection/ProjectionDataDevice.cuh"
+#include "yrt-pet/operators/OperatorProjectorBase.hpp"
 #include "yrt-pet/recon/Corrector_GPU.cuh"
 #include "yrt-pet/recon/OSEM.hpp"
 #include "yrt-pet/recon/OSEMUpdater_GPU.cuh"
@@ -33,7 +34,8 @@ public:
 	const cudaStream_t* getMainStream() const;
 
 	// Sens Image generator driver
-	void setupOperatorsForSensImgGen() override;
+	void setupOperatorsForSensImgGen(
+		const OperatorProjectorParams& projParams) override;
 	void allocateForSensImgGen() override;
 	std::unique_ptr<Image>
 	    getLatestSensitivityImage(bool isLastSubset) override;
@@ -41,7 +43,8 @@ public:
 	void endSensImgGen() override;
 
 	// Reconstruction driver
-	void setupOperatorsForRecon() override;
+	void setupOperatorsForRecon(
+	    const OperatorProjectorParams& projParams) override;
 	void allocateForRecon() override;
 	void endRecon() override;
 	void completeMLEMIteration() override;
@@ -67,6 +70,11 @@ public:
 	void loadSubset(int subsetId, bool forRecon) override;
 	void addImagePSF(const std::string& p_imagePsf_fname,
 	                 ImagePSFMode p_imagePSFMode) override;
+
+	// Use 90% of what is available
+	static constexpr float DefaultMemoryShare = 0.9f;
+
+	std::pair<size_t, size_t> calculateMemProj(float shareOfMemoryToUse) const;
 
 private:
 	std::unique_ptr<ImageDeviceOwned> mpd_sensImageBuffer;

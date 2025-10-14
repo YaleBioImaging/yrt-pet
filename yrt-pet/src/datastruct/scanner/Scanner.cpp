@@ -39,6 +39,7 @@ void py_setup_scanner(pybind11::module& m)
 	c.def("getTheoreticalNumDets", &Scanner::getTheoreticalNumDets);
 	c.def("getDetectorPos", &Scanner::getDetectorPos, "det_id"_a);
 	c.def("getDetectorOrient", &Scanner::getDetectorOrient, "det_id"_a);
+	c.def("isDetectorAllowed", &Scanner::isDetectorAllowed, "det_id"_a);
 	c.def_readwrite("scannerName", &Scanner::scannerName);
 	c.def_readwrite("axialFOV", &Scanner::axialFOV);
 	c.def_readwrite("crystalSize_z", &Scanner::crystalSize_z);
@@ -142,6 +143,26 @@ bool Scanner::isValid() const
 	return mp_detectors != nullptr;
 }
 
+bool Scanner::isDetectorAllowed(det_id_t det) const
+{
+	return mp_detectors->isDetectorAllowed(det);
+}
+
+bool Scanner::hasMask() const
+{
+	return mp_detectors->hasMask();
+}
+
+void Scanner::collectConstraints(
+    std::vector<std::unique_ptr<Constraint>>& constraints) const
+{
+	if (hasMask())
+	{
+		constraints.emplace_back(
+		    std::make_unique<ConstraintDetectorMask>(this));
+	}
+}
+
 void Scanner::createLUT(Array2D<float>& lut) const
 {
 	lut.allocate(this->getNumDets(), 6);
@@ -193,6 +214,10 @@ void Scanner::readFromString(const std::string& fileContents)
 	const bool isDetCoordGiven =
 	    util::getParam<std::string>(&j, &detCoord, "detCoord", "", false);
 
+	std::string detMask;
+	const bool isDetMaskGiven =
+	    util::getParam<std::string>(&j, &detMask, "detMask", "", false);
+
 	util::getParam<float>(
 	    &j, &axialFOV, "axialFOV", 0.0, true,
 	    "Missing Axial Field Of View value in scanner definition file");
@@ -238,7 +263,13 @@ void Scanner::readFromString(const std::string& fileContents)
 	{
 		const fs::path detCoord_path =
 		    m_scannerPath.parent_path() / fs::path(detCoord);
-		mp_detectors = std::make_shared<DetCoordOwned>(detCoord_path.string());
+		fs::path detMask_path = "";
+		if (isDetMaskGiven)
+		{
+			detMask_path = m_scannerPath.parent_path() / fs::path(detMask);
+		}
+		mp_detectors = std::make_shared<DetCoordOwned>(detCoord_path.string(),
+		                                               detMask_path.string());
 		if (mp_detectors->getNumDets() != getTheoreticalNumDets())
 			throw std::runtime_error(
 			    "The number of detectors given by the LUT file does not match "

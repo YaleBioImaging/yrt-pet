@@ -10,9 +10,12 @@ set(SOURCES
     datastruct/projection/ListModeLUTDOI.cpp
     datastruct/projection/LORMotion.cpp
     datastruct/projection/ProjectionData.cpp
+    datastruct/projection/BinFilter.cpp
+    datastruct/projection/Constraints.cpp
     datastruct/projection/ProjectionList.cpp
     datastruct/projection/SparseHistogram.cpp
     datastruct/projection/UniformHistogram.cpp
+    datastruct/projection/ProjectionProperties.cpp
     datastruct/scanner/DetCoord.cpp
     datastruct/scanner/DetectorSetup.cpp
     datastruct/scanner/DetRegular.cpp

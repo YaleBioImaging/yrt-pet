@@ -20,14 +20,32 @@ bool cudaCheckError()
 	return true;
 }
 
+void gpuAssert(cudaError_t code, const char* file, int line, bool abort)
+{
+	if (code != cudaSuccess)
+	{
+		fprintf(stderr, "GPUassert: %s %s %d\n", cudaGetErrorString(code), file,
+		        line);
+		if (abort)
+			exit(code);
+	}
+}
+
+void gpuErrchk(cudaError_t code)
+{
+	gpuAssert(code, __FILE__, __LINE__);
+}
+
+namespace globals
+{
+
 size_t getDeviceInfo(bool verbose)
 {
 	int devicesNb = 0;
 	cudaGetDeviceCount(&devicesNb);
 	cudaCheckError();
 	std::cout << "\n"
-	          << "*** GPUs INFORMATION ***"
-	          << "\n"
+	          << "*** GPUs INFORMATION ***" << "\n"
 	          << std::endl;
 	std::cout << "Number of devices detected: " << devicesNb << std::endl;
 	size_t freeMem, totalMem;
@@ -64,21 +82,5 @@ size_t getDeviceInfo(bool verbose)
 	return maxDeviceMem;
 }
 
-void gpuAssert(cudaError_t code, const char* file, int line, bool abort)
-{
-	if (code != cudaSuccess)
-	{
-		fprintf(stderr, "GPUassert: %s %s %d\n", cudaGetErrorString(code), file,
-		        line);
-		if (abort)
-			exit(code);
-	}
-}
-
-void gpuErrchk(cudaError_t code)
-{
-	gpuAssert(code, __FILE__, __LINE__);
-}
-
-
+}  // namespace globals
 }  // namespace yrt

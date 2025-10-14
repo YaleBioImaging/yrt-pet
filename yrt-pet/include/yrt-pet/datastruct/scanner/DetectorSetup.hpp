@@ -23,8 +23,10 @@ public:
 	virtual float getXorient(det_id_t id) const = 0;
 	virtual float getYorient(det_id_t id) const = 0;
 	virtual float getZorient(det_id_t id) const = 0;
+	virtual bool isDetectorAllowed(det_id_t det) const;
 	virtual void writeToFile(const std::string& detCoord_fname) const = 0;
 	virtual Vector3D getPos(det_id_t id) const;
 	virtual Vector3D getOrient(det_id_t id) const;
+	virtual bool hasMask() const;
 };
 }  // namespace yrt

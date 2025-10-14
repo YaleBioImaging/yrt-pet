@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include "yrt-pet/datastruct/projection/ProjectionProperties.hpp"
 #include "yrt-pet/operators/OperatorProjectorDevice.cuh"
 
 namespace yrt
@@ -17,8 +18,12 @@ class OperatorProjectorSiddon_GPU : public OperatorProjectorDevice
 public:
 	explicit OperatorProjectorSiddon_GPU(
 	    const OperatorProjectorParams& projParams,
+	    const std::vector<Constraint*>& constraints = {},
 	    const cudaStream_t* mainStream = nullptr,
 	    const cudaStream_t* auxStream = nullptr);
+
+	std::set<ProjectionPropertyType>
+	    getProjectionPropertyTypes() const override;
 
 protected:
 	void applyAOnLoadedBatch(ImageDevice& img, ProjectionDataDevice& dat,
@@ -32,14 +37,15 @@ private:
 	                        bool synchronize);
 
 	template <bool IsForward, bool HasTOF>
-	void launchKernel(
-	    float* pd_projValues, float* pd_image, const float4* pd_lorDet1Pos,
-	    const float4* pd_lorDet2Pos, const float4* pd_lorDet1Orient,
-	    const float4* pd_lorDet2Orient, const float* pd_lorTOFValue,
-	    const TimeOfFlightHelper* pd_tofHelper, CUScannerParams scannerParams,
-	    CUImageParams imgParams, size_t batchSize, unsigned int gridSize,
-	    unsigned int blockSize, const cudaStream_t* stream, bool synchronize);
+	void launchKernel(float* pd_projValues, float* pd_image,
+	                  const char* pd_projProperties,
+	                  const ProjectionPropertyManager* pd_projPropManager,
+	                  const TimeOfFlightHelper* pd_tofHelper,
+	                  CUScannerParams scannerParams, CUImageParams imgParams,
+	                  size_t batchSize, unsigned int gridSize,
+	                  unsigned int blockSize, const cudaStream_t* stream,
+	                  bool synchronize);
 
-	int p_numRays;
+	int m_numRays;
 };
 }  // namespace yrt

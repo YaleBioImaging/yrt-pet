@@ -4,12 +4,15 @@
  */
 
 #include "yrt-pet/datastruct/projection/ProjectionData.hpp"
+#include "yrt-pet/datastruct/projection/ProjectionProperties.hpp"
 #include "yrt-pet/geometry/Constants.hpp"
 
 #include "yrt-pet/geometry/Matrix.hpp"
-#include "yrt-pet/utils/Concurrency.hpp"
+#include "yrt-pet/recon/OSEMUpdater_CPU.hpp"
 #include "yrt-pet/utils/Globals.hpp"
+#include "yrt-pet/utils/Types.hpp"
 
+#include <limits>
 #include <stdexcept>
 
 #if BUILD_PYBIND11
@@ -165,21 +168,47 @@ Line3D ProjectionData::getArbitraryLOR(bin_t id) const
 	throw std::logic_error("getArbitraryLOR Unimplemented");
 }
 
-ProjectionProperties ProjectionData::getProjectionProperties(bin_t bin) const
+std::set<ProjectionPropertyType>
+    ProjectionData::getProjectionPropertyTypes() const
 {
-	auto [d1, d2] = getDetectorPair(bin);
-
-	const Line3D lor = getLOR(bin);
-
-	float tofValue = 0.0f;
+	std::set<ProjectionPropertyType> projPropertyTypes;
 	if (hasTOF())
 	{
-		tofValue = getTOFValue(bin);
+		projPropertyTypes.insert(ProjectionPropertyType::TOF);
+	}
+	return projPropertyTypes;
+}
+
+void ProjectionData::getProjectionProperties(
+    ProjectionProperties& props, const ProjectionPropertyManager& propManager,
+    bin_t bin, size_t pos) const
+{
+	if (propManager.has(ProjectionPropertyType::LOR))
+	{
+		const Line3D lor = getLOR(bin);
+		propManager.setDataValue(props, pos, ProjectionPropertyType::LOR, lor);
 	}
 
-	const Vector3D det1Orient = mr_scanner.getDetectorOrient(d1);
-	const Vector3D det2Orient = mr_scanner.getDetectorOrient(d2);
-	return ProjectionProperties{lor, tofValue, det1Orient, det2Orient};
+	if (propManager.has(ProjectionPropertyType::TOF))
+	{
+		float tofValue = 0.0f;
+		if (hasTOF())
+		{
+			tofValue = getTOFValue(bin);
+		}
+		propManager.setDataValue(props, pos, ProjectionPropertyType::TOF,
+		                         tofValue);
+	}
+
+	if (propManager.has(ProjectionPropertyType::DET_ORIENT))
+	{
+		auto [d1, d2] = getDetectorPair(bin);
+		const Vector3D det1Orient = mr_scanner.getDetectorOrient(d1);
+		const Vector3D det2Orient = mr_scanner.getDetectorOrient(d2);
+		det_orient_t detOrient{det1Orient, det2Orient};
+		propManager.setDataValue(props, pos, ProjectionPropertyType::DET_ORIENT,
+		                         detOrient);
+	}
 }
 
 Line3D ProjectionData::getLOR(bin_t bin) const

@@ -23,10 +23,12 @@ The following parameters in the JSON file define the scanner:
 - `crystalSize_z` : Crystal size in the axial dimension (mm).  **\[Mandatory\]**
 - `crystalDepth` : Crystal size in the direction of its orientation (mm).
   **\[Mandatory\]**
-- `scannerRadius` : Scanner radius (mm).  **\[Mandatory\]**
+- `scannerRadius` : Scanner radius (mm).  **\[Mandatory\]**.  This represents
+  the distance between detector blocks and the isocenter.
 - `detsPerRing` : Number of detectors per ring.  **\[Mandatory\]**
 - `numRings` : Number of rings.  **\[Mandatory\]**
 - `numDOI` : Number of DOI layers. **\[Mandatory\]**
+- `detsPerBlock` : Number of detectors per block in the transaxial dimension.
 
 The following properties are necessary to define sensitivity images and
 histogram shapes:
@@ -43,9 +45,12 @@ The following properties are used only in scatter estimation:
 - `energyLLD` : Energy Low-Level-Discriminant (keV). Only used in Scatter
   estimation.
 
-The following properties are deprecated:
+An optional field can be used to mask detectors:
 
-- `detsPerBlock` : Number of detectors per block in the transaxial dimension.
+- `detMask` : Path to mask file.  The mask file stores one boolean per detector
+  (in the same order as the LUT file): `true` if the detector is acive, `false`
+  if it is masked.  The file is store in binary format, without header, and with
+  one byte per detector.
 
 ### Example
 

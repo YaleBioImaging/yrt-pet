@@ -12,6 +12,8 @@
 #include "yrt-pet/operators/OperatorProjector.hpp"
 #include "yrt-pet/operators/OperatorProjectorDD.hpp"
 #include "yrt-pet/operators/OperatorProjectorSiddon.hpp"
+#include "yrt-pet/operators/OperatorPsf.hpp"
+#include "yrt-pet/operators/OperatorVarPsf.hpp"
 #include "yrt-pet/operators/SparseProjection.hpp"
 #include "yrt-pet/utils/Assert.hpp"
 #include "yrt-pet/utils/Globals.hpp"
@@ -150,8 +152,10 @@ int main(int argc, char** argv)
 
 			// Setup forward projection
 			auto binIter = his->getBinIter(numSubsets, subsetId);
-			OperatorProjectorParams projParams(binIter.get(), *scanner, 0, 0,
-			                                   projPsf_fname, numRays);
+			OperatorProjectorParams projParams(*scanner);
+			projParams.binIter = binIter.get();
+			projParams.projPsf_fname = projPsf_fname;
+			projParams.numRays = numRays;
 
 			util::forwProject(*inputImage, *his, projParams, projectorType,
 			                  useGPU);
@@ -177,15 +181,23 @@ int main(int argc, char** argv)
 			           "not supported for multiple subsets");
 
 			std::unique_ptr<OperatorProjector> projector;
+			std::vector<std::unique_ptr<Constraint>> constraints;
+			scanner->collectConstraints(constraints);
+			std::vector<Constraint*> constraintsPtr;
+			for (auto& constraint : constraints)
+			{
+				constraintsPtr.emplace_back(constraint.get());
+			}
+			OperatorProjectorParams projParams(*scanner);
+			projParams.projPsf_fname = projPsf_fname;
+			projParams.numRays = numRays;
 			if (projectorType == OperatorProjector::ProjectorType::SIDDON)
 			{
-				projector = std::make_unique<OperatorProjectorSiddon>(*scanner,
-				                                                      numRays);
+				projector = std::make_unique<OperatorProjectorSiddon>(projParams, constraintsPtr);
 			}
 			else
 			{
-				projector = std::make_unique<OperatorProjectorDD>(
-				    *scanner, 0, -1, projPsf_fname);
+				projector = std::make_unique<OperatorProjectorDD>(projParams, constraintsPtr);
 			}
 
 			const ImageParams& params = inputImage->getParams();

@@ -21,13 +21,13 @@ public:
 	                       const cudaStream_t* pp_stream = nullptr);
 	void allocate(GPULaunchConfig p_launchConfig);
 	void load(GPULaunchConfig p_launchConfig);
-	const float4* getDetPosDevicePointer() const;
-	const float4* getDetOrientDevicePointer() const;
+	const float3* getDetPosDevicePointer() const;
+	const float3* getDetOrientDevicePointer() const;
 	const Scanner& getScanner() const;
 
 private:
-	std::unique_ptr<DeviceArray<float4>> mpd_detPos;
-	std::unique_ptr<DeviceArray<float4>> mpd_detOrient;
+	std::unique_ptr<DeviceArray<float3>> mpd_detPos;
+	std::unique_ptr<DeviceArray<float3>> mpd_detOrient;
 	const Scanner& mr_scanner;
 	bool isAllocated;
 	bool isLoaded;

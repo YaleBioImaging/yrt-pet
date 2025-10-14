@@ -40,4 +40,16 @@ Vector3D DetectorSetup::getOrient(det_id_t id) const
 {
 	return {getXorient(id), getYorient(id), getZorient(id)};
 }
+
+bool DetectorSetup::isDetectorAllowed(det_id_t det) const
+{
+	(void) det;
+	return true;
+}
+
+bool DetectorSetup::hasMask() const
+{
+	return false;
+}
+
 }  // namespace yrt

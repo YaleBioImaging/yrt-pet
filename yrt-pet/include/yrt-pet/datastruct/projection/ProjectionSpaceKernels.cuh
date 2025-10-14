@@ -10,18 +10,18 @@ namespace yrt
 // kernels definitions
 __global__ void divideMeasurements_kernel(const float* d_dataIn,
                                           float* d_dataOut,
-                                          int maxNumberOfEvents);
+                                          size_t maxNumberOfEvents);
 __global__ void addProjValues_kernel(const float* d_dataIn, float* d_dataOut,
-                                     int maxNumberOfEvents);
+                                     size_t maxNumberOfEvents);
 __global__ void invertProjValues_kernel(const float* d_dataIn, float* d_dataOut,
-                                        int maxNumberOfEvents);
+                                        size_t maxNumberOfEvents);
 __global__ void convertToACFs_kernel(const float* d_dataIn, float* d_dataOut,
-                                     float unitFactor, int maxNumberOfEvents);
+                                     float unitFactor, size_t maxNumberOfEvents);
 __global__ void multiplyProjValues_kernel(const float* d_dataIn,
                                           float* d_dataOut,
-                                          int maxNumberOfEvents);
+                                          size_t maxNumberOfEvents);
 __global__ void multiplyProjValues_kernel(float scalar, float* d_dataOut,
-                                          int maxNumberOfEvents);
+                                          size_t maxNumberOfEvents);
 __global__ void clearProjections_kernel(float* d_dataIn, float value,
-                                        int maxNumberOfEvents);
+                                        size_t maxNumberOfEvents);
 }  // namespace yrt

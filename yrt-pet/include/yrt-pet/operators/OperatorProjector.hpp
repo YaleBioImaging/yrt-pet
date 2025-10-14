@@ -6,6 +6,7 @@
 #pragma once
 
 #include "yrt-pet/datastruct/projection/ProjectionData.hpp"
+#include "yrt-pet/datastruct/projection/ProjectionProperties.hpp"
 #include "yrt-pet/operators/Operator.hpp"
 #include "yrt-pet/operators/OperatorProjectorBase.hpp"
 #include "yrt-pet/operators/ProjectionPsfManager.hpp"
@@ -30,20 +31,19 @@ public:
 		DD
 	};
 
-	explicit OperatorProjector(const Scanner& pr_scanner,
-	                           float tofWidth_ps = 0.0f, int tofNumStd = -1,
-	                           const std::string& projPsf_fname = "");
-
-	explicit OperatorProjector(const OperatorProjectorParams& p_projParams);
+	explicit OperatorProjector(
+	    const OperatorProjectorParams& pr_projParams,
+	    const std::vector<Constraint*>& pr_constraints = {});
 
 	// Virtual functions
-	virtual float forwardProjection(
-	    const Image* image,
-	    const ProjectionProperties& projectionProperties, int tid) const = 0;
+	virtual float
+	    forwardProjection(const Image* image,
+	                      const ProjectionProperties& projectionProperties,
+	                      size_t pos = 0) const = 0;
 	virtual void
 	    backProjection(Image* image,
 	                   const ProjectionProperties& projectionProperties,
-	                   float projValue, int tid) const = 0;
+	                   float projValue, size_t pos = 0) const = 0;
 
 	void applyA(const Variable* in, Variable* out) override;
 	void applyAH(const Variable* in, Variable* out) override;
@@ -61,5 +61,8 @@ protected:
 
 	// Projection-domain PSF
 	std::unique_ptr<ProjectionPsfManager> mp_projPsfManager;
+
+	// Number of threads
+	int m_numThreads;
 };
 }  // namespace yrt

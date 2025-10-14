@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include "yrt-pet/datastruct/projection/Constraints.hpp"
 #include "yrt-pet/datastruct/scanner/DetCoord.hpp"
 #include "yrt-pet/geometry/Vector3D.hpp"
 
@@ -35,11 +36,15 @@ public:
 	Vector3D getDetectorOrient(det_id_t id) const;
 	std::shared_ptr<DetectorSetup> getDetectorSetup() const;
 	bool isValid() const;
+	bool isDetectorAllowed(det_id_t det) const;
+	bool hasMask() const;
 
 	// Allocate and fill array with detector positions
 	void createLUT(Array2D<float>& lut) const;
 	void setDetectorSetup(const std::shared_ptr<DetectorSetup>& pp_detectors);
 
+	void collectConstraints(
+	    std::vector<std::unique_ptr<Constraint>>& constraints) const;
 public:
 	std::string scannerName;
 	float axialFOV, crystalSize_z, crystalSize_trans, crystalDepth,

@@ -15,6 +15,7 @@
 #if BUILD_PYBIND11
 #include <pybind11/pybind11.h>
 namespace py = pybind11;
+using namespace py::literals;
 
 namespace yrt
 {
@@ -22,7 +23,9 @@ void py_setup_operatorprojectordd_gpu(py::module& m)
 {
 	auto c = py::class_<OperatorProjectorDD_GPU, OperatorProjectorDevice>(
 	    m, "OperatorProjectorDD_GPU");
-	c.def(py::init<const OperatorProjectorParams&>(), py::arg("projParams"));
+	c.def(py::init<const OperatorProjectorParams&, std::vector<Constraint*>>(),
+	      "projParams"_a, "constraints"_a);
+	c.def(py::init<const OperatorProjectorParams&>(), "projParams"_a);
 }
 }  // namespace yrt
 
@@ -32,10 +35,18 @@ namespace yrt
 {
 
 OperatorProjectorDD_GPU::OperatorProjectorDD_GPU(
-    const OperatorProjectorParams& projParams, const cudaStream_t* mainStream,
+    const OperatorProjectorParams& projParams,
+    const std::vector<Constraint*>& constraints, const cudaStream_t* mainStream,
     const cudaStream_t* auxStream)
-    : OperatorProjectorDevice(projParams, mainStream, auxStream)
+    : OperatorProjectorDevice(projParams, constraints, mainStream, auxStream)
 {
+	initBinFilter(projParams.projPropertyTypesExtra, projParams.numThreads);
+}
+
+std::set<ProjectionPropertyType>
+    OperatorProjectorDD_GPU::getProjectionPropertyTypes() const
+{
+	return {ProjectionPropertyType::LOR, ProjectionPropertyType::DET_ORIENT};
 }
 
 void OperatorProjectorDD_GPU::applyAOnLoadedBatch(ImageDevice& img,
@@ -59,6 +70,8 @@ void OperatorProjectorDD_GPU::applyOnLoadedBatch(ProjectionDataDevice& dat,
 	setBatchSize(dat.getLoadedBatchSize());
 	const auto cuScannerParams = getCUScannerParams(getScanner());
 	const auto cuImageParams = getCUImageParams(img.getParams());
+	const ProjectionPropertyManager* projPropManager =
+	    getProjPropManagerDevicePointer();
 	const TimeOfFlightHelper* tofHelperDevicePointer =
 	    getTOFHelperDevicePointer();
 	const float* projPsfDevicePointer =
@@ -70,10 +83,7 @@ void OperatorProjectorDD_GPU::applyOnLoadedBatch(ProjectionDataDevice& dat,
 		{
 			launchKernel<IsForward, false, false>(
 			    dat.getProjValuesDevicePointer(), img.getDevicePointer(),
-			    dat.getLorDet1PosDevicePointer(),
-			    dat.getLorDet2PosDevicePointer(),
-			    dat.getLorDet1OrientDevicePointer(),
-			    dat.getLorDet2OrientDevicePointer(), nullptr /*No TOF*/,
+			    dat.getProjectionPropertiesDevicePointer(), projPropManager,
 			    nullptr /*No TOF*/, nullptr /*No ProjPSF*/, {} /*No ProjPSF*/,
 			    cuScannerParams, cuImageParams, getBatchSize(), getGridSize(),
 			    getBlockSize(), getMainStream(), synchronize);
@@ -82,14 +92,11 @@ void OperatorProjectorDD_GPU::applyOnLoadedBatch(ProjectionDataDevice& dat,
 		{
 			launchKernel<IsForward, true, false>(
 			    dat.getProjValuesDevicePointer(), img.getDevicePointer(),
-			    dat.getLorDet1PosDevicePointer(),
-			    dat.getLorDet2PosDevicePointer(),
-			    dat.getLorDet1OrientDevicePointer(),
-			    dat.getLorDet2OrientDevicePointer(),
-			    dat.getLorTOFValueDevicePointer(), tofHelperDevicePointer,
-			    nullptr /*No ProjPSF*/, {} /*No ProjPSF*/, cuScannerParams,
-			    cuImageParams, getBatchSize(), getGridSize(), getBlockSize(),
-			    getMainStream(), synchronize);
+			    dat.getProjectionPropertiesDevicePointer(), projPropManager,
+			    tofHelperDevicePointer, nullptr /*No ProjPSF*/,
+			    {} /*No ProjPSF*/, cuScannerParams, cuImageParams,
+			    getBatchSize(), getGridSize(), getBlockSize(), getMainStream(),
+			    synchronize);
 		}
 	}
 	else
@@ -101,10 +108,7 @@ void OperatorProjectorDD_GPU::applyOnLoadedBatch(ProjectionDataDevice& dat,
 		{
 			launchKernel<IsForward, false, true>(
 			    dat.getProjValuesDevicePointer(), img.getDevicePointer(),
-			    dat.getLorDet1PosDevicePointer(),
-			    dat.getLorDet2PosDevicePointer(),
-			    dat.getLorDet1OrientDevicePointer(),
-			    dat.getLorDet2OrientDevicePointer(), nullptr /*No TOF*/,
+			    dat.getProjectionPropertiesDevicePointer(), projPropManager,
 			    nullptr /*No TOF*/, projPsfDevicePointer,
 			    projectionPsfProperties, cuScannerParams, cuImageParams,
 			    getBatchSize(), getGridSize(), getBlockSize(), getMainStream(),
@@ -114,32 +118,26 @@ void OperatorProjectorDD_GPU::applyOnLoadedBatch(ProjectionDataDevice& dat,
 		{
 			launchKernel<IsForward, true, true>(
 			    dat.getProjValuesDevicePointer(), img.getDevicePointer(),
-			    dat.getLorDet1PosDevicePointer(),
-			    dat.getLorDet2PosDevicePointer(),
-			    dat.getLorDet1OrientDevicePointer(),
-			    dat.getLorDet2OrientDevicePointer(),
-			    dat.getLorTOFValueDevicePointer(), tofHelperDevicePointer,
-			    projPsfDevicePointer, projectionPsfProperties, cuScannerParams,
-			    cuImageParams, getBatchSize(), getGridSize(), getBlockSize(),
-			    getMainStream(), synchronize);
+			    dat.getProjectionPropertiesDevicePointer(), projPropManager,
+			    tofHelperDevicePointer, projPsfDevicePointer,
+			    projectionPsfProperties, cuScannerParams, cuImageParams,
+			    getBatchSize(), getGridSize(), getBlockSize(), getMainStream(),
+			    synchronize);
 		}
 	}
 }
 
 template <bool IsForward, bool HasTOF, bool HasProjPsf>
 void OperatorProjectorDD_GPU::launchKernel(
-    float* pd_projValues, float* pd_image, const float4* pd_lorDet1Pos,
-    const float4* pd_lorDet2Pos, const float4* pd_lorDet1Orient,
-    const float4* pd_lorDet2Orient, const float* pd_lorTOFValue,
+    float* pd_projValues, float* pd_image, const char* pd_projProperties,
+    const ProjectionPropertyManager* pd_projPropManager,
     const TimeOfFlightHelper* pd_tofHelper, const float* pd_projPsfKernels,
     ProjectionPsfProperties projectionPsfProperties,
     CUScannerParams scannerParams, CUImageParams imgParams, size_t batchSize,
     unsigned int gridSize, unsigned int blockSize, const cudaStream_t* stream,
     bool synchronize)
 {
-	ASSERT_MSG(pd_projValues != nullptr && pd_lorDet1Pos != nullptr &&
-	               pd_lorDet2Pos != nullptr && pd_lorDet1Orient != nullptr &&
-	               pd_lorDet2Orient != nullptr,
+	ASSERT_MSG(pd_projValues != nullptr && pd_projProperties != nullptr,
 	           "Projection space not allocated on device");
 	ASSERT_MSG(pd_image != nullptr, "Image space not allocated on device");
 
@@ -147,8 +145,7 @@ void OperatorProjectorDD_GPU::launchKernel(
 	{
 		OperatorProjectorDDCU_kernel<IsForward, HasTOF, HasProjPsf>
 		    <<<gridSize, blockSize, 0, *stream>>>(
-		        pd_projValues, pd_image, pd_lorDet1Pos, pd_lorDet2Pos,
-		        pd_lorDet1Orient, pd_lorDet2Orient, pd_lorTOFValue,
+		        pd_projValues, pd_image, pd_projProperties, pd_projPropManager,
 		        pd_tofHelper, pd_projPsfKernels, projectionPsfProperties,
 		        scannerParams, imgParams, batchSize);
 		if (synchronize)
@@ -160,8 +157,7 @@ void OperatorProjectorDD_GPU::launchKernel(
 	{
 		OperatorProjectorDDCU_kernel<IsForward, HasTOF, HasProjPsf>
 		    <<<gridSize, blockSize>>>(
-		        pd_projValues, pd_image, pd_lorDet1Pos, pd_lorDet2Pos,
-		        pd_lorDet1Orient, pd_lorDet2Orient, pd_lorTOFValue,
+		        pd_projValues, pd_image, pd_projProperties, pd_projPropManager,
 		        pd_tofHelper, pd_projPsfKernels, projectionPsfProperties,
 		        scannerParams, imgParams, batchSize);
 		if (synchronize)

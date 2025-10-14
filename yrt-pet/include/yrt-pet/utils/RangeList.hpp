@@ -22,6 +22,8 @@ public:
 	RangeList() {}
 	explicit RangeList(const std::string& p_Ranges);
 	void readFromString(const std::string& p_Ranges);
+	static RangeList makeRangeListStep(int p_start, int p_end_incl,
+	                                   int p_step = 1);
 	static void insertSorted(std::vector<std::pair<int, int>>& ranges,
 	                         const int begin, const int end);
 	void insertSorted(const int begin, const int end);

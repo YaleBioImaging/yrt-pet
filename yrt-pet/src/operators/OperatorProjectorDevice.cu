@@ -69,9 +69,18 @@ namespace yrt
 {
 OperatorProjectorDevice::OperatorProjectorDevice(
     const OperatorProjectorParams& pr_projParams,
-    const cudaStream_t* pp_mainStream, const cudaStream_t* pp_auxStream)
-    : OperatorProjectorBase{pr_projParams},
-      DeviceSynchronized{pp_mainStream, pp_auxStream}
+    const std::vector<Constraint*>& pr_constraints,
+    const cudaStream_t* pp_mainStream, const cudaStream_t* pp_auxStream,
+    const size_t p_memAvailBytes)
+    : OperatorProjectorBase{pr_projParams, pr_constraints},
+      DeviceSynchronized{pp_mainStream, pp_auxStream},
+      m_memAvailBytes(
+          p_memAvailBytes == 0 ?
+              static_cast<size_t>(
+                  static_cast<float>(globals::getDeviceInfo(false)) *
+                  DefaultMemoryShare) :
+              p_memAvailBytes),
+      m_batchSize(0ull)
 {
 	if (pr_projParams.tofWidth_ps > 0.f)
 	{
@@ -81,8 +90,18 @@ OperatorProjectorDevice::OperatorProjectorDevice(
 	{
 		setupProjPsfManager(pr_projParams.projPsf_fname);
 	}
+}
 
-	m_batchSize = 0ull;
+void OperatorProjectorDevice::initBinFilter(
+    const std::set<ProjectionPropertyType>& projPropertyTypesExtra,
+    const int numThreads)
+{
+	OperatorProjectorBase::initBinFilter(projPropertyTypesExtra, numThreads);
+	std::set<ProjectionPropertyType> projPropertyTypes =
+	    m_binFilter->getProjPropertyTypes();
+	mp_projPropManager =
+	    std::make_unique<DeviceObject<ProjectionPropertyManager>>(
+	        projPropertyTypes);
 }
 
 void OperatorProjectorDevice::applyA(const Variable* in, Variable* out)
@@ -140,7 +159,9 @@ void OperatorProjectorDevice::applyA(const Variable* in, Variable* out,
 		std::vector<const BinIterator*> binIterators;
 		binIterators.push_back(binIter);  // We project only one subset
 		deviceDat_out = std::make_unique<ProjectionDataDeviceOwned>(
-		    getScanner(), hostDat_out, binIterators);
+		    getScanner(), hostDat_out, binIterators,
+		    m_binFilter->getPropertyManager().getElementSize(),
+		    m_memAvailBytes);
 
 		// Use owned ProjectionDataDevice
 		dat_out = deviceDat_out.get();
@@ -164,7 +185,7 @@ void OperatorProjectorDevice::applyA(const Variable* in, Variable* out,
 		const size_t numBatches = dat_out->getBatchSetup(0).getNumBatches();
 
 		std::cout << "Loading batch 1/" << numBatches << "..." << std::endl;
-		dat_out->precomputeBatchLORs(0, 0);
+		dat_out->precomputeBatchLORs(0, 0, *m_binFilter.get());
 		deviceDat_out->allocateForProjValues({getMainStream(), false});
 
 		for (size_t batchId = 0; batchId < numBatches; batchId++)
@@ -181,7 +202,8 @@ void OperatorProjectorDevice::applyA(const Variable* in, Variable* out,
 			{
 				std::cout << "Loading batch " << batchId + 2 << "/"
 				          << numBatches << "..." << std::endl;
-				dat_out->precomputeBatchLORs(0, batchId + 1);
+				dat_out->precomputeBatchLORs(0, batchId + 1,
+				                             *m_binFilter.get());
 			}
 			std::cout << "Transferring batch to Host..." << std::endl;
 			// This will force a necessary synchronization
@@ -234,7 +256,9 @@ void OperatorProjectorDevice::applyAH(const Variable* in, Variable* out,
 		std::vector<const BinIterator*> binIterators;
 		binIterators.push_back(binIter);  // We project only one subset
 		deviceDat_in = std::make_unique<ProjectionDataDeviceOwned>(
-		    getScanner(), hostDat_in, binIterators);
+		    getScanner(), hostDat_in, binIterators,
+		    m_binFilter->getPropertyManager().getElementSize(),
+		    m_memAvailBytes);
 
 		// Use owned ProjectionDataDevice
 		dat_in = deviceDat_in.get();
@@ -258,7 +282,7 @@ void OperatorProjectorDevice::applyAH(const Variable* in, Variable* out,
 		const cudaStream_t* mainStream = getMainStream();
 
 		std::cout << "Loading batch 1/" << numBatches << "..." << std::endl;
-		dat_in->precomputeBatchLORs(0, 0);
+		dat_in->precomputeBatchLORs(0, 0, *m_binFilter.get());
 		deviceDat_in->allocateForProjValues({mainStream, false});
 
 		for (size_t batchId = 0; batchId < numBatches; batchId++)
@@ -284,7 +308,7 @@ void OperatorProjectorDevice::applyAH(const Variable* in, Variable* out,
 			{
 				std::cout << "Loading batch " << batchId + 2 << "/"
 				          << numBatches << "..." << std::endl;
-				dat_in->precomputeBatchLORs(0, batchId + 1);
+				dat_in->precomputeBatchLORs(0, batchId + 1, *m_binFilter.get());
 			}
 		}
 
@@ -348,6 +372,16 @@ const TimeOfFlightHelper*
 	if (mp_tofHelper != nullptr)
 	{
 		return mp_tofHelper->getDevicePointer();
+	}
+	return nullptr;
+}
+
+const ProjectionPropertyManager*
+    OperatorProjectorDevice::getProjPropManagerDevicePointer() const
+{
+	if (mp_projPropManager != nullptr)
+	{
+		return mp_projPropManager->getDevicePointer();
 	}
 	return nullptr;
 }

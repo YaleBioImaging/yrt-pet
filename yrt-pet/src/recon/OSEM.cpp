@@ -11,6 +11,7 @@
 #include "yrt-pet/datastruct/projection/ListMode.hpp"
 #include "yrt-pet/datastruct/projection/ProjectionData.hpp"
 #include "yrt-pet/datastruct/projection/ProjectionList.hpp"
+#include "yrt-pet/datastruct/projection/ProjectionProperties.hpp"
 #include "yrt-pet/datastruct/projection/UniformHistogram.hpp"
 #include "yrt-pet/datastruct/scanner/Scanner.hpp"
 #include "yrt-pet/operators/OperatorProjector.hpp"
@@ -360,15 +361,66 @@ void OSEM::loadSubsetInternal(int p_subsetId, bool p_forRecon)
 	loadSubset(p_subsetId, p_forRecon);
 }
 
+void OSEM::collectConstraints()
+{
+	m_constraints.clear();
+	scanner.collectConstraints(m_constraints);
+}
+
 void OSEM::initializeForSensImgGen()
 {
-	setupOperatorsForSensImgGen();
+	// Bin iterators
+	getBinIterators().clear();
+	getBinIterators().reserve(num_OSEM_subsets);
+
+	// Bin iterator constraints
+	collectConstraints();
+
+	// Projector
+	OperatorProjectorParams projParams(scanner);
+	if (flagProjPSF)
+	{
+		projParams.projPsf_fname = projPsf_fname;
+	}
+	projParams.numRays = numRays;
+	projParams.numThreads = globals::getNumThreads();
+	setupOperatorsForSensImgGen(projParams);
+
+	// Allocate buffers
 	allocateForSensImgGen();
 }
 
 void OSEM::initializeForRecon()
 {
-	setupOperatorsForRecon();
+	// Bin iterators
+	getBinIterators().clear();
+	getBinIterators().reserve(num_OSEM_subsets);
+	for (int subsetId = 0; subsetId < num_OSEM_subsets; subsetId++)
+	{
+		getBinIterators().push_back(
+		    getDataInput()->getBinIter(num_OSEM_subsets, subsetId));
+	}
+
+	// Bin iterator constraints
+	collectConstraints();
+
+	// Projector
+	OperatorProjectorParams projParams(scanner);
+	if (flagProjPSF)
+	{
+		projParams.projPsf_fname = projPsf_fname;
+	}
+	projParams.numRays = numRays;
+	projParams.numThreads = globals::getNumThreads();
+	if (flagProjTOF)
+	{
+		projParams.projPropertyTypesExtra = {ProjectionPropertyType::TOF};
+		projParams.tofWidth_ps = tofWidth_ps;
+		projParams.tofNumStd = tofNumStd;
+	}
+	setupOperatorsForRecon(projParams);
+
+	// Allocate buffers
 	allocateForRecon();
 }
 

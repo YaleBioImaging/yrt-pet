@@ -42,6 +42,7 @@ void py_setup_detectormask(pybind11::module& m)
 	c.def("enableDetector", &DetectorMask::enableDetector, "detId"_a);
 	c.def("disableDetector", &DetectorMask::disableDetector, "detId"_a);
 	c.def("getNumDets", &DetectorMask::getNumDets);
+	c.def("setNumDets", &DetectorMask::setNumDets);
 	c.def("checkDetector", &DetectorMask::checkDetector, "detId"_a);
 	c.def("writeToFile", &DetectorMask::writeToFile, "fname"_a);
 	c.def("logicalAndWithOther", &DetectorMask::logicalAndWithOther, "other"_a);
@@ -97,10 +98,48 @@ DetectorMask::DetectorMask(const DetectorMask& other)
 	mp_data->copy(other.getData());
 }
 
+void DetectorMask::setNumDets(size_t numDets)
+{
+	const auto oldData = std::move(mp_data);
+
+	mp_data = std::make_unique<Array1D<bool>>();
+	mp_data->allocate(numDets);
+
+	// Keep the previous mask if there was one
+	if (oldData != nullptr)
+	{
+		const size_t minNumDets =
+		    std::min(oldData->getSizeTotal(), mp_data->getSizeTotal());
+		for (size_t detId = 0; detId < minNumDets; detId++)
+		{
+			mp_data->setFlat(detId, oldData->getFlat(detId));
+		}
+	}
+}
+
 void DetectorMask::readFromFile(const std::string& fname)
 {
 	mp_data = std::make_unique<Array1D<bool>>();
-	mp_data->readFromFile(fname);
+
+	// Open the file
+	std::ifstream file;
+	file.open(fname.c_str(), std::ios::binary | std::ios::in);
+	if (!file.is_open())
+	{
+		throw std::filesystem::filesystem_error(
+		    "The file given \"" + fname + "\" could not be opened",
+		    std::make_error_code(std::errc::no_such_file_or_directory));
+	}
+
+	// Get the file size
+	file.seekg(0, std::ios::end);
+	const size_t fileSize = file.tellg();
+	file.seekg(0, std::ios::beg);
+
+	// Allocate and read the file
+	mp_data->allocate(fileSize);
+	file.read(reinterpret_cast<char*>(mp_data->getRawPointer()),
+	          fileSize * sizeof(bool));
 }
 
 Array1D<bool>& DetectorMask::getData()
@@ -158,7 +197,16 @@ bool DetectorMask::isDetectorEnabled(det_id_t detId) const
 
 void DetectorMask::writeToFile(const std::string& fname) const
 {
-	mp_data->writeToFile(fname);
+	std::ofstream file;
+	file.open(fname.c_str(), std::ios::binary | std::ios::out);
+	if (!file.is_open())
+	{
+		throw std::filesystem::filesystem_error(
+			"The file given \"" + fname + "\" could not be opened",
+			std::make_error_code(std::errc::io_error));
+	}
+	file.write(reinterpret_cast<char*>(mp_data->getRawPointer()),
+	getNumDets() * sizeof(bool));
 }
 
 void DetectorMask::logicalAndWithOther(const DetectorMask& other)

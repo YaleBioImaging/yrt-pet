@@ -31,6 +31,7 @@ public:
 	// Legacy format
 	explicit DetectorMask(const Array3DBase<float>& pr_data);
 
+	void setNumDets(size_t numDets);
 	void readFromFile(const std::string& fname);
 
 	Array1D<bool>& getData();

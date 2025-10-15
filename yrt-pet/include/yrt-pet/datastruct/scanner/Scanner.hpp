@@ -13,8 +13,6 @@
 #include <string>
 #include <memory>
 
-#define SCANNER_FILE_VERSION 3.1
-
 namespace fs = std::filesystem;
 
 namespace yrt
@@ -22,6 +20,8 @@ namespace yrt
 class Scanner
 {
 public:
+	static constexpr float SCANNER_FILE_VERSION = 3.2;
+
 	Scanner(std::string pr_scannerName, float p_axialFOV, float p_crystalSize_z,
 	        float p_crystalSize_trans, float p_crystalDepth,
 	        float p_scannerRadius, size_t p_detsPerRing, size_t p_numRings,

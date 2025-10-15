@@ -27,7 +27,7 @@ void py_setup_scanner(pybind11::module& m)
 {
 	auto c = py::class_<Scanner>(m, "Scanner");
 	c.def_property_readonly_static("SCANNER_FILE_VERSION", [](py::object)
-	                               { return SCANNER_FILE_VERSION; });
+	                               { return Scanner::SCANNER_FILE_VERSION; });
 
 	c.def(py::init<std::string, float, float, float, float, float, size_t,
 	               size_t, size_t, size_t, size_t, size_t>(),
@@ -266,10 +266,9 @@ void Scanner::readFromString(const std::string& fileContents)
 	// Check for errors
 	if (scannerFileVersion > SCANNER_FILE_VERSION + SMALL_FLT)
 	{
-		throw std::invalid_argument(
-		    "Wrong file version for Scanner JSON file, the "
-		    "current version is " +
-		    std::to_string(SCANNER_FILE_VERSION));
+		throw std::invalid_argument("Scanner JSON version too recent, the "
+		                            "current version is " +
+		                            std::to_string(SCANNER_FILE_VERSION));
 	}
 
 	// Get detector mask
@@ -298,7 +297,7 @@ void Scanner::readFromString(const std::string& fileContents)
 		reinterpret_cast<DetRegular*>(mp_detectors.get())->generateLUT();
 		if (isDetMaskGiven)
 		{
-			ASSERT(!detMask_path.empty()); // Sanity check
+			ASSERT(!detMask_path.empty());  // Sanity check
 			mp_detectors->addMask(detMask_path);
 		}
 	}

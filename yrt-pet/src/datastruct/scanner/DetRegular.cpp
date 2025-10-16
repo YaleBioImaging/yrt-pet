@@ -118,15 +118,15 @@ void DetRegular::generateLUT()
 	float edgeLengthMax =
 	    2 * mp_scanner->scannerRadius * std::tan(PI / numBlocks);
 	ASSERT_MSG(mp_scanner->crystalSize_trans * mp_scanner->detsPerBlock <=
-                         edgeLengthMax,
-                     ("Overlap between crystals detected, given the crystal size and "
-                      "number of crystals per block, the scanner radius should be at "
-                      "least " +
-                      std::to_string(mp_scanner->crystalSize_trans *
-                                     mp_scanner->detsPerBlock /
-                                     (2 * std::tan(PI / numBlocks))) +
-                      " mm")
-                         .c_str());
+	               edgeLengthMax,
+	           ("Overlap between crystals detected, given the crystal size and "
+	            "number of crystals per block, the scanner radius should be at "
+	            "least " +
+	            std::to_string(mp_scanner->crystalSize_trans *
+	                           mp_scanner->detsPerBlock /
+	                           (2 * std::tan(PI / numBlocks))) +
+	            " mm")
+	               .c_str());
 	allocate();
 	for (size_t doi = 0; doi < mp_scanner->numDOI; doi++)
 	{

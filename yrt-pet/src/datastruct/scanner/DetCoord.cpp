@@ -100,7 +100,6 @@ void py_setup_detcoord(py::module& m)
 		      ASSERT_MSG(self.hasMask(), "No mask defined");
 		      return self.getMask();
 	      });
-	c.def("hasMask", &DetCoord::hasMask);
 
 	auto c_owned =
 	    pybind11::class_<DetCoordOwned, DetCoord,

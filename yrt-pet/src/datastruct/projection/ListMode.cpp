@@ -96,7 +96,7 @@ std::unique_ptr<BinIterator> ListMode::getBinIter(int numSubsets,
 	    "be less than or equal to zero");
 
 	size_t numEvents = count();
-	return std::make_unique<BinIteratorChronological>(numSubsets, numEvents,
+	return std::make_unique<BinIteratorChronologicalInterleaved>(numSubsets, numEvents,
 	                                                  idxSubset);
 }
 

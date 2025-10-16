@@ -84,12 +84,12 @@ void OperatorProjector::applyA(const Variable* in, Variable* out)
 	const size_t numBinsMax = binIter->size();
 
 	// Setup bin iterator
-	auto& projPropManager = m_binFilter->getPropertyManager();
-	auto& consManager = m_binFilter->getConstraintManager();
+	auto& projPropManager = mp_binFilter->getPropertyManager();
+	auto& consManager = mp_binFilter->getConstraintManager();
 	auto constraintParams = m_constraintParams.get();
 	auto projectionProperties = m_projectionProperties.get();
 	BinFilter::CollectInfoFlags collectInfoFlags(false);
-	m_binFilter->collectFlags(collectInfoFlags);
+	mp_binFilter->collectFlags(collectInfoFlags);
 
 	util::parallelForChunked(
 	    numBinsMax, m_numThreads,
@@ -97,9 +97,9 @@ void OperatorProjector::applyA(const Variable* in, Variable* out)
 	     &constraintParams, &projectionProperties, this](bin_t binIdx, int tid)
 	    {
 		    const bin_t bin = binIter->get(binIdx);
-		    m_binFilter->collectInfo(bin, tid, tid, *dat, collectInfoFlags,
+		    mp_binFilter->collectInfo(bin, tid, tid, *dat, collectInfoFlags,
 		                             projectionProperties, constraintParams);
-		    if (m_binFilter->isValid(consManager, constraintParams, tid))
+		    if (mp_binFilter->isValid(consManager, constraintParams, tid))
 		    {
 			    dat->getProjectionProperties(projectionProperties,
 			                                 projPropManager, bin, tid);
@@ -122,12 +122,12 @@ void OperatorProjector::applyAH(const Variable* in, Variable* out)
 	const size_t numBinsMax = binIter->size();
 
 	// Setup bin iterator
-	auto& projPropManager = m_binFilter->getPropertyManager();
-	auto& consManager = m_binFilter->getConstraintManager();
+	auto& projPropManager = mp_binFilter->getPropertyManager();
+	auto& consManager = mp_binFilter->getConstraintManager();
 	auto constraintParams = m_constraintParams.get();
 	auto projectionProperties = m_projectionProperties.get();
 	BinFilter::CollectInfoFlags collectInfoFlags(false);
-	m_binFilter->collectFlags(collectInfoFlags);
+	mp_binFilter->collectFlags(collectInfoFlags);
 
 	util::parallelForChunked(
 	    numBinsMax, m_numThreads,
@@ -135,9 +135,9 @@ void OperatorProjector::applyAH(const Variable* in, Variable* out)
 	     &constraintParams, &projectionProperties, this](bin_t binIdx, int tid)
 	    {
 		    const bin_t bin = binIter->get(binIdx);
-		    m_binFilter->collectInfo(bin, tid, tid, *dat, collectInfoFlags,
+		    mp_binFilter->collectInfo(bin, tid, tid, *dat, collectInfoFlags,
 		                             projectionProperties, constraintParams);
-		    if (m_binFilter->isValid(consManager, constraintParams, tid))
+		    if (mp_binFilter->isValid(consManager, constraintParams, tid))
 		    {
 			    dat->getProjectionProperties(projectionProperties,
 			                                 projPropManager, bin, tid);

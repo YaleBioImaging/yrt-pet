@@ -85,7 +85,7 @@ protected:
 
 	// Constraints for bin iterator
 	std::vector<Constraint*> m_constraints;
-	std::unique_ptr<BinFilter> m_binFilter;
+	std::unique_ptr<BinFilter> mp_binFilter;
 	std::unique_ptr<char[]> m_projectionProperties;
 	std::unique_ptr<char[]> m_constraintParams;
 };

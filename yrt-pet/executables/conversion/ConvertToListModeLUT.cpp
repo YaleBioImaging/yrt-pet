@@ -43,11 +43,9 @@ int main(int argc, char** argv)
 		    "Input listmode file format. Possible values: " +
 		        io::possibleFormats(plugin::InputFormatsChoice::ONLYLISTMODES),
 		    true, io::TypeOfArgument::STRING, "", inputGroup, "f");
-		registry.registerArgument("mask",
-		                          "Detector mask in RAWD format (to disable "
-		                          "a given set of detectors)",
-		                          false, io::TypeOfArgument::STRING, "",
-		                          inputGroup);
+		registry.registerArgument(
+		    "detmask", "Detector mask (to disable a given set of detectors)",
+		    false, io::TypeOfArgument::STRING, "", inputGroup);
 
 		registry.registerArgument("out", "Output listmode filename", true,
 		                          io::TypeOfArgument::STRING, "", outputGroup,
@@ -78,7 +76,7 @@ int main(int argc, char** argv)
 		auto scanner_fname = config.getValue<std::string>("scanner");
 		auto input_fname = config.getValue<std::string>("input");
 		auto input_format = config.getValue<std::string>("format");
-		auto mask_fname = config.getValue<std::string>("mask");
+		auto detmask_fname = config.getValue<std::string>("detmask");
 		auto out_fname = config.getValue<std::string>("out");
 		int numThreads = config.getValue<int>("num_threads");
 
@@ -94,15 +92,15 @@ int main(int argc, char** argv)
 		auto* lm = dynamic_cast<ListMode*>(dataInput.get());
 		ASSERT_MSG(lm != nullptr, "The input file seems to not be list-mode");
 
-		std::unique_ptr<DetectorMask> detectorMask = nullptr;
-		if (!mask_fname.empty())
+		std::unique_ptr<DetectorMask> detmask = nullptr;
+		if (!detmask_fname.empty())
 		{
 			std::cout << "Reading detector mask..." << std::endl;
-			detectorMask = std::make_unique<DetectorMask>(mask_fname);
+			detmask = std::make_unique<DetectorMask>(detmask_fname);
 		}
 
 		std::cout << "Generating output ListModeLUT..." << std::endl;
-		auto lmOut = util::convertToListModeLUT(*lm, detectorMask.get());
+		auto lmOut = util::convertToListModeLUT(*lm, detmask.get());
 
 		std::cout << "Writing file..." << std::endl;
 		lmOut->writeToFile(out_fname);

@@ -106,8 +106,8 @@ OperatorProjectorSiddon::OperatorProjectorSiddon(
 	ASSERT_MSG_WARNING(
 	    mp_projPsfManager == nullptr,
 	    "Siddon does not support Projection space PSF. It will be ignored.");
-	initBinFilter(pr_projParams.projPropertyTypesExtra,
-	              pr_projParams.numThreads);
+	OperatorProjectorBase::initBinFilter(pr_projParams.projPropertyTypesExtra,
+	                                     pr_projParams.numThreads);
 }
 
 int OperatorProjectorSiddon::getNumRays() const
@@ -136,7 +136,7 @@ float OperatorProjectorSiddon::forwardProjection(
     const Image* img, const ProjectionProperties& projectionProperties,
     size_t pos) const
 {
-	auto projPropManager = m_binFilter->getPropertyManager();
+	auto projPropManager = mp_binFilter->getPropertyManager();
 	det_orient_t detOrient;
 	if (m_numRays > 1)
 	{
@@ -161,7 +161,7 @@ void OperatorProjectorSiddon::backProjection(
     Image* img, const ProjectionProperties& projectionProperties,
     float projValue, size_t pos) const
 {
-	auto projPropManager = m_binFilter->getPropertyManager();
+	auto projPropManager = mp_binFilter->getPropertyManager();
 	det_orient_t detOrient;
 	if (m_numRays > 1)
 	{

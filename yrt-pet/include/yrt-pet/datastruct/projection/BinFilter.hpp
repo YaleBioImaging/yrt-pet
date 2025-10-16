@@ -52,8 +52,8 @@ public:
 	                 const CollectInfoFlags& collectFlags,
 	                 ProjectionProperties& projProps,
 	                 ConstraintParams& consInfo) const;
-	bool isValid(const ConstraintManager& manager,
-	             ConstraintParams& info, size_t pos) const;
+	bool isValid(const ConstraintManager& manager, ConstraintParams& info,
+	             size_t pos) const;
 
 	const ConstraintManager& getConstraintManager() const;
 	const ProjectionPropertyManager& getPropertyManager() const;
@@ -64,10 +64,10 @@ private:
 
 	// Variables for constraints, sensitivity image, reconstruction
 	std::set<ConstraintVariable> m_consVariables;
-	std::unique_ptr<ConstraintManager> m_constraintManager = nullptr;
+	std::unique_ptr<ConstraintManager> mp_constraintManager = nullptr;
 
 	std::set<ProjectionPropertyType> m_projVariables;
-	std::unique_ptr<ProjectionPropertyManager> m_propManager = nullptr;
+	std::unique_ptr<ProjectionPropertyManager> mp_propManager = nullptr;
 };
 
 }  // namespace yrt

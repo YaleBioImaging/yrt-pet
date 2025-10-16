@@ -88,7 +88,7 @@ const BinIterator* OperatorProjectorBase::getBinIter() const
 
 const BinFilter* OperatorProjectorBase::getBinFilter() const
 {
-	return m_binFilter.get();
+	return mp_binFilter.get();
 }
 
 const Scanner& OperatorProjectorBase::getScanner() const
@@ -108,7 +108,9 @@ ConstraintParams OperatorProjectorBase::getConstraintParams() const
 
 unsigned int OperatorProjectorBase::getElementSize() const
 {
-	return getBinFilter()->getPropertyManager().getElementSize();
+	const auto binFilter = getBinFilter();
+	ASSERT(binFilter != nullptr);
+	return binFilter->getPropertyManager().getElementSize();
 }
 
 void OperatorProjectorBase::setBinIter(const BinIterator* p_binIter)
@@ -126,14 +128,14 @@ void OperatorProjectorBase::setupBinFilter(
 		projProperties.insert(prop);
 	}
 	// Determine constraints from scanner
-	m_binFilter = std::make_unique<BinFilter>(m_constraints, projProperties);
-	m_binFilter->setupManagers();
+	mp_binFilter = std::make_unique<BinFilter>(m_constraints, projProperties);
+	mp_binFilter->setupManagers();
 }
 
 void OperatorProjectorBase::allocateBuffers(int numThreads)
 {
-	auto& projPropManager = m_binFilter->getPropertyManager();
-	auto& consManager = m_binFilter->getConstraintManager();
+	auto& projPropManager = mp_binFilter->getPropertyManager();
+	auto& consManager = mp_binFilter->getConstraintManager();
 	if (projPropManager.getElementSize() > 0)
 	{
 		m_projectionProperties = projPropManager.createDataArray(numThreads);

@@ -48,8 +48,9 @@ The following properties are used only in scatter estimation:
 An optional field can be used to mask detectors:
 
 - `detMask` : Path to mask file.  The mask file stores one boolean per detector
-  (in the same order as the LUT file): `true` if the detector is active, `false`
-  if it is masked.  The file is stored in RAWD format with boolean as a `dtype`.
+  (in the same order as the LUT file): `true` if the detector is acive, `false`
+  if it is masked.  The file is store in binary format, without header, and with
+  one byte per detector.
 
 ### Example
 
@@ -58,7 +59,7 @@ Here's an example of a Scanner's JSON file
 ```json
 
 {
-  "VERSION": 3.1,
+  "VERSION": 3.2,
   "scannerName": "myscanner",
   "detCoord": "myscanner.lut",
   "axialFOV": 250.0,

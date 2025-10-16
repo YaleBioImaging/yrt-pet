@@ -29,7 +29,6 @@ void py_setup_operatorprojector(py::module& m)
 {
 	auto c = py::class_<OperatorProjector, OperatorProjectorBase>(
 	    m, "OperatorProjector");
-	c.def("setupTOFHelper", &OperatorProjector::setupTOFHelper);
 	c.def("getTOFHelper", &OperatorProjector::getTOFHelper);
 	c.def("getProjectionPsfManager",
 	      &OperatorProjector::getProjectionPsfManager);
@@ -62,9 +61,10 @@ OperatorProjector::OperatorProjector(
       mp_projPsfManager{nullptr},
       m_numThreads(pr_projParams.numThreads)
 {
-	if (pr_projParams.tofWidth_ps > 0.f)
+	if (pr_projParams.hasTOF())
 	{
-		setupTOFHelper(pr_projParams.tofWidth_ps, pr_projParams.tofNumStd);
+		setupTOFHelper(pr_projParams.getTOFWidth_ps(),
+		               pr_projParams.getTOFNumStd());
 	}
 	if (!pr_projParams.projPsf_fname.empty())
 	{
@@ -98,7 +98,7 @@ void OperatorProjector::applyA(const Variable* in, Variable* out)
 	    {
 		    const bin_t bin = binIter->get(binIdx);
 		    mp_binFilter->collectInfo(bin, tid, tid, *dat, collectInfoFlags,
-		                             projectionProperties, constraintParams);
+		                              projectionProperties, constraintParams);
 		    if (mp_binFilter->isValid(consManager, constraintParams, tid))
 		    {
 			    dat->getProjectionProperties(projectionProperties,
@@ -136,7 +136,7 @@ void OperatorProjector::applyAH(const Variable* in, Variable* out)
 	    {
 		    const bin_t bin = binIter->get(binIdx);
 		    mp_binFilter->collectInfo(bin, tid, tid, *dat, collectInfoFlags,
-		                             projectionProperties, constraintParams);
+		                              projectionProperties, constraintParams);
 		    if (mp_binFilter->isValid(consManager, constraintParams, tid))
 		    {
 			    dat->getProjectionProperties(projectionProperties,
@@ -151,16 +151,9 @@ void OperatorProjector::applyAH(const Variable* in, Variable* out)
 	    });
 }
 
-void OperatorProjector::addTOF(float tofWidth_ps, int tofNumStd)
-{
-	setupTOFHelper(tofWidth_ps, tofNumStd);
-}
-
 void OperatorProjector::setupTOFHelper(float tofWidth_ps, int tofNumStd)
 {
 	mp_tofHelper = std::make_unique<TimeOfFlightHelper>(tofWidth_ps, tofNumStd);
-	ASSERT_MSG(mp_tofHelper != nullptr,
-	           "Error occured during the setup of TimeOfFlightHelper");
 }
 
 void OperatorProjector::setupProjPsfManager(const std::string& projPsf_fname)

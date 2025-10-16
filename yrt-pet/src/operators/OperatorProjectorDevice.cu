@@ -82,9 +82,10 @@ OperatorProjectorDevice::OperatorProjectorDevice(
               p_memAvailBytes),
       m_batchSize(0ull)
 {
-	if (pr_projParams.tofWidth_ps > 0.f)
+	if (pr_projParams.hasTOF())
 	{
-		setupTOFHelper(pr_projParams.tofWidth_ps, pr_projParams.tofNumStd);
+		setupTOFHelper(pr_projParams.getTOFWidth_ps(),
+		               pr_projParams.getTOFNumStd());
 	}
 	if (!pr_projParams.projPsf_fname.empty())
 	{
@@ -170,9 +171,8 @@ void OperatorProjectorDevice::applyA(const Variable* in, Variable* out,
 
 	if (getTOFHelperDevicePointer())
 	{
-		ASSERT_MSG(dat_out->hasTOF(),
-		           "Projector configured with TOF but "
-		           "input data has no TOF information");
+		ASSERT_MSG(dat_out->hasTOF(), "Projector configured with TOF but "
+		                              "input data has no TOF information");
 	}
 
 	if (!isProjDataDeviceOwned)
@@ -308,7 +308,8 @@ void OperatorProjectorDevice::applyAH(const Variable* in, Variable* out,
 			{
 				std::cout << "Loading batch " << batchId + 2 << "/"
 				          << numBatches << "..." << std::endl;
-				dat_in->precomputeBatchLORs(0, batchId + 1, *mp_binFilter.get());
+				dat_in->precomputeBatchLORs(0, batchId + 1,
+				                            *mp_binFilter.get());
 			}
 		}
 

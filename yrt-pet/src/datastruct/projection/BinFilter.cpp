@@ -69,7 +69,7 @@ const std::set<ProjectionPropertyType>& BinFilter::getProjPropertyTypes() const
 
 void BinFilter::setupManagers()
 {
-	if (m_constraints.size() > 0)
+	if (!m_constraints.empty())
 	{
 		collectConstraintVariables();
 	}
@@ -92,12 +92,12 @@ void BinFilter::collectConstraintVariables()
 
 const ConstraintManager& BinFilter::getConstraintManager() const
 {
-	return *mp_constraintManager.get();
+	return *mp_constraintManager;
 }
 
 const ProjectionPropertyManager& BinFilter::getPropertyManager() const
 {
-	return *mp_propManager.get();
+	return *mp_propManager;
 }
 
 void BinFilter::collectFlags(CollectInfoFlags& collectFlags) const

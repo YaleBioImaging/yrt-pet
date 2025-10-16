@@ -23,14 +23,15 @@ class Histogram;
 class OperatorProjectorParams
 {
 public:
-	OperatorProjectorParams(const Scanner& pr_scanner);
+	explicit OperatorProjectorParams(const Scanner& pr_scanner);
 
 	const BinIterator* binIter;
 	const Scanner& scanner;
 
-	// Time of Flight
-	float tofWidth_ps;
-	int tofNumStd;
+	void addTOF(float tofWidth_ps, int tofNumStd);
+	float getTOFWidth_ps() const;
+	int getTOFNumStd() const;
+	bool hasTOF() const;
 
 	// Projection-domain PSF
 	std::string projPsf_fname;
@@ -44,6 +45,11 @@ public:
 	// Projection property types (in addition to types needed for projector and
 	// included in projection data) - Ignored for now
 	std::set<ProjectionPropertyType> projPropertyTypesExtra;
+
+private:
+	// Time of Flight
+	float m_tofWidth_ps;
+	int m_tofNumStd;
 };
 
 // Device-agnostic virtual class

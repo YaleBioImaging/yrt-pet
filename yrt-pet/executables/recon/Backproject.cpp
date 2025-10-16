@@ -178,8 +178,12 @@ int main(int argc, char** argv)
 		                          config.getValue<int>("subset_id"));
 		OperatorProjectorParams projParams(*scanner);
 		projParams.binIter = binIter.get();
-		projParams.tofWidth_ps = config.getValue<float>("tof_width_ps");
-		projParams.tofNumStd = config.getValue<int>("tof_n_std");
+		auto tofWidth_ps = config.getValue<float>("tof_width_ps");
+		auto tofNumStd = config.getValue<int>("tof_n_std");
+		if (tofWidth_ps > 0.0f)
+		{
+			projParams.addTOF(tofWidth_ps, tofNumStd);
+		}
 		projParams.projPsf_fname = config.getValue<std::string>("proj_psf");
 		projParams.numRays = config.getValue<int>("num_rays");
 

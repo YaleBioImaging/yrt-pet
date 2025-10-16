@@ -13,6 +13,7 @@
 #include <pybind11/stl.h>
 
 namespace py = pybind11;
+using namespace py::literals;
 
 namespace yrt
 {
@@ -22,8 +23,8 @@ void py_setup_operatorprojectorparams(py::module& m)
 	auto c = py::class_<OperatorProjectorParams>(m, "OperatorProjectorParams");
 	c.def(py::init<Scanner&>(), py::arg("scanner"));
 	c.def_readwrite("binIter", &OperatorProjectorParams::binIter);
-	c.def_readwrite("tofWidth_ps", &OperatorProjectorParams::tofWidth_ps);
-	c.def_readwrite("tofNumStd", &OperatorProjectorParams::tofNumStd);
+	c.def("addTOF", &OperatorProjectorParams::addTOF, "tofWidth_ps"_a,
+	      "tofNumStd"_a);
 	c.def_readwrite("projPsf_fname", &OperatorProjectorParams::projPsf_fname);
 	c.def_readwrite("num_rays", &OperatorProjectorParams::numRays);
 	c.def_readwrite("num_threads", &OperatorProjectorParams::numThreads);
@@ -50,12 +51,34 @@ namespace yrt
 
 OperatorProjectorParams::OperatorProjectorParams(const Scanner& pr_scanner)
     : scanner(pr_scanner),
-      tofWidth_ps(0.f),
-      tofNumStd(0),
       projPsf_fname(""),
       numRays(1),
-      numThreads(globals::getNumThreads())
+      numThreads(globals::getNumThreads()),
+      m_tofWidth_ps(0.f),
+      m_tofNumStd(0)
 {
+}
+
+void OperatorProjectorParams::addTOF(float tofWidth_ps, int tofNumStd)
+{
+	m_tofWidth_ps = tofWidth_ps;
+	m_tofNumStd = tofNumStd;
+	projPropertyTypesExtra.insert(ProjectionPropertyType::TOF);
+}
+
+float OperatorProjectorParams::getTOFWidth_ps() const
+{
+	return m_tofWidth_ps;
+}
+
+int OperatorProjectorParams::getTOFNumStd() const
+{
+	return m_tofNumStd;
+}
+
+bool OperatorProjectorParams::hasTOF() const
+{
+	return m_tofWidth_ps > 0.f;
 }
 
 OperatorProjectorBase::OperatorProjectorBase(

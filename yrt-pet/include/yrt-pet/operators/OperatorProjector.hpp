@@ -48,14 +48,14 @@ public:
 	void applyA(const Variable* in, Variable* out) override;
 	void applyAH(const Variable* in, Variable* out) override;
 
-	void addTOF(float tofWidth_ps, int tofNumStd = -1);
-	void setupTOFHelper(float tofWidth_ps, int tofNumStd = -1);
-	void setupProjPsfManager(const std::string& projPsf_fname);
-
 	const TimeOfFlightHelper* getTOFHelper() const;
 	const ProjectionPsfManager* getProjectionPsfManager() const;
 
 protected:
+
+	void setupTOFHelper(float tofWidth_ps, int tofNumStd = -1);
+	void setupProjPsfManager(const std::string& projPsf_fname);
+
 	// Time of flight
 	std::unique_ptr<TimeOfFlightHelper> mp_tofHelper;
 

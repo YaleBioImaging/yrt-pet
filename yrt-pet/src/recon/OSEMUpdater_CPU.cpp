@@ -5,7 +5,6 @@
 
 #include "yrt-pet/recon/OSEMUpdater_CPU.hpp"
 
-#include <omp.h>
 #include <thread>
 
 #include "yrt-pet/datastruct/projection/BinIterator.hpp"

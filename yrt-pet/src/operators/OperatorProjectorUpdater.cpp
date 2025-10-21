@@ -312,8 +312,10 @@ void OperatorProjectorUpdaterLRDualUpdate::backUpdate(
 	const float* H_ptr_read = mp_HBasis.getRawPointer();
 	const float* W_ptr_read = this->getCurrentImgBuffer();
 	float* H_ptr_write = mp_HWrite.getRawPointer();
+
 	for (int l = 0; l < m_rank; ++l)
 	{
+
 		const float cur_H_ptr = *(H_ptr_read + l * m_numDynamicFrames + dynamicFrame);
 		const size_t offset_rank = l * numVoxelPerFrame;
 		const float outputWUpdate = Ay * cur_H_ptr;

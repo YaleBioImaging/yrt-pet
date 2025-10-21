@@ -97,9 +97,9 @@ public:
 	const Array2DAlias<float>& getHBasisWrite();
 	void setCurrentImgBuffer(ImageBase* img);
 	const float* getCurrentImgBuffer() const;
-	float* m_currentImg;
 
 protected:
+	float* m_currentImg;
 	Array2DAlias<float> mp_HBasis;  // used by forward/back math (read-only)
 	Array2DAlias<float> mp_HWrite;  // used only when m_updateH==true (accumulate)
 	bool m_updateH = false;
@@ -118,12 +118,6 @@ public:
 		size_t numVoxelPerFrame
 		) override;
 
-protected:
-	Array2DAlias<float> mp_HBasis;  // used by forward/back math (read-only)
-	Array2DAlias<float> mp_HWrite;  // used only when m_updateH==true (accumulate)
-	bool m_updateH = true;
-	int m_rank = 1;
-	int m_numDynamicFrames = 1;
 };
 
 }  // namespace yrt

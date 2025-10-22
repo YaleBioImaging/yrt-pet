@@ -91,6 +91,7 @@ void OperatorProjectorSiddon_GPU::launchKernel(
     float* pd_projValues, float* pd_image, const float4* pd_lorDet1Pos,
     const float4* pd_lorDet2Pos, const float4* pd_lorDet1Orient,
     const float4* pd_lorDet2Orient, const float* pd_lorTOFValue,
+    OperatorProjectorUpdaterDevice* pd_updater, frame_t dynamicFrame,
     const TimeOfFlightHelper* pd_tofHelper, CUScannerParams scannerParams,
     CUImageParams imgParams, size_t batchSize, unsigned int gridSize,
     unsigned int blockSize, const cudaStream_t* stream, bool synchronize)
@@ -109,6 +110,7 @@ void OperatorProjectorSiddon_GPU::launchKernel(
 			    <<<gridSize, blockSize, 0, *stream>>>(
 			        pd_projValues, pd_image, pd_lorDet1Pos, pd_lorDet2Pos,
 			        pd_lorDet1Orient, pd_lorDet2Orient, pd_lorTOFValue,
+			        pd_updater, dynamicFrame,
 			        pd_tofHelper, scannerParams, imgParams, 1, batchSize);
 			if (synchronize)
 			{
@@ -121,6 +123,7 @@ void OperatorProjectorSiddon_GPU::launchKernel(
 			    <<<gridSize, blockSize>>>(
 			        pd_projValues, pd_image, pd_lorDet1Pos, pd_lorDet2Pos,
 			        pd_lorDet1Orient, pd_lorDet2Orient, pd_lorTOFValue,
+			        pd_updater, dynamicFrame,
 			        pd_tofHelper, scannerParams, imgParams, 1, batchSize);
 			if (synchronize)
 			{

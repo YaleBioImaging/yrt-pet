@@ -76,6 +76,7 @@ __global__ void OperatorProjectorSiddonCU_kernel(
     float* pd_projValues, float* pd_image, const float4* pd_lorDet1Pos,
     const float4* pd_lorDet2Pos, const float4* pd_lorDet1Orient,
     const float4* pd_lorDet2Orient, const float* pd_lorTOFValue,
+    OperatorProjectorUpdaterDevice* pd_updater, frame_t dynamicFrame,
     const TimeOfFlightHelper* pd_tofHelper, CUScannerParams scannerParams,
     CUImageParams imgParams, int p_numRays, size_t batchSize)
 {
@@ -271,7 +272,8 @@ __global__ void OperatorProjectorSiddonCU_kernel(
 			// Prepare data pointer (this assumes that the data is stored as a
 			// contiguous array)
 			float* raw_img_ptr = pd_image;
-			float* cur_img_ptr = nullptr;
+			// float* cur_img_ptr = nullptr;
+			size_t offset_img_ptr = 0;
 
 			float ax_next_prev = ax_next;
 			float ay_next_prev = ay_next;
@@ -338,7 +340,7 @@ __global__ void OperatorProjectorSiddonCU_kernel(
 					vz =
 					    (int)((p1.z + a_mid * (p2.z - p1.z) + imgLength_z / 2) *
 					          inv_dz);
-					cur_img_ptr = raw_img_ptr + vz * num_xy + vy * nx;
+					offset_img_ptr = vz * num_xy + vy * nx;
 					flag_first = false;
 					if (vx < 0 || vx >= nx || vy < 0 || vy >= ny || vz < 0 ||
 					    vz >= nz)
@@ -365,7 +367,7 @@ __global__ void OperatorProjectorSiddonCU_kernel(
 						}
 						else
 						{
-							cur_img_ptr += dir_y * nx;
+							offset_img_ptr += dir_y * nx;
 						}
 					}
 					if (dir_prev & SIDDON_DIR::DIR_Z)
@@ -377,7 +379,7 @@ __global__ void OperatorProjectorSiddonCU_kernel(
 						}
 						else
 						{
-							cur_img_ptr += dir_z * num_xy;
+							offset_img_ptr += dir_z * num_xy;
 						}
 					}
 				}
@@ -387,19 +389,23 @@ __global__ void OperatorProjectorSiddonCU_kernel(
 				}
 				dir_prev = dir_next;
 				float weight = (a_next - a_cur) * d_norm;
+				const size_t numVoxelsPerFrame = nx * ny * nz;
+				const size_t totalOffset = vx + offset_img_ptr;
 				if constexpr (HasTOF)
 				{
 					weight *= tof_weight;
 				}
 				if constexpr (IsForward)
 				{
-					value += weight * cur_img_ptr[vx];
+					value += pd_updater->forwardUpdate(
+					    weight, raw_img_ptr, totalOffset, dynamicFrame,
+					    numVoxelsPerFrame);
 				}
 				else
 				{
-					float output = value * weight;
-					float* ptr = &cur_img_ptr[vx];
-					atomicAdd(ptr, output);
+					pd_updater->backUpdate(value, weight, raw_img_ptr,
+					                       totalOffset, dynamicFrame,
+					                       numVoxelsPerFrame);
 				}
 				a_cur = a_next;
 				ax_next_prev = ax_next;
@@ -424,6 +430,7 @@ template __global__ void
         float* pd_projValues, float* pd_image, const float4* pd_lorDet1Pos,
         const float4* pd_lorDet2Pos, const float4* pd_lorDet1Orient,
         const float4* pd_lorDet2Orient, const float* pd_lorTOFValue,
+        OperatorProjectorUpdaterDevice* pd_updater, frame_t dynamicFrame,
         const TimeOfFlightHelper* pd_tofHelper, CUScannerParams scannerParams,
         CUImageParams imgParams, int p_numRays, size_t batchSize);
 template __global__ void
@@ -431,6 +438,7 @@ template __global__ void
         float* pd_projValues, float* pd_image, const float4* pd_lorDet1Pos,
         const float4* pd_lorDet2Pos, const float4* pd_lorDet1Orient,
         const float4* pd_lorDet2Orient, const float* pd_lorTOFValue,
+        OperatorProjectorUpdaterDevice* pd_updater, frame_t dynamicFrame,
         const TimeOfFlightHelper* pd_tofHelper, CUScannerParams scannerParams,
         CUImageParams imgParams, int p_numRays, size_t batchSize);
 template __global__ void
@@ -438,6 +446,7 @@ template __global__ void
         float* pd_projValues, float* pd_image, const float4* pd_lorDet1Pos,
         const float4* pd_lorDet2Pos, const float4* pd_lorDet1Orient,
         const float4* pd_lorDet2Orient, const float* pd_lorTOFValue,
+        OperatorProjectorUpdaterDevice* pd_updater, frame_t dynamicFrame,
         const TimeOfFlightHelper* pd_tofHelper, CUScannerParams scannerParams,
         CUImageParams imgParams, int p_numRays, size_t batchSize);
 template __global__ void
@@ -445,6 +454,7 @@ template __global__ void
         float* pd_projValues, float* pd_image, const float4* pd_lorDet1Pos,
         const float4* pd_lorDet2Pos, const float4* pd_lorDet1Orient,
         const float4* pd_lorDet2Orient, const float* pd_lorTOFValue,
+        OperatorProjectorUpdaterDevice* pd_updater, frame_t dynamicFrame,
         const TimeOfFlightHelper* pd_tofHelper, CUScannerParams scannerParams,
         CUImageParams imgParams, int p_numRays, size_t batchSize);
 template __global__ void
@@ -452,6 +462,7 @@ template __global__ void
         float* pd_projValues, float* pd_image, const float4* pd_lorDet1Pos,
         const float4* pd_lorDet2Pos, const float4* pd_lorDet1Orient,
         const float4* pd_lorDet2Orient, const float* pd_lorTOFValue,
+        OperatorProjectorUpdaterDevice* pd_updater, frame_t dynamicFrame,
         const TimeOfFlightHelper* pd_tofHelper, CUScannerParams scannerParams,
         CUImageParams imgParams, int p_numRays, size_t batchSize);
 template __global__ void
@@ -459,6 +470,7 @@ template __global__ void
         float* pd_projValues, float* pd_image, const float4* pd_lorDet1Pos,
         const float4* pd_lorDet2Pos, const float4* pd_lorDet1Orient,
         const float4* pd_lorDet2Orient, const float* pd_lorTOFValue,
+        OperatorProjectorUpdaterDevice* pd_updater, frame_t dynamicFrame,
         const TimeOfFlightHelper* pd_tofHelper, CUScannerParams scannerParams,
         CUImageParams imgParams, int p_numRays, size_t batchSize);
 template __global__ void
@@ -466,6 +478,7 @@ template __global__ void
         float* pd_projValues, float* pd_image, const float4* pd_lorDet1Pos,
         const float4* pd_lorDet2Pos, const float4* pd_lorDet1Orient,
         const float4* pd_lorDet2Orient, const float* pd_lorTOFValue,
+        OperatorProjectorUpdaterDevice* pd_updater, frame_t dynamicFrame,
         const TimeOfFlightHelper* pd_tofHelper, CUScannerParams scannerParams,
         CUImageParams imgParams, int p_numRays, size_t batchSize);
 template __global__ void
@@ -473,6 +486,7 @@ template __global__ void
         float* pd_projValues, float* pd_image, const float4* pd_lorDet1Pos,
         const float4* pd_lorDet2Pos, const float4* pd_lorDet1Orient,
         const float4* pd_lorDet2Orient, const float* pd_lorTOFValue,
+        OperatorProjectorUpdaterDevice* pd_updater, frame_t dynamicFrame,
         const TimeOfFlightHelper* pd_tofHelper, CUScannerParams scannerParams,
         CUImageParams imgParams, int p_numRays, size_t batchSize);
 template __global__ void
@@ -480,6 +494,7 @@ template __global__ void
         float* pd_projValues, float* pd_image, const float4* pd_lorDet1Pos,
         const float4* pd_lorDet2Pos, const float4* pd_lorDet1Orient,
         const float4* pd_lorDet2Orient, const float* pd_lorTOFValue,
+        OperatorProjectorUpdaterDevice* pd_updater, frame_t dynamicFrame,
         const TimeOfFlightHelper* pd_tofHelper, CUScannerParams scannerParams,
         CUImageParams imgParams, int p_numRays, size_t batchSize);
 template __global__ void
@@ -487,6 +502,7 @@ template __global__ void
         float* pd_projValues, float* pd_image, const float4* pd_lorDet1Pos,
         const float4* pd_lorDet2Pos, const float4* pd_lorDet1Orient,
         const float4* pd_lorDet2Orient, const float* pd_lorTOFValue,
+        OperatorProjectorUpdaterDevice* pd_updater, frame_t dynamicFrame,
         const TimeOfFlightHelper* pd_tofHelper, CUScannerParams scannerParams,
         CUImageParams imgParams, int p_numRays, size_t batchSize);
 template __global__ void
@@ -494,6 +510,7 @@ template __global__ void
         float* pd_projValues, float* pd_image, const float4* pd_lorDet1Pos,
         const float4* pd_lorDet2Pos, const float4* pd_lorDet1Orient,
         const float4* pd_lorDet2Orient, const float* pd_lorTOFValue,
+        OperatorProjectorUpdaterDevice* pd_updater, frame_t dynamicFrame,
         const TimeOfFlightHelper* pd_tofHelper, CUScannerParams scannerParams,
         CUImageParams imgParams, int p_numRays, size_t batchSize);
 template __global__ void
@@ -501,6 +518,7 @@ template __global__ void
         float* pd_projValues, float* pd_image, const float4* pd_lorDet1Pos,
         const float4* pd_lorDet2Pos, const float4* pd_lorDet1Orient,
         const float4* pd_lorDet2Orient, const float* pd_lorTOFValue,
+        OperatorProjectorUpdaterDevice* pd_updater, frame_t dynamicFrame,
         const TimeOfFlightHelper* pd_tofHelper, CUScannerParams scannerParams,
         CUImageParams imgParams, int p_numRays, size_t batchSize);
 template __global__ void
@@ -508,6 +526,7 @@ template __global__ void
         float* pd_projValues, float* pd_image, const float4* pd_lorDet1Pos,
         const float4* pd_lorDet2Pos, const float4* pd_lorDet1Orient,
         const float4* pd_lorDet2Orient, const float* pd_lorTOFValue,
+        OperatorProjectorUpdaterDevice* pd_updater, frame_t dynamicFrame,
         const TimeOfFlightHelper* pd_tofHelper, CUScannerParams scannerParams,
         CUImageParams imgParams, int p_numRays, size_t batchSize);
 template __global__ void
@@ -515,6 +534,7 @@ template __global__ void
         float* pd_projValues, float* pd_image, const float4* pd_lorDet1Pos,
         const float4* pd_lorDet2Pos, const float4* pd_lorDet1Orient,
         const float4* pd_lorDet2Orient, const float* pd_lorTOFValue,
+        OperatorProjectorUpdaterDevice* pd_updater, frame_t dynamicFrame,
         const TimeOfFlightHelper* pd_tofHelper, CUScannerParams scannerParams,
         CUImageParams imgParams, int p_numRays, size_t batchSize);
 template __global__ void
@@ -522,6 +542,7 @@ template __global__ void
         float* pd_projValues, float* pd_image, const float4* pd_lorDet1Pos,
         const float4* pd_lorDet2Pos, const float4* pd_lorDet1Orient,
         const float4* pd_lorDet2Orient, const float* pd_lorTOFValue,
+        OperatorProjectorUpdaterDevice* pd_updater, frame_t dynamicFrame,
         const TimeOfFlightHelper* pd_tofHelper, CUScannerParams scannerParams,
         CUImageParams imgParams, int p_numRays, size_t batchSize);
 template __global__ void
@@ -529,6 +550,7 @@ template __global__ void
         float* pd_projValues, float* pd_image, const float4* pd_lorDet1Pos,
         const float4* pd_lorDet2Pos, const float4* pd_lorDet1Orient,
         const float4* pd_lorDet2Orient, const float* pd_lorTOFValue,
+        OperatorProjectorUpdaterDevice* pd_updater, frame_t dynamicFrame,
         const TimeOfFlightHelper* pd_tofHelper, CUScannerParams scannerParams,
         CUImageParams imgParams, int p_numRays, size_t batchSize);
 

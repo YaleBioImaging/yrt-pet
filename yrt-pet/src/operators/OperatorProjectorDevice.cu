@@ -3,10 +3,10 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "yrt-pet/operators/OperatorProjectorDevice.cuh"
-
 #include "yrt-pet/datastruct/image/Image.hpp"
 #include "yrt-pet/datastruct/scanner/Scanner.hpp"
+#include "yrt-pet/operators/OperatorProjectorDevice.cuh"
+#include "yrt-pet/operators/OperatorProjectorUpdaterDevice.cuh"
 #include "yrt-pet/utils/GPUUtils.cuh"
 
 #if BUILD_PYBIND11
@@ -365,4 +365,79 @@ const float*
 	}
 	return nullptr;
 }
+
+
+void OperatorProjectorDevice::setUpdater(
+	DeviceObject<OperatorProjectorUpdaterDevice>&& pp_updater)
+{
+	m_updater = std::move(pp_updater);
+}
+
+const DeviceObject<OperatorProjectorUpdaterDevice>* OperatorProjectorDevice::getUpdater()
+{
+	return &m_updater;
+}
+
+const OperatorProjectorUpdaterDevice* OperatorProjectorDevice::getUpdaterDevicePointer()
+{
+	return m_updater.getDevicePointer();
+}
+
+void OperatorProjectorDevice::setupUpdater(
+	const OperatorProjectorParams& p_projParams)
+{
+	if (p_projParams.projectorUpdaterType == OperatorProjectorParams::DEFAULT3D)
+	{
+		setUpdater(DeviceObject<OperatorProjectorUpdaterDeviceDefault3D>());
+	}
+	else if (p_projParams.projectorUpdaterType ==
+			 OperatorProjectorParams::DEFAULT4D)
+	{
+		setUpdater(DeviceObject<OperatorProjectorUpdaterDeviceDefault4D>());
+	}
+	else if (p_projParams.projectorUpdaterType == OperatorProjectorParams::LR)
+	{
+		if (p_projParams.HBasis.getSizeTotal() == 0)
+		{
+			throw std::invalid_argument(
+				"LR updater was requested but HBasis is empty");
+		}
+		// setUpdater(
+		// 	std::make_unique<OperatorProjectorUpdaterDeviceLR>(p_projParams.HBasis));
+		// if (auto* updaterLR = dynamic_cast<OperatorProjectorUpdaterDeviceLR*>(mp_updater.get()))
+		// {
+		// 	updaterLR->setUpdateH(p_projParams.updateH);
+		// }
+		// else
+		// {
+		// 	throw std::runtime_error("OperatorProjectorUpdater type needs to be "
+		// 					"OperatorProjectorUpdaterLR to get/set updateH");
+		// }
+	}
+	else if (p_projParams.projectorUpdaterType == OperatorProjectorParams::LRDUALUPDATE)
+	{
+		if (p_projParams.HBasis.getSizeTotal() == 0)
+		{
+			throw std::invalid_argument(
+				"LRDUALUPDATE updater was requested but HBasis is empty");
+		}
+		// setUpdater(
+		// 	std::make_unique<OperatorProjectorUpdaterDeviceLRDualUpdate>(p_projParams.HBasis));
+		// if (auto* updaterLR = dynamic_cast<OperatorProjectorUpdaterDeviceLRDualUpdate*>(mp_updater.get()))
+		// {
+		// 	updaterLR->setUpdateH(p_projParams.updateH);
+		// }
+		// else
+		// {
+		// 	throw std::runtime_error("OperatorProjectorUpdater type needs to be "
+		// 					"OperatorProjectorUpdaterLRDualUpdate to get/set updateH");
+		// }
+	}
+	else
+	{
+		throw std::invalid_argument("ProjectorUpdaterType not valid");
+	}
+}
+
+
 }  // namespace yrt

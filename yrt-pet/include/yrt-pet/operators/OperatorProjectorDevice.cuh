@@ -9,6 +9,7 @@
 #include "yrt-pet/datastruct/projection/ProjectionDataDevice.cuh"
 #include "yrt-pet/operators/DeviceSynchronized.cuh"
 #include "yrt-pet/operators/OperatorProjectorBase.hpp"
+#include "yrt-pet/operators/OperatorProjectorUpdaterDevice.cuh"
 #include "yrt-pet/operators/ProjectionPsfManagerDevice.cuh"
 #include "yrt-pet/operators/TimeOfFlight.hpp"
 #include "yrt-pet/utils/DeviceObject.cuh"
@@ -30,6 +31,11 @@ public:
 
 	bool requiresIntermediaryProjData() const;
 	void setupTOFHelper(float tofWidth_ps, int tofNumStd = -1);
+	const DeviceObject<OperatorProjectorUpdaterDevice>* getUpdater();
+	const OperatorProjectorUpdaterDevice* getUpdaterDevicePointer();
+	void setupUpdater(const OperatorProjectorParams& p_projParams);
+	void setUpdater(DeviceObject<OperatorProjectorUpdaterDevice>&& pp_updater);
+
 
 	void applyA(const Variable* in, Variable* out) override;
 	void applyAH(const Variable* in, Variable* out) override;
@@ -64,6 +70,9 @@ private:
 
 	// Time of flight
 	std::unique_ptr<DeviceObject<TimeOfFlightHelper>> mp_tofHelper;
+
+	// Updater for projection
+	DeviceObject<OperatorProjectorUpdaterDevice> m_updater;
 
 	// For attenuation correction
 	std::unique_ptr<ImageDeviceOwned> mp_attImageDevice;

@@ -889,6 +889,30 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 				float*       H_old_ptr = projectorParams.HBasis.getRawPointer(); // current H
 				const float* Hnum_ptr  = HBuffer->getRawPointer();               // numerator accumulated this subset
 
+				// shapes: rank x T
+				const int    R = rank;
+				const int    T_ = T;
+
+				double min_ratio = 1e30, max_ratio = -1e30, mean_ratio = 0.0;
+				double sum_num = 0.0, sum_den = 0.0;
+
+				for (int r = 0; r < R; ++r) {
+					const double den = std::max<double>(c_Hupdate_r[r], EPS_FLT);
+					sum_den += den;
+					for (int t = 0; t < T_; ++t) {
+						const double num = Hnum_ptr[r*T_ + t];
+						sum_num += num;
+						const double ratio = num / den;
+						min_ratio = std::min(min_ratio, ratio);
+						max_ratio = std::max(max_ratio, ratio);
+						mean_ratio += ratio;
+					}
+				}
+				mean_ratio /= (R * T_);
+
+				printf("\nH update stats: sum_num=%.6g sum_den=%.6g  ratio[min,mean,max]=[%.3g, %.3g, %.3g]\n",
+					   sum_num, sum_den, min_ratio, mean_ratio, max_ratio);
+
 				printf("\n --- Before Update --- \n");
 				double sum = 0.0;
 				for (int i = 0; i < rank*T; ++i) sum += H_old_ptr[i];
@@ -920,8 +944,26 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 			if (dualUpdate && (iter > 0))
 			{
 				printf("\n Updating LR Sensitivity image scaling...\n");
+				float sum_c_w = 0.0;
+				float sum_c_h = 0.0;
+				for (int i = 0; i < rank; ++i)
+				{
+					sum_c_w += c_WUpdate_r[i];
+					sum_c_h += c_Hupdate_r[i];
+				}
+				printf("Before: sum(c_W)=%.6g, sum(c_H)=%.6g\n", sum_c_w, sum_c_h);
+				std::fill(c_WUpdate_r.begin(), c_WUpdate_r.end(), 0.0f);
+				std::fill(c_Hupdate_r.begin(), c_Hupdate_r.end(), 0.0f);
 				generateWUpdateSensScaling(c_WUpdate_r.data());
 				generateHUpdateSensScaling(c_Hupdate_r.data());
+				float sum_c_w_2 = 0.0;
+				float sum_c_h_2 = 0.0;
+				for (int i = 0; i < rank; ++i)
+				{
+					sum_c_w_2 += c_WUpdate_r[i];
+					sum_c_h_2 += c_Hupdate_r[i];
+				}
+				printf("After: sum(c_W)=%.6g, sum(c_H)=%.6g\n", sum_c_w_2, sum_c_h_2);
 			}
 		}
 		if (saveIterRanges.isIn(iter + 1))

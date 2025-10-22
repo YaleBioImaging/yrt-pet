@@ -30,7 +30,10 @@ template <typename T>
 class DeviceObject
 {
 public:
-	DeviceObject() = delete;
+	DeviceObject() noexcept : mpd_object(nullptr) {}
+
+	DeviceObject(const DeviceObject&)            = delete;
+	DeviceObject& operator=(const DeviceObject&) = delete;
 
 	template <typename... Args>
 	explicit DeviceObject(Args&&... args)
@@ -48,24 +51,34 @@ public:
 	}
 
 	~DeviceObject() {
-		if (mpd_object) {
-			// Call device-side destructor, then free storage
-			__yrt_destroy_on_device<T><<<1, 1>>>(reinterpret_cast<T*>(mpd_object));
-			// Best-effort; avoid throwing from destructors
-			cudaDeviceSynchronize();
-			util::deallocateDevice(mpd_object, {});
-		}
+		reset();
 	}
-
-	DeviceObject(const DeviceObject&)            = delete;
-	DeviceObject& operator=(const DeviceObject&) = delete;
 
 	DeviceObject(DeviceObject&& other) noexcept : mpd_object(other.mpd_object) {
 		other.mpd_object = nullptr;
 	}
+
 	DeviceObject& operator=(DeviceObject&& other) noexcept {
 		if (this != &other) {
-			this->~DeviceObject();
+			reset();
+			mpd_object = other.mpd_object;
+			other.mpd_object = nullptr;
+		}
+		return *this;
+	}
+
+	// converting move ctor
+	template<class U, std::enable_if_t<std::is_base_of_v<T,U>, int> = 0>
+	DeviceObject(DeviceObject<U>&& other) noexcept:
+	  mpd_object(other.mpd_object) {
+		other.mpd_object = nullptr;
+	}
+
+	// converting move assign
+	template<class U, std::enable_if_t<std::is_base_of_v<T,U>, int> = 0>
+	DeviceObject<T>& operator=(DeviceObject<U>&& other) noexcept {
+		if (this != &other) {
+			reset();
 			mpd_object = other.mpd_object;
 			other.mpd_object = nullptr;
 		}
@@ -74,8 +87,21 @@ public:
 
 	const T* getDevicePointer() const { return mpd_object; }
 	T* getDevicePointer() { return mpd_object; }
+	explicit operator bool() const noexcept { return mpd_object != nullptr; }
 
-private:
+	void reset()
+	{
+		if (mpd_object) {
+			// Call device-side destructor, then free storage
+			__yrt_destroy_on_device<T><<<1, 1>>>(reinterpret_cast<T*>(mpd_object));
+			// Best-effort; avoid throwing from destructors
+			cudaDeviceSynchronize();
+			util::deallocateDevice(mpd_object, {});
+			mpd_object = nullptr;
+		}
+	}
+
+//protected:
 	T* mpd_object;
 };
 

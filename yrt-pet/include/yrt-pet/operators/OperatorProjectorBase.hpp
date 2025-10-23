@@ -43,7 +43,7 @@ public:
 
 	// Projector Updater type (e.g., DEFAULT3D)
 	ProjectorUpdaterType projectorUpdaterType;
-	Array2DAlias<float> HBasis;
+	Array3DAlias<float> HBasis;
 
 	// Time of Flight
 	bool flagProjTOF;

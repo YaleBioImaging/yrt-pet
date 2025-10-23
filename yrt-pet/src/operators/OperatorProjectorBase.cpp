@@ -36,11 +36,11 @@ void py_setup_operatorprojectorparams(py::module& m)
 	c.def_property(
 	    "HBasis",
 	    // getter: const ref to the alias; tie lifetime to parent
-	    [](OperatorProjectorParams& p) -> Array2DAlias<float>& {
+	    [](OperatorProjectorParams& p) -> Array3DAlias<float>& {
 		    return p.HBasis;
 	    },
 	    // setter: accept any 2D array base and bind alias to it
-	    [](OperatorProjectorParams& p, const Array2DBase<float>& src) {
+	    [](OperatorProjectorParams& p, const Array3DBase<float>& src) {
 		    p.HBasis.bind(src);  // NO allocation, just alias the source
 	    },
 	    py::return_value_policy::reference_internal
@@ -51,17 +51,18 @@ void py_setup_operatorprojectorparams(py::module& m)
 	[](OperatorProjectorParams& self, py::buffer& np_data) {
 		py::buffer_info buffer = np_data.request();
 
-		if (buffer.ndim != 2)
-			throw std::invalid_argument("HBasis must be 2D (rank x time).");
+		if (buffer.ndim != 3)
+			throw std::invalid_argument("HBasis must be 3D (rank x slice x time).");
 
 		if (buffer.format != py::format_descriptor<float>::format())
 			throw std::invalid_argument("HBasis must be float32.");
 
 		auto* ptr = reinterpret_cast<float*>(buffer.ptr);
 		const size_t rank = static_cast<size_t>(buffer.shape[0]);
-		const size_t T    = static_cast<size_t>(buffer.shape[1]);
+		const size_t nz = static_cast<size_t>(buffer.shape[1]);
+		const size_t T    = static_cast<size_t>(buffer.shape[2]);
 
-		self.HBasis.bind(ptr, rank, T);
+		self.HBasis.bind(ptr, rank, nz, T);
 	},
 	py::arg("HBasis"),
 	py::keep_alive<1, 2>()  // keep the buffer owner alive

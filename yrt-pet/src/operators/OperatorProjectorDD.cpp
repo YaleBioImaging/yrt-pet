@@ -438,16 +438,17 @@ void OperatorProjectorDD::dd_project_ref(
 						if constexpr (IS_FWD)
 						{
 							const size_t numVoxelsPerFrame = params.nx * params.ny * params.nz;
-							proj_value += updater.forwardUpdate(weight, raw_img_ptr,
-								idx, dynamicFrame, numVoxelsPerFrame);
+							proj_value += updater.forwardUpdate(
+							    weight, raw_img_ptr, idx, zi, dynamicFrame,
+							    numVoxelsPerFrame);
 
 						}
 						else
 						{
 							const size_t numVoxelsPerFrame = params.nx * params.ny * params.nz;
 							updater.backUpdate(proj_value, weight, raw_img_ptr,
-											   idx, dynamicFrame,
-											   numVoxelsPerFrame);
+							                   idx, zi, dynamicFrame,
+							                   numVoxelsPerFrame);
 						}
 					}
 				}

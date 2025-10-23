@@ -46,7 +46,7 @@ protected:
 	ImageBase* getSensImageBuffer() override;
 	const ProjectionData* getSensitivityBuffer() const;
 	ImageBase* getMLEMImageBuffer() override;
-	Array2DBase<float>* getHBasisTmpBuffer() override;
+	Array3DBase<float>* getHBasisTmpBuffer() override;
 	void allocateHBasisTmpBuffer() override;
 	ImageBase* getImageTmpBuffer(TemporaryImageSpaceBufferType type) override;
 	const ProjectionData* getMLEMDataBuffer() override;
@@ -69,7 +69,7 @@ private:
 	std::unique_ptr<Image> mp_mlemImageTmpEMRatio;
 	std::unique_ptr<Image> mp_imageTmpPsf;
 	std::unique_ptr<ProjectionData> mp_datTmp;
-	std::unique_ptr<Array2D<float>> mp_HNumerator;
+	std::unique_ptr<Array3D<float>> mp_HNumerator;
 
 	std::unique_ptr<Corrector_CPU> mp_corrector;
 	std::unique_ptr<OSEMUpdater_CPU> mp_updater;

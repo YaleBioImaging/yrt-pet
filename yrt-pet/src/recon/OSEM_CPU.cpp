@@ -150,7 +150,7 @@ ImageBase* OSEM_CPU::getMLEMImageBuffer()
 	return outImage.get();
 }
 
-Array2DBase<float>* OSEM_CPU::getHBasisTmpBuffer()
+Array3DBase<float>* OSEM_CPU::getHBasisTmpBuffer()
 {
 	return mp_HNumerator.get();
 }
@@ -163,11 +163,12 @@ void OSEM_CPU::initializeHBasisTmpBuffer()
 void OSEM_CPU::allocateHBasisTmpBuffer()
 {
 	if (!mp_HNumerator)
-		mp_HNumerator = std::make_unique<Array2D<float>>();
+		mp_HNumerator = std::make_unique<Array3D<float>>();
 	const auto dims = projectorParams.HBasis.getDims();   // std::array<size_t,2>
 	const int rank = static_cast<int>(dims[0]);
-	const int T = static_cast<int>(dims[1]);
-	mp_HNumerator->allocate(rank, T);
+	const int nz = static_cast<int>(dims[1]);
+	const int T = static_cast<int>(dims[2]);
+	mp_HNumerator->allocate(rank, nz, T);
 }
 
 ImageBase* OSEM_CPU::getImageTmpBuffer(TemporaryImageSpaceBufferType type)
@@ -322,19 +323,28 @@ void OSEM_CPU::generateWUpdateSensScaling(float* c_WUpdate_r)
 	// HBasis is rank x T
 	const auto dims = projectorParams.HBasis.getDims();
 	const int rank = static_cast<int>(dims[0]);
-	const int T = static_cast<int>(dims[1]);
+	const int nz = static_cast<int>(dims[1]);
+	const int T = static_cast<int>(dims[2]);
+
+	std::fill(c_WUpdate_r, c_WUpdate_r + rank * nz, 0.f);
 
 	for (int r = 0; r < rank; ++r) {
-		for (int t = 0; t < T; ++t)
+		for (int z = 0; z < nz; ++z)
 		{
-			c_WUpdate_r[r] += projectorParams.HBasis[r][t];
+			for (int t = 0; t < T; ++t)
+			{
+				c_WUpdate_r[r * nz + z] += projectorParams.HBasis[r][z][t];
+			}
 		}
+
 	}
 
 }
 
 void OSEM_CPU::generateHUpdateSensScaling(float* c_HUpdate_r)
 {
+	const int nz = imageParams.nz;
+	const size_t Jxy = imageParams.nx * imageParams.ny;
 	const size_t J = imageParams.nx * imageParams.ny * imageParams.nz;
 	const auto* W_img = dynamic_cast<Image*>(getMLEMImageBuffer());
 	const auto* s_img = dynamic_cast<Image*>(getSensImageBuffer());
@@ -355,25 +365,29 @@ void OSEM_CPU::generateHUpdateSensScaling(float* c_HUpdate_r)
 	}
 
 	const int numThreads = globals::getNumThreads();
+	std::fill(c_HUpdate_r, c_HUpdate_r + rank * nz, 0.0f);
 
 	for (int r = 0; r < rank; ++r)
 	{
-		std::vector<float> cr_threadLocal(numThreads, 0.f);
+		std::vector<float> cr_threadLocal(numThreads * nz, 0.f);
 		const auto* Wr = W_ptr + r * J;
 
 		util::parallelForChunked(J, numThreads, [&](size_t j, size_t tid)
 		{
-			cr_threadLocal[tid] += Wr[j] * s_ptr[j];
+			const int z = static_cast<int>(j / Jxy);
+			cr_threadLocal[tid * nz + z] += Wr[j] * s_ptr[j];
 		});
 
-		float cr = 0.0f;
-
-		for (int t = 0 ; t < numThreads; ++t)
+		for (int z = 0; z < nz; ++z)
 		{
-			cr += cr_threadLocal[t];
+			float cr = 0.0f;
+			for (int t = 0 ; t < numThreads; ++t)
+			{
+				cr += cr_threadLocal[t * nz + z];
+			}
+			c_HUpdate_r[r * nz + z] = cr;
 		}
 
-		c_HUpdate_r[r] = cr;
 	}
 
 }

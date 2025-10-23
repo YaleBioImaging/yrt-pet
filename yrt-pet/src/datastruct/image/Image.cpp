@@ -640,27 +640,33 @@ void Image::updateEMThresholdRankScaled(ImageBase* updateImg,
 	// number of voxels per rank slab (nz*ny*nx)
 	auto params = this->getParams();
 	const auto rank = this->getNumFrames();
+	const size_t Jxy = params.nx * params.ny;
+	const int nz = params.nz;
 	const size_t J = params.nx * params.ny * params.nz;
 	// const float* norm_ptr_r = norm_ptr;
 
 	// Precompute to avoid divides inside the hot loop
-	std::vector<float> inv_c(rank), thr_r(rank);
+	std::vector<float> inv_c(rank * nz), thr_r(rank * nz);
 	for (int r = 0; r < rank; ++r) {
-		inv_c[r] = 1.0f / c_r[r];
-		thr_r[r] = threshold * inv_c[r];   // == threshold / c_r[r]
+		for (int z = 0; z < nz; ++z)
+		{
+			inv_c[r * nz + z] = 1.0f / c_r[r * nz + z];
+			thr_r[r * nz + z] = threshold * inv_c[r * nz + z];   // == threshold / c_r[r]
+		}
 	}
 
 	util::parallelForChunked(
 		J * rank, globals::getNumThreads(),
-		[norm_ptr, thr_r, up_ptr, inv_c, ptr, rank, J](size_t i, int /*tid*/)
+		[norm_ptr, thr_r, up_ptr, inv_c, ptr, rank, J, Jxy, nz](size_t i, int /*tid*/)
 		{
 			size_t j = i / rank;
 			int r2 = i % rank;
+			const int z = j / Jxy;
 			const float s = norm_ptr[j];
-			if (s > thr_r[r2])
+			if (s > thr_r[r2 * nz + z])
 			{
 				const auto idx = r2 * J + j;
-				ptr[idx] *= (up_ptr[idx] * inv_c[r2]) / s;
+				ptr[idx] *= (up_ptr[idx] * inv_c[r2 * nz + z]) / s;
 			}
 		}
 		);

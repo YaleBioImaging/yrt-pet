@@ -63,7 +63,7 @@ public:
 	ProjectionDataDeviceOwned* getMLEMDataDeviceBuffer();
 	const ProjectionDataDeviceOwned* getMLEMDataTmpDeviceBuffer() const;
 	ProjectionDataDeviceOwned* getMLEMDataTmpDeviceBuffer();
-	Array2DBase<float>* getHBasisTmpBuffer() override;
+	Array3DBase<float>* getHBasisTmpBuffer() override;
 	void allocateHBasisTmpBuffer() override;
 
 	// LR methods

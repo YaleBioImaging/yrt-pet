@@ -581,13 +581,13 @@ void OperatorProjectorSiddon::project_helper(
 		}
 		if (IS_FWD)
 		{
-			value += updater.forwardUpdate(weight, raw_img_ptr, totalOffset,
+			value += updater.forwardUpdate(weight, raw_img_ptr, totalOffset, vz,
 			                               dynamicFrame, numVoxelsPerFrame);
 		}
 		else
 		{
-			updater.backUpdate(value, weight, raw_img_ptr, totalOffset, dynamicFrame,
-			                   numVoxelsPerFrame);
+			updater.backUpdate(value, weight, raw_img_ptr, totalOffset, vz,
+			                   dynamicFrame, numVoxelsPerFrame);
 		}
 		a_cur = a_next;
 		ax_next_prev = ax_next;

@@ -127,17 +127,18 @@ void py_setup_osem(pybind11::module& m)
 	    [](OSEM& self, py::buffer& np_data) {
 		    py::buffer_info buffer = np_data.request();
 
-		    if (buffer.ndim != 2)
-			    throw std::invalid_argument("HBasis must be 2D (rank x time).");
+		    if (buffer.ndim != 3)
+			    throw std::invalid_argument("HBasis must be 3D (rank x slice x time).");
 
 		    if (buffer.format != py::format_descriptor<float>::format())
 			    throw std::invalid_argument("HBasis must be float32.");
 
 		    auto* ptr = reinterpret_cast<float*>(buffer.ptr);
 		    const size_t rank = static_cast<size_t>(buffer.shape[0]);
-		    const size_t T    = static_cast<size_t>(buffer.shape[1]);
+		    const size_t nz    = static_cast<size_t>(buffer.shape[1]);
+	    	const size_t T    = static_cast<size_t>(buffer.shape[2]);
 
-		    self.projectorParams.HBasis.bind(ptr, rank, T);
+		    self.projectorParams.HBasis.bind(ptr, rank, nz, T);
 	    },
 	    py::arg("HBasis"),
 	    py::keep_alive<1, 2>()  // keep the buffer owner alive
@@ -145,15 +146,16 @@ void py_setup_osem(pybind11::module& m)
 
 	c.def("getHBasisNumpy",
 	      [](OSEM& self) {
-		      const auto& H = self.getHBasis();               // Array2DAlias<float>
+		      const auto& H = self.getHBasis();
 		      auto dims = H.getDims();                        // {rank, T}
 		      int R = static_cast<int>(dims[0]);
-		      int T = static_cast<int>(dims[1]);
+	      	int nz = static_cast<int>(dims[1]);
+		      int T = static_cast<int>(dims[2]);
 
-		      py::array_t<float> arr({R, T});                 // C-contiguous
+		      py::array_t<float> arr({R, nz, T});                 // C-contiguous
 		      std::memcpy(arr.mutable_data(),                 // copy all at once
 		                  H.getRawPointer(),
-		                  static_cast<size_t>(R*T) * sizeof(float));
+		                  static_cast<size_t>(R*nz*T) * sizeof(float));
 		      return arr;                                     // copy
 	      });
 
@@ -193,11 +195,12 @@ OSEM::OSEM(const Scanner& pr_scanner)
 {
 }
 
-const OperatorProjectorParams& OSEM::getProjectorParams() const {
+const OperatorProjectorParams& OSEM::getProjectorParams() const
+{
 	return projectorParams;
 }
 
-const Array2DAlias<float>& OSEM::getHBasis() const {
+const Array3DAlias<float>& OSEM::getHBasis() const {
 	const auto& H = projectorParams.HBasis;
 	auto dims = H.getDims();
 	if (dims[0] == 0 || dims[1] == 0) {
@@ -226,7 +229,7 @@ int OSEM::getNumRays() const
 	return projectorParams.numRays;
 }
 
-void OSEM::setHBasis(const Array2DAlias<float>& HBasisAlias) {
+void OSEM::setHBasis(const Array3DAlias<float>& HBasisAlias) {
 	// Rebind our alias to the provided alias's storage
 	projectorParams.HBasis.bind(HBasisAlias);
 }
@@ -638,25 +641,10 @@ Image* OSEM::getSensitivityImage(int subsetId)
 	return m_sensitivityImages.at(subsetId);
 }
 
-void OSEM::dumpHBasis(const Array2DAlias<float>& H, const char* tag) {
-	auto dims = H.getDims();                 // {R, T}
-	const size_t R = dims[0], T = dims[1];
-	const size_t showR = std::min<size_t>(R, 8);   // limit output
-	const size_t showT = std::min<size_t>(T, 30);
+void OSEM::dumpHBasis(const Array3DAlias<float>& H, const char* tag) {
+	(void) H;
+	(void) tag;
 
-	std::printf("HBasis%s%s (R=%zu, T=%zu)\n",
-				tag ? " " : "", tag ? tag : "", R, T);
-
-	for (size_t r = 0; r < showR; ++r) {
-		std::printf("r=%zu:", r);
-		for (size_t t = 0; t < showT; ++t) {
-			std::printf(" %.6g", H[r][t]);
-		}
-		if (showT < T) std::printf(" ...");
-		std::printf("\n");
-	}
-	if (showR < R) std::printf("...\n");
-	std::fflush(stdout);
 }
 
 template<bool IS_DYNAMIC>
@@ -736,9 +724,9 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 	std::vector<float> c_Hupdate_r;
 	int rank;
 	int T = 0;
+	int nz = imageParams.nz;
 	allocateHBasisTmpBuffer();
-	auto* HBuffer = dynamic_cast<Array2D<float>*>(getHBasisTmpBuffer());
-	// std::unique_ptr<Array2D<float>> HBuffer = std::make_unique<Array2D<float>>();
+	auto* HBuffer = dynamic_cast<Array3D<float>*>(getHBasisTmpBuffer());
 
 	if (isLowRank) {
 		// Check LR Updater
@@ -759,16 +747,16 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 		// HBasis is rank x T
 		const auto dims = projectorParams.HBasis.getDims();   // std::array<size_t,2>
 		rank = static_cast<int>(dims[0]);
-		T = static_cast<int>(dims[1]);
+		T = static_cast<int>(dims[2]);
 
 		if (!projectorParams.updateH || dualUpdate)
 		{
-			c_WUpdate_r.resize(rank, 0.f);
+			c_WUpdate_r.resize(rank * nz, 0.f);
 			generateWUpdateSensScaling(c_WUpdate_r.data());
 		}
 		if (projectorParams.updateH || dualUpdate)
 		{
-			c_Hupdate_r.resize(rank, 0.f);
+			c_Hupdate_r.resize(rank * nz, 0.f);
 			generateHUpdateSensScaling(c_Hupdate_r.data());
 			HBuffer->fill(0.f);
 			if (auto* proj = reinterpret_cast<OperatorProjector*>(mp_projector.get())) {
@@ -796,7 +784,7 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 	{
 		// 4D dynamic case
 		T = imageParams.num_frames;
-		c_WUpdate_r.resize(T, 1.f);
+		c_WUpdate_r.resize(T * nz, 1.f);
 	}
 
 	const int numDigitsInFilename = util::numberOfDigits(num_MLEM_iterations);
@@ -889,31 +877,32 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 				float*       H_old_ptr = projectorParams.HBasis.getRawPointer(); // current H
 				const float* Hnum_ptr  = HBuffer->getRawPointer();               // numerator accumulated this subset
 
-				printf("\n --- Before Update --- \n");
-				double sum = 0.0;
-				for (int i = 0; i < rank*T; ++i) sum += H_old_ptr[i];
-				printf("sum(H)=%.6g, mean(H)=%.6g\n", sum, sum / (rank*T));
+				// printf("\n --- Before Update --- \n");
+				// double sum = 0.0;
+				// for (int i = 0; i < rank*T; ++i) sum += H_old_ptr[i];
+				// printf("sum(H)=%.6g, mean(H)=%.6g\n", sum, sum / (rank*T));
 
 
 				// H_new := H_old * (Hnum / c_r)
 				util::parallelForChunked(
 					T, globals::getNumThreads(),
-					[rank, T, c_Hupdate_r, H_old_ptr, Hnum_ptr](int t, int /*tid*/)
+					[rank, nz, T, c_Hupdate_r, H_old_ptr, Hnum_ptr](int t, int /*tid*/)
 					{
+						const int z = t / T;
 						for (int r = 0; r < rank; ++r)
 						{
-							const float denom = std::max(c_Hupdate_r[r], EPS_FLT);
+							const float denom = std::max(c_Hupdate_r[r * nz + z], EPS_FLT);
 							const float inv   = 1.0f / denom;
-							float*       Hr  = H_old_ptr + r * T;
-							const float* Nr  = Hnum_ptr  + r * T;
+							float*       Hr  = H_old_ptr + r * nz * T + z * T;
+							const float* Nr  = Hnum_ptr  + r * nz * T + z * T;
 							Hr[t] = Hr[t] * (Nr[t] * inv); // write the *new H* back over H_old
 						}
 					});
 
-				printf("\n --- After Update --- \n");
-				double sum_after = 0.0;
-				for (int i = 0; i < rank * T; ++i) sum_after += H_old_ptr[i];
-				printf("sum(H)=%.6g, mean(H)=%.6g\n", sum_after, sum_after / (rank*T));
+				// printf("\n --- After Update --- \n");
+				// double sum_after = 0.0;
+				// for (int i = 0; i < rank * T; ++i) sum_after += H_old_ptr[i];
+				// printf("sum(H)=%.6g, mean(H)=%.6g\n", sum_after, sum_after / (rank*T));
 
 			}
 

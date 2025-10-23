@@ -94,11 +94,11 @@ public:
 	virtual const Corrector& getCorrector() const = 0;
 
 	const OperatorProjectorParams& getProjectorParams() const;
-	const Array2DAlias<float>& getHBasis() const;
+	const Array3DAlias<float>& getHBasis() const;
 	bool getUpdateH() const;
 	OperatorProjectorParams::ProjectorUpdaterType getProjectorUpdaterType() const;
 	int getNumRays() const;
-	void setHBasis(const Array2DAlias<float>& HBasisAlias);
+	void setHBasis(const Array3DAlias<float>& HBasisAlias);
 	void setProjectorUpdaterType(OperatorProjectorParams::ProjectorUpdaterType projectorUpdaterType);
 	void setNumRays(int p_numRays);
 	void setUpdateH(bool p_updateH);
@@ -169,13 +169,13 @@ protected:
 	virtual Corrector& getCorrector() = 0;
 
 	// Abstract LR methods
-	virtual Array2DBase<float>* getHBasisTmpBuffer() = 0;
+	virtual Array3DBase<float>* getHBasisTmpBuffer() = 0;
 	virtual void allocateHBasisTmpBuffer() = 0;
 	virtual void initializeHBasisTmpBuffer() = 0;
 	virtual void generateWUpdateSensScaling(float* c) = 0;
 	virtual void generateHUpdateSensScaling(float* c) = 0;
 
-	static void dumpHBasis(const Array2DAlias<float>& H, const char* tag = nullptr);
+	static void dumpHBasis(const Array3DAlias<float>& H, const char* tag = nullptr);
 
 
 	// Common methods

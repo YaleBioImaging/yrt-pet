@@ -438,7 +438,7 @@ void OSEM_GPU::setupProjectorUpdater()
 	//projector->setupUpdater(projectorParams);
 }
 
-Array2DBase<float>* OSEM_GPU::getHBasisTmpBuffer()
+Array3DBase<float>* OSEM_GPU::getHBasisTmpBuffer()
 {
 	return nullptr;
 }

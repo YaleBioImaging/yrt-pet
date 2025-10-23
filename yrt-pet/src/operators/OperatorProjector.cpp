@@ -75,7 +75,7 @@ void py_setup_operatorprojector(py::module& m)
 		[](OperatorProjector& self, py::buffer& np_data)
 		{
 			py::buffer_info buffer = np_data.request();
-			if (buffer.ndim != 2)
+			if (buffer.ndim != 3)
 			{
 				throw std::invalid_argument(
 					"The buffer given has to have 2 dimensions");
@@ -94,9 +94,9 @@ void py_setup_operatorprojector(py::module& m)
 					"Projector needs to have a `OperatorProjectorUpdaterLR`");
 			}
 
-			Array2DAlias<float> hBasis;
+			Array3DAlias<float> hBasis;
 			hBasis.bind(reinterpret_cast<float*>(buffer.ptr),
-			            buffer.shape[0], buffer.shape[1]);
+			            buffer.shape[0], buffer.shape[1], buffer.shape[2]);
 			updaterLR->setHBasis(hBasis);
 
 		},
@@ -115,8 +115,8 @@ void py_setup_operatorprojector(py::module& m)
 		}
 
 		auto dims = updaterLR->getHBasis().getDims();
-		auto out  = std::make_unique<Array2D<float>>();
-		out->allocate(dims[0], dims[1]);
+		auto out  = std::make_unique<Array3D<float>>();
+		out->allocate(dims[0], dims[1], dims[2]);
 		out->copy(updaterLR->getHBasis());
 		return out;
 

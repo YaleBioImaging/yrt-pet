@@ -366,19 +366,13 @@ const float*
 	return nullptr;
 }
 
-
 void OperatorProjectorDevice::setUpdater(
 	DeviceObject<OperatorProjectorUpdaterDevice>&& pp_updater)
 {
 	m_updater = std::move(pp_updater);
 }
 
-const DeviceObject<OperatorProjectorUpdaterDevice>* OperatorProjectorDevice::getUpdater()
-{
-	return &m_updater;
-}
-
-const OperatorProjectorUpdaterDevice* OperatorProjectorDevice::getUpdaterDevicePointer()
+OperatorProjectorUpdaterDevice* OperatorProjectorDevice::getUpdaterDevicePointer()
 {
 	return m_updater.getDevicePointer();
 }

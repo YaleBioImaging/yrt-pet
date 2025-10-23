@@ -313,23 +313,23 @@ void ProjectionDataDevice::loadProjValuesFromHostInternal(
 			//  memory is contiguous)
 
 			// Fill the buffer using the source directly
-			util::parallelForChunked(
-			    batchSize, globals::getNumThreads(),
-			    [offset, &binIter, projValuesBuffer, src,
-			     batchSize](bin_t binIdx, size_t /*tid*/)
-			    {
-				    bin_t binId = binIter->get(binIdx + offset);
-				    if constexpr (GatherRandoms)
-				    {
-					    projValuesBuffer[binIdx] =
-					        src->getRandomsEstimate(binId);
-				    }
-				    else
-				    {
-					    projValuesBuffer[binIdx] =
-					        src->getProjectionValue(binId);
-				    }
-			    });
+			util::parallelForChunked(batchSize, globals::getNumThreads(),
+			                         [offset, &binIter, projValuesBuffer, src,
+			                          batchSize](bin_t binIdx, size_t /*tid*/)
+			                         {
+				                         bin_t binId =
+				                             binIter->get(binIdx + offset);
+				                         if constexpr (GatherRandoms)
+				                         {
+					                         projValuesBuffer[binIdx] =
+					                             src->getRandomsEstimate(binId);
+				                         }
+				                         else
+				                         {
+					                         projValuesBuffer[binIdx] =
+					                             src->getProjectionValue(binId);
+				                         }
+			                         });
 		}
 		else
 		{
@@ -378,7 +378,7 @@ void ProjectionDataDevice::transferProjValuesToHost(
 	                         {
 		                         bin_t binId = binIter->get(binIdx + offset);
 		                         projDataDest->setProjectionValue(
-			                         binId, projValuesBuffer[binIdx]);
+		                             binId, projValuesBuffer[binIdx]);
 	                         });
 }
 
@@ -430,6 +430,11 @@ const float4* ProjectionDataDevice::getLorDet2PosDevicePointer() const
 const float4* ProjectionDataDevice::getLorDet2OrientDevicePointer() const
 {
 	return mp_LORs->getLorDet2OrientDevicePointer();
+}
+
+const frame_t* ProjectionDataDevice::getDynamicFrameDevicePointer() const
+{
+	return mp_LORs->getDynamicFrameDevicePointer();
 }
 
 const float* ProjectionDataDevice::getLorTOFValueDevicePointer() const

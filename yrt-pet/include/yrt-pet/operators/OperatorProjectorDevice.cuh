@@ -31,8 +31,7 @@ public:
 
 	bool requiresIntermediaryProjData() const;
 	void setupTOFHelper(float tofWidth_ps, int tofNumStd = -1);
-	const DeviceObject<OperatorProjectorUpdaterDevice>* getUpdater();
-	const OperatorProjectorUpdaterDevice* getUpdaterDevicePointer();
+	OperatorProjectorUpdaterDevice* getUpdaterDevicePointer();
 	void setupUpdater(const OperatorProjectorParams& p_projParams);
 	void setUpdater(DeviceObject<OperatorProjectorUpdaterDevice>&& pp_updater);
 

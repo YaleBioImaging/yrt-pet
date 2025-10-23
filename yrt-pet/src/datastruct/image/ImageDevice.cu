@@ -195,7 +195,7 @@ ImageDevice::ImageDevice(const ImageParams& imgParams,
 void ImageDevice::setDeviceParams(const ImageParams& params)
 {
 	m_launchParams = util::initiateDeviceParameters(params);
-	m_imgSize = params.nx * params.ny * params.nz;
+	m_imgSize = params.num_frames * params.nx * params.ny * params.nz;
 }
 
 const cudaStream_t* ImageDevice::getStream() const
@@ -523,7 +523,7 @@ void ImageDeviceOwned::allocate(bool synchronize, bool initializeToZero)
 {
 	const auto& params = getParams();
 	std::cout << "Allocating device memory for an image of dimensions "
-	          << "[" << params.nz << ", " << params.ny << ", " << params.nx
+	          << "[" << params.num_frames << ", " << params.nz << ", " << params.ny << ", " << params.nx
 	          << "]..." << std::endl;
 
 	util::allocateDevice(&mpd_devicePointer, m_imgSize, {mp_stream, false});

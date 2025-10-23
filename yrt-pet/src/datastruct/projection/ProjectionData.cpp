@@ -116,6 +116,11 @@ bool ProjectionData::hasMotion() const
 	return false;
 }
 
+bool ProjectionData::hasDynamicFraming() const
+{
+	return getNumDynamicFrames() > 1;
+}
+
 size_t ProjectionData::getNumMotionFrames() const
 {
 	// By default, only one frame

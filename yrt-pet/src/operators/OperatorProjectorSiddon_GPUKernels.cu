@@ -75,8 +75,8 @@ template <bool IsForward, bool HasTOF, bool IsIncremental, bool IsMultiRay>
 __global__ void OperatorProjectorSiddonCU_kernel(
     float* pd_projValues, float* pd_image, const float4* pd_lorDet1Pos,
     const float4* pd_lorDet2Pos, const float4* pd_lorDet1Orient,
-    const float4* pd_lorDet2Orient, const float* pd_lorTOFValue,
-    OperatorProjectorUpdaterDevice* pd_updater, frame_t dynamicFrame,
+    const float4* pd_lorDet2Orient, OperatorProjectorUpdaterDevice* pd_updater,
+    const frame_t* pd_dynamicFrame, const float* pd_lorTOFValue,
     const TimeOfFlightHelper* pd_tofHelper, CUScannerParams scannerParams,
     CUImageParams imgParams, int p_numRays, size_t batchSize)
 {
@@ -93,6 +93,11 @@ __global__ void OperatorProjectorSiddonCU_kernel(
 		float4 p2_init = pd_lorDet2Pos[eventId];
 		float4 n1 = pd_lorDet1Orient[eventId];
 		float4 n2 = pd_lorDet2Orient[eventId];
+		frame_t dynamicFrame = 0;
+		if (pd_dynamicFrame != nullptr)
+		{
+			dynamicFrame = pd_dynamicFrame[eventId];
+		}
 
 		// For multi-ray siddon
 		float4 parallelToTrans1, parallelToTrans2;
@@ -429,128 +434,144 @@ template __global__ void
     OperatorProjectorSiddonCU_kernel<true, true, false, false>(
         float* pd_projValues, float* pd_image, const float4* pd_lorDet1Pos,
         const float4* pd_lorDet2Pos, const float4* pd_lorDet1Orient,
-        const float4* pd_lorDet2Orient, const float* pd_lorTOFValue,
-        OperatorProjectorUpdaterDevice* pd_updater, frame_t dynamicFrame,
+        const float4* pd_lorDet2Orient,
+        OperatorProjectorUpdaterDevice* pd_updater,
+        const frame_t* pd_dynamicFrame, const float* pd_lorTOFValue,
         const TimeOfFlightHelper* pd_tofHelper, CUScannerParams scannerParams,
         CUImageParams imgParams, int p_numRays, size_t batchSize);
 template __global__ void
     OperatorProjectorSiddonCU_kernel<false, true, false, false>(
         float* pd_projValues, float* pd_image, const float4* pd_lorDet1Pos,
         const float4* pd_lorDet2Pos, const float4* pd_lorDet1Orient,
-        const float4* pd_lorDet2Orient, const float* pd_lorTOFValue,
-        OperatorProjectorUpdaterDevice* pd_updater, frame_t dynamicFrame,
+        const float4* pd_lorDet2Orient,
+        OperatorProjectorUpdaterDevice* pd_updater,
+        const frame_t* pd_dynamicFrame, const float* pd_lorTOFValue,
         const TimeOfFlightHelper* pd_tofHelper, CUScannerParams scannerParams,
         CUImageParams imgParams, int p_numRays, size_t batchSize);
 template __global__ void
     OperatorProjectorSiddonCU_kernel<true, false, false, false>(
         float* pd_projValues, float* pd_image, const float4* pd_lorDet1Pos,
         const float4* pd_lorDet2Pos, const float4* pd_lorDet1Orient,
-        const float4* pd_lorDet2Orient, const float* pd_lorTOFValue,
-        OperatorProjectorUpdaterDevice* pd_updater, frame_t dynamicFrame,
+        const float4* pd_lorDet2Orient,
+        OperatorProjectorUpdaterDevice* pd_updater,
+        const frame_t* pd_dynamicFrame, const float* pd_lorTOFValue,
         const TimeOfFlightHelper* pd_tofHelper, CUScannerParams scannerParams,
         CUImageParams imgParams, int p_numRays, size_t batchSize);
 template __global__ void
     OperatorProjectorSiddonCU_kernel<false, false, false, false>(
         float* pd_projValues, float* pd_image, const float4* pd_lorDet1Pos,
         const float4* pd_lorDet2Pos, const float4* pd_lorDet1Orient,
-        const float4* pd_lorDet2Orient, const float* pd_lorTOFValue,
-        OperatorProjectorUpdaterDevice* pd_updater, frame_t dynamicFrame,
+        const float4* pd_lorDet2Orient,
+        OperatorProjectorUpdaterDevice* pd_updater,
+        const frame_t* pd_dynamicFrame, const float* pd_lorTOFValue,
         const TimeOfFlightHelper* pd_tofHelper, CUScannerParams scannerParams,
         CUImageParams imgParams, int p_numRays, size_t batchSize);
 template __global__ void
     OperatorProjectorSiddonCU_kernel<true, true, true, false>(
         float* pd_projValues, float* pd_image, const float4* pd_lorDet1Pos,
         const float4* pd_lorDet2Pos, const float4* pd_lorDet1Orient,
-        const float4* pd_lorDet2Orient, const float* pd_lorTOFValue,
-        OperatorProjectorUpdaterDevice* pd_updater, frame_t dynamicFrame,
+        const float4* pd_lorDet2Orient,
+        OperatorProjectorUpdaterDevice* pd_updater,
+        const frame_t* pd_dynamicFrame, const float* pd_lorTOFValue,
         const TimeOfFlightHelper* pd_tofHelper, CUScannerParams scannerParams,
         CUImageParams imgParams, int p_numRays, size_t batchSize);
 template __global__ void
     OperatorProjectorSiddonCU_kernel<false, true, true, false>(
         float* pd_projValues, float* pd_image, const float4* pd_lorDet1Pos,
         const float4* pd_lorDet2Pos, const float4* pd_lorDet1Orient,
-        const float4* pd_lorDet2Orient, const float* pd_lorTOFValue,
-        OperatorProjectorUpdaterDevice* pd_updater, frame_t dynamicFrame,
+        const float4* pd_lorDet2Orient,
+        OperatorProjectorUpdaterDevice* pd_updater,
+        const frame_t* pd_dynamicFrame, const float* pd_lorTOFValue,
         const TimeOfFlightHelper* pd_tofHelper, CUScannerParams scannerParams,
         CUImageParams imgParams, int p_numRays, size_t batchSize);
 template __global__ void
     OperatorProjectorSiddonCU_kernel<true, false, true, false>(
         float* pd_projValues, float* pd_image, const float4* pd_lorDet1Pos,
         const float4* pd_lorDet2Pos, const float4* pd_lorDet1Orient,
-        const float4* pd_lorDet2Orient, const float* pd_lorTOFValue,
-        OperatorProjectorUpdaterDevice* pd_updater, frame_t dynamicFrame,
+        const float4* pd_lorDet2Orient,
+        OperatorProjectorUpdaterDevice* pd_updater,
+        const frame_t* pd_dynamicFrame, const float* pd_lorTOFValue,
         const TimeOfFlightHelper* pd_tofHelper, CUScannerParams scannerParams,
         CUImageParams imgParams, int p_numRays, size_t batchSize);
 template __global__ void
     OperatorProjectorSiddonCU_kernel<false, false, true, false>(
         float* pd_projValues, float* pd_image, const float4* pd_lorDet1Pos,
         const float4* pd_lorDet2Pos, const float4* pd_lorDet1Orient,
-        const float4* pd_lorDet2Orient, const float* pd_lorTOFValue,
-        OperatorProjectorUpdaterDevice* pd_updater, frame_t dynamicFrame,
+        const float4* pd_lorDet2Orient,
+        OperatorProjectorUpdaterDevice* pd_updater,
+        const frame_t* pd_dynamicFrame, const float* pd_lorTOFValue,
         const TimeOfFlightHelper* pd_tofHelper, CUScannerParams scannerParams,
         CUImageParams imgParams, int p_numRays, size_t batchSize);
 template __global__ void
     OperatorProjectorSiddonCU_kernel<true, true, false, true>(
         float* pd_projValues, float* pd_image, const float4* pd_lorDet1Pos,
         const float4* pd_lorDet2Pos, const float4* pd_lorDet1Orient,
-        const float4* pd_lorDet2Orient, const float* pd_lorTOFValue,
-        OperatorProjectorUpdaterDevice* pd_updater, frame_t dynamicFrame,
+        const float4* pd_lorDet2Orient,
+        OperatorProjectorUpdaterDevice* pd_updater,
+        const frame_t* pd_dynamicFrame, const float* pd_lorTOFValue,
         const TimeOfFlightHelper* pd_tofHelper, CUScannerParams scannerParams,
         CUImageParams imgParams, int p_numRays, size_t batchSize);
 template __global__ void
     OperatorProjectorSiddonCU_kernel<false, true, false, true>(
         float* pd_projValues, float* pd_image, const float4* pd_lorDet1Pos,
         const float4* pd_lorDet2Pos, const float4* pd_lorDet1Orient,
-        const float4* pd_lorDet2Orient, const float* pd_lorTOFValue,
-        OperatorProjectorUpdaterDevice* pd_updater, frame_t dynamicFrame,
+        const float4* pd_lorDet2Orient,
+        OperatorProjectorUpdaterDevice* pd_updater,
+        const frame_t* pd_dynamicFrame, const float* pd_lorTOFValue,
         const TimeOfFlightHelper* pd_tofHelper, CUScannerParams scannerParams,
         CUImageParams imgParams, int p_numRays, size_t batchSize);
 template __global__ void
     OperatorProjectorSiddonCU_kernel<true, false, false, true>(
         float* pd_projValues, float* pd_image, const float4* pd_lorDet1Pos,
         const float4* pd_lorDet2Pos, const float4* pd_lorDet1Orient,
-        const float4* pd_lorDet2Orient, const float* pd_lorTOFValue,
-        OperatorProjectorUpdaterDevice* pd_updater, frame_t dynamicFrame,
+        const float4* pd_lorDet2Orient,
+        OperatorProjectorUpdaterDevice* pd_updater,
+        const frame_t* pd_dynamicFrame, const float* pd_lorTOFValue,
         const TimeOfFlightHelper* pd_tofHelper, CUScannerParams scannerParams,
         CUImageParams imgParams, int p_numRays, size_t batchSize);
 template __global__ void
     OperatorProjectorSiddonCU_kernel<false, false, false, true>(
         float* pd_projValues, float* pd_image, const float4* pd_lorDet1Pos,
         const float4* pd_lorDet2Pos, const float4* pd_lorDet1Orient,
-        const float4* pd_lorDet2Orient, const float* pd_lorTOFValue,
-        OperatorProjectorUpdaterDevice* pd_updater, frame_t dynamicFrame,
+        const float4* pd_lorDet2Orient,
+        OperatorProjectorUpdaterDevice* pd_updater,
+        const frame_t* pd_dynamicFrame, const float* pd_lorTOFValue,
         const TimeOfFlightHelper* pd_tofHelper, CUScannerParams scannerParams,
         CUImageParams imgParams, int p_numRays, size_t batchSize);
 template __global__ void
     OperatorProjectorSiddonCU_kernel<true, true, true, true>(
         float* pd_projValues, float* pd_image, const float4* pd_lorDet1Pos,
         const float4* pd_lorDet2Pos, const float4* pd_lorDet1Orient,
-        const float4* pd_lorDet2Orient, const float* pd_lorTOFValue,
-        OperatorProjectorUpdaterDevice* pd_updater, frame_t dynamicFrame,
+        const float4* pd_lorDet2Orient,
+        OperatorProjectorUpdaterDevice* pd_updater,
+        const frame_t* pd_dynamicFrame, const float* pd_lorTOFValue,
         const TimeOfFlightHelper* pd_tofHelper, CUScannerParams scannerParams,
         CUImageParams imgParams, int p_numRays, size_t batchSize);
 template __global__ void
     OperatorProjectorSiddonCU_kernel<false, true, true, true>(
         float* pd_projValues, float* pd_image, const float4* pd_lorDet1Pos,
         const float4* pd_lorDet2Pos, const float4* pd_lorDet1Orient,
-        const float4* pd_lorDet2Orient, const float* pd_lorTOFValue,
-        OperatorProjectorUpdaterDevice* pd_updater, frame_t dynamicFrame,
+        const float4* pd_lorDet2Orient,
+        OperatorProjectorUpdaterDevice* pd_updater,
+        const frame_t* pd_dynamicFrame, const float* pd_lorTOFValue,
         const TimeOfFlightHelper* pd_tofHelper, CUScannerParams scannerParams,
         CUImageParams imgParams, int p_numRays, size_t batchSize);
 template __global__ void
     OperatorProjectorSiddonCU_kernel<true, false, true, true>(
         float* pd_projValues, float* pd_image, const float4* pd_lorDet1Pos,
         const float4* pd_lorDet2Pos, const float4* pd_lorDet1Orient,
-        const float4* pd_lorDet2Orient, const float* pd_lorTOFValue,
-        OperatorProjectorUpdaterDevice* pd_updater, frame_t dynamicFrame,
+        const float4* pd_lorDet2Orient,
+        OperatorProjectorUpdaterDevice* pd_updater,
+        const frame_t* pd_dynamicFrame, const float* pd_lorTOFValue,
         const TimeOfFlightHelper* pd_tofHelper, CUScannerParams scannerParams,
         CUImageParams imgParams, int p_numRays, size_t batchSize);
 template __global__ void
     OperatorProjectorSiddonCU_kernel<false, false, true, true>(
         float* pd_projValues, float* pd_image, const float4* pd_lorDet1Pos,
         const float4* pd_lorDet2Pos, const float4* pd_lorDet1Orient,
-        const float4* pd_lorDet2Orient, const float* pd_lorTOFValue,
-        OperatorProjectorUpdaterDevice* pd_updater, frame_t dynamicFrame,
+        const float4* pd_lorDet2Orient,
+        OperatorProjectorUpdaterDevice* pd_updater,
+        const frame_t* pd_dynamicFrame, const float* pd_lorTOFValue,
         const TimeOfFlightHelper* pd_tofHelper, CUScannerParams scannerParams,
         CUImageParams imgParams, int p_numRays, size_t batchSize);
 

@@ -95,6 +95,7 @@ public:
 	const float4* getLorDet1OrientDevicePointer() const;
 	const float4* getLorDet2PosDevicePointer() const;
 	const float4* getLorDet2OrientDevicePointer() const;
+	const frame_t* getDynamicFrameDevicePointer() const;
 	const float* getLorTOFValueDevicePointer() const;
 
 	float getProjectionValue(bin_t id) const override;

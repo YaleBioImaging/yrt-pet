@@ -15,7 +15,8 @@
 namespace yrt
 {
 LORsDevice::LORsDevice()
-    : m_hasTOF(false),
+    : m_hasDynamicFraming(false),
+      m_hasTOF(false),
       m_precomputedBatchSize(0ull),
       m_precomputedBatchId(-1),
       m_precomputedSubsetId(-1),
@@ -37,6 +38,7 @@ void LORsDevice::precomputeBatchLORs(const BinIterator& binIter,
 	{
 		m_areLORsPrecomputed = false;
 		m_hasTOF = reference.hasTOF();
+		m_hasDynamicFraming = reference.hasDynamicFraming();
 
 		const size_t batchSize = batchSetup.getBatchSize(batchId);
 
@@ -48,6 +50,13 @@ void LORsDevice::precomputeBatchLORs(const BinIterator& binIter,
 		float4* tempBufferLorDet2Pos_ptr = m_tempLorDet2Pos.getPointer();
 		float4* tempBufferLorDet1Orient_ptr = m_tempLorDet1Orient.getPointer();
 		float4* tempBufferLorDet2Orient_ptr = m_tempLorDet2Orient.getPointer();
+
+		frame_t* tempBufferDynamicFrame_ptr = nullptr;
+		if (m_hasDynamicFraming)
+		{
+			m_tempDynamicFrame.reAllocateIfNeeded(batchSize);
+			tempBufferDynamicFrame_ptr = m_tempDynamicFrame.getPointer();
+		}
 
 		float* tempBufferLorTOFValue_ptr = nullptr;
 		if (m_hasTOF)
@@ -64,7 +73,8 @@ void LORsDevice::precomputeBatchLORs(const BinIterator& binIter,
 		    batchSize, globals::getNumThreads(),
 		    [binIter_ptr, offset, reference_ptr, tempBufferLorDet1Pos_ptr,
 		     tempBufferLorDet2Pos_ptr, tempBufferLorDet1Orient_ptr,
-		     tempBufferLorDet2Orient_ptr, tempBufferLorTOFValue_ptr,
+		     tempBufferLorDet2Orient_ptr, tempBufferDynamicFrame_ptr,
+		     tempBufferLorTOFValue_ptr,
 		     this](size_t binIdx, size_t /*tid*/)
 		    {
 			    bin_t binId = binIter_ptr->get(binIdx + offset);
@@ -83,6 +93,12 @@ void LORsDevice::precomputeBatchLORs(const BinIterator& binIter,
 			    tempBufferLorDet2Orient_ptr[binIdx].x = det2Orient.x;
 			    tempBufferLorDet2Orient_ptr[binIdx].y = det2Orient.y;
 			    tempBufferLorDet2Orient_ptr[binIdx].z = det2Orient.z;
+
+		    	if (m_hasDynamicFraming)
+		    	{
+		    		tempBufferDynamicFrame_ptr[binIdx] = dynamicFrame;
+		    	}
+
 			    if (m_hasTOF)
 			    {
 				    tempBufferLorTOFValue_ptr[binIdx] = tofValue;
@@ -114,6 +130,12 @@ void LORsDevice::loadPrecomputedLORsToDevice(GPULaunchConfig launchConfig)
 		                               m_precomputedBatchSize, {stream, false});
 		mp_lorDet2Orient->copyFromHost(m_tempLorDet2Orient.getPointer(),
 		                               m_precomputedBatchSize, {stream, false});
+		if (m_hasDynamicFraming)
+		{
+			mp_dynamicFrame->copyFromHost(m_tempDynamicFrame.getPointer(),
+							 m_precomputedBatchSize,
+							 {stream, false});
+		}
 		if (m_hasTOF)
 		{
 			mp_lorTOFValue->copyFromHost(m_tempLorTOFValue.getPointer(),
@@ -161,6 +183,7 @@ void LORsDevice::initializeDeviceArrays()
 	mp_lorDet2Pos = std::make_unique<DeviceArray<float4>>();
 	mp_lorDet1Orient = std::make_unique<DeviceArray<float4>>();
 	mp_lorDet2Orient = std::make_unique<DeviceArray<float4>>();
+	mp_dynamicFrame = std::make_unique<DeviceArray<frame_t>>();
 	mp_lorTOFValue = std::make_unique<DeviceArray<float>>();
 }
 
@@ -178,6 +201,12 @@ void LORsDevice::allocateForPrecomputedLORsIfNeeded(
 	                                           {launchConfig.stream, false});
 	hasAllocated |= mp_lorDet2Orient->allocate(m_precomputedBatchSize,
 	                                           {launchConfig.stream, false});
+	if (mp_dynamicFrame)
+	{
+		hasAllocated |= mp_dynamicFrame->allocate(m_precomputedBatchSize,
+												 {launchConfig.stream, false});
+	}
+
 	if (m_hasTOF)
 	{
 		hasAllocated |= mp_lorTOFValue->allocate(m_precomputedBatchSize,
@@ -235,6 +264,11 @@ float4* LORsDevice::getLorDet2PosDevicePointer()
 float4* LORsDevice::getLorDet2OrientDevicePointer()
 {
 	return mp_lorDet2Orient->getDevicePointer();
+}
+
+const frame_t* LORsDevice::getDynamicFrameDevicePointer() const
+{
+	return mp_dynamicFrame->getDevicePointer();
 }
 
 const float* LORsDevice::getLorTOFValueDevicePointer() const

@@ -50,6 +50,7 @@ public:
 	float4* getLorDet1OrientDevicePointer();
 	float4* getLorDet2PosDevicePointer();
 	float4* getLorDet2OrientDevicePointer();
+	const frame_t* getDynamicFrameDevicePointer() const;
 	float* getLorTOFValueDevicePointer();
 	bool areLORsGathered() const;
 
@@ -66,12 +67,15 @@ private:
 	std::unique_ptr<DeviceArray<float4>> mp_lorDet2Pos;
 	std::unique_ptr<DeviceArray<float4>> mp_lorDet1Orient;
 	std::unique_ptr<DeviceArray<float4>> mp_lorDet2Orient;
+	std::unique_ptr<DeviceArray<frame_t>> mp_dynamicFrame;
 	std::unique_ptr<DeviceArray<float>> mp_lorTOFValue;
 	PageLockedBuffer<float4> m_tempLorDet1Pos;
 	PageLockedBuffer<float4> m_tempLorDet2Pos;
 	PageLockedBuffer<float4> m_tempLorDet1Orient;
 	PageLockedBuffer<float4> m_tempLorDet2Orient;
+	PageLockedBuffer<frame_t> m_tempDynamicFrame;
 	PageLockedBuffer<float> m_tempLorTOFValue;
+	bool m_hasDynamicFraming;
 	bool m_hasTOF;
 	size_t m_precomputedBatchSize;
 	int m_precomputedBatchId;

@@ -55,6 +55,7 @@ public:
 	virtual float getTOFValue(bin_t id) const;
 	// For motion correction
 	virtual bool hasMotion() const;
+	virtual bool hasDynamicFraming() const;
 	virtual size_t getNumDynamicFrames() const;
 	virtual size_t getNumMotionFrames() const;
 	virtual transform_t getTransformOfMotionFrame(frame_t frame) const;

@@ -883,7 +883,7 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 										nullptr, EPS_FLT);
 				}
 			}
-			if ((projectorParams.updateH || dualUpdate))
+			if (projectorParams.updateH || (dualUpdate && iter > 0))
 			{
 				printf("\n Apply EM H Update \n");
 				float*       H_old_ptr = projectorParams.HBasis.getRawPointer(); // current H

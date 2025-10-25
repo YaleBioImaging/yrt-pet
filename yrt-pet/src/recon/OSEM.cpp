@@ -774,7 +774,10 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 			if (auto* proj = reinterpret_cast<OperatorProjector*>(mp_projector.get())) {
 				if (auto* lr = dynamic_cast<OperatorProjectorUpdaterLR*>(proj->getUpdater()))
 				{
-					lr->setUpdateH(projectorParams.updateH);            // switch to H accumulation mode
+					if (!dualUpdate)
+					{
+						lr->setUpdateH(projectorParams.updateH);            // switch to H accumulation mode
+					}
 					lr->setHBasis(projectorParams.HBasis);
 					lr->setHBasisWrite(*HBuffer);       // write into mp_HWrite
 					lr->setCurrentImgBuffer(outImage.get());

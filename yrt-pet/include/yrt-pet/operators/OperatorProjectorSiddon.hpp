@@ -64,7 +64,7 @@ public:
 	template <bool IS_FWD, bool FLAG_INCR, bool FLAG_TOF>
 	static void project_helper(Image* img, const Line3D& lor, float& value,
 	                           OperatorProjectorUpdater& updater,
-	                           frame_t dynamicFrame = 0,
+	                           frame_t dynamicFrame = 0, int tid = 0,
 	                           const TimeOfFlightHelper* tofHelper = nullptr,
 	                           float tofValue = 0.f);
 

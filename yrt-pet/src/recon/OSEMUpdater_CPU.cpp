@@ -141,5 +141,45 @@ void OSEMUpdater_CPU::computeEMUpdateImage(const Image& inputImage,
 			                              update, tid);
 		    }
 	    });
+
+	printf("Before if getProjectorUpdaterType");
+	if ((mp_osem->getProjectorUpdaterType() == OperatorProjectorParams::LR) ||
+	(mp_osem->getProjectorUpdaterType() == OperatorProjectorParams::LRDUALUPDATE))
+	{
+		auto projectorH = dynamic_cast<OperatorProjector*>(mp_osem->getProjectorPtr());
+		auto updater = dynamic_cast<OperatorProjectorUpdaterLR*>(projectorH->getUpdater());
+		printf("After if getProjectorUpdaterType: %d", updater->getUpdateH());
+		if (updater->getUpdateH())
+		{
+			{
+				auto H_old = updater->getHBasisWrite();
+				auto dims = H_old.getDims();
+				float sum = 0.f;
+				for (int r = 0; r < dims[0] ; ++r)
+				{
+					for (int t = 0; t < dims[1]; ++t)
+					{
+						sum += H_old[r][t];
+					}
+				}
+				printf("\n Before accumulate: sum(H_tid) = %f \n", sum);
+			}
+			updater->accumulateH();
+			{
+				auto H_old = updater->getHBasisWrite();
+				auto dims = H_old.getDims();
+				float sum = 0.f;
+				for (int r = 0; r < dims[0] ; ++r)
+				{
+					for (int t = 0; t < dims[1]; ++t)
+					{
+						sum += H_old[r][t];
+					}
+				}
+				printf("\n After accumulate: sum(H_tid) = %f \n", sum);
+			}
+		}
+	}
+
 }
 }  // namespace yrt

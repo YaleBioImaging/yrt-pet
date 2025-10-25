@@ -25,11 +25,9 @@ public:
 		size_t offset, frame_t dynamicFrame = 0,
 		size_t numVoxelPerFrame = 0
 		) const = 0;
-	virtual void backUpdate(
-		float value, float weight, float* cur_img_ptr,
-		size_t offset, frame_t dynamicFrame = 0,
-		size_t numVoxelPerFrame = 0
-		) = 0;
+	virtual void backUpdate(float value, float weight, float* cur_img_ptr,
+	                        size_t offset, frame_t dynamicFrame = 0,
+	                        size_t numVoxelPerFrame = 0, int tid = 0) = 0;
 };
 
 
@@ -44,11 +42,9 @@ public:
 		size_t numVoxelPerFrame = 0
 		) const override;
 
-	void backUpdate(
-		float value, float weight, float* cur_img_ptr,
-		size_t offset, frame_t dynamicFrame = 0,
-		size_t numVoxelPerFrame = 0
-		) override;
+	void backUpdate(float value, float weight, float* cur_img_ptr,
+	                size_t offset, frame_t dynamicFrame = 0,
+	                size_t numVoxelPerFrame = 0, int tid = 0) override;
 };
 
 class OperatorProjectorUpdaterDefault4D : public OperatorProjectorUpdater
@@ -62,11 +58,9 @@ public:
 		size_t numVoxelPerFrame
 		) const override;
 
-	void backUpdate(
-		float value, float weight, float* cur_img_ptr,
-		size_t offset, frame_t dynamicFrame,
-		size_t numVoxelPerFrame
-		) override;
+	void backUpdate(float value, float weight, float* cur_img_ptr,
+	                size_t offset, frame_t dynamicFrame,
+	                size_t numVoxelPerFrame, int tid = 0) override;
 };
 
 class OperatorProjectorUpdaterLR : public OperatorProjectorUpdater
@@ -80,11 +74,9 @@ public:
 		size_t numVoxelPerFrame
 		) const override;
 
-	void backUpdate(
-		float value, float weight, float* cur_img_ptr,
-		size_t offset, frame_t dynamicFrame,
-		size_t numVoxelPerFrame
-		) override;
+	void backUpdate(float value, float weight, float* cur_img_ptr,
+	                size_t offset, frame_t dynamicFrame,
+	                size_t numVoxelPerFrame, int tid = 0) override;
 
 //	void setHBasis(const Array2D<float>& HBasis);
 	void setHBasis(const Array2DBase<float>& pr_HBasis);
@@ -97,9 +89,12 @@ public:
 	const Array2DAlias<float>& getHBasisWrite();
 	void setCurrentImgBuffer(ImageBase* img);
 	const float* getCurrentImgBuffer() const;
+	void initializeWriteThread();
+	void accumulateH();
 
 protected:
 	float* m_currentImg;
+	Array3D<float> m_HWriteThread;
 	Array2DAlias<float> mp_HBasis;  // used by forward/back math (read-only)
 	Array2DAlias<float> mp_HWrite;  // used only when m_updateH==true (accumulate)
 	bool m_updateH = false;
@@ -112,11 +107,9 @@ class OperatorProjectorUpdaterLRDualUpdate : public OperatorProjectorUpdaterLR
 public:
 	using OperatorProjectorUpdaterLR::OperatorProjectorUpdaterLR;
 
-	void backUpdate(
-		float value, float weight, float* cur_img_ptr,
-		size_t offset, frame_t dynamicFrame,
-		size_t numVoxelPerFrame
-		) override;
+	void backUpdate(float value, float weight, float* cur_img_ptr,
+	                size_t offset, frame_t dynamicFrame,
+	                size_t numVoxelPerFrame, int tid = 0) override;
 
 };
 

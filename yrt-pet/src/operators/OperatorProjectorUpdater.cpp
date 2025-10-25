@@ -124,9 +124,8 @@ float OperatorProjectorUpdaterDefault3D::forwardUpdate(
 }
 
 void OperatorProjectorUpdaterDefault3D::backUpdate(
-	float value, float weight, float* cur_img_ptr,
-	size_t offset, frame_t dynamicFrame,
-	size_t numVoxelPerFrame)
+    float value, float weight, float* cur_img_ptr, size_t offset,
+    frame_t dynamicFrame, size_t numVoxelPerFrame, int tid)
 {
 	(void) dynamicFrame;
 	(void) numVoxelPerFrame;
@@ -145,9 +144,8 @@ float OperatorProjectorUpdaterDefault4D::forwardUpdate(
 }
 
 void OperatorProjectorUpdaterDefault4D::backUpdate(
-	float value, float weight, float* cur_img_ptr,
-	size_t offset, frame_t dynamicFrame,
-	size_t numVoxelPerFrame)
+    float value, float weight, float* cur_img_ptr, size_t offset,
+    frame_t dynamicFrame, size_t numVoxelPerFrame, int tid)
 {
 	float output = value * weight;
 	std::atomic_ref<float> atomic_elem(cur_img_ptr[dynamicFrame * numVoxelPerFrame + offset]);
@@ -207,6 +205,7 @@ void OperatorProjectorUpdaterLR::setHBasis(const Array2DBase<float>& pr_HBasis) 
 
 void OperatorProjectorUpdaterLR::setHBasisWrite(const Array2DBase<float>& pr_HWrite) {
 	mp_HWrite.bind(pr_HWrite);
+	initializeWriteThread();
 }
 
 const Array2DAlias<float>& OperatorProjectorUpdaterLR::getHBasisWrite() {
@@ -230,7 +229,33 @@ const float* OperatorProjectorUpdaterLR::getCurrentImgBuffer() const
 	return m_currentImg;
 }
 
-//void OperatorProjectorUpdaterLR::setHBasis(const Array2D<float>& HBasis) {
+void OperatorProjectorUpdaterLR::initializeWriteThread()
+{
+	int numThreads = globals::getNumThreads();
+	m_HWriteThread.allocate(numThreads, m_rank, m_numDynamicFrames);
+	m_HWriteThread.fill(0.f);
+}
+
+
+void OperatorProjectorUpdaterLR::accumulateH()
+{
+	int numThreads = globals::getNumThreads();
+	for (int t = 0; t < m_numDynamicFrames; ++t)
+	{
+		for (int r = 0; r < m_rank; ++r)
+		{
+			float sum = 0.f;
+			for (int i = 0; i < numThreads; ++i)
+			{
+				sum += m_HWriteThread[i][r][t];
+			}
+			mp_HWrite[r][t] = sum;
+		}
+	}
+	m_HWriteThread.fill(0.f);
+}
+
+// void OperatorProjectorUpdaterLR::setHBasis(const Array2D<float>& HBasis) {
 //	auto dims = HBasis.getDims(); // [rank, numTimeFrames]
 //	if (dims[0] == 0 || dims[1] == 0) {
 //		throw std::invalid_argument("HBasis must have nonzero dimensions");
@@ -274,9 +299,10 @@ float OperatorProjectorUpdaterLR::forwardUpdate(
 	return weight * cur_img_lr_val;
 }
 
-void OperatorProjectorUpdaterLR::backUpdate(
-	float value, float weight, float* cur_img_ptr,
-	size_t offset, frame_t dynamicFrame, size_t numVoxelPerFrame)
+void OperatorProjectorUpdaterLR::backUpdate(float value, float weight,
+                                            float* cur_img_ptr, size_t offset,
+                                            frame_t dynamicFrame,
+                                            size_t numVoxelPerFrame, int tid)
 {
 	const float Ay = value * weight;
 
@@ -293,25 +319,25 @@ void OperatorProjectorUpdaterLR::backUpdate(
 		}
 	}
 	else {
-		float* H_ptr = mp_HWrite.getRawPointer();
+		// float* H_ptr = mp_HWrite.getRawPointer();
+		float* H_ptr = m_HWriteThread[tid].getRawPointer();
 		for (int l = 0; l < m_rank; ++l) {
 			const size_t offset_rank = l * numVoxelPerFrame;
 			const float output = Ay * cur_img_ptr[offset + offset_rank];
-			std::atomic_ref<float> atomic_elem(H_ptr[l * m_numDynamicFrames + dynamicFrame]);
-			atomic_elem.fetch_add(output);
+			H_ptr[l * m_numDynamicFrames + dynamicFrame] += output;
 		}
 	}
 }
 
 
 void OperatorProjectorUpdaterLRDualUpdate::backUpdate(
-	float value, float weight, float* raw_img_ptr,
-	size_t offset, frame_t dynamicFrame, size_t numVoxelPerFrame)
+    float value, float weight, float* raw_img_ptr, size_t offset,
+    frame_t dynamicFrame, size_t numVoxelPerFrame, int tid)
 {
 	const float Ay = value * weight;
 	const float* H_ptr_read = mp_HBasis.getRawPointer();
 	const float* W_ptr_read = this->getCurrentImgBuffer();
-	float* H_ptr_write = mp_HWrite.getRawPointer();
+	float* H_ptr_write = m_HWriteThread[tid].getRawPointer();
 
 	for (int l = 0; l < m_rank; ++l)
 	{
@@ -322,8 +348,7 @@ void OperatorProjectorUpdaterLRDualUpdate::backUpdate(
 		const float outputHUpdate = Ay * W_ptr_read[offset + offset_rank];
 		std::atomic_ref<float> atomic_elemW(raw_img_ptr[offset + offset_rank]);
 		atomic_elemW.fetch_add(outputWUpdate);
-		std::atomic_ref<float> atomic_elemH(H_ptr_write[l * m_numDynamicFrames + dynamicFrame]);
-		atomic_elemH.fetch_add(outputHUpdate);
+		H_ptr_write[l * m_numDynamicFrames + dynamicFrame] += outputHUpdate;
 	}
 }
 

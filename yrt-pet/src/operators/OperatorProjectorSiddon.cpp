@@ -199,13 +199,13 @@ float OperatorProjectorSiddon::forwardProjection(
 		{
 			project_helper<true, true, true>(
 			    const_cast<Image*>(img), randLine, currentProjValue,
-			    *mp_updater.get(), dynamicFrame, tofHelper, tofValue);
+			    *mp_updater.get(), dynamicFrame, tid, tofHelper, tofValue);
 		}
 		else
 		{
 			project_helper<true, true, false>(
 			    const_cast<Image*>(img), randLine, currentProjValue,
-			    *mp_updater.get(), dynamicFrame, nullptr, 0);
+			    *mp_updater.get(), dynamicFrame, tid, nullptr, 0);
 		}
 		imProj += currentProjValue;
 	}
@@ -249,13 +249,13 @@ void OperatorProjectorSiddon::backProjection(
 		{
 			project_helper<false, true, true>(img, randLine, projValuePerLor,
 			                                  *mp_updater.get(), dynamicFrame,
-			                                  tofHelper, tofValue);
+			                                  tid, tofHelper, tofValue);
 		}
 		else
 		{
 			project_helper<false, true, false>(img, randLine, projValuePerLor,
 			                                   *mp_updater.get(), dynamicFrame,
-			                                   nullptr, 0);
+			                                   tid, nullptr, 0);
 		}
 	}
 }
@@ -277,13 +277,13 @@ float OperatorProjectorSiddon::singleForwardProjection(
 	if (tofHelper != nullptr)
 	{
 		project_helper<true, true, true>(const_cast<Image*>(img), lor, v,
-		                                 updater, dynamicFrame, tofHelper,
+		                                 updater, dynamicFrame, 0, tofHelper,
 		                                 tofValue);
 	}
 	else
 	{
 		project_helper<true, true, false>(const_cast<Image*>(img), lor, v,
-		                                  updater, dynamicFrame, tofHelper,
+		                                  updater, dynamicFrame, 0, tofHelper,
 		                                  tofValue);
 	}
 	return v;
@@ -306,12 +306,12 @@ void OperatorProjectorSiddon::singleBackProjection(
 	if (tofHelper != nullptr)
 	{
 		project_helper<false, true, true>(img, lor, projValue, updater,
-		                                  dynamicFrame, tofHelper, tofValue);
+		                                  dynamicFrame, 0, tofHelper, tofValue);
 	}
 	else
 	{
 		project_helper<false, true, false>(img, lor, projValue, updater,
-		                                   dynamicFrame, tofHelper, tofValue);
+		                                   dynamicFrame, 0, tofHelper, tofValue);
 	}
 }
 
@@ -333,7 +333,7 @@ template <bool IS_FWD, bool FLAG_INCR, bool FLAG_TOF>
 void OperatorProjectorSiddon::project_helper(
     Image* img, const Line3D& lor, float& value,
     OperatorProjectorUpdater& updater, frame_t dynamicFrame,
-    const TimeOfFlightHelper* tofHelper, float tofValue)
+    int tid, const TimeOfFlightHelper* tofHelper, float tofValue)
 {
 	if (IS_FWD)
 	{
@@ -587,7 +587,7 @@ void OperatorProjectorSiddon::project_helper(
 		else
 		{
 			updater.backUpdate(value, weight, raw_img_ptr, totalOffset, dynamicFrame,
-			                   numVoxelsPerFrame);
+			                   numVoxelsPerFrame, tid);
 		}
 		a_cur = a_next;
 		ax_next_prev = ax_next;
@@ -599,15 +599,15 @@ void OperatorProjectorSiddon::project_helper(
 
 // Explicit instantiation of slow version used in tests
 template void OperatorProjectorSiddon::project_helper<true, false, true>(
-    Image* img, const Line3D&, float&, OperatorProjectorUpdater&, int,
+    Image* img, const Line3D&, float&, OperatorProjectorUpdater&, int, int,
     const TimeOfFlightHelper*, float);
 template void OperatorProjectorSiddon::project_helper<false, false, true>(
-    Image* img, const Line3D&, float&, OperatorProjectorUpdater&, int,
+    Image* img, const Line3D&, float&, OperatorProjectorUpdater&, int, int,
     const TimeOfFlightHelper*, float);
 template void OperatorProjectorSiddon::project_helper<true, false, false>(
-    Image* img, const Line3D&, float&, OperatorProjectorUpdater&, int,
+    Image* img, const Line3D&, float&, OperatorProjectorUpdater&, int, int,
     const TimeOfFlightHelper*, float);
 template void OperatorProjectorSiddon::project_helper<false, false, false>(
-    Image* img, const Line3D&, float&, OperatorProjectorUpdater&, int,
+    Image* img, const Line3D&, float&, OperatorProjectorUpdater&, int, int,
     const TimeOfFlightHelper*, float);
 }  // namespace yrt

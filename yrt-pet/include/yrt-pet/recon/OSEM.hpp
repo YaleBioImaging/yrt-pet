@@ -103,6 +103,11 @@ public:
 	void setNumRays(int p_numRays);
 	void setUpdateH(bool p_updateH);
 
+	// todo: remove this
+	OperatorProjectorBase* getProjectorPtr()
+	{
+		return mp_projector.get();
+	}
 
 	// ---------- Public members ----------
 	int num_MLEM_iterations;

@@ -329,6 +329,12 @@ void OperatorProjectorUpdaterLR::backUpdate(float value, float weight,
 	}
 }
 
+OperatorProjectorUpdaterLRDualUpdate::OperatorProjectorUpdaterLRDualUpdate(
+    const Array2DBase<float>& pr_HBasis)
+    : OperatorProjectorUpdaterLR(pr_HBasis)
+{
+	setUpdateH(true);
+}
 
 void OperatorProjectorUpdaterLRDualUpdate::backUpdate(
     float value, float weight, float* raw_img_ptr, size_t offset,
@@ -346,9 +352,9 @@ void OperatorProjectorUpdaterLRDualUpdate::backUpdate(
 		const size_t offset_rank = l * numVoxelPerFrame;
 		const float outputWUpdate = Ay * cur_H_ptr;
 		const float outputHUpdate = Ay * W_ptr_read[offset + offset_rank];
+		H_ptr_write[l * m_numDynamicFrames + dynamicFrame] += outputHUpdate;
 		std::atomic_ref<float> atomic_elemW(raw_img_ptr[offset + offset_rank]);
 		atomic_elemW.fetch_add(outputWUpdate);
-		H_ptr_write[l * m_numDynamicFrames + dynamicFrame] += outputHUpdate;
 	}
 }
 

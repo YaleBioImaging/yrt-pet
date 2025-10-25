@@ -105,7 +105,7 @@ protected:
 class OperatorProjectorUpdaterLRDualUpdate : public OperatorProjectorUpdaterLR
 {
 public:
-	using OperatorProjectorUpdaterLR::OperatorProjectorUpdaterLR;
+	OperatorProjectorUpdaterLRDualUpdate(const Array2DBase<float>& pr_HBasis);
 
 	void backUpdate(float value, float weight, float* cur_img_ptr,
 	                size_t offset, frame_t dynamicFrame,

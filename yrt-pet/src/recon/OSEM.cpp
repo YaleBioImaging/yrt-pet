@@ -732,6 +732,8 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 	const bool dualUpdate =
 		(projectorParams.projectorUpdaterType == OperatorProjectorParams::LRDUALUPDATE);
 
+	printf("\n dual Update: %d\n", dualUpdate);
+
 	std::vector<float> c_WUpdate_r;
 	std::vector<float> c_Hupdate_r;
 	int rank;
@@ -744,6 +746,7 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 		// Check LR Updater
 		if (auto* proj = dynamic_cast<OperatorProjector*>(mp_projector.get())) {
 			if (auto* lr = dynamic_cast<OperatorProjectorUpdaterLR*>(proj->getUpdater())) {
+				printf("lr->getUpdateH(): %d", lr->getUpdateH());
 				if (lr->getUpdateH() != projectorParams.updateH)
 				{
 					throw std::logic_error("member updateH of OperatorProjectorUpdaterLR is "

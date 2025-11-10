@@ -93,6 +93,36 @@ With `[ON/OFF]` being replaced by the desired configuration
   `yrtpet_reconstruct --help`. If the `--gpu` option appears, the program was
   compiled with GPU acceleration.
 
+# Citing YRT-PET
+If you use YRT-PET in one of your projects, you can cite our
+[journal article](https://ieeexplore.ieee.org/document/11202639) in *IEEE
+Transactions on Radiation and Plasma Medical Sciences*.
+
+```LaTeX
+@article{najmaoui2025,
+    title = {{YRT}-{PET}: An Open-Source {GPU}-Accelerated Image
+        Reconstruction Engine for Positron Emission Tomography},
+    issn = {2469-7303},
+    url = {https://ieeexplore.ieee.org/document/11202639},
+    doi = {10.1109/TRPMS.2025.3619872},
+    journal = {{IEEE} Transactions on Radiation and Plasma Medical
+        Sciences},
+    pages = {1--1},
+    author = {Najmaoui, Yassir and Chemli, Yanis and Toussaint, Maxime and
+        Petibon, Yoann and Marty, Baptiste and Fontaine, Kathryn and
+        Gallezot, Jean-Dominique and Razdevšek, Gašper and Orehar, Matic and
+        Dhaynaut, Maeva and Guehl, Nicolas and Dolenec, Rok and
+        Pestotnik, Rok and Johnson, Keith and Ouyang, Jinsong and
+        Normandin, Marc and Tétrault, Marc-André and Lecomte, Roger and
+        El Fakhri, Georges and Marin, Thibault},
+    year = {2025},
+    keywords={Image reconstruction;Biomedical imaging;Graphics processing
+        units;Software;Positron emission tomography;Python;Engines;Software
+        algorithms;Plasmas;Geometry;positron emission tomography (PET);image
+        reconstruction;software;graphics processing unit (GPU);C++;Python}
+}
+```
+
 # Acknowledgements
 
 - [pybind11](https://github.com/pybind/pybind11)

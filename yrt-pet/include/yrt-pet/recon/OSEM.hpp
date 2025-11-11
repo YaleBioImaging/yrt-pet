@@ -102,6 +102,7 @@ public:
 	void setProjectorUpdaterType(OperatorProjectorParams::ProjectorUpdaterType projectorUpdaterType);
 	void setNumRays(int p_numRays);
 	void setUpdateH(bool p_updateH);
+	void saveHBasisBinary(const std::string& base_path, int iter, int numDigitsInFilename = -1) const;
 
 	// todo: remove this
 	OperatorProjectorBase* getProjectorPtr()

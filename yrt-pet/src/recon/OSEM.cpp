@@ -216,6 +216,90 @@ void OSEM::setUpdateH(bool p_updateH)
 	projectorParams.updateH = p_updateH;
 }
 
+void OSEM::saveHBasisBinary(const std::string& base_path, int iter, int numDigitsInFilename) const
+{
+
+    // Fetch dims and raw pointer from HBasis
+    const auto& H = projectorParams.HBasis;
+    const auto dims = H.getDims();          // works for 2D or 3D HBasis
+    if (dims.empty())
+    {
+    	throw std::runtime_error("HBasis is empty, cannot save.");
+    }
+    const float* H_ptr = H.getRawPointer();
+    if (!H_ptr)
+        throw std::runtime_error("HBasis raw pointer is null.");
+
+    // Compute size in elements and bytes
+    auto numel = H.getSizeTotal();
+    const size_t nbytes = numel * sizeof(float);
+
+    // Decide iteration string width
+    if (numDigitsInFilename < 0) {
+        // If not provided, infer from configured iterations
+        numDigitsInFilename = util::numberOfDigits(num_MLEM_iterations);
+    }
+    std::ostringstream oss_it;
+    oss_it << std::setfill('0') << std::setw(numDigitsInFilename) << (iter);
+    const std::string iter_tag = oss_it.str();
+
+	// Compose filenames: base_path + _H_iterationXXXX.bin/json
+	const std::string stem = util::addBeforeExtension(base_path, std::string("_iteration") + iter_tag);
+	std::string bin_fname = stem;
+	std::string json_fname = stem;
+
+	if (bin_fname.size() >= 7 && bin_fname.substr(bin_fname.size() - 7) == ".nii.gz") {
+		bin_fname.replace(bin_fname.size() - 7, 7, ".bin");
+		json_fname.replace(json_fname.size() - 7, 7, ".json");
+	}
+	else if (bin_fname.size() >= 4 && bin_fname.substr(bin_fname.size() - 4) == ".nii") {
+		bin_fname.replace(bin_fname.size() - 4, 4, ".bin");
+		json_fname.replace(json_fname.size() - 4, 4, ".json");
+	}
+	else {
+		// fallback if there’s no nii/nii.gz extension
+		bin_fname += ".bin";
+		json_fname += ".json";
+	}
+
+    // Write raw binary (float32, row-major/C order)
+    {
+        std::ofstream ofs(bin_fname, std::ios::binary);
+        if (!ofs) {
+            throw std::runtime_error("Failed to open " + bin_fname + " for writing HBasis.");
+        }
+        ofs.write(reinterpret_cast<const char*>(H_ptr), static_cast<std::streamsize>(nbytes));
+        ofs.close();
+    }
+
+    // Write JSON sidecar with shape/metadata for easy numpy loading
+    {
+        std::ofstream jfs(json_fname);
+        if (!jfs) {
+            throw std::runtime_error("Failed to open " + json_fname + " for writing HBasis metadata.");
+        }
+        jfs << "{\n";
+        jfs << "  \"dtype\": \"float32\",\n";
+        jfs << "  \"order\": \"C\",\n";
+        jfs << "  \"dims\": [";
+        for (size_t i = 0; i < dims.size(); ++i) {
+            jfs << dims[i];
+            if (i + 1 < dims.size()) jfs << ", ";
+        }
+        jfs << "],\n";
+        // Optional: store your intended semantic layout if useful
+        // If you use [rank, z, T] for 3D, or [rank, T] for 2D:
+        jfs << "  \"layout_hint\": \""
+            << (dims.size()==3 ? "H[r,z,t]" : "H[r,t]")
+            << "\"\n";
+        jfs << "}\n";
+        jfs.close();
+    }
+
+    std::cout << "Saved HBasis to " << bin_fname << " and " << json_fname << std::endl;
+}
+
+
 OperatorProjectorParams::ProjectorUpdaterType OSEM::getProjectorUpdaterType() const
 {
 	return projectorParams.projectorUpdaterType;
@@ -717,11 +801,6 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 			    1.0f / (static_cast<float>(num_OSEM_subsets)));
 		}
 	}
-	printf("\n after sens im, before getCorrector \n");
-	getCorrector().setup();
-	printf("\n after getCorrector, before initializeForRecon \n");
-	initializeForRecon();
-	printf("\n after initializeForRecon \n");
 
 	// Calculate factor to use for sensitivity image DEFAULT4D and LR
 	const bool IS_DYNAMIC =
@@ -732,7 +811,17 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 	const bool dualUpdate =
 		(projectorParams.projectorUpdaterType == OperatorProjectorParams::LRDUALUPDATE);
 
-	printf("\n dual Update: %d\n", dualUpdate);
+	if (dualUpdate)
+	{
+		projectorParams.updateH = true;
+	}
+
+	printf("\n after sens im, before getCorrector \n");
+	getCorrector().setup();
+	printf("\n after getCorrector, before initializeForRecon \n");
+	initializeForRecon();
+	printf("\n after initializeForRecon \n");
+
 
 	std::vector<float> c_WUpdate_r;
 	std::vector<float> c_Hupdate_r;
@@ -979,6 +1068,10 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 			std::string outIteration_fname = util::addBeforeExtension(
 			    saveIterPath, std::string("_iteration") + iteration_name);
 			getMLEMImageBuffer()->writeToFile(outIteration_fname);
+			if (dualUpdate || projectorParams.updateH)
+			{
+				saveHBasisBinary(saveIterPath, iter + 1, numDigitsInFilename);
+			}
 		}
 		completeMLEMIteration();
 	}

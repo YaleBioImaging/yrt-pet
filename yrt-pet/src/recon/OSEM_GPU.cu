@@ -10,6 +10,7 @@
 #include "yrt-pet/operators/OperatorProjectorDD_GPU.cuh"
 #include "yrt-pet/operators/OperatorProjectorSiddon_GPU.cuh"
 #include "yrt-pet/operators/OperatorPsfDevice.cuh"
+#include "yrt-pet/operators/OperatorVarPsfDevice.cuh"
 #include "yrt-pet/utils/Assert.hpp"
 
 namespace yrt
@@ -113,16 +114,23 @@ void OSEM_GPU::allocateForSensImgGen()
 
 	if (flagImagePSF)
 	{
-		const auto imagePsfDevice =
-		    dynamic_cast<OperatorPsfDevice*>(imagePsf.get());
-		ASSERT(imagePsfDevice != nullptr);
-		// This is done in order to more accurately compute the available
-		//  device memory for the projection-space buffers below
-		imagePsfDevice->allocateTemporaryDeviceImageIfNeeded(
-		    getImageParams(), {getMainStream(), true});
-
+		if (m_imagePSFMode == UNIFORM)
+		{
+			const auto imagePsfDevice =
+				dynamic_cast<OperatorPsfDevice*>(imagePsf.get());
+			ASSERT(imagePsfDevice != nullptr);
+			// This is done in order to more accurately compute the available
+			//  device memory for the projection-space buffers below
+			imagePsfDevice->allocateTemporaryDeviceImageIfNeeded(
+				getImageParams(), {getMainStream(), true});
+		}
+		else
+		{
+			const auto imagePsfDevice = dynamic_cast<OperatorVarPsfDevice*>(imagePsf.get());
+			ASSERT(imagePsfDevice != nullptr);
+		}
 		mpd_imageTmpPsf = std::make_unique<ImageDeviceOwned>(getImageParams(),
-		                                                     getMainStream());
+															 getMainStream());
 		mpd_imageTmpPsf->allocate(false);
 	}
 
@@ -433,8 +441,10 @@ void OSEM_GPU::addImagePSF(const std::string& p_imagePsf_fname,
 	}
 	else
 	{
-		imagePsf = std::make_unique<OperatorVarPsfDevice>(p_imagePsf_fname,getMainStream());
-		//ASSERT_MSG(false, "Spatially variant PSF not implemented in GPU yet");
+		ASSERT_MSG(imageParams.isValid(),
+				   "For spatially variant PSF, image parameters have to be set "
+				   "before calling addImagePSF");
+		imagePsf = std::make_unique<OperatorVarPsfDevice>(p_imagePsf_fname, getMainStream(), imageParams);
 	}
 
 	flagImagePSF = true;

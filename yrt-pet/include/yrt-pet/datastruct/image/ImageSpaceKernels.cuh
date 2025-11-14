@@ -40,12 +40,20 @@ __global__ void convolve3DSeparable_kernel(const float* input, float* output,
                                            int nx, int ny, int nz);
 
 __global__ void convolve3D_kernel_F(const float* input, float* output,
-								  const float* kernel,
-								  int kernelSizeX, int kernelSizeY, int kernelSizeZ,
+								  const float* kernelsFlat, const int* kernelOffsets,
+								  const int* kernelDims, const int* kernelHalf,
+								  int lut_x_dim, int lut_y_dim, int lut_z_dim,
+								  float xGap, float yGap, float zGap,
+								  float xCenter, float yCenter, float zCenter,
+								  float vx, float vy, float vz,
 								  int nx, int ny, int nz);
 
 __global__ void convolve3D_kernel_T(const float* input, float* output,
-								  const float* kernel,
-								  int kernelSizeX, int kernelSizeY, int kernelSizeZ,
+								  const float* kernelsFlat, const int* kernelOffsets,
+								  const int* kernelDims, const int* kernelHalf,
+								  int lut_x_dim, int lut_y_dim, int lut_z_dim,
+								  float xGap, float yGap, float zGap,
+								  float xCenter, float yCenter, float zCenter,
+								  float vx, float vy, float vz,
 								  int nx, int ny, int nz);
 }  // namespace yrt

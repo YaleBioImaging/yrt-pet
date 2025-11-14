@@ -3,9 +3,9 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "operators/OperatorVarPsfDevice.cuh"
-#include <datastruct/image/ImageDevice.cuh>
-#include <datastruct/image/ImageSpaceKernels.cuh>
+#include "yrt-pet/operators/OperatorVarPsfDevice.cuh"
+#include <yrt-pet/datastruct/image/ImageDevice.cuh>
+#include <yrt-pet/datastruct/image/ImageSpaceKernels.cuh>
 #include <vector>
 
 #if BUILD_PYBIND11
@@ -16,7 +16,7 @@ namespace py = pybind11;
 
 namespace yrt
 {
-void py_setup_operatorpsfdevice(py::module& m)
+void py_setup_operatorvarpsfdevice(py::module& m)
 {
 	auto c = py::class_<OperatorVarPsfDevice, OperatorVarPsf>(m, "OperatorVarPsfDevice");
 	c.def(py::init<const ImageParams&>());
@@ -55,15 +55,15 @@ void py_setup_operatorpsfdevice(py::module& m)
 namespace yrt
 {
 
-OperatorVarPsfDevice::OperatorVarPsfDevice(const cudaStream_t* pp_stream, const ImageParams& p_imageParams)
+OperatorVarPsfDevice::OperatorVarPsfDevice(const ImageParams& p_imageParams, const cudaStream_t* pp_stream)
     : DeviceSynchronized{pp_stream, pp_stream},
-      OperatorVarPsf{p_imageParams}
+	OperatorVarPsf{p_imageParams}
 {
 	initDeviceArraysIfNeeded();
 }
 
 OperatorVarPsfDevice::OperatorVarPsfDevice(const std::string& pr_imagePsf_fname,
-                                     const cudaStream_t* pp_stream, const ImageParams& p_imageParams)
+                                     const ImageParams& p_imageParams, const cudaStream_t* pp_stream)
     : DeviceSynchronized{pp_stream, pp_stream},
 	OperatorVarPsf{pr_imagePsf_fname, p_imageParams}
 {
@@ -110,9 +110,10 @@ void OperatorVarPsfDevice::copyVarPsfToDevice(bool synchronize)
     {
         const auto& kernel = *m_kernelLUT[k];
         const auto& arr = kernel.getArray();
-        int sx = static_cast<int>(arr.getSizeX());
-        int sy = static_cast<int>(arr.getSizeY());
-        int sz = static_cast<int>(arr.getSizeZ());
+    	const auto dimsArr = arr.getDims();
+    	int sx = static_cast<int>(dimsArr[2]);
+    	int sy = static_cast<int>(dimsArr[1]);
+    	int sz = static_cast<int>(dimsArr[0]);
         totalSize += static_cast<size_t>(sx) * static_cast<size_t>(sy) * static_cast<size_t>(sz);
     }
     std::vector<float> flatKernels;
@@ -122,9 +123,10 @@ void OperatorVarPsfDevice::copyVarPsfToDevice(bool synchronize)
     {
         const auto& kernel = *m_kernelLUT[k];
         const auto& arr = kernel.getArray();
-        int sx = static_cast<int>(arr.getSizeX());
-        int sy = static_cast<int>(arr.getSizeY());
-        int sz = static_cast<int>(arr.getSizeZ());
+    	auto dimsArr = arr.getDims();
+        int sx = static_cast<int>(dimsArr[2]);
+        int sy = static_cast<int>(dimsArr[1]);
+        int sz = static_cast<int>(dimsArr[0]);
         offsets[k] = static_cast<int>(currentOffset);
         dims[3 * k] = sx;
         dims[3 * k + 1] = sy;
@@ -139,7 +141,7 @@ void OperatorVarPsfDevice::copyVarPsfToDevice(bool synchronize)
             {
                 for (int xx = 0; xx < sx; ++xx)
                 {
-                    flatKernels.push_back(arr(xx, yy, zz));
+                    flatKernels.push_back(arr[zz][yy][xx]);
                 }
             }
         }
@@ -292,12 +294,10 @@ void OperatorVarPsfDevice::varconvolveDevice(const ImageDevice& inputImage,
 
     // number of voxels
     const int total = nx * ny * nz;
-    const int threadsPerBlock = 256;
-    const int blocks = (total + threadsPerBlock - 1) / threadsPerBlock;
 
     const cudaStream_t* stream = getMainStream();
+	const GPULaunchParams3D launchParams = inputImage.getLaunchParams();
 
-    // Zero out the output for the adjoint case before accumulation
 	if (stream != nullptr)
 	{
 		if constexpr (IS_FWD)

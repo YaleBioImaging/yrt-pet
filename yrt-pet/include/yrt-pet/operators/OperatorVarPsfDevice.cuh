@@ -5,10 +5,10 @@
 
 #pragma once
 
-#include "datastruct/image/ImageDevice.cuh"
-#include "operators/DeviceSynchronized.cuh"
-#include "operators/OperatorVarPsf.hpp"
-#include "utils/DeviceArray.cuh"
+#include "yrt-pet/datastruct/image/ImageDevice.cuh"
+#include "yrt-pet/operators/DeviceSynchronized.cuh"
+#include "yrt-pet/operators/OperatorVarPsf.hpp"
+#include "yrt-pet/utils/DeviceArray.cuh"
 
 
 namespace yrt
@@ -25,9 +25,9 @@ public:
 		int    numKernels;  // kernel number
 	};
 
-	explicit OperatorVarPsfDevice(const cudaStream_t* pp_stream = nullptr, const ImageParams& p_imageParams);
+	explicit OperatorVarPsfDevice(const ImageParams& p_imageParams, const cudaStream_t* pp_stream = nullptr);
 	explicit OperatorVarPsfDevice(const std::string& pr_imagePsf_fname,
-							   const cudaStream_t* pp_stream = nullptr, const ImageParams& p_imageParams);
+							   const ImageParams& p_imageParams, const cudaStream_t* pp_stream = nullptr);
 
 	void copyVarPsfToDevice(bool synchronize = true);// copy kernel LUT to device: allocate and upload
 
@@ -37,8 +37,7 @@ public:
 	void applyAH(const Variable* in, Variable* out, bool synchronize) const;
 
 
-	//void allocateTemporaryDeviceImageIfNeeded(const ImageParams& params,
-	                                          GPULaunchConfig config) const;
+
 
 protected:
 	void initDeviceArraysIfNeeded();

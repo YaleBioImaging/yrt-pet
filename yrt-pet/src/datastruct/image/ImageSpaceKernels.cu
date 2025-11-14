@@ -253,7 +253,7 @@ __global__ void convolve3D_kernel_F(const float* input, float* output,
 								  const int* kernelDims, const int* kernelHalf,
 								  int lut_x_dim, int lut_y_dim, int lut_z_dim,
 								  float xGap, float yGap, float zGap,
-								  int xCenter, int yCenter, int zCenter,
+								  float xCenter, float yCenter, float zCenter,
 								  float vx, float vy, float vz,
 								  int nx, int ny, int nz)
 {
@@ -311,7 +311,7 @@ __global__ void convolve3D_kernel_T(const float* input, float* output,
 								  const int* kernelDims, const int* kernelHalf,
 								  int lut_x_dim, int lut_y_dim, int lut_z_dim,
 								  float xGap, float yGap, float zGap,
-								  int xCenter, int yCenter, int zCenter,
+								  float xCenter, float yCenter, float zCenter,
 								  float vx, float vy, float vz,
 								  int nx, int ny, int nz)
 {

@@ -444,7 +444,7 @@ void OSEM_GPU::addImagePSF(const std::string& p_imagePsf_fname,
 		ASSERT_MSG(imageParams.isValid(),
 				   "For spatially variant PSF, image parameters have to be set "
 				   "before calling addImagePSF");
-		imagePsf = std::make_unique<OperatorVarPsfDevice>(p_imagePsf_fname, getMainStream(), imageParams);
+		imagePsf = std::make_unique<OperatorVarPsfDevice>(p_imagePsf_fname, imageParams, getMainStream());
 	}
 
 	flagImagePSF = true;

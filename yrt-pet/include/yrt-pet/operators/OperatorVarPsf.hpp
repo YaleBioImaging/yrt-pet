@@ -69,16 +69,16 @@ public:
 protected:
 	const ConvolutionKernel& findNearestKernel(float x, float y, float z) const;
 	ConvolutionKernelCollection m_kernelLUT;
-
-private:
-	ImageParams m_imageParams;
-	// Ranges and gaps in mm
 	float m_xRange;
 	float m_xGap;
 	float m_yRange;
 	float m_yGap;
 	float m_zRange;
 	float m_zGap;
+
+private:
+	ImageParams m_imageParams;
+	// Ranges and gaps in mm
 };
 
 }  // namespace yrt

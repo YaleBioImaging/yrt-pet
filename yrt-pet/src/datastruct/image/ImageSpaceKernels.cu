@@ -249,76 +249,117 @@ template __global__ void convolve3DSeparable_kernel<2>(const float* input,
                                                        int ny, int nz);
 
 __global__ void convolve3D_kernel_F(const float* input, float* output,
-								  const float* kernel,
-								  int kernelSizeX, int kernelSizeY, int kernelSizeZ,
+								  const float* kernelsFlat, const int* kernelOffsets,
+								  const int* kernelDims, const int* kernelHalf,
+								  int lut_x_dim, int lut_y_dim, int lut_z_dim,
+								  float xGap, float yGap, float zGap,
+								  int xCenter, int yCenter, int zCenter,
+								  float vx, float vy, float vz,
 								  int nx, int ny, int nz)
 {
-	const int x = blockIdx.x * blockDim.x + threadIdx.x;
-	const int y = blockIdx.y * blockDim.y + threadIdx.y;
-	const int z = blockIdx.z * blockDim.z + threadIdx.z;
+	const int i = blockIdx.x * blockDim.x + threadIdx.x;
+	const int j = blockIdx.y * blockDim.y + threadIdx.y;
+	const int k = blockIdx.z * blockDim.z + threadIdx.z;
 
-	if (x >= nx || y >= ny || z >= nz) return;
+	if (i >= nx || j >= ny || k >= nz) return;
 
+	// Compute the position of the voxel
+	float x_mm = (static_cast<float>(i) + 0.5f) * vx;
+	float y_mm = (static_cast<float>(j) + 0.5f) * vy;
+	float z_mm = (static_cast<float>(k) + 0.5f) * vz;
+
+	// Distance to image centre and corresponding kernel index along each axis
+	float tx = fabsf(x_mm - xCenter);
+	float ty = fabsf(y_mm - yCenter);
+	float tz = fabsf(z_mm - zCenter);
+	int ix = static_cast<int>(::roundf(tx / xGap));
+	int iy = static_cast<int>(::roundf(ty / yGap));
+	int iz = static_cast<int>(::roundf(tz / zGap));
+	if (ix >= lut_x_dim) ix = lut_x_dim - 1;
+	if (iy >= lut_y_dim) iy = lut_y_dim - 1;
+	if (iz >= lut_z_dim) iz = lut_z_dim - 1;
+
+	//nearest neighboring interpolation and read kernel data
+	int kernelIndex = ix + iy * lut_x_dim + iz * lut_x_dim * lut_y_dim;
+	int offset = kernelOffsets[kernelIndex];
+	int hx = kernelHalf[3 * kernelIndex];
+	int hy = kernelHalf[3 * kernelIndex + 1];
+	int hz = kernelHalf[3 * kernelIndex + 2];
+
+	int idx = offset;
 	float sum = 0.0f;
 
-	const int halfX = kernelSizeX / 2;
-	const int halfY = kernelSizeY / 2;
-	const int halfZ = kernelSizeZ / 2;
-
-	for (int kz = -halfZ; kz <= halfZ; kz++) {
-		for (int ky = -halfY; ky <= halfY; ky++) {
-			for (int kx = -halfX; kx <= halfX; kx++) {
-				int r_x = circular(nx, x + kx);
-				int r_y = circular(ny, y + ky);
-				int r_z = circular(nz, z + kz);
-
-				int imgIdx = idx3(r_x, r_y, r_z, nx, ny);
-
-				int kernelIdx = (kz + halfZ) * (kernelSizeY * kernelSizeX)
-							  + (ky + halfY) * kernelSizeX
-							  + (kx + halfX);
-
-				sum += kernel[kernelIdx] * input[imgIdx];
+	for (int kz = -hz; kz <= hz; ++kz)
+	{
+		for (int ky = -hy; ky <= hy; ++ky)
+		{
+			for (int kx = -hx; kx <= hx; ++kx, ++idx)
+			{
+				int r_x = circular(nx, i + kx);
+				int r_y = circular(ny, j + ky);
+				int r_z = circular(nz, k + kz);
+				int inIndex = r_x + r_y * nx + r_z * nx * ny;
+				sum += kernelsFlat[idx] * input[inIndex];
 			}
 		}
 	}
-	output[idx3(x, y, z, nx, ny)] = sum;
+	output[idx3(i, j, k, nx, ny)] = sum;
 }
 
 __global__ void convolve3D_kernel_T(const float* input, float* output,
-								  const float* kernel,
-								  int kernelSizeX, int kernelSizeY, int kernelSizeZ,
+								  const float* kernelsFlat, const int* kernelOffsets,
+								  const int* kernelDims, const int* kernelHalf,
+								  int lut_x_dim, int lut_y_dim, int lut_z_dim,
+								  float xGap, float yGap, float zGap,
+								  int xCenter, int yCenter, int zCenter,
+								  float vx, float vy, float vz,
 								  int nx, int ny, int nz)
 {
-	const int x = blockIdx.x * blockDim.x + threadIdx.x;
-	const int y = blockIdx.y * blockDim.y + threadIdx.y;
-	const int z = blockIdx.z * blockDim.z + threadIdx.z;
+	const int i = blockIdx.x * blockDim.x + threadIdx.x;
+	const int j = blockIdx.y * blockDim.y + threadIdx.y;
+	const int k = blockIdx.z * blockDim.z + threadIdx.z;
 
-	if (x >= nx || y >= ny || z >= nz) return;
+	if (i >= nx || j >= ny || k >= nz) return;
 
-	float temp1 = input[idx3(x, y, z, nx, ny)];
+	// Compute the position of the voxel
+	float x_mm = (static_cast<float>(i) + 0.5f) * vx;
+	float y_mm = (static_cast<float>(j) + 0.5f) * vy;
+	float z_mm = (static_cast<float>(k) + 0.5f) * vz;
 
-	const int halfX = kernelSizeX / 2;
-	const int halfY = kernelSizeY / 2;
-	const int halfZ = kernelSizeZ / 2;
+	// Distance to image centre and corresponding kernel index along each axis
+	float tx = fabsf(x_mm - xCenter);
+	float ty = fabsf(y_mm - yCenter);
+	float tz = fabsf(z_mm - zCenter);
+	int ix = static_cast<int>(::roundf(tx / xGap));
+	int iy = static_cast<int>(::roundf(ty / yGap));
+	int iz = static_cast<int>(::roundf(tz / zGap));
+	if (ix >= lut_x_dim) ix = lut_x_dim - 1;
+	if (iy >= lut_y_dim) iy = lut_y_dim - 1;
+	if (iz >= lut_z_dim) iz = lut_z_dim - 1;
 
-	for (int kz = -halfZ; kz <= halfZ; kz++) {
-		for (int ky = -halfY; ky <= halfY; ky++) {
-			for (int kx = -halfX; kx <= halfX; kx++) {
-				int r_x = circular(nx, x + kx);
-				int r_y = circular(ny, y + ky);
-				int r_z = circular(nz, z + kz);
+	//nearest neighboring interpolation and read kernel data
+	int kernelIndex = ix + iy * lut_x_dim + iz * lut_x_dim * lut_y_dim;
+	int offset = kernelOffsets[kernelIndex];
+	int hx = kernelHalf[3 * kernelIndex];
+	int hy = kernelHalf[3 * kernelIndex + 1];
+	int hz = kernelHalf[3 * kernelIndex + 2];
 
-				int outIdx = idx3(r_x, r_y, r_z, nx, ny);
-
-				int kernelIdx = (kz + halfZ) * (kernelSizeY * kernelSizeX)
-							  + (ky + halfY) * kernelSizeX
-							  + (kx + halfX);
-
-				atomicAdd(&output[outIdx], temp1 * kernel[kernelIdx]);
+	int idx = offset;
+	float temp1 = input[idx3(i, j, k, nx, ny)];
+	for (int kz = -hz; kz <= hz; ++kz)
+	{
+		for (int ky = -hy; ky <= hy; ++ky)
+		{
+			for (int kx = -hx; kx <= hx; ++kx, ++idx)
+			{
+				int r_x = circular(nx, i + kx);
+				int r_y = circular(ny, j + ky);
+				int r_z = circular(nz, k + kz);
+				int outIndex = idx3(r_x, r_y, r_z, nx, ny);
+				atomicAdd(&output[outIndex], temp1 * kernelsFlat[idx]);
 			}
 		}
 	}
 }
-//?? combine f and t together using template
+
 }  // namespace yrt

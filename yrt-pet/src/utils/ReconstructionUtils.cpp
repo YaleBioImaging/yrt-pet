@@ -487,6 +487,11 @@ void convertToHistogram3DInternal(const ProjectionData& dat,
 	float* histoDataPointer = histoOut.getData().getRawPointer();
 	const size_t numDatBins = dat.count();
 
+	if constexpr (UseDetectorMask)
+	{
+		ASSERT(detectorMask != nullptr);
+	}
+
 	ProgressDisplay progressBar(numDatBins, 5);
 
 	const Histogram3D* histoOut_constptr = &histoOut;
@@ -543,7 +548,8 @@ void convertToHistogram3DInternal(const ProjectionData& dat,
 }
 
 template <bool RequiresAtomic, bool PrintProgress>
-void convertToHistogram3D(const ProjectionData& pr_dat, Histogram3D& pr_histoOut,
+void convertToHistogram3D(const ProjectionData& pr_dat,
+                          Histogram3D& pr_histoOut,
                           const DetectorMask* pp_detectorMask)
 {
 	ASSERT_MSG(pr_dat.getScanner().getNumDets() ==
@@ -551,7 +557,8 @@ void convertToHistogram3D(const ProjectionData& pr_dat, Histogram3D& pr_histoOut
 	           "The projection-space dataset and the histogram provided point "
 	           "to scanners with a different number of detectors");
 
-	auto detMask = std::make_unique<DetectorMask>(pr_dat.getScanner().getNumDets());
+	auto detMask =
+	    std::make_unique<DetectorMask>(pr_dat.getScanner().getNumDets());
 	if (pp_detectorMask != nullptr)
 	{
 		detMask->logicalAndWithOther(*pp_detectorMask);

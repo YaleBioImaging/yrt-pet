@@ -24,6 +24,7 @@ void py_setup_detectormask(pybind11::module& m)
 	c.def(py::init<const Array1DBase<bool>&>(), "maskArray"_a);
 	c.def(py::init<const Array3DBase<float>&>(), "maskArray"_a);
 	c.def(py::init<const DetectorMask&>(), "other"_a);
+	c.def("setNumDets", &DetectorMask::setNumDets);
 	c.def("readFromFile", &DetectorMask::readFromFile, "fname"_a);
 	c.def_buffer(
 	    [](DetectorMask& self) -> py::buffer_info
@@ -33,7 +34,6 @@ void py_setup_detectormask(pybind11::module& m)
 		                           py::format_descriptor<bool>::format(), 1,
 		                           d.getDims(), d.getStrides());
 	    });
-	c.def("checkAgainstScanner", &DetectorMask::checkAgainstScanner);
 	c.def("getData",
 	      static_cast<const Array1D<bool>& (DetectorMask::*)() const>(
 	          &DetectorMask::getData));
@@ -41,9 +41,12 @@ void py_setup_detectormask(pybind11::module& m)
 	c.def("disableAllDetectors", &DetectorMask::disableAllDetectors);
 	c.def("enableDetector", &DetectorMask::enableDetector, "detId"_a);
 	c.def("disableDetector", &DetectorMask::disableDetector, "detId"_a);
+	c.def("checkAgainstScanner", &DetectorMask::checkAgainstScanner);
 	c.def("getNumDets", &DetectorMask::getNumDets);
-	c.def("setNumDets", &DetectorMask::setNumDets);
 	c.def("checkDetector", &DetectorMask::checkDetector, "detId"_a);
+	c.def("isDetectorEnabled", &DetectorMask::isDetectorEnabled, "detId"_a);
+	c.def("areAllDetectorsEnabled", &DetectorMask::areAllDetectorsEnabled);
+	c.def("areAllDetectorsDisabled", &DetectorMask::areAllDetectorsDisabled);
 	c.def("writeToFile", &DetectorMask::writeToFile, "fname"_a);
 	c.def("logicalAndWithOther", &DetectorMask::logicalAndWithOther, "other"_a);
 	c.def("logicalOrWithOther", &DetectorMask::logicalOrWithOther, "other"_a);
@@ -64,6 +67,9 @@ DetectorMask::DetectorMask(size_t numDets)
 {
 	mp_data = std::make_unique<Array1D<bool>>();
 	mp_data->allocate(numDets);
+
+	// By default, all detectors are enabled
+	enableAllDetectors();
 }
 
 DetectorMask::DetectorMask(const std::string& pr_fname)
@@ -104,6 +110,9 @@ void DetectorMask::setNumDets(size_t numDets)
 
 	mp_data = std::make_unique<Array1D<bool>>();
 	mp_data->allocate(numDets);
+
+	// By default, all detectors are enabled
+	enableAllDetectors();
 
 	// Keep the previous mask if there was one
 	if (oldData != nullptr)
@@ -195,6 +204,30 @@ bool DetectorMask::isDetectorEnabled(det_id_t detId) const
 	return mp_data->getFlat(detId);
 }
 
+bool DetectorMask::areAllDetectorsEnabled() const
+{
+	for (det_id_t i = 0; i < getNumDets(); i++)
+	{
+		if (!isDetectorEnabled(i))
+		{
+			return false;
+		}
+	}
+	return true;
+}
+
+bool DetectorMask::areAllDetectorsDisabled() const
+{
+	for (det_id_t i = 0; i < getNumDets(); i++)
+	{
+		if (isDetectorEnabled(i))
+		{
+			return false;
+		}
+	}
+	return true;
+}
+
 void DetectorMask::writeToFile(const std::string& fname) const
 {
 	std::ofstream file;
@@ -202,11 +235,11 @@ void DetectorMask::writeToFile(const std::string& fname) const
 	if (!file.is_open())
 	{
 		throw std::filesystem::filesystem_error(
-			"The file given \"" + fname + "\" could not be opened",
-			std::make_error_code(std::errc::io_error));
+		    "The file given \"" + fname + "\" could not be opened",
+		    std::make_error_code(std::errc::io_error));
 	}
 	file.write(reinterpret_cast<char*>(mp_data->getRawPointer()),
-	getNumDets() * sizeof(bool));
+	           getNumDets() * sizeof(bool));
 }
 
 void DetectorMask::logicalAndWithOther(const DetectorMask& other)

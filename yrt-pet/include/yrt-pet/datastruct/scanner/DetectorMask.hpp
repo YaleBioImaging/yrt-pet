@@ -46,6 +46,8 @@ public:
 	size_t getNumDets() const;
 	bool checkDetector(det_id_t detId) const;
 	bool isDetectorEnabled(det_id_t detId) const;
+	bool areAllDetectorsEnabled() const;
+	bool areAllDetectorsDisabled() const;
 
 	void writeToFile(const std::string& fname) const;
 

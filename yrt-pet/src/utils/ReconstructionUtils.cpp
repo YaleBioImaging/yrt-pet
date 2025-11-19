@@ -478,7 +478,8 @@ template std::unique_ptr<ImageOwned>
                                 timestamp_t timeStart, timestamp_t timeStop);
 
 // Helper function
-template <bool RequiresAtomicAccumulation, bool UseFilter, bool PrintProgress>
+template <bool RequiresAtomicAccumulation, bool UseDetectorMask,
+          bool PrintProgress>
 void convertToHistogram3DInternal(const ProjectionData& dat,
                                   Histogram3D& histoOut,
                                   const DetectorMask* detectorMask)
@@ -513,7 +514,7 @@ void convertToHistogram3DInternal(const ProjectionData& dat,
 				    return;
 			    }
 
-			    if constexpr (UseFilter)
+			    if constexpr (UseDetectorMask)
 			    {
 				    bool skipEvent = false;
 				    skipEvent |= detectorMask->checkDetector(d1);
@@ -542,22 +543,36 @@ void convertToHistogram3DInternal(const ProjectionData& dat,
 }
 
 template <bool RequiresAtomic, bool PrintProgress>
-void convertToHistogram3D(const ProjectionData& dat, Histogram3D& histoOut,
-                          const DetectorMask* detectorMask)
+void convertToHistogram3D(const ProjectionData& pr_dat, Histogram3D& pr_histoOut,
+                          const DetectorMask* pp_detectorMask)
 {
-	ASSERT_MSG(dat.getScanner().getNumDets() ==
-	               histoOut.getScanner().getNumDets(),
+	ASSERT_MSG(pr_dat.getScanner().getNumDets() ==
+	               pr_histoOut.getScanner().getNumDets(),
 	           "The projection-space dataset and the histogram provided point "
 	           "to scanners with a different number of detectors");
-	if (detectorMask != nullptr)
+
+	auto detMask = std::make_unique<DetectorMask>(pr_dat.getScanner().getNumDets());
+	if (pp_detectorMask != nullptr)
 	{
-		convertToHistogram3DInternal<RequiresAtomic, true, PrintProgress>(
-		    dat, histoOut, detectorMask);
+		detMask->logicalAndWithOther(*pp_detectorMask);
+	}
+
+	const auto detectorSetup = pr_dat.getScanner().getDetectorSetup();
+	if (detectorSetup->hasMask())
+	{
+		detMask->logicalAndWithOther(detectorSetup->getMask());
+	}
+
+	if (detMask->areAllDetectorsEnabled())
+	{
+		// Do not use a detector mask
+		convertToHistogram3DInternal<RequiresAtomic, false, PrintProgress>(
+		    pr_dat, pr_histoOut, nullptr);
 	}
 	else
 	{
-		convertToHistogram3DInternal<RequiresAtomic, false, PrintProgress>(
-		    dat, histoOut, detectorMask);
+		convertToHistogram3DInternal<RequiresAtomic, true, PrintProgress>(
+		    pr_dat, pr_histoOut, detMask.get());
 	}
 }
 template void convertToHistogram3D<true, true>(const ProjectionData&,

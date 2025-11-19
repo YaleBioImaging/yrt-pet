@@ -41,8 +41,8 @@ std::unique_ptr<ImageOwned>
 
 
 template <bool RequiresAtomic, bool PrintProgress = true>
-void convertToHistogram3D(const ProjectionData& dat, Histogram3D& histoOut,
-                          const DetectorMask* detectorMask = nullptr);
+void convertToHistogram3D(const ProjectionData& pr_dat, Histogram3D& pr_histoOut,
+                          const DetectorMask* pp_detectorMask = nullptr);
 
 template <bool RequiresAtomic, bool PrintProgress = true>
 std::unique_ptr<Histogram3DOwned> convertToHistogram3D(const ProjectionData& dat,

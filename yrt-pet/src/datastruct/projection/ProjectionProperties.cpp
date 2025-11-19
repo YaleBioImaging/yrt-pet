@@ -16,11 +16,13 @@ namespace yrt
 void py_setup_projectionpropertytype(pybind11::module& m)
 {
 	pybind11::enum_<ProjectionPropertyType>(m, "ProjectionPropertyType")
-	    .value("DETID", ProjectionPropertyType::DET_ID)
+	    .value("DET_ID", ProjectionPropertyType::DET_ID)
+	    .value("TIMESTAMP", ProjectionPropertyType::TIMESTAMP)
 	    .value("LOR", ProjectionPropertyType::LOR)
-	    .value("DETORIENT", ProjectionPropertyType::DET_ORIENT)
+	    .value("DET_ORIENT", ProjectionPropertyType::DET_ORIENT)
 	    .value("TOF", ProjectionPropertyType::TOF)
-	    .value("EVENTFRAME", ProjectionPropertyType::DYNAMIC_FRAME)
+	    .value("DYNAMIC_FRAME", ProjectionPropertyType::DYNAMIC_FRAME)
+	    .value("RANDOMS_ESTIMATE", ProjectionPropertyType::RANDOMS_ESTIMATE)
 	    .export_values();
 }
 }  // namespace yrt
@@ -55,10 +57,13 @@ std::map<ProjectionPropertyType, std::pair<std::string, int>>
 {
 	return std::map<ProjectionPropertyType, std::pair<std::string, int>>{
 	    {ProjectionPropertyType::DET_ID, {"DET_ID", sizeof(det_pair_t)}},
+	    {ProjectionPropertyType::TIMESTAMP, {"TIMESTAMP", sizeof(timestamp_t)}},
 	    {ProjectionPropertyType::LOR, {"LOR", sizeof(Line3D)}},
 	    {ProjectionPropertyType::DET_ORIENT, {"ORIENT", sizeof(det_orient_t)}},
 	    {ProjectionPropertyType::TOF, {"TOF", sizeof(float)}},
-	    {ProjectionPropertyType::DYNAMIC_FRAME, {"FRAME", sizeof(frame_t)}}};
+	    {ProjectionPropertyType::DYNAMIC_FRAME, {"FRAME", sizeof(frame_t)}},
+	    {ProjectionPropertyType::RANDOMS_ESTIMATE,
+	     {"RANDOMS_ESTIMATE", sizeof(float)}}};
 }
 template <>
 std::map<ConstraintVariable, std::pair<std::string, int>>

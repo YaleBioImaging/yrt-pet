@@ -300,6 +300,7 @@ size_t compareListModes(const ListMode& lm1, const ListMode& lm2)
 	std::vector<size_t> numMismatchesPerThread(numThreads, 0ull);
 
 	std::set<ProjectionPropertyType> variables;
+	variables.insert(ProjectionPropertyType::TIMESTAMP);
 	variables.insert(ProjectionPropertyType::DET_ID);
 	if (hasTOF)
 	{
@@ -321,8 +322,22 @@ size_t compareListModes(const ListMode& lm1, const ListMode& lm2)
 		    const size_t lm1Index = 2 * threadId + 0;
 		    const size_t lm2Index = 2 * threadId + 1;
 
+		    // Gather properties
 		    lm1.getProjectionProperties(props_ptr, propManager, evId, lm1Index);
 		    lm2.getProjectionProperties(props_ptr, propManager, evId, lm2Index);
+
+		    // Check timestamp
+		    const timestamp_t timestamp1 =
+		        propManager.getDataValue<timestamp_t>(
+		            props_ptr, lm1Index, ProjectionPropertyType::TIMESTAMP);
+		    const timestamp_t timestamp2 =
+		        propManager.getDataValue<timestamp_t>(
+		            props_ptr, lm2Index, ProjectionPropertyType::TIMESTAMP);
+		    if (timestamp1 != timestamp2)
+		    {
+			    numMismatchesPerThread[threadId]++;
+			    return;
+		    }
 
 		    // Check detector pair
 		    const det_pair_t detPair1 = propManager.getDataValue<det_pair_t>(

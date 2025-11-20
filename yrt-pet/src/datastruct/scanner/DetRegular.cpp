@@ -4,7 +4,7 @@
  */
 
 #include "yrt-pet/datastruct/scanner/DetRegular.hpp"
-
+#include "yrt-pet/datastruct/scanner/Scanner.hpp"
 #include "yrt-pet/geometry/Constants.hpp"
 
 #include <cstdlib>
@@ -14,12 +14,93 @@
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 namespace py = pybind11;
+
+namespace yrt
+{
+
+void py_setup_detregular(py::module& m)
+{
+	auto c = pybind11::class_<DetRegular, DetectorSetup,
+	                          std::shared_ptr<DetRegular>>(m, "DetRegular");
+	c.def(py::init<Scanner*>());
+
+	c.def("generateLUT", &DetRegular::generateLUT);
+	c.def("setXpos", &DetRegular::setXpos);
+	c.def("setYpos", &DetRegular::setYpos);
+	c.def("setZpos", &DetRegular::setZpos);
+	c.def("setXorient", &DetRegular::setXorient);
+	c.def("setYorient", &DetRegular::setYorient);
+	c.def("setZorient", &DetRegular::setZorient);
+	c.def("getScanner", &DetRegular::getScanner);
+
+	c.def("getXposArray",
+	      [](const DetRegular& self) -> py::array_t<float>
+	      {
+		      Array1DBase<float>* posArr = self.getXposArrayRef();
+		      auto buf_info =
+		          py::buffer_info(posArr->getRawPointer(), sizeof(float),
+		                          py::format_descriptor<float>::format(), 1,
+		                          {posArr->getSizeTotal()}, {sizeof(float)});
+		      return py::array_t<float>(buf_info);
+	      });
+	c.def("getYposArray",
+	      [](const DetRegular& self) -> py::array_t<float>
+	      {
+		      Array1DBase<float>* posArr = self.getYposArrayRef();
+		      auto buf_info =
+		          py::buffer_info(posArr->getRawPointer(), sizeof(float),
+		                          py::format_descriptor<float>::format(), 1,
+		                          {posArr->getSizeTotal()}, {sizeof(float)});
+		      return py::array_t<float>(buf_info);
+	      });
+	c.def("getZposArray",
+	      [](const DetRegular& self) -> py::array_t<float>
+	      {
+		      Array1DBase<float>* posArr = self.getZposArrayRef();
+		      auto buf_info =
+		          py::buffer_info(posArr->getRawPointer(), sizeof(float),
+		                          py::format_descriptor<float>::format(), 1,
+		                          {posArr->getSizeTotal()}, {sizeof(float)});
+		      return py::array_t<float>(buf_info);
+	      });
+	c.def("getXorientArray",
+	      [](const DetRegular& self) -> py::array_t<float>
+	      {
+		      Array1DBase<float>* orientArr = self.getXorientArrayRef();
+		      auto buf_info =
+		          py::buffer_info(orientArr->getRawPointer(), sizeof(float),
+		                          py::format_descriptor<float>::format(), 1,
+		                          {orientArr->getSizeTotal()}, {sizeof(float)});
+		      return py::array_t<float>(buf_info);
+	      });
+	c.def("getYorientArray",
+	      [](const DetRegular& self) -> py::array_t<float>
+	      {
+		      Array1DBase<float>* orientArr = self.getYorientArrayRef();
+		      auto buf_info =
+		          py::buffer_info(orientArr->getRawPointer(), sizeof(float),
+		                          py::format_descriptor<float>::format(), 1,
+		                          {orientArr->getSizeTotal()}, {sizeof(float)});
+		      return py::array_t<float>(buf_info);
+	      });
+	c.def("getZorientArray",
+	      [](const DetRegular& self) -> py::array_t<float>
+	      {
+		      Array1DBase<float>* orientArr = self.getZorientArrayRef();
+		      auto buf_info =
+		          py::buffer_info(orientArr->getRawPointer(), sizeof(float),
+		                          py::format_descriptor<float>::format(), 1,
+		                          {orientArr->getSizeTotal()}, {sizeof(float)});
+		      return py::array_t<float>(buf_info);
+	      });
+}
+}  // namespace yrt
 #endif
 
 namespace yrt
 {
 
-DetRegular::DetRegular(Scanner* pp_scanner) : mp_scanner(pp_scanner)
+DetRegular::DetRegular(const Scanner* pp_scanner) : mp_scanner(pp_scanner)
 {
 	mp_Xpos = std::make_unique<Array1D<float>>();
 	mp_Ypos = std::make_unique<Array1D<float>>();
@@ -193,88 +274,3 @@ size_t DetRegular::getNumDets() const
 }
 
 }  // namespace yrt
-
-#if BUILD_PYBIND11
-
-namespace yrt
-{
-
-void py_setup_detregular(py::module& m)
-{
-	auto c = pybind11::class_<DetRegular, DetectorSetup,
-	                          std::shared_ptr<DetRegular>>(m, "DetRegular");
-	c.def(py::init<Scanner*>());
-
-	c.def("generateLUT", &DetRegular::generateLUT);
-	c.def("setXpos", &DetRegular::setXpos);
-	c.def("setYpos", &DetRegular::setYpos);
-	c.def("setZpos", &DetRegular::setZpos);
-	c.def("setXorient", &DetRegular::setXorient);
-	c.def("setYorient", &DetRegular::setYorient);
-	c.def("setZorient", &DetRegular::setZorient);
-	c.def("getScanner", &DetRegular::getScanner);
-
-	c.def("getXposArray",
-	      [](const DetRegular& self) -> py::array_t<float>
-	      {
-		      Array1DBase<float>* posArr = self.getXposArrayRef();
-		      auto buf_info =
-		          py::buffer_info(posArr->getRawPointer(), sizeof(float),
-		                          py::format_descriptor<float>::format(), 1,
-		                          {posArr->getSizeTotal()}, {sizeof(float)});
-		      return py::array_t<float>(buf_info);
-	      });
-	c.def("getYposArray",
-	      [](const DetRegular& self) -> py::array_t<float>
-	      {
-		      Array1DBase<float>* posArr = self.getYposArrayRef();
-		      auto buf_info =
-		          py::buffer_info(posArr->getRawPointer(), sizeof(float),
-		                          py::format_descriptor<float>::format(), 1,
-		                          {posArr->getSizeTotal()}, {sizeof(float)});
-		      return py::array_t<float>(buf_info);
-	      });
-	c.def("getZposArray",
-	      [](const DetRegular& self) -> py::array_t<float>
-	      {
-		      Array1DBase<float>* posArr = self.getZposArrayRef();
-		      auto buf_info =
-		          py::buffer_info(posArr->getRawPointer(), sizeof(float),
-		                          py::format_descriptor<float>::format(), 1,
-		                          {posArr->getSizeTotal()}, {sizeof(float)});
-		      return py::array_t<float>(buf_info);
-	      });
-	c.def("getXorientArray",
-	      [](const DetRegular& self) -> py::array_t<float>
-	      {
-		      Array1DBase<float>* orientArr = self.getXorientArrayRef();
-		      auto buf_info =
-		          py::buffer_info(orientArr->getRawPointer(), sizeof(float),
-		                          py::format_descriptor<float>::format(), 1,
-		                          {orientArr->getSizeTotal()}, {sizeof(float)});
-		      return py::array_t<float>(buf_info);
-	      });
-	c.def("getYorientArray",
-	      [](const DetRegular& self) -> py::array_t<float>
-	      {
-		      Array1DBase<float>* orientArr = self.getYorientArrayRef();
-		      auto buf_info =
-		          py::buffer_info(orientArr->getRawPointer(), sizeof(float),
-		                          py::format_descriptor<float>::format(), 1,
-		                          {orientArr->getSizeTotal()}, {sizeof(float)});
-		      return py::array_t<float>(buf_info);
-	      });
-	c.def("getZorientArray",
-	      [](const DetRegular& self) -> py::array_t<float>
-	      {
-		      Array1DBase<float>* orientArr = self.getZorientArrayRef();
-		      auto buf_info =
-		          py::buffer_info(orientArr->getRawPointer(), sizeof(float),
-		                          py::format_descriptor<float>::format(), 1,
-		                          {orientArr->getSizeTotal()}, {sizeof(float)});
-		      return py::array_t<float>(buf_info);
-	      });
-}
-}  // namespace yrt
-
-#endif

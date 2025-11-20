@@ -94,17 +94,12 @@ void py_setup_detcoord(py::module& m)
 		                          {orientArr->getSizeTotal()}, {sizeof(float)});
 		      return py::array_t<float>(buf_info);
 	      });
-	c.def("getMaskArray",
-	      [](const DetCoord& self) -> py::array_t<bool>
+	c.def("getMask",
+	      [](DetCoord& self)
 	      {
-		      Array1DBase<bool>* maskArr = self.getMaskArrayRef();
-		      auto buf_info =
-			      py::buffer_info(maskArr->getRawPointer(), sizeof(bool),
-		                          py::format_descriptor<bool>::format(), 1,
-		                          {maskArr->getSizeTotal()}, {sizeof(bool)});
-		      return py::array_t<bool>(buf_info);
+		      ASSERT_MSG(self.hasMask(), "No mask defined");
+		      return self.getMask();
 	      });
-
 
 	auto c_owned =
 	    pybind11::class_<DetCoordOwned, DetCoord,
@@ -122,7 +117,7 @@ void py_setup_detcoord(py::module& m)
 	    "bind",
 	    [](DetCoordAlias& self, py::buffer& xpos, py::buffer& ypos,
 	       py::buffer& zpos, py::buffer& xorient, py::buffer& yorient,
-	       py::buffer& zorient, py::buffer& mask)
+	       py::buffer& zorient)
 	    {
 		    py::buffer_info xpos_info = xpos.request();
 		    py::buffer_info zpos_info = ypos.request();
@@ -130,52 +125,52 @@ void py_setup_detcoord(py::module& m)
 		    py::buffer_info xorient_info = xorient.request();
 		    py::buffer_info zorient_info = yorient.request();
 		    py::buffer_info yorient_info = zorient.request();
-		    py::buffer_info mask_info;
-		    if (!mask.is_none())
-		    {
-			    mask_info = mask.request();
-		    }
 		    if (xpos_info.format != py::format_descriptor<float>::format() ||
 		        xpos_info.ndim != 1)
+		    {
 			    throw std::invalid_argument(
 			        "The XPos array has to be a 1-dimensional float32 array");
+		    }
 		    if (ypos_info.format != py::format_descriptor<float>::format() ||
 		        ypos_info.ndim != 1)
+		    {
 			    throw std::invalid_argument(
 			        "The YPos array has to be a 1-dimensional float32 array");
+		    }
 		    if (zpos_info.format != py::format_descriptor<float>::format() ||
 		        zpos_info.ndim != 1)
+		    {
 			    throw std::invalid_argument(
 			        "The ZPos array has to be a 1-dimensional float32 array");
+		    }
 		    if (xorient_info.format != py::format_descriptor<float>::format() ||
 		        xorient_info.ndim != 1)
+		    {
 			    throw std::invalid_argument("The XOrient array has to be a "
 			                                "1-dimensional float32 array");
+		    }
 		    if (yorient_info.format != py::format_descriptor<float>::format() ||
 		        yorient_info.ndim != 1)
+		    {
 			    throw std::invalid_argument("The YOrient array has to be a "
 			                                "1-dimensional float32 array");
+		    }
 		    if (zorient_info.format != py::format_descriptor<float>::format() ||
 		        zorient_info.ndim != 1)
+		    {
 			    throw std::invalid_argument("The ZOrient array has to be a "
 			                                "1-dimensional float32 array");
-		    if (!mask.is_none())
-		    {
-			    if (mask_info.format != py::format_descriptor<bool>::format() ||
-			        mask_info.ndim != 1)
-			    {
-				    throw std::invalid_argument("The Mask array has to be a "
-				                                "1-dimensional boolean array");
-			    }
 		    }
+
 		    if (xpos_info.shape[0] != ypos_info.shape[0] ||
 		        xpos_info.shape[0] != zpos_info.shape[0] ||
 		        xpos_info.shape[0] != xorient_info.shape[0] ||
 		        xpos_info.shape[0] != yorient_info.shape[0] ||
-		        xpos_info.shape[0] != zorient_info.shape[0] ||
-		        (!mask.is_none() && xpos_info.shape[0] != mask_info.shape[0]))
+		        xpos_info.shape[0] != zorient_info.shape[0])
+		    {
 			    throw std::invalid_argument(
 			        "All the arrays given have to have the same size");
+		    }
 
 		    static_cast<Array1DAlias<float>*>(self.getXposArrayRef())
 		        ->bind(reinterpret_cast<float*>(xpos_info.ptr),
@@ -196,13 +191,6 @@ void py_setup_detcoord(py::module& m)
 		    static_cast<Array1DAlias<float>*>(self.getZorientArrayRef())
 		        ->bind(reinterpret_cast<float*>(zorient_info.ptr),
 		               zorient_info.shape[0]);
-
-		    if (!mask.is_none())
-		    {
-			    static_cast<Array1DAlias<bool>*>(self.getMaskArrayRef())
-				    ->bind(reinterpret_cast<bool*>(mask_info.ptr),
-				           mask_info.shape[0]);
-		    }
 	    });
 }
 }  // namespace yrt
@@ -222,13 +210,12 @@ DetCoordOwned::DetCoordOwned() : DetCoord()
 	mp_Xorient = std::make_unique<Array1D<float>>();
 	mp_Yorient = std::make_unique<Array1D<float>>();
 	mp_Zorient = std::make_unique<Array1D<float>>();
-	mp_Mask = std::make_unique<Array1D<bool>>();
 }
 DetCoordOwned::DetCoordOwned(const std::string& filename,
-                             const std::string& maskFilename)
+                             const std::string& mask_fname)
     : DetCoordOwned()
 {
-	readFromFile(filename, maskFilename);
+	readFromFile(filename, mask_fname);
 }
 
 DetCoordAlias::DetCoordAlias() : DetCoord()
@@ -239,11 +226,10 @@ DetCoordAlias::DetCoordAlias() : DetCoord()
 	mp_Xorient = std::make_unique<Array1DAlias<float>>();
 	mp_Yorient = std::make_unique<Array1DAlias<float>>();
 	mp_Zorient = std::make_unique<Array1DAlias<float>>();
-	mp_Mask = std::make_unique<Array1DAlias<bool>>();
 }
 
 
-void DetCoordOwned::allocate(size_t numDets, bool hasDetMask)
+void DetCoordOwned::allocate(size_t numDets)
 {
 	reinterpret_cast<Array1D<float>*>(mp_Xpos.get())->allocate(numDets);
 	reinterpret_cast<Array1D<float>*>(mp_Ypos.get())->allocate(numDets);
@@ -251,10 +237,6 @@ void DetCoordOwned::allocate(size_t numDets, bool hasDetMask)
 	reinterpret_cast<Array1D<float>*>(mp_Xorient.get())->allocate(numDets);
 	reinterpret_cast<Array1D<float>*>(mp_Yorient.get())->allocate(numDets);
 	reinterpret_cast<Array1D<float>*>(mp_Zorient.get())->allocate(numDets);
-	if (hasDetMask)
-	{
-		reinterpret_cast<Array1D<bool>*>(mp_Mask.get())->allocate(numDets);
-	}
 }
 
 void DetCoord::writeToFile(const std::string& detCoord_fname) const
@@ -268,22 +250,18 @@ void DetCoord::writeToFile(const std::string& detCoord_fname) const
 	}
 	for (size_t j = 0; j < getNumDets(); j++)
 	{
-		float Xpos10 = (*mp_Xpos)[j];
-		float Ypos10 = (*mp_Ypos)[j];
-		float Zpos10 = (*mp_Zpos)[j];
+		file.write(reinterpret_cast<char*>(&(*mp_Xpos)[j]), sizeof(float));
+		file.write(reinterpret_cast<char*>(&(*mp_Ypos)[j]), sizeof(float));
+		file.write(reinterpret_cast<char*>(&(*mp_Zpos)[j]), sizeof(float));
 
-		file.write((char*)(&(Xpos10)), sizeof(float));
-		file.write((char*)(&(Ypos10)), sizeof(float));
-		file.write((char*)(&(Zpos10)), sizeof(float));
-
-		file.write((char*)(&((*mp_Xorient)[j])), sizeof(float));
-		file.write((char*)(&((*mp_Yorient)[j])), sizeof(float));
-		file.write((char*)(&((*mp_Zorient)[j])), sizeof(float));
+		file.write(reinterpret_cast<char*>(&(*mp_Xorient)[j]), sizeof(float));
+		file.write(reinterpret_cast<char*>(&(*mp_Yorient)[j]), sizeof(float));
+		file.write(reinterpret_cast<char*>(&(*mp_Zorient)[j]), sizeof(float));
 	}
 }
 
 void DetCoordOwned::readFromFile(const std::string& filename,
-                                 const std::string& maskFilename)
+                                 const std::string& mask_fname)
 {
 	// File format:
 	// <float><float><float><float><float><float>
@@ -311,7 +289,7 @@ void DetCoordOwned::readFromFile(const std::string& filename,
 	}
 
 	size_t numDets = numElem / 6;
-	allocate(numDets, !maskFilename.empty());
+	allocate(numDets);
 
 	auto buff = std::make_unique<float[]>(numElem);
 
@@ -342,30 +320,9 @@ void DetCoordOwned::readFromFile(const std::string& filename,
 	fin.close();
 
 	// Read mask
-	if (!maskFilename.empty())
+	if (!mask_fname.empty())
 	{
-		std::ifstream fin(maskFilename.c_str(),
-		                  std::ios::in | std::ios::binary);
-		if (!fin.good())
-		{
-			throw std::runtime_error("Error reading input file " +
-			                         maskFilename);
-		}
-
-		// first check that file has the right size:
-		fin.seekg(0, std::ios::end);
-		size_t end = fin.tellg();
-		fin.seekg(0, std::ios::beg);
-		size_t begin = fin.tellg();
-		size_t fileSizeMask = end - begin;
-		size_t numBool = fileSizeMask / sizeof(bool);
-		if (fileSizeMask <= 0 || fileSizeMask % sizeof(bool) != 0 ||
-		    numBool != numDets)
-		{
-			throw std::logic_error("Error: Input mask file has incorrect size");
-		}
-		fin.read((char*)&mp_Mask->get({0}), numBool * sizeof(bool));
-		fin.close();
+		addMask(mask_fname);
 	}
 }
 
@@ -373,17 +330,14 @@ void DetCoordAlias::bind(DetCoord* p_detCoord)
 {
 	bind(p_detCoord->getXposArrayRef(), p_detCoord->getYposArrayRef(),
 	     p_detCoord->getZposArrayRef(), p_detCoord->getXorientArrayRef(),
-	     p_detCoord->getYorientArrayRef(), p_detCoord->getZorientArrayRef(),
-	     p_detCoord->getMaskArrayRef());
+	     p_detCoord->getYorientArrayRef(), p_detCoord->getZorientArrayRef());
 }
 
-void DetCoordAlias::bind(Array1DBase<float>* p_Xpos,
-                         Array1DBase<float>* p_Ypos,
+void DetCoordAlias::bind(Array1DBase<float>* p_Xpos, Array1DBase<float>* p_Ypos,
                          Array1DBase<float>* p_Zpos,
                          Array1DBase<float>* p_Xorient,
                          Array1DBase<float>* p_Yorient,
-                         Array1DBase<float>* p_Zorient,
-                         Array1DBase<bool>* p_Mask)
+                         Array1DBase<float>* p_Zorient)
 {
 	bool isNotNull = true;
 
@@ -400,11 +354,7 @@ void DetCoordAlias::bind(Array1DBase<float>* p_Xpos,
 	isNotNull &= (mp_Xorient->getRawPointer() != nullptr);
 	isNotNull &= (mp_Yorient->getRawPointer() != nullptr);
 	isNotNull &= (mp_Zorient->getRawPointer() != nullptr);
-	if (p_Mask != nullptr)
-	{
-		static_cast<Array1DAlias<bool>*>(mp_Mask.get())->bind(*p_Mask);
-		isNotNull &= (mp_Mask->getRawPointer() != nullptr);
-	}
+
 	if (!isNotNull)
 	{
 		throw std::runtime_error(
@@ -437,10 +387,7 @@ float DetCoord::getZorient(det_id_t detID) const
 {
 	return (*mp_Zorient)[detID];
 }
-bool DetCoord::isDetectorAllowed(det_id_t det) const
-{
-	return mp_Mask->getSizeTotal() == 0 || (*mp_Mask)[det];
-}
+
 void DetCoord::setXpos(det_id_t detID, float f)
 {
 	(*mp_Xpos)[detID] = f;
@@ -466,19 +413,39 @@ void DetCoord::setZorient(det_id_t detID, float f)
 	(*mp_Zorient)[detID] = f;
 }
 
+Array1DBase<float>* DetCoord::getXposArrayRef() const
+{
+	return (mp_Xpos.get());
+}
+
+Array1DBase<float>* DetCoord::getYposArrayRef() const
+{
+	return (mp_Ypos.get());
+}
+
+Array1DBase<float>* DetCoord::getZposArrayRef() const
+{
+	return (mp_Zpos.get());
+}
+
+Array1DBase<float>* DetCoord::getXorientArrayRef() const
+{
+	return (mp_Xorient.get());
+}
+
+Array1DBase<float>* DetCoord::getYorientArrayRef() const
+{
+	return (mp_Yorient.get());
+}
+
+Array1DBase<float>* DetCoord::getZorientArrayRef() const
+{
+	return (mp_Zorient.get());
+}
+
 size_t DetCoord::getNumDets() const
 {
 	return this->mp_Xpos->getSize(0);
-}
-
-Array1DBase<bool>* DetCoord::getMaskArrayRef() const
-{
-	return (mp_Mask.get());
-}
-
-bool DetCoord::hasMask() const
-{
-	return mp_Mask->getSizeTotal() > 0;
 }
 
 }  // namespace yrt

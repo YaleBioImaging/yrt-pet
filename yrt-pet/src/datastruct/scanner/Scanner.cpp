@@ -5,6 +5,7 @@
 
 #include "yrt-pet/datastruct/scanner/Scanner.hpp"
 
+#include "yrt-pet/datastruct/scanner/DetCoord.hpp"
 #include "yrt-pet/datastruct/scanner/DetRegular.hpp"
 #include "yrt-pet/datastruct/scanner/DetectorSetup.hpp"
 #include "yrt-pet/geometry/Constants.hpp"
@@ -26,7 +27,7 @@ void py_setup_scanner(pybind11::module& m)
 {
 	auto c = py::class_<Scanner>(m, "Scanner");
 	c.def_property_readonly_static("SCANNER_FILE_VERSION", [](py::object)
-	                               { return SCANNER_FILE_VERSION; });
+	                               { return Scanner::SCANNER_FILE_VERSION; });
 
 	c.def(py::init<std::string, float, float, float, float, float, size_t,
 	               size_t, size_t, size_t, size_t, size_t>(),
@@ -40,6 +41,8 @@ void py_setup_scanner(pybind11::module& m)
 	c.def("getDetectorPos", &Scanner::getDetectorPos, "det_id"_a);
 	c.def("getDetectorOrient", &Scanner::getDetectorOrient, "det_id"_a);
 	c.def("isDetectorAllowed", &Scanner::isDetectorAllowed, "det_id"_a);
+	c.def("isValid", &Scanner::isValid);
+	c.def("hasMask", &Scanner::hasMask);
 	c.def_readwrite("scannerName", &Scanner::scannerName);
 	c.def_readwrite("axialFOV", &Scanner::axialFOV);
 	c.def_readwrite("crystalSize_z", &Scanner::crystalSize_z);
@@ -78,6 +81,7 @@ void py_setup_scanner(pybind11::module& m)
 	c.def("setDetectorSetup",
 	      [](Scanner& s, const std::shared_ptr<DetectorSetup>& detCoords)
 	      { s.setDetectorSetup(detCoords); });
+	c.def("getDetectorSetup", &Scanner::getDetectorSetup);
 }
 }  // namespace yrt
 #endif
@@ -161,6 +165,16 @@ void Scanner::collectConstraints(
 		constraints.emplace_back(
 		    std::make_unique<ConstraintDetectorMask>(this));
 	}
+}
+
+void Scanner::addMask(const std::string& mask_fname)
+{
+	mp_detectors->addMask(mask_fname);
+}
+
+void Scanner::addMask(const DetectorMask& mask)
+{
+	mp_detectors->addMask(mask);
 }
 
 void Scanner::createLUT(Array2D<float>& lut) const
@@ -252,10 +266,16 @@ void Scanner::readFromString(const std::string& fileContents)
 	// Check for errors
 	if (scannerFileVersion > SCANNER_FILE_VERSION + SMALL_FLT)
 	{
-		throw std::invalid_argument(
-		    "Wrong file version for Scanner JSON file, the "
-		    "current version is " +
-		    std::to_string(SCANNER_FILE_VERSION));
+		throw std::invalid_argument("Scanner JSON version too recent, the "
+		                            "current version is " +
+		                            std::to_string(SCANNER_FILE_VERSION));
+	}
+
+	// Get detector mask
+	fs::path detMask_path = "";
+	if (isDetMaskGiven)
+	{
+		detMask_path = m_scannerPath.parent_path() / fs::path(detMask);
 	}
 
 	// Join paths for DetCoord
@@ -263,11 +283,6 @@ void Scanner::readFromString(const std::string& fileContents)
 	{
 		const fs::path detCoord_path =
 		    m_scannerPath.parent_path() / fs::path(detCoord);
-		fs::path detMask_path = "";
-		if (isDetMaskGiven)
-		{
-			detMask_path = m_scannerPath.parent_path() / fs::path(detMask);
-		}
 		mp_detectors = std::make_shared<DetCoordOwned>(detCoord_path.string(),
 		                                               detMask_path.string());
 		if (mp_detectors->getNumDets() != getTheoreticalNumDets())
@@ -280,6 +295,11 @@ void Scanner::readFromString(const std::string& fileContents)
 	{
 		mp_detectors = std::make_shared<DetRegular>(this);
 		reinterpret_cast<DetRegular*>(mp_detectors.get())->generateLUT();
+		if (isDetMaskGiven)
+		{
+			ASSERT(!detMask_path.empty());  // Sanity check
+			mp_detectors->addMask(detMask_path);
+		}
 	}
 
 	ASSERT_MSG(

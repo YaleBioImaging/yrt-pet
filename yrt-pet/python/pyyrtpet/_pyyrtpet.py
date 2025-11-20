@@ -95,8 +95,8 @@ class ProjectionOper:
         proj_f = getattr(yrt, 'OperatorProjector{}'.format(projector))
         self._proj_params = yrt.OperatorProjectorParams(scanner)
         self._proj_params.binIter = self._binIter
-        self._proj_params.tofWidth_ps = tof_width_ps or np.float32(0)
-        self._proj_params.tofNumStd = tof_n_std or np.int32(0)
+        self._proj_params.addTOF(tof_width_ps or np.float32(0),
+                                 tof_n_std or np.int32(0))
         self._proj_params.projPsf_fname = proj_psf_fname or ''
         self._proj_params.num_rays = num_rays
         self._oper = proj_f(self._proj_params)

@@ -142,17 +142,19 @@ TEST_CASE("binfilter", "[binfilter]")
 		// Get coordinates from scanner
 		auto detCoords =
 		    static_cast<yrt::DetCoord*>(scanner->getDetectorSetup().get());
+
 		// Scanner mask
-		yrt::Array1D<bool> mask;
-		mask.allocate(scanner->getNumDets());
-		std::fill(&mask[0], &mask[mask.getSizeTotal() - 1], true);
+		yrt::Array1D<bool> maskArray;
+		maskArray.allocate(scanner->getNumDets());
+		std::fill(&maskArray[0], &maskArray[maskArray.getSizeTotal() - 1], true);
 		for (size_t detID = 0; detID < scanner->getNumDets(); detID++)
 		{
 			if ((detID % scanner->detsPerRing) < 10)
 			{
-				mask[detID] = false;
+				maskArray[detID] = false;
 			}
 		}
+		yrt::DetectorMask mask(maskArray);
 
 		// Create scanner object with mask
 		std::shared_ptr<yrt::DetCoordAlias> detCoordsMask =
@@ -160,8 +162,8 @@ TEST_CASE("binfilter", "[binfilter]")
 		detCoordsMask->bind(
 		    detCoords->getXposArrayRef(), detCoords->getYposArrayRef(),
 		    detCoords->getZposArrayRef(), detCoords->getXorientArrayRef(),
-		    detCoords->getYorientArrayRef(), detCoords->getZorientArrayRef(),
-		    &mask);
+		    detCoords->getYorientArrayRef(), detCoords->getZorientArrayRef());
+		detCoordsMask->addMask(mask);
 		auto scannerMasked = yrt::util::test::makeScanner();
 		scannerMasked->setDetectorSetup(detCoordsMask);
 

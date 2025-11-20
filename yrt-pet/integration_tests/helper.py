@@ -30,6 +30,9 @@ def get_test_folders():
     fold_bin = os.path.join(os.path.dirname(__file__), '../executables')
     return fold_data_from_env, fold_out_from_env, fold_bin
 
+def get_plugin_executables_folder():
+    fold_plugins = os.path.join(os.path.dirname(__file__), '../plugins')
+    return fold_plugins
 
 # %% Helper test functions
 def _test_subsets(scanner: yrt.Scanner, img_params: yrt.ImageParams,

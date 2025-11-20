@@ -15,6 +15,34 @@
 #include "yrt-pet/utils/Tools.hpp"
 #include "yrt-pet/utils/Types.hpp"
 
+#if BUILD_PYBIND11
+
+#include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
+
+namespace py = pybind11;
+using namespace py::literals;
+
+namespace yrt
+{
+void py_setup_binfilter(py::module& m)
+{
+	auto c = py::class_<BinFilter>(m, "BinFilter");
+	c.def(py::init<const std::vector<Constraint*>&,
+	               const std::set<ProjectionPropertyType>&>(),
+	      "contraints"_a, "projProperties"_a);
+	c.def("clearConstraints", &BinFilter::clearConstraints);
+	c.def("setupManagers", &BinFilter::setupManagers);
+	c.def("collectConstraintVariables", &BinFilter::collectConstraintVariables);
+
+	c.def("getConstraintManager", &BinFilter::getConstraintManager);
+	c.def("getPropertyManager", &BinFilter::getPropertyManager);
+	c.def("getProjPropertyTypes", &BinFilter::getProjPropertyTypes);
+}
+}  // namespace yrt
+
+#endif
+
 namespace yrt
 {
 
@@ -31,7 +59,7 @@ void BinFilter::clearConstraints()
 {
 	m_constraints.clear();
 	m_consVariables.clear();
-	m_constraintManager = nullptr;
+	mp_constraintManager = nullptr;
 }
 
 const std::set<ProjectionPropertyType>& BinFilter::getProjPropertyTypes() const
@@ -41,12 +69,12 @@ const std::set<ProjectionPropertyType>& BinFilter::getProjPropertyTypes() const
 
 void BinFilter::setupManagers()
 {
-	if (m_constraints.size() > 0)
+	if (!m_constraints.empty())
 	{
 		collectConstraintVariables();
 	}
-	m_constraintManager = std::make_unique<ConstraintManager>(m_consVariables);
-	m_propManager =
+	mp_constraintManager = std::make_unique<ConstraintManager>(m_consVariables);
+	mp_propManager =
 	    std::make_unique<ProjectionPropertyManager>(m_projVariables);
 }
 
@@ -62,15 +90,14 @@ void BinFilter::collectConstraintVariables()
 	}
 }
 
-
 const ConstraintManager& BinFilter::getConstraintManager() const
 {
-	return *m_constraintManager.get();
+	return *mp_constraintManager;
 }
 
 const ProjectionPropertyManager& BinFilter::getPropertyManager() const
 {
-	return *m_propManager.get();
+	return *mp_propManager;
 }
 
 void BinFilter::collectFlags(CollectInfoFlags& collectFlags) const
@@ -87,16 +114,14 @@ void BinFilter::collectFlags(CollectInfoFlags& collectFlags) const
 	    m_projVariables.find(ProjectionPropertyType::DET_ID) !=
 	    m_projVariables.end();
 	collectFlags[static_cast<size_t>(CollectInfoFlag::Det1)] =
-	    m_consVariables.find(ConstraintVariable::DET1) !=
-	    m_consVariables.end();
+	    m_consVariables.find(ConstraintVariable::DET1) != m_consVariables.end();
 	collectFlags[static_cast<size_t>(CollectInfoFlag::Det2)] =
-	    m_consVariables.find(ConstraintVariable::DET2) !=
-	    m_consVariables.end();
+	    m_consVariables.find(ConstraintVariable::DET2) != m_consVariables.end();
 	collectFlags[static_cast<size_t>(CollectInfoFlag::DetPair)] =
-		collectFlags[static_cast<size_t>(CollectInfoFlag::DetID)] ||
-		collectFlags[static_cast<size_t>(CollectInfoFlag::Det1)] ||
-		collectFlags[static_cast<size_t>(CollectInfoFlag::Det2)] ||
-		collectFlags[static_cast<size_t>(CollectInfoFlag::PlaneIdx)] ||
+	    collectFlags[static_cast<size_t>(CollectInfoFlag::DetID)] ||
+	    collectFlags[static_cast<size_t>(CollectInfoFlag::Det1)] ||
+	    collectFlags[static_cast<size_t>(CollectInfoFlag::Det2)] ||
+	    collectFlags[static_cast<size_t>(CollectInfoFlag::PlaneIdx)] ||
 	    collectFlags[static_cast<size_t>(CollectInfoFlag::PlaneBlock)];
 	collectFlags[static_cast<size_t>(CollectInfoFlag::LOR)] =
 	    m_projVariables.find(ProjectionPropertyType::LOR) !=
@@ -127,26 +152,26 @@ void BinFilter::collectInfo(bin_t bin, size_t projIdx, int consIdx,
 	}
 	if (collectFlags[static_cast<size_t>(CollectInfoFlag::DetID)])
 	{
-		m_propManager->setDataValue(projProps, projIdx,
-		                            ProjectionPropertyType::DET_ID, detPair);
+		mp_propManager->setDataValue(projProps, projIdx,
+		                             ProjectionPropertyType::DET_ID, detPair);
 	}
 	if (collectFlags[static_cast<size_t>(CollectInfoFlag::Det1)])
 	{
-		m_constraintManager->setDataValue(consInfo, consIdx,
-		                                  ConstraintVariable::DET1, detPair.d1);
+		mp_constraintManager->setDataValue(
+		    consInfo, consIdx, ConstraintVariable::DET1, detPair.d1);
 	}
 	if (collectFlags[static_cast<size_t>(CollectInfoFlag::Det2)])
 	{
-		m_constraintManager->setDataValue(consInfo, consIdx,
-		                                  ConstraintVariable::DET2, detPair.d2);
+		mp_constraintManager->setDataValue(
+		    consInfo, consIdx, ConstraintVariable::DET2, detPair.d2);
 	}
 
 	Line3D lor;
 	if (collectFlags[static_cast<size_t>(CollectInfoFlag::LOR)])
 	{
 		lor = projData.getLOR(bin);
-		m_propManager->setDataValue(projProps, projIdx,
-		                            ProjectionPropertyType::LOR, lor);
+		mp_propManager->setDataValue(projProps, projIdx,
+		                             ProjectionPropertyType::LOR, lor);
 	}
 
 	const Scanner* scanner = &projData.getScanner();
@@ -157,7 +182,7 @@ void BinFilter::collectInfo(bin_t bin, size_t projIdx, int consIdx,
 		float a1 = std::atan2(lor.point1.y, lor.point1.x);
 		float a2 = std::atan2(lor.point2.y, lor.point2.x);
 		float diff = util::periodicDiff(a1, a2, (float)(2.f * PI)) / PI * 180.f;
-		m_constraintManager->setDataValue(
+		mp_constraintManager->setDataValue(
 		    consInfo, consIdx, ConstraintVariable::ABS_DELTA_ANGLE_DEG, diff);
 	}
 
@@ -172,7 +197,7 @@ void BinFilter::collectInfo(bin_t bin, size_t projIdx, int consIdx,
 	{
 		int diff = std::abs(util::periodicDiff(
 		    d1xyi, d2xyi, static_cast<int>(scanner->detsPerRing)));
-		m_constraintManager->setDataValue(
+		mp_constraintManager->setDataValue(
 		    consInfo, consIdx, ConstraintVariable::ABS_DELTA_ANGLE_IDX, diff);
 	}
 
@@ -188,7 +213,7 @@ void BinFilter::collectInfo(bin_t bin, size_t projIdx, int consIdx,
 		size_t numBlocks = scanner->detsPerRing / scanner->detsPerBlock;
 		int diff = std::abs(
 		    util::periodicDiff(d1bi, d2bi, static_cast<int>(numBlocks)));
-		m_constraintManager->setDataValue(
+		mp_constraintManager->setDataValue(
 		    consInfo, consIdx, ConstraintVariable::ABS_DELTA_BLOCK_IDX, diff);
 	}
 }

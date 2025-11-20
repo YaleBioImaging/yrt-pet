@@ -6,13 +6,12 @@
 #pragma once
 
 #include "yrt-pet/datastruct/projection/Constraints.hpp"
-#include "yrt-pet/datastruct/scanner/DetCoord.hpp"
+#include "yrt-pet/datastruct/scanner/DetectorSetup.hpp"
 #include "yrt-pet/geometry/Vector3D.hpp"
 
 #include <filesystem>
 #include <string>
-
-#define SCANNER_FILE_VERSION 3.1
+#include <memory>
 
 namespace fs = std::filesystem;
 
@@ -21,6 +20,8 @@ namespace yrt
 class Scanner
 {
 public:
+	static constexpr float SCANNER_FILE_VERSION = 3.2;
+
 	Scanner(std::string pr_scannerName, float p_axialFOV, float p_crystalSize_z,
 	        float p_crystalSize_trans, float p_crystalDepth,
 	        float p_scannerRadius, size_t p_detsPerRing, size_t p_numRings,
@@ -45,6 +46,10 @@ public:
 
 	void collectConstraints(
 	    std::vector<std::unique_ptr<Constraint>>& constraints) const;
+
+	void addMask(const std::string& mask_fname);
+	void addMask(const DetectorMask& mask);
+
 public:
 	std::string scannerName;
 	float axialFOV, crystalSize_z, crystalSize_trans, crystalDepth,

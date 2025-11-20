@@ -82,9 +82,10 @@ OperatorProjectorDevice::OperatorProjectorDevice(
               p_memAvailBytes),
       m_batchSize(0ull)
 {
-	if (pr_projParams.tofWidth_ps > 0.f)
+	if (pr_projParams.hasTOF())
 	{
-		setupTOFHelper(pr_projParams.tofWidth_ps, pr_projParams.tofNumStd);
+		setupTOFHelper(pr_projParams.getTOFWidth_ps(),
+		               pr_projParams.getTOFNumStd());
 	}
 	if (!pr_projParams.projPsf_fname.empty())
 	{
@@ -98,7 +99,7 @@ void OperatorProjectorDevice::initBinFilter(
 {
 	OperatorProjectorBase::initBinFilter(projPropertyTypesExtra, numThreads);
 	std::set<ProjectionPropertyType> projPropertyTypes =
-	    m_binFilter->getProjPropertyTypes();
+	    mp_binFilter->getProjPropertyTypes();
 	mp_projPropManager =
 	    std::make_unique<DeviceObject<ProjectionPropertyManager>>(
 	        projPropertyTypes);
@@ -160,7 +161,7 @@ void OperatorProjectorDevice::applyA(const Variable* in, Variable* out,
 		binIterators.push_back(binIter);  // We project only one subset
 		deviceDat_out = std::make_unique<ProjectionDataDeviceOwned>(
 		    getScanner(), hostDat_out, binIterators,
-		    m_binFilter->getPropertyManager().getElementSize(),
+		    mp_binFilter->getPropertyManager().getElementSize(),
 		    m_memAvailBytes);
 
 		// Use owned ProjectionDataDevice
@@ -170,9 +171,8 @@ void OperatorProjectorDevice::applyA(const Variable* in, Variable* out,
 
 	if (getTOFHelperDevicePointer())
 	{
-		ASSERT_MSG(dat_out->hasTOF(),
-		           "Projector configured with TOF but "
-		           "input data has no TOF information");
+		ASSERT_MSG(dat_out->hasTOF(), "Projector configured with TOF but "
+		                              "input data has no TOF information");
 	}
 
 	if (!isProjDataDeviceOwned)
@@ -185,7 +185,7 @@ void OperatorProjectorDevice::applyA(const Variable* in, Variable* out,
 		const size_t numBatches = dat_out->getBatchSetup(0).getNumBatches();
 
 		std::cout << "Loading batch 1/" << numBatches << "..." << std::endl;
-		dat_out->precomputeBatchLORs(0, 0, *m_binFilter.get());
+		dat_out->precomputeBatchLORs(0, 0, *mp_binFilter.get());
 		deviceDat_out->allocateForProjValues({getMainStream(), false});
 
 		for (size_t batchId = 0; batchId < numBatches; batchId++)
@@ -203,7 +203,7 @@ void OperatorProjectorDevice::applyA(const Variable* in, Variable* out,
 				std::cout << "Loading batch " << batchId + 2 << "/"
 				          << numBatches << "..." << std::endl;
 				dat_out->precomputeBatchLORs(0, batchId + 1,
-				                             *m_binFilter.get());
+				                             *mp_binFilter.get());
 			}
 			std::cout << "Transferring batch to Host..." << std::endl;
 			// This will force a necessary synchronization
@@ -257,7 +257,7 @@ void OperatorProjectorDevice::applyAH(const Variable* in, Variable* out,
 		binIterators.push_back(binIter);  // We project only one subset
 		deviceDat_in = std::make_unique<ProjectionDataDeviceOwned>(
 		    getScanner(), hostDat_in, binIterators,
-		    m_binFilter->getPropertyManager().getElementSize(),
+		    mp_binFilter->getPropertyManager().getElementSize(),
 		    m_memAvailBytes);
 
 		// Use owned ProjectionDataDevice
@@ -282,7 +282,7 @@ void OperatorProjectorDevice::applyAH(const Variable* in, Variable* out,
 		const cudaStream_t* mainStream = getMainStream();
 
 		std::cout << "Loading batch 1/" << numBatches << "..." << std::endl;
-		dat_in->precomputeBatchLORs(0, 0, *m_binFilter.get());
+		dat_in->precomputeBatchLORs(0, 0, *mp_binFilter.get());
 		deviceDat_in->allocateForProjValues({mainStream, false});
 
 		for (size_t batchId = 0; batchId < numBatches; batchId++)
@@ -308,7 +308,8 @@ void OperatorProjectorDevice::applyAH(const Variable* in, Variable* out,
 			{
 				std::cout << "Loading batch " << batchId + 2 << "/"
 				          << numBatches << "..." << std::endl;
-				dat_in->precomputeBatchLORs(0, batchId + 1, *m_binFilter.get());
+				dat_in->precomputeBatchLORs(0, batchId + 1,
+				                            *mp_binFilter.get());
 			}
 		}
 

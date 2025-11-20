@@ -414,9 +414,7 @@ void OSEM::initializeForRecon()
 	projParams.numThreads = globals::getNumThreads();
 	if (flagProjTOF)
 	{
-		projParams.projPropertyTypesExtra = {ProjectionPropertyType::TOF};
-		projParams.tofWidth_ps = tofWidth_ps;
-		projParams.tofNumStd = tofNumStd;
+		projParams.addTOF(tofWidth_ps, tofNumStd);
 	}
 	setupOperatorsForRecon(projParams);
 

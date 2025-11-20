@@ -12,7 +12,6 @@
 #include "yrt-pet/utils/PageLockedBuffer.cuh"
 #include "yrt-pet/utils/ReconstructionUtils.hpp"
 
-#include "omp.h"
 #include <cstddef>
 #include <cstring>
 #include <functional>

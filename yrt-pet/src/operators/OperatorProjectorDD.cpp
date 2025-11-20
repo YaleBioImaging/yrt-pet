@@ -83,7 +83,7 @@ float OperatorProjectorDD::forwardProjection(
     const Image* img, const ProjectionProperties& projectionProperties,
     size_t pos) const
 {
-	auto projPropManager = m_binFilter->getPropertyManager();
+	auto projPropManager = mp_binFilter->getPropertyManager();
 	det_orient_t detOrient = projPropManager.getDataValue<det_orient_t>(
 	    projectionProperties, pos, ProjectionPropertyType::DET_ORIENT);
 	float tofValue = 0.f;
@@ -104,7 +104,7 @@ void OperatorProjectorDD::backProjection(
     Image* img, const ProjectionProperties& projectionProperties,
     float projValue, size_t pos) const
 {
-	auto projPropManager = m_binFilter->getPropertyManager();
+	auto projPropManager = mp_binFilter->getPropertyManager();
 	det_orient_t detOrient = projPropManager.getDataValue<det_orient_t>(
 	    projectionProperties, pos, ProjectionPropertyType::DET_ORIENT);
 	float tofValue = 0.f;

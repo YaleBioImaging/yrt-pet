@@ -68,7 +68,7 @@ void py_setup_projectiondata(py::module& m)
 		      return py::make_tuple(l.point1.x, l.point1.y, l.point1.z,
 		                            l.point2.x, l.point2.y, l.point2.z);
 	      });
-	c.def("getLOR", &ProjectionData::getLOR, "bin"_a);
+	c.def("getLOR", &ProjectionData::getLOR, "bin"_a, "detPair"_a);
 	c.def("clearProjections", &ProjectionData::clearProjections,
 	      py::arg("value"));
 	c.def("divideMeasurements", &ProjectionData::divideMeasurements,
@@ -183,9 +183,26 @@ void ProjectionData::getProjectionProperties(
     ProjectionProperties& props, const ProjectionPropertyManager& propManager,
     bin_t bin, size_t pos) const
 {
+	det_pair_t detPair{};
+	const bool gatherDetPair = propManager.has(ProjectionPropertyType::DET_ID);
+	if (gatherDetPair)
+	{
+		detPair = getDetectorPair(bin);
+		propManager.setDataValue(props, pos, ProjectionPropertyType::DET_ID,
+		                         detPair);
+	}
+
 	if (propManager.has(ProjectionPropertyType::LOR))
 	{
-		const Line3D lor = getLOR(bin);
+		Line3D lor;
+		if (gatherDetPair)
+		{
+			lor = getLOR(bin, &detPair);
+		}
+		else
+		{
+			lor = getLOR(bin);
+		}
 		propManager.setDataValue(props, pos, ProjectionPropertyType::LOR, lor);
 	}
 
@@ -200,6 +217,23 @@ void ProjectionData::getProjectionProperties(
 		                         tofValue);
 	}
 
+	if (propManager.has(ProjectionPropertyType::TIMESTAMP))
+	{
+		propManager.setDataValue(props, pos, ProjectionPropertyType::TIMESTAMP,
+		                         getTimestamp(bin));
+	}
+
+	if (propManager.has(ProjectionPropertyType::RANDOMS_ESTIMATE))
+	{
+		float randoms = 0.0f;
+		if (hasRandomsEstimates())
+		{
+			randoms = getRandomsEstimate(bin);
+		}
+		propManager.setDataValue(
+		    props, pos, ProjectionPropertyType::RANDOMS_ESTIMATE, randoms);
+	}
+
 	if (propManager.has(ProjectionPropertyType::DET_ORIENT))
 	{
 		auto [d1, d2] = getDetectorPair(bin);
@@ -211,7 +245,7 @@ void ProjectionData::getProjectionProperties(
 	}
 }
 
-Line3D ProjectionData::getLOR(bin_t bin) const
+Line3D ProjectionData::getLOR(bin_t bin, const det_pair_t* detPair) const
 {
 	Line3D lor;
 
@@ -221,7 +255,18 @@ Line3D ProjectionData::getLOR(bin_t bin) const
 	}
 	else
 	{
-		auto [d1, d2] = getDetectorPair(bin);
+		det_id_t d1, d2;
+		if (detPair != nullptr)
+		{
+			d1 = detPair->d1;
+			d2 = detPair->d2;
+		}
+		else
+		{
+			const det_pair_t currentDetPair = getDetectorPair(bin);
+			d1 = currentDetPair.d1;
+			d2 = currentDetPair.d2;
+		}
 		const Vector3D p1 = mr_scanner.getDetectorPos(d1);
 		const Vector3D p2 = mr_scanner.getDetectorPos(d2);
 		lor = Line3D{p1, p2};

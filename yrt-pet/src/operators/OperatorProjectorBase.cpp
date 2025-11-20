@@ -13,6 +13,7 @@
 #include <pybind11/stl.h>
 
 namespace py = pybind11;
+using namespace py::literals;
 
 namespace yrt
 {
@@ -22,8 +23,8 @@ void py_setup_operatorprojectorparams(py::module& m)
 	auto c = py::class_<OperatorProjectorParams>(m, "OperatorProjectorParams");
 	c.def(py::init<Scanner&>(), py::arg("scanner"));
 	c.def_readwrite("binIter", &OperatorProjectorParams::binIter);
-	c.def_readwrite("tofWidth_ps", &OperatorProjectorParams::tofWidth_ps);
-	c.def_readwrite("tofNumStd", &OperatorProjectorParams::tofNumStd);
+	c.def("addTOF", &OperatorProjectorParams::addTOF, "tofWidth_ps"_a,
+	      "tofNumStd"_a);
 	c.def_readwrite("projPsf_fname", &OperatorProjectorParams::projPsf_fname);
 	c.def_readwrite("num_rays", &OperatorProjectorParams::numRays);
 	c.def_readwrite("num_threads", &OperatorProjectorParams::numThreads);
@@ -37,6 +38,9 @@ void py_setup_operatorprojectorbase(py::module& m)
 	    py::class_<OperatorProjectorBase, Operator>(m, "OperatorProjectorBase");
 	c.def("getBinIter", &OperatorProjectorBase::getBinIter);
 	c.def("getScanner", &OperatorProjectorBase::getScanner);
+
+	c.def("getBinFilter", &OperatorProjectorBase::getBinFilter);
+	c.def("getElementSize", &OperatorProjectorBase::getElementSize);
 }
 }  // namespace yrt
 
@@ -47,12 +51,34 @@ namespace yrt
 
 OperatorProjectorParams::OperatorProjectorParams(const Scanner& pr_scanner)
     : scanner(pr_scanner),
-      tofWidth_ps(0.f),
-      tofNumStd(0),
       projPsf_fname(""),
       numRays(1),
-      numThreads(globals::getNumThreads())
+      numThreads(globals::getNumThreads()),
+      m_tofWidth_ps(0.f),
+      m_tofNumStd(0)
 {
+}
+
+void OperatorProjectorParams::addTOF(float tofWidth_ps, int tofNumStd)
+{
+	m_tofWidth_ps = tofWidth_ps;
+	m_tofNumStd = tofNumStd;
+	projPropertyTypesExtra.insert(ProjectionPropertyType::TOF);
+}
+
+float OperatorProjectorParams::getTOFWidth_ps() const
+{
+	return m_tofWidth_ps;
+}
+
+int OperatorProjectorParams::getTOFNumStd() const
+{
+	return m_tofNumStd;
+}
+
+bool OperatorProjectorParams::hasTOF() const
+{
+	return m_tofWidth_ps > 0.f;
 }
 
 OperatorProjectorBase::OperatorProjectorBase(
@@ -85,7 +111,7 @@ const BinIterator* OperatorProjectorBase::getBinIter() const
 
 const BinFilter* OperatorProjectorBase::getBinFilter() const
 {
-	return m_binFilter.get();
+	return mp_binFilter.get();
 }
 
 const Scanner& OperatorProjectorBase::getScanner() const
@@ -103,6 +129,13 @@ ConstraintParams OperatorProjectorBase::getConstraintParams() const
 	return m_constraintParams.get();
 }
 
+unsigned int OperatorProjectorBase::getElementSize() const
+{
+	const auto binFilter = getBinFilter();
+	ASSERT(binFilter != nullptr);
+	return binFilter->getPropertyManager().getElementSize();
+}
+
 void OperatorProjectorBase::setBinIter(const BinIterator* p_binIter)
 {
 	binIter = p_binIter;
@@ -118,14 +151,14 @@ void OperatorProjectorBase::setupBinFilter(
 		projProperties.insert(prop);
 	}
 	// Determine constraints from scanner
-	m_binFilter = std::make_unique<BinFilter>(m_constraints, projProperties);
-	m_binFilter->setupManagers();
+	mp_binFilter = std::make_unique<BinFilter>(m_constraints, projProperties);
+	mp_binFilter->setupManagers();
 }
 
 void OperatorProjectorBase::allocateBuffers(int numThreads)
 {
-	auto& projPropManager = m_binFilter->getPropertyManager();
-	auto& consManager = m_binFilter->getConstraintManager();
+	auto& projPropManager = mp_binFilter->getPropertyManager();
+	auto& consManager = mp_binFilter->getConstraintManager();
 	if (projPropManager.getElementSize() > 0)
 	{
 		m_projectionProperties = projPropManager.createDataArray(numThreads);

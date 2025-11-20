@@ -43,6 +43,11 @@ int main(int argc, char** argv)
 		registry.registerArgument(
 		    "lor_motion", "Motion CSV file for motion correction", false,
 		    io::TypeOfArgument::STRING, "", inputGroup, "m");
+		registry.registerArgument("detmask",
+		                          "Detector mask (will override the "
+		                          "\"detMask\" member in the scanner's JSON)",
+		                          false, io::TypeOfArgument::STRING, "",
+		                          inputGroup);
 
 #if BUILD_CUDA
 		registry.registerArgument("gpu", "Use GPU acceleration", false,
@@ -117,9 +122,15 @@ int main(int argc, char** argv)
 			return -1;
 		}
 
+		globals::setNumThreads(config.getValue<int>("num_threads"));
+
 		const auto scanner =
 		    std::make_unique<Scanner>(config.getValue<std::string>("scanner"));
-		globals::setNumThreads(config.getValue<int>("num_threads"));
+		auto detMask_fname = config.getValue<std::string>("detmask");
+		if (!detMask_fname.empty())
+		{
+			scanner->addMask(detMask_fname);
+		}
 
 		// Output image
 		std::cout << "Preparing output image..." << std::endl;
@@ -167,8 +178,12 @@ int main(int argc, char** argv)
 		                          config.getValue<int>("subset_id"));
 		OperatorProjectorParams projParams(*scanner);
 		projParams.binIter = binIter.get();
-		projParams.tofWidth_ps = config.getValue<float>("tof_width_ps");
-		projParams.tofNumStd = config.getValue<int>("tof_n_std");
+		auto tofWidth_ps = config.getValue<float>("tof_width_ps");
+		auto tofNumStd = config.getValue<int>("tof_n_std");
+		if (tofWidth_ps > 0.0f)
+		{
+			projParams.addTOF(tofWidth_ps, tofNumStd);
+		}
 		projParams.projPsf_fname = config.getValue<std::string>("proj_psf");
 		projParams.numRays = config.getValue<int>("num_rays");
 

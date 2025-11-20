@@ -20,9 +20,9 @@ public:
 	struct DeviceVarPsf
 	{
 		float* kernels;  // flatten kernel data
-		int* offsets;    // The starting position of each kernel in the kernels
+		int* offsets;    // The starting position of each kernel
 		                 // array
-		int* sizes;      // The size of each kernel (number of elements)
+		int* sizes;      // The size of each kernel
 		int numKernels;  // kernel number
 	};
 

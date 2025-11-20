@@ -4,7 +4,6 @@
  */
 
 #include "yrt-pet/operators/OperatorVarPsfDevice.cuh"
-#include <chrono>
 #include <vector>
 #include <yrt-pet/datastruct/image/ImageDevice.cuh>
 #include <yrt-pet/datastruct/image/ImageSpaceKernels.cuh>
@@ -176,21 +175,13 @@ void OperatorVarPsfDevice::applyAH(const Variable* in, Variable* out)
 void OperatorVarPsfDevice::applyA(const Variable* in, Variable* out,
                                   bool synchronize) const
 {
-	auto t0 = std::chrono::high_resolution_clock::now();
 	apply<false>(in, out, synchronize);
-	auto t1 = std::chrono::high_resolution_clock::now();
-	double ms = std::chrono::duration<double, std::milli>(t1 - t0).count();
-	std::cout << "[VarPSF GPU] forward time = " << ms << " ms" << std::endl;
 }
 
 void OperatorVarPsfDevice::applyAH(const Variable* in, Variable* out,
                                    bool synchronize) const
 {
-	auto t0 = std::chrono::high_resolution_clock::now();
 	apply<true>(in, out, synchronize);
-	auto t1 = std::chrono::high_resolution_clock::now();
-	double ms = std::chrono::duration<double, std::milli>(t1 - t0).count();
-	std::cout << "[VarPSF GPU] transpose time = " << ms << " ms" << std::endl;
 }
 
 template <bool Transpose>

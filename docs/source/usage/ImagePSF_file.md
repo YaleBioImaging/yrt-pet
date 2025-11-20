@@ -75,10 +75,13 @@ SigmaX3,SigmaY3,SigmaZ3  # (kernel at xgap*2,0,0)
 ### Example
 
 For:  
-- XYZ range = 50 mm  
-- XYZ gap = 50 mm  
-- XYZ kernel size control = 4  
-Kernel location coding:
+- XYZ range = 50 mm (maximum distance from the scanner center at which spatially varying PSF kernels are sampled in each direction, forming the outer boundary of the PSF LUT grid.)
+- XYZ gap = 50 mm (distance between each kernel center)
+- XYZ kernel size control = 4 
+(number of standard deviation for the gaussian kernels)
+
+Kernels are located in these positions:
+```
 (0,0,0)
 (50,0,0)
 (0,50,0)
@@ -88,15 +91,17 @@ Kernel location coding:
 (0,50,50)
 (50,50,50)
 ```
+The file would be structured like this:
+```
 50,50,50
 50,50,50
 4,4,4
-sigmaX1,sigmaY1,sigmaZ1  
-sigmaX2,sigmaY2,sigmaZ2   
-sigmaX3,sigmaY3,sigmaZ3   
-sigmaX4,sigmaY4,sigmaZ4   
-sigmaX5,sigmaY5,sigmaZ5   
-sigmaX6,sigmaY6,sigmaZ6   
-sigmaX7,sigmaY7,sigmaZ7   
-sigmaX8,sigmaY8,sigmaZ8   
+sigmaX1,sigmaY1,sigmaZ1
+sigmaX2,sigmaY2,sigmaZ2
+sigmaX3,sigmaY3,sigmaZ3
+sigmaX4,sigmaY4,sigmaZ4
+sigmaX5,sigmaY5,sigmaZ5
+sigmaX6,sigmaY6,sigmaZ6
+sigmaX7,sigmaY7,sigmaZ7
+sigmaX8,sigmaY8,sigmaZ8
 ```

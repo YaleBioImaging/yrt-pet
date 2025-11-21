@@ -6,6 +6,9 @@
 #pragma once
 
 #include "yrt-pet/operators/OperatorProjector.hpp"
+#include "yrt-pet/recon/Corrector_CPU.hpp"
+#include "yrt-pet/utils/ProgressDisplayMultiThread.hpp"
+#include "yrt-pet/datastruct/projection/BinFilter.hpp"
 #include "yrt-pet/recon/OSEMUpdater.hpp"
 
 namespace yrt
@@ -13,7 +16,7 @@ namespace yrt
 
 class ProjectionData;
 class OSEM_CPU;
-
+//TODO NOW (ALMOST): remove dependcy OSEMUpdater and useless overload
 class OSEMUpdater_CPU : public OSEMUpdater
 {
 public:

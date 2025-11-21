@@ -12,6 +12,8 @@
 #include "yrt-pet/operators/OperatorProjector.hpp"
 #include "yrt-pet/operators/OperatorProjectorDD.hpp"
 #include "yrt-pet/operators/OperatorProjectorSiddon.hpp"
+#include "yrt-pet/operators/OperatorPsf.hpp"
+#include "yrt-pet/operators/OperatorVarPsf.hpp"
 #include "yrt-pet/operators/SparseProjection.hpp"
 #include "yrt-pet/utils/Assert.hpp"
 #include "yrt-pet/utils/Globals.hpp"
@@ -65,6 +67,11 @@ int main(int argc, char** argv)
 		    "default projector is Siddon",
 		    false, io::TypeOfArgument::STRING, "S", projectorGroup);
 		registry.registerArgument(
+			"projector_updater",
+			"Projector updater to use, choices: DEFAULT3D, DEFAULT4D, LR. The "
+			"default value is DEFAULT3D",
+			false, io::TypeOfArgument::STRING, "DEFAULT3D", projectorGroup);
+		registry.registerArgument(
 		    "proj_psf",
 		    "Projection-space PSF kernel file (for DD projector only)", false,
 		    io::TypeOfArgument::STRING, "", projectorGroup);
@@ -114,14 +121,29 @@ int main(int argc, char** argv)
 		bool convertToAcf = config.getValue<bool>("to_acf");
 		bool toSparseHistogram = config.getValue<bool>("sparse");
 
-		auto projectorUpdaterType = OperatorProjectorParams::ProjectorUpdaterType::DEFAULT3D;
-		if (config.hasValue("projector_updater_type")) {
-			const auto s = config.getValue<std::string>("projector_updater_type");
-			// map to enum
-			if      (s == "DEFAULT3D") projectorUpdaterType = OperatorProjectorParams::ProjectorUpdaterType::DEFAULT3D;
-			else if (s == "DEFAULT4D") projectorUpdaterType = OperatorProjectorParams::ProjectorUpdaterType::DEFAULT4D;
-			else if (s == "LR")        projectorUpdaterType = OperatorProjectorParams::ProjectorUpdaterType::LR;
-			else throw std::invalid_argument("Unknown projector_updater_type: " + s);
+		auto projectorUpdaterType =
+			OperatorProjectorParams::ProjectorUpdaterType::DEFAULT3D;
+		const auto projectorUpdaterType_name =
+			config.getValue<std::string>("projector_updater");
+		if (projectorUpdaterType_name == "DEFAULT3D")
+		{
+			projectorUpdaterType =
+				OperatorProjectorParams::ProjectorUpdaterType::DEFAULT3D;
+		}
+		else if (projectorUpdaterType_name == "DEFAULT4D")
+		{
+			projectorUpdaterType =
+				OperatorProjectorParams::ProjectorUpdaterType::DEFAULT4D;
+		}
+		else if (projectorUpdaterType_name == "LR")
+		{
+			projectorUpdaterType =
+				OperatorProjectorParams::ProjectorUpdaterType::LR;
+		}
+		else
+		{
+			throw std::invalid_argument("Unknown projector updater type: " +
+										projectorUpdaterType_name);
 		}
 
 		auto scanner = std::make_unique<Scanner>(scanner_fname);
@@ -160,9 +182,11 @@ int main(int argc, char** argv)
 
 			// Setup forward projection
 			auto binIter = his->getBinIter(numSubsets, subsetId);
-			OperatorProjectorParams projParams(binIter.get(), *scanner,
-			                                   projectorUpdaterType, 0, 0,
-			                                   projPsf_fname, numRays);
+			OperatorProjectorParams projParams(*scanner);
+			projParams.binIter = binIter.get();
+			projParams.projPsf_fname = projPsf_fname;
+			projParams.numRays = numRays;
+			projParams.projectorUpdaterType = projectorUpdaterType;
 
 			util::forwProject(*inputImage, *his, projParams, projectorType,
 			                  useGPU);
@@ -188,15 +212,23 @@ int main(int argc, char** argv)
 			           "not supported for multiple subsets");
 
 			std::unique_ptr<OperatorProjector> projector;
+			std::vector<std::unique_ptr<Constraint>> constraints;
+			scanner->collectConstraints(constraints);
+			std::vector<Constraint*> constraintsPtr;
+			for (auto& constraint : constraints)
+			{
+				constraintsPtr.emplace_back(constraint.get());
+			}
+			OperatorProjectorParams projParams(*scanner);
+			projParams.projPsf_fname = projPsf_fname;
+			projParams.numRays = numRays;
 			if (projectorType == OperatorProjector::ProjectorType::SIDDON)
 			{
-				projector = std::make_unique<OperatorProjectorSiddon>(*scanner,
-				                                                      numRays);
+				projector = std::make_unique<OperatorProjectorSiddon>(projParams, constraintsPtr);
 			}
 			else
 			{
-				projector = std::make_unique<OperatorProjectorDD>(
-				    *scanner, 0, -1, projPsf_fname);
+				projector = std::make_unique<OperatorProjectorDD>(projParams, constraintsPtr);
 			}
 
 			const ImageParams& params = inputImage->getParams();

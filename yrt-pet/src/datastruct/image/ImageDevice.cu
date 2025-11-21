@@ -103,6 +103,8 @@ void py_setup_imagedevice(py::module& m)
 	    "transferToHostMemory",
 	    [](ImageDevice& self, Image* img) { self.transferToHostMemory(img); },
 	    "Transfer device image to host-side Image", "image"_a);
+	c.def("copyFromDeviceImage", [](ImageDevice* self, const ImageDevice* other)
+	      { self->copyFromDeviceImage(other, true); });
 
 	c.def("setValue", &ImageDevice::setValue, "initValue"_a = 0.0);
 	c.def("addFirstImageToSecond", &ImageDevice::addFirstImageToSecond,
@@ -142,7 +144,8 @@ void py_setup_imagedevice(py::module& m)
 	    "Create ImageDevice using filename", "filename"_a);
 	c_owned.def(
 	    py::init(
-	        [](const ImageParams& imgParams, const std::string& filename) {
+	        [](const ImageParams& imgParams, const std::string& filename)
+	        {
 		        return std::make_unique<ImageDeviceOwned>(imgParams, filename,
 		                                                  nullptr);
 	        }),

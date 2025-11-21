@@ -14,8 +14,10 @@ set(SOURCES_DATASTRUCT
     datastruct/test_Image.cpp
     datastruct/test_ListModeLUT.cpp
     datastruct/test_Scanner.cpp
+    datastruct/test_ProjectionProperties.cpp
     operators/test_TimeOfFlight.cpp
-    utils/test_BinIterator.cpp)
+    utils/test_BinIterator.cpp
+    utils/test_BinFilter.cpp)
 
 if (${USE_CUDA})
     set(SOURCES_DATASTRUCT "${SOURCES_DATASTRUCT};utils/test_CUDA.cu")

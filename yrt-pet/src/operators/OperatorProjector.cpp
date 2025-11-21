@@ -6,6 +6,7 @@
 #include "yrt-pet/operators/OperatorProjector.hpp"
 
 #include "yrt-pet/datastruct/image/Image.hpp"
+#include "yrt-pet/datastruct/projection/BinFilter.hpp"
 #include "yrt-pet/datastruct/projection/BinIterator.hpp"
 #include "yrt-pet/datastruct/projection/Histogram3D.hpp"
 #include "yrt-pet/geometry/Constants.hpp"
@@ -27,8 +28,7 @@ namespace yrt
 void py_setup_operatorprojector(py::module& m)
 {
 	auto c = py::class_<OperatorProjector, OperatorProjectorBase>(
-		m, "OperatorProjector");
-	c.def("setupTOFHelper", &OperatorProjector::setupTOFHelper);
+	    m, "OperatorProjector");
 	c.def("getTOFHelper", &OperatorProjector::getTOFHelper);
 	c.def("getProjectionPsfManager",
 	      &OperatorProjector::getProjectionPsfManager);
@@ -130,28 +130,23 @@ namespace yrt
 {
 
 OperatorProjector::OperatorProjector(
-	const Scanner& pr_scanner, float tofWidth_ps, int tofNumStd,
-	const std::string& projPsf_fname,
-	OperatorProjectorParams::ProjectorUpdaterType projectorUpdaterType)
-	: OperatorProjector{
-		OperatorProjectorParams{nullptr, pr_scanner, projectorUpdaterType,
-		                        tofWidth_ps, tofNumStd, projPsf_fname}} {}
-
-OperatorProjector::OperatorProjector(
-	const OperatorProjectorParams& p_projParams)
-	: OperatorProjectorBase{p_projParams},
-	  mp_tofHelper{nullptr},
-	  mp_projPsfManager{nullptr}
+    const OperatorProjectorParams& pr_projParams,
+    const std::vector<Constraint*>& pr_constraints)
+    : OperatorProjectorBase{pr_projParams, pr_constraints},
+      mp_tofHelper{nullptr},
+      mp_projPsfManager{nullptr},
+      m_numThreads(pr_projParams.numThreads)
 {
-	if (p_projParams.tofWidth_ps > 0.f)
+	if (pr_projParams.hasTOF())
 	{
-		setupTOFHelper(p_projParams.tofWidth_ps, p_projParams.tofNumStd);
+		setupTOFHelper(pr_projParams.getTOFWidth_ps(),
+		               pr_projParams.getTOFNumStd());
 	}
-	if (!p_projParams.projPsf_fname.empty())
+	if (!pr_projParams.projPsf_fname.empty())
 	{
-		setupProjPsfManager(p_projParams.projPsf_fname);
+		setupProjPsfManager(pr_projParams.projPsf_fname);
 	}
-	setupUpdater(p_projParams);
+	setupUpdater(pr_projParams);
 }
 
 void OperatorProjector::applyA(const Variable* in, Variable* out)
@@ -163,19 +158,33 @@ void OperatorProjector::applyA(const Variable* in, Variable* out)
 	ASSERT_MSG(img != nullptr, "Input variable has to be an Image");
 	ASSERT_MSG(binIter != nullptr, "BinIterator undefined");
 
-	util::parallelForChunked(binIter->size(), globals::getNumThreads(),
-	                         [img, dat, this](size_t binIdx, size_t tid)
-	                         {
-		                         const bin_t bin = binIter->get(binIdx);
+	const size_t numBinsMax = binIter->size();
 
-		                         ProjectionProperties projectionProperties =
-			                         dat->getProjectionProperties(bin);
+	// Setup bin iterator
+	auto& projPropManager = mp_binFilter->getPropertyManager();
+	auto& consManager = mp_binFilter->getConstraintManager();
+	auto constraintParams = m_constraintParams.get();
+	auto projectionProperties = m_projectionProperties.get();
+	BinFilter::CollectInfoFlags collectInfoFlags(false);
+	mp_binFilter->collectFlags(collectInfoFlags);
 
-		                         const float imProj = forwardProjection(
-			                         img, projectionProperties, tid);
-
-		                         dat->setProjectionValue(bin, imProj);
-	                           });
+	util::parallelForChunked(
+	    numBinsMax, m_numThreads,
+	    [img, dat, consManager, projPropManager, collectInfoFlags,
+	     &constraintParams, &projectionProperties, this](bin_t binIdx, int tid)
+	    {
+		    const bin_t bin = binIter->get(binIdx);
+		    mp_binFilter->collectInfo(bin, tid, tid, *dat, collectInfoFlags,
+		                              projectionProperties, constraintParams);
+		    if (mp_binFilter->isValid(consManager, constraintParams, tid))
+		    {
+			    dat->getProjectionProperties(projectionProperties,
+			                                 projPropManager, bin, tid);
+			    float imProj =
+			        forwardProjection(img, projectionProperties, tid);
+			    dat->setProjectionValue(bin, static_cast<float>(imProj));
+		    }
+	    });
 }
 
 void OperatorProjector::applyAH(const Variable* in, Variable* out)
@@ -187,43 +196,46 @@ void OperatorProjector::applyAH(const Variable* in, Variable* out)
 	ASSERT_MSG(img != nullptr, "Output variable has to be an Image");
 	ASSERT_MSG(binIter != nullptr, "BinIterator undefined");
 
+	const size_t numBinsMax = binIter->size();
+
+	// Setup bin iterator
+	auto& projPropManager = mp_binFilter->getPropertyManager();
+	auto& consManager = mp_binFilter->getConstraintManager();
+	auto constraintParams = m_constraintParams.get();
+	auto projectionProperties = m_projectionProperties.get();
+	BinFilter::CollectInfoFlags collectInfoFlags(false);
+	mp_binFilter->collectFlags(collectInfoFlags);
+
 	util::parallelForChunked(
-	    binIter->size(), globals::getNumThreads(),
-	    [img, dat, this](size_t binIdx, size_t tid)
+	    numBinsMax, m_numThreads,
+	    [img, dat, consManager, projPropManager, collectInfoFlags,
+	     &constraintParams, &projectionProperties, this](bin_t binIdx, int tid)
 	    {
 		    const bin_t bin = binIter->get(binIdx);
-
-		    ProjectionProperties projectionProperties =
-		        dat->getProjectionProperties(bin);
-
-		    float projValue = dat->getProjectionValue(bin);
-
-		    if (std::abs(projValue) == 0.0f)
+		    mp_binFilter->collectInfo(bin, tid, tid, *dat, collectInfoFlags,
+		                              projectionProperties, constraintParams);
+		    if (mp_binFilter->isValid(consManager, constraintParams, tid))
 		    {
-			    return;
+			    dat->getProjectionProperties(projectionProperties,
+			                                 projPropManager, bin, tid);
+			    float projValue = dat->getProjectionValue(bin);
+			    if (std::abs(projValue) == 0.0f)
+			    {
+				    return;
+			    }
+			    backProjection(img, projectionProperties, projValue, tid);
 		    }
-
-		    backProjection(img, projectionProperties, projValue, tid);
 	    });
-}
-
-void OperatorProjector::addTOF(float tofWidth_ps, int tofNumStd)
-{
-	setupTOFHelper(tofWidth_ps, tofNumStd);
 }
 
 void OperatorProjector::setupTOFHelper(float tofWidth_ps, int tofNumStd)
 {
 	mp_tofHelper = std::make_unique<TimeOfFlightHelper>(tofWidth_ps, tofNumStd);
-	ASSERT_MSG(mp_tofHelper != nullptr,
-	           "Error occurred during the setup of TimeOfFlightHelper");
 }
 
 void OperatorProjector::setupProjPsfManager(const std::string& projPsf_fname)
 {
 	mp_projPsfManager = std::make_unique<ProjectionPsfManager>(projPsf_fname);
-	ASSERT_MSG(mp_projPsfManager != nullptr,
-	           "Error occurred during the setup of ProjectionPsfManager");
 }
 
 const TimeOfFlightHelper* OperatorProjector::getTOFHelper() const

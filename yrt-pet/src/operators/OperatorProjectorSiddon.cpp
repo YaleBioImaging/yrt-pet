@@ -7,18 +7,25 @@
 #include "yrt-pet/operators/OperatorProjectorUpdater.hpp"
 
 #include "yrt-pet/datastruct/image/Image.hpp"
+#include "yrt-pet/datastruct/projection/BinFilter.hpp"
+#include "yrt-pet/datastruct/projection/ProjectionProperties.hpp"
 #include "yrt-pet/datastruct/scanner/Scanner.hpp"
+#include "yrt-pet/geometry/Line3D.hpp"
 #include "yrt-pet/geometry/ProjectorUtils.hpp"
 #include "yrt-pet/utils/Assert.hpp"
 #include "yrt-pet/utils/Globals.hpp"
 #include "yrt-pet/utils/ReconstructionUtils.hpp"
-
+#include "yrt-pet/utils/Types.hpp"
 
 #include <algorithm>
+#include <vector>
 
 #if BUILD_PYBIND11
 #include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
+
 namespace py = pybind11;
+using namespace py::literals;
 
 namespace yrt
 {
@@ -26,12 +33,9 @@ void py_setup_operatorprojectorsiddon(py::module& m)
 {
 	auto c = py::class_<OperatorProjectorSiddon, OperatorProjector>(
 	    m, "OperatorProjectorSiddon");
-
-	c.def(py::init<Scanner&, int, float, int>(), py::arg("scanner"),
-	      py::arg("num_rays") = 1, py::arg("tofWidth_ps") = 0.f,
-	      py::arg("tofNumStd") = -1);
-	c.def(py::init<const OperatorProjectorParams&>(), py::arg("projParams"));
-
+	c.def(py::init<const OperatorProjectorParams&, std::vector<Constraint*>>(),
+	      "projParams"_a, "constraints"_a);
+	c.def(py::init<const OperatorProjectorParams&>(), "projParams"_a);
 	c.def_property("num_rays", &OperatorProjectorSiddon::getNumRays,
 	               &OperatorProjectorSiddon::setNumRays);
 	c.def(
@@ -112,28 +116,24 @@ void py_setup_operatorprojectorsiddon(py::module& m)
 
 namespace yrt
 {
-OperatorProjectorSiddon::OperatorProjectorSiddon(const Scanner& pr_scanner,
-                                                 int numRays, float tofWidth_ps,
-                                                 int tofNumStd)
-    : OperatorProjector{pr_scanner, tofWidth_ps, tofNumStd}, m_numRays(numRays)
-{
-	ASSERT(numRays >= 1);
-}
 
 OperatorProjectorSiddon::OperatorProjectorSiddon(
-    const OperatorProjectorParams& p_projParams)
-    : OperatorProjector(p_projParams), m_numRays(p_projParams.numRays)
+    const OperatorProjectorParams& pr_projParams,
+    const std::vector<Constraint*>& pr_constraints)
+    : OperatorProjector(pr_projParams, pr_constraints),
+      m_numRays(pr_projParams.numRays)
 {
 	if (m_numRays > 1)
 	{
 		mp_lineGen = std::make_unique<std::vector<MultiRayGenerator>>(
-		    globals::getNumThreads(),
-		    MultiRayGenerator{scanner.crystalSize_z,
-		                      scanner.crystalSize_trans});
+		    m_numThreads, MultiRayGenerator{scanner.crystalSize_z,
+		                                    scanner.crystalSize_trans});
 	}
 	ASSERT_MSG_WARNING(
 	    mp_projPsfManager == nullptr,
 	    "Siddon does not support Projection space PSF. It will be ignored.");
+	OperatorProjectorBase::initBinFilter(pr_projParams.projPropertyTypesExtra,
+	                                     pr_projParams.numThreads);
 }
 
 int OperatorProjectorSiddon::getNumRays() const
@@ -146,25 +146,69 @@ void OperatorProjectorSiddon::setNumRays(int n)
 	m_numRays = n;
 }
 
+std::set<ProjectionPropertyType>
+    OperatorProjectorSiddon::getProjectionPropertyTypes() const
+{
+	std::set<ProjectionPropertyType> projProperties;
+	projProperties.insert(ProjectionPropertyType::LOR);
+	if (m_numRays > 1)
+	{
+		projProperties.insert(ProjectionPropertyType::DET_ORIENT);
+	}
+	return projProperties;
+}
+
 float OperatorProjectorSiddon::forwardProjection(
     const Image* img, const ProjectionProperties& projectionProperties,
-    int tid) const
+    size_t pos) const
 {
+	auto projPropManager = mp_binFilter->getPropertyManager();
+	det_orient_t detOrient;
+	if (m_numRays > 1)
+	{
+		ASSERT(projPropManager.has(ProjectionPropertyType::DET_ORIENT));
+		detOrient = projPropManager.getDataValue<det_orient_t>(
+		    projectionProperties, pos, ProjectionPropertyType::DET_ORIENT);
+	}
+	float tofValue = 0.f;
+	if (projPropManager.has(ProjectionPropertyType::TOF))
+	{
+		tofValue = projPropManager.getDataValue<float>(
+		    projectionProperties, pos, ProjectionPropertyType::TOF);
+	}
 	return forwardProjection(
-	    img, projectionProperties.lor, projectionProperties.det1Orient,
-	    projectionProperties.det2Orient, tid, projectionProperties.dynamicFrame,
-	    mp_tofHelper.get(), projectionProperties.tofValue);
+	    img,
+	    projPropManager.getDataValue<Line3D>(projectionProperties, pos,
+	                                         ProjectionPropertyType::LOR),
+	                                         detOrient.d1, detOrient.d2, pos, projPropManager.getDataValue<Line3D>(projectionProperties, pos,
+																				  ProjectionPropertyType::DYNAMIC_FRAME),
+																				  mp_tofHelper.get(), tofValue);
 }
 
 void OperatorProjectorSiddon::backProjection(
     Image* img, const ProjectionProperties& projectionProperties,
-    float projValue, int tid) const
+    float projValue, size_t pos) const
 {
-	backProjection(img, projectionProperties.lor,
-	               projectionProperties.det1Orient,
-	               projectionProperties.det2Orient, projValue, tid,
-	               projectionProperties.dynamicFrame, mp_tofHelper.get(),
-	               projectionProperties.tofValue);
+	auto projPropManager = mp_binFilter->getPropertyManager();
+	det_orient_t detOrient;
+	if (m_numRays > 1)
+	{
+		ASSERT(projPropManager.has(ProjectionPropertyType::DET_ORIENT));
+		detOrient = projPropManager.getDataValue<det_orient_t>(
+		    projectionProperties, pos, ProjectionPropertyType::DET_ORIENT);
+	}
+	float tofValue = 0.f;
+	if (projPropManager.has(ProjectionPropertyType::TOF))
+	{
+		tofValue = projPropManager.getDataValue<float>(
+		    projectionProperties, pos, ProjectionPropertyType::TOF);
+	}
+	backProjection(img,
+	               projPropManager.getDataValue<Line3D>(
+	                   projectionProperties, pos, ProjectionPropertyType::LOR),
+	               detOrient.d1, detOrient.d2, projValue, pos,
+	               projPropManager.getDataValue<Line3D>(projectionProperties, pos, ProjectionPropertyType::DYNAMIC_FRAME),
+	               mp_tofHelper.get(), tofValue);
 }
 
 float OperatorProjectorSiddon::forwardProjection(

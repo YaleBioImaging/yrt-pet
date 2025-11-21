@@ -22,13 +22,17 @@ def get_test_folders():
         raise RuntimeError("Environment variable " + env_out
                            + " need to be set")
     if not os.path.exists(fold_data_from_env):
-        raise RuntimeError("Path specified by " + env_data + " does not exist.")
+        raise RuntimeError("Path specified by " + env_data +
+                           " does not exist.")
     if not os.path.exists(fold_out_from_env):
         os.mkdir(fold_out_from_env)
 
     fold_bin = os.path.join(os.path.dirname(__file__), '../executables')
     return fold_data_from_env, fold_out_from_env, fold_bin
 
+def get_plugin_executables_folder():
+    fold_plugins = os.path.join(os.path.dirname(__file__), '../plugins')
+    return fold_plugins
 
 # %% Helper test functions
 def _test_subsets(scanner: yrt.Scanner, img_params: yrt.ImageParams,

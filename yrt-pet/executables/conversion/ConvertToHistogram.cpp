@@ -7,6 +7,7 @@
 #include "yrt-pet/datastruct/IO.hpp"
 #include "yrt-pet/datastruct/projection/Histogram3D.hpp"
 #include "yrt-pet/datastruct/projection/SparseHistogram.hpp"
+#include "yrt-pet/datastruct/scanner/DetectorMask.hpp"
 #include "yrt-pet/datastruct/scanner/Scanner.hpp"
 #include "yrt-pet/utils/Assert.hpp"
 #include "yrt-pet/utils/Globals.hpp"
@@ -40,6 +41,9 @@ int main(int argc, char** argv)
 		    "format",
 		    "Input file format. Possible values: " + io::possibleFormats(),
 		    true, io::TypeOfArgument::STRING, "", inputGroup, "f");
+		registry.registerArgument(
+		    "detmask", "Detector mask (to disable a given set of detectors)",
+		    false, io::TypeOfArgument::STRING, "", inputGroup);
 
 		registry.registerArgument("out", "Output histogram filename", true,
 		                          io::TypeOfArgument::STRING, "", outputGroup,
@@ -74,6 +78,7 @@ int main(int argc, char** argv)
 		auto scanner_fname = config.getValue<std::string>("scanner");
 		auto input_fname = config.getValue<std::string>("input");
 		auto input_format = config.getValue<std::string>("format");
+		auto detmask_fname = config.getValue<std::string>("detmask");
 		auto out_fname = config.getValue<std::string>("out");
 		bool toSparseHistogram = config.getValue<bool>("sparse");
 		int numThreads = config.getValue<int>("num_threads");
@@ -82,8 +87,16 @@ int main(int argc, char** argv)
 		std::cout << "Initializing scanner..." << std::endl;
 		auto scanner = std::make_unique<Scanner>(scanner_fname);
 
-		std::cout << "Reading input data..." << std::endl;
+		std::unique_ptr<DetectorMask> detmask = nullptr;
+		if (!detmask_fname.empty())
+		{
+			std::cout << "Reading detector mask..." << std::endl;
+			detmask = std::make_unique<DetectorMask>(detmask_fname);
+			ASSERT(detmask->checkAgainstScanner(*scanner));
+		}
+		const DetectorMask* detmask_ptr = detmask.get();
 
+		std::cout << "Reading input data..." << std::endl;
 		std::unique_ptr<ProjectionData> dataInput = io::openProjectionData(
 		    input_fname, input_format, *scanner, config.getAllArguments());
 
@@ -106,12 +119,14 @@ int main(int argc, char** argv)
 			if (io::isFormatListMode(input_format))
 			{
 				// ListMode input, use atomic to accumulate
-				util::convertToHistogram3D<true>(*dataInput, *histoOut);
+				util::convertToHistogram3D<true>(*dataInput, *histoOut,
+				                                 detmask_ptr);
 			}
 			else
 			{
 				// Histogram input, no need to use atomic to accumulate
-				util::convertToHistogram3D<false>(*dataInput, *histoOut);
+				util::convertToHistogram3D<false>(*dataInput, *histoOut,
+				                                  detmask_ptr);
 			}
 
 			std::cout << "Histogram3D generated.\nWriting file..." << std::endl;

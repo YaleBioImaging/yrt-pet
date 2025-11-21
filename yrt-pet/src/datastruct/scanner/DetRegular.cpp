@@ -4,7 +4,7 @@
  */
 
 #include "yrt-pet/datastruct/scanner/DetRegular.hpp"
-
+#include "yrt-pet/datastruct/scanner/Scanner.hpp"
 #include "yrt-pet/geometry/Constants.hpp"
 
 #include <cstdlib>
@@ -14,12 +14,93 @@
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 namespace py = pybind11;
+
+namespace yrt
+{
+
+void py_setup_detregular(py::module& m)
+{
+	auto c = pybind11::class_<DetRegular, DetectorSetup,
+	                          std::shared_ptr<DetRegular>>(m, "DetRegular");
+	c.def(py::init<Scanner*>());
+
+	c.def("generateLUT", &DetRegular::generateLUT);
+	c.def("setXpos", &DetRegular::setXpos);
+	c.def("setYpos", &DetRegular::setYpos);
+	c.def("setZpos", &DetRegular::setZpos);
+	c.def("setXorient", &DetRegular::setXorient);
+	c.def("setYorient", &DetRegular::setYorient);
+	c.def("setZorient", &DetRegular::setZorient);
+	c.def("getScanner", &DetRegular::getScanner);
+
+	c.def("getXposArray",
+	      [](const DetRegular& self) -> py::array_t<float>
+	      {
+		      Array1DBase<float>* posArr = self.getXposArrayRef();
+		      auto buf_info =
+		          py::buffer_info(posArr->getRawPointer(), sizeof(float),
+		                          py::format_descriptor<float>::format(), 1,
+		                          {posArr->getSizeTotal()}, {sizeof(float)});
+		      return py::array_t<float>(buf_info);
+	      });
+	c.def("getYposArray",
+	      [](const DetRegular& self) -> py::array_t<float>
+	      {
+		      Array1DBase<float>* posArr = self.getYposArrayRef();
+		      auto buf_info =
+		          py::buffer_info(posArr->getRawPointer(), sizeof(float),
+		                          py::format_descriptor<float>::format(), 1,
+		                          {posArr->getSizeTotal()}, {sizeof(float)});
+		      return py::array_t<float>(buf_info);
+	      });
+	c.def("getZposArray",
+	      [](const DetRegular& self) -> py::array_t<float>
+	      {
+		      Array1DBase<float>* posArr = self.getZposArrayRef();
+		      auto buf_info =
+		          py::buffer_info(posArr->getRawPointer(), sizeof(float),
+		                          py::format_descriptor<float>::format(), 1,
+		                          {posArr->getSizeTotal()}, {sizeof(float)});
+		      return py::array_t<float>(buf_info);
+	      });
+	c.def("getXorientArray",
+	      [](const DetRegular& self) -> py::array_t<float>
+	      {
+		      Array1DBase<float>* orientArr = self.getXorientArrayRef();
+		      auto buf_info =
+		          py::buffer_info(orientArr->getRawPointer(), sizeof(float),
+		                          py::format_descriptor<float>::format(), 1,
+		                          {orientArr->getSizeTotal()}, {sizeof(float)});
+		      return py::array_t<float>(buf_info);
+	      });
+	c.def("getYorientArray",
+	      [](const DetRegular& self) -> py::array_t<float>
+	      {
+		      Array1DBase<float>* orientArr = self.getYorientArrayRef();
+		      auto buf_info =
+		          py::buffer_info(orientArr->getRawPointer(), sizeof(float),
+		                          py::format_descriptor<float>::format(), 1,
+		                          {orientArr->getSizeTotal()}, {sizeof(float)});
+		      return py::array_t<float>(buf_info);
+	      });
+	c.def("getZorientArray",
+	      [](const DetRegular& self) -> py::array_t<float>
+	      {
+		      Array1DBase<float>* orientArr = self.getZorientArrayRef();
+		      auto buf_info =
+		          py::buffer_info(orientArr->getRawPointer(), sizeof(float),
+		                          py::format_descriptor<float>::format(), 1,
+		                          {orientArr->getSizeTotal()}, {sizeof(float)});
+		      return py::array_t<float>(buf_info);
+	      });
+}
+}  // namespace yrt
 #endif
 
 namespace yrt
 {
 
-DetRegular::DetRegular(Scanner* pp_scanner) : mp_scanner(pp_scanner)
+DetRegular::DetRegular(const Scanner* pp_scanner) : mp_scanner(pp_scanner)
 {
 	mp_Xpos = std::make_unique<Array1D<float>>();
 	mp_Ypos = std::make_unique<Array1D<float>>();
@@ -31,62 +112,69 @@ DetRegular::DetRegular(Scanner* pp_scanner) : mp_scanner(pp_scanner)
 
 void DetRegular::generateLUT()
 {
+	size_t numBlocks = mp_scanner->detsPerRing / mp_scanner->detsPerBlock;
+	float blockLength =
+	    mp_scanner->crystalSize_trans * mp_scanner->detsPerBlock;
+	float edgeLengthMax =
+	    2 * mp_scanner->scannerRadius * std::tan(PI / numBlocks);
+	ASSERT_MSG(mp_scanner->crystalSize_trans * mp_scanner->detsPerBlock <=
+	               edgeLengthMax,
+	           ("Overlap between crystals detected, given the crystal size and "
+	            "number of crystals per block, the scanner radius should be at "
+	            "least " +
+	            std::to_string(mp_scanner->crystalSize_trans *
+	                           mp_scanner->detsPerBlock /
+	                           (2 * std::tan(PI / numBlocks))) +
+	            " mm")
+	               .c_str());
 	allocate();
-	size_t num_blocks = mp_scanner->detsPerRing / mp_scanner->detsPerBlock;
-	float block_length;
-	if (num_blocks == 2)
-	{
-		block_length = mp_scanner->crystalSize_trans * mp_scanner->detsPerBlock;
-	}
-	else
-	{
-		float scanner_longerRadius =
-		    mp_scanner->scannerRadius / (std::cos(PI / (float)num_blocks));
-		block_length = 2 * std::sqrt((std::pow(scanner_longerRadius, 2) -
-		                              std::pow(mp_scanner->scannerRadius, 2)));
-	}
 	for (size_t doi = 0; doi < mp_scanner->numDOI; doi++)
 	{
-		float block_distance =
+		float blockDistance =
 		    mp_scanner->scannerRadius + mp_scanner->crystalDepth * doi;
 		for (size_t ring = 0; ring < mp_scanner->numRings; ring++)
 		{
 			// Gap between each ring (Currently, equal distance)
-			float z_gap = mp_scanner->axialFOV / ((float)mp_scanner->numRings);
-			float z_pos = -mp_scanner->axialFOV / 2.0 + (ring + 0.5) * z_gap;
-			for (size_t block = 0; block < num_blocks; block++)
+			float zGap = mp_scanner->axialFOV / ((float)mp_scanner->numRings);
+			float zPos = -mp_scanner->axialFOV / 2.0 + (ring + 0.5f) * zGap;
+			for (size_t block = 0; block < numBlocks; block++)
 			{
-				float block_angle = block * TWOPI / num_blocks;
-				float x_block = block_distance * std::cos(block_angle);
-				float y_block = block_distance * std::sin(block_angle);
+				float blockAngle = block * TWOPI / numBlocks;
+				float xBlock =
+				    (blockDistance + 0.5f * mp_scanner->crystalDepth) *
+				    std::cos(blockAngle);
+				float yBlock =
+				    (blockDistance + 0.5f * mp_scanner->crystalDepth) *
+				    std::sin(blockAngle);
 				for (size_t det = 0; det < mp_scanner->detsPerBlock; det++)
 				{
 					// relative_det_pos is a number between 0 and 1 describing
 					// how far we've gone in the current block
-					float relative_det_pos = 0.0;
+					float relativeDetPos = 0.0;
 					if (mp_scanner->detsPerBlock != 1)
 					{
-						relative_det_pos =
-						    -(det / (float)(mp_scanner->detsPerBlock - 1)) +
-						    0.5;
+						relativeDetPos =
+						    -0.5 +
+						    (det + 0.5) / (float)mp_scanner->detsPerBlock;
 					}
-					float relative_x_det =
-					    block_length *
-					    (relative_det_pos)*std::cos(block_angle + PI / 2.0);
-					float relative_y_det =
-					    block_length *
-					    (relative_det_pos)*std::sin(block_angle + PI / 2.0);
+					float relativeXDet =
+					    relativeDetPos * std::cos(blockAngle + PI / 2.0);
+					float relativeYDet =
+					    relativeDetPos * std::sin(blockAngle + PI / 2.0);
+
+					float xDet = xBlock + blockLength * relativeXDet;
+					float yDet = yBlock + blockLength * relativeYDet;
 
 					size_t idx =
 					    det + block * mp_scanner->detsPerBlock +
 					    ring * (mp_scanner->detsPerRing) +
 					    doi * (mp_scanner->numRings * mp_scanner->detsPerRing);
 
-					setXpos(idx, x_block + relative_x_det);
-					setYpos(idx, y_block + relative_y_det);
-					setZpos(idx, z_pos);
-					setXorient(idx, std::cos(block_angle + PI));
-					setYorient(idx, std::sin(block_angle + PI));
+					setXpos(idx, xDet);
+					setYpos(idx, yDet);
+					setZpos(idx, zPos);
+					setXorient(idx, std::cos(blockAngle));
+					setYorient(idx, std::sin(blockAngle));
 					setZorient(idx, 0.0);
 				}
 			}
@@ -186,88 +274,3 @@ size_t DetRegular::getNumDets() const
 }
 
 }  // namespace yrt
-
-#if BUILD_PYBIND11
-
-namespace yrt
-{
-
-void py_setup_detregular(py::module& m)
-{
-	auto c = pybind11::class_<DetRegular, DetectorSetup,
-	                          std::shared_ptr<DetRegular>>(m, "DetRegular");
-	c.def(py::init<Scanner*>());
-
-	c.def("generateLUT", &DetRegular::generateLUT);
-	c.def("setXpos", &DetRegular::setXpos);
-	c.def("setYpos", &DetRegular::setYpos);
-	c.def("setZpos", &DetRegular::setZpos);
-	c.def("setXorient", &DetRegular::setXorient);
-	c.def("setYorient", &DetRegular::setYorient);
-	c.def("setZorient", &DetRegular::setZorient);
-	c.def("getScanner", &DetRegular::getScanner);
-
-	c.def("getXposArray",
-	      [](const DetRegular& self) -> py::array_t<float>
-	      {
-		      Array1DBase<float>* posArr = self.getXposArrayRef();
-		      auto buf_info =
-		          py::buffer_info(posArr->getRawPointer(), sizeof(float),
-		                          py::format_descriptor<float>::format(), 1,
-		                          {posArr->getSizeTotal()}, {sizeof(float)});
-		      return py::array_t<float>(buf_info);
-	      });
-	c.def("getYposArray",
-	      [](const DetRegular& self) -> py::array_t<float>
-	      {
-		      Array1DBase<float>* posArr = self.getYposArrayRef();
-		      auto buf_info =
-		          py::buffer_info(posArr->getRawPointer(), sizeof(float),
-		                          py::format_descriptor<float>::format(), 1,
-		                          {posArr->getSizeTotal()}, {sizeof(float)});
-		      return py::array_t<float>(buf_info);
-	      });
-	c.def("getZposArray",
-	      [](const DetRegular& self) -> py::array_t<float>
-	      {
-		      Array1DBase<float>* posArr = self.getZposArrayRef();
-		      auto buf_info =
-		          py::buffer_info(posArr->getRawPointer(), sizeof(float),
-		                          py::format_descriptor<float>::format(), 1,
-		                          {posArr->getSizeTotal()}, {sizeof(float)});
-		      return py::array_t<float>(buf_info);
-	      });
-	c.def("getXorientArray",
-	      [](const DetRegular& self) -> py::array_t<float>
-	      {
-		      Array1DBase<float>* orientArr = self.getXorientArrayRef();
-		      auto buf_info =
-		          py::buffer_info(orientArr->getRawPointer(), sizeof(float),
-		                          py::format_descriptor<float>::format(), 1,
-		                          {orientArr->getSizeTotal()}, {sizeof(float)});
-		      return py::array_t<float>(buf_info);
-	      });
-	c.def("getYorientArray",
-	      [](const DetRegular& self) -> py::array_t<float>
-	      {
-		      Array1DBase<float>* orientArr = self.getYorientArrayRef();
-		      auto buf_info =
-		          py::buffer_info(orientArr->getRawPointer(), sizeof(float),
-		                          py::format_descriptor<float>::format(), 1,
-		                          {orientArr->getSizeTotal()}, {sizeof(float)});
-		      return py::array_t<float>(buf_info);
-	      });
-	c.def("getZorientArray",
-	      [](const DetRegular& self) -> py::array_t<float>
-	      {
-		      Array1DBase<float>* orientArr = self.getZorientArrayRef();
-		      auto buf_info =
-		          py::buffer_info(orientArr->getRawPointer(), sizeof(float),
-		                          py::format_descriptor<float>::format(), 1,
-		                          {orientArr->getSizeTotal()}, {sizeof(float)});
-		      return py::array_t<float>(buf_info);
-	      });
-}
-}  // namespace yrt
-
-#endif

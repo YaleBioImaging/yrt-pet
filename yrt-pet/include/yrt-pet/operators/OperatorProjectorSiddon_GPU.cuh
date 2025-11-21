@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include "yrt-pet/datastruct/projection/ProjectionProperties.hpp"
 #include "yrt-pet/operators/OperatorProjectorDevice.cuh"
 
 namespace yrt
@@ -17,8 +18,15 @@ class OperatorProjectorSiddon_GPU : public OperatorProjectorDevice
 public:
 	explicit OperatorProjectorSiddon_GPU(
 	    const OperatorProjectorParams& projParams,
+	    const std::vector<Constraint*>& constraints = {},
 	    const cudaStream_t* mainStream = nullptr,
 	    const cudaStream_t* auxStream = nullptr);
+
+	std::set<ProjectionPropertyType>
+	    getProjectionPropertyTypes() const override;
+
+	int getNumRays() const;
+	void setNumRays(int n);
 
 protected:
 	void applyAOnLoadedBatch(ImageDevice& img, ProjectionDataDevice& dat,
@@ -33,17 +41,15 @@ private:
 
 	template <bool IsForward, bool HasTOF>
 	void launchKernel(float* pd_projValues, float* pd_image,
-	                  const float4* pd_lorDet1Pos, const float4* pd_lorDet2Pos,
-	                  const float4* pd_lorDet1Orient,
-	                  const float4* pd_lorDet2Orient,
-	                  OperatorProjectorUpdaterDevice* pd_updater,
-	                  const frame_t* pd_dynamicFrame, const float* pd_lorTOFValue,
+	OperatorProjectorUpdaterDevice* pd_updater,
+	                  const char* pd_projProperties,
+	                  const ProjectionPropertyManager* pd_projPropManager,
 	                  const TimeOfFlightHelper* pd_tofHelper,
 	                  CUScannerParams scannerParams, CUImageParams imgParams,
 	                  size_t batchSize, unsigned int gridSize,
 	                  unsigned int blockSize, const cudaStream_t* stream,
 	                  bool synchronize);
 
-	int p_numRays;
+	int m_numRays;
 };
 }  // namespace yrt

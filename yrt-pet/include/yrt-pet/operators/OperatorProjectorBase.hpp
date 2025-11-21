@@ -6,7 +6,9 @@
 #pragma once
 
 #include "yrt-pet/operators/OperatorProjectorUpdaterBase.hpp"
+#include "yrt-pet/datastruct/projection/BinFilter.hpp"
 #include "yrt-pet/datastruct/projection/ProjectionData.hpp"
+#include "yrt-pet/datastruct/projection/ProjectionProperties.hpp"
 #include "yrt-pet/operators/Operator.hpp"
 
 namespace yrt
@@ -17,6 +19,7 @@ class Image;
 class Scanner;
 class ProjectionData;
 class Histogram;
+
 
 class OperatorProjectorParams
 {
@@ -29,26 +32,21 @@ public:
 		LRDUALUPDATE
 	};
 
-	OperatorProjectorParams(const BinIterator* pp_binIter,
-	                        const Scanner& pr_scanner,
-	                        ProjectorUpdaterType p_projectorUpdaterType = DEFAULT3D,
-	                        float p_tofWidth_ps = 0.f, int p_tofNumStd = 0,
-	                        const std::string& pr_projPsf_fname = "",
-	                        int p_num_rays = 1, bool p_updateH = false);
+	explicit OperatorProjectorParams(const Scanner& pr_scanner);
 
 	OperatorProjectorParams(const OperatorProjectorParams& other);
 
 	const BinIterator* binIter;
 	const Scanner& scanner;
 
+	void addTOF(float tofWidth_ps, int tofNumStd);
+	float getTOFWidth_ps() const;
+	int getTOFNumStd() const;
+	bool hasTOF() const;
+
 	// Projector Updater type (e.g., DEFAULT3D)
 	ProjectorUpdaterType projectorUpdaterType;
 	Array2DAlias<float> HBasis;
-
-	// Time of Flight
-	bool flagProjTOF;
-	float tofWidth_ps;
-	int tofNumStd;
 
 	// Projection-domain PSF
 	std::string projPsf_fname;
@@ -56,10 +54,20 @@ public:
 	// Multi-ray siddon only
 	int numRays;
 
+	// Number of threads
+	int numThreads;
+
 	// Optional bool for H-update in LR updater
 	bool updateH;
 
+	// Projection property types (in addition to types needed for projector and
+	// included in projection data) - Ignored for now
+	std::set<ProjectionPropertyType> projPropertyTypesExtra;
 
+private:
+	// Time of Flight
+	float m_tofWidth_ps;
+	int m_tofNumStd;
 };
 
 // Device-agnostic virtual class
@@ -73,22 +81,44 @@ public:
 		DD
 	};
 
-	explicit OperatorProjectorBase(const Scanner& pr_scanner);
-	explicit OperatorProjectorBase(const OperatorProjectorParams& p_projParams);
+	explicit OperatorProjectorBase(
+	    const OperatorProjectorParams& p_projParams,
+	    const std::vector<Constraint*>& pr_constraints = {});
 
 	const Scanner& getScanner() const;
 	const BinIterator* getBinIter() const;
+	const BinFilter* getBinFilter() const;
+	ProjectionProperties getProjectionProperties() const;
+	ConstraintParams getConstraintParams() const;
+
+	unsigned int getElementSize() const;
 
 	void setBinIter(const BinIterator* p_binIter);
+
+	virtual std::set<ProjectionPropertyType> getProjectionPropertyTypes() const;
+
+	virtual void initBinFilter(
+	    const std::set<ProjectionPropertyType>& projPropertyTypesExtra,
+	    const int numThreads);
+
+	void setupBinFilter(
+	    const std::set<ProjectionPropertyType>& pr_projPropertiesExtra);
+
+	void allocateBuffers(int numThreads);
 
 protected:
 	// To take scanner properties into account
 	const Scanner& scanner;
 
-	// Bin iterator
+	// Bin iterator (note: bin iterators may move from the projector object in
+	// the future)
 	const BinIterator* binIter;
-	// Note: In the future, maybe bin iterators should not be a member of the
-	//  projector object.
+
+	// Constraints for bin iterator
+	std::vector<Constraint*> m_constraints;
+	std::unique_ptr<BinFilter> mp_binFilter;
+	std::unique_ptr<char[]> m_projectionProperties;
+	std::unique_ptr<char[]> m_constraintParams;
 };
 
 }  // namespace yrt

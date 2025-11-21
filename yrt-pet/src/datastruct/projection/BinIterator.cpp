@@ -43,6 +43,13 @@ void py_setup_biniterator(py::module& m)
 	        m, "BinIteratorChronological");
 	c_chronological.def(py::init<bin_t, bin_t, bin_t>(), "numSubsets"_a,
 	                    "numEvents"_a, "idxSubset"_a);
+
+	auto c_chronological_interleaved =
+	    py::class_<BinIteratorChronologicalInterleaved, BinIteratorRange>(
+	        m, "BinIteratorChronologicalInterleaved");
+	c_chronological_interleaved.def(py::init<bin_t, bin_t, bin_t>(),
+	                                "numSubsets"_a, "numEvents"_a,
+	                                "idxSubset"_a);
 }
 }  // namespace yrt
 #endif

@@ -7,6 +7,7 @@
 
 #include <iostream>
 #include <sstream>
+#include <stdexcept>
 
 namespace yrt
 {
@@ -108,6 +109,32 @@ TFloat erfc(TFloat x)
 }
 template float erfc<float>(float);
 template double erfc<double>(double);
+
+template <typename T>
+T periodicDiff(const T& a, const T& b, const T& period)
+{
+	if constexpr (std::is_floating_point<T>::value)
+	{
+		T halfPeriod = period / static_cast<T>(2.f);
+		return halfPeriod -
+		       std::abs(std::fmod(std::fabs(a - b), period) - halfPeriod);
+	}
+	else if constexpr (std::is_integral<T>::value)
+	{
+		T diff = (a > b) ? (a - b) : (b - a);
+		T mod_diff = diff % period;
+		return std::min(mod_diff, period - mod_diff);
+	}
+	else
+	{
+		throw std::invalid_argument(
+		    "Only floating-point or integer types supported");
+	}
+}
+template float periodicDiff(const float&, const float&, const float&);
+template double periodicDiff(const double&, const double&, const double&);
+template size_t periodicDiff(const size_t&, const size_t&, const size_t&);
+template int periodicDiff(const int&, const int&, const int&);
 
 int reflect(int M, int x)
 {

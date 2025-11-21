@@ -4,6 +4,7 @@
  */
 
 #include "yrt-pet/datastruct/projection/ListMode.hpp"
+#include "yrt-pet/datastruct/projection/BinIterator.hpp"
 #include "yrt-pet/utils/Assert.hpp"
 #include "yrt-pet/utils/Types.hpp"
 

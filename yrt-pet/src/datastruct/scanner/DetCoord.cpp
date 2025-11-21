@@ -94,13 +94,18 @@ void py_setup_detcoord(py::module& m)
 		                          {orientArr->getSizeTotal()}, {sizeof(float)});
 		      return py::array_t<float>(buf_info);
 	      });
-
+	c.def("getMask",
+	      [](DetCoord& self)
+	      {
+		      ASSERT_MSG(self.hasMask(), "No mask defined");
+		      return self.getMask();
+	      });
 
 	auto c_owned =
 	    pybind11::class_<DetCoordOwned, DetCoord,
 	                     std::shared_ptr<DetCoordOwned>>(m, "DetCoordOwned");
 	c_owned.def(py::init<>());
-	c_owned.def(py::init<const std::string&>());
+	c_owned.def(py::init<const std::string&, const std::string&>());
 	c_owned.def("readFromFile", &DetCoordOwned::readFromFile);
 	c_owned.def("allocate", &DetCoordOwned::allocate);
 
@@ -122,35 +127,50 @@ void py_setup_detcoord(py::module& m)
 		    py::buffer_info yorient_info = zorient.request();
 		    if (xpos_info.format != py::format_descriptor<float>::format() ||
 		        xpos_info.ndim != 1)
+		    {
 			    throw std::invalid_argument(
 			        "The XPos array has to be a 1-dimensional float32 array");
+		    }
 		    if (ypos_info.format != py::format_descriptor<float>::format() ||
 		        ypos_info.ndim != 1)
+		    {
 			    throw std::invalid_argument(
 			        "The YPos array has to be a 1-dimensional float32 array");
+		    }
 		    if (zpos_info.format != py::format_descriptor<float>::format() ||
 		        zpos_info.ndim != 1)
+		    {
 			    throw std::invalid_argument(
 			        "The ZPos array has to be a 1-dimensional float32 array");
+		    }
 		    if (xorient_info.format != py::format_descriptor<float>::format() ||
 		        xorient_info.ndim != 1)
+		    {
 			    throw std::invalid_argument("The XOrient array has to be a "
 			                                "1-dimensional float32 array");
+		    }
 		    if (yorient_info.format != py::format_descriptor<float>::format() ||
 		        yorient_info.ndim != 1)
+		    {
 			    throw std::invalid_argument("The YOrient array has to be a "
 			                                "1-dimensional float32 array");
+		    }
 		    if (zorient_info.format != py::format_descriptor<float>::format() ||
 		        zorient_info.ndim != 1)
+		    {
 			    throw std::invalid_argument("The ZOrient array has to be a "
 			                                "1-dimensional float32 array");
+		    }
+
 		    if (xpos_info.shape[0] != ypos_info.shape[0] ||
 		        xpos_info.shape[0] != zpos_info.shape[0] ||
 		        xpos_info.shape[0] != xorient_info.shape[0] ||
 		        xpos_info.shape[0] != yorient_info.shape[0] ||
 		        xpos_info.shape[0] != zorient_info.shape[0])
+		    {
 			    throw std::invalid_argument(
 			        "All the arrays given have to have the same size");
+		    }
 
 		    static_cast<Array1DAlias<float>*>(self.getXposArrayRef())
 		        ->bind(reinterpret_cast<float*>(xpos_info.ptr),
@@ -191,10 +211,11 @@ DetCoordOwned::DetCoordOwned() : DetCoord()
 	mp_Yorient = std::make_unique<Array1D<float>>();
 	mp_Zorient = std::make_unique<Array1D<float>>();
 }
-
-DetCoordOwned::DetCoordOwned(const std::string& filename) : DetCoordOwned()
+DetCoordOwned::DetCoordOwned(const std::string& filename,
+                             const std::string& mask_fname)
+    : DetCoordOwned()
 {
-	readFromFile(filename);
+	readFromFile(filename, mask_fname);
 }
 
 DetCoordAlias::DetCoordAlias() : DetCoord()
@@ -206,6 +227,7 @@ DetCoordAlias::DetCoordAlias() : DetCoord()
 	mp_Yorient = std::make_unique<Array1DAlias<float>>();
 	mp_Zorient = std::make_unique<Array1DAlias<float>>();
 }
+
 
 void DetCoordOwned::allocate(size_t numDets)
 {
@@ -228,21 +250,18 @@ void DetCoord::writeToFile(const std::string& detCoord_fname) const
 	}
 	for (size_t j = 0; j < getNumDets(); j++)
 	{
-		float Xpos10 = (*mp_Xpos)[j];
-		float Ypos10 = (*mp_Ypos)[j];
-		float Zpos10 = (*mp_Zpos)[j];
+		file.write(reinterpret_cast<char*>(&(*mp_Xpos)[j]), sizeof(float));
+		file.write(reinterpret_cast<char*>(&(*mp_Ypos)[j]), sizeof(float));
+		file.write(reinterpret_cast<char*>(&(*mp_Zpos)[j]), sizeof(float));
 
-		file.write((char*)(&(Xpos10)), sizeof(float));
-		file.write((char*)(&(Ypos10)), sizeof(float));
-		file.write((char*)(&(Zpos10)), sizeof(float));
-
-		file.write((char*)(&((*mp_Xorient)[j])), sizeof(float));
-		file.write((char*)(&((*mp_Yorient)[j])), sizeof(float));
-		file.write((char*)(&((*mp_Zorient)[j])), sizeof(float));
+		file.write(reinterpret_cast<char*>(&(*mp_Xorient)[j]), sizeof(float));
+		file.write(reinterpret_cast<char*>(&(*mp_Yorient)[j]), sizeof(float));
+		file.write(reinterpret_cast<char*>(&(*mp_Zorient)[j]), sizeof(float));
 	}
 }
 
-void DetCoordOwned::readFromFile(const std::string& filename)
+void DetCoordOwned::readFromFile(const std::string& filename,
+                                 const std::string& mask_fname)
 {
 	// File format:
 	// <float><float><float><float><float><float>
@@ -299,6 +318,12 @@ void DetCoordOwned::readFromFile(const std::string& filename)
 	                         });
 
 	fin.close();
+
+	// Read mask
+	if (!mask_fname.empty())
+	{
+		addMask(mask_fname);
+	}
 }
 
 void DetCoordAlias::bind(DetCoord* p_detCoord)
@@ -329,6 +354,7 @@ void DetCoordAlias::bind(Array1DBase<float>* p_Xpos, Array1DBase<float>* p_Ypos,
 	isNotNull &= (mp_Xorient->getRawPointer() != nullptr);
 	isNotNull &= (mp_Yorient->getRawPointer() != nullptr);
 	isNotNull &= (mp_Zorient->getRawPointer() != nullptr);
+
 	if (!isNotNull)
 	{
 		throw std::runtime_error(
@@ -387,8 +413,39 @@ void DetCoord::setZorient(det_id_t detID, float f)
 	(*mp_Zorient)[detID] = f;
 }
 
+Array1DBase<float>* DetCoord::getXposArrayRef() const
+{
+	return (mp_Xpos.get());
+}
+
+Array1DBase<float>* DetCoord::getYposArrayRef() const
+{
+	return (mp_Ypos.get());
+}
+
+Array1DBase<float>* DetCoord::getZposArrayRef() const
+{
+	return (mp_Zpos.get());
+}
+
+Array1DBase<float>* DetCoord::getXorientArrayRef() const
+{
+	return (mp_Xorient.get());
+}
+
+Array1DBase<float>* DetCoord::getYorientArrayRef() const
+{
+	return (mp_Yorient.get());
+}
+
+Array1DBase<float>* DetCoord::getZorientArrayRef() const
+{
+	return (mp_Zorient.get());
+}
+
 size_t DetCoord::getNumDets() const
 {
 	return this->mp_Xpos->getSize(0);
 }
+
 }  // namespace yrt

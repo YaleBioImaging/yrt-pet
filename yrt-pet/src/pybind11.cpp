@@ -38,6 +38,7 @@ void py_setup_listmode(py::module& m);
 void py_setup_listmodelut(py::module& m);
 void py_setup_listmodelutdoi(py::module& m);
 void py_setup_projectionlist(py::module& m);
+void py_setup_detectormask(py::module& m);
 void py_setup_detectorsetup(py::module& m);
 void py_setup_osem(py::module& m);
 void py_setup_osem_updater(py::module& m);
@@ -53,6 +54,9 @@ void py_setup_operator(py::module& m);
 void py_setup_operatorpsf(py::module& m);
 void py_setup_operatorvarpsf(py::module& m);
 void py_setup_operatorprojectorparams(py::module& m);
+void py_setup_projectionpropertytype(py::module& m);
+void py_setup_binfilter(py::module& m);
+void py_setup_constraints(py::module& m);
 void py_setup_operatorprojectorbase(py::module& m);
 void py_setup_operatorprojector(py::module& m);
 void py_setup_operatorprojectorupdater(py::module& m);
@@ -67,6 +71,7 @@ void py_setup_singlescattersimulator(py::module& m);
 void py_setup_scatterestimator(py::module& m);
 
 #ifdef BUILD_CUDA
+void py_setup_gpuutils(py::module&);
 void py_setup_imagedevice(py::module&);
 void py_setup_projectiondatadevice(py::module& m);
 void py_setup_operatorpsfdevice(py::module& m);
@@ -102,6 +107,7 @@ PYBIND11_MODULE(pyyrtpet, m)
 	py_setup_listmodelut(m);
 	py_setup_listmodelutdoi(m);
 	py_setup_projectionlist(m);
+	py_setup_detectormask(m);
 	py_setup_detectorsetup(m);
 	py_setup_scanner(m);
 	py_setup_detcoord(m);
@@ -118,6 +124,9 @@ PYBIND11_MODULE(pyyrtpet, m)
 	py_setup_operatorprojectorbase(m);
 	py_setup_operatorprojector(m);
 	py_setup_operatorprojectorparams(m);
+	py_setup_projectionpropertytype(m);
+	py_setup_binfilter(m);
+	py_setup_constraints(m);
 	py_setup_operatorprojectorupdater(m);
 	py_setup_operatorprojectorsiddon(m);
 	py_setup_operatorprojectordd(m);
@@ -133,6 +142,7 @@ PYBIND11_MODULE(pyyrtpet, m)
 	py_setup_scatterestimator(m);
 
 #ifdef BUILD_CUDA
+	py_setup_gpuutils(m);
 	py_setup_imagedevice(m);
 	py_setup_projectiondatadevice(m);
 	py_setup_operatorpsfdevice(m);

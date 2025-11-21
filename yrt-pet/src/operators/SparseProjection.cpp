@@ -25,11 +25,14 @@ void forwProjectToSparseHistogram(const Image& sourceImage,
 	const auto uniformHistogram =
 	    std::make_unique<UniformHistogram>(projector.getScanner());
 	const size_t numBins = uniformHistogram->count();
+	auto projPropManager = projector.getBinFilter()->getPropertyManager();
 
 	SparseHistogram* sparseHistogram_ptr = &sparseHistogram;
 	const UniformHistogram* uniformHistogram_ptr = uniformHistogram.get();
 	const Image* sourceImage_ptr = &sourceImage;
 	const OperatorProjector* projector_ptr = &projector;
+	auto projectionProperties = projPropManager.createDataArray(1);
+	auto projectionPropertiesPtr = projectionProperties.get();
 
 	ProgressDisplay progress(numBins, 5);
 
@@ -41,11 +44,11 @@ void forwProjectToSparseHistogram(const Image& sourceImage,
 		}
 
 		const det_pair_t detPair = uniformHistogram_ptr->getDetectorPair(bin);
-		const ProjectionProperties projectionProperties =
-		    uniformHistogram_ptr->getProjectionProperties(bin);
+		uniformHistogram_ptr->getProjectionProperties(projectionPropertiesPtr,
+		                                              projPropManager, bin, 0);
 
 		const float projValue = projector_ptr->forwardProjection(
-			sourceImage_ptr, projectionProperties, 0);
+		    sourceImage_ptr, projectionProperties.get());
 
 		if (std::abs(projValue) > SMALL)
 		{

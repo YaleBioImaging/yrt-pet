@@ -5,7 +5,11 @@
 
 #include "yrt-pet/recon/OSEMUpdater_CPU.hpp"
 
+#include <thread>
+
+#include "yrt-pet/datastruct/projection/BinIterator.hpp"
 #include "yrt-pet/datastruct/projection/ProjectionData.hpp"
+#include "yrt-pet/operators/OperatorProjector.hpp"
 #include "yrt-pet/recon/Corrector_CPU.hpp"
 #include "yrt-pet/recon/OSEM_CPU.hpp"
 #include "yrt-pet/utils/Assert.hpp"
@@ -32,33 +36,49 @@ void OSEMUpdater_CPU::computeSensitivityImage(Image& destImage) const
 {
 	const OperatorProjector* projector = mp_osem->getProjector();
 	const BinIterator* binIter = projector->getBinIter();
-	const bin_t numBins = binIter->size();
 	const Corrector_CPU& corrector = mp_osem->getCorrector_CPU();
 	const Corrector_CPU* correctorPtr = &corrector;
 	const ProjectionData* sensImgGenProjData =
 	    corrector.getSensImgGenProjData();
 	Image* destImagePtr = &destImage;
+
+	const bin_t numBinsMax = binIter->size();
+	const int numThreads = globals::getNumThreads();
+	const size_t blockSize = std::ceil(numBinsMax / (float)numThreads);
+
+	auto binFilter = projector->getBinFilter();
+	auto& projPropManager = binFilter->getPropertyManager();
+	auto& consManager = binFilter->getConstraintManager();
+	auto constraintParams = projector->getConstraintParams();
+	auto projectionProperties = projector->getProjectionProperties();
+	BinFilter::CollectInfoFlags collectInfoFlags(false);
+	binFilter->collectFlags(collectInfoFlags);
+
 	util::ProgressDisplayMultiThread progressDisplay(globals::getNumThreads(),
-	                                                 numBins);
+	                                                 numBinsMax);
 
 	util::parallelForChunked(
-	    numBins, globals::getNumThreads(),
-	    [&progressDisplay, binIter, sensImgGenProjData, correctorPtr, projector,
-	     destImagePtr](bin_t binIdx, size_t tid)
+	    numBinsMax, numThreads,
+	    [blockSize, numBinsMax, sensImgGenProjData, consManager,
+	     projPropManager, collectInfoFlags, correctorPtr, projector,
+	     destImagePtr, &progressDisplay, &binIter, &binFilter,
+	     &constraintParams, &projectionProperties](size_t binIdx, int tid)
 	    {
-		    progressDisplay.progress(tid, 1);
-
-		    const bin_t bin = binIter->get(binIdx);
-
-		    const ProjectionProperties projectionProperties =
-		        sensImgGenProjData->getProjectionProperties(bin);
-
-		    const float projValue =
-		        correctorPtr->getMultiplicativeCorrectionFactor(
-		            *sensImgGenProjData, bin);
-
-		    projector->backProjection(destImagePtr, projectionProperties,
-		                              projValue, tid);
+		    bin_t bin = binIter->get(binIdx);
+		    binFilter->collectInfo(bin, tid, tid, *sensImgGenProjData,
+		                           collectInfoFlags, projectionProperties,
+		                           constraintParams);
+		    if (binFilter->isValid(consManager, constraintParams, tid))
+		    {
+			    progressDisplay.progress(tid, 1);
+			    sensImgGenProjData->getProjectionProperties(
+			        projectionProperties, projPropManager, bin, tid);
+			    const float projValue =
+			        correctorPtr->getMultiplicativeCorrectionFactor(
+			            *sensImgGenProjData, bin);
+			    projector->backProjection(destImagePtr, projectionProperties,
+			                              projValue, tid);
+		    }
 	    });
 }
 
@@ -107,38 +127,49 @@ void OSEMUpdater_CPU::computeEMUpdateImage(const Image& inputImage,
 		    "measurements");
 	}
 
+	int numThreads = globals::getNumThreads();
+
+	auto binFilter = projector->getBinFilter();
+	auto& projPropManager = binFilter->getPropertyManager();
+	auto& consManager = binFilter->getConstraintManager();
+	auto constraintParams = projector->getConstraintParams();
+	auto projectionProperties = projector->getProjectionProperties();
+	BinFilter::CollectInfoFlags collectInfoFlags(false);
+	binFilter->collectFlags(collectInfoFlags);
+
 	util::parallelForChunked(
-	    numBins, globals::getNumThreads(),
-	    [binIter, measurements, projector, inputImagePtr, hasAdditiveCorrection,
-	     hasInVivoAttenuation, correctorPtr,
-	     destImagePtr](bin_t binIdx, size_t tid)
+	    numBins, numThreads,
+	    [hasAdditiveCorrection, hasInVivoAttenuation, measurements,
+	     inputImagePtr, consManager, projPropManager, collectInfoFlags,
+	     correctorPtr, projector, destImagePtr, &binIter, &binFilter,
+	     &constraintParams, &projectionProperties](size_t binIdx, int tid)
 	    {
-		    const bin_t bin = binIter->get(binIdx);
-
-		    const ProjectionProperties projectionProperties =
-		        measurements->getProjectionProperties(bin);
-
-		    float update = projector->forwardProjection(
-		        inputImagePtr, projectionProperties, tid);
-
-		    if (hasAdditiveCorrection)
+		    bin_t bin = binIter->get(binIdx);
+		    binFilter->collectInfo(bin, tid, tid, *measurements,
+		                           collectInfoFlags, projectionProperties,
+		                           constraintParams);
+		    if (binFilter->isValid(consManager, constraintParams, tid))
 		    {
-			    update += correctorPtr->getAdditiveCorrectionFactor(bin);
-		    }
-
-		    if (hasInVivoAttenuation)
-		    {
-			    update *= correctorPtr->getInVivoAttenuationFactor(bin);
-		    }
-
-		    if (update > EPS_FLT)  // to prevent numerical instability
-		    {
-			    const float measurement = measurements->getProjectionValue(bin);
-
-			    update = measurement / update;
-
-			    projector->backProjection(destImagePtr, projectionProperties,
-			                              update, tid);
+			    measurements->getProjectionProperties(
+			        projectionProperties, projPropManager, bin, tid);
+			    float update = projector->forwardProjection(
+			        inputImagePtr, projectionProperties, tid);
+			    if (hasAdditiveCorrection)
+			    {
+				    update += correctorPtr->getAdditiveCorrectionFactor(bin);
+			    }
+			    if (hasInVivoAttenuation)
+			    {
+				    update *= correctorPtr->getInVivoAttenuationFactor(bin);
+			    }
+			    if (update > EPS_FLT)  // to prevent numerical instability
+			    {
+				    const float measurement =
+				        measurements->getProjectionValue(bin);
+				    update = measurement / update;
+				    projector->backProjection(
+				        destImagePtr, projectionProperties, update, tid);
+			    }
 		    }
 	    });
 

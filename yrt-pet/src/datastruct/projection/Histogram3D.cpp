@@ -32,6 +32,10 @@ void py_setup_histogram3d(pybind11::module& m)
 	c.def("writeToFile", &Histogram3D::writeToFile, py::arg("fname"));
 	c.def("getShape", [](const Histogram3D& self)
 	      { return py::make_tuple(self.numZBin, self.numPhi, self.numR); });
+	c.def("getData",
+	      static_cast<const Array3DBase<float>& (Histogram3D::*)() const>(
+	          &Histogram3D::getData),
+	      py::return_value_policy::reference_internal);
 	c.def("getBinIdFromCoords", &Histogram3D::getBinIdFromCoords, py::arg("r"),
 	      py::arg("phi"), py::arg("z_bin"));
 	c.def(
@@ -222,7 +226,11 @@ void Histogram3DOwned::readFromFile(const std::string& filename)
 	{
 		mp_data->readFromFile(filename, dims);
 	}
-	catch (const std::exception& e)
+	catch (const std::filesystem::filesystem_error& e)
+	{
+		throw std::runtime_error("The file given is inexistant");
+	}
+	catch (const std::runtime_error& e)
 	{
 		throw std::runtime_error(
 		    "Error during Histogram initialization either the scanner\'s "
@@ -354,6 +362,8 @@ void Histogram3D::getDetPairFromCoords(coord_t r, coord_t phi, coord_t z_bin,
 void Histogram3D::getCoordsFromDetPair(det_id_t d1, det_id_t d2, coord_t& r,
                                        coord_t& phi, coord_t& z_bin) const
 {
+	ASSERT_MSG(d1 != 0 || d2 != 0, "Disabled detector pair (0,0)");
+
 	coord_t r_ring;
 	if (d1 > d2)
 		std::swap(d1, d2);
@@ -582,6 +592,11 @@ float Histogram3D::getProjectionValueFromHistogramBin(
 
 	// use the detector pair
 	const auto [d1, d2] = std::get<det_pair_t>(histoBinId);
+	if (d1 == 0 && d2 == 0)
+	{
+		// Skip disabled detector pairs
+		return 0.0f;
+	}
 	const bin_t binId = getBinIdFromDetPair(d1, d2);
 	return getProjectionValue(binId);
 }

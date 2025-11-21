@@ -7,7 +7,11 @@
 
 #include "yrt-pet/datastruct/IO.hpp"
 #include "yrt-pet/datastruct/projection/Histogram3D.hpp"
+#include "yrt-pet/datastruct/projection/LORMotion.hpp"
 #include "yrt-pet/datastruct/projection/ListModeLUT.hpp"
+#include "yrt-pet/datastruct/projection/ProjectionData.hpp"
+#include "yrt-pet/datastruct/projection/ProjectionProperties.hpp"
+#include "yrt-pet/datastruct/scanner/DetectorMask.hpp"
 #include "yrt-pet/geometry/Matrix.hpp"
 #include "yrt-pet/operators/OperatorProjectorDD.hpp"
 #include "yrt-pet/operators/OperatorProjectorSiddon.hpp"
@@ -16,7 +20,6 @@
 #include "yrt-pet/utils/Concurrency.hpp"
 #include "yrt-pet/utils/Globals.hpp"
 #include "yrt-pet/utils/ProgressDisplay.hpp"
-#include "yrt-pet/utils/ProgressDisplayMultiThread.hpp"
 #include "yrt-pet/utils/Tools.hpp"
 
 #if BUILD_CUDA
@@ -36,14 +39,39 @@ namespace yrt
 void py_setup_reconstructionutils(pybind11::module& m)
 {
 	m.def("histogram3DToListModeLUT", &util::histogram3DToListModeLUT);
+	m.def("compareListModes", &util::compareListModes);
+
 	m.def(
-	    "convertToHistogram3D", [](const Histogram& dat, Histogram3D& histoOut)
-	    { util::convertToHistogram3D<false>(dat, histoOut); },
-	    py::arg("histogramDataInput"), py::arg("histoOut"));
+	    "convertToHistogram3D",
+	    [](const Histogram& dat, Histogram3D& histoOut,
+	       const DetectorMask* detectorMask)
+	    {
+		    util::convertToHistogram3D<false, true>(dat, histoOut,
+		                                            detectorMask);
+	    },
+	    "histogramDataInput"_a, "histoOut"_a, "detectorMask"_a = nullptr);
 	m.def(
-	    "convertToHistogram3D", [](const ListMode& dat, Histogram3D& histoOut)
-	    { util::convertToHistogram3D<true>(dat, histoOut); },
-	    py::arg("listmodeDataInput"), py::arg("histoOut"));
+	    "convertToHistogram3D",
+	    [](const ListMode& dat, Histogram3D& histoOut,
+	       const DetectorMask* detectorMask)
+	    {
+		    util::convertToHistogram3D<true, true>(dat, histoOut, detectorMask);
+	    },
+	    "listmodeDataInput"_a, "histoOut"_a, "detectorMask"_a = nullptr);
+	m.def(
+	    "convertToHistogram3D",
+	    [](const Histogram& dat, const DetectorMask* detectorMask)
+	    { return util::convertToHistogram3D<false, true>(dat, detectorMask); },
+	    "histogramDataInput"_a, "detectorMask"_a = nullptr);
+	m.def(
+	    "convertToHistogram3D",
+	    [](const ListMode& dat, const DetectorMask* detectorMask)
+	    { return util::convertToHistogram3D<true, true>(dat, detectorMask); },
+	    "listmodeDataInput"_a, "detectorMask"_a = nullptr);
+
+	m.def("convertToListModeLUT", &util::convertToListModeLUT<true>,
+	      "listmode"_a, "detectorMask"_a = nullptr);
+
 	m.def(
 	    "createOSEM",
 	    [](const Scanner& scanner, bool useGPU)
@@ -69,7 +97,6 @@ void py_setup_reconstructionutils(pybind11::module& m)
 	      "lorMotion"_a, "unmovedSensImage"_a, "timeStart"_a, "timeStop"_a,
 	      "Blur a given image based on given motion information");
 
-
 	m.def("generateTORRandomDOI", &util::generateTORRandomDOI, "scanner"_a,
 	      "d1"_a, "d2"_a, "vmax"_a);
 
@@ -88,10 +115,8 @@ void py_setup_reconstructionutils(pybind11::module& m)
 	          ProjectionData& projData, const BinIterator& binIterator,
 	          OperatorProjector::ProjectorType projectorType, bool useGPU)>(
 	          &util::forwProject),
-	      py::arg("scanner"), py::arg("img"), py::arg("projData"),
-	      py::arg("binIterator"),
-	      py::arg("projectorType") = OperatorProjector::SIDDON,
-	      "useGPU"_a = false);
+	      "scanner"_a, "img"_a, "projData"_a, "binIterator"_a,
+	      "projectorType"_a = OperatorProjector::SIDDON, "useGPU"_a = false);
 	m.def("forwProject",
 	      static_cast<void (*)(const Image& img, ProjectionData& projData,
 	                           const OperatorProjectorParams& projParams,
@@ -129,9 +154,7 @@ void py_setup_reconstructionutils(pybind11::module& m)
 
 #endif
 
-namespace yrt
-{
-namespace util
+namespace yrt::util
 {
 
 void histogram3DToListModeLUT(const Histogram3D* histo, ListModeLUTOwned* lmOut,
@@ -243,6 +266,129 @@ void histogram3DToListModeLUT(const Histogram3D* histo, ListModeLUTOwned* lmOut,
 	}
 }
 
+size_t compareListModes(const ListMode& lm1, const ListMode& lm2)
+{
+	const size_t numEvents = lm1.count();
+
+	const bool hasTOF = lm1.hasTOF();
+	const bool hasRandoms = lm1.hasRandomsEstimates();
+	const bool hasMotion = lm1.hasMotion();
+	const bool hasArbitraryLORs = lm1.hasArbitraryLORs();
+	const bool isUniform = lm1.isUniform();
+
+	ASSERT_MSG(numEvents == lm2.count(),
+	           "The two listmodes given do not have the same number of events");
+	ASSERT_MSG(hasTOF == lm2.hasTOF(),
+	           "One given list-mode has TOF while the other one doesn't");
+	ASSERT_MSG(hasRandoms == lm2.hasRandomsEstimates(),
+	           "One given list-mode has randoms estimates while the other one "
+	           "doesn't");
+	ASSERT_MSG(hasMotion == lm2.hasMotion(),
+	           "One given list-mode is bound to motion information while the "
+	           "other one isn't");
+	ASSERT_MSG(
+	    hasArbitraryLORs == lm2.hasArbitraryLORs(),
+	    "One given list-mode has arbitrary LORs while the other one doesn't");
+	ASSERT_MSG(isUniform == lm2.isUniform(),
+	           "One given list-mode is uniform while the other one isn't");
+
+	ASSERT_MSG(!hasArbitraryLORs,
+	           "This function does not support list-modes with arbitrary LORs");
+
+	const int numThreads = globals::getNumThreads();
+	std::vector<size_t> numMismatchesPerThread(numThreads, 0ull);
+
+	std::set<ProjectionPropertyType> variables;
+	variables.insert(ProjectionPropertyType::TIMESTAMP);
+	variables.insert(ProjectionPropertyType::DET_ID);
+	if (hasTOF)
+	{
+		variables.insert(ProjectionPropertyType::TOF);
+	}
+	if (hasRandoms)
+	{
+		variables.insert(ProjectionPropertyType::RANDOMS_ESTIMATE);
+	}
+	ProjectionPropertyManager propManager(variables);
+
+	auto props = propManager.createDataArray(2 * numThreads);
+	char* props_ptr = props.get();
+
+	parallelForChunked(
+	    numEvents, numThreads,
+	    [&](size_t evId, unsigned int threadId)
+	    {
+		    const size_t lm1Index = 2 * threadId + 0;
+		    const size_t lm2Index = 2 * threadId + 1;
+
+		    // Gather properties
+		    lm1.getProjectionProperties(props_ptr, propManager, evId, lm1Index);
+		    lm2.getProjectionProperties(props_ptr, propManager, evId, lm2Index);
+
+		    // Check timestamp
+		    const timestamp_t timestamp1 =
+		        propManager.getDataValue<timestamp_t>(
+		            props_ptr, lm1Index, ProjectionPropertyType::TIMESTAMP);
+		    const timestamp_t timestamp2 =
+		        propManager.getDataValue<timestamp_t>(
+		            props_ptr, lm2Index, ProjectionPropertyType::TIMESTAMP);
+		    if (timestamp1 != timestamp2)
+		    {
+			    numMismatchesPerThread[threadId]++;
+			    return;
+		    }
+
+		    // Check detector pair
+		    const det_pair_t detPair1 = propManager.getDataValue<det_pair_t>(
+		        props_ptr, lm1Index, ProjectionPropertyType::DET_ID);
+		    const det_pair_t detPair2 = propManager.getDataValue<det_pair_t>(
+		        props_ptr, lm2Index, ProjectionPropertyType::DET_ID);
+		    if (detPair1.d1 != detPair2.d1 || detPair1.d2 != detPair2.d2)
+		    {
+			    numMismatchesPerThread[threadId]++;
+			    return;
+		    }
+
+		    // Check TOF if needed
+		    if (hasTOF)
+		    {
+			    const float tof1 = propManager.getDataValue<float>(
+			        props_ptr, lm1Index, ProjectionPropertyType::TOF);
+			    const float tof2 = propManager.getDataValue<float>(
+			        props_ptr, lm2Index, ProjectionPropertyType::TOF);
+			    if (tof1 != tof2)
+			    {
+				    numMismatchesPerThread[threadId]++;
+				    return;
+			    }
+		    }
+
+		    // Check randoms estimates if needed
+		    if (hasRandoms)
+		    {
+			    const float randoms1 = propManager.getDataValue<float>(
+			        props_ptr, lm1Index,
+			        ProjectionPropertyType::RANDOMS_ESTIMATE);
+			    const float randoms2 = propManager.getDataValue<float>(
+			        props_ptr, lm2Index,
+			        ProjectionPropertyType::RANDOMS_ESTIMATE);
+			    if (randoms1 != randoms2)
+			    {
+				    numMismatchesPerThread[threadId]++;
+				    return;
+			    }
+		    }
+	    });
+
+	// Sum each thread's sum
+	size_t numMismatches = 0ull;
+	for (const size_t numMismatchInThread : numMismatchesPerThread)
+	{
+		numMismatches += numMismatchInThread;
+	}
+	return numMismatches;
+}
+
 std::tuple<timestamp_t, timestamp_t>
     getFullTimeRange(const LORMotion& lorMotion)
 {
@@ -345,25 +491,36 @@ template std::unique_ptr<ImageOwned>
                                 const Image* unmovedImage,
                                 timestamp_t timeStart, timestamp_t timeStop);
 
-template <bool RequiresAtomicAccumulation, bool PrintProgress>
-void convertToHistogram3D(const ProjectionData& dat, Histogram3D& histoOut)
+// Helper function
+template <bool RequiresAtomicAccumulation, bool UseDetectorMask,
+          bool PrintProgress>
+void convertToHistogram3DInternal(const ProjectionData& dat,
+                                  Histogram3D& histoOut,
+                                  const DetectorMask* detectorMask)
 {
 	float* histoDataPointer = histoOut.getData().getRawPointer();
 	const size_t numDatBins = dat.count();
 
-	ProgressDisplayMultiThread progressBar(globals::getNumThreads(), numDatBins,
-	                                       5);
+	if constexpr (UseDetectorMask)
+	{
+		ASSERT(detectorMask != nullptr);
+	}
+
+	ProgressDisplay progressBar(numDatBins, 5);
 
 	const Histogram3D* histoOut_constptr = &histoOut;
 	const ProjectionData* dat_constptr = &dat;
 	util::parallelForChunked(
 	    numDatBins, globals::getNumThreads(),
-	    [&progressBar, dat_constptr, histoOut_constptr,
-	     histoDataPointer](bin_t datBin, size_t tid)
+	    [&progressBar, dat_constptr, histoOut_constptr, histoDataPointer,
+	     detectorMask](bin_t datBin, size_t tid)
 	    {
 		    if constexpr (PrintProgress)
 		    {
-			    progressBar.progress(tid, 1);
+			    if (tid == 0)
+			    {
+				    progressBar.progress(datBin);
+			    }
 		    }
 
 		    const float projValue = dat_constptr->getProjectionValue(datBin);
@@ -375,12 +532,26 @@ void convertToHistogram3D(const ProjectionData& dat, Histogram3D& histoOut)
 				    // Do not crash
 				    return;
 			    }
+
+			    if constexpr (UseDetectorMask)
+			    {
+				    bool skipEvent = false;
+				    skipEvent |= detectorMask->checkDetector(d1);
+				    skipEvent |= detectorMask->checkDetector(d2);
+
+				    if (skipEvent)
+				    {
+					    // Continue to next event
+					    return;
+				    }
+			    }
+
 			    const bin_t histoBin =
 			        histoOut_constptr->getBinIdFromDetPair(d1, d2);
 			    if constexpr (RequiresAtomicAccumulation)
 			    {
 				    std::atomic_ref<float> outRef(histoDataPointer[histoBin]);
-				    outRef.fetch_add(projValue);
+				    outRef += projValue;
 			    }
 			    else
 			    {
@@ -389,14 +560,148 @@ void convertToHistogram3D(const ProjectionData& dat, Histogram3D& histoOut)
 		    }
 	    });
 }
+
+template <bool RequiresAtomic, bool PrintProgress>
+void convertToHistogram3D(const ProjectionData& pr_dat,
+                          Histogram3D& pr_histoOut,
+                          const DetectorMask* pp_detectorMask)
+{
+	ASSERT_MSG(pr_dat.getScanner().getNumDets() ==
+	               pr_histoOut.getScanner().getNumDets(),
+	           "The projection-space dataset and the histogram provided point "
+	           "to scanners with a different number of detectors");
+
+	auto detMask =
+	    std::make_unique<DetectorMask>(pr_dat.getScanner().getNumDets());
+	if (pp_detectorMask != nullptr)
+	{
+		detMask->logicalAndWithOther(*pp_detectorMask);
+	}
+
+	const auto detectorSetup = pr_dat.getScanner().getDetectorSetup();
+	if (detectorSetup->hasMask())
+	{
+		detMask->logicalAndWithOther(detectorSetup->getMask());
+	}
+
+	if (detMask->areAllDetectorsEnabled())
+	{
+		// Do not use a detector mask
+		convertToHistogram3DInternal<RequiresAtomic, false, PrintProgress>(
+		    pr_dat, pr_histoOut, nullptr);
+	}
+	else
+	{
+		convertToHistogram3DInternal<RequiresAtomic, true, PrintProgress>(
+		    pr_dat, pr_histoOut, detMask.get());
+	}
+}
 template void convertToHistogram3D<true, true>(const ProjectionData&,
-                                               Histogram3D&);
+                                               Histogram3D&,
+                                               const DetectorMask*);
 template void convertToHistogram3D<false, true>(const ProjectionData&,
-                                                Histogram3D&);
+                                                Histogram3D&,
+                                                const DetectorMask*);
 template void convertToHistogram3D<true, false>(const ProjectionData&,
-                                                Histogram3D&);
+                                                Histogram3D&,
+                                                const DetectorMask*);
 template void convertToHistogram3D<false, false>(const ProjectionData&,
-                                                 Histogram3D&);
+                                                 Histogram3D&,
+                                                 const DetectorMask*);
+
+template <bool RequiresAtomic, bool PrintProgress>
+std::unique_ptr<Histogram3DOwned>
+    convertToHistogram3D(const ProjectionData& dat,
+                         const DetectorMask* detectorMask)
+{
+	const Scanner& scanner = dat.getScanner();
+	auto histogram3D = std::make_unique<Histogram3DOwned>(scanner);
+	histogram3D->allocate();
+	histogram3D->clearProjections(0);
+	convertToHistogram3D<RequiresAtomic, PrintProgress>(dat, *histogram3D,
+	                                                    detectorMask);
+	return histogram3D;
+}
+template std::unique_ptr<Histogram3DOwned>
+    convertToHistogram3D<true, true>(const ProjectionData& dat,
+                                     const DetectorMask* detectorMask);
+template std::unique_ptr<Histogram3DOwned>
+    convertToHistogram3D<false, true>(const ProjectionData& dat,
+                                      const DetectorMask* detectorMask);
+template std::unique_ptr<Histogram3DOwned>
+    convertToHistogram3D<true, false>(const ProjectionData& dat,
+                                      const DetectorMask* detectorMask);
+template std::unique_ptr<Histogram3DOwned>
+    convertToHistogram3D<false, false>(const ProjectionData& dat,
+                                       const DetectorMask* detectorMask);
+
+template <bool PrintProgress>
+std::unique_ptr<ListModeLUTOwned>
+    convertToListModeLUT(const ListMode& lm, const DetectorMask* detectorMask)
+{
+	const Scanner& scanner = lm.getScanner();
+	const bool hasTOF = lm.hasTOF();
+	const bool hasRandoms = lm.hasRandomsEstimates();
+
+	auto lmOut =
+	    std::make_unique<ListModeLUTOwned>(scanner, hasTOF, hasRandoms);
+	const size_t numEvents = lm.count();
+	ASSERT(numEvents > 0);
+	lmOut->allocate(numEvents);
+
+	ProgressDisplay progressBar(numEvents, 5);
+
+	util::parallelForChunked(
+	    numEvents, globals::getNumThreads(),
+	    [&progressBar, &lmOut, &lm, detectorMask, hasTOF,
+	     hasRandoms](size_t evId, size_t tid)
+	    {
+		    if constexpr (PrintProgress)
+		    {
+			    if (tid == 0)
+			    {
+				    progressBar.progress(evId);
+			    }
+		    }
+
+		    lmOut->setTimestampOfEvent(evId, lm.getTimestamp(evId));
+		    auto [d1, d2] = lm.getDetectorPair(evId);
+
+		    if (detectorMask != nullptr)
+		    {
+			    bool skipEvent = false;
+			    skipEvent |= detectorMask->checkDetector(d1);
+			    skipEvent |= detectorMask->checkDetector(d2);
+
+			    if (skipEvent)
+			    {
+				    // Put 0,0 as detector pair to disable event
+				    lmOut->setDetectorIdsOfEvent(evId, 0, 0);
+
+				    // Go to next event
+				    return;
+			    }
+		    }
+
+		    lmOut->setDetectorIdsOfEvent(evId, d1, d2);
+		    if (hasTOF)
+		    {
+			    lmOut->setTOFValueOfEvent(evId, lm.getTOFValue(evId));
+		    }
+		    if (hasRandoms)
+		    {
+			    lmOut->setRandomsEstimateOfEvent(evId,
+			                                     lm.getRandomsEstimate(evId));
+		    }
+	    });
+	return lmOut;
+}
+template std::unique_ptr<ListModeLUTOwned>
+    convertToListModeLUT<true>(const ListMode& lm,
+                               const DetectorMask* detectorMask);
+template std::unique_ptr<ListModeLUTOwned>
+    convertToListModeLUT<false>(const ListMode& lm,
+                                const DetectorMask* detectorMask);
 
 Line3D getNativeLOR(const Scanner& scanner, const ProjectionData& dat,
                     bin_t binId)
@@ -478,20 +783,31 @@ static void project(Image* img, ProjectionData* projData,
 #endif
 	}
 	std::unique_ptr<OperatorProjectorBase> oper;
+	std::vector<std::unique_ptr<Constraint>> constraints;
+	projData->getScanner().collectConstraints(constraints);
+	std::vector<Constraint*> constraintsPtr;
+	for (auto& constraint : constraints)
+	{
+		constraintsPtr.emplace_back(constraint.get());
+	}
+
 	if (useGPU)
 	{
 		oper = createOperatorProjectorDevice(projectorType, projParams,
+															 constraintsPtr,
 			&mainStream->getStream(), &auxStream->getStream());
 	}
 	else
 	{
 		if (projectorType == OperatorProjector::SIDDON)
 		{
-			oper = std::make_unique<OperatorProjectorSiddon>(projParams);
+			oper = std::make_unique<OperatorProjectorSiddon>(projParams,
+															 constraintsPtr);
 		}
 		else if (projectorType == OperatorProjector::DD)
 		{
-			oper = std::make_unique<OperatorProjectorDD>(projParams);
+			oper = std::make_unique<OperatorProjectorDD>(projParams,
+															 constraintsPtr);
 		}
 		else
 		{
@@ -516,7 +832,9 @@ void forwProject(const Scanner& scanner, const Image& img,
                  OperatorProjector::ProjectorType projectorType, bool useGPU)
 {
 	const auto binIter = projData.getBinIter(1, 0);
-	const OperatorProjectorParams projParams(binIter.get(), scanner);
+	OperatorProjectorParams projParams(scanner);
+	projParams.binIter = binIter.get();
+	projParams.numThreads = globals::getNumThreads();
 	forwProject(img, projData, projParams, projectorType, useGPU);
 }
 
@@ -524,7 +842,9 @@ void forwProject(const Scanner& scanner, const Image& img,
                  ProjectionData& projData, const BinIterator& binIterator,
                  OperatorProjector::ProjectorType projectorType, bool useGPU)
 {
-	const OperatorProjectorParams projParams(&binIterator, scanner);
+	OperatorProjectorParams projParams(scanner);
+	projParams.binIter = &binIterator;
+	projParams.numThreads = globals::getNumThreads();
 	forwProject(img, projData, projParams, projectorType, useGPU);
 }
 
@@ -541,7 +861,9 @@ void backProject(const Scanner& scanner, Image& img,
                  OperatorProjector::ProjectorType projectorType, bool useGPU)
 {
 	const auto binIter = projData.getBinIter(1, 0);
-	const OperatorProjectorParams projParams(binIter.get(), scanner);
+	OperatorProjectorParams projParams(scanner);
+	projParams.binIter = binIter.get();
+	projParams.numThreads = globals::getNumThreads();
 	backProject(img, projData, projParams, projectorType, useGPU);
 }
 
@@ -549,7 +871,9 @@ void backProject(const Scanner& scanner, Image& img,
                  const ProjectionData& projData, const BinIterator& binIterator,
                  OperatorProjector::ProjectorType projectorType, bool useGPU)
 {
-	const OperatorProjectorParams projParams(&binIterator, scanner);
+	OperatorProjectorParams projParams(scanner);
+	projParams.binIter = &binIterator;
+	projParams.numThreads = globals::getNumThreads();
 	backProject(img, projData, projParams, projectorType, useGPU);
 }
 
@@ -561,5 +885,4 @@ void backProject(Image& img, const ProjectionData& projData,
 	               projectorType, useGPU);
 }
 
-}  // namespace util
-}  // namespace yrt
+}  // namespace yrt::util

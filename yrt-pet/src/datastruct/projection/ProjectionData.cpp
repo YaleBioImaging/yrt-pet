@@ -4,12 +4,15 @@
  */
 
 #include "yrt-pet/datastruct/projection/ProjectionData.hpp"
+#include "yrt-pet/datastruct/projection/ProjectionProperties.hpp"
 #include "yrt-pet/geometry/Constants.hpp"
 
 #include "yrt-pet/geometry/Matrix.hpp"
-#include "yrt-pet/utils/Concurrency.hpp"
+#include "yrt-pet/recon/OSEMUpdater_CPU.hpp"
 #include "yrt-pet/utils/Globals.hpp"
+#include "yrt-pet/utils/Types.hpp"
 
+#include <limits>
 #include <stdexcept>
 
 #if BUILD_PYBIND11
@@ -68,7 +71,7 @@ void py_setup_projectiondata(py::module& m)
 		      return py::make_tuple(l.point1.x, l.point1.y, l.point1.z,
 		                            l.point2.x, l.point2.y, l.point2.z);
 	      });
-	c.def("getLOR", &ProjectionData::getLOR, "bin"_a);
+	c.def("getLOR", &ProjectionData::getLOR, "bin"_a, "detPair"_a);
 	c.def("clearProjections", &ProjectionData::clearProjections,
 	      py::arg("value"));
 	c.def("divideMeasurements", &ProjectionData::divideMeasurements,
@@ -179,26 +182,89 @@ Line3D ProjectionData::getArbitraryLOR(bin_t id) const
 	throw std::logic_error("getArbitraryLOR Unimplemented");
 }
 
-ProjectionProperties ProjectionData::getProjectionProperties(bin_t bin) const
+std::set<ProjectionPropertyType>
+    ProjectionData::getProjectionPropertyTypes() const
 {
-	auto [d1, d2] = getDetectorPair(bin);
-
-	const Line3D lor = getLOR(bin);
-
-	float tofValue = 0.0f;
+	std::set<ProjectionPropertyType> projPropertyTypes;
 	if (hasTOF())
 	{
-		tofValue = getTOFValue(bin);
+		projPropertyTypes.insert(ProjectionPropertyType::TOF);
 	}
-
-	const frame_t dynamicFrame = getDynamicFrame(bin);
-
-	const Vector3D det1Orient = mr_scanner.getDetectorOrient(d1);
-	const Vector3D det2Orient = mr_scanner.getDetectorOrient(d2);
-	return ProjectionProperties{lor, tofValue, det1Orient, det2Orient, dynamicFrame};
+	return projPropertyTypes;
 }
 
-Line3D ProjectionData::getLOR(bin_t bin) const
+void ProjectionData::getProjectionProperties(
+    ProjectionProperties& props, const ProjectionPropertyManager& propManager,
+    bin_t bin, size_t pos) const
+{
+	det_pair_t detPair{};
+	const bool gatherDetPair = propManager.has(ProjectionPropertyType::DET_ID);
+	if (gatherDetPair)
+	{
+		detPair = getDetectorPair(bin);
+		propManager.setDataValue(props, pos, ProjectionPropertyType::DET_ID,
+		                         detPair);
+	}
+
+	if (propManager.has(ProjectionPropertyType::LOR))
+	{
+		Line3D lor;
+		if (gatherDetPair)
+		{
+			lor = getLOR(bin, &detPair);
+		}
+		else
+		{
+			lor = getLOR(bin);
+		}
+		propManager.setDataValue(props, pos, ProjectionPropertyType::LOR, lor);
+	}
+
+	if (propManager.has(ProjectionPropertyType::TOF))
+	{
+		float tofValue = 0.0f;
+		if (hasTOF())
+		{
+			tofValue = getTOFValue(bin);
+		}
+		propManager.setDataValue(props, pos, ProjectionPropertyType::TOF,
+		                         tofValue);
+	}
+
+	if (propManager.has(ProjectionPropertyType::TIMESTAMP))
+	{
+		propManager.setDataValue(props, pos, ProjectionPropertyType::TIMESTAMP,
+		                         getTimestamp(bin));
+	}
+
+	if (propManager.has(ProjectionPropertyType::RANDOMS_ESTIMATE))
+	{
+		float randoms = 0.0f;
+		if (hasRandomsEstimates())
+		{
+			randoms = getRandomsEstimate(bin);
+		}
+		propManager.setDataValue(
+		    props, pos, ProjectionPropertyType::RANDOMS_ESTIMATE, randoms);
+	}
+
+	if (propManager.has(ProjectionPropertyType::DET_ORIENT))
+	{
+		auto [d1, d2] = getDetectorPair(bin);
+		const Vector3D det1Orient = mr_scanner.getDetectorOrient(d1);
+		const Vector3D det2Orient = mr_scanner.getDetectorOrient(d2);
+		det_orient_t detOrient{det1Orient, det2Orient};
+		propManager.setDataValue(props, pos, ProjectionPropertyType::DET_ORIENT,
+		                         detOrient);
+	}
+	if (propManager.has(ProjectionPropertyType::DYNAMIC_FRAME))
+	{
+		propManager.setDataValue(props, pos, ProjectionPropertyType::DYNAMIC_FRAME,
+								 getDynamicFrame(bin));
+	}
+}
+
+Line3D ProjectionData::getLOR(bin_t bin, const det_pair_t* detPair) const
 {
 	Line3D lor;
 
@@ -208,7 +274,18 @@ Line3D ProjectionData::getLOR(bin_t bin) const
 	}
 	else
 	{
-		auto [d1, d2] = getDetectorPair(bin);
+		det_id_t d1, d2;
+		if (detPair != nullptr)
+		{
+			d1 = detPair->d1;
+			d2 = detPair->d2;
+		}
+		else
+		{
+			const det_pair_t currentDetPair = getDetectorPair(bin);
+			d1 = currentDetPair.d1;
+			d2 = currentDetPair.d2;
+		}
 		const Vector3D p1 = mr_scanner.getDetectorPos(d1);
 		const Vector3D p2 = mr_scanner.getDetectorPos(d2);
 		lor = Line3D{p1, p2};

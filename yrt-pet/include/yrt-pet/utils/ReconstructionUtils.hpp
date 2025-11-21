@@ -5,8 +5,6 @@
 
 #pragma once
 
-#include "yrt-pet/datastruct/projection/LORMotion.hpp"
-#include "yrt-pet/datastruct/projection/ProjectionData.hpp"
 #include "yrt-pet/recon/OSEM.hpp"
 
 #include <memory>
@@ -14,15 +12,21 @@
 namespace yrt
 {
 
-class ListModeLUTOwned;
+class DetectorMask;
 class Histogram3D;
 class ListMode;
+class ListModeLUTOwned;
+class LORMotion;
+class ProjectionData;
 
 namespace util
 {
 
 void histogram3DToListModeLUT(const Histogram3D* histo, ListModeLUTOwned* lmOut,
                               size_t numEvents = 0);
+
+// Returns the number of mismatched events
+size_t compareListModes(const ListMode& lm1, const ListMode& lm2);
 
 std::tuple<timestamp_t, timestamp_t>
     getFullTimeRange(const LORMotion& lorMotion);
@@ -37,7 +41,20 @@ std::unique_ptr<ImageOwned>
 
 
 template <bool RequiresAtomic, bool PrintProgress = true>
-void convertToHistogram3D(const ProjectionData& dat, Histogram3D& histoOut);
+void convertToHistogram3D(const ProjectionData& pr_dat,
+                          Histogram3D& pr_histoOut,
+                          const DetectorMask* pp_detectorMask = nullptr);
+
+template <bool RequiresAtomic, bool PrintProgress = true>
+std::unique_ptr<Histogram3DOwned>
+    convertToHistogram3D(const ProjectionData& dat,
+                         const DetectorMask* detectorMask = nullptr);
+
+template <bool PrintProgress = true>
+std::unique_ptr<ListModeLUTOwned>
+    convertToListModeLUT(const ListMode& lm,
+                         const DetectorMask* detectorMask = nullptr);
+
 
 Line3D getNativeLOR(const Scanner& scanner, const ProjectionData& dat,
                     bin_t binId);

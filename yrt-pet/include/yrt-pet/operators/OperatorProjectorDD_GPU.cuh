@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include "yrt-pet/datastruct/projection/ProjectionProperties.hpp"
 #include "yrt-pet/operators/OperatorProjectorDevice.cuh"
 
 namespace yrt
@@ -15,9 +16,14 @@ class ImageDevice;
 class OperatorProjectorDD_GPU : public OperatorProjectorDevice
 {
 public:
-	explicit OperatorProjectorDD_GPU(const OperatorProjectorParams& projParams,
-	                                 const cudaStream_t* mainStream = nullptr,
-	                                 const cudaStream_t* auxStream = nullptr);
+	explicit OperatorProjectorDD_GPU(
+	    const OperatorProjectorParams& projParams,
+	    const std::vector<Constraint*>& constraints = {},
+	    const cudaStream_t* mainStream = nullptr,
+	    const cudaStream_t* auxStream = nullptr);
+
+	std::set<ProjectionPropertyType>
+	    getProjectionPropertyTypes() const override;
 
 protected:
 	void applyAOnLoadedBatch(ImageDevice& img, ProjectionDataDevice& dat,
@@ -32,9 +38,8 @@ private:
 
 	template <bool IsForward, bool HasTOF, bool HasProjPsf>
 	static void launchKernel(
-	    float* pd_projValues, float* pd_image, const float4* pd_lorDet1Pos,
-	    const float4* pd_lorDet2Pos, const float4* pd_lorDet1Orient,
-	    const float4* pd_lorDet2Orient, const float* pd_lorTOFValue,
+	    float* pd_projValues, float* pd_image, const char* pd_projProperties,
+	    const ProjectionPropertyManager* pd_projPropManager,
 	    const TimeOfFlightHelper* pd_tofHelper, const float* pd_projPsfKernels,
 	    ProjectionPsfProperties projectionPsfProperties,
 	    CUScannerParams scannerParams, CUImageParams imgParams,

@@ -271,4 +271,15 @@ void Corrector_GPU::clearTemporaryDeviceBuffer()
 	mpd_temporaryCorrectionFactors = nullptr;
 }
 
+bool Corrector_GPU::isTemporaryDeviceBufferNeededForSens() const
+{
+	return hasHardwareAttenuationImage() || doesHardwareACFComeFromHistogram();
+}
+
+bool Corrector_GPU::isTemporaryDeviceBufferNeededForRecon(const ProjectionData& measurements) const
+{
+	return hasAdditiveCorrection(measurements) || hasInVivoAttenuation();
+}
+
+
 }  // namespace yrt

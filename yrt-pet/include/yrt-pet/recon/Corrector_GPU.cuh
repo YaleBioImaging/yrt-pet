@@ -59,6 +59,8 @@ public:
 	void initializeTemporaryDeviceImageIfNeeded(const Image* hostReference,
 	                                            GPULaunchConfig launchConfig);
 
+	bool isTemporaryDeviceBufferNeededForSens() const;
+	bool isTemporaryDeviceBufferNeededForRecon(const ProjectionData& measurements) const;
 private:
 	// Helper function
 	void loadPrecomputedCorrectionFactorsToTemporaryDeviceBuffer(

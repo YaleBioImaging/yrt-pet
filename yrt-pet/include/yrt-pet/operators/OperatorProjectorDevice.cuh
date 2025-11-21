@@ -7,6 +7,7 @@
 
 #include "yrt-pet/datastruct/image/ImageDevice.cuh"
 #include "yrt-pet/datastruct/projection/ProjectionDataDevice.cuh"
+#include "yrt-pet/datastruct/projection/ProjectionProperties.hpp"
 #include "yrt-pet/operators/DeviceSynchronized.cuh"
 #include "yrt-pet/operators/OperatorProjectorBase.hpp"
 #include "yrt-pet/operators/OperatorProjectorUpdaterDevice.cuh"
@@ -42,11 +43,18 @@ public:
 	void applyA(const Variable* in, Variable* out, bool synchronize);
 	void applyAH(const Variable* in, Variable* out, bool synchronize);
 
+	static constexpr float DefaultMemoryShare = 0.9f;
+
+	void initBinFilter(
+	    const std::set<ProjectionPropertyType>& projPropertyTypesExtra,
+	    const int numThreads) override;
+
 protected:
 	explicit OperatorProjectorDevice(
 	    const OperatorProjectorParams& pr_projParams,
+	    const std::vector<Constraint*>& pr_constraints,
 	    const cudaStream_t* pp_mainStream = nullptr,
-	    const cudaStream_t* pp_auxStream = nullptr);
+	    const cudaStream_t* pp_auxStream = nullptr, size_t p_memAvailBytes = 0);
 
 	// These must run on the main stream
 	virtual void applyAOnLoadedBatch(ImageDevice& img,
@@ -58,6 +66,7 @@ protected:
 	void setBatchSize(size_t newBatchSize);
 
 	const TimeOfFlightHelper* getTOFHelperDevicePointer() const;
+	const ProjectionPropertyManager* getProjPropManagerDevicePointer() const;
 	const float* getProjPsfKernelsDevicePointer(bool flipped) const;
 
 	// Projection-domain PSF
@@ -65,10 +74,14 @@ protected:
 
 private:
 	size_t m_batchSize;
+	size_t m_memAvailBytes;
 	GPULaunchParams m_launchParams{};
 
 	// Time of flight
 	std::unique_ptr<DeviceObject<TimeOfFlightHelper>> mp_tofHelper;
+
+	// Bin iterator constraints
+	std::unique_ptr<DeviceObject<ProjectionPropertyManager>> mp_projPropManager;
 
 	// Updater for projection
 	DeviceObject<OperatorProjectorUpdaterDevice> m_updater;

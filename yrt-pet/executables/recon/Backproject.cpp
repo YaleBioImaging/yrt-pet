@@ -8,6 +8,8 @@
 #include "yrt-pet/datastruct/projection/ListMode.hpp"
 #include "yrt-pet/datastruct/scanner/Scanner.hpp"
 #include "yrt-pet/operators/OperatorProjector.hpp"
+#include "yrt-pet/operators/OperatorPsf.hpp"
+#include "yrt-pet/operators/OperatorVarPsf.hpp"
 #include "yrt-pet/utils/Assert.hpp"
 #include "yrt-pet/utils/Globals.hpp"
 #include "yrt-pet/utils/ReconstructionUtils.hpp"
@@ -41,6 +43,11 @@ int main(int argc, char** argv)
 		registry.registerArgument(
 		    "lor_motion", "Motion CSV file for motion correction", false,
 		    io::TypeOfArgument::STRING, "", inputGroup, "m");
+		registry.registerArgument("detmask",
+		                          "Detector mask (will override the "
+		                          "\"detMask\" member in the scanner's JSON)",
+		                          false, io::TypeOfArgument::STRING, "",
+		                          inputGroup);
 
 #if BUILD_CUDA
 		registry.registerArgument("gpu", "Use GPU acceleration", false,
@@ -62,6 +69,11 @@ int main(int argc, char** argv)
 		    "Projector to use, choices: Siddon (S), Distance-Driven (D). The "
 		    "default projector is Siddon",
 		    false, io::TypeOfArgument::STRING, "S", projectorGroup);
+		registry.registerArgument(
+		    "projector_updater",
+		    "Projector updater to use, choices: DEFAULT3D, DEFAULT4D, LR. The "
+		    "default value is DEFAULT3D",
+		    false, io::TypeOfArgument::STRING, "DEFAULT3D", projectorGroup);
 		registry.registerArgument(
 		    "psf",
 		    "Image-space PSF kernel file (Applied after the backprojection)",
@@ -115,9 +127,15 @@ int main(int argc, char** argv)
 			return -1;
 		}
 
+		globals::setNumThreads(config.getValue<int>("num_threads"));
+
 		const auto scanner =
 		    std::make_unique<Scanner>(config.getValue<std::string>("scanner"));
-		globals::setNumThreads(config.getValue<int>("num_threads"));
+		auto detMask_fname = config.getValue<std::string>("detmask");
+		if (!detMask_fname.empty())
+		{
+			scanner->addMask(detMask_fname);
+		}
 
 		// Output image
 		std::cout << "Preparing output image..." << std::endl;
@@ -163,21 +181,42 @@ int main(int argc, char** argv)
 		const auto binIter =
 		    dataInput->getBinIter(config.getValue<int>("num_subsets"),
 		                          config.getValue<int>("subset_id"));
-		auto projectorUpdaterType = OperatorProjectorParams::ProjectorUpdaterType::DEFAULT3D;
-		if (config.hasValue("projector_updater_type")) {
-			const auto s = config.getValue<std::string>("projector_updater_type");
-			// map to enum
-			if      (s == "DEFAULT3D") projectorUpdaterType = OperatorProjectorParams::ProjectorUpdaterType::DEFAULT3D;
-			else if (s == "DEFAULT4D") projectorUpdaterType = OperatorProjectorParams::ProjectorUpdaterType::DEFAULT4D;
-			else if (s == "LR")        projectorUpdaterType = OperatorProjectorParams::ProjectorUpdaterType::LR;
-			else throw std::invalid_argument("Unknown projector_updater_type: " + s);
+		OperatorProjectorParams projParams(*scanner);
+		projParams.binIter = binIter.get();
+		auto tofWidth_ps = config.getValue<float>("tof_width_ps");
+		auto tofNumStd = config.getValue<int>("tof_n_std");
+		if (tofWidth_ps > 0.0f)
+		{
+			projParams.addTOF(tofWidth_ps, tofNumStd);
 		}
-		const OperatorProjectorParams projParams(
-		    binIter.get(), *scanner, projectorUpdaterType,
-		    config.getValue<float>("tof_width_ps"),
-		    config.getValue<int>("tof_n_std"),
-		    config.getValue<std::string>("proj_psf"),
-		    config.getValue<int>("num_rays"));
+		projParams.projPsf_fname = config.getValue<std::string>("proj_psf");
+		projParams.numRays = config.getValue<int>("num_rays");
+
+		auto projectorUpdaterType =
+		    OperatorProjectorParams::ProjectorUpdaterType::DEFAULT3D;
+		const auto projectorUpdaterType_name =
+		    config.getValue<std::string>("projector_updater");
+		if (projectorUpdaterType_name == "DEFAULT3D")
+		{
+			projectorUpdaterType =
+			    OperatorProjectorParams::ProjectorUpdaterType::DEFAULT3D;
+		}
+		else if (projectorUpdaterType_name == "DEFAULT4D")
+		{
+			projectorUpdaterType =
+			    OperatorProjectorParams::ProjectorUpdaterType::DEFAULT4D;
+		}
+		else if (projectorUpdaterType_name == "LR")
+		{
+			projectorUpdaterType =
+			    OperatorProjectorParams::ProjectorUpdaterType::LR;
+		}
+		else
+		{
+			throw std::invalid_argument("Unknown projector updater type: " +
+			                            projectorUpdaterType_name);
+		}
+		projParams.projectorUpdaterType = projectorUpdaterType;
 
 		const auto projectorType =
 		    io::getProjector(config.getValue<std::string>("projector"));

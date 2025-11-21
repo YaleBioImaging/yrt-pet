@@ -197,14 +197,16 @@ std::unique_ptr<ImageDevice> timeAverageMoveImageDevice(
 
 std::unique_ptr<OperatorProjectorBase> createOperatorProjectorDevice(
 	OperatorProjectorBase::ProjectorType projType,
-	const OperatorProjectorParams& projParams, const cudaStream_t* mainStream,
+	const OperatorProjectorParams& projParams,
+	const std::vector<Constraint*>& constraintsPtr,
+	const cudaStream_t* mainStream,
 	const cudaStream_t* auxStream)
 {
 	if (projType == OperatorProjector::SIDDON)
 	{
 #ifdef BUILD_CUDA
 		return std::make_unique<OperatorProjectorSiddon_GPU>(
-			projParams, mainStream, auxStream);
+			projParams, constraintsPtr, mainStream, auxStream);
 #else
 		throw std::runtime_error(
 			"Siddon GPU projector not supported because "
@@ -215,7 +217,7 @@ std::unique_ptr<OperatorProjectorBase> createOperatorProjectorDevice(
 	{
 #ifdef BUILD_CUDA
 		return std::make_unique<OperatorProjectorDD_GPU>(
-			projParams, mainStream, auxStream);
+			projParams, constraintsPtr, mainStream, auxStream);
 #else
 		throw std::runtime_error(
 			"Distance-driven GPU projector not supported because "

@@ -6,6 +6,7 @@
 #include "yrt-pet/recon/OSEM_CPU.hpp"
 
 #include "yrt-pet/datastruct/projection/ProjectionList.hpp"
+#include "yrt-pet/operators/OperatorProjectorBase.hpp"
 #include "yrt-pet/operators/OperatorProjectorDD.hpp"
 #include "yrt-pet/operators/OperatorProjectorSiddon.hpp"
 #include "yrt-pet/recon/Corrector_CPU.hpp"
@@ -64,12 +65,9 @@ void OSEM_CPU::allocateForSensImgGen()
 	}
 }
 
-void OSEM_CPU::setupOperatorsForSensImgGen()
+void OSEM_CPU::setupOperatorsForSensImgGen(
+	const OperatorProjectorParams& projParams)
 {
-	// TODO: Unify this in OSEM (avoids the copy-paste)
-	getBinIterators().clear();
-	getBinIterators().reserve(num_OSEM_subsets);
-
 	for (int subsetId = 0; subsetId < num_OSEM_subsets; subsetId++)
 	{
 		// Create and add Bin Iterator
@@ -78,21 +76,25 @@ void OSEM_CPU::setupOperatorsForSensImgGen()
 		                                                      subsetId));
 	}
 
-	// Create ProjectorParams object only for sensitivity image, without TOF
-	// Todo: projectorUpdaterType for sens image is always just DEFAULT3D?
-	OperatorProjectorParams projParams(
-	    nullptr /* Will be set later at each subset loading */, scanner,
-	    OperatorProjectorParams::DEFAULT3D, 0.f, 0,
-	    !projectorParams.projPsf_fname.empty() ? projectorParams.projPsf_fname : "",
-	    projectorParams.numRays);
+	std::vector<Constraint*> constraints;
+	if (m_constraints.size() > 0)
+	{
+		for (auto& constraint : m_constraints)
+		{
+			constraints.emplace_back(constraint.get());
+		}
+	}
 
+	// Create projector
 	if (projectorType == OperatorProjector::ProjectorType::SIDDON)
 	{
-		mp_projector = std::make_unique<OperatorProjectorSiddon>(projParams);
+		mp_projector =
+		    std::make_unique<OperatorProjectorSiddon>(projParams, constraints);
 	}
 	else if (projectorType == OperatorProjector::ProjectorType::DD)
 	{
-		mp_projector = std::make_unique<OperatorProjectorDD>(projParams);
+		mp_projector =
+		    std::make_unique<OperatorProjectorDD>(projParams, constraints);
 	}
 	else
 	{
@@ -201,24 +203,26 @@ const OperatorProjector* OSEM_CPU::getProjector() const
 	return hostProjector;
 }
 
-void OSEM_CPU::setupOperatorsForRecon()
+void OSEM_CPU::setupOperatorsForRecon(const OperatorProjectorParams& projParams)
 {
-	getBinIterators().clear();
-	getBinIterators().reserve(num_OSEM_subsets);
-
-	for (int subsetId = 0; subsetId < num_OSEM_subsets; subsetId++)
+	std::vector<Constraint*> constraints;
+	if (m_constraints.size() > 0)
 	{
-		getBinIterators().push_back(
-		    getDataInput()->getBinIter(num_OSEM_subsets, subsetId));
+		for (auto& constraint : m_constraints)
+		{
+			constraints.emplace_back(constraint.get());
+		}
 	}
 
 	if (projectorType == OperatorProjector::SIDDON)
 	{
-		mp_projector = std::make_unique<OperatorProjectorSiddon>(projectorParams);
+		mp_projector =
+		    std::make_unique<OperatorProjectorSiddon>(projParams, constraints);
 	}
 	else if (projectorType == OperatorProjector::DD)
 	{
-		mp_projector = std::make_unique<OperatorProjectorDD>(projectorParams);
+		mp_projector =
+		    std::make_unique<OperatorProjectorDD>(projParams, constraints);
 	}
 	else
 	{

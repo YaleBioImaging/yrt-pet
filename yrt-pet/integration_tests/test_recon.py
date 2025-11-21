@@ -37,14 +37,14 @@ def test_multithreading():
 
 
 def test_savant_sim_ultra_micro_hotspot_nomotion_mlem():
-    fold_savant_sim = os.path.join(fold_data, "savant_sim")
-    scanner = yrt.Scanner(os.path.join(fold_savant_sim, "SAVANT_sim.json"))
+    fold_savant_sim = os.path.join(fold_data, 'savant_sim')
+    scanner = yrt.Scanner(os.path.join(fold_savant_sim, 'SAVANT_sim.json'))
     listmode = yrt.ListModeLUTOwned(scanner, os.path.join(
-        fold_savant_sim, "ultra_micro_hotspot", "nomotion.lmDat"))
+        fold_savant_sim, 'ultra_micro_hotspot', 'nomotion.lmDat'))
     image_params = yrt.ImageParams(
-        os.path.join(fold_savant_sim, "img_params_500.json"))
+        os.path.join(fold_savant_sim, 'img_params_500.json'))
     sens_image = yrt.ImageOwned(image_params, os.path.join(
-        fold_savant_sim, "images", "sens_image_siddon.nii"))
+        fold_savant_sim, 'images', 'sens_image_siddon.nii'))
 
     osem = yrt.createOSEM(scanner, False)
     osem.setSensitivityImage(sens_image)  # One subset
@@ -54,11 +54,11 @@ def test_savant_sim_ultra_micro_hotspot_nomotion_mlem():
     recon_image = osem.reconstruct()
 
     recon_image.writeToFile(os.path.join(
-        fold_out, "test_savant_sim_ultra_micro_hotspot_nomotion_mlem.nii.gz"))
+        fold_out, 'test_savant_sim_ultra_micro_hotspot_nomotion_mlem.nii.gz'))
 
     recon_image_np = np.array(recon_image, copy=False)
     ref_image = yrt.ImageOwned(image_params, os.path.join(
-        fold_savant_sim, "ref", "ultra_micro_hotspot_nomotion_mlem.nii"))
+        fold_savant_sim, 'ref', 'ultra_micro_hotspot_nomotion_mlem.nii'))
     ref_image_np = np.array(ref_image, copy=False)
 
     np.testing.assert_allclose(recon_image_np, ref_image_np,
@@ -68,27 +68,27 @@ def test_savant_sim_ultra_micro_hotspot_nomotion_mlem():
 def _test_savant_sim_ultra_micro_hotspot_motion_mlem_gpu_exec(
         keyword: str, proj_keyword: str):
     if not yrt.compiledWithCuda():
-        pytest.skip("Code not compiled with cuda. Skipping...")
+        pytest.skip('Code not compiled with cuda. Skipping...')
 
     proj_name_upper = proj_keyword.upper()
 
-    fold_savant_sim = os.path.join(fold_data, "savant_sim")
-    out_path = os.path.join(fold_out, "test_savant_sim_ultra_micro_hotspot_" +
-                            keyword + "_mlem_" + proj_keyword +
-                            "_gpu_exec.nii.gz")
+    fold_savant_sim = os.path.join(fold_data, 'savant_sim')
+    out_path = os.path.join(fold_out, 'test_savant_sim_ultra_micro_hotspot_' +
+                            keyword + '_mlem_' + proj_keyword +
+                            '_gpu_exec.nii.gz')
 
-    exec_str = os.path.join(fold_bin, "yrtpet_reconstruct")
-    exec_str += " -s " + os.path.join(fold_savant_sim, "SAVANT_sim.json")
-    exec_str += " -i " + os.path.join(fold_savant_sim,
-                                      "ultra_micro_hotspot",
-                                      keyword + ".lmDat")
-    exec_str += " -f LM"
-    exec_str += " -p " + os.path.join(fold_savant_sim, "img_params_500.json")
-    exec_str += " --lor_motion " + os.path.join(fold_savant_sim,
-                                                "ultra_micro_hotspot",
-                                                keyword + ".vc")
-    exec_str += " -o " + out_path
-    exec_str += " --projector " + proj_name_upper + " --gpu"
+    exec_str = os.path.join(fold_bin, 'yrtpet_reconstruct')
+    exec_str += ' -s ' + os.path.join(fold_savant_sim, 'SAVANT_sim.json')
+    exec_str += ' -i ' + os.path.join(fold_savant_sim,
+                                      'ultra_micro_hotspot',
+                                      keyword + '.lmDat')
+    exec_str += ' -f LM'
+    exec_str += ' -p ' + os.path.join(fold_savant_sim, 'img_params_500.json')
+    exec_str += ' --lor_motion ' + os.path.join(fold_savant_sim,
+                                                'ultra_micro_hotspot',
+                                                keyword + '.vc')
+    exec_str += ' -o ' + out_path
+    exec_str += ' --projector ' + proj_name_upper + ' --gpu'
 
     ret = os.system(exec_str)
     assert ret == 0
@@ -98,9 +98,9 @@ def _test_savant_sim_ultra_micro_hotspot_motion_mlem_gpu_exec(
 
     ref_image = yrt.ImageOwned(
         os.path.join(fold_savant_sim,
-                     "ref",
-                     "ultra_micro_hotspot_" + keyword + "_mlem_" \
-                     + proj_keyword + ".nii.gz"))
+                     'ref',
+                     'ultra_micro_hotspot_' + keyword + '_mlem_' \
+                     + proj_keyword + '.nii.gz'))
     ref_image_np = np.array(ref_image, copy=False)
 
     # Allow up to 40 voxels to mismatch
@@ -109,45 +109,48 @@ def _test_savant_sim_ultra_micro_hotspot_motion_mlem_gpu_exec(
 
 
 def test_savant_sim_ultra_micro_hotspot_piston_mlem_dd_gpu_exec():
-    _test_savant_sim_ultra_micro_hotspot_motion_mlem_gpu_exec("piston", "dd")
+    _test_savant_sim_ultra_micro_hotspot_motion_mlem_gpu_exec(
+        'piston', 'dd')
 
 
 def test_savant_sim_ultra_micro_hotspot_yesman_mlem_dd_gpu_exec():
-    _test_savant_sim_ultra_micro_hotspot_motion_mlem_gpu_exec("yesman", "dd")
+    _test_savant_sim_ultra_micro_hotspot_motion_mlem_gpu_exec(
+        'yesman', 'dd')
 
 
 def test_savant_sim_ultra_micro_hotspot_wobble_mlem_dd_gpu_exec():
-    _test_savant_sim_ultra_micro_hotspot_motion_mlem_gpu_exec("wobble", "dd")
+    _test_savant_sim_ultra_micro_hotspot_motion_mlem_gpu_exec(
+        'wobble', 'dd')
 
 
 def test_savant_sim_ultra_micro_hotspot_piston_mlem_siddon_gpu_exec():
-    _test_savant_sim_ultra_micro_hotspot_motion_mlem_gpu_exec("piston",
-                                                              "siddon")
+    _test_savant_sim_ultra_micro_hotspot_motion_mlem_gpu_exec(
+        'piston', 'siddon')
 
 
 def test_savant_sim_ultra_micro_hotspot_yesman_mlem_siddon_gpu_exec():
-    _test_savant_sim_ultra_micro_hotspot_motion_mlem_gpu_exec("yesman",
-                                                              "siddon")
+    _test_savant_sim_ultra_micro_hotspot_motion_mlem_gpu_exec(
+        'yesman', 'siddon')
 
 
 def test_savant_sim_ultra_micro_hotspot_wobble_mlem_siddon_gpu_exec():
-    _test_savant_sim_ultra_micro_hotspot_motion_mlem_gpu_exec("wobble",
-                                                              "siddon")
+    _test_savant_sim_ultra_micro_hotspot_motion_mlem_gpu_exec(
+        'wobble', 'siddon')
 
 
 def test_savant_sim_sens_image_siddon():
-    fold_savant_sim = os.path.join(fold_data, "savant_sim")
-    scanner = yrt.Scanner(os.path.join(fold_savant_sim, "SAVANT_sim.json"))
+    fold_savant_sim = os.path.join(fold_data, 'savant_sim')
+    scanner = yrt.Scanner(os.path.join(fold_savant_sim, 'SAVANT_sim.json'))
     image_params = yrt.ImageParams(
-        os.path.join(fold_savant_sim, "img_params_500.json"))
+        os.path.join(fold_savant_sim, 'img_params_500.json'))
     osem = yrt.createOSEM(scanner, False)
     osem.setImageParams(image_params)
     [sens_image] = osem.generateSensitivityImages()
     sens_image.writeToFile(
-        os.path.join(fold_out, "test_savant_sim_sens_image_siddon.nii.gz"))
+        os.path.join(fold_out, 'test_savant_sim_sens_image_siddon.nii.gz'))
 
     ref_image = yrt.ImageOwned(
-        os.path.join(fold_savant_sim, "images", "sens_image_siddon.nii"))
+        os.path.join(fold_savant_sim, 'images', 'sens_image_siddon.nii'))
 
     np.testing.assert_allclose(np.array(sens_image, copy=False),
                                np.array(ref_image, copy=False),
@@ -155,17 +158,17 @@ def test_savant_sim_sens_image_siddon():
 
 
 def test_savant_sim_sens_image_siddon_exec():
-    fold_savant_sim = os.path.join(fold_data, "savant_sim")
+    fold_savant_sim = os.path.join(fold_data, 'savant_sim')
 
-    img_params_path = os.path.join(fold_savant_sim, "img_params_500.json")
+    img_params_path = os.path.join(fold_savant_sim, 'img_params_500.json')
     out_image_path = os.path.join(
-        fold_out, "test_savant_sim_sens_image_siddon_exec.nii.gz")
-    ref_image_path = os.path.join(fold_savant_sim, "images",
-                                  "sens_image_siddon.nii")
+        fold_out, 'test_savant_sim_sens_image_siddon_exec.nii.gz')
+    ref_image_path = os.path.join(fold_savant_sim, 'images',
+                                  'sens_image_siddon.nii')
 
-    exec_str = os.path.join(fold_bin, 'yrtpet_reconstruct') + " --sens_only"
+    exec_str = os.path.join(fold_bin, 'yrtpet_reconstruct') + ' --sens_only'
     exec_str += ' --scanner ' + os.path.join(fold_savant_sim,
-                                             "SAVANT_sim.json")
+                                             'SAVANT_sim.json')
     exec_str += ' --params ' + img_params_path
     exec_str += ' --out_sens ' + out_image_path
     ret = os.system(exec_str)
@@ -180,12 +183,12 @@ def test_savant_sim_sens_image_siddon_exec():
 
 
 def test_savant_sim_ultra_micro_hotspot_nomotion_bwd():
-    fold_savant_sim = os.path.join(fold_data, "savant_sim")
-    scanner = yrt.Scanner(os.path.join(fold_savant_sim, "SAVANT_sim.json"))
+    fold_savant_sim = os.path.join(fold_data, 'savant_sim')
+    scanner = yrt.Scanner(os.path.join(fold_savant_sim, 'SAVANT_sim.json'))
     listmode = yrt.ListModeLUTOwned(scanner, os.path.join(
-        fold_savant_sim, "ultra_micro_hotspot", "nomotion.lmDat"))
+        fold_savant_sim, 'ultra_micro_hotspot', 'nomotion.lmDat'))
     image_params = yrt.ImageParams(
-        os.path.join(fold_savant_sim, "img_params_500.json"))
+        os.path.join(fold_savant_sim, 'img_params_500.json'))
     bwd_image = yrt.ImageOwned(image_params)
 
     bwd_image.allocate()
@@ -197,10 +200,10 @@ def test_savant_sim_ultra_micro_hotspot_nomotion_bwd():
     bwd_image.applyThreshold(bwd_image, 1, 0, 0, 1, 0)
 
     bwd_image.writeToFile(os.path.join(
-        fold_out, "test_savant_sim_ultra_micro_hotspot_nomotion_bwd.nii.gz"))
+        fold_out, 'test_savant_sim_ultra_micro_hotspot_nomotion_bwd.nii.gz'))
 
     ref_image = yrt.ImageOwned(os.path.join(
-        fold_savant_sim, "ref", "ultra_micro_hotspot_nomotion_bwd.nii"))
+        fold_savant_sim, 'ref', 'ultra_micro_hotspot_nomotion_bwd.nii'))
 
     np.testing.assert_allclose(np.array(bwd_image, copy=False),
                                np.array(ref_image, copy=False),
@@ -208,36 +211,35 @@ def test_savant_sim_ultra_micro_hotspot_nomotion_bwd():
 
 
 def _test_savant_sim_ultra_micro_hotspot_motion_post_recon_mc(keyword: str):
-    fold_savant_sim = os.path.join(fold_data, "savant_sim")
+    fold_savant_sim = os.path.join(fold_data, 'savant_sim')
     img_params = yrt.ImageParams(
-        os.path.join(fold_savant_sim, "img_params_500.json"))
+        os.path.join(fold_savant_sim, 'img_params_500.json'))
 
-    file_format = os.path.join(fold_savant_sim, "images",
-                               keyword + "_ground_truth_part_{idx}_of_5.nii")
+    file_format = os.path.join(fold_savant_sim, 'images',
+                               keyword + '_ground_truth_part_{idx}_of_5.nii')
     file_list = list()
     for i in range(5):
         file_list.append(file_format.format(idx=(i + 1)))
 
     out_file = os.path.join(fold_out,
-                            "test_savant_sim_ultra_micro_hotspot_" +
-                            keyword + "_post_recon_mc.nii.gz")
+                            'test_savant_sim_ultra_micro_hotspot_' +
+                            keyword + '_post_recon_mc.nii.gz')
 
-    exec_str = os.path.join(fold_bin, "yrtpet_post_recon_motion_correction")
-    exec_str += " --input " + ",".join(file_list)
-    exec_str += " --lor_motion " + os.path.join(fold_savant_sim,
-                                                "ultra_micro_hotspot",
-                                                keyword + ".vc")
-    exec_str += " --out " + out_file
-    print("Running: " + exec_str)
+    exec_str = os.path.join(fold_bin, 'yrtpet_post_recon_motion_correction')
+    exec_str += ' --input ' + ','.join(file_list)
+    exec_str += ' --lor_motion ' + os.path.join(fold_savant_sim,
+                                                'ultra_micro_hotspot',
+                                                keyword + '.vc')
+    exec_str += ' --out ' + out_file
+    print('Running: ' + exec_str)
     ret = os.system(exec_str)
     assert ret == 0
 
     out_img = yrt.ImageOwned(img_params, out_file)
-    ref_img = yrt.ImageOwned(img_params, os.path.join(fold_savant_sim,
-                                                      "ref",
-                                                      "ultra_micro_hotspot_" +
-                                                      keyword +
-                                                      "_post_recon_mc.nii.gz"))
+    ref_img = yrt.ImageOwned(
+        img_params, os.path.join(fold_savant_sim, 'ref',
+                                 'ultra_micro_hotspot_' + keyword +
+                                 '_post_recon_mc.nii.gz'))
 
     nrmse = _helper.get_nrmse(np.array(out_img, copy=False),
                               np.array(ref_img, copy=False))
@@ -255,10 +257,10 @@ def test_savant_sim_ultra_micro_hotspot_wobble_post_recon_mc():
 def _test_psf(use_gpu: bool):
     img_params = yrt.ImageParams(50, 50, 25, 50, 50, 25, 0.0, 0.0, 0.0)
     image_in = yrt.ImageOwned(img_params,
-                              os.path.join(fold_data, "other", "psf",
-                                           "image_in.nii"))
+                              os.path.join(fold_data, 'other', 'psf',
+                                           'image_in.nii'))
 
-    psf_file = os.path.join(fold_data, "other", "psf", "kernel.csv")
+    psf_file = os.path.join(fold_data, 'other', 'psf', 'kernel.csv')
     if use_gpu:
         psf_oper = yrt.OperatorPsfDevice(psf_file)
     else:
@@ -271,10 +273,10 @@ def _test_psf(use_gpu: bool):
     device = 'gpu' if use_gpu else 'cpu'
 
     image_out.writeToFile(
-        os.path.join(fold_out, "test_psf_" + device + ".nii.gz"))
+        os.path.join(fold_out, 'test_psf_' + device + '.nii.gz'))
     image_ref = yrt.ImageOwned(img_params,
-                               os.path.join(fold_data, "other", "ref",
-                                            "psf_image_out.nii"))
+                               os.path.join(fold_data, 'other', 'ref',
+                                            'psf_image_out.nii'))
     np.testing.assert_allclose(np.array(image_out, copy=False),
                                np.array(image_ref, copy=False),
                                atol=0, rtol=1e-5)
@@ -288,7 +290,7 @@ def test_psf_gpu():
     if yrt.compiledWithCuda():
         _test_psf(True)
     else:
-        pytest.skip("Code not compiled with cuda. Skipping...")
+        pytest.skip('Code not compiled with cuda. Skipping...')
 
 
 def _test_psf_adjoint(use_gpu: bool):
@@ -313,7 +315,7 @@ def _test_psf_adjoint(use_gpu: bool):
     img_x.bind(img_x_a)
     img_y.bind(img_y_a)
 
-    psf_file = os.path.join(fold_data, "other", "psf", "kernel.csv")
+    psf_file = os.path.join(fold_data, 'other', 'psf', 'kernel.csv')
     if use_gpu:
         oper_psf = yrt.OperatorPsfDevice(psf_file)
     else:
@@ -343,21 +345,23 @@ def test_psf_adjoint_gpu():
     if yrt.compiledWithCuda():
         _test_psf_adjoint(True)
     else:
-        pytest.skip("Code not compiled with cuda. Skipping...")
+        pytest.skip('Code not compiled with cuda. Skipping...')
 
 
 def _test_savant_sim_ultra_micro_hotspot_nomotion_osem_6rays(use_gpu: bool):
-    fold_savant_sim = os.path.join(fold_data, "savant_sim")
+    fold_savant_sim = os.path.join(fold_data, 'savant_sim')
     num_siddon_rays = 6
     img_params = yrt.ImageParams(
-        os.path.join(fold_savant_sim, "img_params_500.json"))
-    scanner = yrt.Scanner(os.path.join(fold_savant_sim, "SAVANT_sim.json"))
+        os.path.join(fold_savant_sim, 'img_params_500.json'))
+    scanner = yrt.Scanner(os.path.join(fold_savant_sim, 'SAVANT_sim.json'))
     dataset = yrt.ListModeLUTOwned(
         scanner,
-        os.path.join(fold_savant_sim, "ultra_micro_hotspot", "nomotion.lmDat"))
+        os.path.join(fold_savant_sim, 'ultra_micro_hotspot',
+                     'nomotion.lmDat'))
+    gpu_str = 'gpu' if use_gpu else 'cpu'
     sens_img = yrt.ImageOwned(
-        img_params, os.path.join(fold_savant_sim, "images",
-                                 "sens_image_siddon_6rays.nii.gz"))
+        img_params, os.path.join(fold_savant_sim, 'images',
+                                 f'sens_image_siddon_6rays_{gpu_str}.nii.gz'))
 
     osem = yrt.createOSEM(scanner, use_gpu)
     osem.setImageParams(img_params)
@@ -369,35 +373,35 @@ def _test_savant_sim_ultra_micro_hotspot_nomotion_osem_6rays(use_gpu: bool):
 
     out_img = osem.reconstruct()
 
-    out_img_fname = "test_savant_sim_ultra_micro_hotspot_nomotion_osem_6rays_"
+    out_img_fname = 'test_savant_sim_ultra_micro_hotspot_nomotion_osem_6rays_'
     if use_gpu:
-        out_img_fname += "gpu"
+        out_img_fname += 'gpu'
     else:
-        out_img_fname += "cpu"
-    out_img_fname += ".nii.gz"
+        out_img_fname += 'cpu'
+    out_img_fname += '.nii.gz'
 
     out_img.writeToFile(os.path.join(fold_out, out_img_fname))
 
     # The reference is different between CPU and GPU
-    ref_img_fname = "ultra_micro_hotspot_nomotion_osem_6rays_"
+    ref_img_fname = 'ultra_micro_hotspot_nomotion_osem_6rays_'
     if use_gpu:
-        ref_img_fname += "gpu"
+        ref_img_fname += 'gpu'
     else:
-        ref_img_fname += "cpu"
-    ref_img_fname += ".nii.gz"
+        ref_img_fname += 'cpu'
+    ref_img_fname += '.nii.gz'
 
     ref_img = yrt.ImageOwned(img_params,
                              os.path.join(fold_savant_sim,
-                                          "ref", ref_img_fname))
+                                          'ref', ref_img_fname))
 
     out_img_np = np.array(out_img, copy=False)
     ref_img_np = np.array(ref_img, copy=False)
     is_close = np.isclose(ref_img_np, out_img_np, atol=0, rtol=1e-3)
     num_mismatch = (~is_close).sum()
-    print(f"Number of mismatched voxels: {num_mismatch}")
+    print(f'Number of mismatched voxels: {num_mismatch}')
 
     # Allow up to 10 mismatches
-    assert num_mismatch < 5, f"Too many mismatched voxels: {num_mismatch}"
+    assert num_mismatch < 5, f'Too many mismatched voxels: {num_mismatch}'
 
 
 def test_savant_sim_ultra_micro_hotspot_nomotion_osem_6rays_cpu():
@@ -409,93 +413,94 @@ def test_savant_sim_ultra_micro_hotspot_nomotion_osem_6rays_gpu():
 
 
 def _test_savant_sim_ultra_micro_hotpot_nomotion_subsets(projector: str):
-    fold_savant_sim = os.path.join(fold_data, "savant_sim")
-    scanner = yrt.Scanner(os.path.join(fold_savant_sim, "SAVANT_sim.json"))
+    fold_savant_sim = os.path.join(fold_data, 'savant_sim')
+    scanner = yrt.Scanner(os.path.join(fold_savant_sim, 'SAVANT_sim.json'))
     img_params = yrt.ImageParams(
-        os.path.join(fold_savant_sim, "img_params_500.json"))
+        os.path.join(fold_savant_sim, 'img_params_500.json'))
     lm = yrt.ListModeLUTOwned(scanner, os.path.join(fold_savant_sim,
-                                                    "ultra_micro_hotspot",
-                                                    "nomotion.lmDat"))
+                                                    'ultra_micro_hotspot',
+                                                    'nomotion.lmDat'))
     _helper._test_subsets(scanner, img_params, lm, projector=projector)
 
 
 def test_savant_sim_ultra_micro_hotpot_nomotion_subsets_siddon():
-    _test_savant_sim_ultra_micro_hotpot_nomotion_subsets("Siddon")
+    _test_savant_sim_ultra_micro_hotpot_nomotion_subsets('Siddon')
 
 
 def test_savant_sim_ultra_micro_hotpot_nomotion_subsets_dd():
-    _test_savant_sim_ultra_micro_hotpot_nomotion_subsets("DD")
+    _test_savant_sim_ultra_micro_hotpot_nomotion_subsets('DD')
 
 
 def test_savant_sim_ultra_micro_hotpot_nomotion_subsets_dd_gpu():
     if yrt.compiledWithCuda():
-        _test_savant_sim_ultra_micro_hotpot_nomotion_subsets("DD_GPU")
+        _test_savant_sim_ultra_micro_hotpot_nomotion_subsets('DD_GPU')
     else:
-        pytest.skip("Code not compiled with cuda. Skipping...")
+        pytest.skip('Code not compiled with cuda. Skipping...')
 
 
 def _test_uhr2d_shepp_logan_adjoint(projector: str, num_rays: int = 1):
-    fold_uhr2d = os.path.join(fold_data, "uhr2d")
-    scanner = yrt.Scanner(os.path.join(fold_uhr2d, "UHR2D.json"))
+    fold_uhr2d = os.path.join(fold_data, 'uhr2d')
+    scanner = yrt.Scanner(os.path.join(fold_uhr2d, 'UHR2D.json'))
     img_params = yrt.ImageParams(os.path.join(fold_uhr2d,
-                                              "img_params_2d.json"))
+                                              'img_params_2d.json'))
     his = yrt.ListModeLUTOwned(scanner,
-                               os.path.join(fold_uhr2d, "shepp_logan.lmDat"))
+                               os.path.join(fold_uhr2d, 'shepp_logan.lmDat'))
     _helper._test_adjoint(scanner, img_params, his, projector=projector,
                           num_rays=num_rays)
 
 
 def test_uhr2d_shepp_logan_adjoint_siddon():
-    _test_uhr2d_shepp_logan_adjoint("Siddon")
+    _test_uhr2d_shepp_logan_adjoint('Siddon')
 
 
 def test_uhr2d_shepp_logan_adjoint_siddon_4rays():
-    _test_uhr2d_shepp_logan_adjoint("Siddon", 4)
+    _test_uhr2d_shepp_logan_adjoint('Siddon', 4)
 
 
 def test_uhr2d_shepp_logan_adjoint_dd():
-    _test_uhr2d_shepp_logan_adjoint("DD")
+    _test_uhr2d_shepp_logan_adjoint('DD')
 
 
 def test_uhr2d_shepp_logan_adjoint_dd_gpu():
     if yrt.compiledWithCuda():
-        _test_uhr2d_shepp_logan_adjoint("DD_GPU")
+        _test_uhr2d_shepp_logan_adjoint('DD_GPU')
     else:
-        pytest.skip("Code not compiled with cuda. Skipping...")
+        pytest.skip('Code not compiled with cuda. Skipping...')
 
 
 def test_uhr2d_shepp_logan_osem_his_exec():
-    fold_uhr2d = os.path.join(fold_data, "uhr2d")
+    fold_uhr2d = os.path.join(fold_data, 'uhr2d')
 
     out_recon_path = os.path.join(
-        fold_out, "test_uhr2d_shepp_logan_osem_his_exec_recon_image.nii")
+        fold_out, 'test_uhr2d_shepp_logan_osem_his_exec_recon_image.nii')
     out_sens_path_prefix = os.path.join(
-        fold_out, "test_uhr2d_shepp_logan_osem_his_exec_sens_image")
-    out_sens_path = out_sens_path_prefix + ".nii"
+        fold_out, 'test_uhr2d_shepp_logan_osem_his_exec_sens_image')
+    out_sens_path = out_sens_path_prefix + '.nii'
 
     recon_exec_str = os.path.join(fold_bin, 'yrtpet_reconstruct')
-    recon_exec_str += " --scanner " + os.path.join(fold_uhr2d, "UHR2D.json")
-    recon_exec_str += " --params " + os.path.join(fold_uhr2d,
-                                                  "img_params_2d.json")
-    recon_exec_str += " --out " + out_recon_path
-    recon_exec_str += " --out_sens " + out_sens_path
-    recon_exec_str += " --input " + os.path.join(fold_uhr2d, "shepp_logan.his")
-    recon_exec_str += " --format H"
-    recon_exec_str += " --num_subsets 5"
-    recon_exec_str += " --num_iterations 100"
-    print("Running: " + recon_exec_str)
+    recon_exec_str += ' --scanner ' + os.path.join(fold_uhr2d, 'UHR2D.json')
+    recon_exec_str += ' --params ' + os.path.join(fold_uhr2d,
+                                                  'img_params_2d.json')
+    recon_exec_str += ' --out ' + out_recon_path
+    recon_exec_str += ' --out_sens ' + out_sens_path
+    recon_exec_str += ' --input ' + os.path.join(fold_uhr2d,
+                                                 'shepp_logan.his')
+    recon_exec_str += ' --format H'
+    recon_exec_str += ' --num_subsets 5'
+    recon_exec_str += ' --num_iterations 100'
+    print('Running: ' + recon_exec_str)
     ret = os.system(recon_exec_str)
     assert ret == 0
 
     img_params = yrt.ImageParams(os.path.join(fold_uhr2d,
-                                              "img_params_2d.json"))
+                                              'img_params_2d.json'))
     for i in range(5):
         ref_sens = yrt.ImageOwned(img_params, os.path.join(
-            fold_uhr2d, "ref",
-            "sens_image_siddon_subset{idx}.nii".format(idx=i)))
+            fold_uhr2d, 'ref',
+            'sens_image_siddon_subset{idx}.nii'.format(idx=i)))
         out_sens = yrt.ImageOwned(img_params,
                                   out_sens_path_prefix +
-                                  "_subset{idx}.nii".format(idx=i))
+                                  '_subset{idx}.nii'.format(idx=i))
 
         np.testing.assert_allclose(np.array(ref_sens, copy=False),
                                    np.array(out_sens, copy=False),
@@ -503,8 +508,8 @@ def test_uhr2d_shepp_logan_osem_his_exec():
 
     ref_recon = yrt.ImageOwned(img_params,
                                os.path.join(fold_uhr2d,
-                                            "ref",
-                                            "shepp_logan_osem_his.nii"))
+                                            'ref',
+                                            'shepp_logan_osem_his.nii'))
     out_recon = yrt.ImageOwned(img_params, out_recon_path)
     np.testing.assert_allclose(np.array(ref_recon, copy=False),
                                np.array(out_recon, copy=False),
@@ -512,17 +517,17 @@ def test_uhr2d_shepp_logan_osem_his_exec():
 
 
 def test_large_flat_panel_xcat_osem_tof_siddon():
-    fold_large_flat_panel = os.path.join(fold_data, "large_flat_panel")
+    fold_large_flat_panel = os.path.join(fold_data, 'large_flat_panel')
     scanner = yrt.Scanner(
-        os.path.join(fold_large_flat_panel, "large_flat_panel.json"))
-    fold_xcat = os.path.join(fold_large_flat_panel, "xcat")
+        os.path.join(fold_large_flat_panel, 'large_flat_panel.json'))
+    fold_xcat = os.path.join(fold_large_flat_panel, 'xcat')
     img_params = yrt.ImageParams(os.path.join(fold_xcat,
-                                              "img_params_3mm.json"))
+                                              'img_params_3mm.json'))
     dataset = yrt.ListModeLUTDOIOwned(
-        scanner, os.path.join(fold_xcat, "sim_4min_49ps.lmDoiDat"),
+        scanner, os.path.join(fold_xcat, 'sim_4min_49ps.lmDoiDat'),
         flag_tof=True)
-    sens_img = yrt.ImageOwned(img_params,
-                              os.path.join(fold_xcat, "sens_image_siddon.nii"))
+    sens_img = yrt.ImageOwned(
+        img_params, os.path.join(fold_xcat, 'sens_image_siddon.nii'))
 
     osem = yrt.createOSEM(scanner)
     osem.setImageParams(img_params)
@@ -534,10 +539,10 @@ def test_large_flat_panel_xcat_osem_tof_siddon():
     out_img = osem.reconstruct()
 
     out_img.writeToFile(os.path.join(
-        fold_out, "test_large_flat_panel_xcat_osem_tof_siddon.nii"))
+        fold_out, 'test_large_flat_panel_xcat_osem_tof_siddon.nii'))
 
     ref_img = yrt.ImageOwned(img_params, os.path.join(
-        fold_large_flat_panel, "ref", "xcat_osem_siddon.nii"))
+        fold_large_flat_panel, 'ref', 'xcat_osem_siddon.nii'))
 
     np_out_img = np.array(out_img, copy=False)
     np_ref_img = np.array(ref_img, copy=False)
@@ -548,20 +553,21 @@ def test_large_flat_panel_xcat_osem_tof_siddon():
 
 def test_large_flat_panel_xcat_osem_tof_dd_gpu_exec():
     if not yrt.compiledWithCuda():
-        pytest.skip("Code not compiled with cuda. Skipping...")
-    fold_large_flat_panel = os.path.join(fold_data, "large_flat_panel")
-    fold_xcat = os.path.join(fold_large_flat_panel, "xcat")
+        pytest.skip('Code not compiled with cuda. Skipping...')
+    fold_large_flat_panel = os.path.join(fold_data, 'large_flat_panel')
+    fold_xcat = os.path.join(fold_large_flat_panel, 'xcat')
 
     out_path = os.path.join(
-        fold_out, "test_large_flat_panel_xcat_osem_tof_dd_gpu_exec.nii")
+        fold_out, 'test_large_flat_panel_xcat_osem_tof_dd_gpu_exec.nii')
 
     exec_str = os.path.join(fold_bin, 'yrtpet_reconstruct')
     exec_str += ' --scanner ' + os.path.join(fold_large_flat_panel,
-                                             "large_flat_panel.json")
-    exec_str += ' --params ' + os.path.join(fold_xcat, "img_params_3mm.json")
-    exec_str += ' --input ' + os.path.join(fold_xcat, "sim_4min_49ps.lmDoiDat")
+                                             'large_flat_panel.json')
+    exec_str += ' --params ' + os.path.join(fold_xcat, 'img_params_3mm.json')
+    exec_str += ' --input ' + os.path.join(fold_xcat,
+                                           'sim_4min_49ps.lmDoiDat')
     exec_str += ' --format LM-DOI --projector DD --gpu'
-    exec_str += ' --sens ' + os.path.join(fold_xcat, "sens_image_dd.nii")
+    exec_str += ' --sens ' + os.path.join(fold_xcat, 'sens_image_dd.nii')
     exec_str += ' --flag_tof --tof_width_ps 70 --tof_n_std 5'
     exec_str += ' --num_iterations 5 --num_subsets 12'
     exec_str += ' --out ' + out_path
@@ -569,10 +575,10 @@ def test_large_flat_panel_xcat_osem_tof_dd_gpu_exec():
     assert ret == 0
 
     img_params = yrt.ImageParams(os.path.join(fold_xcat,
-                                              "img_params_3mm.json"))
+                                              'img_params_3mm.json'))
     ref_img = yrt.ImageOwned(img_params,
-                             os.path.join(fold_large_flat_panel, "ref",
-                                          "xcat_osem_dd.nii"))
+                             os.path.join(fold_large_flat_panel, 'ref',
+                                          'xcat_osem_dd.nii'))
     out_img = yrt.ImageOwned(img_params, out_path)
 
     out_img_np = np.array(out_img, copy=False)

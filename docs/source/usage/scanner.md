@@ -16,17 +16,19 @@ The following parameters in the JSON file define the scanner:
   parent folder.
     - If this field is unspecified, a LUT will be generated from the scanner's
       properties.
-      (deprecated feature)
 - `axialFOV` : Axial Field-of-View (mm).  **\[Mandatory\]**
 - `crystalSize_trans` : Crystal size in the transaxial dimension (mm).
   **\[Mandatory\]**
 - `crystalSize_z` : Crystal size in the axial dimension (mm).  **\[Mandatory\]**
 - `crystalDepth` : Crystal size in the direction of its orientation (mm).
   **\[Mandatory\]**
-- `scannerRadius` : Scanner radius (mm).  **\[Mandatory\]**
+- `scannerRadius` : Scanner radius (mm).  **\[Mandatory\]**.
+  - This represents the distance between detector blocks and the isocenter.
 - `detsPerRing` : Number of detectors per ring.  **\[Mandatory\]**
 - `numRings` : Number of rings.  **\[Mandatory\]**
 - `numDOI` : Number of DOI layers. **\[Mandatory\]**
+- `detsPerBlock` : Number of detectors per block in the transaxial dimension.
+  - This property is ignored if a LUT is provided
 
 The following properties are necessary to define sensitivity images and
 histogram shapes:
@@ -43,32 +45,37 @@ The following properties are used only in scatter estimation:
 - `energyLLD` : Energy Low-Level-Discriminant (keV). Only used in Scatter
   estimation.
 
-The following properties are deprecated:
+An optional field can be used to mask detectors:
 
-- `detsPerBlock` : Number of detectors per block in the transaxial dimension.
+- `detMask` : Path to mask file.  The mask file stores one boolean per detector
+  (in the same order as the LUT file): `true` if the detector is acive, `false`
+  if it is masked.  The file is store in binary format, without header, and with
+  one byte per detector.
 
 ### Example
 
 Here's an example of a Scanner's JSON file
 
 ```json
+
 {
-  "VERSION": 3.1,
+  "VERSION": 3.2,
   "scannerName": "myscanner",
   "detCoord": "myscanner.lut",
   "axialFOV": 250.0,
   "crystalSize_z": 1.0,
   "crystalSize_trans": 1.0,
   "crystalDepth": 8.0,
-  "scannerRadius": 200.0,
+  "scannerRadius": 130.0,
   "detsPerRing": 800,
   "numRings": 150,
   "numDOI": 2,
   "maxRingDiff": 50,
   "minAngDiff": 230,
+  "detsPerBlock": 40,
   "fwhm": 0.2,
   "energyLLD": 400,
-  "collimatorRadius": 167.4
+  "collimatorRadius": 100
 }
 ```
 

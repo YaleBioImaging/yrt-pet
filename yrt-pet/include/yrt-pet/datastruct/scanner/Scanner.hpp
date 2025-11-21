@@ -5,13 +5,13 @@
 
 #pragma once
 
-#include "yrt-pet/datastruct/scanner/DetCoord.hpp"
+#include "yrt-pet/datastruct/projection/Constraints.hpp"
+#include "yrt-pet/datastruct/scanner/DetectorSetup.hpp"
 #include "yrt-pet/geometry/Vector3D.hpp"
 
 #include <filesystem>
 #include <string>
-
-#define SCANNER_FILE_VERSION 3.1
+#include <memory>
 
 namespace fs = std::filesystem;
 
@@ -20,6 +20,8 @@ namespace yrt
 class Scanner
 {
 public:
+	static constexpr float SCANNER_FILE_VERSION = 3.2;
+
 	Scanner(std::string pr_scannerName, float p_axialFOV, float p_crystalSize_z,
 	        float p_crystalSize_trans, float p_crystalDepth,
 	        float p_scannerRadius, size_t p_detsPerRing, size_t p_numRings,
@@ -35,10 +37,18 @@ public:
 	Vector3D getDetectorOrient(det_id_t id) const;
 	std::shared_ptr<DetectorSetup> getDetectorSetup() const;
 	bool isValid() const;
+	bool isDetectorAllowed(det_id_t det) const;
+	bool hasMask() const;
 
 	// Allocate and fill array with detector positions
 	void createLUT(Array2D<float>& lut) const;
 	void setDetectorSetup(const std::shared_ptr<DetectorSetup>& pp_detectors);
+
+	void collectConstraints(
+	    std::vector<std::unique_ptr<Constraint>>& constraints) const;
+
+	void addMask(const std::string& mask_fname);
+	void addMask(const DetectorMask& mask);
 
 public:
 	std::string scannerName;

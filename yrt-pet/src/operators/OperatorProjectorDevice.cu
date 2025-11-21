@@ -101,7 +101,7 @@ void OperatorProjectorDevice::initBinFilter(
 	std::set<ProjectionPropertyType> projPropertyTypes =
 	    mp_binFilter->getProjPropertyTypes();
 	mp_projPropManager =
-	    std::make_unique<DeviceObject<ProjectionPropertyManager>>(
+	    std::make_unique<DeviceSynchronizedObject<ProjectionPropertyManager>>(
 	        projPropertyTypes);
 }
 

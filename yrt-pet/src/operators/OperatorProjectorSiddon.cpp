@@ -155,6 +155,8 @@ std::set<ProjectionPropertyType>
 	{
 		projProperties.insert(ProjectionPropertyType::DET_ORIENT);
 	}
+	// TODO NOW: Make sure this is not done unnecessarily
+	projProperties.insert(ProjectionPropertyType::DYNAMIC_FRAME);
 	return projProperties;
 }
 
@@ -176,14 +178,18 @@ float OperatorProjectorSiddon::forwardProjection(
 		tofValue = projPropManager.getDataValue<float>(
 		    projectionProperties, pos, ProjectionPropertyType::TOF);
 	}
+	frame_t dynamicFrame = 0;
+	if (projPropManager.has(ProjectionPropertyType::DYNAMIC_FRAME))
+	{
+		dynamicFrame = projPropManager.getDataValue<frame_t>(
+		    projectionProperties, pos, ProjectionPropertyType::DYNAMIC_FRAME);
+	}
 	return forwardProjection(
 	    img,
 	    projPropManager.getDataValue<Line3D>(projectionProperties, pos,
 	                                         ProjectionPropertyType::LOR),
-	    detOrient.d1, detOrient.d2, pos,
-	    projPropManager.getDataValue<frame_t>(
-	        projectionProperties, pos, ProjectionPropertyType::DYNAMIC_FRAME),
-	    mp_tofHelper.get(), tofValue);
+	    detOrient.d1, detOrient.d2, pos, dynamicFrame, mp_tofHelper.get(),
+	    tofValue);
 }
 
 void OperatorProjectorSiddon::backProjection(
@@ -204,14 +210,17 @@ void OperatorProjectorSiddon::backProjection(
 		tofValue = projPropManager.getDataValue<float>(
 		    projectionProperties, pos, ProjectionPropertyType::TOF);
 	}
-	backProjection(
-	    img,
-	    projPropManager.getDataValue<Line3D>(projectionProperties, pos,
-	                                         ProjectionPropertyType::LOR),
-	    detOrient.d1, detOrient.d2, projValue, pos,
-	    projPropManager.getDataValue<frame_t>(
-	        projectionProperties, pos, ProjectionPropertyType::DYNAMIC_FRAME),
-	    mp_tofHelper.get(), tofValue);
+	frame_t dynamicFrame = 0;
+	if (projPropManager.has(ProjectionPropertyType::DYNAMIC_FRAME))
+	{
+		dynamicFrame = projPropManager.getDataValue<frame_t>(
+		    projectionProperties, pos, ProjectionPropertyType::DYNAMIC_FRAME);
+	}
+	backProjection(img,
+	               projPropManager.getDataValue<Line3D>(
+	                   projectionProperties, pos, ProjectionPropertyType::LOR),
+	               detOrient.d1, detOrient.d2, projValue, pos, dynamicFrame,
+	               mp_tofHelper.get(), tofValue);
 }
 
 float OperatorProjectorSiddon::forwardProjection(

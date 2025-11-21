@@ -14,6 +14,7 @@
 #include "yrt-pet/operators/ProjectionPsfManagerDevice.cuh"
 #include "yrt-pet/operators/TimeOfFlight.hpp"
 #include "yrt-pet/utils/DeviceObject.cuh"
+#include "yrt-pet/utils/DeviceSynchronizedObject.cuh"
 #include "yrt-pet/utils/GPUTypes.cuh"
 
 namespace yrt
@@ -81,7 +82,7 @@ private:
 	std::unique_ptr<DeviceObject<TimeOfFlightHelper>> mp_tofHelper;
 
 	// Bin iterator constraints
-	std::unique_ptr<DeviceObject<ProjectionPropertyManager>> mp_projPropManager;
+	std::unique_ptr<DeviceSynchronizedObject<ProjectionPropertyManager>> mp_projPropManager;
 
 	// Updater for projection
 	DeviceObject<OperatorProjectorUpdaterDevice> m_updater;

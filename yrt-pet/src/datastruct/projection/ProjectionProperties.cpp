@@ -70,8 +70,8 @@ std::map<ConstraintVariable, std::pair<std::string, int>>
     PropStructManager<ConstraintVariable>::getInfo() const
 {
 	return std::map<ConstraintVariable, std::pair<std::string, int>>{
-	    {ConstraintVariable::DET1, {"DET1", sizeof(float)}},
-	    {ConstraintVariable::DET2, {"DET2", sizeof(float)}},
+	    {ConstraintVariable::DET1, {"DET1", sizeof(det_id_t)}},
+	    {ConstraintVariable::DET2, {"DET2", sizeof(det_id_t)}},
 	    {ConstraintVariable::ABS_DELTA_ANGLE_DEG,
 	     {"ABSDELTAANGLEDEG", sizeof(float)}},
 	    {ConstraintVariable::ABS_DELTA_ANGLE_IDX,
@@ -104,12 +104,6 @@ template <typename Enum>
 int PropStructManager<Enum>::getOffset(Enum prop) const
 {
 	return offsetMap[static_cast<int>(prop)];
-}
-
-template <typename Enum>
-bool PropStructManager<Enum>::has(Enum prop) const
-{
-	return type & (1 << static_cast<int>(prop));
 }
 
 template class PropStructManager<ProjectionPropertyType>;

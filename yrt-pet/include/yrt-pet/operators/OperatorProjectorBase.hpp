@@ -43,10 +43,8 @@ public:
 	float getTOFWidth_ps() const;
 	int getTOFNumStd() const;
 	bool hasTOF() const;
-
-	// Projector Updater type (e.g., DEFAULT3D)
-	ProjectorUpdaterType projectorUpdaterType;
-	Array2DAlias<float> HBasis;
+	void bindHBasis(float* HBasis_ptr, size_t rank, size_t T);
+	Array2DBase<float>& getHBasis();
 
 	// Projection-domain PSF
 	std::string projPsf_fname;
@@ -57,8 +55,13 @@ public:
 	// Number of threads
 	int numThreads;
 
+	// Projector Updater type (e.g., DEFAULT3D)
+	ProjectorUpdaterType projectorUpdaterType;
+
 	// Optional bool for H-update in LR updater
 	bool updateH;
+	// LR members
+	Array2DAlias<float> HBasis;
 
 	// Projection property types (in addition to types needed for projector and
 	// included in projection data) - Ignored for now

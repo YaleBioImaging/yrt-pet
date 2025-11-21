@@ -83,7 +83,10 @@ public:
 	unsigned int getElementSize() const;
 	int getTypeID() const;
 	int getOffset(Enum prop) const;
-	bool has(Enum prop) const;
+	HOST_DEVICE_CALLABLE bool has(Enum prop) const
+	{
+		return type & (1 << static_cast<int>(prop));
+	}
 
 	// Offset table
 	std::map<Enum, std::pair<std::string, int>> getInfo() const;

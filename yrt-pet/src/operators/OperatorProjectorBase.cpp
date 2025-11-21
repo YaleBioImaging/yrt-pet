@@ -37,12 +37,13 @@ void py_setup_operatorprojectorparams(py::module& m)
 	c.def_property(
 	    "HBasis",
 	    // getter: const ref to the alias; tie lifetime to parent
-	    [](OperatorProjectorParams& p) -> Array2DAlias<float>&
-	    { return p.HBasis; },
+	    [](OperatorProjectorParams& p) -> Array2DBase<float>&
+	    { return p.getHBasis(); },
 	    // setter: accept any 2D array base and bind alias to it
-	    [](OperatorProjectorParams& p, const Array2DBase<float>& src)
+	    [](OperatorProjectorParams& p, Array2DBase<float>& src)
 	    {
-		    p.HBasis.bind(src);  // NO allocation, just alias the source
+	    	auto dims = src.getDims();
+		    p.bindHBasis(src.getRawPointer(), dims[0], dims[1]);  // NO allocation, just alias the source
 	    },
 	    py::return_value_policy::reference_internal);
 
@@ -62,12 +63,13 @@ void py_setup_operatorprojectorparams(py::module& m)
 		    const size_t rank = static_cast<size_t>(buffer.shape[0]);
 		    const size_t T = static_cast<size_t>(buffer.shape[1]);
 
-		    self.HBasis.bind(ptr, rank, T);
+		    self.bindHBasis(ptr, rank, T);
 	    },
 	    py::arg("HBasis"),
 	    py::keep_alive<1, 2>()  // keep the buffer owner alive
 	);
 
+	c.def_readwrite("projectorUpdaterType", &OperatorProjectorParams::projectorUpdaterType);
 	c.def_readwrite("updateH", &OperatorProjectorParams::updateH);
 	c.def_readwrite("binIter", &OperatorProjectorParams::binIter);
 	c.def("addTOF", &OperatorProjectorParams::addTOF, "tofWidth_ps"_a,
@@ -106,13 +108,13 @@ namespace yrt
 OperatorProjectorParams::OperatorProjectorParams(const Scanner& pr_scanner)
     : binIter(nullptr),
       scanner(pr_scanner),
-      projectorUpdaterType(DEFAULT3D),
       projPsf_fname(""),
       numRays(1),
       numThreads(globals::getNumThreads()),
+      projectorUpdaterType(DEFAULT3D),
+      updateH(false),
       m_tofWidth_ps(0.f),
-      m_tofNumStd(0),
-      updateH(false)
+      m_tofNumStd(0)
 {
 }
 
@@ -120,13 +122,13 @@ OperatorProjectorParams::OperatorProjectorParams(
     const OperatorProjectorParams& other)
     : binIter(other.binIter),
       scanner(other.scanner),
-      projectorUpdaterType(other.projectorUpdaterType),
       projPsf_fname(other.projPsf_fname),
       numRays(other.numRays),
       numThreads(other.numThreads),
+      projectorUpdaterType(other.projectorUpdaterType),
+      updateH(other.updateH),
       m_tofWidth_ps(other.m_tofWidth_ps),
-      m_tofNumStd(other.m_tofNumStd),
-      updateH(other.updateH)
+      m_tofNumStd(other.m_tofNumStd)
 {
 	HBasis.bind(other.HBasis);
 }
@@ -151,6 +153,15 @@ int OperatorProjectorParams::getTOFNumStd() const
 bool OperatorProjectorParams::hasTOF() const
 {
 	return m_tofWidth_ps > 0.f;
+}
+void OperatorProjectorParams::bindHBasis(float* HBasis_ptr, size_t rank,
+                                         size_t T)
+{
+	HBasis.bind(HBasis_ptr, rank, T);
+}
+Array2DBase<float>& OperatorProjectorParams::getHBasis()
+{
+	return HBasis;
 }
 
 OperatorProjectorBase::OperatorProjectorBase(

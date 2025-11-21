@@ -184,11 +184,11 @@ void OSEMUpdater_CPU::computeEMUpdateImage(const Image& inputImage,
 		{
 			{
 				auto H_old = updater->getHBasisWrite();
-				auto dims = H_old.getDims();
+				const auto dims = H_old.getDims();
 				float sum = 0.f;
-				for (int r = 0; r < dims[0] ; ++r)
+				for (size_t r = 0; r < dims[0] ; ++r)
 				{
-					for (int t = 0; t < dims[1]; ++t)
+					for (size_t t = 0; t < dims[1]; ++t)
 					{
 						sum += H_old[r][t];
 					}
@@ -200,9 +200,9 @@ void OSEMUpdater_CPU::computeEMUpdateImage(const Image& inputImage,
 				auto H_old = updater->getHBasisWrite();
 				auto dims = H_old.getDims();
 				float sum = 0.f;
-				for (int r = 0; r < dims[0] ; ++r)
+				for (size_t r = 0; r < dims[0] ; ++r)
 				{
-					for (int t = 0; t < dims[1]; ++t)
+					for (size_t t = 0; t < dims[1]; ++t)
 					{
 						sum += H_old[r][t];
 					}

@@ -178,7 +178,6 @@ OSEM::OSEM(const Scanner& pr_scanner)
       hardThreshold(DEFAULT_HARD_THRESHOLD),
 	  projectorType(OperatorProjector::SIDDON),
       projectorParams(
-          /*binIter*/        nullptr,
           /*scanner*/        pr_scanner),
       scanner(pr_scanner),
       maskImage(nullptr),
@@ -633,9 +632,7 @@ void OSEM::setDataInput(const ProjectionData* pp_dataInput)
 
 void OSEM::addTOF(float p_tofWidth_ps, int p_tofNumStd)
 {
-	projectorParams.tofWidth_ps = p_tofWidth_ps;
-	projectorParams.tofNumStd = p_tofNumStd;
-	projectorParams.flagProjTOF = true;
+	projectorParams.addTOF(p_tofWidth_ps, p_tofNumStd);
 }
 
 void OSEM::addProjPSF(const std::string& pr_projPsf_fname)
@@ -1199,7 +1196,7 @@ void OSEM::summary() const
 	{
 		std::cout << "Uses Projection-space PSF" << std::endl;
 	}
-	if (projectorParams.flagProjTOF)
+	if (projectorParams.hasTOF())
 	{
 		std::cout << "Uses Time-of-flight with " << std::endl;
 	}

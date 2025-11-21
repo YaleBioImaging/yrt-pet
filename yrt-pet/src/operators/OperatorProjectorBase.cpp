@@ -124,8 +124,8 @@ OperatorProjectorParams::OperatorProjectorParams(
       projPsf_fname(other.projPsf_fname),
       numRays(other.numRays),
       numThreads(other.numThreads),
-      tofWidth_ps(other.tofWidth_ps),
-      tofNumStd(other.tofNumStd),
+      m_tofWidth_ps(other.m_tofWidth_ps),
+      m_tofNumStd(other.m_tofNumStd),
       updateH(other.updateH)
 {
 	HBasis.bind(other.HBasis);

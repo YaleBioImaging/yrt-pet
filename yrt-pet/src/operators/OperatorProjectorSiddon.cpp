@@ -180,7 +180,7 @@ float OperatorProjectorSiddon::forwardProjection(
 	    img,
 	    projPropManager.getDataValue<Line3D>(projectionProperties, pos,
 	                                         ProjectionPropertyType::LOR),
-	                                         detOrient.d1, detOrient.d2, pos, projPropManager.getDataValue<Line3D>(projectionProperties, pos,
+	                                         detOrient.d1, detOrient.d2, pos, projPropManager.getDataValue<frame_t>(projectionProperties, pos,
 																				  ProjectionPropertyType::DYNAMIC_FRAME),
 																				  mp_tofHelper.get(), tofValue);
 }
@@ -207,7 +207,7 @@ void OperatorProjectorSiddon::backProjection(
 	               projPropManager.getDataValue<Line3D>(
 	                   projectionProperties, pos, ProjectionPropertyType::LOR),
 	               detOrient.d1, detOrient.d2, projValue, pos,
-	               projPropManager.getDataValue<Line3D>(projectionProperties, pos, ProjectionPropertyType::DYNAMIC_FRAME),
+	               projPropManager.getDataValue<frame_t>(projectionProperties, pos, ProjectionPropertyType::DYNAMIC_FRAME),
 	               mp_tofHelper.get(), tofValue);
 }
 

@@ -35,8 +35,7 @@ public:
 	const cudaStream_t* getMainStream() const;
 
 	// Sens Image generator driver
-	void setupOperatorsForSensImgGen(
-		const OperatorProjectorParams& projParams) override;
+	void setupOperatorsForSensImgGen() override;
 	void allocateForSensImgGen() override;
 	std::unique_ptr<Image>
 	    getLatestSensitivityImage(bool isLastSubset) override;
@@ -44,8 +43,7 @@ public:
 	void endSensImgGen() override;
 
 	// Reconstruction driver
-	void setupOperatorsForRecon(
-	    const OperatorProjectorParams& projParams) override;
+	void setupOperatorsForRecon() override;
 	void allocateForRecon() override;
 	void endRecon() override;
 	void completeMLEMIteration() override;

@@ -23,8 +23,8 @@
 #include "yrt-pet/utils/Tools.hpp"
 
 #if BUILD_CUDA
-#include "yrt-pet/utils/ReconstructionUtilsDevice.cuh"
 #include "yrt-pet/recon/OSEM_GPU.cuh"
+#include "yrt-pet/utils/ReconstructionUtilsDevice.cuh"
 #endif
 
 
@@ -793,21 +793,21 @@ static void project(Image* img, ProjectionData* projData,
 
 	if (useGPU)
 	{
-		oper = createOperatorProjectorDevice(projectorType, projParams,
-															 constraintsPtr,
-			&mainStream->getStream(), &auxStream->getStream());
+		oper = createOperatorProjectorDevice(
+		    projectorType, projParams, constraintsPtr, &mainStream->getStream(),
+		    &auxStream->getStream());
 	}
 	else
 	{
 		if (projectorType == OperatorProjector::SIDDON)
 		{
 			oper = std::make_unique<OperatorProjectorSiddon>(projParams,
-															 constraintsPtr);
+			                                                 constraintsPtr);
 		}
 		else if (projectorType == OperatorProjector::DD)
 		{
 			oper = std::make_unique<OperatorProjectorDD>(projParams,
-															 constraintsPtr);
+			                                             constraintsPtr);
 		}
 		else
 		{

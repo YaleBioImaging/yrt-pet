@@ -180,9 +180,10 @@ float OperatorProjectorSiddon::forwardProjection(
 	    img,
 	    projPropManager.getDataValue<Line3D>(projectionProperties, pos,
 	                                         ProjectionPropertyType::LOR),
-	                                         detOrient.d1, detOrient.d2, pos, projPropManager.getDataValue<frame_t>(projectionProperties, pos,
-																				  ProjectionPropertyType::DYNAMIC_FRAME),
-																				  mp_tofHelper.get(), tofValue);
+	    detOrient.d1, detOrient.d2, pos,
+	    projPropManager.getDataValue<frame_t>(
+	        projectionProperties, pos, ProjectionPropertyType::DYNAMIC_FRAME),
+	    mp_tofHelper.get(), tofValue);
 }
 
 void OperatorProjectorSiddon::backProjection(
@@ -203,12 +204,14 @@ void OperatorProjectorSiddon::backProjection(
 		tofValue = projPropManager.getDataValue<float>(
 		    projectionProperties, pos, ProjectionPropertyType::TOF);
 	}
-	backProjection(img,
-	               projPropManager.getDataValue<Line3D>(
-	                   projectionProperties, pos, ProjectionPropertyType::LOR),
-	               detOrient.d1, detOrient.d2, projValue, pos,
-	               projPropManager.getDataValue<frame_t>(projectionProperties, pos, ProjectionPropertyType::DYNAMIC_FRAME),
-	               mp_tofHelper.get(), tofValue);
+	backProjection(
+	    img,
+	    projPropManager.getDataValue<Line3D>(projectionProperties, pos,
+	                                         ProjectionPropertyType::LOR),
+	    detOrient.d1, detOrient.d2, projValue, pos,
+	    projPropManager.getDataValue<frame_t>(
+	        projectionProperties, pos, ProjectionPropertyType::DYNAMIC_FRAME),
+	    mp_tofHelper.get(), tofValue);
 }
 
 float OperatorProjectorSiddon::forwardProjection(
@@ -354,8 +357,8 @@ void OperatorProjectorSiddon::singleBackProjection(
 	}
 	else
 	{
-		project_helper<false, true, false>(img, lor, projValue, updater,
-		                                   dynamicFrame, 0, tofHelper, tofValue);
+		project_helper<false, true, false>(
+		    img, lor, projValue, updater, dynamicFrame, 0, tofHelper, tofValue);
 	}
 }
 
@@ -376,8 +379,8 @@ enum SIDDON_DIR
 template <bool IS_FWD, bool FLAG_INCR, bool FLAG_TOF>
 void OperatorProjectorSiddon::project_helper(
     Image* img, const Line3D& lor, float& value,
-    OperatorProjectorUpdater& updater, frame_t dynamicFrame,
-    int tid, const TimeOfFlightHelper* tofHelper, float tofValue)
+    OperatorProjectorUpdater& updater, frame_t dynamicFrame, int tid,
+    const TimeOfFlightHelper* tofHelper, float tofValue)
 {
 	if (IS_FWD)
 	{
@@ -630,8 +633,8 @@ void OperatorProjectorSiddon::project_helper(
 		}
 		else
 		{
-			updater.backUpdate(value, weight, raw_img_ptr, totalOffset, dynamicFrame,
-			                   numVoxelsPerFrame, tid);
+			updater.backUpdate(value, weight, raw_img_ptr, totalOffset,
+			                   dynamicFrame, numVoxelsPerFrame, tid);
 		}
 		a_cur = a_next;
 		ax_next_prev = ax_next;

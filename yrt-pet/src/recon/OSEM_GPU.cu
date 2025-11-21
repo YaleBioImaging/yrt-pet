@@ -66,9 +66,10 @@ std::pair<size_t, size_t>
 	return {memAvailable, memoryUsagePerLOR};
 }
 
-void OSEM_GPU::setupOperatorsForSensImgGen(
-    const OperatorProjectorParams& projParams)
+void OSEM_GPU::setupOperatorsForSensImgGen()
 {
+	getBinIterators().clear();
+	getBinIterators().reserve(num_OSEM_subsets);
 	for (int subsetId = 0; subsetId < num_OSEM_subsets; subsetId++)
 	{
 		// Create and add Bin Iterator
@@ -85,6 +86,10 @@ void OSEM_GPU::setupOperatorsForSensImgGen(
 			constraints.emplace_back(constraint.get());
 		}
 	}
+
+	OperatorProjectorParams projParams{scanner};
+	projParams.projPsf_fname = projectorParams.projPsf_fname;
+	projParams.numRays = projectorParams.numRays;
 
 	if (projectorType == OperatorProjector::DD)
 	{
@@ -171,7 +176,7 @@ void OSEM_GPU::endSensImgGen()
 	mpd_tempSensDataInput = nullptr;
 }
 
-void OSEM_GPU::setupOperatorsForRecon(const OperatorProjectorParams& projParams)
+void OSEM_GPU::setupOperatorsForRecon()
 {
 	std::vector<Constraint*> constraints;
 	if (m_constraints.size() > 0)
@@ -185,12 +190,12 @@ void OSEM_GPU::setupOperatorsForRecon(const OperatorProjectorParams& projParams)
 	if (projectorType == OperatorProjector::DD)
 	{
 		mp_projector = std::make_unique<OperatorProjectorDD_GPU>(
-		    projParams, constraints, getMainStream(), getAuxStream());
+		    projectorParams, constraints, getMainStream(), getAuxStream());
 	}
 	else if (projectorType == OperatorProjector::SIDDON)
 	{
 		mp_projector = std::make_unique<OperatorProjectorSiddon_GPU>(
-		    projParams, constraints, getMainStream(), getAuxStream());
+		    projectorParams, constraints, getMainStream(), getAuxStream());
 	}
 	else
 	{

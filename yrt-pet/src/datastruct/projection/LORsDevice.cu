@@ -61,9 +61,12 @@ void LORsDevice::precomputeBatchLORs(const BinIterator& binIter,
 		BinFilter::CollectInfoFlags collectInfoFlags(false);
 		binFilter.collectFlags(collectInfoFlags);
 
-		const size_t offset = static_cast<size_t>(batchId) * batchSetup.getBatchSize(0);
+		const size_t offset =
+		    static_cast<size_t>(batchId) * batchSetup.getBatchSize(0);
 		auto* binIter_ptr = &binIter;
 		const ProjectionData* reference_ptr = &reference;
+		// TODO NOW: Check that we are indeed filling the dynamic frame in the
+		//  buffer
 
 		util::parallelForChunked(
 		    batchSize, numThreads,

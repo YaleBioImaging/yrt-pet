@@ -549,22 +549,10 @@ void OSEM::collectConstraints()
 
 void OSEM::initializeForSensImgGen()
 {
-	// Bin iterators
-	getBinIterators().clear();
-	getBinIterators().reserve(num_OSEM_subsets);
-
 	// Bin iterator constraints
 	collectConstraints();
 
-	// Projector
-	OperatorProjectorParams projParams(scanner);
-	if (flagProjPSF)
-	{
-		projParams.projPsf_fname = projPsf_fname;
-	}
-	projParams.numRays = numRays;
-	projParams.numThreads = globals::getNumThreads();
-	setupOperatorsForSensImgGen(projParams);
+	setupOperatorsForSensImgGen();
 
 	// Allocate buffers
 	allocateForSensImgGen();
@@ -572,31 +560,11 @@ void OSEM::initializeForSensImgGen()
 
 void OSEM::initializeForRecon()
 {
-	// Bin iterators
-	getBinIterators().clear();
-	getBinIterators().reserve(num_OSEM_subsets);
-	for (int subsetId = 0; subsetId < num_OSEM_subsets; subsetId++)
-	{
-		getBinIterators().push_back(
-		    getDataInput()->getBinIter(num_OSEM_subsets, subsetId));
-	}
-
 	// Bin iterator constraints
 	collectConstraints();
 
 	// Projector
-	OperatorProjectorParams projParams(scanner);
-	if (flagProjPSF)
-	{
-		projParams.projPsf_fname = projPsf_fname;
-	}
-	projParams.numRays = numRays;
-	projParams.numThreads = globals::getNumThreads();
-	if (flagProjTOF)
-	{
-		projParams.addTOF(tofWidth_ps, tofNumStd);
-	}
-	setupOperatorsForRecon(projParams);
+	setupOperatorsForRecon();
 
 	// Allocate buffers
 	allocateForRecon();

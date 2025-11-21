@@ -55,6 +55,7 @@ private:
 	PageLockedBuffer<char> m_tempProjectionProperties;
 	// Size (in bytes) of ProjectionProperties element of precomputed batch
 	size_t m_elementSize;
+	bool m_hasDynamicFraming;
 	bool m_hasTOF;
 	size_t m_precomputedBatchSize;
 	int m_precomputedBatchId;

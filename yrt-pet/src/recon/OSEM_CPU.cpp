@@ -65,9 +65,11 @@ void OSEM_CPU::allocateForSensImgGen()
 	}
 }
 
-void OSEM_CPU::setupOperatorsForSensImgGen(
-	const OperatorProjectorParams& projParams)
+void OSEM_CPU::setupOperatorsForSensImgGen()
 {
+	getBinIterators().clear();
+	getBinIterators().reserve(num_OSEM_subsets);
+
 	for (int subsetId = 0; subsetId < num_OSEM_subsets; subsetId++)
 	{
 		// Create and add Bin Iterator
@@ -75,6 +77,12 @@ void OSEM_CPU::setupOperatorsForSensImgGen(
 		    mp_corrector->getSensImgGenProjData()->getBinIter(num_OSEM_subsets,
 		                                                      subsetId));
 	}
+
+	// Create ProjectorParams object only for sensitivity image, without TOF
+	// Todo: projectorUpdaterType for sens image is always just DEFAULT3D?
+	OperatorProjectorParams projParams{scanner};
+	projParams.projPsf_fname = projectorParams.projPsf_fname;
+	projParams.numRays = projectorParams.numRays;
 
 	std::vector<Constraint*> constraints;
 	if (m_constraints.size() > 0)
@@ -166,7 +174,7 @@ void OSEM_CPU::allocateHBasisTmpBuffer()
 {
 	if (!mp_HNumerator)
 		mp_HNumerator = std::make_unique<Array2D<float>>();
-	const auto dims = projectorParams.HBasis.getDims();   // std::array<size_t,2>
+	const auto dims = projectorParams.HBasis.getDims();  // std::array<size_t,2>
 	const int rank = static_cast<int>(dims[0]);
 	const int T = static_cast<int>(dims[1]);
 	mp_HNumerator->allocate(rank, T);
@@ -203,8 +211,17 @@ const OperatorProjector* OSEM_CPU::getProjector() const
 	return hostProjector;
 }
 
-void OSEM_CPU::setupOperatorsForRecon(const OperatorProjectorParams& projParams)
+void OSEM_CPU::setupOperatorsForRecon()
 {
+	getBinIterators().clear();
+	getBinIterators().reserve(num_OSEM_subsets);
+
+	for (int subsetId = 0; subsetId < num_OSEM_subsets; subsetId++)
+	{
+		getBinIterators().push_back(
+			getDataInput()->getBinIter(num_OSEM_subsets, subsetId));
+	}
+
 	std::vector<Constraint*> constraints;
 	if (m_constraints.size() > 0)
 	{
@@ -217,12 +234,12 @@ void OSEM_CPU::setupOperatorsForRecon(const OperatorProjectorParams& projParams)
 	if (projectorType == OperatorProjector::SIDDON)
 	{
 		mp_projector =
-		    std::make_unique<OperatorProjectorSiddon>(projParams, constraints);
+		    std::make_unique<OperatorProjectorSiddon>(projectorParams, constraints);
 	}
 	else if (projectorType == OperatorProjector::DD)
 	{
 		mp_projector =
-		    std::make_unique<OperatorProjectorDD>(projParams, constraints);
+		    std::make_unique<OperatorProjectorDD>(projectorParams, constraints);
 	}
 	else
 	{
@@ -263,8 +280,8 @@ void OSEM_CPU::allocateForRecon()
 	std::cout << "Applying threshold..." << std::endl;
 	auto applyMask = [this](const Image* maskImage) -> void
 	{
-		getMLEMImageBuffer()->applyThresholdBroadcast(maskImage, 0.0f, 0.0f, 0.0f, 1.0f,
-		                                              0.0f);
+		getMLEMImageBuffer()->applyThresholdBroadcast(maskImage, 0.0f, 0.0f,
+		                                              0.0f, 1.0f, 0.0f);
 	};
 	if (maskImage != nullptr)
 	{
@@ -328,13 +345,13 @@ void OSEM_CPU::generateWUpdateSensScaling(float* c_WUpdate_r)
 	const int rank = static_cast<int>(dims[0]);
 	const int T = static_cast<int>(dims[1]);
 
-	for (int r = 0; r < rank; ++r) {
+	for (int r = 0; r < rank; ++r)
+	{
 		for (int t = 0; t < T; ++t)
 		{
 			c_WUpdate_r[r] += projectorParams.HBasis[r][t];
 		}
 	}
-
 }
 
 void OSEM_CPU::generateHUpdateSensScaling(float* c_HUpdate_r)
@@ -366,20 +383,17 @@ void OSEM_CPU::generateHUpdateSensScaling(float* c_HUpdate_r)
 		const auto* Wr = W_ptr + r * J;
 
 		util::parallelForChunked(J, numThreads, [&](size_t j, size_t tid)
-		{
-			cr_threadLocal[tid] += Wr[j] * s_ptr[j];
-		});
+		                         { cr_threadLocal[tid] += Wr[j] * s_ptr[j]; });
 
 		float cr = 0.0f;
 
-		for (int t = 0 ; t < numThreads; ++t)
+		for (int t = 0; t < numThreads; ++t)
 		{
 			cr += cr_threadLocal[t];
 		}
 
 		c_HUpdate_r[r] = cr;
 	}
-
 }
 
 void OSEM_CPU::completeMLEMIteration() {}

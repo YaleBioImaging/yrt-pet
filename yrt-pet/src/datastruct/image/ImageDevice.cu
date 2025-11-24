@@ -277,6 +277,7 @@ void ImageDevice::applyThresholdDevice(const ImageDevice* maskImg,
 		{
 			cudaStreamSynchronize(*mp_stream);
 		}
+		printf("\nDEBUG: (mp_stream!=nullptr) In applyThresholdDevice, before cudaCheckError\n");
 	}
 	else
 	{
@@ -289,8 +290,10 @@ void ImageDevice::applyThresholdDevice(const ImageDevice* maskImg,
 		{
 			cudaDeviceSynchronize();
 		}
+		printf("\nDEBUG: (mp_stream=nullptr) In applyThresholdDevice, before cudaCheckError\n");
 	}
 	cudaCheckError();
+	printf("\nDEBUG: In applyThresholdDevice, After cudaCheckError\n");
 }
 
 void ImageDevice::applyThresholdBroadcast(const ImageBase* maskImg, float threshold,
@@ -310,9 +313,11 @@ void ImageDevice::applyThreshold(const ImageBase* maskImg, float threshold,
                                  float val_le_scale, float val_le_off,
                                  float val_gt_scale, float val_gt_off)
 {
+	printf("\nDEBUG: dynamic_cast mask_img in applyThreshold...\n");
 	const auto maskImg_ImageDevice = dynamic_cast<const ImageDevice*>(maskImg);
 	ASSERT_MSG(maskImg_ImageDevice != nullptr,
 	           "Input image has the wrong type");
+	printf("\nDEBUG: dynamic_cast in applyThreshold done. Entering applyThresholdDevice\n");
 
 	applyThresholdDevice(maskImg_ImageDevice, threshold, val_le_scale,
 	                     val_le_off, val_gt_scale, val_gt_off, true);

@@ -29,6 +29,7 @@ __global__ void updateEM_kernel(const float* pd_imgIn, float* pd_imgOut,
 	}
 }
 
+// TODO: Modify to work with dynamic images (add num_frame)
 __global__ void applyThreshold_kernel(
     float* pd_imgIn, const float* pd_imgMask, const float threshold,
     const float val_le_scale, const float val_le_off, const float val_gt_scale,

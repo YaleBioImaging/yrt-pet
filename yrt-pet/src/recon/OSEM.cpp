@@ -363,6 +363,7 @@ void OSEM::generateSensitivityImageForLoadedSubset()
 	std::cout << "Applying threshold..." << std::endl;
 	getSensImageBuffer()->applyThreshold(getSensImageBuffer(), hardThreshold,
 	                                     0.0, 0.0, 1.0, 0.0);
+	printf("\nDEBUG: Threshold applied\n");
 }
 
 void OSEM::generateSensitivityImagesCore(

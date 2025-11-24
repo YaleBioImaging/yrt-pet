@@ -269,8 +269,10 @@ void OSEM_GPU::allocateForRecon()
 	// Initialize device's sensitivity image with the host's
 	if (usingListModeInput)
 	{
+		printf("\nDEBUG: Transfer sens image to Devcie Memory...\n\n");
 		mpd_sensImageBuffer->transferToDeviceMemory(getSensitivityImage(0),
 		                                            true);
+		printf("\nDEBUG: Transfer sens image done.\n\n");
 	}
 
 	// Use the already-computed BinIterators instead of recomputing them

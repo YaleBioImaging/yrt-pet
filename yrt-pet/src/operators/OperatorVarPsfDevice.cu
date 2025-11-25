@@ -284,9 +284,6 @@ void OperatorVarPsfDevice::varconvolveDevice(const ImageDevice& inputImage,
 	const float yCenter = static_cast<float>(ny) * vy / 2.0f;
 	const float zCenter = static_cast<float>(nz) * vz / 2.0f;
 
-	// number of voxels
-	const int total = nx * ny * nz;
-
 	const cudaStream_t* stream = getMainStream();
 	const GPULaunchParams3D launchParams = inputImage.getLaunchParams();
 

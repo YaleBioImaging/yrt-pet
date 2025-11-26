@@ -72,6 +72,7 @@ void py_setup_gpuutils(py::module&);
 void py_setup_imagedevice(py::module&);
 void py_setup_projectiondatadevice(py::module& m);
 void py_setup_operatorpsfdevice(py::module& m);
+void py_setup_operatorvarpsfdevice(py::module& m);
 void py_setup_operatorprojectordevice(py::module& m);
 void py_setup_operatorprojectordd_gpu(py::module& m);
 void py_setup_operatorprojectorsiddon_gpu(py::module& m);
@@ -140,6 +141,7 @@ PYBIND11_MODULE(pyyrtpet, m)
 	py_setup_imagedevice(m);
 	py_setup_projectiondatadevice(m);
 	py_setup_operatorpsfdevice(m);
+	py_setup_operatorvarpsfdevice(m);
 	py_setup_operatorprojectordevice(m);
 	py_setup_operatorprojectordd_gpu(m);
 	py_setup_operatorprojectorsiddon_gpu(m);

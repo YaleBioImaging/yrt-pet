@@ -38,13 +38,13 @@ void py_setup_operatorpsfdevice(py::module& m)
 	c.def(
 	    "applyA",
 	    [](OperatorPsfDevice& self, const Image* img_in, Image* img_out)
-	    { self.applyA(img_in, img_out); },
-	    py::arg("img_in"), py::arg("img_out"));
+	    { self.applyA(img_in, img_out); }, py::arg("img_in"),
+	    py::arg("img_out"));
 	c.def(
 	    "applyAH",
 	    [](OperatorPsfDevice& self, const Image* img_in, Image* img_out)
-	    { self.applyAH(img_in, img_out); },
-	    py::arg("img_in"), py::arg("img_out"));
+	    { self.applyAH(img_in, img_out); }, py::arg("img_in"),
+	    py::arg("img_out"));
 	c.def(
 	    "applyA",
 	    [](OperatorPsfDevice& self, const ImageDevice* img_in,

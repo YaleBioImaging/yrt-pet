@@ -248,4 +248,105 @@ template __global__ void convolve3DSeparable_kernel<2>(const float* input,
                                                        int kernelSize, int nx,
                                                        int ny, int nz);
 
+template<bool Transposed>
+__global__ void convolve3D_kernel(
+	const float* input, float* output,
+	const float* kernelsFlat, const int* kernelOffsets,
+	const int* kernelDims, const int* kernelHalf,
+	int lut_x_dim, int lut_y_dim, int lut_z_dim,
+	float xGap, float yGap, float zGap,
+	float xCenter, float yCenter, float zCenter,
+	float vx, float vy, float vz,
+	int nx, int ny, int nz)
+{
+	const int i = blockIdx.x * blockDim.x + threadIdx.x;
+    const int j = blockIdx.y * blockDim.y + threadIdx.y;
+    const int k = blockIdx.z * blockDim.z + threadIdx.z;
+
+    if (i >= nx || j >= ny || k >= nz) return;
+
+    // Compute voxel centre in mm
+    float x_mm = (i + 0.5f) * vx;
+    float y_mm = (j + 0.5f) * vy;
+    float z_mm = (k + 0.5f) * vz;
+
+	// Distance to image centre and corresponding kernel index along each axis
+    float tx = fabsf(x_mm - xCenter);
+    float ty = fabsf(y_mm - yCenter);
+    float tz = fabsf(z_mm - zCenter);
+    int ix = static_cast<int>(roundf(tx / xGap));
+    int iy = static_cast<int>(roundf(ty / yGap));
+    int iz = static_cast<int>(roundf(tz / zGap));
+    ix = min(ix, lut_x_dim - 1);
+    iy = min(iy, lut_y_dim - 1);
+    iz = min(iz, lut_z_dim - 1);
+
+    // PSF kernel index
+    int kernelIndex = ix + iy * lut_x_dim + iz * lut_x_dim * lut_y_dim;
+    int offset = kernelOffsets[kernelIndex];
+    int hx = kernelHalf[3 * kernelIndex];
+    int hy = kernelHalf[3 * kernelIndex + 1];
+    int hz = kernelHalf[3 * kernelIndex + 2];
+
+    int idx = offset;
+    if constexpr (!Transposed)
+    {
+        //Forward convolution
+        float sum = 0.0f;
+        for (int kz = -hz; kz <= hz; ++kz)
+        {
+            for (int ky = -hy; ky <= hy; ++ky)
+            {
+                for (int kx = -hx; kx <= hx; ++kx, ++idx)
+                {
+                    int r_x = circular(nx, i + kx);
+                    int r_y = circular(ny, j + ky);
+                    int r_z = circular(nz, k + kz);
+                    int inIndex = r_x + r_y * nx + r_z * nx * ny;
+                    sum += kernelsFlat[idx] * input[inIndex];
+                }
+            }
+        }
+        output[idx3(i, j, k, nx, ny)] = sum;
+    }
+    else
+    {
+        //Transposed convolution
+        float temp1 = input[idx3(i, j, k, nx, ny)];
+
+        for (int kz = -hz; kz <= hz; ++kz)
+        {
+            for (int ky = -hy; ky <= hy; ++ky)
+            {
+                for (int kx = -hx; kx <= hx; ++kx, ++idx)
+                {
+                    int r_x = circular(nx, i + kx);
+                    int r_y = circular(ny, j + ky);
+                    int r_z = circular(nz, k + kz);
+                    int outIndex = idx3(r_x, r_y, r_z, nx, ny);
+
+                    atomicAdd(&output[outIndex],
+                              temp1 * kernelsFlat[idx]);
+                }
+            }
+        }
+    }
+}
+
+template __global__ void convolve3D_kernel<false>(
+	const float*, float*, const float*, const int*, const int*, const int*,
+	int, int, int,
+	float, float, float,
+	float, float, float,
+	float, float, float,
+	int, int, int);
+
+template __global__ void convolve3D_kernel<true>(
+	const float*, float*, const float*, const int*, const int*, const int*,
+	int, int, int,
+	float, float, float,
+	float, float, float,
+	float, float, float,
+	int, int, int);
+
 }  // namespace yrt

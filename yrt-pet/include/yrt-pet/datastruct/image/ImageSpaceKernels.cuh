@@ -38,4 +38,15 @@ template <int Axis>
 __global__ void convolve3DSeparable_kernel(const float* input, float* output,
                                            const float* kernel, int kernelSize,
                                            int nx, int ny, int nz);
+
+template<bool Transposed>
+__global__ void convolve3D_kernel(const float* input, float* output,
+								  const float* kernelsFlat, const int* kernelOffsets,
+								  const int* kernelDims, const int* kernelHalf,
+								  int lut_x_dim, int lut_y_dim, int lut_z_dim,
+								  float xGap, float yGap, float zGap,
+								  float xCenter, float yCenter, float zCenter,
+								  float vx, float vy, float vz,
+								  int nx, int ny, int nz);
+
 }  // namespace yrt

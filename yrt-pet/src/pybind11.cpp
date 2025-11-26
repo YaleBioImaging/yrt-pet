@@ -41,7 +41,6 @@ void py_setup_projectionlist(py::module& m);
 void py_setup_detectormask(py::module& m);
 void py_setup_detectorsetup(py::module& m);
 void py_setup_osem(py::module& m);
-void py_setup_osem_updater(py::module& m);
 void py_setup_reconstructionutils(py::module& m);
 void py_setup_scanner(py::module& m);
 void py_setup_detcoord(py::module& m);
@@ -131,7 +130,6 @@ PYBIND11_MODULE(pyyrtpet, m)
 	py_setup_operatorprojectorsiddon(m);
 	py_setup_operatorprojectordd(m);
 	py_setup_osem(m);
-	py_setup_osem_updater(m);
 	py_setup_reconstructionutils(m);
 
 	py_setup_globals(m);

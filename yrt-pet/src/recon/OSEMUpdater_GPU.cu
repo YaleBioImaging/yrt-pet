@@ -11,25 +11,10 @@
 namespace yrt
 {
 
-void OSEMUpdater_GPU::computeSensitivityImage(ImageBase& destImageBase) const
-{
-	auto& destImage = dynamic_cast<ImageDevice&>(destImageBase);
-	computeSensitivityImage(destImage);
-}
-
 OSEMUpdater_GPU::OSEMUpdater_GPU(OSEM_GPU* pp_osem) : mp_osem(pp_osem)
 {
 	ASSERT(mp_osem != nullptr);
 }
-
-void OSEMUpdater_GPU::computeEMUpdateImage(const ImageBase& inputImageBase,
-                                           ImageBase& destImageBase) const
-{
-	auto& inputImage = dynamic_cast<const ImageDevice&>(inputImageBase);
-	auto& destImage = dynamic_cast<ImageDevice&>(destImageBase);
-	computeEMUpdateImage(inputImage, destImage);
-}
-
 
 void OSEMUpdater_GPU::computeSensitivityImage(ImageDevice& destImage) const
 {
@@ -117,7 +102,11 @@ void OSEMUpdater_GPU::computeSensitivityImage(ImageDevice& destImage) const
 		          << numBatchesInCurrentSubset << "..." << std::endl;
 
 		// Backproject values
+		printf("\nDEBUG: In computeSensitivityImage, cudaCheckError before applyAH.\n");
+		cudaCheckError();
 		projector->applyAH(sensDataBuffer, &destImage, false);
+		printf("\nDEBUG: In computeSensitivityImage, cudaCheckError after applyAH.\n");
+		cudaCheckError();
 	}
 
 	if (mainStream != nullptr)

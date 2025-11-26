@@ -69,7 +69,7 @@ public:
 	void setNumRays(int n);
 
 	std::set<ProjectionPropertyType>
-	    getProjectionPropertyTypes() const override;
+	    getProjectionPropertyTypesInternal() const override;
 
 private:
 	int m_numRays;

@@ -26,12 +26,6 @@ OSEMUpdater_CPU::OSEMUpdater_CPU(OSEM_CPU* pp_osem) : mp_osem(pp_osem)
 	ASSERT(mp_osem != nullptr);
 }
 
-void OSEMUpdater_CPU::computeSensitivityImage(ImageBase& destImageBase) const
-{
-	auto& destImage = dynamic_cast<Image&>(destImageBase);
-	computeSensitivityImage(destImage);
-}
-
 void OSEMUpdater_CPU::computeSensitivityImage(Image& destImage) const
 {
 	const OperatorProjector* projector = mp_osem->getProjector();
@@ -80,14 +74,6 @@ void OSEMUpdater_CPU::computeSensitivityImage(Image& destImage) const
 			                              projValue, tid);
 		    }
 	    });
-}
-
-void OSEMUpdater_CPU::computeEMUpdateImage(const ImageBase& inputImageBase,
-                                           ImageBase& destImageBase) const
-{
-	auto& inputImage = dynamic_cast<const Image&>(inputImageBase);
-	auto& destImage = dynamic_cast<Image&>(destImageBase);
-	computeEMUpdateImage(inputImage, destImage);
 }
 
 void OSEMUpdater_CPU::computeEMUpdateImage(const Image& inputImage,

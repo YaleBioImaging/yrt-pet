@@ -47,7 +47,7 @@ OperatorProjectorSiddon_GPU::OperatorProjectorSiddon_GPU(
 }
 
 std::set<ProjectionPropertyType>
-    OperatorProjectorSiddon_GPU::getProjectionPropertyTypes() const
+    OperatorProjectorSiddon_GPU::getProjectionPropertyTypesInternal() const
 {
 	std::set<ProjectionPropertyType> props{ProjectionPropertyType::LOR};
 	if (m_numRays > 1)
@@ -92,11 +92,27 @@ void OperatorProjectorSiddon_GPU::applyOnLoadedBatch(ProjectionDataDevice& dat,
 	const TimeOfFlightHelper* tofHelperDevicePointer =
 	    getTOFHelperDevicePointer();
 
+	auto pd_updater = getUpdaterDevicePointer();
+// 	printf("\n\npd_updater ptr = %p \n", pd_updater);
+// 	cudaPointerAttributes attr{};
+// 	cudaError_t err = cudaPointerGetAttributes(&attr, pd_updater);
+// 	if (err != cudaSuccess) {
+// 		std::cerr << "cudaPointerGetAttributes failed for pd_updater: "
+// 				  << cudaGetErrorString(err) << std::endl;
+// 	} else {
+// #if CUDART_VERSION >= 10000
+// 		std::cerr << "pd_updater memory type: " << attr.type << std::endl;
+// #else
+// 		std::cerr << "dev_updater memory type (legacy): " << attr.memoryType << std::endl;
+// #endif
+// 	}
+
+	// printf("debug_id = %d\n", pd_updater->debug_id);
 	// We assume there is no Projection-space PSF to do
 	if (tofHelperDevicePointer == nullptr)
 	{
 		OperatorProjectorSiddon_GPU::launchKernel<IsForward, false>(
-		    dat.getProjValuesDevicePointer(), img.getDevicePointer(), getUpdaterDevicePointer(),
+		    dat.getProjValuesDevicePointer(), img.getDevicePointer(), pd_updater,
 		    dat.getProjectionPropertiesDevicePointer(), projPropManager,
 		    nullptr /*No TOF*/, cuScannerParams, cuImageParams, getBatchSize(),
 		    getGridSize(), getBlockSize(), getMainStream(), synchronize);
@@ -104,7 +120,7 @@ void OperatorProjectorSiddon_GPU::applyOnLoadedBatch(ProjectionDataDevice& dat,
 	else
 	{
 		OperatorProjectorSiddon_GPU::launchKernel<IsForward, true>(
-		    dat.getProjValuesDevicePointer(), img.getDevicePointer(), getUpdaterDevicePointer(),
+		    dat.getProjValuesDevicePointer(), img.getDevicePointer(), pd_updater,
 		    dat.getProjectionPropertiesDevicePointer(), projPropManager,
 		    tofHelperDevicePointer, cuScannerParams, cuImageParams,
 		    getBatchSize(), getGridSize(), getBlockSize(), getMainStream(),

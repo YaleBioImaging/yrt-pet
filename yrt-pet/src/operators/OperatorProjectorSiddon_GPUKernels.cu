@@ -283,7 +283,7 @@ __global__ void OperatorProjectorSiddonCU_kernel(
 			// Prepare data pointer (this assumes that the data is stored as a
 			// contiguous array)
 			float* raw_img_ptr = pd_image;
-			size_t offset_img_ptr = 0;
+			size_t offset_img = 0;
 
 			float ax_next_prev = ax_next;
 			float ay_next_prev = ay_next;
@@ -350,7 +350,7 @@ __global__ void OperatorProjectorSiddonCU_kernel(
 					vz =
 					    (int)((p1.z + a_mid * (p2.z - p1.z) + imgLength_z / 2) *
 					          inv_dz);
-					offset_img_ptr = vz * num_xy + vy * nx;
+					offset_img = vz * num_xy + vy * nx;
 					flag_first = false;
 					if (vx < 0 || vx >= nx || vy < 0 || vy >= ny || vz < 0 ||
 					    vz >= nz)
@@ -377,7 +377,7 @@ __global__ void OperatorProjectorSiddonCU_kernel(
 						}
 						else
 						{
-							offset_img_ptr += dir_y * nx;
+							offset_img += dir_y * nx;
 						}
 					}
 					if (dir_prev & SIDDON_DIR::DIR_Z)
@@ -389,7 +389,7 @@ __global__ void OperatorProjectorSiddonCU_kernel(
 						}
 						else
 						{
-							offset_img_ptr += dir_z * num_xy;
+							offset_img += dir_z * num_xy;
 						}
 					}
 				}
@@ -400,19 +400,25 @@ __global__ void OperatorProjectorSiddonCU_kernel(
 				dir_prev = dir_next;
 				float weight = (a_next - a_cur) * d_norm;
 				const size_t numVoxelsPerFrame = nx * ny * nz;
-				const size_t totalOffset = vx + offset_img_ptr;
+				const size_t totalOffset = vx + offset_img;
 				if constexpr (HasTOF)
 				{
 					weight *= tof_weight;
 				}
 				if constexpr (IsForward)
 				{
+					// value += weight * raw_img_ptr[totalOffset];
+					// value += pd_updater->debug_float();
 					value += pd_updater->forwardUpdate(
 					    weight, raw_img_ptr, totalOffset, dynamicFrame,
 					    numVoxelsPerFrame);
 				}
 				else
 				{
+					// float output = value * weight;
+					// float* ptr = &raw_img_ptr[totalOffset];
+					// atomicAdd(ptr, output);
+					// pd_updater->debug_void(raw_img_ptr);
 					pd_updater->backUpdate(value, weight, raw_img_ptr,
 					                       totalOffset, dynamicFrame,
 					                       numVoxelsPerFrame);

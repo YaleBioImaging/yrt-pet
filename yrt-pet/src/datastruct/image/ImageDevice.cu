@@ -265,7 +265,12 @@ void ImageDevice::applyThresholdDevice(const ImageDevice* maskImg,
                                        const float val_gt_off, bool synchronize)
 {
 	ASSERT_MSG(getDevicePointer() != nullptr, "Device Image not allocated yet");
-
+	auto maskParams = maskImg->getParams();
+	printf("\nDEBUG: Image ptr: %p, mask ptr: %p, size=%zu, mask_size=%zu\n",
+		   getDevicePointer(), maskImg->getDevicePointer(), getImageSize(), maskImg->getImageSize());
+	printf("\nDEBUG: Image dims: %d %d %d %d | Mask dims: %d %d %d %d\n",
+		   getParams().nx, getParams().ny, getParams().nz, getParams().num_frames,
+		  maskParams.nx, maskParams.ny, maskParams.nz, maskParams.num_frames);
 	if (mp_stream != nullptr)
 	{
 		applyThreshold_kernel<<<m_launchParams.gridSize,

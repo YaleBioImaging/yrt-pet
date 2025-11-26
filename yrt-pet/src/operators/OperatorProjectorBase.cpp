@@ -42,8 +42,9 @@ void py_setup_operatorprojectorparams(py::module& m)
 	    // setter: accept any 2D array base and bind alias to it
 	    [](OperatorProjectorParams& p, Array2DBase<float>& src)
 	    {
-	    	auto dims = src.getDims();
-		    p.bindHBasis(src.getRawPointer(), dims[0], dims[1]);  // NO allocation, just alias the source
+		    auto dims = src.getDims();
+		    p.bindHBasis(src.getRawPointer(), dims[0],
+		                 dims[1]);  // NO allocation, just alias the source
 	    },
 	    py::return_value_policy::reference_internal);
 
@@ -69,7 +70,8 @@ void py_setup_operatorprojectorparams(py::module& m)
 	    py::keep_alive<1, 2>()  // keep the buffer owner alive
 	);
 
-	c.def_readwrite("projectorUpdaterType", &OperatorProjectorParams::projectorUpdaterType);
+	c.def_readwrite("projectorUpdaterType",
+	                &OperatorProjectorParams::projectorUpdaterType);
 	c.def_readwrite("updateH", &OperatorProjectorParams::updateH);
 	c.def_readwrite("binIter", &OperatorProjectorParams::binIter);
 	c.def("addTOF", &OperatorProjectorParams::addTOF, "tofWidth_ps"_a,
@@ -169,6 +171,7 @@ OperatorProjectorBase::OperatorProjectorBase(
     const std::vector<Constraint*>& pr_constraints)
     : scanner(pr_projParams.scanner),
       binIter{pr_projParams.binIter},
+      m_projectorUpdaterType(pr_projParams.projectorUpdaterType),
       m_constraints(pr_constraints)
 {
 }
@@ -183,6 +186,20 @@ void OperatorProjectorBase::initBinFilter(
 
 std::set<ProjectionPropertyType>
     OperatorProjectorBase::getProjectionPropertyTypes() const
+{
+	std::set<ProjectionPropertyType> projPropTypes;
+	if (m_projectorUpdaterType == OperatorProjectorParams::DEFAULT4D ||
+	    m_projectorUpdaterType == OperatorProjectorParams::LR ||
+	    m_projectorUpdaterType == OperatorProjectorParams::LRDUALUPDATE)
+	{
+		projPropTypes.insert(ProjectionPropertyType::DYNAMIC_FRAME);
+	}
+	projPropTypes.merge(getProjectionPropertyTypesInternal());
+	return projPropTypes;
+}
+
+std::set<ProjectionPropertyType>
+    OperatorProjectorBase::getProjectionPropertyTypesInternal() const
 {
 	return {};
 }

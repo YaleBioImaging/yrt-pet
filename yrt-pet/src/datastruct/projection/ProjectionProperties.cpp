@@ -59,9 +59,9 @@ std::map<ProjectionPropertyType, std::pair<std::string, int>>
 	    {ProjectionPropertyType::DET_ID, {"DET_ID", sizeof(det_pair_t)}},
 	    {ProjectionPropertyType::TIMESTAMP, {"TIMESTAMP", sizeof(timestamp_t)}},
 	    {ProjectionPropertyType::LOR, {"LOR", sizeof(Line3D)}},
-	    {ProjectionPropertyType::DET_ORIENT, {"ORIENT", sizeof(det_orient_t)}},
+	    {ProjectionPropertyType::DET_ORIENT, {"DET_ORIENT", sizeof(det_orient_t)}},
 	    {ProjectionPropertyType::TOF, {"TOF", sizeof(float)}},
-	    {ProjectionPropertyType::DYNAMIC_FRAME, {"FRAME", sizeof(frame_t)}},
+	    {ProjectionPropertyType::DYNAMIC_FRAME, {"DYNAMIC_FRAME", sizeof(frame_t)}},
 	    {ProjectionPropertyType::RANDOMS_ESTIMATE,
 	     {"RANDOMS_ESTIMATE", sizeof(float)}}};
 }
@@ -73,11 +73,11 @@ std::map<ConstraintVariable, std::pair<std::string, int>>
 	    {ConstraintVariable::DET1, {"DET1", sizeof(det_id_t)}},
 	    {ConstraintVariable::DET2, {"DET2", sizeof(det_id_t)}},
 	    {ConstraintVariable::ABS_DELTA_ANGLE_DEG,
-	     {"ABSDELTAANGLEDEG", sizeof(float)}},
+	     {"ABS_DELTA_ANGLE_DEG", sizeof(float)}},
 	    {ConstraintVariable::ABS_DELTA_ANGLE_IDX,
-	     {"ABSDELTAANGLEIDX", sizeof(int)}},
+	     {"ABS_DELTA_ANGLE_IDX", sizeof(int)}},
 	    {ConstraintVariable::ABS_DELTA_BLOCK_IDX,
-	     {"ABSDELTABLOCKIDX", sizeof(int)}}};
+	     {"ABS_DELTA_BLOCK_IDX", sizeof(int)}}};
 }
 
 template <typename Enum>

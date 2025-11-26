@@ -147,7 +147,7 @@ void OperatorProjectorSiddon::setNumRays(int n)
 }
 
 std::set<ProjectionPropertyType>
-    OperatorProjectorSiddon::getProjectionPropertyTypes() const
+    OperatorProjectorSiddon::getProjectionPropertyTypesInternal() const
 {
 	std::set<ProjectionPropertyType> projProperties;
 	projProperties.insert(ProjectionPropertyType::LOR);
@@ -155,8 +155,6 @@ std::set<ProjectionPropertyType>
 	{
 		projProperties.insert(ProjectionPropertyType::DET_ORIENT);
 	}
-	// TODO NOW: Make sure this is not done unnecessarily
-	projProperties.insert(ProjectionPropertyType::DYNAMIC_FRAME);
 	return projProperties;
 }
 

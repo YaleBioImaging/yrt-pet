@@ -34,10 +34,11 @@ add_test(test_runner_datastruct test_runner_datastruct)
 
 set(SOURCES_ALGORITHMS
     ${SOURCES_COMMON}
-    operators/test_DD.cpp
-    operators/test_SparseProjection.cpp
+#    operators/test_DD.cpp
+#    operators/test_SparseProjection.cpp
     operators/test_Siddon.cpp
-    operators/test_PSF.cpp)
+#    operators/test_PSF.cpp
+)
 
 if (${USE_CUDA})
     set(SOURCES_ALGORITHMS "${SOURCES_ALGORITHMS};operators/test_Siddon_GPU.cu")

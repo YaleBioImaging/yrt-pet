@@ -23,7 +23,7 @@ public:
 	    const cudaStream_t* auxStream = nullptr);
 
 	std::set<ProjectionPropertyType>
-	    getProjectionPropertyTypes() const override;
+	    getProjectionPropertyTypesInternal() const override;
 
 	int getNumRays() const;
 	void setNumRays(int n);

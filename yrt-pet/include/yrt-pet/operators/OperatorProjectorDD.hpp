@@ -54,7 +54,7 @@ public:
 	                         const float* psfKernel = nullptr);
 
 	std::set<ProjectionPropertyType>
-	    getProjectionPropertyTypes() const override;
+	    getProjectionPropertyTypesInternal() const override;
 
 private:
 	template <bool IS_FWD, bool FLAG_TOF>

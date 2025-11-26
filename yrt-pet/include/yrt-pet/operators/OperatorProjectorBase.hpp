@@ -98,7 +98,8 @@ public:
 
 	void setBinIter(const BinIterator* p_binIter);
 
-	virtual std::set<ProjectionPropertyType> getProjectionPropertyTypes() const;
+	virtual std::set<ProjectionPropertyType> getProjectionPropertyTypesInternal() const;
+	std::set<ProjectionPropertyType> getProjectionPropertyTypes() const;
 
 	virtual void initBinFilter(
 	    const std::set<ProjectionPropertyType>& projPropertyTypesExtra,
@@ -116,6 +117,8 @@ protected:
 	// Bin iterator (note: bin iterators may move from the projector object in
 	// the future)
 	const BinIterator* binIter;
+
+	OperatorProjectorParams::ProjectorUpdaterType m_projectorUpdaterType;
 
 	// Constraints for bin iterator
 	std::vector<Constraint*> m_constraints;

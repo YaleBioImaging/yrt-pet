@@ -78,7 +78,7 @@ OperatorProjectorDD::OperatorProjectorDD(
 }
 
 std::set<ProjectionPropertyType>
-    OperatorProjectorDD::getProjectionPropertyTypes() const
+    OperatorProjectorDD::getProjectionPropertyTypesInternal() const
 {
 	return {ProjectionPropertyType::LOR, ProjectionPropertyType::DET_ORIENT};
 }

@@ -351,6 +351,7 @@ void OSEM::generateSensitivityImageForLoadedSubset()
 	getSensImageBuffer()->setValue(0.0);
 
 	computeSensitivityImage(*getSensImageBuffer());
+	// cudaCheckError();
 
 	if (flagImagePSF)
 	{

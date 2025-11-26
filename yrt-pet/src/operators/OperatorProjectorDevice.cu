@@ -80,7 +80,10 @@ OperatorProjectorDevice::OperatorProjectorDevice(
                   static_cast<float>(globals::getDeviceInfo(false)) *
                   DefaultMemoryShare) :
               p_memAvailBytes),
-      m_batchSize(0ull)
+      m_batchSize(0ull),
+      m_updater(
+          makeDeviceObjectDerived<OperatorProjectorUpdaterDevice,
+                                  OperatorProjectorUpdaterDeviceDefault3D>())
 {
 	if (pr_projParams.hasTOF())
 	{
@@ -91,6 +94,7 @@ OperatorProjectorDevice::OperatorProjectorDevice(
 	{
 		setupProjPsfManager(pr_projParams.projPsf_fname);
 	}
+	// m_updater = makeDeviceObject<OperatorProjectorUpdaterDeviceDefault3D>();
 }
 
 void OperatorProjectorDevice::initBinFilter(
@@ -219,6 +223,10 @@ void OperatorProjectorDevice::applyAH(const Variable* in, Variable* out,
 	auto* img_out = dynamic_cast<ImageDevice*>(out);
 
 	bool isImageDeviceOwned = false;
+	const cudaStream_t* mainStream = getMainStream();
+	printf("\n(1)\n");
+	cudaStreamSynchronize(*mainStream);
+	cudaCheckError();
 
 	// In case the user provided a host-side image
 	std::unique_ptr<ImageDeviceOwned> deviceImg_out = nullptr;
@@ -230,10 +238,19 @@ void OperatorProjectorDevice::applyAH(const Variable* in, Variable* out,
 		    hostImg_out != nullptr,
 		    "The image provided is not a ImageDevice nor a Image (host)");
 
+		printf("\n(2)\n");
+		cudaStreamSynchronize(*mainStream);
+		cudaCheckError();
 		deviceImg_out = std::make_unique<ImageDeviceOwned>(
 		    hostImg_out->getParams(), getAuxStream());
 		deviceImg_out->allocate(false, false);
+		printf("\n(3)\n");
+		cudaStreamSynchronize(*mainStream);
+		cudaCheckError();
 		deviceImg_out->transferToDeviceMemory(hostImg_out, true);
+		printf("\n(4)\n");
+		cudaStreamSynchronize(*mainStream);
+		cudaCheckError();
 
 		// Use owned ImageDevice
 		img_out = deviceImg_out.get();
@@ -260,6 +277,10 @@ void OperatorProjectorDevice::applyAH(const Variable* in, Variable* out,
 		    mp_binFilter->getPropertyManager().getElementSize(),
 		    m_memAvailBytes);
 
+		printf("\n(5)\n");
+		cudaStreamSynchronize(*mainStream);
+		cudaCheckError();
+
 		// Use owned ProjectionDataDevice
 		dat_in = deviceDat_in.get();
 		isProjDataDeviceOwned = true;
@@ -273,22 +294,42 @@ void OperatorProjectorDevice::applyAH(const Variable* in, Variable* out,
 
 	if (!isProjDataDeviceOwned)
 	{
+		printf("\n(6)\n");
+		cudaStreamSynchronize(*mainStream);
+		cudaCheckError();
 		applyAHOnLoadedBatch(*dat_in, *img_out, synchronize);
+		printf("\n(7)\n");
+		cudaStreamSynchronize(*mainStream);
+		cudaCheckError();
 	}
 	else
 	{
 		// Iterate over all the batches of the current subset
 		const size_t numBatches = dat_in->getBatchSetup(0).getNumBatches();
 		const cudaStream_t* mainStream = getMainStream();
-
+		printf("\n(8)\n");
+		cudaStreamSynchronize(*mainStream);
+		cudaCheckError();
 		std::cout << "Loading batch 1/" << numBatches << "..." << std::endl;
 		dat_in->precomputeBatchLORs(0, 0, *mp_binFilter.get());
+		printf("\n(9)\n");
+		cudaStreamSynchronize(*mainStream);
+		cudaCheckError();
 		deviceDat_in->allocateForProjValues({mainStream, false});
+		printf("\n(10)\n");
+		cudaStreamSynchronize(*mainStream);
+		cudaCheckError();
 
 		for (size_t batchId = 0; batchId < numBatches; batchId++)
 		{
 			deviceDat_in->loadPrecomputedLORsToDevice({mainStream, false});
+			printf("\n(11)\n");
+			cudaStreamSynchronize(*mainStream);
+			cudaCheckError();
 			deviceDat_in->loadProjValuesFromReference({mainStream, false});
+			printf("\n(12)\n");
+			cudaStreamSynchronize(*mainStream);
+			cudaCheckError();
 			std::cout << "Backprojecting batch " << batchId + 1 << "/"
 			          << numBatches << "..." << std::endl;
 
@@ -301,8 +342,14 @@ void OperatorProjectorDevice::applyAH(const Variable* in, Variable* out,
 			{
 				cudaDeviceSynchronize();
 			}
+			printf("\n(13)\n");
+			cudaStreamSynchronize(*mainStream);
+			cudaCheckError();
 
 			applyAHOnLoadedBatch(*dat_in, *img_out, false);
+			printf("\n(14)\n");
+			cudaStreamSynchronize(*mainStream);
+			cudaCheckError();
 
 			if (batchId < numBatches - 1)
 			{
@@ -311,6 +358,9 @@ void OperatorProjectorDevice::applyAH(const Variable* in, Variable* out,
 				dat_in->precomputeBatchLORs(0, batchId + 1,
 				                            *mp_binFilter.get());
 			}
+			printf("\n(15)\n");
+			cudaStreamSynchronize(*mainStream);
+			cudaCheckError();
 		}
 
 		// Synchronize before getting returning
@@ -323,12 +373,18 @@ void OperatorProjectorDevice::applyAH(const Variable* in, Variable* out,
 			cudaDeviceSynchronize();
 		}
 	}
+	printf("\n(16)\n");
+	cudaStreamSynchronize(*mainStream);
+	cudaCheckError();
 
 	if (isImageDeviceOwned)
 	{
 		// Need to transfer the generated image back to the host
 		deviceImg_out->transferToHostMemory(hostImg_out, true);
 	}
+	printf("\n(17)\n");
+	cudaStreamSynchronize(*mainStream);
+	cudaCheckError();
 }
 
 unsigned int OperatorProjectorDevice::getGridSize() const
@@ -401,65 +457,75 @@ const float*
 	return nullptr;
 }
 
-void OperatorProjectorDevice::setUpdater(
-	DeviceObject<OperatorProjectorUpdaterDevice>&& pp_updater)
-{
-	m_updater = std::move(pp_updater);
-}
+// void OperatorProjectorDevice::setUpdater(
+// 	DeviceObject<OperatorProjectorUpdaterDevice>&& pp_updater)
+// {
+// 	m_updater = std::move(pp_updater);
+// }
 
-OperatorProjectorUpdaterDevice* OperatorProjectorDevice::getUpdaterDevicePointer()
+OperatorProjectorUpdaterDevice*
+    OperatorProjectorDevice::getUpdaterDevicePointer()
 {
 	return m_updater.getDevicePointer();
 }
 
 void OperatorProjectorDevice::setupUpdater(
-	const OperatorProjectorParams& p_projParams)
+    const OperatorProjectorParams& p_projParams)
 {
 	if (p_projParams.projectorUpdaterType == OperatorProjectorParams::DEFAULT3D)
 	{
-		setUpdater(DeviceObject<OperatorProjectorUpdaterDeviceDefault3D>());
+		printf("\n\nBefore setUpdater\n\n");
+		m_updater =
+		    makeDeviceObjectDerived<OperatorProjectorUpdaterDevice,
+		                            OperatorProjectorUpdaterDeviceDefault3D>();
+		printf("\n\nBefore setUpdater\n\n");
 	}
 	else if (p_projParams.projectorUpdaterType ==
-			 OperatorProjectorParams::DEFAULT4D)
+	         OperatorProjectorParams::DEFAULT4D)
 	{
-		setUpdater(DeviceObject<OperatorProjectorUpdaterDeviceDefault4D>());
+		m_updater =
+		    makeDeviceObjectDerived<OperatorProjectorUpdaterDevice,
+		                            OperatorProjectorUpdaterDeviceDefault4D>();
 	}
 	else if (p_projParams.projectorUpdaterType == OperatorProjectorParams::LR)
 	{
 		if (p_projParams.HBasis.getSizeTotal() == 0)
 		{
 			throw std::invalid_argument(
-				"LR updater was requested but HBasis is empty");
+			    "LR updater was requested but HBasis is empty");
 		}
 		// setUpdater(
 		// 	std::make_unique<OperatorProjectorUpdaterDeviceLR>(p_projParams.HBasis));
-		// if (auto* updaterLR = dynamic_cast<OperatorProjectorUpdaterDeviceLR*>(mp_updater.get()))
+		// if (auto* updaterLR =
+		// dynamic_cast<OperatorProjectorUpdaterDeviceLR*>(mp_updater.get()))
 		// {
 		// 	updaterLR->setUpdateH(p_projParams.updateH);
 		// }
 		// else
 		// {
-		// 	throw std::runtime_error("OperatorProjectorUpdater type needs to be "
-		// 					"OperatorProjectorUpdaterLR to get/set updateH");
+		// 	throw std::runtime_error("OperatorProjectorUpdater type needs to be
+		// " 					"OperatorProjectorUpdaterLR to get/set updateH");
 		// }
 	}
-	else if (p_projParams.projectorUpdaterType == OperatorProjectorParams::LRDUALUPDATE)
+	else if (p_projParams.projectorUpdaterType ==
+	         OperatorProjectorParams::LRDUALUPDATE)
 	{
 		if (p_projParams.HBasis.getSizeTotal() == 0)
 		{
 			throw std::invalid_argument(
-				"LRDUALUPDATE updater was requested but HBasis is empty");
+			    "LRDUALUPDATE updater was requested but HBasis is empty");
 		}
 		// setUpdater(
 		// 	std::make_unique<OperatorProjectorUpdaterDeviceLRDualUpdate>(p_projParams.HBasis));
-		// if (auto* updaterLR = dynamic_cast<OperatorProjectorUpdaterDeviceLRDualUpdate*>(mp_updater.get()))
+		// if (auto* updaterLR =
+		// dynamic_cast<OperatorProjectorUpdaterDeviceLRDualUpdate*>(mp_updater.get()))
 		// {
 		// 	updaterLR->setUpdateH(p_projParams.updateH);
 		// }
 		// else
 		// {
-		// 	throw std::runtime_error("OperatorProjectorUpdater type needs to be "
-		// 					"OperatorProjectorUpdaterLRDualUpdate to get/set updateH");
+		// 	throw std::runtime_error("OperatorProjectorUpdater type needs to be
+		// " 					"OperatorProjectorUpdaterLRDualUpdate to get/set updateH");
 		// }
 	}
 	else

@@ -9,7 +9,6 @@
 #include "yrt-pet/recon/Corrector_CPU.hpp"
 #include "yrt-pet/utils/ProgressDisplayMultiThread.hpp"
 #include "yrt-pet/datastruct/projection/BinFilter.hpp"
-#include "yrt-pet/recon/OSEMUpdater.hpp"
 
 namespace yrt
 {
@@ -17,11 +16,10 @@ namespace yrt
 class ProjectionData;
 class OSEM_CPU;
 //TODO NOW (ALMOST): remove dependcy OSEMUpdater and useless overload
-class OSEMUpdater_CPU : public OSEMUpdater
+class OSEMUpdater_CPU
 {
 public:
 	explicit OSEMUpdater_CPU(OSEM_CPU* pp_osem);
-	~OSEMUpdater_CPU() override = default;
 
 	/*
 	 * This function computes the sensitivity image to use as denominator for
@@ -31,7 +29,6 @@ public:
 	 * sensitivity image) in Histogram mode or only once in ListMode. (The
 	 * sensitivity image generated will not have the PSF applied to it)
 	 */
-	void computeSensitivityImage(ImageBase& destImageBase) const override;
 	void computeSensitivityImage(Image& destImage) const;
 
 	/*
@@ -39,8 +36,6 @@ public:
 	 * (after the PSF forward has been applied and before the PSF backwards is
 	 * to be applied)
 	 */
-	void computeEMUpdateImage(const ImageBase& inputImage,
-	                          ImageBase& destImage) const override;
 	void computeEMUpdateImage(const Image& inputImage, Image& destImage) const;
 
 private:

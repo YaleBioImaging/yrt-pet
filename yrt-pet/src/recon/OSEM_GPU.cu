@@ -114,23 +114,24 @@ void OSEM_GPU::allocateForSensImgGen()
 
 	if (flagImagePSF)
 	{
-		if (m_imagePSFMode == UNIFORM)
+		if (m_imagePSFMode == ImagePSFMode::UNIFORM)
 		{
 			const auto imagePsfDevice =
-				dynamic_cast<OperatorPsfDevice*>(imagePsf.get());
+			    dynamic_cast<OperatorPsfDevice*>(imagePsf.get());
 			ASSERT(imagePsfDevice != nullptr);
 			// This is done in order to more accurately compute the available
 			//  device memory for the projection-space buffers below
 			imagePsfDevice->allocateTemporaryDeviceImageIfNeeded(
-				getImageParams(), {getMainStream(), true});
+			    getImageParams(), {getMainStream(), true});
 		}
 		else
 		{
-			const auto imagePsfDevice = dynamic_cast<OperatorVarPsfDevice*>(imagePsf.get());
+			const auto imagePsfDevice =
+			    dynamic_cast<OperatorVarPsfDevice*>(imagePsf.get());
 			ASSERT(imagePsfDevice != nullptr);
 		}
 		mpd_imageTmpPsf = std::make_unique<ImageDeviceOwned>(getImageParams(),
-															 getMainStream());
+		                                                     getMainStream());
 		mpd_imageTmpPsf->allocate(false);
 	}
 
@@ -434,7 +435,7 @@ void OSEM_GPU::addImagePSF(const std::string& p_imagePsf_fname,
                            ImagePSFMode p_imagePSFMode)
 {
 	ASSERT_MSG(!p_imagePsf_fname.empty(), "Empty filename for Image-space PSF");
-	if (p_imagePSFMode == UNIFORM)
+	if (p_imagePSFMode == ImagePSFMode::UNIFORM)
 	{
 		imagePsf = std::make_unique<OperatorPsfDevice>(p_imagePsf_fname,
 		                                               getMainStream());
@@ -442,9 +443,10 @@ void OSEM_GPU::addImagePSF(const std::string& p_imagePsf_fname,
 	else
 	{
 		ASSERT_MSG(imageParams.isValid(),
-				   "For spatially variant PSF, image parameters have to be set "
-				   "before calling addImagePSF");
-		imagePsf = std::make_unique<OperatorVarPsfDevice>(p_imagePsf_fname, imageParams, getMainStream());
+		           "For spatially variant PSF, image parameters have to be set "
+		           "before calling addImagePSF");
+		imagePsf = std::make_unique<OperatorVarPsfDevice>(
+		    p_imagePsf_fname, imageParams, getMainStream());
 	}
 
 	flagImagePSF = true;

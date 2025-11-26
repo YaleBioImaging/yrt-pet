@@ -102,7 +102,7 @@ public:
 	const Scanner& scanner;
 	const Image* maskImage;
 	const Image* initialEstimate;
-	ImagePSFMode m_imagePSFMode{UNIFORM};
+	ImagePSFMode m_imagePSFMode{ImagePSFMode::UNIFORM};
 
 protected:
 	enum class TemporaryImageSpaceBufferType

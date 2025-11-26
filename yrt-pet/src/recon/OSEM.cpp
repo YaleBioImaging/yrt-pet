@@ -467,7 +467,7 @@ void OSEM::addImagePSF(const std::string& p_imagePsf_fname,
                        ImagePSFMode p_imagePSFMode)
 {
 	ASSERT_MSG(!p_imagePsf_fname.empty(), "Empty filename for Image-space PSF");
-	if (p_imagePSFMode == UNIFORM)
+	if (p_imagePSFMode == ImagePSFMode::UNIFORM)
 	{
 		imagePsf = std::make_unique<OperatorPsf>(p_imagePsf_fname);
 	}

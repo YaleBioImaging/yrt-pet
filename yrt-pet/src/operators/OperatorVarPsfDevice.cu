@@ -29,14 +29,14 @@ void py_setup_operatorvarpsfdevice(py::module& m)
 	c.def(
 	    "applyA",
 	    [](OperatorVarPsfDevice& self, const Image* img_in, Image* img_out)
-	    { self.applyA(img_in, img_out); },
-	    py::arg("img_in"), py::arg("img_out"),
+	    { self.applyA(img_in, img_out); }, py::arg("img_in"),
+	    py::arg("img_out"),
 	    "Apply the forward variable PSF operator on host images");
 	c.def(
 	    "applyAH",
 	    [](OperatorVarPsfDevice& self, const Image* img_in, Image* img_out)
-	    { self.applyAH(img_in, img_out); },
-	    py::arg("img_in"), py::arg("img_out"),
+	    { self.applyAH(img_in, img_out); }, py::arg("img_in"),
+	    py::arg("img_out"),
 	    "Apply the adjoint variable PSF operator on host images");
 	c.def(
 	    "applyA",

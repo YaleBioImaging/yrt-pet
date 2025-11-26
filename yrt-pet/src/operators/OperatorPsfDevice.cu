@@ -38,13 +38,13 @@ void py_setup_operatorpsfdevice(py::module& m)
 	c.def(
 	    "applyA",
 	    [](OperatorPsfDevice& self, const Image* img_in, Image* img_out)
-	    { self.applyA(img_in, img_out); },
-	    py::arg("img_in"), py::arg("img_out"));
+	    { self.applyA(img_in, img_out); }, py::arg("img_in"),
+	    py::arg("img_out"));
 	c.def(
 	    "applyAH",
 	    [](OperatorPsfDevice& self, const Image* img_in, Image* img_out)
-	    { self.applyAH(img_in, img_out); },
-	    py::arg("img_in"), py::arg("img_out"));
+	    { self.applyAH(img_in, img_out); }, py::arg("img_in"),
+	    py::arg("img_out"));
 	c.def(
 	    "applyA",
 	    [](OperatorPsfDevice& self, const ImageDevice* img_in,
@@ -110,7 +110,7 @@ void OperatorPsfDevice::copyToDevice(bool synchronize)
 	const GPULaunchConfig launchConfig{getAuxStream(), synchronize};
 
 	initDeviceArraysIfNeeded();
-	allocateDeviceArrays(synchronize); //10.2 write
+	allocateDeviceArrays(synchronize);
 
 	mpd_kernelX->copyFromHost(m_kernelX.data(), m_kernelX.size(), launchConfig);
 	mpd_kernelY->copyFromHost(m_kernelY.data(), m_kernelY.size(), launchConfig);
@@ -361,7 +361,7 @@ void OperatorPsfDevice::convolveDevice(const ImageDevice& inputImage,
 	const auto* stream = getMainStream();
 
 	allocateTemporaryDeviceImageIfNeeded(params, {stream, true});
-	float* pd_intermediaryImage = mpd_intermediaryImage->getDevicePointer();//zty:?
+	float* pd_intermediaryImage = mpd_intermediaryImage->getDevicePointer();
 
 	const float* pd_kernelX = kernelX.getDevicePointer();
 	const float* pd_kernelY = kernelY.getDevicePointer();

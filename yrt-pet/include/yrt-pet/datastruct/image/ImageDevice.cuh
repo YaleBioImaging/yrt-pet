@@ -7,9 +7,9 @@
 
 #include "yrt-pet/datastruct/image/ImageBase.hpp"
 #include "yrt-pet/utils/GPUTypes.cuh"
-#include "yrt-pet/utils/PageLockedBuffer.cuh"
 
 #include <cuda_runtime_api.h>
+
 namespace yrt
 {
 class Image;

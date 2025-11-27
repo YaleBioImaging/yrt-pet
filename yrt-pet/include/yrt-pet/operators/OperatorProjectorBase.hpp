@@ -5,7 +5,6 @@
 
 #pragma once
 
-#include "yrt-pet/operators/OperatorProjectorUpdaterBase.hpp"
 #include "yrt-pet/datastruct/projection/BinFilter.hpp"
 #include "yrt-pet/datastruct/projection/ProjectionData.hpp"
 #include "yrt-pet/datastruct/projection/ProjectionProperties.hpp"
@@ -24,7 +23,7 @@ class Histogram;
 class OperatorProjectorParams
 {
 public:
-	enum ProjectorUpdaterType
+	HOST_DEVICE_CALLABLE enum class ProjectorUpdaterType
 	{
 		DEFAULT3D = 0,
 		DEFAULT4D,

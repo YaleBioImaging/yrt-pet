@@ -33,23 +33,19 @@ void py_setup_operatorprojector(py::module& m)
 	c.def("getProjectionPsfManager",
 	      &OperatorProjector::getProjectionPsfManager);
 	c.def(
-		"applyA",
-		[](OperatorProjector& self, const Image* img, ProjectionData* proj)
-		{
-			self.applyA(img, proj);
-		}, py::arg("img"), py::arg("proj"));
+	    "applyA",
+	    [](OperatorProjector& self, const Image* img, ProjectionData* proj)
+	    { self.applyA(img, proj); }, py::arg("img"), py::arg("proj"));
 	c.def(
-		"applyAH",
-		[](OperatorProjector& self, const ProjectionData* proj, Image* img)
-		{
-			self.applyAH(proj, img);
-		}, py::arg("proj"), py::arg("img"));
+	    "applyAH",
+	    [](OperatorProjector& self, const ProjectionData* proj, Image* img)
+	    { self.applyAH(proj, img); }, py::arg("proj"), py::arg("img"));
 
 	c.def("setUpdaterLRUpdateH",
 	      [](OperatorProjector& self, bool updateH)
 	      {
 		      auto* updaterLR =
-			      dynamic_cast<OperatorProjectorUpdaterLR*>(self.getUpdater());
+		          dynamic_cast<OperatorProjectorUpdaterLR*>(self.getUpdater());
 		      if (updaterLR == nullptr)
 		      {
 			      throw std::bad_cast();
@@ -61,7 +57,7 @@ void py_setup_operatorprojector(py::module& m)
 	      [](OperatorProjector& self)
 	      {
 		      auto* updaterLR =
-			      dynamic_cast<OperatorProjectorUpdaterLR*>(self.getUpdater());
+		          dynamic_cast<OperatorProjectorUpdaterLR*>(self.getUpdater());
 		      if (updaterLR == nullptr)
 		      {
 			      throw std::bad_cast();
@@ -71,58 +67,56 @@ void py_setup_operatorprojector(py::module& m)
 	      });
 
 	c.def(
-		"setUpdaterLRHBasis",
-		[](OperatorProjector& self, py::buffer& np_data)
-		{
-			py::buffer_info buffer = np_data.request();
-			if (buffer.ndim != 2)
-			{
-				throw std::invalid_argument(
-					"The buffer given has to have 2 dimensions");
-			}
-			if (buffer.format != py::format_descriptor<float>::format())
-			{
-				throw std::invalid_argument(
-					"The buffer given has to have a float32 format");
-			}
+	    "setUpdaterLRHBasis",
+	    [](OperatorProjector& self, py::buffer& np_data)
+	    {
+		    py::buffer_info buffer = np_data.request();
+		    if (buffer.ndim != 2)
+		    {
+			    throw std::invalid_argument(
+			        "The buffer given has to have 2 dimensions");
+		    }
+		    if (buffer.format != py::format_descriptor<float>::format())
+		    {
+			    throw std::invalid_argument(
+			        "The buffer given has to have a float32 format");
+		    }
 
-			auto* updaterLR =
-				dynamic_cast<OperatorProjectorUpdaterLR*>(self.getUpdater());
-			if (updaterLR == nullptr)
-			{
-				throw py::cast_error(
-					"Projector needs to have a `OperatorProjectorUpdaterLR`");
-			}
+		    auto* updaterLR =
+		        dynamic_cast<OperatorProjectorUpdaterLR*>(self.getUpdater());
+		    if (updaterLR == nullptr)
+		    {
+			    throw py::cast_error(
+			        "Projector needs to have a `OperatorProjectorUpdaterLR`");
+		    }
 
-			Array2DAlias<float> hBasis;
-			hBasis.bind(reinterpret_cast<float*>(buffer.ptr),
-			            buffer.shape[0], buffer.shape[1]);
-			updaterLR->setHBasis(hBasis);
-
-		},
-		py::arg("numpy_data"));
+		    Array2DAlias<float> hBasis;
+		    hBasis.bind(reinterpret_cast<float*>(buffer.ptr), buffer.shape[0],
+		                buffer.shape[1]);
+		    updaterLR->setHBasis(hBasis);
+	    },
+	    py::arg("numpy_data"));
 
 
 	c.def("getUpdaterLRHBasis",
-	[](OperatorProjector& self)
-	{
-		auto* updaterLR =
-			dynamic_cast<OperatorProjectorUpdaterLR*>(self.getUpdater());
-		if (updaterLR == nullptr)
-		{
-			throw py::cast_error(
-				"Projector needs to have a `OperatorProjectorUpdaterLR`");
-		}
+	      [](OperatorProjector& self)
+	      {
+		      auto* updaterLR =
+		          dynamic_cast<OperatorProjectorUpdaterLR*>(self.getUpdater());
+		      if (updaterLR == nullptr)
+		      {
+			      throw py::cast_error(
+			          "Projector needs to have a `OperatorProjectorUpdaterLR`");
+		      }
 
-		auto dims = updaterLR->getHBasis().getDims();
-		auto out  = std::make_unique<Array2D<float>>();
-		out->allocate(dims[0], dims[1]);
-		out->copy(updaterLR->getHBasis());
-		return out;
-
-	});
+		      auto dims = updaterLR->getHBasis().getDims();
+		      auto out = std::make_unique<Array2D<float>>();
+		      out->allocate(dims[0], dims[1]);
+		      out->copy(updaterLR->getHBasis());
+		      return out;
+	      });
 }
-} // namespace yrt
+}  // namespace yrt
 
 #endif
 
@@ -249,7 +243,7 @@ const ProjectionPsfManager* OperatorProjector::getProjectionPsfManager() const
 }
 
 void OperatorProjector::setUpdater(
-	std::unique_ptr<OperatorProjectorUpdater> pp_updater)
+    std::unique_ptr<OperatorProjectorUpdater> pp_updater)
 {
 	mp_updater = std::move(pp_updater);
 }
@@ -260,53 +254,61 @@ OperatorProjectorUpdater* OperatorProjector::getUpdater()
 }
 
 void OperatorProjector::setupUpdater(
-	const OperatorProjectorParams& p_projParams)
+    const OperatorProjectorParams& p_projParams)
 {
-	if (p_projParams.projectorUpdaterType == OperatorProjectorParams::DEFAULT3D)
+	if (p_projParams.projectorUpdaterType ==
+	    OperatorProjectorParams::ProjectorUpdaterType::DEFAULT3D)
 	{
 		setUpdater(std::make_unique<OperatorProjectorUpdaterDefault3D>());
 	}
 	else if (p_projParams.projectorUpdaterType ==
-	         OperatorProjectorParams::DEFAULT4D)
+	         OperatorProjectorParams::ProjectorUpdaterType::DEFAULT4D)
 	{
 		setUpdater(std::make_unique<OperatorProjectorUpdaterDefault4D>());
 	}
-	else if (p_projParams.projectorUpdaterType == OperatorProjectorParams::LR)
+	else if (p_projParams.projectorUpdaterType ==
+	         OperatorProjectorParams::ProjectorUpdaterType::LR)
 	{
 		if (p_projParams.HBasis.getSizeTotal() == 0)
 		{
 			throw std::invalid_argument(
-				"LR updater was requested but HBasis is empty");
+			    "LR updater was requested but HBasis is empty");
 		}
 		setUpdater(
-			std::make_unique<OperatorProjectorUpdaterLR>(p_projParams.HBasis));
-		if (auto* updaterLR = dynamic_cast<OperatorProjectorUpdaterLR*>(mp_updater.get()))
-			{
-				updaterLR->setUpdateH(p_projParams.updateH);
-			}
-		else
-		{
-			throw std::runtime_error("OperatorProjectorUpdater type needs to be "
-							"OperatorProjectorUpdaterLR to get/set updateH");
-		}
-	}
-	else if (p_projParams.projectorUpdaterType == OperatorProjectorParams::LRDUALUPDATE)
-	{
-		if (p_projParams.HBasis.getSizeTotal() == 0)
-		{
-			throw std::invalid_argument(
-				"LRDUALUPDATE updater was requested but HBasis is empty");
-		}
-		setUpdater(
-			std::make_unique<OperatorProjectorUpdaterLRDualUpdate>(p_projParams.HBasis));
-		if (auto* updaterLR = dynamic_cast<OperatorProjectorUpdaterLRDualUpdate*>(mp_updater.get()))
+		    std::make_unique<OperatorProjectorUpdaterLR>(p_projParams.HBasis));
+		if (auto* updaterLR =
+		        dynamic_cast<OperatorProjectorUpdaterLR*>(mp_updater.get()))
 		{
 			updaterLR->setUpdateH(p_projParams.updateH);
 		}
 		else
 		{
-			throw std::runtime_error("OperatorProjectorUpdater type needs to be "
-							"OperatorProjectorUpdaterLRDualUpdate to get/set updateH");
+			throw std::runtime_error(
+			    "OperatorProjectorUpdater type needs to be "
+			    "OperatorProjectorUpdaterLR to get/set updateH");
+		}
+	}
+	else if (p_projParams.projectorUpdaterType ==
+	         OperatorProjectorParams::ProjectorUpdaterType::LRDUALUPDATE)
+	{
+		if (p_projParams.HBasis.getSizeTotal() == 0)
+		{
+			throw std::invalid_argument(
+			    "LRDUALUPDATE updater was requested but HBasis is empty");
+		}
+		setUpdater(std::make_unique<OperatorProjectorUpdaterLRDualUpdate>(
+		    p_projParams.HBasis));
+		if (auto* updaterLR =
+		        dynamic_cast<OperatorProjectorUpdaterLRDualUpdate*>(
+		            mp_updater.get()))
+		{
+			updaterLR->setUpdateH(p_projParams.updateH);
+		}
+		else
+		{
+			throw std::runtime_error(
+			    "OperatorProjectorUpdater type needs to be "
+			    "OperatorProjectorUpdaterLRDualUpdate to get/set updateH");
 		}
 	}
 	else
@@ -315,4 +317,4 @@ void OperatorProjector::setupUpdater(
 	}
 }
 
-} // namespace yrt
+}  // namespace yrt

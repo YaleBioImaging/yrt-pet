@@ -814,7 +814,6 @@ static void project(Image* img, ProjectionData* projData,
 			throw std::runtime_error("Unknown error");
 		}
 	}
-	std::cout << oper->getBinFilter()->getPropertyManager() << std::endl;
 
 	if constexpr (IS_FWD)
 	{

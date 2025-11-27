@@ -13,7 +13,6 @@
 #include "yrt-pet/operators/OperatorProjectorUpdaterDevice.cuh"
 #include "yrt-pet/operators/ProjectionPsfManagerDevice.cuh"
 #include "yrt-pet/operators/TimeOfFlight.hpp"
-#include "yrt-pet/utils/DeviceObject.cuh"
 #include "yrt-pet/utils/DeviceSynchronizedObject.cuh"
 #include "yrt-pet/utils/GPUTypes.cuh"
 
@@ -33,9 +32,9 @@ public:
 
 	bool requiresIntermediaryProjData() const;
 	void setupTOFHelper(float tofWidth_ps, int tofNumStd = -1);
-	OperatorProjectorUpdaterDevice* getUpdaterDevicePointer();
+	UpdaterPointer
+	    getUpdaterDevicePointer();
 	void setupUpdater(const OperatorProjectorParams& p_projParams);
-	void setUpdater(DeviceObject<OperatorProjectorUpdaterDevice>&& pp_updater);
 
 
 	void applyA(const Variable* in, Variable* out) override;
@@ -73,19 +72,20 @@ protected:
 	// Projection-domain PSF
 	std::unique_ptr<ProjectionPsfManagerDevice> mp_projPsfManager;
 
+	// Updater for projection
+	OperatorProjectorUpdaterDeviceWrapper m_updaterContainer;
+
 private:
 	size_t m_batchSize;
 	size_t m_memAvailBytes;
 	GPULaunchParams m_launchParams{};
 
 	// Time of flight
-	std::unique_ptr<DeviceObject<TimeOfFlightHelper>> mp_tofHelper;
+	std::unique_ptr<DeviceSynchronizedObject<TimeOfFlightHelper>> mp_tofHelper;
 
 	// Bin iterator constraints
-	std::unique_ptr<DeviceSynchronizedObject<ProjectionPropertyManager>> mp_projPropManager;
-
-	// Updater for projection
-	DeviceObject<OperatorProjectorUpdaterDevice> m_updater;
+	std::unique_ptr<DeviceSynchronizedObject<ProjectionPropertyManager>>
+	    mp_projPropManager;
 
 	// For attenuation correction
 	std::unique_ptr<ImageDeviceOwned> mp_attImageDevice;

@@ -40,7 +40,6 @@ set(SOURCES
     operators/Operator.cpp
     operators/OperatorProjectorBase.cpp
     operators/OperatorProjector.cpp
-    operators/OperatorProjectorUpdaterBase.cpp
     operators/OperatorProjectorUpdater.cpp
     operators/OperatorProjectorSiddon.cpp
     operators/OperatorProjectorDD.cpp
@@ -84,7 +83,6 @@ if (USE_CUDA)
         operators/OperatorProjectorDevice.cu
         operators/OperatorPsfDevice.cu
         operators/OperatorProjectorDD_GPUKernels.cu
-        operators/OperatorProjectorSiddon_GPUKernels.cu
         operators/OperatorProjectorDD_GPU.cu
         operators/OperatorProjectorSiddon_GPU.cu
         operators/ProjectionPsfManagerDevice.cu

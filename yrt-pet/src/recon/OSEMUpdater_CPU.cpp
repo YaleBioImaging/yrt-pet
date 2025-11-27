@@ -160,11 +160,15 @@ void OSEMUpdater_CPU::computeEMUpdateImage(const Image& inputImage,
 	    });
 
 	printf("Before if getProjectorUpdaterType");
-	if ((mp_osem->getProjectorUpdaterType() == OperatorProjectorParams::LR) ||
-	(mp_osem->getProjectorUpdaterType() == OperatorProjectorParams::LRDUALUPDATE))
+	if ((mp_osem->getProjectorUpdaterType() ==
+	     OperatorProjectorParams::ProjectorUpdaterType::LR) ||
+	    (mp_osem->getProjectorUpdaterType() ==
+	     OperatorProjectorParams::ProjectorUpdaterType::LRDUALUPDATE))
 	{
-		auto projectorH = dynamic_cast<OperatorProjector*>(mp_osem->getProjectorPtr());
-		auto updater = dynamic_cast<OperatorProjectorUpdaterLR*>(projectorH->getUpdater());
+		auto projectorH =
+		    dynamic_cast<OperatorProjector*>(mp_osem->getProjectorPtr());
+		auto updater =
+		    dynamic_cast<OperatorProjectorUpdaterLR*>(projectorH->getUpdater());
 		printf("After if getProjectorUpdaterType: %d", updater->getUpdateH());
 		if (updater->getUpdateH())
 		{
@@ -172,7 +176,7 @@ void OSEMUpdater_CPU::computeEMUpdateImage(const Image& inputImage,
 				auto H_old = updater->getHBasisWrite();
 				const auto dims = H_old.getDims();
 				float sum = 0.f;
-				for (size_t r = 0; r < dims[0] ; ++r)
+				for (size_t r = 0; r < dims[0]; ++r)
 				{
 					for (size_t t = 0; t < dims[1]; ++t)
 					{
@@ -186,7 +190,7 @@ void OSEMUpdater_CPU::computeEMUpdateImage(const Image& inputImage,
 				auto H_old = updater->getHBasisWrite();
 				auto dims = H_old.getDims();
 				float sum = 0.f;
-				for (size_t r = 0; r < dims[0] ; ++r)
+				for (size_t r = 0; r < dims[0]; ++r)
 				{
 					for (size_t t = 0; t < dims[1]; ++t)
 					{
@@ -197,6 +201,5 @@ void OSEMUpdater_CPU::computeEMUpdateImage(const Image& inputImage,
 			}
 		}
 	}
-
 }
 }  // namespace yrt

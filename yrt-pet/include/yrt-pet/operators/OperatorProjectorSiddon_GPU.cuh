@@ -40,16 +40,25 @@ private:
 	                        bool synchronize);
 
 	template <bool IsForward, bool HasTOF>
-	void launchKernel(float* pd_projValues, float* pd_image,
-	OperatorProjectorUpdaterDevice* pd_updater,
-	                  const char* pd_projProperties,
-	                  const ProjectionPropertyManager* pd_projPropManager,
-	                  const TimeOfFlightHelper* pd_tofHelper,
-	                  CUScannerParams scannerParams, CUImageParams imgParams,
-	                  size_t batchSize, unsigned int gridSize,
-	                  unsigned int blockSize, const cudaStream_t* stream,
-	                  bool synchronize);
+	void launchKernel(
+	    float* pd_projValues, float* pd_image,
+	    UpdaterPointer pd_updater,
+	    const char* pd_projProperties,
+	    const ProjectionPropertyManager* pd_projPropManager,
+	    const TimeOfFlightHelper* pd_tofHelper, CUScannerParams scannerParams,
+	    CUImageParams imgParams, size_t batchSize, unsigned int gridSize,
+	    unsigned int blockSize, const cudaStream_t* stream, bool synchronize);
 
 	int m_numRays;
 };
+
+template <bool IsForward, bool HasTOF, bool IsIncremental, bool IsMultiRay>
+__global__ void Siddon_kernel(
+    float* pd_projValues, float* pd_image,
+    UpdaterPointer pd_updater,
+    const char* pd_projProperties,
+    const ProjectionPropertyManager* pd_projPropManager,
+    const TimeOfFlightHelper* pd_tofHelper, CUScannerParams scannerParams,
+    CUImageParams imgParams, int p_numRays, size_t batchSize);
+
 }  // namespace yrt

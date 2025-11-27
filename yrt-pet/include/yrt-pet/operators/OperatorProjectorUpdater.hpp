@@ -6,7 +6,6 @@
 #pragma once
 
 #include "yrt-pet/datastruct/image/ImageBase.hpp"
-#include "yrt-pet/operators/OperatorProjectorUpdaterBase.hpp"
 #include "yrt-pet/utils/Array.hpp"
 
 #include <vector>
@@ -14,7 +13,7 @@
 namespace yrt
 {
 
-class OperatorProjectorUpdater : public OperatorProjectorUpdaterBase
+class OperatorProjectorUpdater
 {
 public:
 	OperatorProjectorUpdater() = default;

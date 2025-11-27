@@ -105,7 +105,6 @@ void py_setup_operatorprojectorbase(py::module& m)
 namespace yrt
 {
 
-// TODO NOW: Adjust Default3D enum name
 // TODO NOW: Create a setter for the updater (and make the member private)
 OperatorProjectorParams::OperatorProjectorParams(const Scanner& pr_scanner)
     : binIter(nullptr),
@@ -113,7 +112,7 @@ OperatorProjectorParams::OperatorProjectorParams(const Scanner& pr_scanner)
       projPsf_fname(""),
       numRays(1),
       numThreads(globals::getNumThreads()),
-      projectorUpdaterType(DEFAULT3D),
+      projectorUpdaterType(ProjectorUpdaterType::DEFAULT3D),
       updateH(false),
       m_tofWidth_ps(0.f),
       m_tofNumStd(0)
@@ -188,9 +187,12 @@ std::set<ProjectionPropertyType>
     OperatorProjectorBase::getProjectionPropertyTypes() const
 {
 	std::set<ProjectionPropertyType> projPropTypes;
-	if (m_projectorUpdaterType == OperatorProjectorParams::DEFAULT4D ||
-	    m_projectorUpdaterType == OperatorProjectorParams::LR ||
-	    m_projectorUpdaterType == OperatorProjectorParams::LRDUALUPDATE)
+	if (m_projectorUpdaterType ==
+	        OperatorProjectorParams::ProjectorUpdaterType::DEFAULT4D ||
+	    m_projectorUpdaterType ==
+	        OperatorProjectorParams::ProjectorUpdaterType::LR ||
+	    m_projectorUpdaterType ==
+	        OperatorProjectorParams::ProjectorUpdaterType::LRDUALUPDATE)
 	{
 		projPropTypes.insert(ProjectionPropertyType::DYNAMIC_FRAME);
 	}

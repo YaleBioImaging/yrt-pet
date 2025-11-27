@@ -821,12 +821,12 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 
 	// Calculate factor to use for sensitivity image DEFAULT4D and LR
 	const bool IS_DYNAMIC =
-		(projectorParams.projectorUpdaterType != OperatorProjectorParams::DEFAULT3D);
+		(projectorParams.projectorUpdaterType != OperatorProjectorParams::ProjectorUpdaterType::DEFAULT3D);
 	const bool isLowRank =
-		(projectorParams.projectorUpdaterType == OperatorProjectorParams::LR ||
-			projectorParams.projectorUpdaterType == OperatorProjectorParams::LRDUALUPDATE);
+		(projectorParams.projectorUpdaterType == OperatorProjectorParams::ProjectorUpdaterType::LR ||
+			projectorParams.projectorUpdaterType == OperatorProjectorParams::ProjectorUpdaterType::LRDUALUPDATE);
 	const bool dualUpdate =
-		(projectorParams.projectorUpdaterType == OperatorProjectorParams::LRDUALUPDATE);
+		(projectorParams.projectorUpdaterType == OperatorProjectorParams::ProjectorUpdaterType::LRDUALUPDATE);
 
 	if (dualUpdate)
 	{

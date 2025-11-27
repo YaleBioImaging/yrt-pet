@@ -692,7 +692,7 @@ void ImageOwned::allocate()
 	    ->allocate(params.nz, params.ny, params.nx);
 }
 
-mat44 ImageOwned::adjustAffineMatrix(mat44 matrix)
+void ImageOwned::adjustAffineMatrix(mat44& matrix)
 {
 	// Flip X-axis if diagonal element is negative
 	if (matrix.m[0][0] < 0)
@@ -714,8 +714,22 @@ mat44 ImageOwned::adjustAffineMatrix(mat44 matrix)
 		matrix.m[2][2] *= -1;
 		matrix.m[2][3] *= -1;  // Adjust translation
 	}
+}
 
-	return matrix;
+void ImageOwned::checkIfTransformMatrixIsSupported(const mat44& matrix)
+{
+	const auto& m = matrix.m;
+	const std::vector<float> nonDiagonalElements = {m[0][1], m[0][2], m[1][0],
+	                                                m[1][2], m[2][0], m[2][1]};
+	for (const float element : nonDiagonalElements)
+	{
+		if (std::abs(element) > ImageParams::PositioningPrecision)
+		{
+			throw std::runtime_error(
+			    "The given NIfTI file contains a transformation matrix with a "
+			    "rotation, which is currently unsupported by YRT-PET");
+		}
+	}
 }
 
 void ImageOwned::readFromFile(const std::string& fname)
@@ -751,9 +765,9 @@ void ImageOwned::readFromFile(const std::string& fname)
 		transformMatrix.m[2][2] = 1.0f;
 		transformMatrix.m[3][3] = 1.0f;
 	}
-	transformMatrix = adjustAffineMatrix(transformMatrix);
 
-	// TODO: Check Image direction matrix and do the resampling if needed
+	adjustAffineMatrix(transformMatrix);
+	checkIfTransformMatrixIsSupported(transformMatrix);
 
 	float voxelSpacing[3];
 	voxelSpacing[0] = niftiImage->dx;  // Spacing along x

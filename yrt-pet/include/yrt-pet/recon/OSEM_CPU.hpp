@@ -47,8 +47,6 @@ protected:
 	ImageBase* getSensImageBuffer() override;
 	const ProjectionData* getSensitivityBuffer() const;
 	ImageBase* getMLEMImageBuffer() override;
-	Array2DBase<float>* getHBasisTmpBuffer() override;
-	void allocateHBasisTmpBuffer() override;
 	ImageBase* getImageTmpBuffer(TemporaryImageSpaceBufferType type) override;
 	const ProjectionData* getMLEMDataBuffer() override;
 	ProjectionData* getMLEMDataTmpBuffer() override;
@@ -59,9 +57,14 @@ protected:
 	                          ImageBase& destImage) override;
 
 	// LR methods
-	void initializeHBasisTmpBuffer() override;
 	void generateWUpdateSensScaling(float* c) override;
 	void generateHUpdateSensScaling(float* c) override;
+	void setupForDynamicRecon(int& rank, int& T) override;
+	void applyImageUpdate(ImageBase* destImage, ImageBase* numerator,
+	                      const ImageBase* norm, const float eps,
+	                      bool isDynamic) override;
+	void applyHUpdate() override;
+
 
 private:
 	// For sensitivity image generation
@@ -70,7 +73,6 @@ private:
 	std::unique_ptr<Image> mp_mlemImageTmpEMRatio;
 	std::unique_ptr<Image> mp_imageTmpPsf;
 	std::unique_ptr<ProjectionData> mp_datTmp;
-	std::unique_ptr<Array2D<float>> mp_HNumerator;
 
 	std::unique_ptr<Corrector_CPU> mp_corrector;
 	std::unique_ptr<OSEMUpdater_CPU> mp_updater;

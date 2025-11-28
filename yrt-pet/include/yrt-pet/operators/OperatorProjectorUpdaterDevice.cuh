@@ -32,14 +32,13 @@ class OperatorProjectorUpdaterDeviceDefault3D
     : public OperatorProjectorUpdaterDevice
 {
 public:
-	__device__ OperatorProjectorUpdaterDeviceDefault3D(){}
+	__device__ OperatorProjectorUpdaterDeviceDefault3D() {}
 
 	__device__ float forwardUpdate(float weight, float* cur_img_ptr,
 	                               size_t offset, frame_t dynamicFrame,
 	                               size_t numVoxelPerFrame) const override
 
 	{
-		// printf("\n%.1f", weight);
 		return weight * cur_img_ptr[offset];
 	}
 
@@ -76,11 +75,81 @@ public:
 	}
 };
 
+
+class OperatorProjectorUpdaterDeviceLR : public OperatorProjectorUpdaterDevice
+{
+public:
+	__device__ OperatorProjectorUpdaterDeviceLR(float* d_HBasis, int rank,
+	                                            int numFrames, bool updateH)
+	    : mpd_HBasisDevice_ptr(d_HBasis),
+	      m_updateH(updateH),
+	      m_rank(rank),
+	      m_numDynamicFrames(numFrames)
+	{
+	}
+
+	__device__ float forwardUpdate(float weight, float* cur_img_ptr,
+	                               size_t offset, frame_t dynamicFrame,
+	                               size_t numVoxelPerFrame) const override
+	{
+		float cur_img_lr_val = 0.0f;
+		const float* H_ptr = mpd_HBasisDevice_ptr;
+
+		for (int l = 0; l < m_rank; ++l)
+		{
+			float cur_H_ptr = *(H_ptr + l * m_numDynamicFrames + dynamicFrame);
+			const size_t offset_rank = l * numVoxelPerFrame;
+			cur_img_lr_val += cur_img_ptr[offset + offset_rank] * cur_H_ptr;
+		}
+		return weight * cur_img_lr_val;
+	}
+
+	__device__ void backUpdate(float value, float weight, float* cur_img_ptr,
+	                           size_t offset, frame_t dynamicFrame,
+	                           size_t numVoxelPerFrame) override
+	{
+		const float Ay = value * weight;
+
+		if (!m_updateH)
+		{
+			const float* H_ptr = mpd_HBasisDevice_ptr;
+			for (int l = 0; l < m_rank; ++l)
+			{
+				const float cur_H_ptr =
+				    *(H_ptr + l * m_numDynamicFrames + dynamicFrame);
+				const size_t offset_rank = l * numVoxelPerFrame;
+				const float output = Ay * cur_H_ptr;
+				atomicAdd(cur_img_ptr + offset + offset_rank, output);
+			}
+		}
+		else
+		{
+			float* H_ptr = mpd_HBasisDeviceWrite_ptr;
+			for (int l = 0; l < m_rank; ++l)
+			{
+				const size_t offset_rank = l * numVoxelPerFrame;
+				const float output = Ay * cur_img_ptr[offset + offset_rank];
+				atomicAdd(H_ptr + l * m_numDynamicFrames + dynamicFrame,
+				          output);
+			}
+		}
+	}
+
+protected:
+	float* mpd_HBasisDevice_ptr;       // used by forward/backward (read-only)
+	float* mpd_HBasisDeviceWrite_ptr;  // used by backward (write-only)
+	bool m_updateH = false;
+	int m_rank = 1;
+	int m_numDynamicFrames = 1;
+};
+
+
 using UpdaterPointer = OperatorProjectorUpdaterDevice**;
 
 inline __global__ void constructUpdaterOnDevice(
     UpdaterPointer ppd_updater,
-    const OperatorProjectorParams::ProjectorUpdaterType p_updaterType)
+    const OperatorProjectorParams::ProjectorUpdaterType p_updaterType,
+    float* HBasis_ptr, int rank, int numFrames, bool updateH)
 {
 	// It is necessary to create object representing a function
 	// directly in global memory of the GPU device for virtual
@@ -98,11 +167,18 @@ inline __global__ void constructUpdaterOnDevice(
 		{
 			*ppd_updater = new OperatorProjectorUpdaterDeviceDefault4D();
 		}
+		else if (p_updaterType ==
+		         OperatorProjectorParams::ProjectorUpdaterType::LR)
+		{
+			// ASSERT(HBasis_ptr != nullptr);
+
+			*ppd_updater = new OperatorProjectorUpdaterDeviceLR(
+			    HBasis_ptr, rank, numFrames, updateH);
+		}
 		else
 		{
-			// TODO : Have the LR Updater instantiated here once the class
-			//  exists (Also requires to add an argument to have the H
-			//  matrix there)
+			// TODO : Have the LRDUALUPDATE instantiated here once the class
+			//  exists
 		}
 	}
 }
@@ -126,10 +202,38 @@ public:
 	}
 
 	void initUpdater(
-	    const OperatorProjectorParams::ProjectorUpdaterType updaterType)
+		const OperatorProjectorParams::ProjectorUpdaterType updaterType)
 	{
 		cudaMalloc(&mpd_updater, sizeof(UpdaterPointer));
-		constructUpdaterOnDevice<<<1, 1>>>(mpd_updater, updaterType);
+		constructUpdaterOnDevice<<<1, 1>>>(mpd_updater, updaterType,
+										   nullptr, 0,
+										   0, false);
+		cudaDeviceSynchronize();
+	}
+
+	void initUpdater(
+	    const OperatorProjectorParams::ProjectorUpdaterType updaterType,
+	    const Array2DBase<float>& p_HBasis, bool updateH = false)
+	{
+		float* HBasisDevice_ptr = nullptr;
+		if (updaterType == OperatorProjectorParams::ProjectorUpdaterType::LR ||
+		    updaterType ==
+		        OperatorProjectorParams::ProjectorUpdaterType::LRDUALUPDATE)
+		{
+			if (p_HBasis.getSizeTotal() == 0)
+			{
+				throw std::invalid_argument(
+				    "LR updater was requested but HBasis is empty");
+			}
+			mpd_HBasisDeviceArray = std::make_unique<DeviceArray<float>>();
+			m_updateH = updateH;
+			setHBasis(p_HBasis);
+			HBasisDevice_ptr = mpd_HBasisDeviceArray->getDevicePointer();
+		}
+		cudaMalloc(&mpd_updater, sizeof(UpdaterPointer));
+		constructUpdaterOnDevice<<<1, 1>>>(mpd_updater, updaterType,
+		                                   HBasisDevice_ptr, m_rank,
+		                                   m_numDynamicFrames, m_updateH);
 		cudaDeviceSynchronize();
 	}
 
@@ -142,8 +246,82 @@ public:
 		return mpd_updater;
 	}
 
+	bool allocateForHBasisDevice() const
+	{
+		// Allocate HBasis buffers
+		const GPULaunchConfig launchConfig{nullptr, true};
+		return mpd_HBasisDeviceArray->allocate(m_rank * m_numDynamicFrames,
+		                                       launchConfig);
+	}
+
+	void SyncHostToDeviceHBasis()
+	{
+		const GPULaunchConfig launchConfig{nullptr, true};
+		auto HBasis_ptr = mp_HBasis.getRawPointer();
+		mpd_HBasisDeviceArray->copyFromHost(
+		    HBasis_ptr, m_rank * m_numDynamicFrames, launchConfig);
+	}
+
+	void SyncDeviceToHostHBasis()
+	{
+		const GPULaunchConfig launchConfig{nullptr, true};
+		auto HBasis_ptr = mp_HBasis.getRawPointer();
+		mpd_HBasisDeviceArray->copyToHost(
+		    HBasis_ptr, m_rank * m_numDynamicFrames, launchConfig);
+	}
+
+	void setHBasis(const Array2DBase<float>& pr_HBasis)
+	{
+		// initialize host side mp_HBasis and class members
+		mp_HBasis.bind(pr_HBasis);
+		auto HBasis_ptr = pr_HBasis.getRawPointer();
+		auto dims = pr_HBasis.getDims();
+		m_rank = static_cast<int>(dims[0]);
+		m_numDynamicFrames = static_cast<int>(dims[1]);
+
+		// initialize device side mpd_HBasisDeviceArray
+		if (!mpd_HBasisDeviceArray->isAllocated())
+		{
+			allocateForHBasisDevice();
+		}
+		SyncHostToDeviceHBasis();
+	}
+
+	DeviceArray<float> getHBasisDevice() const
+	{
+		return *mpd_HBasisDeviceArray.get();
+	}
+
+	const Array2DAlias<float>& getHBasis()
+	{
+		SyncDeviceToHostHBasis();
+		return mp_HBasis;
+	}
+
+	std::unique_ptr<Array2D<float>> getHBasisCopy()
+	{
+		SyncDeviceToHostHBasis();
+		auto dims = mp_HBasis.getDims();
+		auto out = std::make_unique<Array2D<float>>();
+		out->allocate(dims[0], dims[1]);
+		out->copy(mp_HBasis);
+		return out;
+	}
+
+	void setUpdateH(bool updateH) { m_updateH = updateH; }
+
+	bool getUpdateH() const { return m_updateH; }
+
+
 private:
 	UpdaterPointer mpd_updater;
+	std::unique_ptr<DeviceArray<float>> mpd_HBasisDeviceArray;
+	// std::unique_ptr<DeviceArray<float>> mpd_HBasisWriteDeviceArray;
+	Array2DAlias<float> mp_HBasis;
+	Array2DAlias<float> mp_HWrite;
+	int m_updateH = false;
+	int m_rank = 1;
+	int m_numDynamicFrames = 1;
 };
 
 }  // namespace yrt

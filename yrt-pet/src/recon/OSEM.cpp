@@ -109,23 +109,24 @@ void py_setup_osem(pybind11::module& m)
 	      "acf_invivo_his"_a);
 
 	// New projParams getters and setters
-	c.def("getProjectorParams",&OSEM::getProjectorParams,
-	     py::return_value_policy::reference_internal);
+	c.def("getProjectorParams", &OSEM::getProjectorParams,
+	      py::return_value_policy::reference_internal);
 	c.def("getHBasis", &OSEM::getHBasis,
 	      py::return_value_policy::reference_internal);
 	c.def("getUpdateH", &OSEM::getUpdateH);
-	c.def("getProjectorUpdaterType",&OSEM::getProjectorUpdaterType);
-	c.def("getNumRays",&OSEM::getNumRays);
+	c.def("getProjectorUpdaterType", &OSEM::getProjectorUpdaterType);
+	c.def("getNumRays", &OSEM::getNumRays);
 
 	c.def("setHBasis", &OSEM::setHBasis, py::arg("HBasisAlias"));
 	c.def("setUpdateH", &OSEM::setUpdateH, py::arg("updateH"));
-	c.def("setProjectorUpdaterType",&OSEM::setProjectorUpdaterType,
+	c.def("setProjectorUpdaterType", &OSEM::setProjectorUpdaterType,
 	      py::arg("projectorUpdaterType"));
-	c.def("setNumRays",&OSEM::setNumRays);
+	c.def("setNumRays", &OSEM::setNumRays);
 
 	c.def(
 	    "setHBasisFromNumpy",
-	    [](OSEM& self, py::buffer& np_data) {
+	    [](OSEM& self, py::buffer& np_data)
+	    {
 		    py::buffer_info buffer = np_data.request();
 
 		    if (buffer.ndim != 2)
@@ -136,7 +137,7 @@ void py_setup_osem(pybind11::module& m)
 
 		    auto* ptr = reinterpret_cast<float*>(buffer.ptr);
 		    const size_t rank = static_cast<size_t>(buffer.shape[0]);
-		    const size_t T    = static_cast<size_t>(buffer.shape[1]);
+		    const size_t T = static_cast<size_t>(buffer.shape[1]);
 
 		    self.projectorParams.HBasis.bind(ptr, rank, T);
 	    },
@@ -145,17 +146,18 @@ void py_setup_osem(pybind11::module& m)
 	);
 
 	c.def("getHBasisNumpy",
-	      [](OSEM& self) {
-		      const auto& H = self.getHBasis();               // Array2DAlias<float>
-		      auto dims = H.getDims();                        // {rank, T}
+	      [](OSEM& self)
+	      {
+		      const auto& H = self.getHBasis();  // Array2DAlias<float>
+		      auto dims = H.getDims();           // {rank, T}
 		      int R = static_cast<int>(dims[0]);
 		      int T = static_cast<int>(dims[1]);
 
-		      py::array_t<float> arr({R, T});                 // C-contiguous
-		      std::memcpy(arr.mutable_data(),                 // copy all at once
+		      py::array_t<float> arr({R, T});  // C-contiguous
+		      std::memcpy(arr.mutable_data(),  // copy all at once
 		                  H.getRawPointer(),
-		                  static_cast<size_t>(R*T) * sizeof(float));
-		      return arr;                                     // copy
+		                  static_cast<size_t>(R * T) * sizeof(float));
+		      return arr;  // copy
 	      });
 
 	c.def_readwrite("num_MLEM_iterations", &OSEM::num_MLEM_iterations);
@@ -176,9 +178,9 @@ OSEM::OSEM(const Scanner& pr_scanner)
     : num_MLEM_iterations(DEFAULT_NUM_ITERATIONS),
       num_OSEM_subsets(1),
       hardThreshold(DEFAULT_HARD_THRESHOLD),
-	  projectorType(OperatorProjector::SIDDON),
+      projectorType(OperatorProjector::SIDDON),
       projectorParams(
-          /*scanner*/        pr_scanner),
+          /*scanner*/ pr_scanner),
       scanner(pr_scanner),
       maskImage(nullptr),
       initialEstimate(nullptr),
@@ -193,14 +195,17 @@ OSEM::OSEM(const Scanner& pr_scanner)
 {
 }
 
-const OperatorProjectorParams& OSEM::getProjectorParams() const {
+const OperatorProjectorParams& OSEM::getProjectorParams() const
+{
 	return projectorParams;
 }
 
-const Array2DAlias<float>& OSEM::getHBasis() const {
+const Array2DAlias<float>& OSEM::getHBasis() const
+{
 	const auto& H = projectorParams.HBasis;
 	auto dims = H.getDims();
-	if (dims[0] == 0 || dims[1] == 0) {
+	if (dims[0] == 0 || dims[1] == 0)
+	{
 		throw std::runtime_error("HBasis not set (empty alias)");
 	}
 	return H;
@@ -216,91 +221,107 @@ void OSEM::setUpdateH(bool p_updateH)
 	projectorParams.updateH = p_updateH;
 }
 
-void OSEM::saveHBasisBinary(const std::string& base_path, int iter, int numDigitsInFilename) const
+void OSEM::saveHBasisBinary(const std::string& base_path, int iter,
+                            int numDigitsInFilename) const
 {
 
-    // Fetch dims and raw pointer from HBasis
-    const auto& H = projectorParams.HBasis;
-    const auto dims = H.getDims();          // works for 2D or 3D HBasis
-    if (dims.empty())
-    {
-    	throw std::runtime_error("HBasis is empty, cannot save.");
-    }
-    const float* H_ptr = H.getRawPointer();
-    if (!H_ptr)
-        throw std::runtime_error("HBasis raw pointer is null.");
+	// Fetch dims and raw pointer from HBasis
+	const auto& H = projectorParams.HBasis;
+	const auto dims = H.getDims();  // works for 2D or 3D HBasis
+	if (dims.empty())
+	{
+		throw std::runtime_error("HBasis is empty, cannot save.");
+	}
+	const float* H_ptr = H.getRawPointer();
+	if (!H_ptr)
+		throw std::runtime_error("HBasis raw pointer is null.");
 
-    // Compute size in elements and bytes
-    auto numel = H.getSizeTotal();
-    const size_t nbytes = numel * sizeof(float);
+	// Compute size in elements and bytes
+	auto numel = H.getSizeTotal();
+	const size_t nbytes = numel * sizeof(float);
 
-    // Decide iteration string width
-    if (numDigitsInFilename < 0) {
-        // If not provided, infer from configured iterations
-        numDigitsInFilename = util::numberOfDigits(num_MLEM_iterations);
-    }
-    std::ostringstream oss_it;
-    oss_it << std::setfill('0') << std::setw(numDigitsInFilename) << (iter);
-    const std::string iter_tag = oss_it.str();
+	// Decide iteration string width
+	if (numDigitsInFilename < 0)
+	{
+		// If not provided, infer from configured iterations
+		numDigitsInFilename = util::numberOfDigits(num_MLEM_iterations);
+	}
+	std::ostringstream oss_it;
+	oss_it << std::setfill('0') << std::setw(numDigitsInFilename) << (iter);
+	const std::string iter_tag = oss_it.str();
 
 	// Compose filenames: base_path + _H_iterationXXXX.bin/json
-	const std::string stem = util::addBeforeExtension(base_path, std::string("_iteration") + iter_tag);
+	const std::string stem = util::addBeforeExtension(
+	    base_path, std::string("_iteration") + iter_tag);
 	std::string bin_fname = stem;
 	std::string json_fname = stem;
 
-	if (bin_fname.size() >= 7 && bin_fname.substr(bin_fname.size() - 7) == ".nii.gz") {
+	if (bin_fname.size() >= 7 &&
+	    bin_fname.substr(bin_fname.size() - 7) == ".nii.gz")
+	{
 		bin_fname.replace(bin_fname.size() - 7, 7, ".bin");
 		json_fname.replace(json_fname.size() - 7, 7, ".json");
 	}
-	else if (bin_fname.size() >= 4 && bin_fname.substr(bin_fname.size() - 4) == ".nii") {
+	else if (bin_fname.size() >= 4 &&
+	         bin_fname.substr(bin_fname.size() - 4) == ".nii")
+	{
 		bin_fname.replace(bin_fname.size() - 4, 4, ".bin");
 		json_fname.replace(json_fname.size() - 4, 4, ".json");
 	}
-	else {
+	else
+	{
 		// fallback if there’s no nii/nii.gz extension
 		bin_fname += ".bin";
 		json_fname += ".json";
 	}
 
-    // Write raw binary (float32, row-major/C order)
-    {
-        std::ofstream ofs(bin_fname, std::ios::binary);
-        if (!ofs) {
-            throw std::runtime_error("Failed to open " + bin_fname + " for writing HBasis.");
-        }
-        ofs.write(reinterpret_cast<const char*>(H_ptr), static_cast<std::streamsize>(nbytes));
-        ofs.close();
-    }
+	// Write raw binary (float32, row-major/C order)
+	{
+		std::ofstream ofs(bin_fname, std::ios::binary);
+		if (!ofs)
+		{
+			throw std::runtime_error("Failed to open " + bin_fname +
+			                         " for writing HBasis.");
+		}
+		ofs.write(reinterpret_cast<const char*>(H_ptr),
+		          static_cast<std::streamsize>(nbytes));
+		ofs.close();
+	}
 
-    // Write JSON sidecar with shape/metadata for easy numpy loading
-    {
-        std::ofstream jfs(json_fname);
-        if (!jfs) {
-            throw std::runtime_error("Failed to open " + json_fname + " for writing HBasis metadata.");
-        }
-        jfs << "{\n";
-        jfs << "  \"dtype\": \"float32\",\n";
-        jfs << "  \"order\": \"C\",\n";
-        jfs << "  \"dims\": [";
-        for (size_t i = 0; i < dims.size(); ++i) {
-            jfs << dims[i];
-            if (i + 1 < dims.size()) jfs << ", ";
-        }
-        jfs << "],\n";
-        // Optional: store your intended semantic layout if useful
-        // If you use [rank, z, T] for 3D, or [rank, T] for 2D:
-        jfs << "  \"layout_hint\": \""
-            << (dims.size()==3 ? "H[r,z,t]" : "H[r,t]")
-            << "\"\n";
-        jfs << "}\n";
-        jfs.close();
-    }
+	// Write JSON sidecar with shape/metadata for easy numpy loading
+	{
+		std::ofstream jfs(json_fname);
+		if (!jfs)
+		{
+			throw std::runtime_error("Failed to open " + json_fname +
+			                         " for writing HBasis metadata.");
+		}
+		jfs << "{\n";
+		jfs << "  \"dtype\": \"float32\",\n";
+		jfs << "  \"order\": \"C\",\n";
+		jfs << "  \"dims\": [";
+		for (size_t i = 0; i < dims.size(); ++i)
+		{
+			jfs << dims[i];
+			if (i + 1 < dims.size())
+				jfs << ", ";
+		}
+		jfs << "],\n";
+		// Optional: store your intended semantic layout if useful
+		// If you use [rank, z, T] for 3D, or [rank, T] for 2D:
+		jfs << "  \"layout_hint\": \""
+		    << (dims.size() == 3 ? "H[r,z,t]" : "H[r,t]") << "\"\n";
+		jfs << "}\n";
+		jfs.close();
+	}
 
-    std::cout << "Saved HBasis to " << bin_fname << " and " << json_fname << std::endl;
+	std::cout << "Saved HBasis to " << bin_fname << " and " << json_fname
+	          << std::endl;
 }
 
 
-OperatorProjectorParams::ProjectorUpdaterType OSEM::getProjectorUpdaterType() const
+OperatorProjectorParams::ProjectorUpdaterType
+    OSEM::getProjectorUpdaterType() const
 {
 	return projectorParams.projectorUpdaterType;
 }
@@ -310,7 +331,8 @@ int OSEM::getNumRays() const
 	return projectorParams.numRays;
 }
 
-void OSEM::setHBasis(const Array2DAlias<float>& HBasisAlias) {
+void OSEM::setHBasis(const Array2DAlias<float>& HBasisAlias)
+{
 	// Rebind our alias to the provided alias's storage
 	projectorParams.HBasis.bind(HBasisAlias);
 }
@@ -739,30 +761,57 @@ Image* OSEM::getSensitivityImage(int subsetId)
 	return m_sensitivityImages.at(subsetId);
 }
 
-void OSEM::dumpHBasis(const Array2DAlias<float>& H, const char* tag) {
-	auto dims = H.getDims();                 // {R, T}
+void OSEM::Sync_cWUpdateDeviceToHost() {}
+
+void OSEM::Sync_cWUpdateHostToDevice() {}
+
+void OSEM::dumpHBasis(const Array2DAlias<float>& H, const char* tag)
+{
+	auto dims = H.getDims();  // {R, T}
 	const size_t R = dims[0], T = dims[1];
-	const size_t showR = std::min<size_t>(R, 8);   // limit output
+	const size_t showR = std::min<size_t>(R, 8);  // limit output
 	const size_t showT = std::min<size_t>(T, 30);
 
-	std::printf("HBasis%s%s (R=%zu, T=%zu)\n",
-				tag ? " " : "", tag ? tag : "", R, T);
+	std::printf("HBasis%s%s (R=%zu, T=%zu)\n", tag ? " " : "", tag ? tag : "",
+	            R, T);
 
-	for (size_t r = 0; r < showR; ++r) {
+	for (size_t r = 0; r < showR; ++r)
+	{
 		std::printf("r=%zu:", r);
-		for (size_t t = 0; t < showT; ++t) {
+		for (size_t t = 0; t < showT; ++t)
+		{
 			std::printf(" %.6g", H[r][t]);
 		}
-		if (showT < T) std::printf(" ...");
+		if (showT < T)
+			std::printf(" ...");
 		std::printf("\n");
 	}
-	if (showR < R) std::printf("...\n");
+	if (showR < R)
+		std::printf("...\n");
 	std::fflush(stdout);
 }
 
-template<bool IS_DYNAMIC>
-void apply_update(ImageBase*, ImageBase*, const ImageBase*,
-                  const float*, float);
+
+Array2DBase<float>* OSEM::getHBasisTmpBuffer()
+{
+	return mp_HNumerator.get();
+}
+
+void OSEM::initializeHBasisTmpBuffer()
+{
+	mp_HNumerator->fill(0.f);
+}
+
+void OSEM::allocateHBasisTmpBuffer()
+{
+	if (!mp_HNumerator)
+		mp_HNumerator = std::make_unique<Array2D<float>>();
+	const auto dims = projectorParams.HBasis.getDims();  // std::array<size_t,2>
+	const int rank = static_cast<int>(dims[0]);
+	const int T = static_cast<int>(dims[1]);
+	mp_HNumerator->allocate(rank, T);
+}
+
 
 std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 {
@@ -821,13 +870,19 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 
 	// Calculate factor to use for sensitivity image DEFAULT4D and LR
 	const bool IS_DYNAMIC =
-		(projectorParams.projectorUpdaterType != OperatorProjectorParams::ProjectorUpdaterType::DEFAULT3D);
+	    (projectorParams.projectorUpdaterType !=
+	     OperatorProjectorParams::ProjectorUpdaterType::DEFAULT3D);
 	const bool isLowRank =
-		(projectorParams.projectorUpdaterType == OperatorProjectorParams::ProjectorUpdaterType::LR ||
-			projectorParams.projectorUpdaterType == OperatorProjectorParams::ProjectorUpdaterType::LRDUALUPDATE);
+	    (projectorParams.projectorUpdaterType ==
+	         OperatorProjectorParams::ProjectorUpdaterType::LR ||
+	     projectorParams.projectorUpdaterType ==
+	         OperatorProjectorParams::ProjectorUpdaterType::LRDUALUPDATE);
 	const bool dualUpdate =
-		(projectorParams.projectorUpdaterType == OperatorProjectorParams::ProjectorUpdaterType::LRDUALUPDATE);
+	    (projectorParams.projectorUpdaterType ==
+	     OperatorProjectorParams::ProjectorUpdaterType::LRDUALUPDATE);
 
+	// TODO NOW: check if removing it does not break dual update
+	// (already in setupForDynamicRecon but may affect initializeForRecon)
 	if (dualUpdate)
 	{
 		projectorParams.updateH = true;
@@ -839,77 +894,9 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 	initializeForRecon();
 	printf("\n after initializeForRecon \n");
 
-
-	std::vector<float> c_WUpdate_r;
-	std::vector<float> c_Hupdate_r;
-	int rank;
+	int rank = 0;
 	int T = 0;
-	allocateHBasisTmpBuffer();
-	auto* HBuffer = dynamic_cast<Array2D<float>*>(getHBasisTmpBuffer());
-	// std::unique_ptr<Array2D<float>> HBuffer = std::make_unique<Array2D<float>>();
-
-	if (isLowRank) {
-		// Check LR Updater
-		if (auto* proj = dynamic_cast<OperatorProjector*>(mp_projector.get())) {
-			if (auto* lr = dynamic_cast<OperatorProjectorUpdaterLR*>(proj->getUpdater())) {
-				printf("lr->getUpdateH(): %d", lr->getUpdateH());
-				if (lr->getUpdateH() != projectorParams.updateH)
-				{
-					throw std::logic_error("member updateH of OperatorProjectorUpdaterLR is "
-							   "different than input updateH in projectorParams");
-				}
-			}
-			else
-			{
-				throw std::runtime_error("proj->getUpdater could not be cast to OperatorProjectorUpdaterLR");
-			}
-		}
-
-		// HBasis is rank x T
-		const auto dims = projectorParams.HBasis.getDims();   // std::array<size_t,2>
-		rank = static_cast<int>(dims[0]);
-		T = static_cast<int>(dims[1]);
-
-		if (!projectorParams.updateH || dualUpdate)
-		{
-			c_WUpdate_r.resize(rank, 0.f);
-			generateWUpdateSensScaling(c_WUpdate_r.data());
-		}
-		if (projectorParams.updateH || dualUpdate)
-		{
-			c_Hupdate_r.resize(rank, 0.f);
-			generateHUpdateSensScaling(c_Hupdate_r.data());
-			HBuffer->fill(0.f);
-			if (auto* proj = reinterpret_cast<OperatorProjector*>(mp_projector.get())) {
-				if (auto* lr = dynamic_cast<OperatorProjectorUpdaterLR*>(proj->getUpdater()))
-				{
-					if (!dualUpdate)
-					{
-						lr->setUpdateH(projectorParams.updateH);            // switch to H accumulation mode
-					}
-					lr->setHBasis(projectorParams.HBasis);
-					lr->setHBasisWrite(*HBuffer);       // write into mp_HWrite
-					lr->setCurrentImgBuffer(outImage.get());
-					// todo: remove outImage to direct towards mlemImage_rp in case PSF is used
-					printf("set HBasisWrite for OperatorProjectorUpdaterLR");
-				}
-				else
-				{
-					throw std::runtime_error("proj->getUpdater could not be cast to OperatorProjectorUpdaterLR");
-				}
-			}
-			else
-			{
-				throw std::runtime_error("mp_projector could not be cast to OperatorProjector");
-			}
-		}
-	}
-	else
-	{
-		// 4D dynamic case
-		T = imageParams.num_frames;
-		c_WUpdate_r.resize(T, 1.f);
-	}
+	setupForDynamicRecon(rank, T);
 
 	const int numDigitsInFilename = util::numberOfDigits(num_MLEM_iterations);
 
@@ -930,9 +917,10 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 			// SET TMP VARIABLES TO 0
 			getImageTmpBuffer(TemporaryImageSpaceBufferType::EM_RATIO)
 			    ->setValue(0.0);
-			if ((isLowRank && projectorParams.updateH) || dualUpdate) {
+			if ((isLowRank && projectorParams.updateH) || dualUpdate)
+			{
 				printf("\n initialize HBasisTmpBuffer with zeros.\n");
-				HBuffer->fill(0.f);
+				initializeHBasisTmpBuffer();
 				printf("\n HBasisTmpBuffer initialized with zeros.\n");
 			}
 
@@ -957,16 +945,17 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 			{
 				printf("\n Compute EM (1).\n");
 				computeEMUpdateImage(
-					*mlemImage_rp,
-					*getImageTmpBuffer(TemporaryImageSpaceBufferType::EM_RATIO));
+				    *mlemImage_rp,
+				    *getImageTmpBuffer(
+				        TemporaryImageSpaceBufferType::EM_RATIO));
 			}
 			else
 			{
 				// When updating H, destImage must be the actual image (and not
-				// a zeroed buffer) to retrieve the value from the image during backudpate
+				// a zeroed buffer) to retrieve the value from the image during
+				// backudpate
 				printf("\n Compute EM (2).\n");
-				computeEMUpdateImage(*mlemImage_rp,
-					*mlemImage_rp);
+				computeEMUpdateImage(*mlemImage_rp, *mlemImage_rp);
 			}
 
 			// PSF
@@ -983,74 +972,19 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 			if (!projectorParams.updateH || dualUpdate)
 			{
 				ImageBase* updateImage =
-				    flagImagePSF
-				        ? getImageTmpBuffer(TemporaryImageSpaceBufferType::PSF)
-				        : getImageTmpBuffer(TemporaryImageSpaceBufferType::EM_RATIO);
+				    flagImagePSF ?
+				        getImageTmpBuffer(TemporaryImageSpaceBufferType::PSF) :
+				        getImageTmpBuffer(
+				            TemporaryImageSpaceBufferType::EM_RATIO);
 				printf("\n Apply EM W Update \n");
-				if (IS_DYNAMIC) {
-					apply_update<true>(getMLEMImageBuffer(), updateImage, getSensImageBuffer(),
-									   c_WUpdate_r.data(), EPS_FLT);
-				} else {
-					apply_update<false>(getMLEMImageBuffer(), updateImage, getSensImageBuffer(),
-										nullptr, EPS_FLT);
-				}
+
+				applyImageUpdate(getMLEMImageBuffer(), updateImage,
+				                 getSensImageBuffer(), EPS_FLT, IS_DYNAMIC);
 			}
 			if (projectorParams.updateH || (dualUpdate && iter > 0))
 			{
 				printf("\n Apply EM H Update \n");
-				float*       H_old_ptr = projectorParams.HBasis.getRawPointer(); // current H
-				const float* Hnum_ptr  = HBuffer->getRawPointer();               // numerator accumulated this subset
-
-				// shapes: rank x T
-				const int    R = rank;
-				const int    T_ = T;
-
-				double min_ratio = 1e30, max_ratio = -1e30, mean_ratio = 0.0;
-				double sum_num = 0.0, sum_den = 0.0;
-
-				for (int r = 0; r < R; ++r) {
-					const double den = std::max<double>(c_Hupdate_r[r], EPS_FLT);
-					sum_den += den;
-					for (int t = 0; t < T_; ++t) {
-						const double num = Hnum_ptr[r*T_ + t];
-						sum_num += num;
-						const double ratio = num / den;
-						min_ratio = std::min(min_ratio, ratio);
-						max_ratio = std::max(max_ratio, ratio);
-						mean_ratio += ratio;
-					}
-				}
-				mean_ratio /= (R * T_);
-
-				printf("\nH update stats: sum_num=%.6g sum_den=%.6g  ratio[min,mean,max]=[%.3g, %.3g, %.3g]\n",
-					   sum_num, sum_den, min_ratio, mean_ratio, max_ratio);
-
-				printf("\n --- Before Update --- \n");
-				double sum = 0.0;
-				for (int i = 0; i < rank*T; ++i) sum += H_old_ptr[i];
-				printf("sum(H)=%.6g, mean(H)=%.6g\n", sum, sum / (rank*T));
-
-
-				// H_new := H_old * (Hnum / c_r)
-				util::parallelForChunked(
-					T, globals::getNumThreads(),
-					[rank, T, c_Hupdate_r, H_old_ptr, Hnum_ptr](int t, int /*tid*/)
-					{
-						for (int r = 0; r < rank; ++r)
-						{
-							const float denom = std::max(c_Hupdate_r[r], EPS_FLT);
-							const float inv   = 1.0f / denom;
-							float*       Hr  = H_old_ptr + r * T;
-							const float* Nr  = Hnum_ptr  + r * T;
-							Hr[t] = Hr[t] * (Nr[t] * inv); // write the *new H* back over H_old
-						}
-					});
-
-				printf("\n --- After Update --- \n");
-				double sum_after = 0.0;
-				for (int i = 0; i < rank * T; ++i) sum_after += H_old_ptr[i];
-				printf("sum(H)=%.6g, mean(H)=%.6g\n", sum_after, sum_after / (rank*T));
-
+				applyHUpdate();
 			}
 
 			if (dualUpdate)
@@ -1060,22 +994,28 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 				float sum_c_h = 0.0;
 				for (int i = 0; i < rank; ++i)
 				{
-					sum_c_w += c_WUpdate_r[i];
-					sum_c_h += c_Hupdate_r[i];
+					sum_c_w += m_cWUpdate[i];
+					sum_c_h += m_cHUpdate[i];
 				}
-				printf("Before: sum(c_W)=%.6g, sum(c_H)=%.6g\n", sum_c_w, sum_c_h);
-				std::fill(c_WUpdate_r.begin(), c_WUpdate_r.end(), 0.0f);
-				std::fill(c_Hupdate_r.begin(), c_Hupdate_r.end(), 0.0f);
-				generateWUpdateSensScaling(c_WUpdate_r.data());
-				generateHUpdateSensScaling(c_Hupdate_r.data());
+				printf("Before: sum(c_W)=%.6g, sum(c_H)=%.6g\n", sum_c_w,
+				       sum_c_h);
+
+				// Sync with Device side values
+				Sync_cWUpdateDeviceToHost();
+
+				std::fill(m_cWUpdate.begin(), m_cWUpdate.end(), 0.0f);
+				std::fill(m_cHUpdate.begin(), m_cHUpdate.end(), 0.0f);
+				generateWUpdateSensScaling(m_cWUpdate.data());
+				generateHUpdateSensScaling(m_cHUpdate.data());
 				float sum_c_w_2 = 0.0;
 				float sum_c_h_2 = 0.0;
 				for (int i = 0; i < rank; ++i)
 				{
-					sum_c_w_2 += c_WUpdate_r[i];
-					sum_c_h_2 += c_Hupdate_r[i];
+					sum_c_w_2 += m_cWUpdate[i];
+					sum_c_h_2 += m_cHUpdate[i];
 				}
-				printf("After: sum(c_W)=%.6g, sum(c_H)=%.6g\n", sum_c_w_2, sum_c_h_2);
+				printf("After: sum(c_W)=%.6g, sum(c_H)=%.6g\n", sum_c_w_2,
+				       sum_c_h_2);
 			}
 		}
 		if (saveIterRanges.isIn(iter + 1))
@@ -1096,7 +1036,8 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 	// restore H Basis
 	// if (isLowRank && projectorParams.updateH) {
 	// 	if (auto* proj = dynamic_cast<OperatorProjector*>(mp_projector.get())) {
-	// 		if (auto* lr = dynamic_cast<OperatorProjectorUpdaterLR*>(proj->getUpdater())) {
+	// 		if (auto* lr =
+	// dynamic_cast<OperatorProjectorUpdaterLR*>(proj->getUpdater())) {
 	// 			lr->setHBasis(projectorParams.HBasis); // point back to real H
 	// 		}
 	// 	}
@@ -1140,7 +1081,8 @@ void OSEM::summary() const
 	if (projectorType == OperatorProjector::SIDDON)
 	{
 		std::cout << "Projector type: Siddon" << std::endl;
-		std::cout << "Number of Siddon rays: " << projectorParams.numRays << std::endl;
+		std::cout << "Number of Siddon rays: " << projectorParams.numRays
+		          << std::endl;
 	}
 	else if (projectorType == OperatorProjector::DD)
 	{
@@ -1178,24 +1120,6 @@ void OSEM::summary() const
 		          << std::endl;
 	}
 }
-
-template<bool IS_DYNAMIC>
-void apply_update(ImageBase* destImage,
-                  ImageBase* numerator,
-                  const ImageBase* norm,
-                  const float* c_r,  // sum_t H[r,t] (null if !IS_DYNAMIC)
-                  const float eps)
-{
-	if constexpr (IS_DYNAMIC) {
-		destImage->updateEMThresholdRankScaled(
-			numerator, norm, c_r, eps);
-	} else {
-		destImage->updateEMThreshold(
-		    numerator, norm, eps);
-	}
-}
-
-
 
 
 }  // namespace yrt

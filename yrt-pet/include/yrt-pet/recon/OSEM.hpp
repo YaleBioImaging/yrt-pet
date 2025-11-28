@@ -96,19 +96,19 @@ public:
 	const OperatorProjectorParams& getProjectorParams() const;
 	const Array2DAlias<float>& getHBasis() const;
 	bool getUpdateH() const;
-	OperatorProjectorParams::ProjectorUpdaterType getProjectorUpdaterType() const;
+	OperatorProjectorParams::ProjectorUpdaterType
+	    getProjectorUpdaterType() const;
 	int getNumRays() const;
 	void setHBasis(const Array2DAlias<float>& HBasisAlias);
-	void setProjectorUpdaterType(OperatorProjectorParams::ProjectorUpdaterType projectorUpdaterType);
+	void setProjectorUpdaterType(
+	    OperatorProjectorParams::ProjectorUpdaterType projectorUpdaterType);
 	void setNumRays(int p_numRays);
 	void setUpdateH(bool p_updateH);
-	void saveHBasisBinary(const std::string& base_path, int iter, int numDigitsInFilename = -1) const;
+	void saveHBasisBinary(const std::string& base_path, int iter,
+	                      int numDigitsInFilename = -1) const;
 
 	// todo: remove this
-	OperatorProjectorBase* getProjectorPtr()
-	{
-		return mp_projector.get();
-	}
+	OperatorProjectorBase* getProjectorPtr() { return mp_projector.get(); }
 
 	// ---------- Public members ----------
 	int num_MLEM_iterations;
@@ -149,6 +149,13 @@ protected:
 	std::vector<std::unique_ptr<BinIterator>> m_binIterators;
 	std::vector<std::unique_ptr<Constraint>> m_constraints;
 
+	// LR H Numerator in H update case
+	std::unique_ptr<Array2D<float>> mp_HNumerator;
+	// LR sensitivity matrix factor correction
+	std::vector<float> m_cWUpdate;
+	std::vector<float> m_cHUpdate;
+
+
 	// ---------- Virtual pure functions ----------
 
 	// Sens Image generator driver
@@ -178,13 +185,22 @@ protected:
 	virtual Corrector& getCorrector() = 0;
 
 	// Abstract LR methods
-	virtual Array2DBase<float>* getHBasisTmpBuffer() = 0;
-	virtual void allocateHBasisTmpBuffer() = 0;
-	virtual void initializeHBasisTmpBuffer() = 0;
+	virtual Array2DBase<float>* getHBasisTmpBuffer();
+	virtual void allocateHBasisTmpBuffer();
+	virtual void initializeHBasisTmpBuffer();
+	// Abstract LR methods
 	virtual void generateWUpdateSensScaling(float* c) = 0;
 	virtual void generateHUpdateSensScaling(float* c) = 0;
+	virtual void setupForDynamicRecon(int& rank, int& T) = 0;
+	virtual void applyImageUpdate(ImageBase* destImage, ImageBase* numerator,
+	                              const ImageBase* norm, const float eps, bool isDynamic) = 0;
+	virtual void applyHUpdate() = 0;
+	virtual void Sync_cWUpdateDeviceToHost();
+	virtual void Sync_cWUpdateHostToDevice();
 
-	static void dumpHBasis(const Array2DAlias<float>& H, const char* tag = nullptr);
+
+	static void dumpHBasis(const Array2DAlias<float>& H,
+	                       const char* tag = nullptr);
 
 
 	// Common methods

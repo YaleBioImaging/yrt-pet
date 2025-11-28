@@ -64,13 +64,17 @@ public:
 	ProjectionDataDeviceOwned* getMLEMDataDeviceBuffer();
 	const ProjectionDataDeviceOwned* getMLEMDataTmpDeviceBuffer() const;
 	ProjectionDataDeviceOwned* getMLEMDataTmpDeviceBuffer();
-	Array2DBase<float>* getHBasisTmpBuffer() override;
-	void allocateHBasisTmpBuffer() override;
 
 	// LR methods
-	void initializeHBasisTmpBuffer() override;
 	void generateWUpdateSensScaling(float* c) override;
 	void generateHUpdateSensScaling(float* c) override;
+	void setupForDynamicRecon(int& rank, int& T) override;
+	void applyImageUpdate(ImageBase* destImage, ImageBase* numerator,
+	                      const ImageBase* norm, const float eps,
+	                      bool isDynamic) override;
+	void applyHUpdate() override;
+	void Sync_cWUpdateDeviceToHost() override;
+	void Sync_cWUpdateHostToDevice() override;
 
 	// Common methods
 	void loadSubset(int subsetId, bool forRecon) override;
@@ -96,6 +100,10 @@ private:
 
 	std::unique_ptr<Corrector_GPU> mp_corrector;
 	std::unique_ptr<OSEMUpdater_GPU> mp_updater;
+
+	// LR sensitivity matrix factor correction
+	DeviceArray<float> m_cWUpdateDevice;
+	DeviceArray<float> m_cHUpdateDevice;
 
 	int m_current_OSEM_subset;
 

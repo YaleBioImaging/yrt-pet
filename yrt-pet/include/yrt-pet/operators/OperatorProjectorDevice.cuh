@@ -35,6 +35,7 @@ public:
 	UpdaterPointer
 	    getUpdaterDevicePointer();
 	void setupUpdater(const OperatorProjectorParams& p_projParams);
+	OperatorProjectorUpdaterDeviceWrapper* getUpdaterDeviceWrapper();
 
 
 	void applyA(const Variable* in, Variable* out) override;

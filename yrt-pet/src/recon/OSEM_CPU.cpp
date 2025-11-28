@@ -160,26 +160,6 @@ ImageBase* OSEM_CPU::getMLEMImageBuffer()
 	return outImage.get();
 }
 
-Array2DBase<float>* OSEM_CPU::getHBasisTmpBuffer()
-{
-	return mp_HNumerator.get();
-}
-
-void OSEM_CPU::initializeHBasisTmpBuffer()
-{
-	return mp_HNumerator->fill(0.f);
-}
-
-void OSEM_CPU::allocateHBasisTmpBuffer()
-{
-	if (!mp_HNumerator)
-		mp_HNumerator = std::make_unique<Array2D<float>>();
-	const auto dims = projectorParams.HBasis.getDims();  // std::array<size_t,2>
-	const int rank = static_cast<int>(dims[0]);
-	const int T = static_cast<int>(dims[1]);
-	mp_HNumerator->allocate(rank, T);
-}
-
 ImageBase* OSEM_CPU::getImageTmpBuffer(TemporaryImageSpaceBufferType type)
 {
 	if (type == TemporaryImageSpaceBufferType::EM_RATIO)
@@ -219,7 +199,7 @@ void OSEM_CPU::setupOperatorsForRecon()
 	for (int subsetId = 0; subsetId < num_OSEM_subsets; subsetId++)
 	{
 		getBinIterators().push_back(
-			getDataInput()->getBinIter(num_OSEM_subsets, subsetId));
+		    getDataInput()->getBinIter(num_OSEM_subsets, subsetId));
 	}
 
 	std::vector<Constraint*> constraints;
@@ -233,8 +213,8 @@ void OSEM_CPU::setupOperatorsForRecon()
 
 	if (projectorType == OperatorProjector::SIDDON)
 	{
-		mp_projector =
-		    std::make_unique<OperatorProjectorSiddon>(projectorParams, constraints);
+		mp_projector = std::make_unique<OperatorProjectorSiddon>(
+		    projectorParams, constraints);
 	}
 	else if (projectorType == OperatorProjector::DD)
 	{
@@ -347,6 +327,7 @@ void OSEM_CPU::generateWUpdateSensScaling(float* c_WUpdate_r)
 
 	for (int r = 0; r < rank; ++r)
 	{
+		c_WUpdate_r[r] = 0.f;
 		for (int t = 0; t < T; ++t)
 		{
 			c_WUpdate_r[r] += projectorParams.HBasis[r][t];
@@ -394,6 +375,186 @@ void OSEM_CPU::generateHUpdateSensScaling(float* c_HUpdate_r)
 
 		c_HUpdate_r[r] = cr;
 	}
+}
+
+void OSEM_CPU::setupForDynamicRecon(int& rank, int& T)
+{
+	const bool IS_DYNAMIC =
+	    (projectorParams.projectorUpdaterType !=
+	     OperatorProjectorParams::ProjectorUpdaterType::DEFAULT3D);
+	const bool isLowRank =
+	    (projectorParams.projectorUpdaterType ==
+	         OperatorProjectorParams::ProjectorUpdaterType::LR ||
+	     projectorParams.projectorUpdaterType ==
+	         OperatorProjectorParams::ProjectorUpdaterType::LRDUALUPDATE);
+	const bool dualUpdate =
+	    (projectorParams.projectorUpdaterType ==
+	     OperatorProjectorParams::ProjectorUpdaterType::LRDUALUPDATE);
+
+	if (dualUpdate)
+	{
+		projectorParams.updateH = true;
+	}
+
+	allocateHBasisTmpBuffer();
+	auto* HBuffer = dynamic_cast<Array2D<float>*>(getHBasisTmpBuffer());
+
+	if (isLowRank)
+	{
+		// Check LR Updater
+		if (auto* proj = dynamic_cast<OperatorProjector*>(mp_projector.get()))
+		{
+			if (auto* lr = dynamic_cast<OperatorProjectorUpdaterLR*>(
+			        proj->getUpdater()))
+			{
+				printf("lr->getUpdateH(): %d", lr->getUpdateH());
+				if (lr->getUpdateH() != projectorParams.updateH)
+				{
+					throw std::logic_error(
+					    "member updateH of OperatorProjectorUpdaterLR is "
+					    "different than input updateH in projectorParams");
+				}
+			}
+			else
+			{
+				throw std::runtime_error("proj->getUpdater could not be cast "
+				                         "to OperatorProjectorUpdaterLR");
+			}
+		}
+
+		// HBasis is rank x T
+		const auto dims =
+		    projectorParams.HBasis.getDims();  // std::array<size_t,2>
+		rank = static_cast<int>(dims[0]);
+		T = static_cast<int>(dims[1]);
+
+		if (!projectorParams.updateH || dualUpdate)
+		{
+			m_cWUpdate.resize(rank, 0.f);
+			generateWUpdateSensScaling(m_cWUpdate.data());
+		}
+		if (projectorParams.updateH || dualUpdate)
+		{
+			m_cHUpdate.resize(rank, 0.f);
+			generateHUpdateSensScaling(m_cHUpdate.data());
+			HBuffer->fill(0.f);
+			if (auto* proj =
+			        reinterpret_cast<OperatorProjector*>(mp_projector.get()))
+			{
+				if (auto* lr = dynamic_cast<OperatorProjectorUpdaterLR*>(
+				        proj->getUpdater()))
+				{
+					if (!dualUpdate)
+					{
+						lr->setUpdateH(
+						    projectorParams
+						        .updateH);  // switch to H accumulation mode
+					}
+					lr->setHBasis(projectorParams.HBasis);
+					lr->setHBasisWrite(*HBuffer);  // write into mp_HWrite
+					lr->setCurrentImgBuffer(outImage.get());
+					// todo: remove outImage to direct towards mlemImage_rp in
+					// case PSF is used
+					printf("set HBasisWrite for OperatorProjectorUpdaterLR");
+				}
+				else
+				{
+					throw std::runtime_error(
+					    "proj->getUpdater could not be cast to "
+					    "OperatorProjectorUpdaterLR");
+				}
+			}
+			else
+			{
+				throw std::runtime_error(
+				    "mp_projector could not be cast to OperatorProjector");
+			}
+		}
+	}
+	else
+	{
+		// 4D dynamic case
+		T = imageParams.num_frames;
+		m_cWUpdate.resize(T, 1.f);
+	}
+}
+
+void OSEM_CPU::applyImageUpdate(ImageBase* destImage, ImageBase* numerator,
+                                const ImageBase* norm, const float eps,
+                                bool isDynamic)
+{
+	if (isDynamic)
+	{
+		destImage->updateEMThresholdRankScaled(numerator, norm,
+		                                       m_cWUpdate.data(), eps);
+	}
+	else
+	{
+		destImage->updateEMThreshold(numerator, norm, eps);
+	}
+}
+
+void OSEM_CPU::applyHUpdate()
+{
+	float* H_old_ptr = projectorParams.HBasis.getRawPointer();  // current H
+	const float* Hnum_ptr =
+	    dynamic_cast<Array2D<float>*>(getHBasisTmpBuffer())
+	        ->getRawPointer();  // numerator accumulated this subset
+
+	// shapes: rank x T
+	const int rank = projectorParams.HBasis.getDims()[0];
+	const int T = projectorParams.HBasis.getDims()[1];
+
+	double min_ratio = 1e30, max_ratio = -1e30, mean_ratio = 0.0;
+	double sum_num = 0.0, sum_den = 0.0;
+
+	for (int r = 0; r < rank; ++r)
+	{
+		const double den = std::max<double>(m_cHUpdate[r], EPS_FLT);
+		sum_den += den;
+		for (int t = 0; t < T; ++t)
+		{
+			const double num = Hnum_ptr[r * T + t];
+			sum_num += num;
+			const double ratio = num / den;
+			min_ratio = std::min(min_ratio, ratio);
+			max_ratio = std::max(max_ratio, ratio);
+			mean_ratio += ratio;
+		}
+	}
+	mean_ratio /= (rank * T);
+
+	printf("\nH update stats: sum_num=%.6g sum_den=%.6g  "
+	       "ratio[min,mean,max]=[%.3g, %.3g, %.3g]\n",
+	       sum_num, sum_den, min_ratio, mean_ratio, max_ratio);
+
+	printf("\n --- Before Update --- \n");
+	double sum = 0.0;
+	for (int i = 0; i < rank * T; ++i)
+		sum += H_old_ptr[i];
+	printf("sum(H)=%.6g, mean(H)=%.6g\n", sum, sum / (rank * T));
+
+	// H_new := H_old * (Hnum / c_r)
+	util::parallelForChunked(
+	    T, globals::getNumThreads(),
+	    [&, rank, T, H_old_ptr, Hnum_ptr](int t, int /*tid*/)
+	    {
+		    for (int r = 0; r < rank; ++r)
+		    {
+			    const float denom = std::max(m_cHUpdate[r], EPS_FLT);
+			    const float inv = 1.0f / denom;
+			    float* Hr = H_old_ptr + r * T;
+			    const float* Nr = Hnum_ptr + r * T;
+			    Hr[t] =
+			        Hr[t] * (Nr[t] * inv);  // write the *new H* back over H_old
+		    }
+	    });
+
+	printf("\n --- After Update --- \n");
+	double sum_after = 0.0;
+	for (int i = 0; i < rank * T; ++i)
+		sum_after += H_old_ptr[i];
+	printf("sum(H)=%.6g, mean(H)=%.6g\n", sum_after, sum_after / (rank * T));
 }
 
 void OSEM_CPU::completeMLEMIteration() {}

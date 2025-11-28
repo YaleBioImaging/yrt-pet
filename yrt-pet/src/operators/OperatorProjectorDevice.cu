@@ -196,7 +196,19 @@ void OperatorProjectorDevice::applyA(const Variable* in, Variable* out,
 			std::cout << "Forward projecting batch " << batchId + 1 << "/"
 			          << numBatches << "..." << std::endl;
 			dat_out->clearProjectionsDevice({getMainStream(), false});
+			// {
+			// 	printf("\nDEBUG: In applyA, cudaCheckError before applyAOnLoadedBatch.\n");
+			// 	cudaCheckError();
+			// 	cudaDeviceSynchronize();
+			// }
+
 			applyAOnLoadedBatch(*img_in, *dat_out, false);
+			// {
+			// 	printf("\nDEBUG: In applyA, cudaCheckError after applyAOnLoadedBatch.\n");
+			// 	cudaCheckError();
+			// 	cudaDeviceSynchronize();
+			// }
+
 
 			// If a future batch is due
 			if (batchId < numBatches - 1)
@@ -413,19 +425,10 @@ void OperatorProjectorDevice::setupUpdater(
 			throw std::invalid_argument(
 			    "LR updater was requested but HBasis is empty");
 		}
-		// setUpdater(
-		// 	std::make_unique<OperatorProjectorUpdaterDeviceLR>(p_projParams.HBasis));
-		// if (auto* updaterLR =
-		// dynamic_cast<OperatorProjectorUpdaterDeviceLR*>(mp_updater.get()))
-		// {
-		// 	updaterLR->setUpdateH(p_projParams.updateH);
-		// }
-		// else
-		// {
-		// 	throw std::runtime_error("OperatorProjectorUpdater type needs to be
-		// " 					"OperatorProjectorUpdaterLR to get/set
-		// updateH");
-		// }
+
+		m_updaterContainer.initUpdater(p_projParams.projectorUpdaterType,
+		                               p_projParams.HBasis,
+		                               p_projParams.updateH);
 	}
 	else if (p_projParams.projectorUpdaterType ==
 	         OperatorProjectorParams::ProjectorUpdaterType::LRDUALUPDATE)
@@ -435,25 +438,18 @@ void OperatorProjectorDevice::setupUpdater(
 			throw std::invalid_argument(
 			    "LRDUALUPDATE updater was requested but HBasis is empty");
 		}
-		// setUpdater(
-		// 	std::make_unique<OperatorProjectorUpdaterDeviceLRDualUpdate>(p_projParams.HBasis));
-		// if (auto* updaterLR =
-		// dynamic_cast<OperatorProjectorUpdaterDeviceLRDualUpdate*>(mp_updater.get()))
-		// {
-		// 	updaterLR->setUpdateH(p_projParams.updateH);
-		// }
-		// else
-		// {
-		// 	throw std::runtime_error("OperatorProjectorUpdater type needs to be
-		// " 					"OperatorProjectorUpdaterLRDualUpdate to get/set
-		// updateH");
-		// }
 	}
 	else
 	{
 		// For updaters requiring no arguments
 		m_updaterContainer.initUpdater(p_projParams.projectorUpdaterType);
 	}
+}
+
+OperatorProjectorUpdaterDeviceWrapper*
+    OperatorProjectorDevice::getUpdaterDeviceWrapper()
+{
+	return &m_updaterContainer;
 }
 
 

@@ -13,11 +13,20 @@ namespace yrt
 __global__ void updateEM_kernel(const float* d_imgIn, float* d_imgOut,
                                 const float* d_sensImg, int nx, int ny, int nz,
                                 float EM_threshold);
+__global__ void updateEMDynamic_kernel(const float* d_imgIn, float* d_imgOut,
+								const float* d_sensImg, int nx, int ny, int nz,
+								int nt, const float* c_r, float EM_threshold);
 
 __global__ void applyThreshold_kernel(float* pd_imgIn, const float* pd_imgMask,
                                       float threshold, float val_le_scale,
                                       float val_le_off, float val_gt_scale,
                                       float val_gt_off, int nx, int ny, int nz);
+
+__global__ void applyThresholdBroadcast_kernel(float* pd_imgIn, const float* pd_imgMask,
+									  float threshold, float val_le_scale,
+									  float val_le_off, float val_gt_scale,
+									  float val_gt_off, int nx, int ny, int nz,
+									  int nt);
 
 __global__ void setValue_kernel(float* d_imgIn, float value, int nx, int ny,
                                 int nz);

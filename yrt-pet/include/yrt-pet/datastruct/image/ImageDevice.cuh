@@ -42,9 +42,13 @@ public:
 	                             float val_gt_scale, float val_gt_off) override;
 	void updateEMThreshold(ImageBase* updateImg, const ImageBase* normImg,
 	                       float threshold) override;
-	void updateEMThresholdRankScaled(ImageBase* updateImg, const ImageBase* normImg,
-	                                 const float* c_r,
+	void updateEMThresholdRankScaled(ImageBase* updateImg,
+	                                 const ImageBase* normImg, const float* c_r,
 	                                 float threshold) override;
+	void updateEMThresholdRankScaledDevice(ImageDevice* updateImg,
+	                                       const ImageDevice* normImg,
+	                                       const float* c_r, float threshold,
+	                                       bool synchronize);
 	void writeToFile(const std::string& image_fname) const override;
 
 	void copyFromHostImage(const Image* imSrc, bool synchronize);
@@ -60,6 +64,10 @@ public:
 	                          float val_le_scale, float val_le_off,
 	                          float val_gt_scale, float val_gt_off,
 	                          bool synchronize);
+	void applyThresholdBroadcastDevice(const ImageDevice* maskImg,
+	                                   float threshold, float val_le_scale,
+	                                   float val_le_off, float val_gt_scale,
+	                                   float val_gt_off, bool synchronize);
 
 protected:
 	explicit ImageDevice(const cudaStream_t* stream_ptr = nullptr);

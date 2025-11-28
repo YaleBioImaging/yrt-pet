@@ -305,18 +305,126 @@ void ImageDevice::applyThresholdDevice(const ImageDevice* maskImg,
 	printf("\nDEBUG: In applyThresholdDevice, After cudaCheckError\n");
 }
 
+
+void ImageDevice::applyThresholdBroadcastDevice(const ImageDevice* maskImg,
+									   const float threshold,
+									   const float val_le_scale,
+									   const float val_le_off,
+									   const float val_gt_scale,
+									   const float val_gt_off, bool synchronize)
+{
+	ASSERT_MSG(getDevicePointer() != nullptr, "Device Image not allocated yet");
+	auto maskParams = maskImg->getParams();
+	printf("\nDEBUG: Image ptr: %p, mask ptr: %p, size=%zu, mask_size=%zu\n",
+		   getDevicePointer(), maskImg->getDevicePointer(), getImageSize(),
+		   maskImg->getImageSize());
+	printf("\nDEBUG: Image dims: %d %d %d %d | Mask dims: %d %d %d %d\n",
+		   getParams().nx, getParams().ny, getParams().nz,
+		   getParams().num_frames, maskParams.nx, maskParams.ny, maskParams.nz,
+		   maskParams.num_frames);
+	if (mp_stream != nullptr)
+	{
+		applyThresholdBroadcast_kernel<<<m_launchParams.gridSize,
+								m_launchParams.blockSize, 0, *mp_stream>>>(
+			getDevicePointer(), maskImg->getDevicePointer(), threshold,
+			val_le_scale, val_le_off, val_gt_scale, val_gt_off, getParams().nx,
+			getParams().ny, getParams().nz, getParams().num_frames);
+		if (synchronize)
+		{
+			cudaStreamSynchronize(*mp_stream);
+		}
+		printf("\nDEBUG: (mp_stream!=nullptr) In applyThresholdDevice, before "
+			   "cudaCheckError\n");
+	}
+	else
+	{
+		applyThresholdBroadcast_kernel<<<m_launchParams.gridSize,
+								m_launchParams.blockSize>>>(
+			getDevicePointer(), maskImg->getDevicePointer(), threshold,
+			val_le_scale, val_le_off, val_gt_scale, val_gt_off, getParams().nx,
+			getParams().ny, getParams().nz, getParams().num_frames);
+		if (synchronize)
+		{
+			cudaDeviceSynchronize();
+		}
+		printf("\nDEBUG: (mp_stream=nullptr) In applyThresholdDevice, before "
+			   "cudaCheckError\n");
+	}
+	cudaCheckError();
+	printf("\nDEBUG: In applyThresholdDevice, After cudaCheckError\n");
+}
+
+
 void ImageDevice::applyThresholdBroadcast(const ImageBase* maskImg,
                                           float threshold, float val_le_scale,
                                           float val_le_off, float val_gt_scale,
                                           float val_gt_off)
 {
+	printf("\nDEBUG: dynamic_cast mask_img in applyThreshold...\n");
+	const auto maskImg_ImageDevice = dynamic_cast<const ImageDevice*>(maskImg);
+	ASSERT_MSG(maskImg_ImageDevice != nullptr,
+			   "Input image has the wrong type");
+	printf("\nDEBUG: dynamic_cast in applyThreshold done. Entering "
+		   "applyThresholdBroadcastDevice\n");
+
+	applyThresholdBroadcastDevice(maskImg_ImageDevice, threshold, val_le_scale,
+						 val_le_off, val_gt_scale, val_gt_off, true);
+}
+
+
+void ImageDevice::updateEMThresholdRankScaledDevice(ImageDevice* updateImg,
+										  const ImageDevice* normImg,
+										  const float* c_r,
+										  float threshold, bool synchronize)
+{
+	ASSERT_MSG(updateImg->getParams().isSameDimensionsAs(getParams()),
+			   "Image dimensions mismatch");
+	ASSERT_MSG(normImg->getParams().isSameDimensionsAs(getParams()),
+			   "Image dimensions mismatch");
+	ASSERT_MSG(getDevicePointer() != nullptr, "Device Image not allocated yet");
+
+	if (mp_stream != nullptr)
+	{
+		updateEMDynamic_kernel<<<m_launchParams.gridSize, m_launchParams.blockSize, 0,
+						  *mp_stream>>>(
+			updateImg->getDevicePointer(), getDevicePointer(),
+			normImg->getDevicePointer(), getParams().nx, getParams().ny,
+			getParams().nz, getParams().num_frames, c_r, threshold);
+		if (synchronize)
+		{
+			cudaStreamSynchronize(*mp_stream);
+		}
+	}
+	else
+	{
+		updateEMDynamic_kernel<<<m_launchParams.gridSize, m_launchParams.blockSize>>>(
+			updateImg->getDevicePointer(), getDevicePointer(),
+			normImg->getDevicePointer(), getParams().nx, getParams().ny,
+			getParams().nz, getParams().num_frames, c_r, threshold);
+		if (synchronize)
+		{
+			cudaDeviceSynchronize();
+		}
+	}
+	cudaCheckError();
 }
 
 void ImageDevice::updateEMThresholdRankScaled(ImageBase* updateImg,
-                                              const ImageBase* normImg,
-                                              const float* c_r, float threshold)
+											  const ImageBase* normImg,
+											  const float* c_r, float threshold)
 {
+	auto* updateImg_ImageDevice = dynamic_cast<ImageDevice*>(updateImg);
+	const auto* normImg_ImageDevice = dynamic_cast<const ImageDevice*>(normImg);
+
+	ASSERT_MSG(updateImg_ImageDevice != nullptr,
+			   "updateImg is not ImageDevice");
+	ASSERT_MSG(normImg_ImageDevice != nullptr, "normImg is not ImageDevice");
+
+	updateEMThresholdRankScaledDevice(updateImg_ImageDevice, normImg_ImageDevice,
+							c_r, threshold, true);
 }
+
+
 
 void ImageDevice::applyThreshold(const ImageBase* maskImg, float threshold,
                                  float val_le_scale, float val_le_off,
@@ -363,12 +471,15 @@ void ImageDevice::setValueDevice(float initValue, bool synchronize)
 {
 	ASSERT_MSG(getDevicePointer() != nullptr, "Device Image not allocated yet");
 
+	// TODO NOW: For simplicity time frame is passed to block.z
+	auto frameAnd_ZBlock = getParams().nz * getParams().num_frames;
+
 	if (mp_stream != nullptr)
 	{
 		setValue_kernel<<<m_launchParams.gridSize, m_launchParams.blockSize, 0,
 		                  *mp_stream>>>(getDevicePointer(), initValue,
 		                                getParams().nx, getParams().ny,
-		                                getParams().nz);
+		                                frameAnd_ZBlock);
 		if (synchronize)
 		{
 			cudaStreamSynchronize(*mp_stream);
@@ -376,9 +487,10 @@ void ImageDevice::setValueDevice(float initValue, bool synchronize)
 	}
 	else
 	{
+		// TODO NOW: For simplicity time frame is passed to block.z
 		setValue_kernel<<<m_launchParams.gridSize, m_launchParams.blockSize>>>(
 		    getDevicePointer(), initValue, getParams().nx, getParams().ny,
-		    getParams().nz);
+		    frameAnd_ZBlock);
 		if (synchronize)
 		{
 			cudaDeviceSynchronize();
@@ -429,13 +541,15 @@ void ImageDevice::addFirstImageToSecondDevice(ImageDevice* imgOut,
 	ASSERT_MSG(imgOut->getParams().isSameDimensionsAs(getParams()),
 	           "Image dimensions mismatch");
 	ASSERT_MSG(getDevicePointer() != nullptr, "Device Image not allocated yet");
+	// TODO NOW: For simplicity time frame is passed to block.z
+	auto frameAnd_ZBlock = getParams().nz * getParams().num_frames;
 
 	if (mp_stream != nullptr)
 	{
 		addFirstImageToSecond_kernel<<<
 		    m_launchParams.gridSize, m_launchParams.blockSize, 0, *mp_stream>>>(
 		    getDevicePointer(), imgOut->getDevicePointer(), getParams().nx,
-		    getParams().ny, getParams().nz);
+		    getParams().ny, frameAnd_ZBlock);
 		if (synchronize)
 		{
 			cudaStreamSynchronize(*mp_stream);
@@ -446,7 +560,7 @@ void ImageDevice::addFirstImageToSecondDevice(ImageDevice* imgOut,
 		addFirstImageToSecond_kernel<<<m_launchParams.gridSize,
 		                               m_launchParams.blockSize>>>(
 		    getDevicePointer(), imgOut->getDevicePointer(), getParams().nx,
-		    getParams().ny, getParams().nz);
+		    getParams().ny, frameAnd_ZBlock);
 		if (synchronize)
 		{
 			cudaDeviceSynchronize();

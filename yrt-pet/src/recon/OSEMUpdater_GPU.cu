@@ -23,7 +23,7 @@ void OSEMUpdater_GPU::computeSensitivityImage(ImageDevice& destImage) const
 	Corrector_GPU& corrector = mp_osem->getCorrector_GPU();
 
 	const cudaStream_t* mainStream = mp_osem->getMainStream();
-	const cudaStream_t* auxStream = mp_osem->getMainStream();
+	const cudaStream_t* auxStream = mp_osem->getAuxStream();
 
 	ProjectionDataDeviceOwned* sensDataBuffer =
 	    mp_osem->getSensitivityDataDeviceBuffer();
@@ -102,11 +102,17 @@ void OSEMUpdater_GPU::computeSensitivityImage(ImageDevice& destImage) const
 		          << numBatchesInCurrentSubset << "..." << std::endl;
 
 		// Backproject values
-		printf("\nDEBUG: In computeSensitivityImage, cudaCheckError before applyAH.\n");
-		cudaCheckError();
+		{
+			printf("\nDEBUG: In computeSensitivityImage, cudaCheckError before applyAH.\n");
+			cudaCheckError();
+			cudaDeviceSynchronize();
+		}
 		projector->applyAH(sensDataBuffer, &destImage, false);
-		printf("\nDEBUG: In computeSensitivityImage, cudaCheckError after applyAH.\n");
-		cudaCheckError();
+		{
+			printf("\nDEBUG: In computeSensitivityImage, cudaCheckError after applyAH.\n");
+			cudaCheckError();
+			cudaDeviceSynchronize();
+		}
 	}
 
 	if (mainStream != nullptr)
@@ -118,20 +124,52 @@ void OSEMUpdater_GPU::computeSensitivityImage(ImageDevice& destImage) const
 void OSEMUpdater_GPU::computeEMUpdateImage(const ImageDevice& inputImage,
                                            ImageDevice& destImage) const
 {
+	{
+		printf("\nDEBUG: Entering In computeEMUpdateImage\n");
+		cudaCheckError();
+		cudaDeviceSynchronize();
+	}
+
 	OperatorProjectorDevice* projector = mp_osem->getProjector();
 	const int currentSubset = mp_osem->getCurrentOSEMSubset();
 	Corrector_GPU& corrector = mp_osem->getCorrector_GPU();
 
 	const cudaStream_t* mainStream = mp_osem->getMainStream();
-	const cudaStream_t* auxStream = mp_osem->getMainStream();
+	const cudaStream_t* auxStream = mp_osem->getAuxStream();
+
+	{
+		printf("\nDEBUG: In computeEMUpdateImage, before ProjectionDataDeviceOwned\n");
+		cudaCheckError();
+		cudaDeviceSynchronize();
+	}
 
 	ProjectionDataDeviceOwned* measurementsDevice =
 	    mp_osem->getMLEMDataDeviceBuffer();
+	{
+		printf("\nDEBUG: In computeEMUpdateImage, after measurementsDevice\n");
+		cudaCheckError();
+		cudaDeviceSynchronize();
+	}
 	ProjectionDataDeviceOwned* tmpBufferDevice =
 	    mp_osem->getMLEMDataTmpDeviceBuffer();
+	{
+		printf("\nDEBUG: In computeEMUpdateImage, after tmpBufferDevice\n");
+		cudaCheckError();
+		cudaDeviceSynchronize();
+	}
 	const ProjectionDataDevice* correctorTempBuffer =
 	    corrector.getTemporaryDeviceBuffer();
+	{
+		printf("\nDEBUG: In computeEMUpdateImage, after correctorTempBuffer\n");
+		cudaCheckError();
+		cudaDeviceSynchronize();
+	}
 	const BinFilter* binFilter = projector->getBinFilter();
+	{
+		printf("\nDEBUG: In computeEMUpdateImage, after binFilter\n");
+		cudaCheckError();
+		cudaDeviceSynchronize();
+	}
 
 	ASSERT(projector != nullptr);
 	ASSERT(measurementsDevice != nullptr);
@@ -140,6 +178,12 @@ void OSEMUpdater_GPU::computeEMUpdateImage(const ImageDevice& inputImage,
 
 	const int numBatchesInCurrentSubset =
 	    measurementsDevice->getNumBatches(currentSubset);
+
+	{
+		printf("\nDEBUG: In computeEMUpdateImage, %d.\n", numBatchesInCurrentSubset);
+		cudaCheckError();
+		cudaDeviceSynchronize();
+	}
 
 	for (int batch = 0; batch < numBatchesInCurrentSubset; batch++)
 	{
@@ -154,7 +198,19 @@ void OSEMUpdater_GPU::computeEMUpdateImage(const ImageDevice& inputImage,
 
 		tmpBufferDevice->allocateForProjValues({mainStream, false});
 
+		{
+			printf("\nDEBUG: In computeEMUpdateImage, before applyA\n");
+			cudaCheckError();
+			cudaDeviceSynchronize();
+		}
+
 		projector->applyA(&inputImage, tmpBufferDevice, false);
+
+		{
+			printf("\nDEBUG: In computeEMUpdateImage, after applyA\n");
+			cudaCheckError();
+			cudaDeviceSynchronize();
+		}
 
 		if (corrector.hasAdditiveCorrection(*measurementsDevice))
 		{

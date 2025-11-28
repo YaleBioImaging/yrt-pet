@@ -68,8 +68,7 @@ std::pair<size_t, size_t>
 
 void OSEM_GPU::setupOperatorsForSensImgGen()
 {
-	getBinIterators().clear();
-	getBinIterators().reserve(num_OSEM_subsets);
+
 	for (int subsetId = 0; subsetId < num_OSEM_subsets; subsetId++)
 	{
 		// Create and add Bin Iterator
@@ -219,6 +218,11 @@ void OSEM_GPU::allocateForRecon()
 	mpd_mlemImage->allocate(false);
 	mpd_mlemImageTmpEMRatio->allocate(false);
 	mpd_sensImageBuffer->allocate(false);
+	{
+		printf("\nDEBUG: In allocateForRecon, cudaCheckError after 1st allocate.\n");
+		cudaCheckError();
+		cudaDeviceSynchronize();
+	}
 
 	if (flagImagePSF)
 	{
@@ -262,10 +266,24 @@ void OSEM_GPU::allocateForRecon()
 			    mpd_mlemImageTmpEMRatio.get(), false);
 		}
 	}
+	{
+		printf("\nDEBUG: In allocateForRecon, cudaCheckError after addFirstImageToSecondDevice.\n");
+		cudaCheckError();
+		cudaDeviceSynchronize();
+	}
 	mpd_mlemImage->applyThresholdDevice(mpd_mlemImageTmpEMRatio.get(), 0.0f,
 	                                    0.0f, 0.0f, 1.0f, 0.0f, false);
+	{
+		printf("\nDEBUG: In allocateForRecon, cudaCheckError after applyThresholdDevice.\n");
+		cudaCheckError();
+		cudaDeviceSynchronize();
+	}
 	mpd_mlemImageTmpEMRatio->setValueDevice(0.0f, false);
-
+	{
+		printf("\nDEBUG: In allocateForRecon, cudaCheckError after setValueDevice.\n");
+		cudaCheckError();
+		cudaDeviceSynchronize();
+	}
 	// Initialize device's sensitivity image with the host's
 	if (usingListModeInput)
 	{
@@ -469,22 +487,146 @@ const cudaStream_t* OSEM_GPU::getMainStream() const
 
 void OSEM_GPU::setupProjectorUpdater()
 {
-	auto projector = reinterpret_cast<OperatorProjectorDevice*>(mp_projector.get());
-	//projector->setupUpdater(projectorParams);
+	auto projector =
+	    reinterpret_cast<OperatorProjectorDevice*>(mp_projector.get());
+	// projector->setupUpdater(projectorParams);
 }
 
-Array2DBase<float>* OSEM_GPU::getHBasisTmpBuffer()
+void OSEM_GPU::generateWUpdateSensScaling(float* c_WUpdate_r)
 {
-	return nullptr;
+	// HBasis is rank x T
+	const auto dims = projectorParams.HBasis.getDims();
+	const int rank = static_cast<int>(dims[0]);
+	const int T = static_cast<int>(dims[1]);
+
+	for (int r = 0; r < rank; ++r)
+	{
+		c_WUpdate_r[r] = 0.f;
+		for (int t = 0; t < T; ++t)
+		{
+			c_WUpdate_r[r] += projectorParams.HBasis[r][t];
+		}
+	}
+	Sync_cWUpdateHostToDevice();
 }
-void OSEM_GPU::allocateHBasisTmpBuffer()
+
+void OSEM_GPU::generateHUpdateSensScaling(float* c_HUpdate_r) {}
+
+
+void OSEM_GPU::setupForDynamicRecon(int& rank, int& T)
 {
+	const bool IS_DYNAMIC =
+	    (projectorParams.projectorUpdaterType !=
+	     OperatorProjectorParams::ProjectorUpdaterType::DEFAULT3D);
+	const bool isLowRank =
+	    (projectorParams.projectorUpdaterType ==
+	         OperatorProjectorParams::ProjectorUpdaterType::LR ||
+	     projectorParams.projectorUpdaterType ==
+	         OperatorProjectorParams::ProjectorUpdaterType::LRDUALUPDATE);
+	const bool dualUpdate =
+	    (projectorParams.projectorUpdaterType ==
+	     OperatorProjectorParams::ProjectorUpdaterType::LRDUALUPDATE);
+
+	if (dualUpdate)
+	{
+		projectorParams.updateH = true;
+	}
+
+	allocateHBasisTmpBuffer();
+	// auto* HBuffer = dynamic_cast<Array2D<float>*>(getHBasisTmpBuffer());
+
+	if (isLowRank)
+	{
+		// Check LR Updater
+		if (auto* proj =
+		        dynamic_cast<OperatorProjectorDevice*>(mp_projector.get()))
+		{
+			auto lr = proj->getUpdaterDeviceWrapper();
+
+			// TODO NOW: Have a check to make sure UpdaterDevice is
+			// OperatorProjectorUpdaterDeviceLR ?
+
+			printf("lr->getUpdateH(): %d", lr->getUpdateH());
+			if (lr->getUpdateH() != projectorParams.updateH)
+			{
+				throw std::logic_error(
+				    "member updateH of OperatorProjectorUpdaterLR is "
+				    "different than input updateH in projectorParams");
+			}
+		}
+
+		// HBasis is rank x T
+		const auto dims =
+		    projectorParams.HBasis.getDims();  // std::array<size_t,2>
+		rank = static_cast<int>(dims[0]);
+		T = static_cast<int>(dims[1]);
+
+		if (!projectorParams.updateH || dualUpdate)
+		{
+			m_cWUpdate.resize(rank, 0.f);
+			generateWUpdateSensScaling(m_cWUpdate.data());
+			Sync_cWUpdateHostToDevice();
+		}
+		if (projectorParams.updateH || dualUpdate)
+		{
+			// Not implemented
+			throw std::runtime_error("LR with H update nor implemented.");
+			// m_cHUpdateDevice.allocate(m_cHUpdate.size(),
+			// 				  launchConfig);
+			// m_cHUpdateDevice.copyFromHost(m_cHUpdate.data(),
+			// m_cHUpdate.size(), 							  launchConfig);
+		}
+	}
+	else if (IS_DYNAMIC)
+	{
+		// 4D dynamic case
+		T = imageParams.num_frames;
+		m_cWUpdate.resize(T, 1.f);
+		Sync_cWUpdateHostToDevice();
+
+	}
 }
 
-void OSEM_GPU::initializeHBasisTmpBuffer() {}
+void OSEM_GPU::applyImageUpdate(ImageBase* destImage, ImageBase* numerator,
+                                const ImageBase* norm, const float eps,
+                                bool isDynamic)
+{
+	if (isDynamic)
+	{
+		destImage->updateEMThresholdRankScaled(
+		    numerator, norm, m_cWUpdateDevice.getDevicePointer(), eps);
+	}
+	else
+	{
+		destImage->updateEMThreshold(numerator, norm, eps);
+	}
+}
 
-void OSEM_GPU::generateWUpdateSensScaling(float* c) {}
+void OSEM_GPU::applyHUpdate() {}
 
-void OSEM_GPU::generateHUpdateSensScaling(float* c) {}
+void OSEM_GPU::Sync_cWUpdateDeviceToHost()
+{
+	if (m_cWUpdateDevice.isAllocated())
+	{
+		const GPULaunchConfig launchConfig{nullptr, true};
+		m_cWUpdateDevice.copyToHost(m_cWUpdate.data(), m_cWUpdate.size(),
+		                            launchConfig);
+	}
+	else
+	{
+		throw std::logic_error("m_cWUpdateDevice is not allocated");
+	}
+}
+
+void OSEM_GPU::Sync_cWUpdateHostToDevice()
+{
+	const GPULaunchConfig launchConfig{nullptr, true};
+	if (!m_cWUpdateDevice.isAllocated())
+	{
+		m_cWUpdateDevice.allocate(m_cWUpdate.size(), launchConfig);
+	}
+	m_cWUpdateDevice.copyFromHost(m_cWUpdate.data(), m_cWUpdate.size(),
+								  launchConfig);
+}
 
 }  // namespace yrt

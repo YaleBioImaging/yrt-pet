@@ -29,6 +29,36 @@ __global__ void updateEM_kernel(const float* pd_imgIn, float* pd_imgOut,
 	}
 }
 
+__global__ void updateEMDynamic_kernel(const float* pd_imgIn, float* pd_imgOut,
+								const float* pd_sensImg, const int nx,
+								const int ny, const int nz, const int nt,
+								const float* c_r,
+								const float EM_threshold)
+{
+	const long id_z = blockIdx.z * blockDim.z + threadIdx.z;
+	const long id_y = blockIdx.y * blockDim.y + threadIdx.y;
+	const long id_x = blockIdx.x * blockDim.x + threadIdx.x;
+
+	if (id_z < nz && id_y < ny && id_x < nx)
+	{
+		const long pixelId = id_z * nx * ny + id_y * nx + id_x;
+		const long frameStride = nx * ny * nz;
+
+		// Loop over time (or rank) dimension
+		const auto sens = pd_sensImg[pixelId];
+		for (int t = 0; t < nt; ++t)
+		{
+			const long idx = t * frameStride + pixelId;
+			auto inv_c_r = 1.0f / c_r[t];
+			auto thr_r = EM_threshold * inv_c_r;
+			if (sens > thr_r)
+			{
+				pd_imgOut[idx] *= (pd_imgIn[idx] * inv_c_r) / sens;
+			}
+		}
+	}
+}
+
 // TODO: Modify to work with dynamic images (add num_frame)
 __global__ void applyThreshold_kernel(
     float* pd_imgIn, const float* pd_imgMask, const float threshold,
@@ -49,6 +79,38 @@ __global__ void applyThreshold_kernel(
 		else
 		{
 			pd_imgIn[pixelId] = pd_imgIn[pixelId] * val_gt_scale + val_gt_off;
+		}
+	}
+}
+
+__global__ void applyThresholdBroadcast_kernel(
+	float* pd_imgIn, const float* pd_imgMask, const float threshold,
+	const float val_le_scale, const float val_le_off, const float val_gt_scale,
+	const float val_gt_off, const int nx, const int ny, const int nz, const int nt)
+{
+	const long id_z = blockIdx.z * blockDim.z + threadIdx.z;
+	const long id_y = blockIdx.y * blockDim.y + threadIdx.y;
+	const long id_x = blockIdx.x * blockDim.x + threadIdx.x;
+
+	if (id_z < nz && id_y < ny && id_x < nx)
+	{
+		const long pixelId = id_z * nx * ny + id_y * nx + id_x;
+		const long frameStride = nx * ny * nz;
+		if (pd_imgMask[pixelId] <= threshold)
+		{
+			for (int t = 0; t < nt; ++t)
+			{
+				const long idx = t * frameStride + pixelId;
+				pd_imgIn[idx] = pd_imgIn[idx] * val_le_scale + val_le_off;
+			}
+		}
+		else
+		{
+			for (int t = 0; t < nt; ++t)
+			{
+				const long idx = t * frameStride + pixelId;
+				pd_imgIn[idx] = pd_imgIn[idx] * val_gt_scale + val_gt_off;
+			}
 		}
 	}
 }

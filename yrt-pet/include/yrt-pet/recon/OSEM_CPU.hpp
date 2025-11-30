@@ -63,7 +63,8 @@ protected:
 	void applyImageUpdate(ImageBase* destImage, ImageBase* numerator,
 	                      const ImageBase* norm, const float eps,
 	                      bool isDynamic) override;
-	void applyHUpdate() override;
+	void SyncHostToDeviceHBasisWrite() override;
+	void SyncDeviceToHostHBasisWrite() override;
 
 
 private:

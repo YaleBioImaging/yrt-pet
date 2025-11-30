@@ -18,7 +18,7 @@ namespace util
 GPULaunchParams3D initiateDeviceParameters(const ImageParams& params)
 {
 	GPULaunchParams3D launchParams;
-	if (params.nz > 1)
+	if (params.nz * params.num_frames > 1)
 	{
 		const size_t threadsPerBlockDimImage =
 		    globals::ThreadsPerBlockImg3d;
@@ -33,7 +33,7 @@ GPULaunchParams3D initiateDeviceParameters(const ImageParams& params)
 		    static_cast<unsigned int>(
 		        std::ceil(params.ny / threadsPerBlockDimImage_float)),
 		    static_cast<unsigned int>(
-		        std::ceil(params.nz / threadsPerBlockDimImage_float))};
+		        std::ceil(params.nz * params.num_frames / threadsPerBlockDimImage_float))};
 
 		launchParams.blockSize = {threadsPerBlockDimImage_uint,
 		                          threadsPerBlockDimImage_uint,

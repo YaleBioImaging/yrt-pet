@@ -30,31 +30,30 @@ __global__ void updateEM_kernel(const float* pd_imgIn, float* pd_imgOut,
 }
 
 __global__ void updateEMDynamic_kernel(const float* pd_imgIn, float* pd_imgOut,
-								const float* pd_sensImg, const int nx,
-								const int ny, const int nz, const int nt,
-								const float* c_r,
-								const float EM_threshold)
+                                       const float* pd_sensImg, const int nx,
+                                       const int ny, const int nz, const int nt,
+                                       const float* c_r,
+                                       const float EM_threshold)
 {
 	const long id_z = blockIdx.z * blockDim.z + threadIdx.z;
 	const long id_y = blockIdx.y * blockDim.y + threadIdx.y;
 	const long id_x = blockIdx.x * blockDim.x + threadIdx.x;
 
-	if (id_z < nz && id_y < ny && id_x < nx)
+	if (id_z < (nz * nt) && id_y < ny && id_x < nx)
 	{
-		const long pixelId = id_z * nx * ny + id_y * nx + id_x;
-		const long frameStride = nx * ny * nz;
+		const int t = id_z / nz;
+		const int local_z = id_z / nt;
 
-		// Loop over time (or rank) dimension
+		const long pixelId = local_z * nx * ny + id_y * nx + id_x;
+		const long idx = id_z * nx * ny + id_y * nx + id_x;
+
+		// Only space idx for sens image
 		const auto sens = pd_sensImg[pixelId];
-		for (int t = 0; t < nt; ++t)
+		auto inv_c_r = 1.0f / c_r[t];
+		auto thr_r = EM_threshold * inv_c_r;
+		if (sens > thr_r)
 		{
-			const long idx = t * frameStride + pixelId;
-			auto inv_c_r = 1.0f / c_r[t];
-			auto thr_r = EM_threshold * inv_c_r;
-			if (sens > thr_r)
-			{
-				pd_imgOut[idx] *= (pd_imgIn[idx] * inv_c_r) / sens;
-			}
+			pd_imgOut[idx] *= (pd_imgIn[idx] * inv_c_r) / sens;
 		}
 	}
 }
@@ -84,48 +83,63 @@ __global__ void applyThreshold_kernel(
 }
 
 __global__ void applyThresholdBroadcast_kernel(
-	float* pd_imgIn, const float* pd_imgMask, const float threshold,
-	const float val_le_scale, const float val_le_off, const float val_gt_scale,
-	const float val_gt_off, const int nx, const int ny, const int nz, const int nt)
+    float* pd_imgIn, const float* pd_imgMask, const float threshold,
+    const float val_le_scale, const float val_le_off, const float val_gt_scale,
+    const float val_gt_off, const int nx, const int ny, const int nz,
+    const int nt)
 {
 	const long id_z = blockIdx.z * blockDim.z + threadIdx.z;
 	const long id_y = blockIdx.y * blockDim.y + threadIdx.y;
 	const long id_x = blockIdx.x * blockDim.x + threadIdx.x;
 
-	if (id_z < nz && id_y < ny && id_x < nx)
+	if (id_z < (nz * nt) && id_y < ny && id_x < nx)
 	{
-		const long pixelId = id_z * nx * ny + id_y * nx + id_x;
-		const long frameStride = nx * ny * nz;
+		const int local_z = id_z / nt;
+
+		const long pixelId = local_z * nx * ny + id_y * nx + id_x;
+
 		if (pd_imgMask[pixelId] <= threshold)
 		{
-			for (int t = 0; t < nt; ++t)
-			{
-				const long idx = t * frameStride + pixelId;
-				pd_imgIn[idx] = pd_imgIn[idx] * val_le_scale + val_le_off;
-			}
+			const long idx = id_z * nx * ny + id_y * nx + id_x;
+			pd_imgIn[idx] = pd_imgIn[idx] * val_le_scale + val_le_off;
 		}
 		else
 		{
-			for (int t = 0; t < nt; ++t)
-			{
-				const long idx = t * frameStride + pixelId;
-				pd_imgIn[idx] = pd_imgIn[idx] * val_gt_scale + val_gt_off;
-			}
+			const long idx = id_z * nx * ny + id_y * nx + id_x;
+			pd_imgIn[idx] = pd_imgIn[idx] * val_gt_scale + val_gt_off;
 		}
 	}
 }
 
 __global__ void setValue_kernel(float* pd_imgIn, const float value,
-                                const int nx, const int ny, const int nz)
+                                const int nx, const int ny, const int nz,
+                                const int nt)
 {
 	const long id_z = blockIdx.z * blockDim.z + threadIdx.z;
 	const long id_y = blockIdx.y * blockDim.y + threadIdx.y;
 	const long id_x = blockIdx.x * blockDim.x + threadIdx.x;
 
-	if (id_z < nz && id_y < ny && id_x < nx)
+	if (id_z < (nz * nt) && id_y < ny && id_x < nx)
 	{
 		const long pixelId = id_z * nx * ny + id_y * nx + id_x;
 		pd_imgIn[pixelId] = value;
+	}
+}
+
+__global__ void addFirstImage3DToSecond4D_kernel(const float* pd_imgIn,
+											 float* pd_imgOut, int nx, int ny,
+											 int nz, int nt)
+{
+	const long id_z = blockIdx.z * blockDim.z + threadIdx.z;
+	const long id_y = blockIdx.y * blockDim.y + threadIdx.y;
+	const long id_x = blockIdx.x * blockDim.x + threadIdx.x;
+
+	if (id_z < (nz * nt) && id_y < ny && id_x < nx)
+	{
+		const int local_z = id_z / nt;
+		const long pixelId = local_z * nx * ny + id_y * nx + id_x;
+		const long idx = id_z * nx * ny + id_y * nx + id_x;
+		pd_imgOut[idx] = pd_imgOut[idx] + pd_imgIn[pixelId];
 	}
 }
 

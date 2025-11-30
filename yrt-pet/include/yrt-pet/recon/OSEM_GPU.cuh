@@ -72,7 +72,8 @@ public:
 	void applyImageUpdate(ImageBase* destImage, ImageBase* numerator,
 	                      const ImageBase* norm, const float eps,
 	                      bool isDynamic) override;
-	void applyHUpdate() override;
+	void SyncHostToDeviceHBasisWrite() override;
+	void SyncDeviceToHostHBasisWrite() override;
 	void Sync_cWUpdateDeviceToHost() override;
 	void Sync_cWUpdateHostToDevice() override;
 

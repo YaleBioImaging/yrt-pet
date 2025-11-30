@@ -29,11 +29,16 @@ __global__ void applyThresholdBroadcast_kernel(float* pd_imgIn, const float* pd_
 									  int nt);
 
 __global__ void setValue_kernel(float* d_imgIn, float value, int nx, int ny,
-                                int nz);
+                                int nz, int nt);
 
 __global__ void addFirstImageToSecond_kernel(const float* d_imgIn,
                                              float* d_imgOut, int nx, int ny,
                                              int nz);
+
+__global__ void addFirstImage3DToSecond4D_kernel(const float* d_imgIn,
+											 float* d_imgOut, int nx, int ny,
+											 int nz, int nt);
+
 
 template <bool WEIGHED_AVG>
 __global__ void

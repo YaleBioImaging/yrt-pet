@@ -313,7 +313,26 @@ void OSEM_CPU::computeEMUpdateImage(const ImageBase& inputImage,
 {
 	auto& inputImageHost = dynamic_cast<const Image&>(inputImage);
 	auto& destImageHost = dynamic_cast<Image&>(destImage);
+	// {
+	// 	auto* emRatio = getImageTmpBuffer(
+	// 		TemporaryImageSpaceBufferType::EM_RATIO);
+	// 	auto* emRatioImg = dynamic_cast<Image*>(emRatio);
+	// 	ASSERT(emRatioImg != nullptr);
+	//
+	// 	std::cout << "DEBUG: Before compute: [CPU] EM numerator sum = "
+	// 			  << emRatioImg->voxelSum() << std::endl;
+	// }
 	mp_updater->computeEMUpdateImage(inputImageHost, destImageHost);
+
+	// {
+	// 	auto* emRatio = getImageTmpBuffer(
+	// 		TemporaryImageSpaceBufferType::EM_RATIO);
+	// 	auto* emRatioImg = dynamic_cast<Image*>(emRatio);
+	// 	ASSERT(emRatioImg != nullptr);
+	//
+	// 	std::cout << "DEBUG: After compute: [CPU] EM numerator sum = "
+	// 			  << emRatioImg->voxelSum() << std::endl;
+	// }
 }
 
 
@@ -494,68 +513,10 @@ void OSEM_CPU::applyImageUpdate(ImageBase* destImage, ImageBase* numerator,
 	}
 }
 
-void OSEM_CPU::applyHUpdate()
-{
-	float* H_old_ptr = projectorParams.HBasis.getRawPointer();  // current H
-	const float* Hnum_ptr =
-	    dynamic_cast<Array2D<float>*>(getHBasisTmpBuffer())
-	        ->getRawPointer();  // numerator accumulated this subset
+void OSEM_CPU::SyncHostToDeviceHBasisWrite() {}
 
-	// shapes: rank x T
-	const int rank = projectorParams.HBasis.getDims()[0];
-	const int T = projectorParams.HBasis.getDims()[1];
+void OSEM_CPU::SyncDeviceToHostHBasisWrite() {}
 
-	double min_ratio = 1e30, max_ratio = -1e30, mean_ratio = 0.0;
-	double sum_num = 0.0, sum_den = 0.0;
-
-	for (int r = 0; r < rank; ++r)
-	{
-		const double den = std::max<double>(m_cHUpdate[r], EPS_FLT);
-		sum_den += den;
-		for (int t = 0; t < T; ++t)
-		{
-			const double num = Hnum_ptr[r * T + t];
-			sum_num += num;
-			const double ratio = num / den;
-			min_ratio = std::min(min_ratio, ratio);
-			max_ratio = std::max(max_ratio, ratio);
-			mean_ratio += ratio;
-		}
-	}
-	mean_ratio /= (rank * T);
-
-	printf("\nH update stats: sum_num=%.6g sum_den=%.6g  "
-	       "ratio[min,mean,max]=[%.3g, %.3g, %.3g]\n",
-	       sum_num, sum_den, min_ratio, mean_ratio, max_ratio);
-
-	printf("\n --- Before Update --- \n");
-	double sum = 0.0;
-	for (int i = 0; i < rank * T; ++i)
-		sum += H_old_ptr[i];
-	printf("sum(H)=%.6g, mean(H)=%.6g\n", sum, sum / (rank * T));
-
-	// H_new := H_old * (Hnum / c_r)
-	util::parallelForChunked(
-	    T, globals::getNumThreads(),
-	    [&, rank, T, H_old_ptr, Hnum_ptr](int t, int /*tid*/)
-	    {
-		    for (int r = 0; r < rank; ++r)
-		    {
-			    const float denom = std::max(m_cHUpdate[r], EPS_FLT);
-			    const float inv = 1.0f / denom;
-			    float* Hr = H_old_ptr + r * T;
-			    const float* Nr = Hnum_ptr + r * T;
-			    Hr[t] =
-			        Hr[t] * (Nr[t] * inv);  // write the *new H* back over H_old
-		    }
-	    });
-
-	printf("\n --- After Update --- \n");
-	double sum_after = 0.0;
-	for (int i = 0; i < rank * T; ++i)
-		sum_after += H_old_ptr[i];
-	printf("sum(H)=%.6g, mean(H)=%.6g\n", sum_after, sum_after / (rank * T));
-}
 
 void OSEM_CPU::completeMLEMIteration() {}
 

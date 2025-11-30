@@ -68,7 +68,6 @@ std::pair<size_t, size_t>
 
 void OSEM_GPU::setupOperatorsForSensImgGen()
 {
-
 	for (int subsetId = 0; subsetId < num_OSEM_subsets; subsetId++)
 	{
 		// Create and add Bin Iterator
@@ -110,9 +109,11 @@ void OSEM_GPU::setupOperatorsForSensImgGen()
 
 void OSEM_GPU::allocateForSensImgGen()
 {
+	auto imageParamsSens = getImageParams();
+	imageParamsSens.num_frames = 1;
 	// Allocate for image space
 	mpd_sensImageBuffer =
-	    std::make_unique<ImageDeviceOwned>(getImageParams(), getMainStream());
+	    std::make_unique<ImageDeviceOwned>(imageParamsSens, getMainStream());
 	mpd_sensImageBuffer->allocate(true);
 
 	if (flagImagePSF)
@@ -154,8 +155,10 @@ void OSEM_GPU::allocateForSensImgGen()
 std::unique_ptr<Image> OSEM_GPU::getLatestSensitivityImage(bool isLastSubset)
 {
 	(void)isLastSubset;  // Copy flag is obsolete since the data is not yet on
+	auto imageParamsSens = getImageParams();
+	imageParamsSens.num_frames = 1;
 	// Host-side
-	auto img = std::make_unique<ImageOwned>(getImageParams());
+	auto img = std::make_unique<ImageOwned>(imageParamsSens);
 	img->allocate();
 	mpd_sensImageBuffer->transferToHostMemory(img.get(), true);
 	return img;
@@ -218,11 +221,12 @@ void OSEM_GPU::allocateForRecon()
 	mpd_mlemImage->allocate(false);
 	mpd_mlemImageTmpEMRatio->allocate(false);
 	mpd_sensImageBuffer->allocate(false);
-	{
-		printf("\nDEBUG: In allocateForRecon, cudaCheckError after 1st allocate.\n");
-		cudaCheckError();
-		cudaDeviceSynchronize();
-	}
+	// {
+	// 	printf("\nDEBUG: In allocateForRecon, cudaCheckError after 1st "
+	// 	       "allocate.\n");
+	// 	cudaCheckError();
+	// 	cudaDeviceSynchronize();
+	// }
 
 	if (flagImagePSF)
 	{
@@ -241,6 +245,17 @@ void OSEM_GPU::allocateForRecon()
 		mpd_mlemImage->setValue(INITIAL_VALUE_MLEM);
 	}
 
+	{
+		// copy to host
+		auto tmpImg = std::make_unique<ImageOwned>(mpd_mlemImage->getParams());
+		tmpImg->allocate();
+		mpd_mlemImage->transferToHostMemory(tmpImg.get(), true);
+
+		std::cout << "DEBUG: mpd_mlemImage numerator sum = "
+		          << tmpImg->voxelSum() << std::endl;
+		printf("\n INITIAL_VALUE_MLEM = %f \n", INITIAL_VALUE_MLEM);
+	}
+
 	// Apply mask image (Use temporary buffer to avoid allocating a new one
 	// unnecessarily)
 	if (maskImage != nullptr)
@@ -249,9 +264,14 @@ void OSEM_GPU::allocateForRecon()
 	}
 	else if (num_OSEM_subsets == 1 || usingListModeInput)
 	{
+		auto p = getSensitivityImage(0)->getParams();
+		printf("\n DEBUG: Before copyFromHostImage: nx = %d, ny = %d, nz = %d, nt = %d \n",
+			p.nx, p.ny, p.nz, p.num_frames);
 		// No need to sum all sensitivity images, just use the only one
 		mpd_mlemImageTmpEMRatio->copyFromHostImage(getSensitivityImage(0),
 		                                           true);
+		printf("\n DEBUG: After copyFromHostImage: nx = %d, ny = %d, nz = %d, nt = %d \n",
+			p.nx, p.ny, p.nz, p.num_frames);
 	}
 	else
 	{
@@ -262,38 +282,31 @@ void OSEM_GPU::allocateForRecon()
 		{
 			mpd_sensImageBuffer->copyFromHostImage(getSensitivityImage(i),
 			                                       false);
+			printf("\n DEBUG: Before addFirstImageToSecondDevice\n");
 			mpd_sensImageBuffer->addFirstImageToSecondDevice(
 			    mpd_mlemImageTmpEMRatio.get(), false);
+			printf("\n DEBUG: After addFirstImageToSecondDevice\n");
 		}
 	}
-	{
-		printf("\nDEBUG: In allocateForRecon, cudaCheckError after addFirstImageToSecondDevice.\n");
-		cudaCheckError();
-		cudaDeviceSynchronize();
-	}
-	mpd_mlemImage->applyThresholdDevice(mpd_mlemImageTmpEMRatio.get(), 0.0f,
-	                                    0.0f, 0.0f, 1.0f, 0.0f, false);
-	{
-		printf("\nDEBUG: In allocateForRecon, cudaCheckError after applyThresholdDevice.\n");
-		cudaCheckError();
-		cudaDeviceSynchronize();
-	}
+	mpd_mlemImage->applyThresholdBroadcastDevice(
+	    mpd_mlemImageTmpEMRatio.get(), 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, false);
 	mpd_mlemImageTmpEMRatio->setValueDevice(0.0f, false);
-	{
-		printf("\nDEBUG: In allocateForRecon, cudaCheckError after setValueDevice.\n");
-		cudaCheckError();
-		cudaDeviceSynchronize();
-	}
+
 	// Initialize device's sensitivity image with the host's
 	if (usingListModeInput)
 	{
-		printf("\nDEBUG: Transfer sens image to Devcie Memory...\n\n");
 		mpd_sensImageBuffer->transferToDeviceMemory(getSensitivityImage(0),
 		                                            true);
-		printf("\nDEBUG: Transfer sens image done.\n\n");
 	}
 
 	// Use the already-computed BinIterators instead of recomputing them
+	// for (int subsetId = 0; subsetId < num_OSEM_subsets; subsetId++)
+	// {
+	// 	// Create and add Bin Iterator
+	// 	getBinIterators().push_back(
+	// 	    mp_corrector->getSensImgGenProjData()->getBinIter(num_OSEM_subsets,
+	// 	                                                      subsetId));
+	// }
 	std::vector<const BinIterator*> binIteratorPtrList;
 	for (const auto& subsetBinIter : getBinIterators())
 		binIteratorPtrList.push_back(subsetBinIter.get());
@@ -472,7 +485,35 @@ void OSEM_GPU::computeEMUpdateImage(const ImageBase& inputImage,
 {
 	auto& inputImageHost = dynamic_cast<const ImageDevice&>(inputImage);
 	auto& destImageHost = dynamic_cast<ImageDevice&>(destImage);
+	// {
+	// 	ImageBase* emRatioBase =
+	// 	    getImageTmpBuffer(TemporaryImageSpaceBufferType::EM_RATIO);
+	// 	auto* emRatioDev = dynamic_cast<ImageDevice*>(emRatioBase);
+	// 	ASSERT(emRatioDev != nullptr);
+	//
+	// 	// copy to host
+	// 	auto tmpImg = std::make_unique<ImageOwned>(emRatioDev->getParams());
+	// 	tmpImg->allocate();
+	// 	emRatioDev->transferToHostMemory(tmpImg.get(), true);
+	//
+	// 	std::cout << "DEBUG: Before compute: [GPU] EM numerator sum = "
+	// 	          << tmpImg->voxelSum() << std::endl;
+	// }
 	mp_updater->computeEMUpdateImage(inputImageHost, destImageHost);
+	// {
+	// 	ImageBase* emRatioBase =
+	// 	    getImageTmpBuffer(TemporaryImageSpaceBufferType::EM_RATIO);
+	// 	auto* emRatioDev = dynamic_cast<ImageDevice*>(emRatioBase);
+	// 	ASSERT(emRatioDev != nullptr);
+	//
+	// 	// copy to host
+	// 	auto tmpImg = std::make_unique<ImageOwned>(emRatioDev->getParams());
+	// 	tmpImg->allocate();
+	// 	emRatioDev->transferToHostMemory(tmpImg.get(), true);
+	//
+	// 	std::cout << "DEBUG: After compute: [GPU] EM numerator sum = "
+	// 	          << tmpImg->voxelSum() << std::endl;
+	// }
 }
 
 const cudaStream_t* OSEM_GPU::getAuxStream() const
@@ -489,7 +530,9 @@ void OSEM_GPU::setupProjectorUpdater()
 {
 	auto projector =
 	    reinterpret_cast<OperatorProjectorDevice*>(mp_projector.get());
-	// projector->setupUpdater(projectorParams);
+	// TODO NOW: We probably don't need to set up again the updater as this was
+	// already done in the construction of the projector
+	projector->setupUpdater(projectorParams);
 }
 
 void OSEM_GPU::generateWUpdateSensScaling(float* c_WUpdate_r)
@@ -510,7 +553,65 @@ void OSEM_GPU::generateWUpdateSensScaling(float* c_WUpdate_r)
 	Sync_cWUpdateHostToDevice();
 }
 
-void OSEM_GPU::generateHUpdateSensScaling(float* c_HUpdate_r) {}
+void OSEM_GPU::generateHUpdateSensScaling(float* c_HUpdate_r)
+{
+	const size_t J = imageParams.nx * imageParams.ny * imageParams.nz;
+	ImageBase* W_imgBase =
+	    getImageTmpBuffer(TemporaryImageSpaceBufferType::EM_RATIO);
+	auto* W_imgDevice = dynamic_cast<ImageDevice*>(W_imgBase);
+	ASSERT(W_imgDevice != nullptr);
+
+	// copy to host
+	auto W_img = std::make_unique<ImageOwned>(W_imgDevice->getParams());
+	W_img->allocate();
+	W_imgDevice->transferToHostMemory(W_img.get(), true);
+
+	ImageBase* s_imgBase =
+	    getImageTmpBuffer(TemporaryImageSpaceBufferType::EM_RATIO);
+	auto* s_imgDevice = dynamic_cast<ImageDevice*>(s_imgBase);
+	ASSERT(s_imgDevice != nullptr);
+
+	// copy to host
+	auto s_img = std::make_unique<ImageOwned>(s_imgDevice->getParams());
+	s_img->allocate();
+	s_imgDevice->transferToHostMemory(s_img.get(), true);
+
+	ASSERT_MSG(W_img && s_img, "check: W_img && s_img");
+	const float* W_ptr = W_img->getRawPointer();
+	const float* s_ptr = s_img->getRawPointer();
+	const auto dims = projectorParams.HBasis.getDims();
+	const int rank = static_cast<int>(dims[0]);
+
+	if (W_ptr == nullptr)
+	{
+		throw std::logic_error("W_img->getRawPointer() gives nullptr");
+	}
+
+	if (s_ptr == nullptr)
+	{
+		throw std::logic_error("s_img->getRawPointer() gives nullptr");
+	}
+
+	const int numThreads = globals::getNumThreads();
+
+	for (int r = 0; r < rank; ++r)
+	{
+		std::vector<float> cr_threadLocal(numThreads, 0.f);
+		const auto* Wr = W_ptr + r * J;
+
+		util::parallelForChunked(J, numThreads, [&](size_t j, size_t tid)
+		                         { cr_threadLocal[tid] += Wr[j] * s_ptr[j]; });
+
+		float cr = 0.0f;
+
+		for (int t = 0; t < numThreads; ++t)
+		{
+			cr += cr_threadLocal[t];
+		}
+
+		c_HUpdate_r[r] = cr;
+	}
+}
 
 
 void OSEM_GPU::setupForDynamicRecon(int& rank, int& T)
@@ -532,11 +633,11 @@ void OSEM_GPU::setupForDynamicRecon(int& rank, int& T)
 		projectorParams.updateH = true;
 	}
 
-	allocateHBasisTmpBuffer();
-	// auto* HBuffer = dynamic_cast<Array2D<float>*>(getHBasisTmpBuffer());
-
 	if (isLowRank)
 	{
+		allocateHBasisTmpBuffer();
+		auto* HBuffer = dynamic_cast<Array2D<float>*>(getHBasisTmpBuffer());
+
 		// Check LR Updater
 		if (auto* proj =
 		        dynamic_cast<OperatorProjectorDevice*>(mp_projector.get()))
@@ -553,6 +654,7 @@ void OSEM_GPU::setupForDynamicRecon(int& rank, int& T)
 				    "member updateH of OperatorProjectorUpdaterLR is "
 				    "different than input updateH in projectorParams");
 			}
+			lr->setHBasisWrite(*HBuffer);
 		}
 
 		// HBasis is rank x T
@@ -570,11 +672,7 @@ void OSEM_GPU::setupForDynamicRecon(int& rank, int& T)
 		if (projectorParams.updateH || dualUpdate)
 		{
 			// Not implemented
-			throw std::runtime_error("LR with H update nor implemented.");
-			// m_cHUpdateDevice.allocate(m_cHUpdate.size(),
-			// 				  launchConfig);
-			// m_cHUpdateDevice.copyFromHost(m_cHUpdate.data(),
-			// m_cHUpdate.size(), 							  launchConfig);
+			generateHUpdateSensScaling(m_cHUpdate.data());
 		}
 	}
 	else if (IS_DYNAMIC)
@@ -583,7 +681,6 @@ void OSEM_GPU::setupForDynamicRecon(int& rank, int& T)
 		T = imageParams.num_frames;
 		m_cWUpdate.resize(T, 1.f);
 		Sync_cWUpdateHostToDevice();
-
 	}
 }
 
@@ -602,7 +699,33 @@ void OSEM_GPU::applyImageUpdate(ImageBase* destImage, ImageBase* numerator,
 	}
 }
 
-void OSEM_GPU::applyHUpdate() {}
+void OSEM_GPU::SyncHostToDeviceHBasisWrite()
+{
+	if (auto* proj = dynamic_cast<OperatorProjectorDevice*>(mp_projector.get()))
+	{
+		auto lr = proj->getUpdaterDeviceWrapper();
+		lr->SyncHostToDeviceHBasisWrite();
+	}
+	else
+	{
+		throw std::logic_error(
+			"Could not convert mp_projector to OperatorProjectorDevice");
+	}
+}
+
+void OSEM_GPU::SyncDeviceToHostHBasisWrite()
+{
+	if (auto* proj = dynamic_cast<OperatorProjectorDevice*>(mp_projector.get()))
+	{
+		auto lr = proj->getUpdaterDeviceWrapper();
+		lr->SyncDeviceToHostHBasisWrite();
+	}
+	else
+	{
+		throw std::logic_error(
+			"Could not convert mp_projector to OperatorProjectorDevice");
+	}
+}
 
 void OSEM_GPU::Sync_cWUpdateDeviceToHost()
 {
@@ -626,7 +749,7 @@ void OSEM_GPU::Sync_cWUpdateHostToDevice()
 		m_cWUpdateDevice.allocate(m_cWUpdate.size(), launchConfig);
 	}
 	m_cWUpdateDevice.copyFromHost(m_cWUpdate.data(), m_cWUpdate.size(),
-								  launchConfig);
+	                              launchConfig);
 }
 
 }  // namespace yrt

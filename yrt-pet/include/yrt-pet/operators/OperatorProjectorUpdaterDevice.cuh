@@ -79,9 +79,11 @@ public:
 class OperatorProjectorUpdaterDeviceLR : public OperatorProjectorUpdaterDevice
 {
 public:
-	__device__ OperatorProjectorUpdaterDeviceLR(float* d_HBasis, int rank,
+	__device__ OperatorProjectorUpdaterDeviceLR(float* d_HBasis,
+	                                            float* d_HBasisWrite, int rank,
 	                                            int numFrames, bool updateH)
 	    : mpd_HBasisDevice_ptr(d_HBasis),
+	      mpd_HBasisDeviceWrite_ptr(d_HBasisWrite),
 	      m_updateH(updateH),
 	      m_rank(rank),
 	      m_numDynamicFrames(numFrames)
@@ -149,7 +151,8 @@ using UpdaterPointer = OperatorProjectorUpdaterDevice**;
 inline __global__ void constructUpdaterOnDevice(
     UpdaterPointer ppd_updater,
     const OperatorProjectorParams::ProjectorUpdaterType p_updaterType,
-    float* HBasis_ptr, int rank, int numFrames, bool updateH)
+    float* HBasis_ptr, float* HBasisWrite_ptr, int rank, int numFrames,
+    bool updateH)
 {
 	// It is necessary to create object representing a function
 	// directly in global memory of the GPU device for virtual
@@ -173,7 +176,7 @@ inline __global__ void constructUpdaterOnDevice(
 			// ASSERT(HBasis_ptr != nullptr);
 
 			*ppd_updater = new OperatorProjectorUpdaterDeviceLR(
-			    HBasis_ptr, rank, numFrames, updateH);
+			    HBasis_ptr, HBasisWrite_ptr, rank, numFrames, updateH);
 		}
 		else
 		{
@@ -202,12 +205,11 @@ public:
 	}
 
 	void initUpdater(
-		const OperatorProjectorParams::ProjectorUpdaterType updaterType)
+	    const OperatorProjectorParams::ProjectorUpdaterType updaterType)
 	{
 		cudaMalloc(&mpd_updater, sizeof(UpdaterPointer));
-		constructUpdaterOnDevice<<<1, 1>>>(mpd_updater, updaterType,
-										   nullptr, 0,
-										   0, false);
+		constructUpdaterOnDevice<<<1, 1>>>(mpd_updater, updaterType, nullptr,
+		                                   nullptr, 0, 0, false);
 		cudaDeviceSynchronize();
 	}
 
@@ -216,6 +218,7 @@ public:
 	    const Array2DBase<float>& p_HBasis, bool updateH = false)
 	{
 		float* HBasisDevice_ptr = nullptr;
+		float* HBasisWriteDevice_ptr = nullptr;
 		if (updaterType == OperatorProjectorParams::ProjectorUpdaterType::LR ||
 		    updaterType ==
 		        OperatorProjectorParams::ProjectorUpdaterType::LRDUALUPDATE)
@@ -226,14 +229,17 @@ public:
 				    "LR updater was requested but HBasis is empty");
 			}
 			mpd_HBasisDeviceArray = std::make_unique<DeviceArray<float>>();
+			mpd_HBasisWriteDeviceArray = std::make_unique<DeviceArray<float>>();
 			m_updateH = updateH;
 			setHBasis(p_HBasis);
 			HBasisDevice_ptr = mpd_HBasisDeviceArray->getDevicePointer();
+			HBasisWriteDevice_ptr =
+			    mpd_HBasisWriteDeviceArray->getDevicePointer();
 		}
 		cudaMalloc(&mpd_updater, sizeof(UpdaterPointer));
-		constructUpdaterOnDevice<<<1, 1>>>(mpd_updater, updaterType,
-		                                   HBasisDevice_ptr, m_rank,
-		                                   m_numDynamicFrames, m_updateH);
+		constructUpdaterOnDevice<<<1, 1>>>(
+		    mpd_updater, updaterType, HBasisDevice_ptr, HBasisWriteDevice_ptr,
+		    m_rank, m_numDynamicFrames, m_updateH);
 		cudaDeviceSynchronize();
 	}
 
@@ -254,6 +260,15 @@ public:
 		                                       launchConfig);
 	}
 
+	bool allocateForHBasisWriteDevice() const
+	{
+		// Allocate HBasis buffers
+		const GPULaunchConfig launchConfig{nullptr, true};
+		return mpd_HBasisWriteDeviceArray->allocate(m_rank * m_numDynamicFrames,
+		                                            launchConfig);
+	}
+
+
 	void SyncHostToDeviceHBasis()
 	{
 		const GPULaunchConfig launchConfig{nullptr, true};
@@ -268,6 +283,31 @@ public:
 		auto HBasis_ptr = mp_HBasis.getRawPointer();
 		mpd_HBasisDeviceArray->copyToHost(
 		    HBasis_ptr, m_rank * m_numDynamicFrames, launchConfig);
+	}
+
+	void SyncHostToDeviceHBasisWrite()
+	{
+		const GPULaunchConfig launchConfig{nullptr, true};
+		if (!mpd_HBasisWriteDeviceArray->isAllocated())
+		{
+			allocateForHBasisWriteDevice();
+		}
+		auto HBasisWrite_ptr = mp_HWrite.getRawPointer();
+		mpd_HBasisWriteDeviceArray->copyFromHost(
+		    HBasisWrite_ptr, m_rank * m_numDynamicFrames, launchConfig);
+	}
+
+	void SyncDeviceToHostHBasisWrite()
+	{
+		const GPULaunchConfig launchConfig{nullptr, true};
+
+		if (!mpd_HBasisWriteDeviceArray->isAllocated())
+		{
+			allocateForHBasisWriteDevice();
+		}
+		auto HBasisWrite_ptr = mp_HWrite.getRawPointer();
+		mpd_HBasisWriteDeviceArray->copyToHost(
+		    HBasisWrite_ptr, m_rank * m_numDynamicFrames, launchConfig);
 	}
 
 	void setHBasis(const Array2DBase<float>& pr_HBasis)
@@ -312,11 +352,25 @@ public:
 
 	bool getUpdateH() const { return m_updateH; }
 
+	void setHBasisWrite(const Array2DBase<float>& pr_HWrite)
+	{
+		mp_HWrite.bind(pr_HWrite);
+		SyncHostToDeviceHBasisWrite();
+		// TODO : use multithread with one H per thread in gpu ?
+		// initializeWriteThread();
+	}
+
+	const Array2DAlias<float>& getHBasisWrite()
+	{
+		SyncDeviceToHostHBasisWrite();
+		return mp_HWrite;
+	}
+
 
 private:
 	UpdaterPointer mpd_updater;
 	std::unique_ptr<DeviceArray<float>> mpd_HBasisDeviceArray;
-	// std::unique_ptr<DeviceArray<float>> mpd_HBasisWriteDeviceArray;
+	std::unique_ptr<DeviceArray<float>> mpd_HBasisWriteDeviceArray;
 	Array2DAlias<float> mp_HBasis;
 	Array2DAlias<float> mp_HWrite;
 	int m_updateH = false;

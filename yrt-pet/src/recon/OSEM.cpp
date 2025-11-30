@@ -373,7 +373,6 @@ void OSEM::generateSensitivityImageForLoadedSubset()
 	getSensImageBuffer()->setValue(0.0);
 
 	computeSensitivityImage(*getSensImageBuffer());
-	// cudaCheckError();
 
 	if (flagImagePSF)
 	{
@@ -386,7 +385,6 @@ void OSEM::generateSensitivityImageForLoadedSubset()
 	std::cout << "Applying threshold..." << std::endl;
 	getSensImageBuffer()->applyThreshold(getSensImageBuffer(), hardThreshold,
 	                                     0.0, 0.0, 1.0, 0.0);
-	printf("\nDEBUG: Threshold applied\n");
 }
 
 void OSEM::generateSensitivityImagesCore(
@@ -573,6 +571,10 @@ void OSEM::collectConstraints()
 
 void OSEM::initializeForSensImgGen()
 {
+	// Bin iterators
+	getBinIterators().clear();
+	getBinIterators().reserve(num_OSEM_subsets);
+
 	// Bin iterator constraints
 	collectConstraints();
 
@@ -584,6 +586,15 @@ void OSEM::initializeForSensImgGen()
 
 void OSEM::initializeForRecon()
 {
+	// Bin iterators
+	getBinIterators().clear();
+	getBinIterators().reserve(num_OSEM_subsets);
+	for (int subsetId = 0; subsetId < num_OSEM_subsets; subsetId++)
+	{
+		getBinIterators().push_back(
+		    getDataInput()->getBinIter(num_OSEM_subsets, subsetId));
+	}
+
 	// Bin iterator constraints
 	collectConstraints();
 
@@ -812,6 +823,69 @@ void OSEM::allocateHBasisTmpBuffer()
 	mp_HNumerator->allocate(rank, T);
 }
 
+void OSEM::applyHUpdate()
+{
+	float* H_old_ptr = projectorParams.HBasis.getRawPointer();  // current H
+	const float* Hnum_ptr =
+	    dynamic_cast<Array2D<float>*>(getHBasisTmpBuffer())
+	        ->getRawPointer();  // numerator accumulated this subset
+
+	// shapes: rank x T
+	const int rank = projectorParams.HBasis.getDims()[0];
+	const int T = projectorParams.HBasis.getDims()[1];
+
+	double min_ratio = 1e30, max_ratio = -1e30, mean_ratio = 0.0;
+	double sum_num = 0.0, sum_den = 0.0;
+
+	for (int r = 0; r < rank; ++r)
+	{
+		const double den = std::max<double>(m_cHUpdate[r], EPS_FLT);
+		sum_den += den;
+		for (int t = 0; t < T; ++t)
+		{
+			const double num = Hnum_ptr[r * T + t];
+			sum_num += num;
+			const double ratio = num / den;
+			min_ratio = std::min(min_ratio, ratio);
+			max_ratio = std::max(max_ratio, ratio);
+			mean_ratio += ratio;
+		}
+	}
+	mean_ratio /= (rank * T);
+
+	printf("\nH update stats: sum_num=%.6g sum_den=%.6g  "
+	       "ratio[min,mean,max]=[%.3g, %.3g, %.3g]\n",
+	       sum_num, sum_den, min_ratio, mean_ratio, max_ratio);
+
+	printf("\n --- Before Update --- \n");
+	double sum = 0.0;
+	for (int i = 0; i < rank * T; ++i)
+		sum += H_old_ptr[i];
+	printf("sum(H)=%.6g, mean(H)=%.6g\n", sum, sum / (rank * T));
+
+	// H_new := H_old * (Hnum / c_r)
+	util::parallelForChunked(
+	    T, globals::getNumThreads(),
+	    [&, rank, T, H_old_ptr, Hnum_ptr](int t, int /*tid*/)
+	    {
+		    for (int r = 0; r < rank; ++r)
+		    {
+			    const float denom = std::max(m_cHUpdate[r], EPS_FLT);
+			    const float inv = 1.0f / denom;
+			    float* Hr = H_old_ptr + r * T;
+			    const float* Nr = Hnum_ptr + r * T;
+			    Hr[t] =
+			        Hr[t] * (Nr[t] * inv);  // write the *new H* back over H_old
+		    }
+	    });
+
+	printf("\n --- After Update --- \n");
+	double sum_after = 0.0;
+	for (int i = 0; i < rank * T; ++i)
+		sum_after += H_old_ptr[i];
+	printf("sum(H)=%.6g, mean(H)=%.6g\n", sum_after, sum_after / (rank * T));
+}
+
 
 std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 {
@@ -826,7 +900,6 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 		printf("Getting ImageParams from Sensitivity Image...");
 	}
 
-	printf("\n before sens im \n");
 	const int expectedNumberOfSensImages = getExpectedSensImagesAmount();
 	if (expectedNumberOfSensImages !=
 	    static_cast<int>(m_sensitivityImages.size()))
@@ -888,11 +961,9 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 		projectorParams.updateH = true;
 	}
 
-	printf("\n after sens im, before getCorrector \n");
 	getCorrector().setup();
-	printf("\n after getCorrector, before initializeForRecon \n");
+
 	initializeForRecon();
-	printf("\n after initializeForRecon \n");
 
 	int rank = 0;
 	int T = 0;
@@ -921,6 +992,7 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 			{
 				printf("\n initialize HBasisTmpBuffer with zeros.\n");
 				initializeHBasisTmpBuffer();
+				SyncHostToDeviceHBasisWrite();
 				printf("\n HBasisTmpBuffer initialized with zeros.\n");
 			}
 
@@ -944,6 +1016,7 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 			if (!projectorParams.updateH || dualUpdate)
 			{
 				printf("\n Compute EM (1).\n");
+
 				computeEMUpdateImage(
 				    *mlemImage_rp,
 				    *getImageTmpBuffer(
@@ -984,6 +1057,7 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 			if (projectorParams.updateH || (dualUpdate && iter > 0))
 			{
 				printf("\n Apply EM H Update \n");
+				SyncDeviceToHostHBasisWrite();
 				applyHUpdate();
 			}
 

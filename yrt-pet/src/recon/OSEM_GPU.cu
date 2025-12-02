@@ -221,12 +221,6 @@ void OSEM_GPU::allocateForRecon()
 	mpd_mlemImage->allocate(false);
 	mpd_mlemImageTmpEMRatio->allocate(false);
 	mpd_sensImageBuffer->allocate(false);
-	// {
-	// 	printf("\nDEBUG: In allocateForRecon, cudaCheckError after 1st "
-	// 	       "allocate.\n");
-	// 	cudaCheckError();
-	// 	cudaDeviceSynchronize();
-	// }
 
 	if (flagImagePSF)
 	{
@@ -245,17 +239,6 @@ void OSEM_GPU::allocateForRecon()
 		mpd_mlemImage->setValue(INITIAL_VALUE_MLEM);
 	}
 
-	{
-		// copy to host
-		auto tmpImg = std::make_unique<ImageOwned>(mpd_mlemImage->getParams());
-		tmpImg->allocate();
-		mpd_mlemImage->transferToHostMemory(tmpImg.get(), true);
-
-		std::cout << "DEBUG: mpd_mlemImage numerator sum = "
-		          << tmpImg->voxelSum() << std::endl;
-		printf("\n INITIAL_VALUE_MLEM = %f \n", INITIAL_VALUE_MLEM);
-	}
-
 	// Apply mask image (Use temporary buffer to avoid allocating a new one
 	// unnecessarily)
 	if (maskImage != nullptr)
@@ -264,14 +247,9 @@ void OSEM_GPU::allocateForRecon()
 	}
 	else if (num_OSEM_subsets == 1 || usingListModeInput)
 	{
-		auto p = getSensitivityImage(0)->getParams();
-		printf("\n DEBUG: Before copyFromHostImage: nx = %d, ny = %d, nz = %d, nt = %d \n",
-			p.nx, p.ny, p.nz, p.num_frames);
 		// No need to sum all sensitivity images, just use the only one
 		mpd_mlemImageTmpEMRatio->copyFromHostImage(getSensitivityImage(0),
 		                                           true);
-		printf("\n DEBUG: After copyFromHostImage: nx = %d, ny = %d, nz = %d, nt = %d \n",
-			p.nx, p.ny, p.nz, p.num_frames);
 	}
 	else
 	{
@@ -282,10 +260,8 @@ void OSEM_GPU::allocateForRecon()
 		{
 			mpd_sensImageBuffer->copyFromHostImage(getSensitivityImage(i),
 			                                       false);
-			printf("\n DEBUG: Before addFirstImageToSecondDevice\n");
 			mpd_sensImageBuffer->addFirstImageToSecondDevice(
 			    mpd_mlemImageTmpEMRatio.get(), false);
-			printf("\n DEBUG: After addFirstImageToSecondDevice\n");
 		}
 	}
 	mpd_mlemImage->applyThresholdBroadcastDevice(
@@ -300,13 +276,6 @@ void OSEM_GPU::allocateForRecon()
 	}
 
 	// Use the already-computed BinIterators instead of recomputing them
-	// for (int subsetId = 0; subsetId < num_OSEM_subsets; subsetId++)
-	// {
-	// 	// Create and add Bin Iterator
-	// 	getBinIterators().push_back(
-	// 	    mp_corrector->getSensImgGenProjData()->getBinIter(num_OSEM_subsets,
-	// 	                                                      subsetId));
-	// }
 	std::vector<const BinIterator*> binIteratorPtrList;
 	for (const auto& subsetBinIter : getBinIterators())
 		binIteratorPtrList.push_back(subsetBinIter.get());
@@ -709,7 +678,7 @@ void OSEM_GPU::SyncHostToDeviceHBasisWrite()
 	else
 	{
 		throw std::logic_error(
-			"Could not convert mp_projector to OperatorProjectorDevice");
+		    "Could not convert mp_projector to OperatorProjectorDevice");
 	}
 }
 
@@ -723,7 +692,7 @@ void OSEM_GPU::SyncDeviceToHostHBasisWrite()
 	else
 	{
 		throw std::logic_error(
-			"Could not convert mp_projector to OperatorProjectorDevice");
+		    "Could not convert mp_projector to OperatorProjectorDevice");
 	}
 }
 

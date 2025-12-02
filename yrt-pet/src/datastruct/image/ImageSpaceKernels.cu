@@ -42,7 +42,7 @@ __global__ void updateEMDynamic_kernel(const float* pd_imgIn, float* pd_imgOut,
 	if (id_z < (nz * nt) && id_y < ny && id_x < nx)
 	{
 		const int t = id_z / nz;
-		const int local_z = id_z / nt;
+		const int local_z = id_z % nz;
 
 		const long pixelId = local_z * nx * ny + id_y * nx + id_x;
 		const long idx = id_z * nx * ny + id_y * nx + id_x;
@@ -94,7 +94,7 @@ __global__ void applyThresholdBroadcast_kernel(
 
 	if (id_z < (nz * nt) && id_y < ny && id_x < nx)
 	{
-		const int local_z = id_z / nt;
+		const int local_z = id_z % nz;
 
 		const long pixelId = local_z * nx * ny + id_y * nx + id_x;
 
@@ -136,7 +136,7 @@ __global__ void addFirstImage3DToSecond4D_kernel(const float* pd_imgIn,
 
 	if (id_z < (nz * nt) && id_y < ny && id_x < nx)
 	{
-		const int local_z = id_z / nt;
+		const int local_z = id_z % nz;
 		const long pixelId = local_z * nx * ny + id_y * nx + id_x;
 		const long idx = id_z * nx * ny + id_y * nx + id_x;
 		pd_imgOut[idx] = pd_imgOut[idx] + pd_imgIn[pixelId];

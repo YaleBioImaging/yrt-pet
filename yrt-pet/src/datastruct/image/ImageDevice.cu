@@ -298,13 +298,6 @@ void ImageDevice::applyThresholdDevice(const ImageDevice* maskImg,
 {
 	ASSERT_MSG(getDevicePointer() != nullptr, "Device Image not allocated yet");
 	auto maskParams = maskImg->getParams();
-	printf("\nDEBUG: Image ptr: %p, mask ptr: %p, size=%zu, mask_size=%zu\n",
-	       getDevicePointer(), maskImg->getDevicePointer(), getImageSize(),
-	       maskImg->getImageSize());
-	printf("\nDEBUG: Image dims: %d %d %d %d | Mask dims: %d %d %d %d\n",
-	       getParams().nx, getParams().ny, getParams().nz,
-	       getParams().num_frames, maskParams.nx, maskParams.ny, maskParams.nz,
-	       maskParams.num_frames);
 	if (mp_stream != nullptr)
 	{
 		applyThreshold_kernel<<<m_launchParams.gridSize,
@@ -316,8 +309,6 @@ void ImageDevice::applyThresholdDevice(const ImageDevice* maskImg,
 		{
 			cudaStreamSynchronize(*mp_stream);
 		}
-		printf("\nDEBUG: (mp_stream!=nullptr) In applyThresholdDevice, before "
-		       "cudaCheckError\n");
 	}
 	else
 	{
@@ -330,11 +321,8 @@ void ImageDevice::applyThresholdDevice(const ImageDevice* maskImg,
 		{
 			cudaDeviceSynchronize();
 		}
-		printf("\nDEBUG: (mp_stream=nullptr) In applyThresholdDevice, before "
-		       "cudaCheckError\n");
 	}
 	cudaCheckError();
-	printf("\nDEBUG: In applyThresholdDevice, After cudaCheckError\n");
 }
 
 
@@ -344,14 +332,6 @@ void ImageDevice::applyThresholdBroadcastDevice(
     bool synchronize)
 {
 	ASSERT_MSG(getDevicePointer() != nullptr, "Device Image not allocated yet");
-	auto maskParams = maskImg->getParams();
-	printf("\nDEBUG: Image ptr: %p, mask ptr: %p, size=%zu, mask_size=%zu\n",
-	       getDevicePointer(), maskImg->getDevicePointer(), getImageSize(),
-	       maskImg->getImageSize());
-	printf("\nDEBUG: Image dims: %d %d %d %d | Mask dims: %d %d %d %d\n",
-	       getParams().nx, getParams().ny, getParams().nz,
-	       getParams().num_frames, maskParams.nx, maskParams.ny, maskParams.nz,
-	       maskParams.num_frames);
 	if (mp_stream != nullptr)
 	{
 		applyThresholdBroadcast_kernel<<<
@@ -363,8 +343,6 @@ void ImageDevice::applyThresholdBroadcastDevice(
 		{
 			cudaStreamSynchronize(*mp_stream);
 		}
-		printf("\nDEBUG: (mp_stream!=nullptr) In applyThresholdDevice, before "
-		       "cudaCheckError\n");
 	}
 	else
 	{
@@ -377,11 +355,8 @@ void ImageDevice::applyThresholdBroadcastDevice(
 		{
 			cudaDeviceSynchronize();
 		}
-		printf("\nDEBUG: (mp_stream=nullptr) In applyThresholdDevice, before "
-		       "cudaCheckError\n");
 	}
 	cudaCheckError();
-	printf("\nDEBUG: In applyThresholdDevice, After cudaCheckError\n");
 }
 
 
@@ -390,13 +365,9 @@ void ImageDevice::applyThresholdBroadcast(const ImageBase* maskImg,
                                           float val_le_off, float val_gt_scale,
                                           float val_gt_off)
 {
-	printf("\nDEBUG: dynamic_cast mask_img in applyThreshold...\n");
 	const auto maskImg_ImageDevice = dynamic_cast<const ImageDevice*>(maskImg);
 	ASSERT_MSG(maskImg_ImageDevice != nullptr,
 	           "Input image has the wrong type");
-	printf("\nDEBUG: dynamic_cast in applyThreshold done. Entering "
-	       "applyThresholdBroadcastDevice\n");
-
 	applyThresholdBroadcastDevice(maskImg_ImageDevice, threshold, val_le_scale,
 	                              val_le_off, val_gt_scale, val_gt_off, true);
 }
@@ -463,13 +434,9 @@ void ImageDevice::applyThreshold(const ImageBase* maskImg, float threshold,
                                  float val_le_scale, float val_le_off,
                                  float val_gt_scale, float val_gt_off)
 {
-	printf("\nDEBUG: dynamic_cast mask_img in applyThreshold...\n");
 	const auto maskImg_ImageDevice = dynamic_cast<const ImageDevice*>(maskImg);
 	ASSERT_MSG(maskImg_ImageDevice != nullptr,
 	           "Input image has the wrong type");
-	printf("\nDEBUG: dynamic_cast in applyThreshold done. Entering "
-	       "applyThresholdDevice\n");
-
 	applyThresholdDevice(maskImg_ImageDevice, threshold, val_le_scale,
 	                     val_le_off, val_gt_scale, val_gt_off, true);
 }

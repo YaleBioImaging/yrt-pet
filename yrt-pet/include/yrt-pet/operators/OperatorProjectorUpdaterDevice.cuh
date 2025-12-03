@@ -75,7 +75,7 @@ public:
 	}
 };
 
-
+template <int R>
 class OperatorProjectorUpdaterDeviceLR : public OperatorProjectorUpdaterDevice
 {
 public:
@@ -90,38 +90,40 @@ public:
 	{
 	}
 
-	__device__ float forwardUpdate(float weight, float* cur_img_ptr,
-	                               size_t offset, frame_t dynamicFrame,
-	                               size_t numVoxelPerFrame) const override
+	__device__ float forwardUpdate(float weight,
+	                                      float* __restrict__ cur_img_ptr,
+	                                      size_t offset, frame_t dynamicFrame,
+	                                      size_t numVoxelPerFrame) const override
 	{
 		float cur_img_lr_val = 0.0f;
-		const float* H_ptr = mpd_HBasisDevice_ptr;
+		const float* __restrict__ H_ptr = mpd_HBasisDevice_ptr + dynamicFrame;
+		const float* __restrict__ img_ptr = cur_img_ptr + offset;
 
 		for (int l = 0; l < m_rank; ++l)
 		{
-			float cur_H_ptr = *(H_ptr + l * m_numDynamicFrames + dynamicFrame);
-			const size_t offset_rank = l * numVoxelPerFrame;
-			cur_img_lr_val += cur_img_ptr[offset + offset_rank] * cur_H_ptr;
+			cur_img_lr_val = fmaf((*img_ptr), (*H_ptr), cur_img_lr_val);
+			img_ptr += numVoxelPerFrame;
+			H_ptr += m_numDynamicFrames;
 		}
 		return weight * cur_img_lr_val;
 	}
 
-	__device__ void backUpdate(float value, float weight, float* cur_img_ptr,
-	                           size_t offset, frame_t dynamicFrame,
-	                           size_t numVoxelPerFrame) override
+	__device__ void backUpdate(float value, float weight,
+							   float* __restrict__ cur_img_ptr, size_t offset,
+							   frame_t dynamicFrame,
+							   size_t numVoxelPerFrame) override
 	{
-		const float Ay = value * weight;
+		const float AHy = value * weight;
+		const float* __restrict__ H_ptr = mpd_HBasisDevice_ptr + dynamicFrame;
+		float* __restrict__ img_ptr = cur_img_ptr + offset;
 
 		if (!m_updateH)
 		{
-			const float* H_ptr = mpd_HBasisDevice_ptr;
 			for (int l = 0; l < m_rank; ++l)
 			{
-				const float cur_H_ptr =
-				    *(H_ptr + l * m_numDynamicFrames + dynamicFrame);
-				const size_t offset_rank = l * numVoxelPerFrame;
-				const float output = Ay * cur_H_ptr;
-				atomicAdd(cur_img_ptr + offset + offset_rank, output);
+				atomicAdd(img_ptr, AHy * (*H_ptr));
+				img_ptr += numVoxelPerFrame;
+				H_ptr += m_numDynamicFrames;
 			}
 		}
 		else
@@ -130,9 +132,9 @@ public:
 			for (int l = 0; l < m_rank; ++l)
 			{
 				const size_t offset_rank = l * numVoxelPerFrame;
-				const float output = Ay * cur_img_ptr[offset + offset_rank];
+				const float output = AHy * cur_img_ptr[offset + offset_rank];
 				atomicAdd(H_ptr + l * m_numDynamicFrames + dynamicFrame,
-				          output);
+						  output);
 			}
 		}
 	}

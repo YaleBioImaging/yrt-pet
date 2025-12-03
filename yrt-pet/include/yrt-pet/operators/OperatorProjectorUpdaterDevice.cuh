@@ -75,10 +75,87 @@ public:
 	}
 };
 
-template <int R>
+template <int Rank>
+class OperatorProjectorUpdaterDeviceLRUnrolled
+    : public OperatorProjectorUpdaterDevice
+{
+public:
+	__device__ OperatorProjectorUpdaterDeviceLRUnrolled(float* d_HBasis,
+	                                                    float* d_HBasisWrite,
+	                                                    int numFrames,
+	                                                    bool updateH)
+	    : mpd_HBasisDevice_ptr(d_HBasis),
+	      mpd_HBasisDeviceWrite_ptr(d_HBasisWrite),
+	      m_updateH(updateH),
+	      m_numDynamicFrames(numFrames)
+	{
+	}
+
+	__device__ float forwardUpdate(float weight, float* cur_img_ptr,
+	                               size_t offset, frame_t dynamicFrame,
+	                               size_t numVoxelPerFrame) const override
+	{
+		float cur_img_lr_val = 0.0f;
+		const float* H_ptr = mpd_HBasisDevice_ptr;
+
+#pragma unroll
+		for (int l = 0; l < Rank; ++l)
+		{
+			const float cur_H_ptr =
+			    *(H_ptr + l * m_numDynamicFrames + dynamicFrame);
+			const size_t offset_rank = l * numVoxelPerFrame;
+			cur_img_lr_val += cur_img_ptr[offset + offset_rank] * cur_H_ptr;
+		}
+		return weight * cur_img_lr_val;
+	}
+
+	__device__ void backUpdate(float value, float weight, float* cur_img_ptr,
+	                           size_t offset, frame_t dynamicFrame,
+	                           size_t numVoxelPerFrame) override
+	{
+		const float Ay = value * weight;
+
+		if (!m_updateH)
+		{
+			const float* H_ptr = mpd_HBasisDevice_ptr;
+#pragma unroll
+			for (int l = 0; l < Rank; ++l)
+			{
+				const float cur_H_ptr =
+				    *(H_ptr + l * m_numDynamicFrames + dynamicFrame);
+				const size_t offset_rank = l * numVoxelPerFrame;
+				const float output = Ay * cur_H_ptr;
+				atomicAdd(cur_img_ptr + offset + offset_rank, output);
+			}
+		}
+		else
+		{
+			float* H_ptr = mpd_HBasisDeviceWrite_ptr;
+#pragma unroll
+			for (int l = 0; l < Rank; ++l)
+			{
+				const size_t offset_rank = l * numVoxelPerFrame;
+				const float output = Ay * cur_img_ptr[offset + offset_rank];
+				atomicAdd(H_ptr + l * m_numDynamicFrames + dynamicFrame,
+				          output);
+			}
+		}
+	}
+
+protected:
+	float* mpd_HBasisDevice_ptr;       // used by forward/backward (read-only)
+	float* mpd_HBasisDeviceWrite_ptr;  // used by backward (write-only)
+	bool m_updateH = false;
+	int m_numDynamicFrames = 1;
+};
+
 class OperatorProjectorUpdaterDeviceLR : public OperatorProjectorUpdaterDevice
 {
 public:
+	// We optimize for ranks 8, 10, 12, 14, 16, 18, 20
+	static constexpr int MaxRankForUnrolled = 20;
+	static constexpr int MinRankForUnrolled = 8;
+	static constexpr int RankStepForUnrolled = 2;
 	__device__ OperatorProjectorUpdaterDeviceLR(float* d_HBasis,
 	                                            float* d_HBasisWrite, int rank,
 	                                            int numFrames, bool updateH)
@@ -147,6 +224,35 @@ protected:
 	int m_numDynamicFrames = 1;
 };
 
+template <int MaxRank = OperatorProjectorUpdaterDeviceLR::MaxRankForUnrolled>
+__device__ OperatorProjectorUpdaterDevice*
+    dispatchCreateUpdaterLR(int rank, float* d_HBasis, float* d_HBasisWrite,
+                            int numFrames, bool updateH)
+{
+	static_assert(MaxRank <=
+	              OperatorProjectorUpdaterDeviceLR::MaxRankForUnrolled);
+	static_assert(MaxRank > 0);
+
+	if (rank == MaxRank)
+	{
+		return new OperatorProjectorUpdaterDeviceLRUnrolled<MaxRank>(
+		    d_HBasis, d_HBasisWrite, numFrames, updateH);
+	}
+	if constexpr (MaxRank >=
+	              OperatorProjectorUpdaterDeviceLR::MinRankForUnrolled)
+	{
+		// Compile-time recursion: generates a chain of ifs, no runtime
+		// recursion
+		return dispatchCreateUpdaterLR<
+		    MaxRank - OperatorProjectorUpdaterDeviceLR::RankStepForUnrolled>(
+		    rank, d_HBasis, d_HBasisWrite, numFrames, updateH);
+	}
+	else
+	{
+		return new OperatorProjectorUpdaterDeviceLR(d_HBasis, d_HBasisWrite,
+		                                            rank, numFrames, updateH);
+	}
+}
 
 using UpdaterPointer = OperatorProjectorUpdaterDevice**;
 
@@ -175,10 +281,8 @@ inline __global__ void constructUpdaterOnDevice(
 		else if (p_updaterType ==
 		         OperatorProjectorParams::ProjectorUpdaterType::LR)
 		{
-			// ASSERT(HBasis_ptr != nullptr);
-
-			*ppd_updater = new OperatorProjectorUpdaterDeviceLR(
-			    HBasis_ptr, HBasisWrite_ptr, rank, numFrames, updateH);
+			*ppd_updater = dispatchCreateUpdaterLR(
+			    rank, HBasis_ptr, HBasisWrite_ptr, numFrames, updateH);
 		}
 		else
 		{

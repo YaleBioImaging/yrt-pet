@@ -13,19 +13,19 @@ namespace yrt
 class ScatterSpace : public Histogram
 {
 public:
-	ScatterSpace(const Scanner& pr_scanner, size_t p_numPlanes, size_t p_numAngles);
+	ScatterSpace(const Scanner& pr_scanner, size_t p_numPlanes,
+	             size_t p_numAngles);
 
 	float getAxialFOV() const;
 	size_t getNumPlanes() const;
 	size_t getNumAngles() const;
 
 	float getPlanePosition(size_t planeIndex) const;
-	float getAngle(size_t angleIndex) const; // In radians
+	float getAngle(size_t angleIndex) const;  // In radians
 
 protected:
 	size_t m_numPlanes;
 	size_t m_numAngles;
-
 };
 
-}
+}  // namespace yrt

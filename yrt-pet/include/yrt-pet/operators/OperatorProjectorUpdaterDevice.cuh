@@ -168,9 +168,9 @@ public:
 	}
 
 	__device__ float forwardUpdate(float weight,
-	                                      float* __restrict__ cur_img_ptr,
-	                                      size_t offset, frame_t dynamicFrame,
-	                                      size_t numVoxelPerFrame) const override
+	                               float* __restrict__ cur_img_ptr,
+	                               size_t offset, frame_t dynamicFrame,
+	                               size_t numVoxelPerFrame) const override
 	{
 		float cur_img_lr_val = 0.0f;
 		const float* __restrict__ H_ptr = mpd_HBasisDevice_ptr + dynamicFrame;
@@ -186,9 +186,9 @@ public:
 	}
 
 	__device__ void backUpdate(float value, float weight,
-							   float* __restrict__ cur_img_ptr, size_t offset,
-							   frame_t dynamicFrame,
-							   size_t numVoxelPerFrame) override
+	                           float* __restrict__ cur_img_ptr, size_t offset,
+	                           frame_t dynamicFrame,
+	                           size_t numVoxelPerFrame) override
 	{
 		const float AHy = value * weight;
 		const float* __restrict__ H_ptr = mpd_HBasisDevice_ptr + dynamicFrame;
@@ -211,7 +211,7 @@ public:
 				const size_t offset_rank = l * numVoxelPerFrame;
 				const float output = AHy * cur_img_ptr[offset + offset_rank];
 				atomicAdd(H_ptr + l * m_numDynamicFrames + dynamicFrame,
-						  output);
+				          output);
 			}
 		}
 	}
@@ -235,6 +235,8 @@ __device__ OperatorProjectorUpdaterDevice*
 
 	if (rank == MaxRank)
 	{
+		printf("\nOperatorProjectorUpdaterDeviceLRUnrolled used for rank %d\n",
+		       rank);
 		return new OperatorProjectorUpdaterDeviceLRUnrolled<MaxRank>(
 		    d_HBasis, d_HBasisWrite, numFrames, updateH);
 	}
@@ -249,6 +251,7 @@ __device__ OperatorProjectorUpdaterDevice*
 	}
 	else
 	{
+		printf("\nOperatorProjectorUpdaterDeviceLR used for rank %d\n", rank);
 		return new OperatorProjectorUpdaterDeviceLR(d_HBasis, d_HBasisWrite,
 		                                            rank, numFrames, updateH);
 	}

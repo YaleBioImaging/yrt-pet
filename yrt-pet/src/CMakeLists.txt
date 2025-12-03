@@ -56,6 +56,7 @@ set(SOURCES
     recon/OSEM_CPU.cpp
     scatter/Crystal.cpp
     scatter/ScatterEstimator.cpp
+    scatter/ScatterSpace.cpp
     scatter/SingleScatterSimulator.cpp
     utils/Array.cpp
     utils/Assert.cpp

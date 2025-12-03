@@ -23,6 +23,7 @@
 #include "yrt-pet/utils/Globals.hpp"
 #include "yrt-pet/utils/Tools.hpp"
 
+#include <chrono>
 #if BUILD_PYBIND11
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
@@ -1016,11 +1017,18 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 			if (!projectorParams.updateH || dualUpdate)
 			{
 				printf("\n Compute EM (1).\n");
-
+				auto it_start = std::chrono::high_resolution_clock::now();
 				computeEMUpdateImage(
 				    *mlemImage_rp,
 				    *getImageTmpBuffer(
 				        TemporaryImageSpaceBufferType::EM_RATIO));
+				auto it_end = std::chrono::high_resolution_clock::now();
+				double elapsed_sec =
+				    std::chrono::duration<double>(it_end - it_start).count();
+				std::cout << "Iteration " << (iter + 1) << "(Subset "
+				          << (subsetId + 1) << ") took " << std::fixed
+				          << std::setprecision(3) << elapsed_sec << " seconds."
+				          << std::endl;
 			}
 			else
 			{

@@ -13,7 +13,7 @@ namespace yrt
  * This class defines an undersampled space where values are stored in a 5D
  * array.
  * This assumes that the given scanner is centered in (0,0,0).
- * The scatter space assumes virtual "detectors" uniformly distributed in a
+ * The scatter-space assumes virtual "detectors" uniformly distributed in a
  * perfect cylinder. These virtual detectors form the endpoints of the LORs
  * sampled by this space.
  * The objective is to use this space to compute and store scatter estimates in
@@ -64,7 +64,7 @@ public:
 	ScatterSpace(const Scanner& pr_scanner, size_t p_numTOFBins,
 	             size_t p_numPlanes, size_t p_numAngles);
 
-	// IO
+	// I/O
 	void readFromFile(const std::string& fname);
 	void writeToFile(const std::string& fname) const;
 
@@ -77,37 +77,61 @@ public:
 	// Do linear interpolation
 	float getLinearInterpolationValue(const ScatterSpacePosition& pos) const;
 
-	float getAxialFOV() const;
-	float getRadius() const;
-	float getDiameter() const;
-	float getMaxTOF_ps() const;
-	size_t getNumPlanes() const;
-	size_t getNumAngles() const;
-
-	// Get the continuous position from logical indices
+	// Get the continuous position from the logical index
 	float getTOF_ps(size_t TOFBin) const;             // in picoseconds
 	float getPlanePosition(size_t planeIndex) const;  // in mm
 	float getAngle(size_t angleIndex) const;          // In radians
 
-	// get the logical indices given the continuous position
+	// Get the logical index given the continuous position (nearest neighbor)
 	size_t getTOFBin(float tof_ps) const;
 	size_t getPlaneIndex(float planePosition) const;
 	size_t getAngleIndex(float angle) const;
 
-	float getTOFBinStep_ps() const;
-	float getAngleStep() const;
-	float getPlaneStep() const;
-
+	// Read/write in the array
 	float getValue(const ScatterSpaceIndex& idx) const;
 	float getValue(size_t tofBin, size_t planeIndex1, size_t angleIndex1,
 	               size_t planeIndex2, size_t angleIndex2) const;
+	void setValue(const ScatterSpaceIndex& idx, float value);
+	void setValue(size_t tofBin, size_t planeIndex1, size_t angleIndex1,
+				   size_t planeIndex2, size_t angleIndex2, float value);
 
+	// To avoid d1-d2 vs d2-d1 problems (for no TOF)
 	void symmetrize();
 
+	// Clamp and wrap
+	float clampTOF(float tof_ps) const;
+	float clampPlanePosition(float planePosition) const;
 	static float wrapAngle(float angle);
 	size_t wrapAngleIndex(int angleIndex) const;
-	float clampPlanePosition(float planePosition) const;
-	float clampTOF(float tof_ps) const;
+
+	// Size of the array
+	size_t getNumTOFBins() const;
+	size_t getNumPlanes() const;
+	size_t getNumAngles() const;
+
+	// Scatter-space properties
+	float getTOFBinStep_ps() const;
+	float getPlaneStep() const;
+	float getAngleStep() const;
+
+	// From the scanner properties
+	float getAxialFOV() const; // Cylinder length
+	float getRadius() const; // Cylinder radius
+	float getDiameter() const; // Cylinder diameter
+	float getMaxTOF_ps() const; // From cylinder diameter and the speed of light
+
+	// Required functions for usage within reconstruction
+	size_t count() const override;
+	float getProjectionValue(bin_t id) const override;
+	void setProjectionValue(bin_t id, float val) override;
+	float getProjectionValueFromHistogramBin(histo_bin_t histoBinId) const override;
+
+	// Should not be available
+	det_id_t getDetector1(bin_t id) const override;
+	det_id_t getDetector2(bin_t id) const override;
+	det_pair_t getDetectorPair(bin_t id) const override;
+	std::unique_ptr<BinIterator> getBinIter(int numSubsets, int idxSubset) const override;
+
 
 private:
 	void initStepSizes();

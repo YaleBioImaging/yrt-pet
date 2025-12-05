@@ -16,6 +16,7 @@ set(SOURCES_DATASTRUCT
     datastruct/test_Scanner.cpp
     datastruct/test_ProjectionProperties.cpp
     operators/test_TimeOfFlight.cpp
+    scatter/test_ScatterSpace.cpp
     utils/test_BinIterator.cpp
     utils/test_BinFilter.cpp)
 

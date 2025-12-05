@@ -11,6 +11,8 @@
 
 #include <memory>
 
+#if BUILD_CUDA
+
 namespace yrt::util
 {
 
@@ -23,3 +25,5 @@ std::unique_ptr<ImageDevice> timeAverageMoveImageDevice(
     timestamp_t timeStart, timestamp_t timeStop, GPULaunchConfig launchConfig);
 
 }  // namespace yrt::util
+
+#endif

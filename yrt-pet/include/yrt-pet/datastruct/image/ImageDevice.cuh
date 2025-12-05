@@ -9,6 +9,8 @@
 #include "yrt-pet/utils/GPUTypes.cuh"
 #include "yrt-pet/utils/PageLockedBuffer.cuh"
 
+#if BUILD_CUDA
+
 #include <cuda_runtime_api.h>
 namespace yrt
 {
@@ -107,3 +109,5 @@ private:
 	float* mpd_devicePointer;
 };
 }  // namespace yrt
+
+#endif

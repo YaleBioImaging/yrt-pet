@@ -28,6 +28,17 @@ struct det_pair_t
 	det_id_t d1, d2;
 };
 
+// Defining a pair of detectors
+struct det_pair_tof_t
+{
+	bool operator==(const det_pair_tof_t& other) const
+	{
+		return d1 == other.d1 && d2 == other.d2 && tof_ps == other.tof_ps;
+	}
+	det_id_t d1, d2;
+	float tof_ps;
+};
+
 struct det_orient_t
 {
 	Vector3D d1, d2;
@@ -39,7 +50,7 @@ inline std::ostream& operator<<(std::ostream& oss, const det_orient_t& d)
 }
 
 // Defining an LOR
-using histo_bin_t = std::variant<det_pair_t, bin_t>;
+using histo_bin_t = std::variant<det_pair_t, det_pair_tof_t, bin_t>;
 
 // For defining a rotation & translation
 struct transform_t

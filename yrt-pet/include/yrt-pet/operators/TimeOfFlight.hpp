@@ -31,7 +31,8 @@ public:
 		}
 		else
 		{
-			const float tof_value_mm = tofValue_ps * SPEED_OF_LIGHT_MM_PS * 0.5;
+			const float tof_value_mm =
+			    tofValue_ps * SPEED_OF_LIGHT_MM_PS_FLT * 0.5;
 			alpha_min =
 			    max(0.0, 0.5 + (tof_value_mm - m_truncWidth_mm) / lorNorm);
 			alpha_max =
@@ -44,7 +45,7 @@ public:
 	                                            float offLo_mm,
 	                                            float offHi_mm) const
 	{
-		const float tof_value_mm = tofValue_ps * SPEED_OF_LIGHT_MM_PS * 0.5;
+		const float tof_value_mm = tofValue_ps * SPEED_OF_LIGHT_MM_PS_FLT * 0.5;
 		const float pc = 0.5 * lorNorm + tof_value_mm;
 
 		const float x_cent_norm = (0.5f * (offLo_mm + offHi_mm) - pc) / m_sigma;

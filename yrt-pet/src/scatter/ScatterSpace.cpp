@@ -7,6 +7,10 @@
 
 #include "yrt-pet/geometry/Constants.hpp"
 
+#define FORBID_INPUT_ERROR_MESSAGE                                          \
+	"The scatter space should not be used to gather LORs, do projections, " \
+	"or reconstructions. It is meant only for corrections."
+
 namespace yrt
 {
 
@@ -75,6 +79,8 @@ float ScatterSpace::getNearestNeighborValue(
 float ScatterSpace::getLinearInterpolationValue(
     const ScatterSpacePosition& pos) const
 {
+	// TODO NOW: Rename these local variables
+
 	// Clamp and wrap input
 	const float clamped_tof = clampTOF(pos.tof_ps);
 	const float clamped_plane1 = clampPlanePosition(pos.planePosition1);
@@ -253,21 +259,6 @@ size_t ScatterSpace::getAngleIndex(float angle) const
 	return static_cast<size_t>(std::round(angleIndex_flt));
 }
 
-float ScatterSpace::getTOFBinStep_ps() const
-{
-	return m_TOFBinStep_ps;
-}
-
-float ScatterSpace::getAngleStep() const
-{
-	return m_angleStep;
-}
-
-float ScatterSpace::getPlaneStep() const
-{
-	return m_planeStep;
-}
-
 float ScatterSpace::getValue(const ScatterSpaceIndex& idx) const
 {
 	return getValue(idx.tofBin, idx.planeIndex1, idx.angleIndex1,
@@ -282,11 +273,40 @@ float ScatterSpace::getValue(size_t tofBin, size_t planeIndex1,
 	    {tofBin, planeIndex1, angleIndex1, planeIndex2, angleIndex2});
 }
 
+void ScatterSpace::setValue(const ScatterSpaceIndex& idx, float value)
+{
+	setValue(idx.tofBin, idx.planeIndex1, idx.angleIndex1, idx.planeIndex2,
+	         idx.angleIndex2, value);
+}
+
+void ScatterSpace::setValue(size_t tofBin, size_t planeIndex1,
+                            size_t angleIndex1, size_t planeIndex2,
+                            size_t angleIndex2, float value)
+{
+	mp_values->set({tofBin, planeIndex1, angleIndex1, planeIndex2, angleIndex2},
+	               value);
+}
+
 void ScatterSpace::symmetrize()
 {
 	// TODO NOW: Here, make it so that for all elements of this scatter space,
 	//  the value at ((a1,z1), (a2,z2), tof) is the same as for
 	//  ((a2,z2), (a1,z1), tof) when m_numTOFBins==1
+}
+
+float ScatterSpace::clampTOF(float tof_ps) const
+{
+	const float halfTOFBinStep_ps = getTOFBinStep_ps() / 2;
+	const float maxTOFSample = getMaxTOF_ps() - halfTOFBinStep_ps;
+	const float minTOFSample = halfTOFBinStep_ps;  // ps
+	return std::clamp(tof_ps, minTOFSample, maxTOFSample);
+}
+
+float ScatterSpace::clampPlanePosition(float planePosition) const
+{
+	const float maxPlanePosition = getAxialFOV() / 2 - getPlaneStep() / 2;
+	const float minPlanePosition = -maxPlanePosition;
+	return std::clamp(planePosition, minPlanePosition, maxPlanePosition);
 }
 
 float ScatterSpace::wrapAngle(float angle)
@@ -313,26 +333,34 @@ size_t ScatterSpace::wrapAngleIndex(int angleIndex) const
 	return static_cast<size_t>(angleIndexModulo);
 }
 
-float ScatterSpace::clampPlanePosition(float planePosition) const
+size_t ScatterSpace::getNumTOFBins() const
 {
-	const float maxPlanePosition = getAxialFOV() / 2 - getPlaneStep() / 2;
-	const float minPlanePosition = -maxPlanePosition;
-	return std::clamp(planePosition, minPlanePosition, maxPlanePosition);
+	return m_numTOFBins;
 }
 
-float ScatterSpace::clampTOF(float tof_ps) const
+size_t ScatterSpace::getNumPlanes() const
 {
-	const float halfTOFBinStep_ps = getTOFBinStep_ps() / 2;
-	const float maxTOFSample = getMaxTOF_ps() - halfTOFBinStep_ps;
-	const float minTOFSample = halfTOFBinStep_ps;  // ps
-	return std::clamp(tof_ps, minTOFSample, maxTOFSample);
+	return m_numPlanes;
 }
 
-void ScatterSpace::initStepSizes()
+size_t ScatterSpace::getNumAngles() const
 {
-	m_TOFBinStep_ps = getMaxTOF_ps() / static_cast<float>(m_numTOFBins);
-	m_angleStep = TWOPI_FLT / static_cast<float>(m_numAngles);
-	m_planeStep = getAxialFOV() / static_cast<float>(m_numPlanes);
+	return m_numAngles;
+}
+
+float ScatterSpace::getTOFBinStep_ps() const
+{
+	return m_TOFBinStep_ps;
+}
+
+float ScatterSpace::getPlaneStep() const
+{
+	return m_planeStep;
+}
+
+float ScatterSpace::getAngleStep() const
+{
+	return m_angleStep;
 }
 
 float ScatterSpace::getAxialFOV() const
@@ -355,14 +383,58 @@ float ScatterSpace::getMaxTOF_ps() const
 	return getDiameter() / SPEED_OF_LIGHT_MM_PS_FLT;
 }
 
-size_t ScatterSpace::getNumPlanes() const
+size_t ScatterSpace::count() const
 {
-	return m_numPlanes;
+	return mp_values->getSizeTotal();
 }
 
-size_t ScatterSpace::getNumAngles() const
+float ScatterSpace::getProjectionValue(bin_t id) const
 {
-	return m_numAngles;
+	return mp_values->getFlat(id);
+}
+
+void ScatterSpace::setProjectionValue(bin_t id, float val)
+{
+	mp_values->setFlat(id, val);
+}
+
+float ScatterSpace::getProjectionValueFromHistogramBin(
+    histo_bin_t histoBinId) const
+{
+	// TODO NOW:
+	//  - Gather the LOR associated with the given detector pair
+	//  - Compute the properties of the LOR
+	//  - Also Gather the TOF property in case it's available (from histo_bin_t)
+	//  - Do linear interpolation and return the value
+	return 0.0f;
+}
+
+det_id_t ScatterSpace::getDetector1(bin_t /*id*/) const
+{
+	throw std::runtime_error(FORBID_INPUT_ERROR_MESSAGE);
+}
+
+det_id_t ScatterSpace::getDetector2(bin_t /*id*/) const
+{
+	throw std::runtime_error(FORBID_INPUT_ERROR_MESSAGE);
+}
+
+det_pair_t ScatterSpace::getDetectorPair(bin_t /*id*/) const
+{
+	throw std::runtime_error(FORBID_INPUT_ERROR_MESSAGE);
+}
+
+std::unique_ptr<BinIterator> ScatterSpace::getBinIter(int /*numSubsets*/,
+                                                      int /*idxSubset*/) const
+{
+	throw std::runtime_error(FORBID_INPUT_ERROR_MESSAGE);
+}
+
+void ScatterSpace::initStepSizes()
+{
+	m_TOFBinStep_ps = getMaxTOF_ps() / static_cast<float>(m_numTOFBins);
+	m_angleStep = TWOPI_FLT / static_cast<float>(m_numAngles);
+	m_planeStep = getAxialFOV() / static_cast<float>(m_numPlanes);
 }
 
 }  // namespace yrt

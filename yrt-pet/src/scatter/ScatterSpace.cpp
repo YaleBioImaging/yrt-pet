@@ -227,12 +227,13 @@ float ScatterSpace::getTOF_ps(size_t TOFBin) const
 
 float ScatterSpace::getPlanePosition(size_t planeIndex) const
 {
-	return m_planeStep * (static_cast<float>(planeIndex) + 0.5f);
+	return getMinSampledPlanePosition() +
+	       m_planeStep * static_cast<float>(planeIndex);
 }
 
 float ScatterSpace::getAngle(size_t angleIndex) const
 {
-	return m_angleStep * (static_cast<float>(angleIndex) + 0.5f);
+	return getMinSampledAngle() + m_angleStep * static_cast<float>(angleIndex);
 }
 
 size_t ScatterSpace::getTOFBin(float tof_ps) const
@@ -245,7 +246,7 @@ size_t ScatterSpace::getTOFBin(float tof_ps) const
 
 size_t ScatterSpace::getPlaneIndex(float planePosition) const
 {
-	const float clampedPlanePosition = clampTOF(planePosition);
+	const float clampedPlanePosition = clampPlanePosition(planePosition);
 	const float startingPlane = -getAxialFOV() / 2.0f;
 	const float planeIndex_flt =
 	    (clampedPlanePosition - startingPlane) / m_planeStep - 0.5f;
@@ -322,15 +323,15 @@ float ScatterSpace::wrapAngle(float angle)
 
 size_t ScatterSpace::wrapAngleIndex(int angleIndex) const
 {
-	int angleIndexModulo = angleIndex % static_cast<int>(m_numAngles);
+	const int numAngles_int = static_cast<int>(m_numAngles);
 
-	// YN: Unsure about this. Leaving it here just in case
-	if (angleIndexModulo < 0)
+	// In case we get a negative angleIndex
+	if (angleIndex < 0)
 	{
-		angleIndexModulo += static_cast<int>(m_numAngles);
+		angleIndex += numAngles_int;
 	}
 
-	return static_cast<size_t>(angleIndexModulo);
+	return static_cast<size_t>(angleIndex % numAngles_int);
 }
 
 size_t ScatterSpace::getNumTOFBins() const
@@ -361,6 +362,26 @@ float ScatterSpace::getPlaneStep() const
 float ScatterSpace::getAngleStep() const
 {
 	return m_angleStep;
+}
+
+float ScatterSpace::getMinSampledPlanePosition() const
+{
+	return -getAxialFOV() / 2.0f + getPlaneStep() / 2.0f;
+}
+
+float ScatterSpace::getMaxSampledPlanePosition() const
+{
+	return getAxialFOV() / 2.0f - getPlaneStep() / 2.0f;
+}
+
+float ScatterSpace::getMinSampledAngle() const
+{
+	return 0.0f + m_angleStep / 2.0f;
+}
+
+float ScatterSpace::getMaxSampledAngle() const
+{
+	return TWOPI_FLT - m_angleStep / 2.0f;
 }
 
 float ScatterSpace::getAxialFOV() const

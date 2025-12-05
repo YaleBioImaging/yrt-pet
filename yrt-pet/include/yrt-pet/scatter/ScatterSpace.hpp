@@ -113,11 +113,19 @@ public:
 	float getTOFBinStep_ps() const;
 	float getPlaneStep() const;
 	float getAngleStep() const;
+	float getMinSampledPlanePosition() const;
+	float getMaxSampledPlanePosition() const;
+	float getMinSampledAngle() const;
+	float getMaxSampledAngle() const;
 
 	// From the scanner properties
 	float getAxialFOV() const; // Cylinder length
 	float getRadius() const; // Cylinder radius
 	float getDiameter() const; // Cylinder diameter
+
+	// This the TOF for when a positron annihilation happened on the face of one
+	// of the two virtual detectors. One photon was immediately detected and
+	// the other had to travel the entirety of the scanner diameter
 	float getMaxTOF_ps() const; // From cylinder diameter and the speed of light
 
 	// Required functions for usage within reconstruction
@@ -136,6 +144,8 @@ public:
 private:
 	void initStepSizes();
 
+	// TODO NOW: make it so that the TOF bins are not centered in their sample
+	//  but rather centered towards the start (center of the LOR)
 	size_t m_numTOFBins;
 	size_t m_numPlanes;
 	size_t m_numAngles;

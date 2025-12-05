@@ -314,13 +314,13 @@ void OSEM_CPU::computeEMUpdateImage(const ImageBase& inputImage,
 	auto& inputImageHost = dynamic_cast<const Image&>(inputImage);
 	auto& destImageHost = dynamic_cast<Image&>(destImage);
 	// {
-	// 	auto* emRatio = getImageTmpBuffer(
-	// 		TemporaryImageSpaceBufferType::EM_RATIO);
-	// 	auto* emRatioImg = dynamic_cast<Image*>(emRatio);
-	// 	ASSERT(emRatioImg != nullptr);
-	//
-	// 	std::cout << "DEBUG: Before compute: [CPU] EM numerator sum = "
-	// 			  << emRatioImg->voxelSum() << std::endl;
+	// auto* emRatio = getImageTmpBuffer(
+	// 	TemporaryImageSpaceBufferType::EM_RATIO);
+	// auto* emRatioImg = dynamic_cast<Image*>(emRatio);
+	// ASSERT(emRatioImg != nullptr);
+
+	// std::cout << "DEBUG: Before compute: [CPU] EM numerator sum = "
+	// 		  << destImageHost.voxelSum() << std::endl;
 	// }
 	mp_updater->computeEMUpdateImage(inputImageHost, destImageHost);
 
@@ -330,8 +330,8 @@ void OSEM_CPU::computeEMUpdateImage(const ImageBase& inputImage,
 	// 	auto* emRatioImg = dynamic_cast<Image*>(emRatio);
 	// 	ASSERT(emRatioImg != nullptr);
 	//
-	// 	std::cout << "DEBUG: After compute: [CPU] EM numerator sum = "
-	// 			  << emRatioImg->voxelSum() << std::endl;
+	std::cout << "DEBUG: After compute: [CPU] EM numerator sum = "
+	          << destImageHost.voxelSum() << std::endl;
 	// }
 }
 

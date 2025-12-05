@@ -455,18 +455,18 @@ void OSEM_GPU::computeEMUpdateImage(const ImageBase& inputImage,
 	auto& inputImageHost = dynamic_cast<const ImageDevice&>(inputImage);
 	auto& destImageHost = dynamic_cast<ImageDevice&>(destImage);
 	// {
-	// 	ImageBase* emRatioBase =
-	// 	    getImageTmpBuffer(TemporaryImageSpaceBufferType::EM_RATIO);
-	// 	auto* emRatioDev = dynamic_cast<ImageDevice*>(emRatioBase);
-	// 	ASSERT(emRatioDev != nullptr);
+	// 	// ImageBase* emRatioBase =
+	// 	//     getImageTmpBuffer(TemporaryImageSpaceBufferType::EM_RATIO);
+	// 	// auto* emRatioDev = dynamic_cast<ImageDevice*>(inputImage);
+	// 	// ASSERT(emRatioDev != nullptr);
 	//
 	// 	// copy to host
-	// 	auto tmpImg = std::make_unique<ImageOwned>(emRatioDev->getParams());
-	// 	tmpImg->allocate();
-	// 	emRatioDev->transferToHostMemory(tmpImg.get(), true);
-	//
-	// 	std::cout << "DEBUG: Before compute: [GPU] EM numerator sum = "
-	// 	          << tmpImg->voxelSum() << std::endl;
+	// 	// auto tmpImg = std::make_unique<ImageOwned>(destImageHost.getParams());
+	// 	// tmpImg->allocate();
+	// 	// destImageHost.transferToHostMemory(tmpImg.get(), true);
+	// 	//
+	// 	// std::cout << "DEBUG: Before compute: [GPU] EM numerator sum = "
+	// 	//           << tmpImg->voxelSum() << std::endl;
 	// }
 	mp_updater->computeEMUpdateImage(inputImageHost, destImageHost);
 	// {
@@ -476,9 +476,9 @@ void OSEM_GPU::computeEMUpdateImage(const ImageBase& inputImage,
 	// 	ASSERT(emRatioDev != nullptr);
 	//
 	// 	// copy to host
-	// 	auto tmpImg = std::make_unique<ImageOwned>(emRatioDev->getParams());
+	// 	auto tmpImg = std::make_unique<ImageOwned>(destImageHost.getParams());
 	// 	tmpImg->allocate();
-	// 	emRatioDev->transferToHostMemory(tmpImg.get(), true);
+	// 	destImageHost.transferToHostMemory(tmpImg.get(), true);
 	//
 	// 	std::cout << "DEBUG: After compute: [GPU] EM numerator sum = "
 	// 	          << tmpImg->voxelSum() << std::endl;

@@ -123,12 +123,20 @@ void OSEMUpdater_CPU::computeEMUpdateImage(const Image& inputImage,
 	BinFilter::CollectInfoFlags collectInfoFlags(false);
 	binFilter->collectFlags(collectInfoFlags);
 
+	std::vector<float> projVal;
+	projVal.resize(numThreads);
+	for (int c = 0; c < numThreads; c++)
+	{
+		projVal[c] = 0.f;
+	}
+
 	util::parallelForChunked(
 	    numBins, numThreads,
 	    [hasAdditiveCorrection, hasInVivoAttenuation, measurements,
 	     inputImagePtr, consManager, projPropManager, collectInfoFlags,
 	     correctorPtr, projector, destImagePtr, &binIter, &binFilter,
-	     &constraintParams, &projectionProperties](size_t binIdx, int tid)
+	     &constraintParams, &projectionProperties,
+	     &projVal](size_t binIdx, int tid)
 	    {
 		    bin_t bin = binIter->get(binIdx);
 		    binFilter->collectInfo(bin, tid, tid, *measurements,
@@ -140,6 +148,7 @@ void OSEMUpdater_CPU::computeEMUpdateImage(const Image& inputImage,
 			        projectionProperties, projPropManager, bin, tid);
 			    float update = projector->forwardProjection(
 			        inputImagePtr, projectionProperties, tid);
+
 			    if (hasAdditiveCorrection)
 			    {
 				    update += correctorPtr->getAdditiveCorrectionFactor(bin);
@@ -153,11 +162,19 @@ void OSEMUpdater_CPU::computeEMUpdateImage(const Image& inputImage,
 				    const float measurement =
 				        measurements->getProjectionValue(bin);
 				    update = measurement / update;
+				    projVal[tid] += update;
 				    projector->backProjection(
 				        destImagePtr, projectionProperties, update, tid);
 			    }
 		    }
 	    });
+
+	float tot_ProjVal = 0.f;
+	for (int c = 0; c < numThreads; ++c)
+	{
+		tot_ProjVal += projVal[c];
+	}
+	printf("\n DEBUG: tot_count = %lu, projVal: %1.f\n", numBins, tot_ProjVal);
 
 	printf("Before if getProjectorUpdaterType");
 	if ((mp_osem->getProjectorUpdaterType() ==

@@ -160,7 +160,18 @@ void OSEMUpdater_GPU::computeEMUpdateImage(const ImageDevice& inputImage,
 			printf("\n DEBUG: in computeEM, after applyA.\n");
 			cudaDeviceSynchronize();
 			cudaCheckError();
-			auto updater =projector->getUpdaterDeviceWrapper();
+		}
+
+		{
+			// auto tot_count = tmpBufferDevice->count();
+			// float projVal = 0.f;
+			// printf("\n tot_count = %lu, projVal: %1.f", tot_count, projVal);
+			// for (int c=0; c < tot_count; ++c)
+			// {
+			// 	projVal += tmpBufferDevice->getProjectionValue(c);
+			// }
+			// printf("\n tot_count = %lu, projVal: %1.f", tot_count, projVal);
+			auto updater = projector->getUpdaterDeviceWrapper();
 			auto H_old = updater->getHBasisWrite();
 			const auto dims = H_old.getDims();
 			float sum = 0.f;
@@ -211,13 +222,48 @@ void OSEMUpdater_GPU::computeEMUpdateImage(const ImageDevice& inputImage,
 			printf("\n DEBUG: in computeEM, before applyAH.\n");
 			cudaDeviceSynchronize();
 			cudaCheckError();
+
+			if (true)  // toggle this debug block on/off
+			{
+				// How many LORs / elements are in the *currently loaded* batch?
+				const size_t batchSize = tmpBufferDevice->getLoadedBatchSize();
+				const float* d_ptr = tmpBufferDevice->getProjValuesDevicePointer();
+
+				// Temporary host buffer
+				std::vector<float> h_vals(batchSize);
+
+				// Copy from device to host
+				cudaMemcpyAsync(h_vals.data(), d_ptr, batchSize * sizeof(float),
+								cudaMemcpyDeviceToHost,
+								(mainStream != nullptr) ? *mainStream : 0);
+
+				if (mainStream != nullptr)
+					cudaStreamSynchronize(*mainStream);
+				else
+					cudaDeviceSynchronize();
+
+				// Now you can inspect on host:
+				double sum = 0.0;
+				for (size_t i = 0; i < batchSize; ++i)
+				{
+					float v = h_vals[i];
+					sum += v;
+				}
+
+				printf("\n DEBUG: tot_count = %lu, projVal: %1.f\n", batchSize,
+					   sum);
+				// printf("DEBUG tmpBufferDevice after applyA: "
+				// 	   "batchSize=%zu sum=%g min=%g max=%g\n",
+				// 	   batchSize, sum, minv, maxv);
+			}
+
 		}
 		projector->applyAH(tmpBufferDevice, &destImage, false);
 		{
 			printf("\n DEBUG: in computeEM, after applyAH.\n");
 			cudaDeviceSynchronize();
 			cudaCheckError();
-			auto updater =projector->getUpdaterDeviceWrapper();
+			auto updater = projector->getUpdaterDeviceWrapper();
 			auto H_old = updater->getHBasisWrite();
 			const auto dims = H_old.getDims();
 			float sum = 0.f;

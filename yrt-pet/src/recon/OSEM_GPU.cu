@@ -525,8 +525,7 @@ void OSEM_GPU::generateWUpdateSensScaling(float* c_WUpdate_r)
 void OSEM_GPU::generateHUpdateSensScaling(float* c_HUpdate_r)
 {
 	const size_t J = imageParams.nx * imageParams.ny * imageParams.nz;
-	ImageBase* W_imgBase =
-	    getImageTmpBuffer(TemporaryImageSpaceBufferType::EM_RATIO);
+	ImageBase* W_imgBase = getMLEMImageBuffer();
 	auto* W_imgDevice = dynamic_cast<ImageDevice*>(W_imgBase);
 	ASSERT(W_imgDevice != nullptr);
 
@@ -535,8 +534,7 @@ void OSEM_GPU::generateHUpdateSensScaling(float* c_HUpdate_r)
 	W_img->allocate();
 	W_imgDevice->transferToHostMemory(W_img.get(), true);
 
-	ImageBase* s_imgBase =
-	    getImageTmpBuffer(TemporaryImageSpaceBufferType::EM_RATIO);
+	ImageBase* s_imgBase = getSensImageBuffer();
 	auto* s_imgDevice = dynamic_cast<ImageDevice*>(s_imgBase);
 	ASSERT(s_imgDevice != nullptr);
 
@@ -562,23 +560,20 @@ void OSEM_GPU::generateHUpdateSensScaling(float* c_HUpdate_r)
 	}
 
 	const int numThreads = globals::getNumThreads();
-
 	for (int r = 0; r < rank; ++r)
 	{
 		std::vector<float> cr_threadLocal(numThreads, 0.f);
 		const auto* Wr = W_ptr + r * J;
-
 		util::parallelForChunked(J, numThreads, [&](size_t j, size_t tid)
 		                         { cr_threadLocal[tid] += Wr[j] * s_ptr[j]; });
-
 		float cr = 0.0f;
 
 		for (int t = 0; t < numThreads; ++t)
 		{
 			cr += cr_threadLocal[t];
 		}
-
 		c_HUpdate_r[r] = cr;
+
 	}
 }
 
@@ -623,7 +618,29 @@ void OSEM_GPU::setupForDynamicRecon(int& rank, int& T)
 				    "member updateH of OperatorProjectorUpdaterLR is "
 				    "different than input updateH in projectorParams");
 			}
+			HBuffer->fill(0.f);
 			lr->setHBasisWrite(*HBuffer);
+			// {
+			// 	cudaDeviceSynchronize();
+			// 	cudaCheckError();
+			// 	printf("\n DEBUG: After HBuffer->fill(1.f)\n");
+			// 	SyncDeviceToHostHBasisWrite();
+			// 	cudaDeviceSynchronize();
+			// 	cudaCheckError();
+			// 	printf("\n DEBUG: After SyncDeviceToHostHBasisWrite.\n");
+			// 	const auto dims = HBuffer->getDims();
+			// 	for (int r = 0; r < dims[0]; ++r)
+			// 	{
+			// 		for (int t = 0; t < dims[1]; ++t)
+			// 		{
+			// 			printf(" %.2f ", (*HBuffer)[r][t]);
+			// 		}
+			// 		printf("\n");
+			// 	}
+			// 	cudaDeviceSynchronize();
+			// 	cudaCheckError();
+			// }
+
 		}
 
 		// HBasis is rank x T
@@ -640,7 +657,9 @@ void OSEM_GPU::setupForDynamicRecon(int& rank, int& T)
 		}
 		if (projectorParams.updateH || dualUpdate)
 		{
-			// Not implemented
+			m_cHUpdate.resize(rank, 0.f);
+			// TODO: This is suboptimal as the HUpdateSensScaling could be done
+			// on GPU
 			generateHUpdateSensScaling(m_cHUpdate.data());
 		}
 	}
@@ -686,8 +705,15 @@ void OSEM_GPU::SyncDeviceToHostHBasisWrite()
 {
 	if (auto* proj = dynamic_cast<OperatorProjectorDevice*>(mp_projector.get()))
 	{
-		auto lr = proj->getUpdaterDeviceWrapper();
-		lr->SyncDeviceToHostHBasisWrite();
+		if (auto lr = proj->getUpdaterDeviceWrapper())
+		{
+			lr->SyncDeviceToHostHBasisWrite();
+		}
+		else
+		{
+			throw std::logic_error(
+			    "proj->getUpdaterDeviceWrapper() is nullptr");
+		}
 	}
 	else
 	{

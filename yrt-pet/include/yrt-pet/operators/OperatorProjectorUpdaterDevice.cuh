@@ -96,15 +96,14 @@ public:
 	                               size_t numVoxelPerFrame) const override
 	{
 		float cur_img_lr_val = 0.0f;
-		const float* H_ptr = mpd_HBasisDevice_ptr;
-
+		const float* __restrict__ H_ptr = mpd_HBasisDevice_ptr + dynamicFrame;
+		const float* __restrict__ img_ptr = cur_img_ptr + offset;
 #pragma unroll
 		for (int l = 0; l < Rank; ++l)
 		{
-			const float cur_H_ptr =
-			    *(H_ptr + l * m_numDynamicFrames + dynamicFrame);
-			const size_t offset_rank = l * numVoxelPerFrame;
-			cur_img_lr_val += cur_img_ptr[offset + offset_rank] * cur_H_ptr;
+			cur_img_lr_val = fmaf((*img_ptr), (*H_ptr), cur_img_lr_val);
+			img_ptr += numVoxelPerFrame;
+			H_ptr += m_numDynamicFrames;
 		}
 		return weight * cur_img_lr_val;
 	}
@@ -113,31 +112,32 @@ public:
 	                           size_t offset, frame_t dynamicFrame,
 	                           size_t numVoxelPerFrame) override
 	{
-		const float Ay = value * weight;
+		const float AHy = value * weight;
 
 		if (!m_updateH)
 		{
-			const float* H_ptr = mpd_HBasisDevice_ptr;
+			float* __restrict__ img_ptr = cur_img_ptr + offset;
+			const float* __restrict__ H_ptr =
+			    mpd_HBasisDevice_ptr + dynamicFrame;
 #pragma unroll
 			for (int l = 0; l < Rank; ++l)
 			{
-				const float cur_H_ptr =
-				    *(H_ptr + l * m_numDynamicFrames + dynamicFrame);
-				const size_t offset_rank = l * numVoxelPerFrame;
-				const float output = Ay * cur_H_ptr;
-				atomicAdd(cur_img_ptr + offset + offset_rank, output);
+				atomicAdd(img_ptr, AHy * (*H_ptr));
+				img_ptr += numVoxelPerFrame;
+				H_ptr += m_numDynamicFrames;
 			}
 		}
 		else
 		{
-			float* H_ptr = mpd_HBasisDeviceWrite_ptr;
+			const float* __restrict__ img_ptr = cur_img_ptr + offset;
+			float* __restrict__ H_ptr =
+			    mpd_HBasisDeviceWrite_ptr + dynamicFrame;
 #pragma unroll
 			for (int l = 0; l < Rank; ++l)
 			{
-				const size_t offset_rank = l * numVoxelPerFrame;
-				const float output = Ay * cur_img_ptr[offset + offset_rank];
-				atomicAdd(H_ptr + l * m_numDynamicFrames + dynamicFrame,
-				          output);
+				atomicAdd(H_ptr, AHy * (*img_ptr));
+				img_ptr += numVoxelPerFrame;
+				H_ptr += m_numDynamicFrames;
 			}
 		}
 	}
@@ -191,11 +191,12 @@ public:
 	                           size_t numVoxelPerFrame) override
 	{
 		const float AHy = value * weight;
-		const float* __restrict__ H_ptr = mpd_HBasisDevice_ptr + dynamicFrame;
-		float* __restrict__ img_ptr = cur_img_ptr + offset;
 
 		if (!m_updateH)
 		{
+			float* __restrict__ img_ptr = cur_img_ptr + offset;
+			const float* __restrict__ H_ptr =
+			    mpd_HBasisDevice_ptr + dynamicFrame;
 			for (int l = 0; l < m_rank; ++l)
 			{
 				atomicAdd(img_ptr, AHy * (*H_ptr));
@@ -205,13 +206,14 @@ public:
 		}
 		else
 		{
-			float* H_ptr = mpd_HBasisDeviceWrite_ptr;
+			const float* __restrict__ img_ptr = cur_img_ptr + offset;
+			float* __restrict__ H_ptr =
+			    mpd_HBasisDeviceWrite_ptr + dynamicFrame;
 			for (int l = 0; l < m_rank; ++l)
 			{
-				const size_t offset_rank = l * numVoxelPerFrame;
-				const float output = AHy * cur_img_ptr[offset + offset_rank];
-				atomicAdd(H_ptr + l * m_numDynamicFrames + dynamicFrame,
-				          output);
+				atomicAdd(H_ptr, AHy * (*img_ptr));
+				img_ptr += numVoxelPerFrame;
+				H_ptr += m_numDynamicFrames;
 			}
 		}
 	}
@@ -342,6 +344,7 @@ public:
 			m_updateH = updateH;
 			setHBasis(p_HBasis);
 			HBasisDevice_ptr = mpd_HBasisDeviceArray->getDevicePointer();
+			allocateForHBasisWriteDevice();
 			HBasisWriteDevice_ptr =
 			    mpd_HBasisWriteDeviceArray->getDevicePointer();
 		}
@@ -377,7 +380,6 @@ public:
 		                                            launchConfig);
 	}
 
-
 	void SyncHostToDeviceHBasis()
 	{
 		const GPULaunchConfig launchConfig{nullptr, true};
@@ -410,9 +412,10 @@ public:
 	{
 		const GPULaunchConfig launchConfig{nullptr, true};
 
-		if (!mpd_HBasisWriteDeviceArray->isAllocated())
+		if (mp_HWrite.getSizeTotal() != m_rank * m_numDynamicFrames)
 		{
-			allocateForHBasisWriteDevice();
+			throw std::logic_error(
+			    "Host mp_HWrite dimension does not match Device side.");
 		}
 		auto HBasisWrite_ptr = mp_HWrite.getRawPointer();
 		mpd_HBasisWriteDeviceArray->copyToHost(
@@ -464,7 +467,39 @@ public:
 	void setHBasisWrite(const Array2DBase<float>& pr_HWrite)
 	{
 		mp_HWrite.bind(pr_HWrite);
+		// initialize device side mpd_HBasisWriteDeviceArray
+		if (!mpd_HBasisWriteDeviceArray->isAllocated())
+		{
+			allocateForHBasisWriteDevice();
+		}
 		SyncHostToDeviceHBasisWrite();
+		// {
+		// 	printf("\n DEBUG: in setHBasisWrite After "
+		// 	       "SyncHostToDeviceHBasisWrite.\n");
+		// 	cudaDeviceSynchronize();
+		// 	cudaCheckError();
+		// 	Array2D<float> arraytmp;
+		// 	const auto dims = pr_HWrite.getDims();
+		// 	arraytmp.allocate(dims[0], dims[1]);
+		// 	arraytmp.fill(0.f);
+		// 	printf("\n DEBUG: in setHBasisWrite before arraytmp copy.\n");
+		// 	mpd_HBasisWriteDeviceArray->copyToHost(arraytmp.getRawPointer(),
+		// 	                                       m_rank * m_numDynamicFrames,
+		// 	                                       {nullptr, true});
+		// 	cudaDeviceSynchronize();
+		// 	cudaCheckError();
+		// 	printf("\n DEBUG: in setHBasisWrite after arraytmp copy.\n");
+		// 	for (int r = 0; r < m_rank; ++r)
+		// 	{
+		// 		for (int t = 0; t < m_numDynamicFrames; ++t)
+		// 		{
+		// 			printf(" %.2f ", arraytmp[r][t]);
+		// 		}
+		// 		printf("\n");
+		// 	}
+		// 	cudaDeviceSynchronize();
+		// 	cudaCheckError();
+		// }
 		// TODO : use multithread with one H per thread in gpu ?
 		// initializeWriteThread();
 	}

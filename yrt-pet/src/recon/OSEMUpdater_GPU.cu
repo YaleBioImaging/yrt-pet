@@ -150,7 +150,29 @@ void OSEMUpdater_GPU::computeEMUpdateImage(const ImageDevice& inputImage,
 
 		tmpBufferDevice->allocateForProjValues({mainStream, false});
 
+		{
+			printf("\n DEBUG: in computeEM, before applyA.\n");
+			cudaDeviceSynchronize();
+			cudaCheckError();
+		}
 		projector->applyA(&inputImage, tmpBufferDevice, false);
+		{
+			printf("\n DEBUG: in computeEM, after applyA.\n");
+			cudaDeviceSynchronize();
+			cudaCheckError();
+			auto updater =projector->getUpdaterDeviceWrapper();
+			auto H_old = updater->getHBasisWrite();
+			const auto dims = H_old.getDims();
+			float sum = 0.f;
+			for (size_t r = 0; r < dims[0]; ++r)
+			{
+				for (size_t t = 0; t < dims[1]; ++t)
+				{
+					sum += H_old[r][t];
+				}
+			}
+			printf("\n after applyA: sum(H_tid) = %f \n", sum);
+		}
 
 		if (corrector.hasAdditiveCorrection(*measurementsDevice))
 		{
@@ -185,13 +207,39 @@ void OSEMUpdater_GPU::computeEMUpdateImage(const ImageDevice& inputImage,
 		{
 			cudaStreamSynchronize(*mainStream);
 		}
-
+		{
+			printf("\n DEBUG: in computeEM, before applyAH.\n");
+			cudaDeviceSynchronize();
+			cudaCheckError();
+		}
 		projector->applyAH(tmpBufferDevice, &destImage, false);
+		{
+			printf("\n DEBUG: in computeEM, after applyAH.\n");
+			cudaDeviceSynchronize();
+			cudaCheckError();
+			auto updater =projector->getUpdaterDeviceWrapper();
+			auto H_old = updater->getHBasisWrite();
+			const auto dims = H_old.getDims();
+			float sum = 0.f;
+			for (size_t r = 0; r < dims[0]; ++r)
+			{
+				for (size_t t = 0; t < dims[1]; ++t)
+				{
+					sum += H_old[r][t];
+				}
+			}
+			printf("\n after applyAH: sum(H_tid) = %f \n", sum);
+		}
 	}
 
 	if (mainStream != nullptr)
 	{
 		cudaStreamSynchronize(*mainStream);
+	}
+	{
+		printf("\n DEBUG: in computeEM, after cudaStreamSynchronize.\n");
+		cudaDeviceSynchronize();
+		cudaCheckError();
 	}
 }
 }  // namespace yrt

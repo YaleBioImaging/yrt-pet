@@ -830,6 +830,26 @@ void OSEM::applyHUpdate()
 	    dynamic_cast<Array2D<float>*>(getHBasisTmpBuffer())
 	        ->getRawPointer();  // numerator accumulated this subset
 
+	const auto dims = getHBasisTmpBuffer()->getDims();
+	{
+		printf("\nPrinting HBuffer:\n");
+		for (int r = 0; r < dims[0]; ++r)
+		{
+			for (int t = 0; t < dims[1]; ++t)
+			{
+				printf(" %.2f ", (*getHBasisTmpBuffer())[r][t]);
+			}
+			printf("\n");
+		}
+	}
+	{
+		printf("\nPrinting m_cHUpdate:\n");
+		for (int r = 0; r < dims[0]; ++r)
+		{
+			printf(" %.2f ", m_cHUpdate[r]);
+		}
+	}
+
 	// shapes: rank x T
 	const int rank = projectorParams.HBasis.getDims()[0];
 	const int T = projectorParams.HBasis.getDims()[1];
@@ -1063,8 +1083,10 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 			}
 			if (projectorParams.updateH || (dualUpdate && iter > 0))
 			{
-				printf("\n Apply EM H Update \n");
+				// TODO: This is suboptimal as the update could be done on GPU
+				// instead of copying to Device to do it
 				SyncDeviceToHostHBasisWrite();
+				printf("\n Apply EM H Update \n");
 				applyHUpdate();
 			}
 

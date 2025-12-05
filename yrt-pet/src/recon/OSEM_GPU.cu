@@ -525,8 +525,7 @@ void OSEM_GPU::generateWUpdateSensScaling(float* c_WUpdate_r)
 void OSEM_GPU::generateHUpdateSensScaling(float* c_HUpdate_r)
 {
 	const size_t J = imageParams.nx * imageParams.ny * imageParams.nz;
-	ImageBase* W_imgBase =
-	    getImageTmpBuffer(TemporaryImageSpaceBufferType::EM_RATIO);
+	ImageBase* W_imgBase = getMLEMImageBuffer();
 	auto* W_imgDevice = dynamic_cast<ImageDevice*>(W_imgBase);
 	ASSERT(W_imgDevice != nullptr);
 
@@ -535,8 +534,7 @@ void OSEM_GPU::generateHUpdateSensScaling(float* c_HUpdate_r)
 	W_img->allocate();
 	W_imgDevice->transferToHostMemory(W_img.get(), true);
 
-	ImageBase* s_imgBase =
-	    getImageTmpBuffer(TemporaryImageSpaceBufferType::EM_RATIO);
+	ImageBase* s_imgBase = getSensImageBuffer();
 	auto* s_imgDevice = dynamic_cast<ImageDevice*>(s_imgBase);
 	ASSERT(s_imgDevice != nullptr);
 
@@ -640,7 +638,7 @@ void OSEM_GPU::setupForDynamicRecon(int& rank, int& T)
 		}
 		if (projectorParams.updateH || dualUpdate)
 		{
-			// Not implemented
+			m_cHUpdate.resize(rank, 0.f);
 			generateHUpdateSensScaling(m_cHUpdate.data());
 		}
 	}

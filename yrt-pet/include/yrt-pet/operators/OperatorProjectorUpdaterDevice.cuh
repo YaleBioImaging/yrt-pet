@@ -110,29 +110,30 @@ public:
 	                           size_t offset, frame_t dynamicFrame,
 	                           size_t numVoxelPerFrame) override
 	{
-		const float Ay = value * weight;
+		const float AHy = value * weight;
 
 		if (!m_updateH)
 		{
-			const float* H_ptr = mpd_HBasisDevice_ptr;
+			float* __restrict__ img_ptr = cur_img_ptr + offset;
+			const float* __restrict__ H_ptr =
+			    mpd_HBasisDevice_ptr + dynamicFrame;
 			for (int l = 0; l < m_rank; ++l)
 			{
-				const float cur_H_ptr =
-				    *(H_ptr + l * m_numDynamicFrames + dynamicFrame);
-				const size_t offset_rank = l * numVoxelPerFrame;
-				const float output = Ay * cur_H_ptr;
-				atomicAdd(cur_img_ptr + offset + offset_rank, output);
+				atomicAdd(img_ptr, AHy * (*H_ptr));
+				img_ptr += numVoxelPerFrame;
+				H_ptr += m_numDynamicFrames;
 			}
 		}
 		else
 		{
-			float* H_ptr = mpd_HBasisDeviceWrite_ptr;
+			const float* __restrict__ img_ptr = cur_img_ptr + offset;
+			float* __restrict__ H_ptr =
+			    mpd_HBasisDeviceWrite_ptr + dynamicFrame;
 			for (int l = 0; l < m_rank; ++l)
 			{
-				const size_t offset_rank = l * numVoxelPerFrame;
-				const float output = Ay * cur_img_ptr[offset + offset_rank];
-				atomicAdd(H_ptr + l * m_numDynamicFrames + dynamicFrame,
-				          output);
+				atomicAdd(H_ptr, AHy * (*img_ptr));
+				img_ptr += numVoxelPerFrame;
+				H_ptr += m_numDynamicFrames;
 			}
 		}
 	}
@@ -233,6 +234,7 @@ public:
 			m_updateH = updateH;
 			setHBasis(p_HBasis);
 			HBasisDevice_ptr = mpd_HBasisDeviceArray->getDevicePointer();
+			allocateForHBasisWriteDevice();
 			HBasisWriteDevice_ptr =
 			    mpd_HBasisWriteDeviceArray->getDevicePointer();
 		}
@@ -303,7 +305,13 @@ public:
 
 		if (!mpd_HBasisWriteDeviceArray->isAllocated())
 		{
-			allocateForHBasisWriteDevice();
+			throw std::logic_error(
+			    "mpd_HBasisWriteDeviceArray is not Allocated");
+		}
+		if (mp_HWrite.getSizeTotal() != m_rank * m_numDynamicFrames)
+		{
+			throw std::logic_error(
+			    "Host mp_HWrite dimension does not match Device side.");
 		}
 		auto HBasisWrite_ptr = mp_HWrite.getRawPointer();
 		mpd_HBasisWriteDeviceArray->copyToHost(
@@ -355,6 +363,11 @@ public:
 	void setHBasisWrite(const Array2DBase<float>& pr_HWrite)
 	{
 		mp_HWrite.bind(pr_HWrite);
+		// initialize device side mpd_HBasisWriteDeviceArray
+		if (!mpd_HBasisWriteDeviceArray->isAllocated())
+		{
+			allocateForHBasisWriteDevice();
+		}
 		SyncHostToDeviceHBasisWrite();
 		// TODO : use multithread with one H per thread in gpu ?
 		// initializeWriteThread();

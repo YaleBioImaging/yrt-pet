@@ -30,7 +30,7 @@ namespace yrt
  *  - Plane position of virtual detector 1
  *    - Goes from "-axialFOV/2" to "axialFOV/2"
  *  - Angular position of virtual detector 1
- *    - Goes from 0 to 2pi
+ *    - Goes from 0 to 2pi (radians)
  *  - Plane position of virtual detector 2
  *    - Same interval as for virtual detector 1
  *  - Angular position of virtual detector 2
@@ -69,7 +69,13 @@ public:
 	void writeToFile(const std::string& fname) const;
 
 	// Do nearest neighbor
-	ScatterSpaceIndex nearestNeighbor(const ScatterSpacePosition& pos) const;
+	ScatterSpaceIndex
+	    getNearestNeighborIndex(const ScatterSpacePosition& pos) const;
+	float
+		getNearestNeighborValue(const ScatterSpacePosition& pos) const;
+
+	// Do linear interpolation
+	float getLinearInterpolationValue(const ScatterSpacePosition& pos) const;
 
 	float getAxialFOV() const;
 	float getRadius() const;
@@ -78,9 +84,15 @@ public:
 	size_t getNumPlanes() const;
 	size_t getNumAngles() const;
 
-	float getTOF_ps(size_t TOFBin) const;
-	float getPlanePosition(size_t planeIndex) const;
-	float getAngle(size_t angleIndex) const;  // In radians
+	// Get the continuous position from logical indices
+	float getTOF_ps(size_t TOFBin) const;             // in picoseconds
+	float getPlanePosition(size_t planeIndex) const;  // in mm
+	float getAngle(size_t angleIndex) const;          // In radians
+
+	// get the logical indices given the continuous position
+	size_t getTOFBin(float tof_ps) const;
+	size_t getPlaneIndex(float planePosition) const;
+	size_t getAngleIndex(float angle) const;
 
 	float getTOFBinStep_ps() const;
 	float getAngleStep() const;
@@ -93,6 +105,7 @@ public:
 	void symmetrize();
 
 	static float wrapAngle(float angle);
+	size_t wrapAngleIndex(int angleIndex) const;
 	float clampPlanePosition(float planePosition) const;
 	float clampTOF(float tof_ps) const;
 

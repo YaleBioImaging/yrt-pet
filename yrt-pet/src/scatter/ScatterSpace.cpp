@@ -10,7 +10,6 @@
 namespace yrt
 {
 
-
 ScatterSpace::ScatterSpace(const Scanner& pr_scanner, const std::string& fname)
     : Histogram(pr_scanner), mp_values(nullptr)
 {
@@ -60,90 +59,159 @@ void ScatterSpace::writeToFile(const std::string& fname) const
 }
 
 ScatterSpace::ScatterSpaceIndex
-    ScatterSpace::nearestNeighbor(const ScatterSpacePosition& pos) const
+    ScatterSpace::getNearestNeighborIndex(const ScatterSpacePosition& pos) const
 {
+	return {getTOFBin(pos.tof_ps), getPlaneIndex(pos.planePosition1),
+	        getAngleIndex(pos.angle1), getPlaneIndex(pos.planePosition2),
+	        getAngleIndex(pos.angle2)};
+}
 
-	// Wrap angles to [0, 2pi)
-    float a1 = wrapAngle(pos.angle1);
-    float a2 = wrapAngle(pos.angle2);
+float ScatterSpace::getNearestNeighborValue(
+    const ScatterSpacePosition& pos) const
+{
+	return getValue(getNearestNeighborIndex(pos));
+}
 
-    // Clamp z coordinates to axial FOV
-    float z1 = clampPlanePosition(pos.planePosition1);
-    float z2 = clampPlanePosition(pos.planePosition2);
+float ScatterSpace::getLinearInterpolationValue(
+    const ScatterSpacePosition& pos) const
+{
+	// Clamp and wrap input
+	const float clamped_tof = clampTOF(pos.tof_ps);
+	const float clamped_plane1 = clampPlanePosition(pos.planePosition1);
+	const float wrapped_angle1 = wrapAngle(pos.angle1);
+	const float clamped_plane2 = clampPlanePosition(pos.planePosition2);
+	const float wrapped_angle2 = wrapAngle(pos.angle2);
 
-    // Convert to continuous grid indices
-    float a1_idx = a1 / angle_step_;
-    float z1_idx = (z1 - z_min_) / z_step_;
-    float a2_idx = a2 / angle_step_;
-    float z2_idx = (z2 - z_min_) / z_step_;
+	// Get the logical indices but in float
+	const float tof_idx = clamped_tof / m_TOFBinStep_ps - 0.5f;
+	const float plane_start = -getAxialFOV() / 2.0f;
+	const float plane1_idx =
+	    (clamped_plane1 - plane_start) / m_planeStep - 0.5f;
+	const float angle1_idx = wrapped_angle1 / m_angleStep - 0.5f;
+	const float plane2_idx =
+	    (clamped_plane2 - plane_start) / m_planeStep - 0.5f;
+	const float angle2_idx = wrapped_angle2 / m_angleStep - 0.5f;
 
-    // Get integer parts and fractional parts
-    int a1_i = static_cast<int>(std::floor(a1_idx));
-    int z1_i = static_cast<int>(std::floor(z1_idx));
-    int a2_i = static_cast<int>(std::floor(a2_idx));
-    int z2_i = static_cast<int>(std::floor(z2_idx));
+	// Logical indices but in signed int
+	const int tof_i = static_cast<int>(std::floor(tof_idx));
+	const int plane1_i = static_cast<int>(std::floor(plane1_idx));
+	const int angle1_i = static_cast<int>(std::floor(angle1_idx));
+	const int plane2_i = static_cast<int>(std::floor(plane2_idx));
+	const int angle2_i = static_cast<int>(std::floor(angle2_idx));
 
-    float a1_frac = a1_idx - a1_i;
-    float z1_frac = z1_idx - z1_i;
-    float a2_frac = a2_idx - a2_i;
-    float z2_frac = z2_idx - z2_i;
+	// Fraction within the sample
+	float tof_frac = tof_idx - tof_i;
+	float plane1_frac = plane1_idx - plane1_i;
+	const float angle1_frac = angle1_idx - angle1_i;
+	float plane2_frac = plane2_idx - plane2_i;
+	const float angle2_frac = angle2_idx - angle2_i;
 
-    // Wrap angle indices (periodic boundary)
-    uint16_t a1_i0 = wrapAngleIndex(a1_i);
-    uint16_t a1_i1 = wrapAngleIndex(a1_i + 1);
-    uint16_t a2_i0 = wrapAngleIndex(a2_i);
-    uint16_t a2_i1 = wrapAngleIndex(a2_i + 1);
+	// From the logical indices, gather the neighbor sample (in each dimension)
+	const int tof_i0 = std::clamp(tof_i, 0, static_cast<int>(m_numTOFBins) - 1);
+	const int tof_i1 =
+	    std::clamp(tof_i + 1, 0, static_cast<int>(m_numTOFBins) - 1);
+	const int plane1_i0 =
+	    std::clamp(plane1_i, 0, static_cast<int>(m_numPlanes) - 1);
+	const int plane1_i1 =
+	    std::clamp(plane1_i + 1, 0, static_cast<int>(m_numPlanes) - 1);
+	const int plane2_i0 =
+	    std::clamp(plane2_i, 0, static_cast<int>(m_numPlanes) - 1);
+	const int plane2_i1 =
+	    std::clamp(plane2_i + 1, 0, static_cast<int>(m_numPlanes) - 1);
 
-    // Clamp z indices (non-periodic boundary)
-    uint16_t z1_i0 = clampZIndex(z1_i);
-    uint16_t z1_i1 = clampZIndex(z1_i + 1);
-    uint16_t z2_i0 = clampZIndex(z2_i);
-    uint16_t z2_i1 = clampZIndex(z2_i + 1);
+	// Wrap angle indices and get the neighboring sample
+	// Edge case:
+	//  Might have to do a linear interpolation between the first angle sample
+	//  and the last one
+	const size_t angle1_i0 = wrapAngleIndex(angle1_i);
+	const size_t angle1_i1 = wrapAngleIndex(angle1_i + 1);
+	const size_t angle2_i0 = wrapAngleIndex(angle2_i);
+	const size_t angle2_i1 = wrapAngleIndex(angle2_i + 1);
 
-    // Get the 16 neighboring grid points
-    float v0000 = getValue(a1_i0, z1_i0, a2_i0, z2_i0);
-    float v0001 = getValue(a1_i0, z1_i0, a2_i0, z2_i1);
-    float v0010 = getValue(a1_i0, z1_i0, a2_i1, z2_i0);
-    float v0011 = getValue(a1_i0, z1_i0, a2_i1, z2_i1);
+	// Edge case for boundaries (if the clamping happened)
+	if (tof_i0 == tof_i1)
+	{
+		tof_frac = 0.0f;
+	}
+	if (plane1_i0 == plane1_i1)
+	{
+		plane1_frac = 0.0f;
+	}
+	if (plane2_i0 == plane2_i1)
+	{
+		plane2_frac = 0.0f;
+	}
 
-    float v0100 = getValue(a1_i0, z1_i1, a2_i0, z2_i0);
-    float v0101 = getValue(a1_i0, z1_i1, a2_i0, z2_i1);
-    float v0110 = getValue(a1_i0, z1_i1, a2_i1, z2_i0);
-    float v0111 = getValue(a1_i0, z1_i1, a2_i1, z2_i1);
+	// Get the raw data pointer for faster access
+	const float* data = mp_values->getRawPointer();
 
-    float v1000 = getValue(a1_i1, z1_i0, a2_i0, z2_i0);
-    float v1001 = getValue(a1_i1, z1_i0, a2_i0, z2_i1);
-    float v1010 = getValue(a1_i1, z1_i0, a2_i1, z2_i0);
-    float v1011 = getValue(a1_i1, z1_i0, a2_i1, z2_i1);
+	// Precompute strides for each dimension
+	const size_t stride_TOF =
+	    m_numPlanes * m_numAngles * m_numPlanes * m_numAngles;
+	const size_t stride_plane1 = m_numAngles * m_numPlanes * m_numAngles;
+	const size_t stride_angle1 = m_numPlanes * m_numAngles;
+	const size_t stride_plane2 = m_numAngles;
+	const size_t stride_angle2 = 1;
 
-    float v1100 = getValue(a1_i1, z1_i1, a2_i0, z2_i0);
-    float v1101 = getValue(a1_i1, z1_i1, a2_i0, z2_i1);
-    float v1110 = getValue(a1_i1, z1_i1, a2_i1, z2_i0);
-    float v1111 = getValue(a1_i1, z1_i1, a2_i1, z2_i1);
+	// Precompute weights for all 32 corners using a 5D tensor product
+	float weights[32];
+	size_t indices[32];
 
-    // 4D linear interpolation (multilinear)
-    // Interpolate along z2 direction first
-    float v000 = v0000 * (1 - z2_frac) + v0001 * z2_frac;
-    float v001 = v0010 * (1 - z2_frac) + v0011 * z2_frac;
-    float v010 = v0100 * (1 - z2_frac) + v0101 * z2_frac;
-    float v011 = v0110 * (1 - z2_frac) + v0111 * z2_frac;
-    float v100 = v1000 * (1 - z2_frac) + v1001 * z2_frac;
-    float v101 = v1010 * (1 - z2_frac) + v1011 * z2_frac;
-    float v110 = v1100 * (1 - z2_frac) + v1101 * z2_frac;
-    float v111 = v1110 * (1 - z2_frac) + v1111 * z2_frac;
+	int idx = 0;
+	for (int t = 0; t < 2; ++t)
+	{
+		const float w_t = (t == 0) ? (1.0f - tof_frac) : tof_frac;
+		const size_t tof_index = (t == 0) ? tof_i0 : tof_i1;
 
-    // Then along a2 direction
-    float v00 = v000 * (1 - a2_frac) + v001 * a2_frac;
-    float v01 = v010 * (1 - a2_frac) + v011 * a2_frac;
-    float v10 = v100 * (1 - a2_frac) + v101 * a2_frac;
-    float v11 = v110 * (1 - a2_frac) + v111 * a2_frac;
+		for (int p1 = 0; p1 < 2; ++p1)
+		{
+			const float w_p1 = (p1 == 0) ? (1.0f - plane1_frac) : plane1_frac;
+			const size_t plane1_index = (p1 == 0) ? plane1_i0 : plane1_i1;
 
-    // Then along z1 direction
-    float v0 = v00 * (1 - z1_frac) + v01 * z1_frac;
-    float v1 = v10 * (1 - z1_frac) + v11 * z1_frac;
+			for (int a1 = 0; a1 < 2; ++a1)
+			{
+				const float w_a1 =
+				    (a1 == 0) ? (1.0f - angle1_frac) : angle1_frac;
+				const size_t angle1_index = (a1 == 0) ? angle1_i0 : angle1_i1;
 
-    // Finally along a1 direction
-    return v0 * (1 - a1_frac) + v1 * a1_frac;
+				for (int p2 = 0; p2 < 2; ++p2)
+				{
+					const float w_p2 =
+					    (p2 == 0) ? (1.0f - plane2_frac) : plane2_frac;
+					const size_t plane2_index =
+					    (p2 == 0) ? plane2_i0 : plane2_i1;
+
+					for (int a2 = 0; a2 < 2; ++a2)
+					{
+						const float w_a2 =
+						    (a2 == 0) ? (1.0f - angle2_frac) : angle2_frac;
+						const size_t angle2_index =
+						    (a2 == 0) ? angle2_i0 : angle2_i1;
+
+						// Compute linear index
+						const size_t linear_idx = tof_index * stride_TOF +
+						                          plane1_index * stride_plane1 +
+						                          angle1_index * stride_angle1 +
+						                          plane2_index * stride_plane2 +
+						                          angle2_index * stride_angle2;
+
+						indices[idx] = linear_idx;
+						weights[idx] = w_t * w_p1 * w_a1 * w_p2 * w_a2;
+						idx++;
+					}
+				}
+			}
+		}
+	}
+
+	// Sum weighted contributions
+	float result = 0.0f;
+	for (int i = 0; i < 32; ++i)
+	{
+		result += data[indices[i]] * weights[i];
+	}
+
+	return result;
 }
 
 float ScatterSpace::getTOF_ps(size_t TOFBin) const
@@ -159,6 +227,30 @@ float ScatterSpace::getPlanePosition(size_t planeIndex) const
 float ScatterSpace::getAngle(size_t angleIndex) const
 {
 	return m_angleStep * (static_cast<float>(angleIndex) + 0.5f);
+}
+
+size_t ScatterSpace::getTOFBin(float tof_ps) const
+{
+	// This function assumes that tof_ps is between 0 and getMaxTOF_ps()
+	const float clampedTOF_ps = clampTOF(tof_ps);
+	const float tofBin_flt = clampedTOF_ps / m_TOFBinStep_ps - 0.5f;
+	return static_cast<size_t>(std::round(tofBin_flt));
+}
+
+size_t ScatterSpace::getPlaneIndex(float planePosition) const
+{
+	const float clampedPlanePosition = clampTOF(planePosition);
+	const float startingPlane = -getAxialFOV() / 2.0f;
+	const float planeIndex_flt =
+	    (clampedPlanePosition - startingPlane) / m_planeStep - 0.5f;
+	return static_cast<size_t>(std::round(planeIndex_flt));
+}
+
+size_t ScatterSpace::getAngleIndex(float angle) const
+{
+	const float wrappedAngle = wrapAngle(angle);
+	const float angleIndex_flt = wrappedAngle / m_angleStep - 0.5f;
+	return static_cast<size_t>(std::round(angleIndex_flt));
 }
 
 float ScatterSpace::getTOFBinStep_ps() const
@@ -194,12 +286,12 @@ void ScatterSpace::symmetrize()
 {
 	// TODO NOW: Here, make it so that for all elements of this scatter space,
 	//  the value at ((a1,z1), (a2,z2), tof) is the same as for
-	//  ((a2,z2), (a1,z1), tof)
+	//  ((a2,z2), (a1,z1), tof) when m_numTOFBins==1
 }
 
 float ScatterSpace::wrapAngle(float angle)
 {
-	// Wrap to [0, 2pi)
+	// Wrap to [0, 2pi[
 	angle = std::fmod(angle, TWOPI_FLT);
 	if (angle < 0)
 	{
@@ -208,18 +300,32 @@ float ScatterSpace::wrapAngle(float angle)
 	return angle;
 }
 
+size_t ScatterSpace::wrapAngleIndex(int angleIndex) const
+{
+	int angleIndexModulo = angleIndex % static_cast<int>(m_numAngles);
+
+	// YN: Unsure about this. Leaving it here just in case
+	if (angleIndexModulo < 0)
+	{
+		angleIndexModulo += static_cast<int>(m_numAngles);
+	}
+
+	return static_cast<size_t>(angleIndexModulo);
+}
+
 float ScatterSpace::clampPlanePosition(float planePosition) const
 {
-	const float maxPlanePosition = getAxialFOV() / 2 + getPlaneStep() / 2;
+	const float maxPlanePosition = getAxialFOV() / 2 - getPlaneStep() / 2;
 	const float minPlanePosition = -maxPlanePosition;
 	return std::clamp(planePosition, minPlanePosition, maxPlanePosition);
 }
 
 float ScatterSpace::clampTOF(float tof_ps) const
 {
-	const float maxTOF = getMaxTOF_ps() + getPlaneStep() / 2;
-	const float minTOF = -maxPlanePosition;
-	return std::clamp(planePosition, minPlanePosition, maxPlanePosition);
+	const float halfTOFBinStep_ps = getTOFBinStep_ps() / 2;
+	const float maxTOFSample = getMaxTOF_ps() - halfTOFBinStep_ps;
+	const float minTOFSample = halfTOFBinStep_ps;  // ps
+	return std::clamp(tof_ps, minTOFSample, maxTOFSample);
 }
 
 void ScatterSpace::initStepSizes()

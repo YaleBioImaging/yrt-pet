@@ -15,7 +15,7 @@
 
 TEST_CASE("scatterspace", "[scatterspace]")
 {
-	SECTION("scatterspace-construction", "[scatterspace]")
+	SECTION("construction")
 	{
 		auto scanner = yrt::util::test::makeScanner();
 
@@ -43,7 +43,7 @@ TEST_CASE("scatterspace", "[scatterspace]")
 		}
 	}
 
-	SECTION("scatterspace-properties", "[scatterspace]")
+	SECTION("properties")
 	{
 		auto scanner = yrt::util::test::makeScanner();
 
@@ -69,7 +69,7 @@ TEST_CASE("scatterspace", "[scatterspace]")
 		}
 	}
 
-	SECTION("scatterspace-step-size", "[scatterspace]")
+	SECTION("step-size")
 	{
 		auto scanner = yrt::util::test::makeScanner();
 
@@ -94,7 +94,7 @@ TEST_CASE("scatterspace", "[scatterspace]")
 		}
 	}
 
-	SECTION("scatterspace-index-bidirectionality", "[scatterspace]")
+	SECTION("index-bidirectionality")
 	{
 		auto scanner = yrt::util::test::makeScanner();
 
@@ -176,7 +176,7 @@ TEST_CASE("scatterspace", "[scatterspace]")
 		}
 	}
 
-	SECTION("scatterspace-wrapangle", "[scatterspace]")
+	SECTION("wrapangle")
 	{
 
 		// between-0-and-2pi
@@ -207,7 +207,7 @@ TEST_CASE("scatterspace", "[scatterspace]")
 		}
 	}
 
-	SECTION("scatterspace-clamping", "[scatterspace]")
+	SECTION("clamping")
 	{
 		auto scanner = yrt::util::test::makeScanner();
 		yrt::ScatterSpace space(*scanner, 10, 20, 30);
@@ -257,7 +257,7 @@ TEST_CASE("scatterspace", "[scatterspace]")
 		}
 	}
 
-	SECTION("scatterspace-nearestneighbor", "[scatterspace]")
+	SECTION("nearestneighbor")
 	{
 		auto scanner = yrt::util::test::makeScanner();
 
@@ -312,15 +312,15 @@ TEST_CASE("scatterspace", "[scatterspace]")
 
 		// nearestneighbor-boundaries
 		{
-			float tof_step = space.getTOFBinStep_ps();
-			float plane_step = space.getPlaneStep();
-			float angle_step = space.getAngleStep();
+			float tofStep = space.getTOFBinStep_ps();
+			float planeStep = space.getPlaneStep();
+			float angleStep = space.getAngleStep();
 
 			// Test near lower TOF boundary
 			yrt::ScatterSpace::ScatterSpacePosition pos1;
-			pos1.tof_ps = tof_step * 0.49f;  // Just below first bin center
+			pos1.tof_ps = tofStep * 0.49f;  // Just below first bin center
 			pos1.planePosition1 = 0.0f;
-			pos1.angle1 = 0.0f;
+			pos1.angle1 = 1.0f;
 			pos1.planePosition2 = 0.0f;
 			pos1.angle2 = 0.0f;
 
@@ -330,11 +330,11 @@ TEST_CASE("scatterspace", "[scatterspace]")
 			// Test near upper TOF boundary
 			yrt::ScatterSpace::ScatterSpacePosition pos2;
 			pos2.tof_ps = space.getMaxTOF_ps() -
-			              tof_step * 0.49f;  // Just below last bin center
+			              tofStep * 0.49f;  // Just below last bin center
 			pos2.planePosition1 = 0.0f;
 			pos1.angle1 = 0.0f;
 			pos1.planePosition2 = 0.0f;
-			pos1.angle2 = 0.0f;
+			pos1.angle2 = 1.0f;
 
 			auto idx2 = space.getNearestNeighborIndex(pos2);
 			REQUIRE(idx2.tofBin == 9);
@@ -342,14 +342,14 @@ TEST_CASE("scatterspace", "[scatterspace]")
 
 		// nearestneighbor-wrapped-angles
 		{
-			float angle_step = space.getAngleStep();
+			float angleStep = space.getAngleStep();
 
 			// Test angle slightly below 0 (should wrap to near 2pi)
 			yrt::ScatterSpace::ScatterSpacePosition pos;
 			pos.tof_ps = space.getTOF_ps(5);
 			pos.planePosition1 = 0.0f;
 			pos.angle1 =
-			    -angle_step * 0.3f;  // Should wrap to ~2pi - 0.3*angle_step
+			    -angleStep * 0.3f;  // Should wrap to ~2pi - 0.3*angle_step
 			pos.planePosition2 = 0.0f;
 			pos.angle2 = 0.0f;
 
@@ -357,13 +357,13 @@ TEST_CASE("scatterspace", "[scatterspace]")
 			REQUIRE(idx.angleIndex1 == 29);  // Last angle bin
 
 			// Test angle slightly above 2pi
-			pos.angle1 = 2.0f * yrt::PI_FLT + angle_step * 0.3f;
+			pos.angle1 = 2.0f * yrt::PI_FLT + angleStep * 0.3f;
 			idx = space.getNearestNeighborIndex(pos);
 			REQUIRE(idx.angleIndex1 == 0);  // First angle bin
 		}
 	}
 
-	SECTION("scatterspace-linearinterpolation", "[scatterspace]")
+	SECTION("linearinterpolation")
 	{
 		auto scanner = yrt::util::test::makeScanner();
 		yrt::ScatterSpace space(*scanner, 2, 2, 2);
@@ -422,7 +422,7 @@ TEST_CASE("scatterspace", "[scatterspace]")
 		}
 	}
 
-	SECTION("scatterspace-edgecases", "[scatterspace]")
+	SECTION("edgecases")
 	{
 		auto scanner = yrt::util::test::makeScanner();
 
@@ -470,58 +470,58 @@ TEST_CASE("scatterspace", "[scatterspace]")
 		}
 	}
 
-	SECTION("scatterspace-random-grid-sizes", "[scatterspace]")
+	SECTION("random-grid-sizes")
 	{
 		std::random_device rd;
 		std::default_random_engine gen(rd());
-		std::uniform_int_distribution<> size_dist(2, 50);
+		std::uniform_int_distribution<> sizeDistribution(2, 50);
 
 		auto scanner = yrt::util::test::makeScanner();
 
 		constexpr int NumTrials = 10;
 		for (int trial = 0; trial < NumTrials; trial++)
 		{
-			size_t n_tof = size_dist(gen);
-			size_t n_planes = size_dist(gen);
-			size_t n_angles = size_dist(gen);
+			size_t numTOF = sizeDistribution(gen);
+			size_t numPlanes = sizeDistribution(gen);
+			size_t numAngles = sizeDistribution(gen);
 
 			SECTION("random-grid-size-" + std::to_string(trial))
 			{
 				REQUIRE_NOTHROW(
-				    yrt::ScatterSpace(*scanner, n_tof, n_planes, n_angles));
+				    yrt::ScatterSpace(*scanner, numTOF, numPlanes, numAngles));
 
-				yrt::ScatterSpace space(*scanner, n_tof, n_planes, n_angles);
+				yrt::ScatterSpace space(*scanner, numTOF, numPlanes, numAngles);
 
 				// Verify basic properties
-				REQUIRE(space.getNumTOFBins() == n_tof);
-				REQUIRE(space.getNumPlanes() == n_planes);
-				REQUIRE(space.getNumAngles() == n_angles);
+				REQUIRE(space.getNumTOFBins() == numTOF);
+				REQUIRE(space.getNumPlanes() == numPlanes);
+				REQUIRE(space.getNumAngles() == numAngles);
 
 				// Verify step sizes are consistent
-				float tof_step = space.getTOFBinStep_ps();
-				float angle_step = space.getAngleStep();
-				float plane_step = space.getPlaneStep();
+				float tofStep = space.getTOFBinStep_ps();
+				float angleStep = space.getAngleStep();
+				float planeStep = space.getPlaneStep();
 
-				REQUIRE(tof_step > 0.0f);
-				REQUIRE(angle_step > 0.0f);
-				REQUIRE(plane_step > 0.0f);
+				REQUIRE(tofStep > 0.0f);
+				REQUIRE(angleStep > 0.0f);
+				REQUIRE(planeStep > 0.0f);
 
 				// Test a few random positions
-				std::uniform_real_distribution<float> tof_dist(
+				std::uniform_real_distribution<float> tofDistribution(
 				    0.0f, space.getMaxTOF_ps());
-				std::uniform_real_distribution<float> plane_dist(
+				std::uniform_real_distribution<float> planeDistribution(
 				    -200.0f, 200.0f);  // Within ±axialFOV/2
-				std::uniform_real_distribution<float> angle_dist(
+				std::uniform_real_distribution<float> angleDistribution(
 				    0.0f, 4.0f * yrt::PI_FLT);  // Test wrapping
 
 				for (int j = 0; j < 5; j++)
 				{
 					yrt::ScatterSpace::ScatterSpacePosition pos;
-					pos.tof_ps = tof_dist(gen);
-					pos.planePosition1 = plane_dist(gen);
-					pos.planePosition2 = plane_dist(gen);
-					pos.angle1 = angle_dist(gen);
-					pos.angle2 = angle_dist(gen);
+					pos.tof_ps = tofDistribution(gen);
+					pos.planePosition1 = planeDistribution(gen);
+					pos.planePosition2 = planeDistribution(gen);
+					pos.angle1 = angleDistribution(gen);
+					pos.angle2 = angleDistribution(gen);
 
 					// Nearest neighbor should not crash
 					REQUIRE_NOTHROW(space.getNearestNeighborIndex(pos));
@@ -529,11 +529,11 @@ TEST_CASE("scatterspace", "[scatterspace]")
 					auto idx = space.getNearestNeighborIndex(pos);
 
 					// Verify indices are within bounds
-					REQUIRE(idx.tofBin < n_tof);
-					REQUIRE(idx.planeIndex1 < n_planes);
-					REQUIRE(idx.planeIndex2 < n_planes);
-					REQUIRE(idx.angleIndex1 < n_angles);
-					REQUIRE(idx.angleIndex2 < n_angles);
+					REQUIRE(idx.tofBin < numTOF);
+					REQUIRE(idx.planeIndex1 < numPlanes);
+					REQUIRE(idx.planeIndex2 < numPlanes);
+					REQUIRE(idx.angleIndex1 < numAngles);
+					REQUIRE(idx.angleIndex2 < numAngles);
 				}
 			}
 		}
@@ -541,7 +541,7 @@ TEST_CASE("scatterspace", "[scatterspace]")
 
 	// Add this if you want to test the actual interpolation with values
 	// We need a way to set values in the ScatterSpace
-	SECTION("scatterspace-getters-and-setters", "[scatterspace]")
+	SECTION("getters-and-setters")
 	{
 		// This test assumes we have a way to set values
 		// You'll need to add a setValue method to your ScatterSpace class
@@ -591,7 +591,7 @@ TEST_CASE("scatterspace", "[scatterspace]")
 		}
 	}
 
-	SECTION("compute-cylindrical-from-points", "[scatterspace]")
+	SECTION("compute-cylindrical-from-points")
 	{
 		// Test a point on the cylinder
 		yrt::Line3D lor{{300.0f, 0.0f, 50.0f}, {0.0f, 300.0f, -50.0f}};
@@ -617,7 +617,7 @@ TEST_CASE("scatterspace", "[scatterspace]")
 		REQUIRE(angle1 == Approx(yrt::PI_FLT));
 	}
 
-	SECTION("scatterspace-boundary-handling", "[scatterspace]")
+	SECTION("boundary-handling")
 	{
 		auto scanner = yrt::util::test::makeScanner();
 		yrt::ScatterSpace space(*scanner, 3, 3, 3);

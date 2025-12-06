@@ -260,7 +260,7 @@ std::tuple<bin_t, bin_t, bin_t>
 
 BinIteratorChronologicalInterleaved::BinIteratorChronologicalInterleaved(
     bin_t p_numSubsets, bin_t p_numEvents, bin_t p_idxSubset)
-    : BinIteratorRange(p_idxSubset, p_numEvents, p_numSubsets)
+    : BinIteratorRange(p_idxSubset, p_numEvents - 1, p_numSubsets)
 {
 }
 

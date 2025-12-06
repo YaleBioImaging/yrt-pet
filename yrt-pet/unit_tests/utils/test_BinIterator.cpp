@@ -118,7 +118,7 @@ TEST_CASE("biniterator_chronological_interleaved", "[iterator]")
 		for (size_t idxSubset = 0; idxSubset < numSubsets; idxSubset++)
 		{
 			auto iter = yrt::BinIteratorChronologicalInterleaved(
-			    numSubsets, numEvents - 1, idxSubset);
+			    numSubsets, numEvents, idxSubset);
 			REQUIRE(test_iter(&iter, idxSubset, idxSubset + numSubsets,
 			                  endListRef.at(idxSubset), numEvents));
 		}

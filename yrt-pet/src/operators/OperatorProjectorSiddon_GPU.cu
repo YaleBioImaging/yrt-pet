@@ -161,10 +161,10 @@ void OperatorProjectorSiddon_GPU::launchKernel(
 		else
 		{
 			Siddon_kernel<IsForward, HasTOF, true, false>
-			    <<<gridSize, blockSize>>>(
-			        pd_projValues, pd_image, pd_updater, pd_projProperties,
-			        pd_projPropManager, pd_tofHelper, scannerParams, imgParams,
-			        1, batchSize);
+			    <<<gridSize, blockSize>>>(pd_projValues, pd_image, pd_updater,
+			                              pd_projProperties, pd_projPropManager,
+			                              pd_tofHelper, scannerParams,
+			                              imgParams, 1, batchSize);
 			if (synchronize)
 			{
 				cudaDeviceSynchronize();

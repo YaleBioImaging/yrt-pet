@@ -10,6 +10,7 @@
 #include "yrt-pet/utils/GPUUtils.cuh"
 
 #if BUILD_PYBIND11
+#include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 namespace py = pybind11;
 
@@ -60,6 +61,191 @@ void py_setup_operatorprojectordevice(py::module& m)
 	    [](OperatorProjectorDevice& self, const ProjectionDataDevice* proj,
 	       ImageDevice* img) { self.applyAH(proj, img); },
 	    py::arg("proj"), py::arg("img"));
+
+	c.def(
+	    "setUpdaterLRUpdateH",
+	    [](OperatorProjectorDevice& self, bool updateH)
+	    {
+		    auto* updater = self.getUpdaterDeviceWrapper();
+		    if (updater == nullptr)
+		    {
+			    throw std::bad_cast();
+		    }
+
+		    auto updaterType = updater->getUpdaterType();
+		    if (updaterType ==
+		            OperatorProjectorParams::ProjectorUpdaterType::LR ||
+		        updaterType ==
+		            OperatorProjectorParams::ProjectorUpdaterType::LRDUALUPDATE)
+		    {
+			    updater->setUpdateH(updateH);
+		    }
+		    else
+		    {
+			    throw std::logic_error(
+			        "Cannot set UpdateH on updaterType that is not LR");
+		    }
+	    });
+
+	c.def(
+	    "getUpdaterLRUpdateH",
+	    [](OperatorProjectorDevice& self)
+	    {
+		    auto* updater = self.getUpdaterDeviceWrapper();
+		    if (updater == nullptr)
+		    {
+			    throw std::bad_cast();
+		    }
+		    auto updaterType = updater->getUpdaterType();
+		    if (updaterType ==
+		            OperatorProjectorParams::ProjectorUpdaterType::LR ||
+		        updaterType ==
+		            OperatorProjectorParams::ProjectorUpdaterType::LRDUALUPDATE)
+		    {
+			    return updater->getUpdateH();
+		    }
+		    throw std::logic_error(
+		        "Cannot get UpdateH on updaterType that is not LR");
+	    });
+
+
+	c.def(
+	    "setUpdaterLRHBasis",
+	    [](OperatorProjectorDevice& self, py::buffer& np_data)
+	    {
+		    py::buffer_info buffer = np_data.request();
+		    if (buffer.ndim != 2)
+		    {
+			    throw std::invalid_argument(
+			        "The buffer given has to have 2 dimensions");
+		    }
+		    if (buffer.format != py::format_descriptor<float>::format())
+		    {
+			    throw std::invalid_argument(
+			        "The buffer given has to have a float32 format");
+		    }
+
+		    auto* updater = self.getUpdaterDeviceWrapper();
+		    if (updater == nullptr)
+		    {
+			    throw std::bad_cast();
+		    }
+
+		    auto updaterType = updater->getUpdaterType();
+		    if (updaterType ==
+		            OperatorProjectorParams::ProjectorUpdaterType::LR ||
+		        updaterType ==
+		            OperatorProjectorParams::ProjectorUpdaterType::LRDUALUPDATE)
+		    {
+			    Array2DAlias<float> hBasis;
+			    hBasis.bind(reinterpret_cast<float*>(buffer.ptr),
+			                buffer.shape[0], buffer.shape[1]);
+			    updater->setHBasis(hBasis);
+		    }
+		    else
+		    {
+			    throw std::logic_error(
+			        "Cannot set HBasis on updaterType that is not LR");
+		    }
+	    },
+	    py::arg("numpy_data"));
+
+	c.def(
+	    "getUpdaterLRHBasis",
+	    [](OperatorProjectorDevice& self)
+	    {
+		    auto* updater = self.getUpdaterDeviceWrapper();
+		    if (updater == nullptr)
+		    {
+			    throw std::bad_cast();
+		    }
+		    auto updaterType = updater->getUpdaterType();
+		    if (updaterType ==
+		            OperatorProjectorParams::ProjectorUpdaterType::LR ||
+		        updaterType ==
+		            OperatorProjectorParams::ProjectorUpdaterType::LRDUALUPDATE)
+		    {
+			    auto H = updater->getHBasis();
+		    	auto dims = H.getDims();
+		    	py::array_t<float> arr({dims[0], dims[1]});  // C-contiguous
+				std::memcpy(arr.mutable_data(),              // copy all at once
+							H.getRawPointer(),
+							static_cast<size_t>(dims[0] * dims[1]) *
+			                    sizeof(float));
+			    return arr;  // copy
+		    }
+		    throw std::logic_error(
+		        "Cannot get HBasis on updaterType that is not LR");
+	    });
+
+	c.def(
+	    "setUpdaterLRHBasisWrite",
+	    [](OperatorProjectorDevice& self, py::buffer& np_data)
+	    {
+		    py::buffer_info buffer = np_data.request();
+		    if (buffer.ndim != 2)
+		    {
+			    throw std::invalid_argument(
+			        "The buffer given has to have 2 dimensions");
+		    }
+		    if (buffer.format != py::format_descriptor<float>::format())
+		    {
+			    throw std::invalid_argument(
+			        "The buffer given has to have a float32 format");
+		    }
+
+		    auto* updater = self.getUpdaterDeviceWrapper();
+		    if (updater == nullptr)
+		    {
+			    throw std::bad_cast();
+		    }
+
+		    auto updaterType = updater->getUpdaterType();
+		    if (updaterType ==
+		            OperatorProjectorParams::ProjectorUpdaterType::LR ||
+		        updaterType ==
+		            OperatorProjectorParams::ProjectorUpdaterType::LRDUALUPDATE)
+		    {
+			    Array2DAlias<float> hBasis;
+			    hBasis.bind(reinterpret_cast<float*>(buffer.ptr),
+			                buffer.shape[0], buffer.shape[1]);
+			    updater->setHBasisWrite(hBasis);
+		    }
+		    else
+		    {
+			    throw std::logic_error(
+			        "Cannot set HBasisWrite on updaterType that is not LR");
+		    }
+	    },
+	    py::arg("numpy_data"));
+
+	c.def(
+	    "getUpdaterLRHBasisWrite",
+	    [](OperatorProjectorDevice& self)
+	    {
+		    auto* updater = self.getUpdaterDeviceWrapper();
+		    if (updater == nullptr)
+		    {
+			    throw std::bad_cast();
+		    }
+		    auto updaterType = updater->getUpdaterType();
+		    if (updaterType ==
+		            OperatorProjectorParams::ProjectorUpdaterType::LR ||
+		        updaterType ==
+		            OperatorProjectorParams::ProjectorUpdaterType::LRDUALUPDATE)
+		    {
+		    	auto H = updater->getHBasisWrite();
+				auto dims = H.getDims();
+				py::array_t<float> arr({dims[0], dims[1]});  // C-contiguous
+				std::memcpy(arr.mutable_data(),              // copy all at once
+							H.getRawPointer(),
+							static_cast<size_t>(dims[0] * dims[1]) *
+								sizeof(float));
+			    return arr;  // copy
+		    }
+		    throw std::logic_error(
+		        "Cannot get HBasisWrite on updaterType that is not LR");
+	    });
 }
 }  // namespace yrt
 
@@ -197,15 +383,15 @@ void OperatorProjectorDevice::applyA(const Variable* in, Variable* out,
 			          << numBatches << "..." << std::endl;
 			dat_out->clearProjectionsDevice({getMainStream(), false});
 			// {
-			// 	printf("\nDEBUG: In applyA, cudaCheckError before applyAOnLoadedBatch.\n");
-			// 	cudaCheckError();
+			// 	printf("\nDEBUG: In applyA, cudaCheckError before
+			// applyAOnLoadedBatch.\n"); 	cudaCheckError();
 			// 	cudaDeviceSynchronize();
 			// }
 
 			applyAOnLoadedBatch(*img_in, *dat_out, false);
 			// {
-			// 	printf("\nDEBUG: In applyA, cudaCheckError after applyAOnLoadedBatch.\n");
-			// 	cudaCheckError();
+			// 	printf("\nDEBUG: In applyA, cudaCheckError after
+			// applyAOnLoadedBatch.\n"); 	cudaCheckError();
 			// 	cudaDeviceSynchronize();
 			// }
 

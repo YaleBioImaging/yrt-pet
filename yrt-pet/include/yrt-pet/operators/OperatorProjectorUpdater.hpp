@@ -90,10 +90,11 @@ public:
 	const float* getCurrentImgBuffer() const;
 	void initializeWriteThread();
 	void accumulateH();
+	const Array3D<double>& getHBasisWriteThread();
 
 protected:
 	float* m_currentImg;
-	Array3D<float> m_HWriteThread;
+	Array3D<double> m_HWriteThread;
 	Array2DAlias<float> mp_HBasis;  // used by forward/back math (read-only)
 	Array2DAlias<float> mp_HWrite;  // used only when m_updateH==true (accumulate)
 	bool m_updateH = false;

@@ -18,6 +18,7 @@
 
 
 #if BUILD_PYBIND11
+#include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 
 #include <utility>
@@ -97,6 +98,37 @@ void py_setup_operatorprojector(py::module& m)
 	    },
 	    py::arg("numpy_data"));
 
+	c.def(
+	    "setUpdaterLRHBasisWrite",
+	    [](OperatorProjector& self, py::buffer& np_data)
+	    {
+		    py::buffer_info buffer = np_data.request();
+		    if (buffer.ndim != 2)
+		    {
+			    throw std::invalid_argument(
+			        "The buffer given has to have 2 dimensions");
+		    }
+		    if (buffer.format != py::format_descriptor<float>::format())
+		    {
+			    throw std::invalid_argument(
+			        "The buffer given has to have a float32 format");
+		    }
+
+		    auto* updaterLR =
+		        dynamic_cast<OperatorProjectorUpdaterLR*>(self.getUpdater());
+		    if (updaterLR == nullptr)
+		    {
+			    throw py::cast_error(
+			        "Projector needs to have a `OperatorProjectorUpdaterLR`");
+		    }
+
+		    Array2DAlias<float> hBasis;
+		    hBasis.bind(reinterpret_cast<float*>(buffer.ptr), buffer.shape[0],
+		                buffer.shape[1]);
+		    updaterLR->setHBasisWrite(hBasis);
+	    },
+	    py::arg("numpy_data"));
+
 
 	c.def("getUpdaterLRHBasis",
 	      [](OperatorProjector& self)
@@ -108,12 +140,69 @@ void py_setup_operatorprojector(py::module& m)
 			      throw py::cast_error(
 			          "Projector needs to have a `OperatorProjectorUpdaterLR`");
 		      }
+		      auto H = updaterLR->getHBasis();
+		      auto dims = H.getDims();
+		      py::array_t<float> arr({dims[0], dims[1]});  // C-contiguous
+		      std::memcpy(arr.mutable_data(),              // copy all at once
+		                  H.getRawPointer(),
+		                  static_cast<size_t>(dims[0] * dims[1]) *
+		                      sizeof(float));
+		      return arr;  // copy
+	      });
 
-		      auto dims = updaterLR->getHBasis().getDims();
-		      auto out = std::make_unique<Array2D<float>>();
-		      out->allocate(dims[0], dims[1]);
-		      out->copy(updaterLR->getHBasis());
-		      return out;
+	c.def("getUpdaterLRHBasisWrite",
+	      [](OperatorProjector& self)
+	      {
+		      auto* updaterLR =
+		          dynamic_cast<OperatorProjectorUpdaterLR*>(self.getUpdater());
+		      if (updaterLR == nullptr)
+		      {
+			      throw py::cast_error(
+			          "Projector needs to have a `OperatorProjectorUpdaterLR`");
+		      }
+		      auto H = updaterLR->getHBasisWrite();
+		      auto dims = H.getDims();
+		      float sum = 0.f;
+		      for (int d = 0; d < dims[0]; ++d)
+		      {
+			      for (int t = 0; t < dims[1]; ++t)
+			      {
+				      sum += H[d][t];
+			      }
+		      }
+		      if (sum < EPS_FLT)
+		      {
+			      updaterLR->accumulateH();
+		      }
+		      py::array_t<float> arr({dims[0], dims[1]});  // C-contiguous
+		      std::memcpy(arr.mutable_data(),              // copy all at once
+		                  H.getRawPointer(),
+		                  static_cast<size_t>(dims[0] * dims[1]) *
+		                      sizeof(float));
+		      return arr;  // copy
+	      });
+
+	c.def("getUpdaterLRHBasisWriteThread",
+	      [](OperatorProjector& self)
+	      {
+		      auto* updaterLR =
+		          dynamic_cast<OperatorProjectorUpdaterLR*>(self.getUpdater());
+		      if (updaterLR == nullptr)
+		      {
+			      throw py::cast_error(
+			          "Projector needs to have a `OperatorProjectorUpdaterLR`");
+		      }
+		      auto& H = updaterLR->getHBasisWriteThread();
+		      ASSERT_MSG(H.getRawPointer(), "HBasisWriteThread is nullptr");
+		      auto dims = H.getDims();
+	      	printf("\n %lu, %lu, %lu \n", dims[0], dims[1], dims[2]);
+		      py::array_t<double> arr(
+		          {dims[0], dims[1], dims[2]});  // C-contiguous
+		      std::memcpy(arr.mutable_data(),    // copy all at once
+		                  H.getRawPointer(),
+		                  static_cast<size_t>(dims[0] * dims[1] * dims[2]) *
+		                      sizeof(double));
+		      return arr;  // copy
 	      });
 }
 }  // namespace yrt

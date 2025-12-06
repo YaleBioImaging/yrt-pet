@@ -81,7 +81,7 @@ class OperatorProjectorUpdaterDeviceLRUnrolled
 {
 public:
 	__device__ OperatorProjectorUpdaterDeviceLRUnrolled(float* d_HBasis,
-	                                                    float* d_HBasisWrite,
+	                                                    double* d_HBasisWrite,
 	                                                    int numFrames,
 	                                                    bool updateH)
 	    : mpd_HBasisDevice_ptr(d_HBasis),
@@ -130,8 +130,7 @@ public:
 		else
 		{
 			const float* __restrict__ img_ptr = cur_img_ptr + offset;
-			float* __restrict__ H_ptr =
-			    mpd_HBasisDeviceWrite_ptr + dynamicFrame;
+			auto* __restrict__ H_ptr = mpd_HBasisDeviceWrite_ptr + dynamicFrame;
 #pragma unroll
 			for (int l = 0; l < Rank; ++l)
 			{
@@ -143,8 +142,8 @@ public:
 	}
 
 protected:
-	float* mpd_HBasisDevice_ptr;       // used by forward/backward (read-only)
-	float* mpd_HBasisDeviceWrite_ptr;  // used by backward (write-only)
+	float* mpd_HBasisDevice_ptr;        // used by forward/backward (read-only)
+	double* mpd_HBasisDeviceWrite_ptr;  // used by backward (write-only)
 	bool m_updateH = false;
 	int m_numDynamicFrames = 1;
 };
@@ -157,7 +156,7 @@ public:
 	static constexpr int MinRankForUnrolled = 8;
 	static constexpr int RankStepForUnrolled = 2;
 	__device__ OperatorProjectorUpdaterDeviceLR(float* d_HBasis,
-	                                            float* d_HBasisWrite, int rank,
+	                                            double* d_HBasisWrite, int rank,
 	                                            int numFrames, bool updateH)
 	    : mpd_HBasisDevice_ptr(d_HBasis),
 	      mpd_HBasisDeviceWrite_ptr(d_HBasisWrite),
@@ -173,7 +172,7 @@ public:
 	                               size_t numVoxelPerFrame) const override
 	{
 		float cur_img_lr_val = 0.0f;
-		const float* __restrict__ H_ptr = mpd_HBasisDevice_ptr + dynamicFrame;
+		const auto* __restrict__ H_ptr = mpd_HBasisDevice_ptr + dynamicFrame;
 		const float* __restrict__ img_ptr = cur_img_ptr + offset;
 
 		for (int l = 0; l < m_rank; ++l)
@@ -195,7 +194,7 @@ public:
 		if (!m_updateH)
 		{
 			float* __restrict__ img_ptr = cur_img_ptr + offset;
-			const float* __restrict__ H_ptr =
+			const auto* __restrict__ H_ptr =
 			    mpd_HBasisDevice_ptr + dynamicFrame;
 			for (int l = 0; l < m_rank; ++l)
 			{
@@ -207,8 +206,7 @@ public:
 		else
 		{
 			const float* __restrict__ img_ptr = cur_img_ptr + offset;
-			float* __restrict__ H_ptr =
-			    mpd_HBasisDeviceWrite_ptr + dynamicFrame;
+			auto* __restrict__ H_ptr = mpd_HBasisDeviceWrite_ptr + dynamicFrame;
 			for (int l = 0; l < m_rank; ++l)
 			{
 				atomicAdd(H_ptr, AHy * (*img_ptr));
@@ -219,8 +217,8 @@ public:
 	}
 
 protected:
-	float* mpd_HBasisDevice_ptr;       // used by forward/backward (read-only)
-	float* mpd_HBasisDeviceWrite_ptr;  // used by backward (write-only)
+	float* mpd_HBasisDevice_ptr;        // used by forward/backward (read-only)
+	double* mpd_HBasisDeviceWrite_ptr;  // used by backward (write-only)
 	bool m_updateH = false;
 	int m_rank = 1;
 	int m_numDynamicFrames = 1;
@@ -228,7 +226,7 @@ protected:
 
 template <int MaxRank = OperatorProjectorUpdaterDeviceLR::MaxRankForUnrolled>
 __device__ OperatorProjectorUpdaterDevice*
-    dispatchCreateUpdaterLR(int rank, float* d_HBasis, float* d_HBasisWrite,
+    dispatchCreateUpdaterLR(int rank, float* d_HBasis, double* d_HBasisWrite,
                             int numFrames, bool updateH)
 {
 	static_assert(MaxRank <=
@@ -264,7 +262,7 @@ using UpdaterPointer = OperatorProjectorUpdaterDevice**;
 inline __global__ void constructUpdaterOnDevice(
     UpdaterPointer ppd_updater,
     const OperatorProjectorParams::ProjectorUpdaterType p_updaterType,
-    float* HBasis_ptr, float* HBasisWrite_ptr, int rank, int numFrames,
+    float* HBasis_ptr, double* HBasisWrite_ptr, int rank, int numFrames,
     bool updateH)
 {
 	// It is necessary to create object representing a function
@@ -318,6 +316,7 @@ public:
 	void initUpdater(
 	    const OperatorProjectorParams::ProjectorUpdaterType updaterType)
 	{
+		m_updaterType = updaterType;
 		cudaMalloc(&mpd_updater, sizeof(UpdaterPointer));
 		constructUpdaterOnDevice<<<1, 1>>>(mpd_updater, updaterType, nullptr,
 		                                   nullptr, 0, 0, false);
@@ -328,8 +327,9 @@ public:
 	    const OperatorProjectorParams::ProjectorUpdaterType updaterType,
 	    const Array2DBase<float>& p_HBasis, bool updateH = false)
 	{
+		m_updaterType = updaterType;
 		float* HBasisDevice_ptr = nullptr;
-		float* HBasisWriteDevice_ptr = nullptr;
+		double* HBasisWriteDevice_ptr = nullptr;
 		if (updaterType == OperatorProjectorParams::ProjectorUpdaterType::LR ||
 		    updaterType ==
 		        OperatorProjectorParams::ProjectorUpdaterType::LRDUALUPDATE)
@@ -339,8 +339,10 @@ public:
 				throw std::invalid_argument(
 				    "LR updater was requested but HBasis is empty");
 			}
+
 			mpd_HBasisDeviceArray = std::make_unique<DeviceArray<float>>();
-			mpd_HBasisWriteDeviceArray = std::make_unique<DeviceArray<float>>();
+			mpd_HBasisWriteDeviceArray =
+			    std::make_unique<DeviceArray<double>>();
 			m_updateH = updateH;
 			setHBasis(p_HBasis);
 			HBasisDevice_ptr = mpd_HBasisDeviceArray->getDevicePointer();
@@ -355,6 +357,11 @@ public:
 		cudaDeviceSynchronize();
 	}
 
+	OperatorProjectorParams::ProjectorUpdaterType getUpdaterType()
+	{
+		return m_updaterType;
+	}
+
 	UpdaterPointer getUpdaterDevicePointer()
 	{
 		if (mpd_updater == nullptr)
@@ -364,20 +371,20 @@ public:
 		return mpd_updater;
 	}
 
-	bool allocateForHBasisDevice() const
+	void allocateForHBasisDevice() const
 	{
 		// Allocate HBasis buffers
 		const GPULaunchConfig launchConfig{nullptr, true};
-		return mpd_HBasisDeviceArray->allocate(m_rank * m_numDynamicFrames,
-		                                       launchConfig);
+		mpd_HBasisDeviceArray->allocate(m_rank * m_numDynamicFrames,
+		                                launchConfig);
 	}
 
-	bool allocateForHBasisWriteDevice() const
+	void allocateForHBasisWriteDevice() const
 	{
 		// Allocate HBasis buffers
 		const GPULaunchConfig launchConfig{nullptr, true};
-		return mpd_HBasisWriteDeviceArray->allocate(m_rank * m_numDynamicFrames,
-		                                            launchConfig);
+		mpd_HBasisWriteDeviceArray->allocate(m_rank * m_numDynamicFrames,
+		                                     launchConfig);
 	}
 
 	void SyncHostToDeviceHBasis()
@@ -396,6 +403,15 @@ public:
 		    HBasis_ptr, m_rank * m_numDynamicFrames, launchConfig);
 	}
 
+	template <typename TSrc, typename TDest>
+	void copyAndConvert(TDest* p_dest, TSrc* p_src, size_t p_numElems)
+	{
+		util::parallelForChunked(
+		    p_numElems, globals::numThreads(),
+		    [p_dest, p_src](size_t binIdx, int tid)
+		    { p_dest[binIdx] = static_cast<TDest>(p_src[binIdx]); });
+	}
+
 	void SyncHostToDeviceHBasisWrite()
 	{
 		const GPULaunchConfig launchConfig{nullptr, true};
@@ -404,8 +420,15 @@ public:
 			allocateForHBasisWriteDevice();
 		}
 		auto HBasisWrite_ptr = mp_HWrite.getRawPointer();
-		mpd_HBasisWriteDeviceArray->copyFromHost(
-		    HBasisWrite_ptr, m_rank * m_numDynamicFrames, launchConfig);
+		auto HBasisWriteDouble_ptr =
+		    std::make_unique<double[]>(m_rank * m_numDynamicFrames);
+		copyAndConvert(HBasisWriteDouble_ptr.get(), HBasisWrite_ptr,
+		               m_rank * m_numDynamicFrames);
+
+		mpd_HBasisWriteDeviceArray->copyFromHost(HBasisWriteDouble_ptr.get(),
+		                                         m_rank * m_numDynamicFrames,
+		                                         launchConfig);
+		cudaDeviceSynchronize();
 	}
 
 	void SyncDeviceToHostHBasisWrite()
@@ -418,8 +441,15 @@ public:
 			    "Host mp_HWrite dimension does not match Device side.");
 		}
 		auto HBasisWrite_ptr = mp_HWrite.getRawPointer();
-		mpd_HBasisWriteDeviceArray->copyToHost(
-		    HBasisWrite_ptr, m_rank * m_numDynamicFrames, launchConfig);
+		auto HBasisWriteDouble_ptr =
+		    std::make_unique<double[]>(m_rank * m_numDynamicFrames);
+
+		mpd_HBasisWriteDeviceArray->copyToHost(HBasisWriteDouble_ptr.get(),
+		                                       m_rank * m_numDynamicFrames,
+		                                       launchConfig);
+		cudaDeviceSynchronize();
+		copyAndConvert(HBasisWrite_ptr, HBasisWriteDouble_ptr.get(),
+		               m_rank * m_numDynamicFrames);
 	}
 
 	void setHBasis(const Array2DBase<float>& pr_HBasis)
@@ -512,9 +542,10 @@ public:
 
 
 private:
+	OperatorProjectorParams::ProjectorUpdaterType m_updaterType;
 	UpdaterPointer mpd_updater;
 	std::unique_ptr<DeviceArray<float>> mpd_HBasisDeviceArray;
-	std::unique_ptr<DeviceArray<float>> mpd_HBasisWriteDeviceArray;
+	std::unique_ptr<DeviceArray<double>> mpd_HBasisWriteDeviceArray;
 	Array2DAlias<float> mp_HBasis;
 	Array2DAlias<float> mp_HWrite;
 	int m_updateH = false;

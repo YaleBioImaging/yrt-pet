@@ -68,6 +68,7 @@ void py_setup_log(py::module& m);
 void py_setup_crystal(py::module& m);
 void py_setup_singlescattersimulator(py::module& m);
 void py_setup_scatterestimator(py::module& m);
+void py_setup_scatterspace(py::module& m);
 
 #ifdef BUILD_CUDA
 void py_setup_gpuutils(py::module&);
@@ -139,6 +140,7 @@ PYBIND11_MODULE(pyyrtpet, m)
 	py_setup_crystal(m);
 	py_setup_singlescattersimulator(m);
 	py_setup_scatterestimator(m);
+	py_setup_scatterspace(m);
 
 #ifdef BUILD_CUDA
 	py_setup_gpuutils(m);

@@ -91,7 +91,7 @@ void py_setup_operatorprojectorupdater(py::module& m)
 	//		    // Create an alias into the numpy data
 	//		    Array2DAlias<float> alias;
 	//		    alias.bind(reinterpret_cast<float*>(buffer.ptr), rank,
-	//numTimeFrames); 		    self.setHBasis(alias);
+	// numTimeFrames); 		    self.setHBasis(alias);
 	//	     },
 	//	     py::arg("HBasis"), py::keep_alive<1, 2>());
 

@@ -11,6 +11,121 @@
 	"The scatter space should not be used to gather LORs, do projections, " \
 	"or reconstructions. It is meant only for corrections."
 
+#if BUILD_PYBIND11
+#include <pybind11/numpy.h>
+#include <pybind11/pybind11.h>
+
+namespace py = pybind11;
+using namespace py::literals;
+
+namespace yrt
+{
+void py_setup_scatterspace(py::module& m)
+{
+	// ScatterSpaceIndex struct
+	py::class_<ScatterSpace::ScatterSpaceIndex>(m, "ScatterSpaceIndex")
+	    .def(py::init<>())
+	    .def_readwrite("tofBin", &ScatterSpace::ScatterSpaceIndex::tofBin)
+	    .def_readwrite("planeIndex1",
+	                   &ScatterSpace::ScatterSpaceIndex::planeIndex1)
+	    .def_readwrite("angleIndex1",
+	                   &ScatterSpace::ScatterSpaceIndex::angleIndex1)
+	    .def_readwrite("planeIndex2",
+	                   &ScatterSpace::ScatterSpaceIndex::planeIndex2)
+	    .def_readwrite("angleIndex2",
+	                   &ScatterSpace::ScatterSpaceIndex::angleIndex2);
+
+	// ScatterSpacePosition struct
+	py::class_<ScatterSpace::ScatterSpacePosition>(m, "ScatterSpacePosition")
+	    .def(py::init<>())
+	    .def_readwrite("tof_ps", &ScatterSpace::ScatterSpacePosition::tof_ps)
+	    .def_readwrite("planePosition1",
+	                   &ScatterSpace::ScatterSpacePosition::planePosition1)
+	    .def_readwrite("angle1", &ScatterSpace::ScatterSpacePosition::angle1)
+	    .def_readwrite("planePosition2",
+	                   &ScatterSpace::ScatterSpacePosition::planePosition2)
+	    .def_readwrite("angle2", &ScatterSpace::ScatterSpacePosition::angle2);
+
+	// ScatterSpace class
+	auto c = py::class_<ScatterSpace, std::shared_ptr<ScatterSpace>>(
+	    m, "ScatterSpace");
+	c.def(py::init<const Scanner&, const std::string&>());
+	c.def(py::init<const Scanner&, size_t, size_t, size_t>());
+
+	// I/O
+	c.def("readFromFile", &ScatterSpace::readFromFile);
+	c.def("writeToFile", &ScatterSpace::writeToFile);
+
+	// Access methods
+	c.def("getNearestNeighborIndex", &ScatterSpace::getNearestNeighborIndex);
+	c.def("getNearestNeighborValue", &ScatterSpace::getNearestNeighborValue);
+	c.def("getLinearInterpolationValue",
+	      &ScatterSpace::getLinearInterpolationValue);
+
+	// Index ↔ Position conversions
+	c.def("getTOF_ps", &ScatterSpace::getTOF_ps);
+	c.def("getPlanePosition", &ScatterSpace::getPlanePosition);
+	c.def("getAngle", &ScatterSpace::getAngle);
+	c.def("getTOFBin", &ScatterSpace::getTOFBin);
+	c.def("getPlaneIndex", &ScatterSpace::getPlaneIndex);
+	c.def("getAngleIndex", &ScatterSpace::getAngleIndex);
+
+	// Get/Set values
+	c.def("getValue", static_cast<float (ScatterSpace::*)(
+	                      const ScatterSpace::ScatterSpaceIndex& idx) const>(
+	                      &ScatterSpace::getValue));
+	c.def("getValue", static_cast<float (ScatterSpace::*)(
+	                      size_t tofBin, size_t planeIndex1, size_t angleIndex1,
+	                      size_t planeIndex2, size_t angleIndex2) const>(
+	                      &ScatterSpace::getValue));
+	c.def("setValue",
+	      py::overload_cast<const ScatterSpace::ScatterSpaceIndex&, float>(
+	          &ScatterSpace::setValue));
+	c.def("setValue",
+	      py::overload_cast<size_t, size_t, size_t, size_t, size_t, float>(
+	          &ScatterSpace::setValue));
+
+	// Utility functions
+	c.def("symmetrize", &ScatterSpace::symmetrize);
+	c.def("clampTOF", &ScatterSpace::clampTOF);
+	c.def("clampPlanePosition", &ScatterSpace::clampPlanePosition);
+	c.def_static("wrapAngle", &ScatterSpace::wrapAngle);
+	c.def("wrapAngleIndex", &ScatterSpace::wrapAngleIndex);
+
+	// Size information
+	c.def("getNumTOFBins", &ScatterSpace::getNumTOFBins);
+	c.def("getNumPlanes", &ScatterSpace::getNumPlanes);
+	c.def("getNumAngles", &ScatterSpace::getNumAngles);
+	c.def("count", &ScatterSpace::count);
+
+	// Step sizes
+	c.def("getTOFBinStep_ps", &ScatterSpace::getTOFBinStep_ps);
+	c.def("getPlaneStep", &ScatterSpace::getPlaneStep);
+	c.def("getAngleStep", &ScatterSpace::getAngleStep);
+
+	// Scanner properties
+	c.def("getAxialFOV", &ScatterSpace::getAxialFOV);
+	c.def("getRadius", &ScatterSpace::getRadius);
+	c.def("getDiameter", &ScatterSpace::getDiameter);
+	c.def("getMaxTOF_ps", &ScatterSpace::getMaxTOF_ps);
+
+	// Compute cylindrical coordinates from two points
+	c.def_static(
+	    "computeCylindricalCoordinates",
+	    [](const Line3D& lor)
+	    {
+		    float planePos1, angle1, planePos2, angle2;
+		    ScatterSpace::computeCylindricalCoordinates(lor, planePos1, angle1,
+		                                                planePos2, angle2);
+
+		    // Return as tuple
+		    return py::make_tuple(planePos1, angle1, planePos2, angle2);
+	    },
+	    "Compute cylindrical coordinates from two 3D points");
+}
+}  // namespace yrt
+#endif
+
 namespace yrt
 {
 
@@ -82,82 +197,80 @@ float ScatterSpace::getLinearInterpolationValue(
 	// TODO NOW: Rename these local variables
 
 	// Clamp and wrap input
-	const float clamped_tof = clampTOF(pos.tof_ps);
-	const float clamped_plane1 = clampPlanePosition(pos.planePosition1);
-	const float wrapped_angle1 = wrapAngle(pos.angle1);
-	const float clamped_plane2 = clampPlanePosition(pos.planePosition2);
-	const float wrapped_angle2 = wrapAngle(pos.angle2);
+	const float clampedTOF = clampTOF(pos.tof_ps);
+	const float clampedPlane1 = clampPlanePosition(pos.planePosition1);
+	const float wrappedAngle1 = wrapAngle(pos.angle1);
+	const float clampedPlane2 = clampPlanePosition(pos.planePosition2);
+	const float wrappedAngle2 = wrapAngle(pos.angle2);
 
 	// Get the logical indices but in float
-	const float tof_idx = clamped_tof / m_TOFBinStep_ps - 0.5f;
-	const float plane_start = -getAxialFOV() / 2.0f;
-	const float plane1_idx =
-	    (clamped_plane1 - plane_start) / m_planeStep - 0.5f;
-	const float angle1_idx = wrapped_angle1 / m_angleStep - 0.5f;
-	const float plane2_idx =
-	    (clamped_plane2 - plane_start) / m_planeStep - 0.5f;
-	const float angle2_idx = wrapped_angle2 / m_angleStep - 0.5f;
+	const float tofIndex_f = clampedTOF / m_TOFBinStep_ps - 0.5f;
+	const float planeStart_f = -getAxialFOV() / 2.0f;
+	const float plane1Index_f =
+	    (clampedPlane1 - planeStart_f) / m_planeStep - 0.5f;
+	const float angle1Index_f = wrappedAngle1 / m_angleStep - 0.5f;
+	const float plane2Index_f =
+	    (clampedPlane2 - planeStart_f) / m_planeStep - 0.5f;
+	const float angle2Index_f = wrappedAngle2 / m_angleStep - 0.5f;
 
 	// Logical indices but in signed int
-	const int tof_i = static_cast<int>(std::floor(tof_idx));
-	const int plane1_i = static_cast<int>(std::floor(plane1_idx));
-	const int angle1_i = static_cast<int>(std::floor(angle1_idx));
-	const int plane2_i = static_cast<int>(std::floor(plane2_idx));
-	const int angle2_i = static_cast<int>(std::floor(angle2_idx));
+	const int tofIndex = static_cast<int>(std::floor(tofIndex_f));
+	const int plane1Index = static_cast<int>(std::floor(plane1Index_f));
+	const int angle1Index = static_cast<int>(std::floor(angle1Index_f));
+	const int plane2Index = static_cast<int>(std::floor(plane2Index_f));
+	const int angle2Index = static_cast<int>(std::floor(angle2Index_f));
 
 	// Fraction within the sample
-	float tof_frac = tof_idx - tof_i;
-	float plane1_frac = plane1_idx - plane1_i;
-	const float angle1_frac = angle1_idx - angle1_i;
-	float plane2_frac = plane2_idx - plane2_i;
-	const float angle2_frac = angle2_idx - angle2_i;
+	float tofFrac = tofIndex_f - tofIndex;
+	float plane1Frac = plane1Index_f - plane1Index;
+	const float angle1Frac = angle1Index_f - angle1Index;
+	float plane2Frac = plane2Index_f - plane2Index;
+	const float angle2Frac = angle2Index_f - angle2Index;
 
 	// From the logical indices, gather the neighbor sample (in each dimension)
-	const int tof_i0 = std::clamp(tof_i, 0, static_cast<int>(m_numTOFBins) - 1);
-	const int tof_i1 =
-	    std::clamp(tof_i + 1, 0, static_cast<int>(m_numTOFBins) - 1);
-	const int plane1_i0 =
-	    std::clamp(plane1_i, 0, static_cast<int>(m_numPlanes) - 1);
-	const int plane1_i1 =
-	    std::clamp(plane1_i + 1, 0, static_cast<int>(m_numPlanes) - 1);
-	const int plane2_i0 =
-	    std::clamp(plane2_i, 0, static_cast<int>(m_numPlanes) - 1);
-	const int plane2_i1 =
-	    std::clamp(plane2_i + 1, 0, static_cast<int>(m_numPlanes) - 1);
+	const int tofIndex0 =
+	    std::clamp(tofIndex, 0, static_cast<int>(m_numTOFBins) - 1);
+	const int tofIndex1 =
+	    std::clamp(tofIndex + 1, 0, static_cast<int>(m_numTOFBins) - 1);
+	const int plane1Index0 =
+	    std::clamp(plane1Index, 0, static_cast<int>(m_numPlanes) - 1);
+	const int plane1Index1 =
+	    std::clamp(plane1Index + 1, 0, static_cast<int>(m_numPlanes) - 1);
+	const int plane2Index0 =
+	    std::clamp(plane2Index, 0, static_cast<int>(m_numPlanes) - 1);
+	const int plane2Index1 =
+	    std::clamp(plane2Index + 1, 0, static_cast<int>(m_numPlanes) - 1);
 
 	// Wrap angle indices and get the neighboring sample
 	// Edge case:
 	//  Might have to do a linear interpolation between the first angle sample
 	//  and the last one
-	const size_t angle1_i0 = wrapAngleIndex(angle1_i);
-	const size_t angle1_i1 = wrapAngleIndex(angle1_i + 1);
-	const size_t angle2_i0 = wrapAngleIndex(angle2_i);
-	const size_t angle2_i1 = wrapAngleIndex(angle2_i + 1);
+	const size_t angle1Index0 = wrapAngleIndex(angle1Index);
+	const size_t angle1Index1 = wrapAngleIndex(angle1Index + 1);
+	const size_t angle2Index0 = wrapAngleIndex(angle2Index);
+	const size_t angle2Index1 = wrapAngleIndex(angle2Index + 1);
 
 	// Edge case for boundaries (if the clamping happened)
-	if (tof_i0 == tof_i1)
+	if (tofIndex0 == tofIndex1)
 	{
-		tof_frac = 0.0f;
+		tofFrac = 0.0f;
 	}
-	if (plane1_i0 == plane1_i1)
+	if (plane1Index0 == plane1Index1)
 	{
-		plane1_frac = 0.0f;
+		plane1Frac = 0.0f;
 	}
-	if (plane2_i0 == plane2_i1)
+	if (plane2Index0 == plane2Index1)
 	{
-		plane2_frac = 0.0f;
+		plane2Frac = 0.0f;
 	}
-
-	// Get the raw data pointer for faster access
-	const float* data = mp_values->getRawPointer();
 
 	// Precompute strides for each dimension
-	const size_t stride_TOF =
+	const size_t tofStride =
 	    m_numPlanes * m_numAngles * m_numPlanes * m_numAngles;
-	const size_t stride_plane1 = m_numAngles * m_numPlanes * m_numAngles;
-	const size_t stride_angle1 = m_numPlanes * m_numAngles;
-	const size_t stride_plane2 = m_numAngles;
-	const size_t stride_angle2 = 1;
+	const size_t plane1Stride = m_numAngles * m_numPlanes * m_numAngles;
+	const size_t angle1Stride = m_numPlanes * m_numAngles;
+	const size_t plane2Stride = m_numAngles;
+	const size_t angle2Stride = 1;
 
 	// Precompute weights for all 32 corners using a 5D tensor product
 	float weights[32];
@@ -166,49 +279,56 @@ float ScatterSpace::getLinearInterpolationValue(
 	int idx = 0;
 	for (int t = 0; t < 2; ++t)
 	{
-		const float w_t = (t == 0) ? (1.0f - tof_frac) : tof_frac;
-		const size_t tof_index = (t == 0) ? tof_i0 : tof_i1;
+		const float tofWeight = (t == 0) ? (1.0f - tofFrac) : tofFrac;
+		const size_t tofIndex_ull = (t == 0) ? tofIndex0 : tofIndex1;
 
 		for (int p1 = 0; p1 < 2; ++p1)
 		{
-			const float w_p1 = (p1 == 0) ? (1.0f - plane1_frac) : plane1_frac;
-			const size_t plane1_index = (p1 == 0) ? plane1_i0 : plane1_i1;
+			const float plane1Weight =
+			    (p1 == 0) ? (1.0f - plane1Frac) : plane1Frac;
+			const size_t plane1Index_ull =
+			    (p1 == 0) ? plane1Index0 : plane1Index1;
 
 			for (int a1 = 0; a1 < 2; ++a1)
 			{
-				const float w_a1 =
-				    (a1 == 0) ? (1.0f - angle1_frac) : angle1_frac;
-				const size_t angle1_index = (a1 == 0) ? angle1_i0 : angle1_i1;
+				const float angle1Weight =
+				    (a1 == 0) ? (1.0f - angle1Frac) : angle1Frac;
+				const size_t angle1Index_ull =
+				    (a1 == 0) ? angle1Index0 : angle1Index1;
 
 				for (int p2 = 0; p2 < 2; ++p2)
 				{
-					const float w_p2 =
-					    (p2 == 0) ? (1.0f - plane2_frac) : plane2_frac;
-					const size_t plane2_index =
-					    (p2 == 0) ? plane2_i0 : plane2_i1;
+					const float plane2Weight =
+					    (p2 == 0) ? (1.0f - plane2Frac) : plane2Frac;
+					const size_t plane2Index_ull =
+					    (p2 == 0) ? plane2Index0 : plane2Index1;
 
 					for (int a2 = 0; a2 < 2; ++a2)
 					{
-						const float w_a2 =
-						    (a2 == 0) ? (1.0f - angle2_frac) : angle2_frac;
-						const size_t angle2_index =
-						    (a2 == 0) ? angle2_i0 : angle2_i1;
+						const float angle2Weight =
+						    (a2 == 0) ? (1.0f - angle2Frac) : angle2Frac;
+						const size_t angle2Index_ull =
+						    (a2 == 0) ? angle2Index0 : angle2Index1;
 
 						// Compute linear index
-						const size_t linear_idx = tof_index * stride_TOF +
-						                          plane1_index * stride_plane1 +
-						                          angle1_index * stride_angle1 +
-						                          plane2_index * stride_plane2 +
-						                          angle2_index * stride_angle2;
+						const size_t index = tofIndex_ull * tofStride +
+						                     plane1Index_ull * plane1Stride +
+						                     angle1Index_ull * angle1Stride +
+						                     plane2Index_ull * plane2Stride +
+						                     angle2Index_ull * angle2Stride;
 
-						indices[idx] = linear_idx;
-						weights[idx] = w_t * w_p1 * w_a1 * w_p2 * w_a2;
+						indices[idx] = index;
+						weights[idx] = tofWeight * plane1Weight * angle1Weight *
+						               plane2Weight * angle2Weight;
 						idx++;
 					}
 				}
 			}
 		}
 	}
+
+	// Get the raw data pointer
+	const float* data = mp_values->getRawPointer();
 
 	// Sum weighted contributions
 	float result = 0.0f;
@@ -218,6 +338,23 @@ float ScatterSpace::getLinearInterpolationValue(
 	}
 
 	return result;
+}
+
+void ScatterSpace::computeCylindricalCoordinates(const Line3D& lor,
+                                                 float& planePosition1,
+                                                 float& angle1,
+                                                 float& planePosition2,
+                                                 float& angle2)
+{
+	// Plane position is simply the Z coordinates of the LOR
+	planePosition1 = lor.point1.z;
+	planePosition2 = lor.point2.z;
+
+	// Angle is atan2(y, x) wrapped to [0, 2pi[
+	angle1 = std::atan2(lor.point1.y, lor.point1.x);
+	angle2 = std::atan2(lor.point2.y, lor.point2.x);
+	angle1 = wrapAngle(angle1);
+	angle2 = wrapAngle(angle2);
 }
 
 float ScatterSpace::getTOF_ps(size_t TOFBin) const
@@ -417,6 +554,11 @@ float ScatterSpace::getProjectionValue(bin_t id) const
 void ScatterSpace::setProjectionValue(bin_t id, float val)
 {
 	mp_values->setFlat(id, val);
+}
+
+void ScatterSpace::clearProjections(float value)
+{
+	mp_values->fill(value);
 }
 
 float ScatterSpace::getProjectionValueFromHistogramBin(

@@ -182,26 +182,28 @@ TEST_CASE("scatterspace", "[scatterspace]")
 		// between-0-and-2pi
 		{
 			REQUIRE(yrt::ScatterSpace::wrapAngle(0.0f) == Approx(0.0f));
-			REQUIRE(yrt::ScatterSpace::wrapAngle(M_PI) == Approx(M_PI));
-			REQUIRE(yrt::ScatterSpace::wrapAngle(2.0f * M_PI - 0.001f) ==
-			        Approx(2.0f * M_PI - 0.001f));
+			REQUIRE(yrt::ScatterSpace::wrapAngle(yrt::PI_FLT) ==
+			        Approx(yrt::PI_FLT));
+			REQUIRE(yrt::ScatterSpace::wrapAngle(2.0f * yrt::PI_FLT - 0.001f) ==
+			        Approx(2.0f * yrt::PI_FLT - 0.001f));
 		}
 
 		// more-than-2pi
 		{
-			REQUIRE(yrt::ScatterSpace::wrapAngle(2.0f * M_PI + 0.5f) ==
+			REQUIRE(yrt::ScatterSpace::wrapAngle(2.0f * yrt::PI_FLT + 0.5f) ==
 			        Approx(0.5f));
-			REQUIRE(yrt::ScatterSpace::wrapAngle(4.0f * M_PI + 1.0f) ==
+			REQUIRE(yrt::ScatterSpace::wrapAngle(4.0f * yrt::PI_FLT + 1.0f) ==
 			        Approx(1.0f));
 		}
 
 		// negative-angles
 		{
 			REQUIRE(yrt::ScatterSpace::wrapAngle(-0.5f) ==
-			        Approx(2.0f * M_PI - 0.5f));
-			REQUIRE(yrt::ScatterSpace::wrapAngle(-M_PI) == Approx(M_PI));
-			REQUIRE(yrt::ScatterSpace::wrapAngle(-2.0f * M_PI - 0.3f) ==
-			        Approx(2.0f * M_PI - 0.3f));
+			        Approx(2.0f * yrt::PI_FLT - 0.5f));
+			REQUIRE(yrt::ScatterSpace::wrapAngle(-yrt::PI_FLT) ==
+			        Approx(yrt::PI_FLT));
+			REQUIRE(yrt::ScatterSpace::wrapAngle(-2.0f * yrt::PI_FLT - 0.3f) ==
+			        Approx(2.0f * yrt::PI_FLT - 0.3f));
 		}
 	}
 
@@ -342,20 +344,20 @@ TEST_CASE("scatterspace", "[scatterspace]")
 		{
 			float angle_step = space.getAngleStep();
 
-			// Test angle slightly below 0 (should wrap to near 2π)
+			// Test angle slightly below 0 (should wrap to near 2pi)
 			yrt::ScatterSpace::ScatterSpacePosition pos;
 			pos.tof_ps = space.getTOF_ps(5);
 			pos.planePosition1 = 0.0f;
 			pos.angle1 =
-			    -angle_step * 0.3f;  // Should wrap to ~2π - 0.3*angle_step
+			    -angle_step * 0.3f;  // Should wrap to ~2pi - 0.3*angle_step
 			pos.planePosition2 = 0.0f;
 			pos.angle2 = 0.0f;
 
 			auto idx = space.getNearestNeighborIndex(pos);
 			REQUIRE(idx.angleIndex1 == 29);  // Last angle bin
 
-			// Test angle slightly above 2π
-			pos.angle1 = 2.0f * M_PI + angle_step * 0.3f;
+			// Test angle slightly above 2pi
+			pos.angle1 = 2.0f * yrt::PI_FLT + angle_step * 0.3f;
 			idx = space.getNearestNeighborIndex(pos);
 			REQUIRE(idx.angleIndex1 == 0);  // First angle bin
 		}
@@ -364,23 +366,59 @@ TEST_CASE("scatterspace", "[scatterspace]")
 	SECTION("scatterspace-linearinterpolation", "[scatterspace]")
 	{
 		auto scanner = yrt::util::test::makeScanner();
-		yrt::ScatterSpace space(*scanner, 2, 2, 2);  // Small grid for testing
+		yrt::ScatterSpace space(*scanner, 2, 2, 2);
 
-		// linearinterpolation-exact-centers
+		// Set all values to 1.0
+		space.clearProjections(1.0f);
+
+		// interpolation-at-exact-centers
 		{
-			// Interpolation at exact grid points returns same value
-			// TODO NOW: This
+			// Test at exact grid centers should return 1.0
+			for (size_t t = 0; t < 2; ++t)
+			{
+				for (size_t p = 0; p < 2; ++p)
+				{
+					for (size_t a = 0; a < 2; ++a)
+					{
+						yrt::ScatterSpace::ScatterSpacePosition pos;
+						pos.tof_ps = space.getTOF_ps(t);
+						pos.planePosition1 = space.getPlanePosition(p);
+						pos.angle1 = space.getAngle(a);
+						pos.planePosition2 = space.getPlanePosition(p);
+						pos.angle2 = space.getAngle(a);
+
+						REQUIRE(space.getLinearInterpolationValue(pos) ==
+						        Approx(1.0f));
+					}
+				}
+			}
 		}
 
-		// linearinterpolation-middle-of-grid
+		// interpolation-with-varying-values
 		{
-			// Interpolation in middle of grid is weighted average
+			// Set specific pattern
+			space.setValue(0, 0, 0, 0, 0, 0.0f);
+			space.setValue(1, 1, 1, 1, 1, 2.0f);
 
-			// TODO NOW: This
-			// Create a simple test pattern
-			// For a 2x2x2x2x2 grid, test interpolation at the center
-			// This would be the average of all 32 points if all values are
-			// different Skip for now without setValue
+			// Test at the first point
+			yrt::ScatterSpace::ScatterSpacePosition pos1;
+			pos1.tof_ps = space.getTOF_ps(0);
+			pos1.planePosition1 = space.getPlanePosition(0);
+			pos1.angle1 = space.getAngle(0);
+			pos1.planePosition2 = space.getPlanePosition(0);
+			pos1.angle2 = space.getAngle(0);
+
+			REQUIRE(space.getLinearInterpolationValue(pos1) == Approx(0.0f));
+
+			// Test at the second point
+			yrt::ScatterSpace::ScatterSpacePosition pos2;
+			pos2.tof_ps = space.getTOF_ps(1);
+			pos2.planePosition1 = space.getPlanePosition(1);
+			pos2.angle1 = space.getAngle(1);
+			pos2.planePosition2 = space.getPlanePosition(1);
+			pos2.angle2 = space.getAngle(1);
+
+			REQUIRE(space.getLinearInterpolationValue(pos2) == Approx(2.0f));
 		}
 	}
 
@@ -416,13 +454,14 @@ TEST_CASE("scatterspace", "[scatterspace]")
 		{
 			yrt::ScatterSpace space(*scanner, 10, 10, 360);  // 1 degree steps
 
-			REQUIRE(space.getAngleStep() == Approx(2.0f * M_PI / 360.0f));
+			REQUIRE(space.getAngleStep() ==
+			        Approx(2.0f * yrt::PI_FLT / 360.0f));
 
 			// Test angle wrapping still works
 			yrt::ScatterSpace::ScatterSpacePosition pos;
 			pos.tof_ps = space.getTOF_ps(5);
 			pos.planePosition1 = 0.0f;
-			pos.angle1 = 2.0f * M_PI + 0.01f;  // Slightly above 2π
+			pos.angle1 = 2.0f * yrt::PI_FLT + 0.01f;  // Slightly above 2pi
 			pos.planePosition2 = 0.0f;
 			pos.angle2 = 0.0f;
 
@@ -473,9 +512,9 @@ TEST_CASE("scatterspace", "[scatterspace]")
 				std::uniform_real_distribution<float> plane_dist(
 				    -200.0f, 200.0f);  // Within ±axialFOV/2
 				std::uniform_real_distribution<float> angle_dist(
-				    0.0f, 4.0f * M_PI);  // Test wrapping
+				    0.0f, 4.0f * yrt::PI_FLT);  // Test wrapping
 
-				for (int j = 0; j < 5; ++j)
+				for (int j = 0; j < 5; j++)
 				{
 					yrt::ScatterSpace::ScatterSpacePosition pos;
 					pos.tof_ps = tof_dist(gen);
@@ -549,6 +588,99 @@ TEST_CASE("scatterspace", "[scatterspace]")
 					}
 				}
 			}
+		}
+	}
+
+	SECTION("compute-cylindrical-from-points", "[scatterspace]")
+	{
+		// Test a point on the cylinder
+		yrt::Line3D lor{{300.0f, 0.0f, 50.0f}, {0.0f, 300.0f, -50.0f}};
+
+		float planePosition1, angle1, planePosition2, angle2;
+		yrt::ScatterSpace::computeCylindricalCoordinates(
+		    lor, planePosition1, angle1, planePosition2, angle2);
+
+		REQUIRE(planePosition1 == Approx(50.0f));
+		REQUIRE(planePosition2 == Approx(-50.0f));
+
+		// atan2(y=0, x=300) = 0
+		REQUIRE(angle1 == Approx(0.0f));
+		// atan2(y=300, x=0) = pi/2
+		REQUIRE(angle2 == Approx(yrt::PIHALF_FLT));
+
+		// Test angle wrapping
+		lor.point1.x = -300.0f;
+		yrt::ScatterSpace::computeCylindricalCoordinates(
+		    lor, planePosition1, angle1, planePosition2, angle2);
+
+		// Should be pi, not -pi
+		REQUIRE(angle1 == Approx(yrt::PI_FLT));
+	}
+
+	SECTION("scatterspace-boundary-handling", "[scatterspace]")
+	{
+		auto scanner = yrt::util::test::makeScanner();
+		yrt::ScatterSpace space(*scanner, 3, 3, 3);
+
+		// Fill with test pattern
+		for (size_t t = 0; t < 3; ++t)
+		{
+			for (size_t p1 = 0; p1 < 3; ++p1)
+			{
+				for (size_t a1 = 0; a1 < 3; ++a1)
+				{
+					for (size_t p2 = 0; p2 < 3; ++p2)
+					{
+						for (size_t a2 = 0; a2 < 3; ++a2)
+						{
+							space.setValue(
+							    t, p1, a1, p2, a2,
+							    static_cast<float>(t + p1 + a1 + p2 + a2));
+						}
+					}
+				}
+			}
+		}
+
+		// clamping-at-edges
+		{
+			// Test positions beyond FOV
+			yrt::ScatterSpace::ScatterSpacePosition pos;
+			pos.tof_ps = -100.0f;          // Below minimum
+			pos.planePosition1 = -300.0f;  // Below FOV
+			pos.planePosition2 = 300.0f;   // Above FOV
+			pos.angle1 = 0.0f;
+			pos.angle2 = 0.0f;
+
+			// Should not crash
+			REQUIRE_NOTHROW(space.getLinearInterpolationValue(pos));
+			REQUIRE_NOTHROW(space.getNearestNeighborValue(pos));
+		}
+
+		// angle-wrapping-interpolation
+		{
+			// Test interpolation near 2pi boundary
+			yrt::ScatterSpace::ScatterSpacePosition pos;
+			pos.tof_ps = space.getTOF_ps(1);
+			pos.planePosition1 = space.getPlanePosition(1);
+			pos.planePosition2 = space.getPlanePosition(1);
+
+			// Angle near 2pi should wrap to near 0
+			pos.angle1 = 2.0f * yrt::PI_FLT + space.getAngleStep() * 0.3f;
+			pos.angle2 = 2.0f * yrt::PI_FLT + space.getAngleStep() * 0.3f;
+
+			REQUIRE_NOTHROW(space.getLinearInterpolationValue(pos));
+
+			// Should give same result as equivalent angle near 0
+			yrt::ScatterSpace::ScatterSpacePosition pos2 = pos;
+			pos2.angle1 = space.getAngleStep() * 0.3f;
+			pos2.angle2 = space.getAngleStep() * 0.3f;
+
+			// Due to floating point rounding, they might not be exactly equal
+			// but should be very close
+			float val1 = space.getLinearInterpolationValue(pos);
+			float val2 = space.getLinearInterpolationValue(pos2);
+			REQUIRE(std::abs(val1 - val2) < 0.001f);
 		}
 	}
 

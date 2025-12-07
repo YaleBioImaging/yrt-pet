@@ -194,8 +194,6 @@ float ScatterSpace::getNearestNeighborValue(
 float ScatterSpace::getLinearInterpolationValue(
     const ScatterSpacePosition& pos) const
 {
-	// TODO NOW: Rename these local variables
-
 	// Clamp and wrap input
 	const float clampedTOF = clampTOF(pos.tof_ps);
 	const float clampedPlane1 = clampPlanePosition(pos.planePosition1);
@@ -427,9 +425,39 @@ void ScatterSpace::setValue(size_t tofBin, size_t planeIndex1,
 
 void ScatterSpace::symmetrize()
 {
-	// TODO NOW: Here, make it so that for all elements of this scatter space,
-	//  the value at ((a1,z1), (a2,z2), tof) is the same as for
-	//  ((a2,z2), (a1,z1), tof) when m_numTOFBins==1
+	// Here, make it so that for all elements of this scatter space,
+	//  the value at (tof, (a1,z1), (a2,z2)) is the same as for
+	//  (tof, (a2,z2), (a1,z1)) (only when m_numTOFBins==1)
+	if (m_numTOFBins == 1)
+	{
+		for (size_t planeIndex1 = 0; planeIndex1 < m_numPlanes; ++planeIndex1)
+		{
+			for (size_t angleIndex1 = 0; angleIndex1 < m_numAngles;
+			     ++angleIndex1)
+			{
+				for (size_t planeIndex2 = 0; planeIndex2 < m_numPlanes;
+				     ++planeIndex2)
+				{
+					for (size_t angleIndex2 = 0; angleIndex2 < m_numAngles;
+					     ++angleIndex2)
+					{
+						const float d1d2Value =
+						    getValue(0, planeIndex1, angleIndex1, planeIndex2,
+						             angleIndex2);
+						const float d2d1Value =
+						    getValue(0, planeIndex2, angleIndex2, planeIndex1,
+						             angleIndex1);
+						if (d1d2Value != d2d1Value)
+						{
+							setValue(0, planeIndex1, angleIndex1, planeIndex2,
+							         angleIndex2,
+							         std::max(d1d2Value, d2d1Value));
+						}
+					}
+				}
+			}
+		}
+	}
 }
 
 float ScatterSpace::clampTOF(float tof_ps) const
@@ -564,12 +592,41 @@ void ScatterSpace::clearProjections(float value)
 float ScatterSpace::getProjectionValueFromHistogramBin(
     histo_bin_t histoBinId) const
 {
-	// TODO NOW:
-	//  - Gather the LOR associated with the given detector pair
-	//  - Compute the properties of the LOR
-	//  - Also Gather the TOF property in case it's available (from histo_bin_t)
-	//  - Do linear interpolation and return the value
-	return 0.0f;
+	det_id_t d1, d2;
+	float tof_ps = 0.0f;
+	if (std::holds_alternative<det_pair_t>(histoBinId))
+	{
+		auto detPair = std::get<det_pair_t>(histoBinId);
+		d1 = detPair.d1;
+		d2 = detPair.d2;
+	}
+	else if (std::holds_alternative<det_pair_tof_t>(histoBinId))
+	{
+		auto detPairTOF = std::get<det_pair_tof_t>(histoBinId);
+		d1 = detPairTOF.d1;
+		d2 = detPairTOF.d2;
+		tof_ps = detPairTOF.tof_ps;
+	}
+	else
+	{
+		throw std::runtime_error("Unsupported histogram bin type");
+	}
+
+	// Gather the LOR for the scanner's LUT
+	const Vector3D p1 = mr_scanner.getDetectorPos(d1);
+	const Vector3D p2 = mr_scanner.getDetectorPos(d2);
+	const auto lor = Line3D{p1, p2};
+
+	ScatterSpacePosition pos{};
+
+	// Convert the LOR to a pair of cylindrical coordinates
+	computeCylindricalCoordinates(lor, pos.planePosition1, pos.angle1,
+	                              pos.planePosition2, pos.angle2);
+
+	pos.tof_ps = tof_ps;
+
+	// Do linear interpolation on the scatter-space value ans return
+	return getLinearInterpolationValue(pos);
 }
 
 det_id_t ScatterSpace::getDetector1(bin_t /*id*/) const

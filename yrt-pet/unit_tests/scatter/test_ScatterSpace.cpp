@@ -313,8 +313,6 @@ TEST_CASE("scatterspace", "[scatterspace]")
 		// nearestneighbor-boundaries
 		{
 			float tofStep = space.getTOFBinStep_ps();
-			float planeStep = space.getPlaneStep();
-			float angleStep = space.getAngleStep();
 
 			// Test near lower TOF boundary
 			yrt::ScatterSpace::ScatterSpacePosition pos1;

@@ -404,6 +404,11 @@ TEST_CASE("Siddon-random", "[siddon]")
 			double proj_val =
 			    yrt::OperatorProjectorSiddon::singleForwardProjection(img.get(),
 			                                                          lor);
+			yrt::Line3D lor_rev{p2, p1};
+			double proj_val_rev =
+			    yrt::OperatorProjectorSiddon::singleForwardProjection(img.get(),
+			                                                          lor_rev);
+
 			// Compute reference
 			double proj_ref = 0.0;
 			double t1;
@@ -478,6 +483,7 @@ TEST_CASE("Siddon-random", "[siddon]")
 			     ", " + std::to_string(p1.z) + " p2=" + std::to_string(p2.x) +
 			     ", " + std::to_string(p2.y) + ", " + std::to_string(p2.z));
 			REQUIRE(proj_val == Approx(proj_ref).epsilon(0.02));
+			REQUIRE(std::abs(proj_val - proj_val_rev) <= 0.0001);
 			// Adjoint
 			double proj_val_t = rand() / (double)RAND_MAX * proj_val;
 			double dot_Ax_y = proj_val * proj_val_t;
@@ -638,5 +644,45 @@ TEST_CASE("Siddon-bugs", "[siddon]")
 			    img.get(), lor, proj_val_slow);
 			REQUIRE(proj_val == Approx(proj_val_slow));
 		}
+	}
+
+	SECTION("precision_incremental")
+	{
+		size_t nx = 300;
+		size_t ny = 300;
+		double sx = 600.0;
+		double sy = 600.0;
+		size_t nz = 1;
+		double sz = 1.0;
+		float x1 = -373.605347;
+		float y1 = -91.9261856;
+		float x2 = 159.15538;
+		float y2 = -350.687592;
+		float z1 = 0;
+		float z2 = 0;
+
+		yrt::ImageParams img_params(nx, ny, nz, sx, sy, sz);
+		auto img = std::make_unique<yrt::ImageOwned>(img_params);
+		img->allocate();
+		{
+			float* imgPtr = img->getRawPointer();
+			for (int i = 0; i < img_params.nx * img_params.ny * img_params.nz;
+			     i++)
+			{
+				imgPtr[i] = rand() / static_cast<float>(RAND_MAX);
+			}
+		}
+
+		yrt::Vector3D p1{x1, y1, z1};
+		yrt::Vector3D p2{x2, y2, z2};
+
+		yrt::Line3D lor{p1, p2};
+
+		double proj_val = yrt::OperatorProjectorSiddon::singleForwardProjection(
+		    img.get(), lor);
+		float proj_val_slow;
+		yrt::OperatorProjectorSiddon::project_helper<true, false, false>(
+		    img.get(), lor, proj_val_slow);
+		REQUIRE(proj_val == Approx(proj_val_slow).epsilon(0.0001));
 	}
 }

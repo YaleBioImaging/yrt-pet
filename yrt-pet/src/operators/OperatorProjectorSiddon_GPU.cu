@@ -3,6 +3,7 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
+#include "yrt-pet/operators/OperatorProjectorSiddonCommon.hpp"
 #include "yrt-pet/operators/OperatorProjectorSiddon_GPU.cuh"
 
 #include "yrt-pet/datastruct/image/Image.hpp"
@@ -128,7 +129,8 @@ void OperatorProjectorSiddon_GPU::launchKernel(
 	{
 		if (stream != nullptr)
 		{
-			OperatorProjectorSiddonCU_kernel<IsForward, HasTOF, true, false>
+			OperatorProjectorSiddonCU_kernel<IsForward, HasTOF,
+			                                 FLAG_SIDDON_INCR, false>
 			    <<<gridSize, blockSize, 0, *stream>>>(
 			        pd_projValues, pd_image, pd_projProperties,
 			        pd_projPropManager, pd_tofHelper, scannerParams, imgParams,
@@ -140,7 +142,8 @@ void OperatorProjectorSiddon_GPU::launchKernel(
 		}
 		else
 		{
-			OperatorProjectorSiddonCU_kernel<IsForward, HasTOF, true, false>
+			OperatorProjectorSiddonCU_kernel<IsForward, HasTOF,
+			                                 FLAG_SIDDON_INCR, false>
 			    <<<gridSize, blockSize>>>(pd_projValues, pd_image,
 			                              pd_projProperties, pd_projPropManager,
 			                              pd_tofHelper, scannerParams,
@@ -155,7 +158,8 @@ void OperatorProjectorSiddon_GPU::launchKernel(
 	{
 		if (stream != nullptr)
 		{
-			OperatorProjectorSiddonCU_kernel<IsForward, HasTOF, true, true>
+			OperatorProjectorSiddonCU_kernel<IsForward, HasTOF,
+			                                 FLAG_SIDDON_INCR, true>
 			    <<<gridSize, blockSize, 0, *stream>>>(
 			        pd_projValues, pd_image, pd_projProperties,
 			        pd_projPropManager, pd_tofHelper, scannerParams, imgParams,
@@ -167,7 +171,8 @@ void OperatorProjectorSiddon_GPU::launchKernel(
 		}
 		else
 		{
-			OperatorProjectorSiddonCU_kernel<IsForward, HasTOF, true, true>
+			OperatorProjectorSiddonCU_kernel<IsForward, HasTOF,
+			                                 FLAG_SIDDON_INCR, true>
 			    <<<gridSize, blockSize>>>(pd_projValues, pd_image,
 			                              pd_projProperties, pd_projPropManager,
 			                              pd_tofHelper, scannerParams,

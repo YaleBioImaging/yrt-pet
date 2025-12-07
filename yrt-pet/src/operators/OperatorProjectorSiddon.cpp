@@ -4,6 +4,7 @@
  */
 
 #include "yrt-pet/operators/OperatorProjectorSiddon.hpp"
+#include "yrt-pet/operators/OperatorProjectorSiddonCommon.hpp"
 
 #include "yrt-pet/datastruct/image/Image.hpp"
 #include "yrt-pet/datastruct/projection/BinFilter.hpp"
@@ -211,14 +212,15 @@ float OperatorProjectorSiddon::forwardProjection(
 		float currentProjValue = 0.0;
 		if (tofHelper != nullptr)
 		{
-			project_helper<true, true, true>(const_cast<Image*>(img), randLine,
-			                                 currentProjValue, tofHelper,
-			                                 tofValue);
+			project_helper<true, FLAG_SIDDON_INCR, true>(
+			    const_cast<Image*>(img), randLine, currentProjValue, tofHelper,
+			    tofValue);
 		}
 		else
 		{
-			project_helper<true, true, false>(const_cast<Image*>(img), randLine,
-			                                  currentProjValue, nullptr, 0);
+			project_helper<true, FLAG_SIDDON_INCR, false>(
+			    const_cast<Image*>(img), randLine, currentProjValue, nullptr,
+			    0);
 		}
 		imProj += currentProjValue;
 	}
@@ -260,13 +262,13 @@ void OperatorProjectorSiddon::backProjection(
 		randLine.point2 = randLine.point2 - offsetVec;
 		if (tofHelper != nullptr)
 		{
-			project_helper<false, true, true>(img, randLine, projValuePerLor,
-			                                  tofHelper, tofValue);
+			project_helper<false, FLAG_SIDDON_INCR, true>(
+			    img, randLine, projValuePerLor, tofHelper, tofValue);
 		}
 		else
 		{
-			project_helper<false, true, false>(img, randLine, projValuePerLor,
-			                                   nullptr, 0);
+			project_helper<false, FLAG_SIDDON_INCR, false>(
+			    img, randLine, projValuePerLor, nullptr, 0);
 		}
 	}
 }
@@ -278,13 +280,13 @@ float OperatorProjectorSiddon::singleForwardProjection(
 	float v;
 	if (tofHelper != nullptr)
 	{
-		project_helper<true, true, true>(const_cast<Image*>(img), lor, v,
-		                                 tofHelper, tofValue);
+		project_helper<true, FLAG_SIDDON_INCR, true>(
+		    const_cast<Image*>(img), lor, v, tofHelper, tofValue);
 	}
 	else
 	{
-		project_helper<true, true, false>(const_cast<Image*>(img), lor, v,
-		                                  tofHelper, tofValue);
+		project_helper<true, FLAG_SIDDON_INCR, false>(
+		    const_cast<Image*>(img), lor, v, tofHelper, tofValue);
 	}
 	return v;
 }
@@ -295,30 +297,16 @@ void OperatorProjectorSiddon::singleBackProjection(
 {
 	if (tofHelper != nullptr)
 	{
-		project_helper<false, true, true>(img, lor, projValue, tofHelper,
-		                                  tofValue);
+		project_helper<false, FLAG_SIDDON_INCR, true>(img, lor, projValue,
+		                                              tofHelper, tofValue);
 	}
 	else
 	{
-		project_helper<false, true, false>(img, lor, projValue, tofHelper,
-		                                   tofValue);
+		project_helper<false, FLAG_SIDDON_INCR, false>(img, lor, projValue,
+		                                               tofHelper, tofValue);
 	}
 }
 
-
-enum SIDDON_DIR
-{
-	DIR_X = 0b001,
-	DIR_Y = 0b010,
-	DIR_Z = 0b100
-};
-
-// Note: FLAG_INCR skips the conversion from physical to logical coordinates by
-// moving from pixel to pixel as the ray parameter is updated.  This may cause
-// issues near the last intersection, which must therefore be handled with extra
-// care.  Speedups around 20% were measured with FLAG_INCR=true.  Both versions
-// are compared in tests, the "faster" version (FLAG_INCR=true) is used by
-// default.
 template <bool IS_FWD, bool FLAG_INCR, bool FLAG_TOF>
 void OperatorProjectorSiddon::project_helper(
     Image* img, const Line3D& lor, float& value,
@@ -415,24 +403,29 @@ void OperatorProjectorSiddon::project_helper(
 	float ax_next = flat_x ? std::numeric_limits<float>::max() : ax_min;
 	if (!flat_x)
 	{
-		int kx = (int)ceil(dir_x * (a_cur * (p2.x - p1.x) - x_cur + p1.x) / dx);
+		int kx = (int)ceil(
+		    dir_x * (a_cur * (p2.x - p1.x) - x_cur + p1.x + EPS_SIDDON) / dx);
 		x_cur += kx * dir_x * dx;
 		ax_next = (x_cur - p1.x) * inv_p12_x;
 	}
 	float ay_next = flat_y ? std::numeric_limits<float>::max() : ay_min;
 	if (!flat_y)
 	{
-		int ky = (int)ceil(dir_y * (a_cur * (p2.y - p1.y) - y_cur + p1.y) / dy);
+		int ky = (int)ceil(
+		    dir_y * (a_cur * (p2.y - p1.y) - y_cur + p1.y + EPS_SIDDON) / dy);
 		y_cur += ky * dir_y * dy;
 		ay_next = (y_cur - p1.y) * inv_p12_y;
 	}
 	float az_next = flat_z ? std::numeric_limits<float>::max() : az_min;
 	if (!flat_z)
 	{
-		int kz = (int)ceil(dir_z * (a_cur * (p2.z - p1.z) - z_cur + p1.z) / dz);
+		int kz = (int)ceil(
+		    dir_z * (a_cur * (p2.z - p1.z) - z_cur + p1.z + EPS_SIDDON) / dz);
 		z_cur += kz * dir_z * dz;
 		az_next = (z_cur - p1.z) * inv_p12_z;
 	}
+	// std::cout << "Start: ax_next=" << ax_next << " ay_next=" << ay_next
+	//           << std::endl;
 	// Pixel location (move pixel to pixel instead of calculating position for
 	// each intersection)
 	bool flag_first = true;
@@ -468,32 +461,42 @@ void OperatorProjectorSiddon::project_helper(
 			a_next = ax_next;
 			x_cur += dir_x * dx;
 			ax_next = (x_cur - p1.x) * inv_p12_x;
-			dir_next |= SIDDON_DIR::DIR_X;
+			if (FLAG_INCR)
+			{
+				dir_next |= SIDDON_DIR::DIR_X;
+			}
 		}
 		if (ay_next_prev <= ax_next_prev && ay_next_prev <= az_next_prev)
 		{
 			a_next = ay_next;
 			y_cur += dir_y * dy;
 			ay_next = (y_cur - p1.y) * inv_p12_y;
-			dir_next |= SIDDON_DIR::DIR_Y;
+			if (FLAG_INCR)
+			{
+				dir_next |= SIDDON_DIR::DIR_Y;
+			}
 		}
 		if (az_next_prev <= ax_next_prev && az_next_prev <= ay_next_prev)
 		{
 			a_next = az_next;
 			z_cur += dir_z * dz;
 			az_next = (z_cur - p1.z) * inv_p12_z;
-			dir_next |= SIDDON_DIR::DIR_Z;
+			if (FLAG_INCR)
+			{
+				dir_next |= SIDDON_DIR::DIR_Z;
+			}
 		}
 		// Clip to FOV range
 		if (a_next > amax)
 		{
 			a_next = amax;
 		}
-		if (a_cur >= a_next)
+		if (a_next - a_cur < EPS_SIDDON)
 		{
 			ax_next_prev = ax_next;
 			ay_next_prev = ay_next;
 			az_next_prev = az_next;
+			a_cur = a_next;
 			continue;
 		}
 		// Determine pixel location
@@ -559,7 +562,10 @@ void OperatorProjectorSiddon::project_helper(
 		{
 			continue;
 		}
-		dir_prev = dir_next;
+		if (FLAG_INCR)
+		{
+			dir_prev = dir_next;
+		}
 		float weight = (a_next - a_cur) * d_norm;
 		if (FLAG_TOF)
 		{

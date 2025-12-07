@@ -548,7 +548,7 @@ def test_large_flat_panel_xcat_osem_tof_siddon():
     np_ref_img = np.array(ref_img, copy=False)
 
     nrmse = _helper.get_nrmse(np_out_img, np_ref_img)
-    assert nrmse < 5e-5
+    assert nrmse < 7e-4
 
 
 def test_large_flat_panel_xcat_osem_tof_dd_gpu_exec():

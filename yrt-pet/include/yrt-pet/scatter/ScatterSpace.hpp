@@ -154,8 +154,9 @@ public:
 private:
 	void initStepSizes();
 
-	// TODO NOW: make it so that the TOF bins are not centered in their sample
-	//  but rather centered towards the start (center of the LOR)
+	// YN: Maybe we should make it so that the TOF bins are not centered in
+	//  their sample but rather centered towards the start (center of the LOR).
+	//  This way, we always sample the central TOF bin.
 	size_t m_numTOFBins;
 	size_t m_numPlanes;
 	size_t m_numAngles;

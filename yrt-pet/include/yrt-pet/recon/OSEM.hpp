@@ -194,6 +194,8 @@ protected:
 	virtual void setupForDynamicRecon(int& rank, int& T) = 0;
 	virtual void applyImageUpdate(ImageBase* destImage, ImageBase* numerator,
 	                              const ImageBase* norm, const float eps, bool isDynamic) = 0;
+	virtual void SyncHostToDeviceHBasis() = 0;
+	virtual void SyncDeviceToHostHBasis() = 0;
 	virtual void SyncHostToDeviceHBasisWrite() = 0;
 	virtual void SyncDeviceToHostHBasisWrite() = 0;
 	virtual void applyHUpdate();

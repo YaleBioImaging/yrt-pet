@@ -461,7 +461,8 @@ void OSEM_GPU::computeEMUpdateImage(const ImageBase& inputImage,
 	// 	// ASSERT(emRatioDev != nullptr);
 	//
 	// 	// copy to host
-	// 	// auto tmpImg = std::make_unique<ImageOwned>(destImageHost.getParams());
+	// 	// auto tmpImg =
+	// std::make_unique<ImageOwned>(destImageHost.getParams());
 	// 	// tmpImg->allocate();
 	// 	// destImageHost.transferToHostMemory(tmpImg.get(), true);
 	// 	//
@@ -573,7 +574,6 @@ void OSEM_GPU::generateHUpdateSensScaling(float* c_HUpdate_r)
 			cr += cr_threadLocal[t];
 		}
 		c_HUpdate_r[r] = cr;
-
 	}
 }
 
@@ -611,6 +611,13 @@ void OSEM_GPU::setupForDynamicRecon(int& rank, int& T)
 			// TODO NOW: Have a check to make sure UpdaterDevice is
 			// OperatorProjectorUpdaterDeviceLR ?
 
+			// TODO NOW: HBasis should already be set at creation of
+			// OperatorProjectorDevice (in the updater wrapper, in initUpdater).
+			// We can do it again here just in case (if code changes in wrapper
+			// or updater), or trust we will remember to do it here again if not
+			// initialized during projector creation
+			lr->setHBasis(projectorParams.HBasis);
+
 			printf("lr->getUpdateH(): %d", lr->getUpdateH());
 			if (lr->getUpdateH() != projectorParams.updateH)
 			{
@@ -640,7 +647,6 @@ void OSEM_GPU::setupForDynamicRecon(int& rank, int& T)
 			// 	cudaDeviceSynchronize();
 			// 	cudaCheckError();
 			// }
-
 		}
 
 		// HBasis is rank x T
@@ -686,6 +692,43 @@ void OSEM_GPU::applyImageUpdate(ImageBase* destImage, ImageBase* numerator,
 		destImage->updateEMThreshold(numerator, norm, eps);
 	}
 }
+
+
+void OSEM_GPU::SyncHostToDeviceHBasis()
+{
+	if (auto* proj = dynamic_cast<OperatorProjectorDevice*>(mp_projector.get()))
+	{
+		auto lr = proj->getUpdaterDeviceWrapper();
+		lr->SyncHostToDeviceHBasis();
+	}
+	else
+	{
+		throw std::logic_error(
+		    "Could not convert mp_projector to OperatorProjectorDevice");
+	}
+}
+
+void OSEM_GPU::SyncDeviceToHostHBasis()
+{
+	if (auto* proj = dynamic_cast<OperatorProjectorDevice*>(mp_projector.get()))
+	{
+		if (auto lr = proj->getUpdaterDeviceWrapper())
+		{
+			lr->SyncDeviceToHostHBasis();
+		}
+		else
+		{
+			throw std::logic_error(
+			    "proj->getUpdaterDeviceWrapper() is nullptr");
+		}
+	}
+	else
+	{
+		throw std::logic_error(
+		    "Could not convert mp_projector to OperatorProjectorDevice");
+	}
+}
+
 
 void OSEM_GPU::SyncHostToDeviceHBasisWrite()
 {

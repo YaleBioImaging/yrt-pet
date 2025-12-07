@@ -825,12 +825,13 @@ void OSEM::allocateHBasisTmpBuffer()
 
 void OSEM::applyHUpdate()
 {
+	SyncDeviceToHostHBasisWrite();
 	float* H_old_ptr = projectorParams.HBasis.getRawPointer();  // current H
 	const float* Hnum_ptr =
 	    dynamic_cast<Array2D<float>*>(getHBasisTmpBuffer())
 	        ->getRawPointer();  // numerator accumulated this subset
 
-	const auto dims = getHBasisTmpBuffer()->getDims();
+	const auto dims = projectorParams.HBasis.getDims();
 	{
 		printf("\nPrinting HBuffer:\n");
 		for (int r = 0; r < dims[0]; ++r)
@@ -904,6 +905,8 @@ void OSEM::applyHUpdate()
 	for (int i = 0; i < rank * T; ++i)
 		sum_after += H_old_ptr[i];
 	printf("sum(H)=%.6g, mean(H)=%.6g\n", sum_after, sum_after / (rank * T));
+
+	SyncHostToDeviceHBasis();
 }
 
 
@@ -1085,7 +1088,6 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 			{
 				// TODO: This is suboptimal as the update could be done on GPU
 				// instead of copying to Device to do it
-				SyncDeviceToHostHBasisWrite();
 				printf("\n Apply EM H Update \n");
 				applyHUpdate();
 			}
@@ -1123,11 +1125,14 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 		}
 		if (saveIterRanges.isIn(iter + 1))
 		{
-			std::string iteration_name =
-			    util::padZeros(iter + 1, numDigitsInFilename);
-			std::string outIteration_fname = util::addBeforeExtension(
-			    saveIterPath, std::string("_iteration") + iteration_name);
-			getMLEMImageBuffer()->writeToFile(outIteration_fname);
+			if (dualUpdate || !projectorParams.updateH)
+			{
+				std::string iteration_name =
+				    util::padZeros(iter + 1, numDigitsInFilename);
+				std::string outIteration_fname = util::addBeforeExtension(
+				    saveIterPath, std::string("_iteration") + iteration_name);
+				getMLEMImageBuffer()->writeToFile(outIteration_fname);
+			}
 			if (dualUpdate || projectorParams.updateH)
 			{
 				saveHBasisBinary(saveIterPath, iter + 1, numDigitsInFilename);
@@ -1135,16 +1140,6 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 		}
 		completeMLEMIteration();
 	}
-
-	// restore H Basis
-	// if (isLowRank && projectorParams.updateH) {
-	// 	if (auto* proj = dynamic_cast<OperatorProjector*>(mp_projector.get())) {
-	// 		if (auto* lr =
-	// dynamic_cast<OperatorProjectorUpdaterLR*>(proj->getUpdater())) {
-	// 			lr->setHBasis(projectorParams.HBasis); // point back to real H
-	// 		}
-	// 	}
-	// }
 
 	endRecon();
 

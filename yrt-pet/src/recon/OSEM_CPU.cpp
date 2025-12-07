@@ -512,6 +512,9 @@ void OSEM_CPU::applyImageUpdate(ImageBase* destImage, ImageBase* numerator,
 		destImage->updateEMThreshold(numerator, norm, eps);
 	}
 }
+void OSEM_CPU::SyncHostToDeviceHBasis() {}
+
+void OSEM_CPU::SyncDeviceToHostHBasis() {}
 
 void OSEM_CPU::SyncHostToDeviceHBasisWrite() {}
 

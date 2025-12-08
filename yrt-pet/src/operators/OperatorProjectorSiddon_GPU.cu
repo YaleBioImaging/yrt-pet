@@ -45,11 +45,6 @@ void py_setup_operatorprojectorsiddon_gpu(py::module& m)
 namespace yrt
 {
 
-UpdaterPointer OperatorProjectorDevice::getUpdaterDevicePointer()
-{
-	return m_updaterContainer.getUpdaterDevicePointer();
-}
-
 OperatorProjectorSiddon_GPU::OperatorProjectorSiddon_GPU(
     const OperatorProjectorParams& projParams,
     const std::vector<Constraint*>& constraints, const cudaStream_t* mainStream,

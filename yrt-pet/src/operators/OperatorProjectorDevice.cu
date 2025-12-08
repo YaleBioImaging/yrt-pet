@@ -166,11 +166,11 @@ void py_setup_operatorprojectordevice(py::module& m)
 		            OperatorProjectorParams::ProjectorUpdaterType::LRDUALUPDATE)
 		    {
 			    auto H = updater->getHBasis();
-		    	auto dims = H.getDims();
-		    	py::array_t<float> arr({dims[0], dims[1]});  // C-contiguous
-				std::memcpy(arr.mutable_data(),              // copy all at once
-							H.getRawPointer(),
-							static_cast<size_t>(dims[0] * dims[1]) *
+			    auto dims = H.getDims();
+			    py::array_t<float> arr({dims[0], dims[1]});  // C-contiguous
+			    std::memcpy(arr.mutable_data(),              // copy all at once
+			                H.getRawPointer(),
+			                static_cast<size_t>(dims[0] * dims[1]) *
 			                    sizeof(float));
 			    return arr;  // copy
 		    }
@@ -234,13 +234,13 @@ void py_setup_operatorprojectordevice(py::module& m)
 		        updaterType ==
 		            OperatorProjectorParams::ProjectorUpdaterType::LRDUALUPDATE)
 		    {
-		    	auto H = updater->getHBasisWrite();
-				auto dims = H.getDims();
-				py::array_t<float> arr({dims[0], dims[1]});  // C-contiguous
-				std::memcpy(arr.mutable_data(),              // copy all at once
-							H.getRawPointer(),
-							static_cast<size_t>(dims[0] * dims[1]) *
-								sizeof(float));
+			    auto H = updater->getHBasisWrite();
+			    auto dims = H.getDims();
+			    py::array_t<float> arr({dims[0], dims[1]});  // C-contiguous
+			    std::memcpy(arr.mutable_data(),              // copy all at once
+			                H.getRawPointer(),
+			                static_cast<size_t>(dims[0] * dims[1]) *
+			                    sizeof(float));
 			    return arr;  // copy
 		    }
 		    throw std::logic_error(
@@ -630,6 +630,11 @@ void OperatorProjectorDevice::setupUpdater(
 		// For updaters requiring no arguments
 		m_updaterContainer.initUpdater(p_projParams.projectorUpdaterType);
 	}
+}
+
+UpdaterPointer OperatorProjectorDevice::getUpdaterDevicePointer()
+{
+	return m_updaterContainer.getUpdaterDevicePointer();
 }
 
 OperatorProjectorUpdaterDeviceWrapper*

@@ -302,13 +302,13 @@ void OperatorProjectorSiddon::backProjection(
 		if (tofHelper != nullptr)
 		{
 			project_helper<false, true, true>(img, randLine, projValuePerLor,
-			                                  *mp_updater.get(), dynamicFrame,
+			                                  *mp_updater, dynamicFrame,
 			                                  tid, tofHelper, tofValue);
 		}
 		else
 		{
 			project_helper<false, true, false>(img, randLine, projValuePerLor,
-			                                   *mp_updater.get(), dynamicFrame,
+			                                   *mp_updater, dynamicFrame,
 			                                   tid, nullptr, 0);
 		}
 	}

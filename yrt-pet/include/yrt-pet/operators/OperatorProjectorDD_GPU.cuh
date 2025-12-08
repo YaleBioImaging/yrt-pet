@@ -38,7 +38,8 @@ private:
 
 	template <bool IsForward, bool HasTOF, bool HasProjPsf>
 	static void launchKernel(
-	    float* pd_projValues, float* pd_image, const char* pd_projProperties,
+	    float* pd_projValues, float* pd_image, UpdaterPointer pd_updater,
+	    const char* pd_projProperties,
 	    const ProjectionPropertyManager* pd_projPropManager,
 	    const TimeOfFlightHelper* pd_tofHelper, const float* pd_projPsfKernels,
 	    ProjectionPsfProperties projectionPsfProperties,
@@ -46,4 +47,14 @@ private:
 	    size_t batchSize, unsigned int gridSize, unsigned int blockSize,
 	    const cudaStream_t* stream, bool synchronize);
 };
+
+template <bool IsForward, bool HasTOF, bool HasProjPSF>
+__global__ void DD_kernel(
+    float* pd_projValues, float* pd_image, UpdaterPointer pd_updater,
+    const char* pd_projectionProperties,
+    const ProjectionPropertyManager* pd_projPropManager,
+    const TimeOfFlightHelper* pd_tofHelper, const float* pd_projPsfKernels,
+    ProjectionPsfProperties projectionPsfProperties,
+    CUScannerParams scannerParams, CUImageParams imgParams, size_t batchSize);
+
 }  // namespace yrt

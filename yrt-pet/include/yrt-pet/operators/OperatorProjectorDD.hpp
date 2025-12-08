@@ -61,8 +61,9 @@ private:
 	void dd_project_ref(Image* in_image, const Line3D& lor, const Vector3D& n1,
 	                    const Vector3D& n2, float& proj_value,
 	                    OperatorProjectorUpdater& updater,
-	                    frame_t dynamicFrame = 0,
-	                    const TimeOfFlightHelper* tofHelper = nullptr, float tofValue = 0.f,
+	                    frame_t dynamicFrame = 0, int tid = 0,
+	                    const TimeOfFlightHelper* tofHelper = nullptr,
+	                    float tofValue = 0.f,
 	                    const ProjectionPsfManager* psfManager = nullptr) const;
 };
 

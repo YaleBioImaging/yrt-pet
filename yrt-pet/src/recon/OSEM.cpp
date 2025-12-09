@@ -776,32 +776,6 @@ void OSEM::Sync_cWUpdateDeviceToHost() {}
 
 void OSEM::Sync_cWUpdateHostToDevice() {}
 
-void OSEM::dumpHBasis(const Array2DAlias<float>& H, const char* tag)
-{
-	auto dims = H.getDims();  // {R, T}
-	const size_t R = dims[0], T = dims[1];
-	const size_t showR = std::min<size_t>(R, 8);  // limit output
-	const size_t showT = std::min<size_t>(T, 30);
-
-	std::printf("HBasis%s%s (R=%zu, T=%zu)\n", tag ? " " : "", tag ? tag : "",
-	            R, T);
-
-	for (size_t r = 0; r < showR; ++r)
-	{
-		std::printf("r=%zu:", r);
-		for (size_t t = 0; t < showT; ++t)
-		{
-			std::printf(" %.6g", H[r][t]);
-		}
-		if (showT < T)
-			std::printf(" ...");
-		std::printf("\n");
-	}
-	if (showR < R)
-		std::printf("...\n");
-	std::fflush(stdout);
-}
-
 
 Array2DBase<float>* OSEM::getHBasisTmpBuffer()
 {
@@ -831,58 +805,9 @@ void OSEM::applyHUpdate()
 	    dynamic_cast<Array2D<float>*>(getHBasisTmpBuffer())
 	        ->getRawPointer();  // numerator accumulated this subset
 
-	const auto dims = projectorParams.HBasis.getDims();
-	{
-		printf("\nPrinting HBuffer:\n");
-		for (int r = 0; r < dims[0]; ++r)
-		{
-			for (int t = 0; t < dims[1]; ++t)
-			{
-				printf(" %.2f ", (*getHBasisTmpBuffer())[r][t]);
-			}
-			printf("\n");
-		}
-	}
-	{
-		printf("\nPrinting m_cHUpdate:\n");
-		for (int r = 0; r < dims[0]; ++r)
-		{
-			printf(" %.2f ", m_cHUpdate[r]);
-		}
-	}
-
 	// shapes: rank x T
 	const int rank = projectorParams.HBasis.getDims()[0];
 	const int T = projectorParams.HBasis.getDims()[1];
-
-	double min_ratio = 1e30, max_ratio = -1e30, mean_ratio = 0.0;
-	double sum_num = 0.0, sum_den = 0.0;
-
-	for (int r = 0; r < rank; ++r)
-	{
-		const double den = std::max<double>(m_cHUpdate[r], EPS_FLT);
-		sum_den += den;
-		for (int t = 0; t < T; ++t)
-		{
-			const double num = Hnum_ptr[r * T + t];
-			sum_num += num;
-			const double ratio = num / den;
-			min_ratio = std::min(min_ratio, ratio);
-			max_ratio = std::max(max_ratio, ratio);
-			mean_ratio += ratio;
-		}
-	}
-	mean_ratio /= (rank * T);
-
-	printf("\nH update stats: sum_num=%.6g sum_den=%.6g  "
-	       "ratio[min,mean,max]=[%.3g, %.3g, %.3g]\n",
-	       sum_num, sum_den, min_ratio, mean_ratio, max_ratio);
-
-	printf("\n --- Before Update --- \n");
-	double sum = 0.0;
-	for (int i = 0; i < rank * T; ++i)
-		sum += H_old_ptr[i];
-	printf("sum(H)=%.6g, mean(H)=%.6g\n", sum, sum / (rank * T));
 
 	// H_new := H_old * (Hnum / c_r)
 	util::parallelForChunked(
@@ -899,12 +824,6 @@ void OSEM::applyHUpdate()
 			        Hr[t] * (Nr[t] * inv);  // write the *new H* back over H_old
 		    }
 	    });
-
-	printf("\n --- After Update --- \n");
-	double sum_after = 0.0;
-	for (int i = 0; i < rank * T; ++i)
-		sum_after += H_old_ptr[i];
-	printf("sum(H)=%.6g, mean(H)=%.6g\n", sum_after, sum_after / (rank * T));
 
 	SyncHostToDeviceHBasis();
 }
@@ -1013,10 +932,8 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 			    ->setValue(0.0);
 			if ((isLowRank && projectorParams.updateH) || dualUpdate)
 			{
-				printf("\n initialize HBasisTmpBuffer with zeros.\n");
 				initializeHBasisTmpBuffer();
 				SyncHostToDeviceHBasisWrite();
-				printf("\n HBasisTmpBuffer initialized with zeros.\n");
 			}
 
 			ImageBase* mlemImage_rp;
@@ -1038,26 +955,16 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 
 			if (!projectorParams.updateH || dualUpdate)
 			{
-				printf("\n Compute EM (1).\n");
-				auto it_start = std::chrono::high_resolution_clock::now();
 				computeEMUpdateImage(
 				    *mlemImage_rp,
 				    *getImageTmpBuffer(
 				        TemporaryImageSpaceBufferType::EM_RATIO));
-				auto it_end = std::chrono::high_resolution_clock::now();
-				double elapsed_sec =
-				    std::chrono::duration<double>(it_end - it_start).count();
-				std::cout << "Iteration " << (iter + 1) << "(Subset "
-				          << (subsetId + 1) << ") took " << std::fixed
-				          << std::setprecision(3) << elapsed_sec << " seconds."
-				          << std::endl;
 			}
 			else
 			{
 				// When updating H, destImage must be the actual image (and not
 				// a zeroed buffer) to retrieve the value from the image during
-				// backudpate
-				printf("\n Compute EM (2).\n");
+				// backupdate
 				computeEMUpdateImage(*mlemImage_rp, *mlemImage_rp);
 			}
 
@@ -1079,8 +986,6 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 				        getImageTmpBuffer(TemporaryImageSpaceBufferType::PSF) :
 				        getImageTmpBuffer(
 				            TemporaryImageSpaceBufferType::EM_RATIO);
-				printf("\n Apply EM W Update \n");
-
 				applyImageUpdate(getMLEMImageBuffer(), updateImage,
 				                 getSensImageBuffer(), EPS_FLT, IS_DYNAMIC);
 			}
@@ -1088,23 +993,12 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 			{
 				// TODO: This is suboptimal as the update could be done on GPU
 				// instead of copying to Device to do it
-				printf("\n Apply EM H Update \n");
 				applyHUpdate();
 			}
 
 			if (dualUpdate)
 			{
-				printf("\n Updating LR Sensitivity image scaling...\n");
-				float sum_c_w = 0.0;
-				float sum_c_h = 0.0;
-				for (int i = 0; i < rank; ++i)
-				{
-					sum_c_w += m_cWUpdate[i];
-					sum_c_h += m_cHUpdate[i];
-				}
-				printf("Before: sum(c_W)=%.6g, sum(c_H)=%.6g\n", sum_c_w,
-				       sum_c_h);
-
+				printf("\nUpdating LR Sensitivity image scaling...\n");
 				// Sync with Device side values
 				Sync_cWUpdateDeviceToHost();
 
@@ -1112,15 +1006,9 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 				std::fill(m_cHUpdate.begin(), m_cHUpdate.end(), 0.0f);
 				generateWUpdateSensScaling(m_cWUpdate.data());
 				generateHUpdateSensScaling(m_cHUpdate.data());
-				float sum_c_w_2 = 0.0;
-				float sum_c_h_2 = 0.0;
-				for (int i = 0; i < rank; ++i)
-				{
-					sum_c_w_2 += m_cWUpdate[i];
-					sum_c_h_2 += m_cHUpdate[i];
-				}
-				printf("After: sum(c_W)=%.6g, sum(c_H)=%.6g\n", sum_c_w_2,
-				       sum_c_h_2);
+
+				// Sync back new Host side values to device
+				Sync_cWUpdateHostToDevice();
 			}
 		}
 		if (saveIterRanges.isIn(iter + 1))

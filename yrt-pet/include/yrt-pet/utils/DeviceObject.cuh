@@ -48,7 +48,6 @@ public:
 	explicit DeviceObject(Args&&... args) : mpd_object(nullptr)
 	{
 		// 1) Allocate raw storage on device
-		printf("\n\n\ndevice object\n\n\n");
 		util::allocateDevice(&mpd_object, 1, {});
 
 		// 2) Construct the object *on device* with placement-new

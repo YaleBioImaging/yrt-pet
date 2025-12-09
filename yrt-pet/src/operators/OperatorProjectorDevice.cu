@@ -382,19 +382,8 @@ void OperatorProjectorDevice::applyA(const Variable* in, Variable* out,
 			std::cout << "Forward projecting batch " << batchId + 1 << "/"
 			          << numBatches << "..." << std::endl;
 			dat_out->clearProjectionsDevice({getMainStream(), false});
-			// {
-			// 	printf("\nDEBUG: In applyA, cudaCheckError before
-			// applyAOnLoadedBatch.\n"); 	cudaCheckError();
-			// 	cudaDeviceSynchronize();
-			// }
 
 			applyAOnLoadedBatch(*img_in, *dat_out, false);
-			// {
-			// 	printf("\nDEBUG: In applyA, cudaCheckError after
-			// applyAOnLoadedBatch.\n"); 	cudaCheckError();
-			// 	cudaDeviceSynchronize();
-			// }
-
 
 			// If a future batch is due
 			if (batchId < numBatches - 1)

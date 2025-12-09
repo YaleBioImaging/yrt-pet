@@ -161,7 +161,6 @@ void OSEMUpdater_CPU::computeEMUpdateImage(const Image& inputImage,
 		    }
 	    });
 
-	printf("Before if getProjectorUpdaterType");
 	if ((mp_osem->getProjectorUpdaterType() ==
 	     OperatorProjectorParams::ProjectorUpdaterType::LR) ||
 	    (mp_osem->getProjectorUpdaterType() ==
@@ -169,38 +168,13 @@ void OSEMUpdater_CPU::computeEMUpdateImage(const Image& inputImage,
 	{
 		auto projectorH =
 		    dynamic_cast<OperatorProjector*>(mp_osem->getProjectorPtr());
+		ASSERT(projectorH != nullptr);
 		auto updater =
 		    dynamic_cast<OperatorProjectorUpdaterLR*>(projectorH->getUpdater());
-		printf("After if getProjectorUpdaterType: %d", updater->getUpdateH());
+		ASSERT(updater != nullptr);
 		if (updater->getUpdateH())
 		{
-			{
-				auto H_old = updater->getHBasisWrite();
-				const auto dims = H_old.getDims();
-				float sum = 0.f;
-				for (size_t r = 0; r < dims[0]; ++r)
-				{
-					for (size_t t = 0; t < dims[1]; ++t)
-					{
-						sum += H_old[r][t];
-					}
-				}
-				printf("\n Before accumulate: sum(H_tid) = %f \n", sum);
-			}
 			updater->accumulateH();
-			{
-				auto H_old = updater->getHBasisWrite();
-				auto dims = H_old.getDims();
-				float sum = 0.f;
-				for (size_t r = 0; r < dims[0]; ++r)
-				{
-					for (size_t t = 0; t < dims[1]; ++t)
-					{
-						sum += H_old[r][t];
-					}
-				}
-				printf("\n After accumulate: sum(H_tid) = %f \n", sum);
-			}
 		}
 	}
 }

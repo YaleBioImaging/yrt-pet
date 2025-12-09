@@ -151,28 +151,6 @@ void OSEMUpdater_GPU::computeEMUpdateImage(const ImageDevice& inputImage,
 		tmpBufferDevice->allocateForProjValues({mainStream, false});
 
 		projector->applyA(&inputImage, tmpBufferDevice, false);
-		{
-			// auto tot_count = tmpBufferDevice->count();
-			// float projVal = 0.f;
-			// printf("\n tot_count = %lu, projVal: %1.f", tot_count, projVal);
-			// for (int c=0; c < tot_count; ++c)
-			// {
-			// 	projVal += tmpBufferDevice->getProjectionValue(c);
-			// }
-			// printf("\n tot_count = %lu, projVal: %1.f", tot_count, projVal);
-			// auto updater = projector->getUpdaterDeviceWrapper();
-			// auto H_old = updater->getHBasisWrite();
-			// const auto dims = H_old.getDims();
-			// float sum = 0.f;
-			// for (size_t r = 0; r < dims[0]; ++r)
-			// {
-			// 	for (size_t t = 0; t < dims[1]; ++t)
-			// 	{
-			// 		sum += H_old[r][t];
-			// 	}
-			// }
-			// printf("\n after applyA: sum(H_tid) = %f \n", sum);
-		}
 
 		if (corrector.hasAdditiveCorrection(*measurementsDevice))
 		{

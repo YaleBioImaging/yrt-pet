@@ -193,7 +193,8 @@ protected:
 	virtual void generateHUpdateSensScaling(float* c) = 0;
 	virtual void setupForDynamicRecon(int& rank, int& T) = 0;
 	virtual void applyImageUpdate(ImageBase* destImage, ImageBase* numerator,
-	                              const ImageBase* norm, const float eps, bool isDynamic) = 0;
+	                              const ImageBase* norm, const float eps,
+	                              bool isDynamic) = 0;
 	virtual void SyncHostToDeviceHBasis() = 0;
 	virtual void SyncDeviceToHostHBasis() = 0;
 	virtual void SyncHostToDeviceHBasisWrite() = 0;
@@ -201,11 +202,6 @@ protected:
 	virtual void applyHUpdate();
 	virtual void Sync_cWUpdateDeviceToHost();
 	virtual void Sync_cWUpdateHostToDevice();
-
-
-	static void dumpHBasis(const Array2DAlias<float>& H,
-	                       const char* tag = nullptr);
-
 
 	// Common methods
 	virtual void loadSubset(int p_subsetId, bool p_forRecon) = 0;

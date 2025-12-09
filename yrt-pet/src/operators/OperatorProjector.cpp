@@ -195,7 +195,6 @@ void py_setup_operatorprojector(py::module& m)
 		      auto& H = updaterLR->getHBasisWriteThread();
 		      ASSERT_MSG(H.getRawPointer(), "HBasisWriteThread is nullptr");
 		      auto dims = H.getDims();
-	      	printf("\n %lu, %lu, %lu \n", dims[0], dims[1], dims[2]);
 		      py::array_t<double> arr(
 		          {dims[0], dims[1], dims[2]});  // C-contiguous
 		      std::memcpy(arr.mutable_data(),    // copy all at once

@@ -235,8 +235,6 @@ __device__ OperatorProjectorUpdaterDevice*
 
 	if (rank == MaxRank)
 	{
-		printf("\nOperatorProjectorUpdaterDeviceLRUnrolled used for rank %d\n",
-		       rank);
 		return new OperatorProjectorUpdaterDeviceLRUnrolled<MaxRank>(
 		    d_HBasis, d_HBasisWrite, numFrames, updateH);
 	}
@@ -251,7 +249,6 @@ __device__ OperatorProjectorUpdaterDevice*
 	}
 	else
 	{
-		printf("\nOperatorProjectorUpdaterDeviceLR used for rank %d\n", rank);
 		return new OperatorProjectorUpdaterDeviceLR(d_HBasis, d_HBasisWrite,
 		                                            rank, numFrames, updateH);
 	}
@@ -303,7 +300,12 @@ inline __global__ void destroyUpdaterOnDevice(UpdaterPointer ppd_updater)
 class OperatorProjectorUpdaterDeviceWrapper
 {
 public:
-	OperatorProjectorUpdaterDeviceWrapper() : mpd_updater(nullptr) {}
+	OperatorProjectorUpdaterDeviceWrapper()
+	    : mpd_updater(nullptr),
+	      m_updaterType(
+	          OperatorProjectorParams::ProjectorUpdaterType::DEFAULT4D)
+	{
+	}
 
 	~OperatorProjectorUpdaterDeviceWrapper()
 	{
@@ -503,35 +505,6 @@ public:
 			allocateForHBasisWriteDevice();
 		}
 		SyncHostToDeviceHBasisWrite();
-		// {
-		// 	printf("\n DEBUG: in setHBasisWrite After "
-		// 	       "SyncHostToDeviceHBasisWrite.\n");
-		// 	cudaDeviceSynchronize();
-		// 	cudaCheckError();
-		// 	Array2D<float> arraytmp;
-		// 	const auto dims = pr_HWrite.getDims();
-		// 	arraytmp.allocate(dims[0], dims[1]);
-		// 	arraytmp.fill(0.f);
-		// 	printf("\n DEBUG: in setHBasisWrite before arraytmp copy.\n");
-		// 	mpd_HBasisWriteDeviceArray->copyToHost(arraytmp.getRawPointer(),
-		// 	                                       m_rank * m_numDynamicFrames,
-		// 	                                       {nullptr, true});
-		// 	cudaDeviceSynchronize();
-		// 	cudaCheckError();
-		// 	printf("\n DEBUG: in setHBasisWrite after arraytmp copy.\n");
-		// 	for (int r = 0; r < m_rank; ++r)
-		// 	{
-		// 		for (int t = 0; t < m_numDynamicFrames; ++t)
-		// 		{
-		// 			printf(" %.2f ", arraytmp[r][t]);
-		// 		}
-		// 		printf("\n");
-		// 	}
-		// 	cudaDeviceSynchronize();
-		// 	cudaCheckError();
-		// }
-		// TODO : use multithread with one H per thread in gpu ?
-		// initializeWriteThread();
 	}
 
 	const Array2DAlias<float>& getHBasisWrite()

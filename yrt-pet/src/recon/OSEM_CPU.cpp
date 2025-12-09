@@ -313,26 +313,8 @@ void OSEM_CPU::computeEMUpdateImage(const ImageBase& inputImage,
 {
 	auto& inputImageHost = dynamic_cast<const Image&>(inputImage);
 	auto& destImageHost = dynamic_cast<Image&>(destImage);
-	// {
-	// auto* emRatio = getImageTmpBuffer(
-	// 	TemporaryImageSpaceBufferType::EM_RATIO);
-	// auto* emRatioImg = dynamic_cast<Image*>(emRatio);
-	// ASSERT(emRatioImg != nullptr);
 
-	// std::cout << "DEBUG: Before compute: [CPU] EM numerator sum = "
-	// 		  << destImageHost.voxelSum() << std::endl;
-	// }
 	mp_updater->computeEMUpdateImage(inputImageHost, destImageHost);
-
-	// {
-	// 	auto* emRatio = getImageTmpBuffer(
-	// 		TemporaryImageSpaceBufferType::EM_RATIO);
-	// 	auto* emRatioImg = dynamic_cast<Image*>(emRatio);
-	// 	ASSERT(emRatioImg != nullptr);
-	//
-	std::cout << "DEBUG: After compute: [CPU] EM numerator sum = "
-	          << destImageHost.voxelSum() << std::endl;
-	// }
 }
 
 
@@ -426,7 +408,6 @@ void OSEM_CPU::setupForDynamicRecon(int& rank, int& T)
 			if (auto* lr = dynamic_cast<OperatorProjectorUpdaterLR*>(
 			        proj->getUpdater()))
 			{
-				printf("lr->getUpdateH(): %d", lr->getUpdateH());
 				if (lr->getUpdateH() != projectorParams.updateH)
 				{
 					throw std::logic_error(
@@ -469,12 +450,15 @@ void OSEM_CPU::setupForDynamicRecon(int& rank, int& T)
 						    projectorParams
 						        .updateH);  // switch to H accumulation mode
 					}
+					printf("\nSetting HBasis for "
+					       "OperatorProjectorUpdaterLR...\n");
 					lr->setHBasis(projectorParams.HBasis);
 					lr->setHBasisWrite(*HBuffer);  // write into mp_HWrite
-					lr->setCurrentImgBuffer(outImage.get());
-					// todo: remove outImage to direct towards mlemImage_rp in
-					// case PSF is used
-					printf("set HBasisWrite for OperatorProjectorUpdaterLR");
+					lr->setCurrentImgBuffer(
+					    flagImagePSF ? getImageTmpBuffer(
+					                       TemporaryImageSpaceBufferType::PSF) :
+					                   getMLEMImageBuffer());
+					// TODO NOW: Make sure this makes sense even with PSF
 				}
 				else
 				{

@@ -454,36 +454,8 @@ void OSEM_GPU::computeEMUpdateImage(const ImageBase& inputImage,
 {
 	auto& inputImageHost = dynamic_cast<const ImageDevice&>(inputImage);
 	auto& destImageHost = dynamic_cast<ImageDevice&>(destImage);
-	// {
-	// 	// ImageBase* emRatioBase =
-	// 	//     getImageTmpBuffer(TemporaryImageSpaceBufferType::EM_RATIO);
-	// 	// auto* emRatioDev = dynamic_cast<ImageDevice*>(inputImage);
-	// 	// ASSERT(emRatioDev != nullptr);
-	//
-	// 	// copy to host
-	// 	// auto tmpImg =
-	// std::make_unique<ImageOwned>(destImageHost.getParams());
-	// 	// tmpImg->allocate();
-	// 	// destImageHost.transferToHostMemory(tmpImg.get(), true);
-	// 	//
-	// 	// std::cout << "DEBUG: Before compute: [GPU] EM numerator sum = "
-	// 	//           << tmpImg->voxelSum() << std::endl;
-	// }
+
 	mp_updater->computeEMUpdateImage(inputImageHost, destImageHost);
-	// {
-	// 	ImageBase* emRatioBase =
-	// 	    getImageTmpBuffer(TemporaryImageSpaceBufferType::EM_RATIO);
-	// 	auto* emRatioDev = dynamic_cast<ImageDevice*>(emRatioBase);
-	// 	ASSERT(emRatioDev != nullptr);
-	//
-	// 	// copy to host
-	// 	auto tmpImg = std::make_unique<ImageOwned>(destImageHost.getParams());
-	// 	tmpImg->allocate();
-	// 	destImageHost.transferToHostMemory(tmpImg.get(), true);
-	//
-	// 	std::cout << "DEBUG: After compute: [GPU] EM numerator sum = "
-	// 	          << tmpImg->voxelSum() << std::endl;
-	// }
 }
 
 const cudaStream_t* OSEM_GPU::getAuxStream() const
@@ -616,9 +588,9 @@ void OSEM_GPU::setupForDynamicRecon(int& rank, int& T)
 			// We can do it again here just in case (if code changes in wrapper
 			// or updater), or trust we will remember to do it here again if not
 			// initialized during projector creation
+			printf(
+			    "\nSetting HBasis for OperatorProjectorUpdaterDeviceLR...\n");
 			lr->setHBasis(projectorParams.HBasis);
-
-			printf("lr->getUpdateH(): %d", lr->getUpdateH());
 			if (lr->getUpdateH() != projectorParams.updateH)
 			{
 				throw std::logic_error(
@@ -627,26 +599,6 @@ void OSEM_GPU::setupForDynamicRecon(int& rank, int& T)
 			}
 			HBuffer->fill(0.f);
 			lr->setHBasisWrite(*HBuffer);
-			// {
-			// 	cudaDeviceSynchronize();
-			// 	cudaCheckError();
-			// 	printf("\n DEBUG: After HBuffer->fill(1.f)\n");
-			// 	SyncDeviceToHostHBasisWrite();
-			// 	cudaDeviceSynchronize();
-			// 	cudaCheckError();
-			// 	printf("\n DEBUG: After SyncDeviceToHostHBasisWrite.\n");
-			// 	const auto dims = HBuffer->getDims();
-			// 	for (int r = 0; r < dims[0]; ++r)
-			// 	{
-			// 		for (int t = 0; t < dims[1]; ++t)
-			// 		{
-			// 			printf(" %.2f ", (*HBuffer)[r][t]);
-			// 		}
-			// 		printf("\n");
-			// 	}
-			// 	cudaDeviceSynchronize();
-			// 	cudaCheckError();
-			// }
 		}
 
 		// HBasis is rank x T

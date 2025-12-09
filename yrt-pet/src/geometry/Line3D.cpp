@@ -91,6 +91,14 @@ template Line3DBase<double> Line3DBase<float>::to() const;
 template Line3DBase<float> Line3DBase<double>::to() const;
 
 template <typename TFloat>
+bool Line3DBase<TFloat>::isValid() const
+{
+	return std::abs(point1.x - point2.x) > EPS_FLT ||
+	       std::abs(point1.y - point2.y) > EPS_FLT ||
+	       std::abs(point1.z - point2.z) > EPS_FLT;
+}
+
+template <typename TFloat>
 Line3DBase<TFloat> Line3DBase<TFloat>::nullLine()
 {
 	return Line3DBase{Vector3DBase<TFloat>{0., 0., 0.},

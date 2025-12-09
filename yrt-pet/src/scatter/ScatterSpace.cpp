@@ -158,9 +158,18 @@ ScatterSpace::ScatterSpace(const Scanner& pr_scanner, size_t p_numTOFBins,
 
 	// Allocate the scatter space
 	mp_values = std::make_unique<Array5D<float>>();
+}
+
+void ScatterSpace::allocate()
+{
 	mp_values->allocate(m_numTOFBins, m_numPlanes, m_numAngles, m_numPlanes,
 	                    m_numAngles);
 	mp_values->fill(0.0f);
+}
+
+bool ScatterSpace::isMemoryValid() const
+{
+	return mp_values != nullptr && mp_values->getRawPointer() != nullptr;
 }
 
 void ScatterSpace::readFromFile(const std::string& fname)
@@ -355,6 +364,107 @@ void ScatterSpace::computeCylindricalCoordinates(const Line3D& lor,
 	angle2 = wrapAngle(angle2);
 }
 
+Line3D ScatterSpace::lineFromCylindricalCoordinates(float planePosition1,
+                                                    float angle1,
+                                                    float planePosition2,
+                                                    float angle2) const
+{
+	Line3D lor;
+
+	auto coordinatesToPoint =
+	    [this](Vector3D& point, float angle, float planePosition)
+	{
+		{
+			if (std::abs(angle - 0.5f * PI_FLT) < 1e-6f ||
+			    std::abs(angle - 1.5f * PI_FLT) < 1e-6f)
+			{
+				point.x = 0;
+				point.y = getRadius();
+			}
+			else
+			{
+				const float ratio = std::tan(angle);
+				point.x = ratio * getRadius();
+				point.y = ratio * getRadius();
+			}
+			point.z = planePosition;
+		}
+	};
+
+	coordinatesToPoint(lor.point1, angle1, planePosition1);
+	coordinatesToPoint(lor.point2, angle2, planePosition2);
+
+	return lor;
+}
+
+ScatterSpace::ScatterSpacePosition
+    ScatterSpace::getPosition(const ScatterSpaceIndex& idx) const
+{
+	const float tof_ps = getTOF_ps(idx.tofBin);
+	const float planePosition1 = getPlanePosition(idx.planeIndex1);
+	const float planePosition2 = getPlanePosition(idx.planeIndex2);
+	const float angle1 = getAngle(idx.angleIndex1);
+	const float angle2 = getAngle(idx.angleIndex2);
+	return {tof_ps, planePosition1, angle1, planePosition2, angle2};
+}
+
+std::tuple<float, Line3D>
+    ScatterSpace::getTOFAndLORFromIndex(const ScatterSpaceIndex& idx) const
+{
+	const ScatterSpacePosition pos = getPosition(idx);
+	return {pos.tof_ps,
+	        lineFromCylindricalCoordinates(pos.planePosition1, pos.angle1,
+	                                       pos.planePosition2, pos.angle2)};
+}
+
+Line3D ScatterSpace::getLORFromIndex(const ScatterSpaceIndex& idx) const
+{
+	const ScatterSpacePosition pos = getPosition(idx);
+	return lineFromCylindricalCoordinates(pos.planePosition1, pos.angle1,
+	                                      pos.planePosition2, pos.angle2);
+}
+
+ScatterSpace::ScatterSpacePosition
+    ScatterSpace::histogramBinToScatterSpacePosition(
+        const histo_bin_t& histoBinId) const
+{
+	det_id_t d1, d2;
+	float tof_ps = 0.0f;
+
+	if (std::holds_alternative<det_pair_t>(histoBinId))
+	{
+		const auto detPair = std::get<det_pair_t>(histoBinId);
+		d1 = detPair.d1;
+		d2 = detPair.d2;
+	}
+	else if (std::holds_alternative<det_pair_tof_t>(histoBinId))
+	{
+		const auto detPairTOF = std::get<det_pair_tof_t>(histoBinId);
+		d1 = detPairTOF.d1;
+		d2 = detPairTOF.d2;
+		tof_ps = detPairTOF.tof_ps;
+	}
+	else
+	{
+		throw std::runtime_error("Unsupported histogram bin type");
+	}
+
+	// Gather the LOR for the scanner's LUT
+	const Vector3D p1 = mr_scanner.getDetectorPos(d1);
+	const Vector3D p2 = mr_scanner.getDetectorPos(d2);
+	const auto lor = Line3D{p1, p2};
+
+	ScatterSpacePosition pos{};
+
+	// Convert the LOR to a pair of cylindrical coordinates
+	computeCylindricalCoordinates(lor, pos.planePosition1, pos.angle1,
+	                              pos.planePosition2, pos.angle2);
+
+	pos.tof_ps = tof_ps;
+
+	return pos;
+}
+
 float ScatterSpace::getTOF_ps(size_t TOFBin) const
 {
 	return m_TOFBinStep_ps * (static_cast<float>(TOFBin) + 0.5f);
@@ -423,6 +533,39 @@ void ScatterSpace::setValue(size_t tofBin, size_t planeIndex1,
 	               value);
 }
 
+void ScatterSpace::setValueFlat(size_t flatIdx, float value)
+{
+	mp_values->setFlat(flatIdx, value);
+}
+
+void ScatterSpace::incrementValue(const ScatterSpaceIndex& idx, float value)
+{
+	incrementValue(idx.tofBin, idx.planeIndex1, idx.angleIndex1,
+	               idx.planeIndex2, idx.angleIndex2, value);
+}
+
+void ScatterSpace::incrementValueAtomic(const ScatterSpaceIndex& idx,
+                                        float value)
+{
+	const size_t flatIdx = getFlatIdx(idx);
+	float* raw_ptr = mp_values->getRawPointer();
+	std::atomic_ref<float> atomic_elem(raw_ptr[flatIdx]);
+	atomic_elem += value;
+}
+
+void ScatterSpace::incrementValue(size_t tofBin, size_t planeIndex1,
+                                  size_t angleIndex1, size_t planeIndex2,
+                                  size_t angleIndex2, float value)
+{
+	mp_values->increment(
+	    {tofBin, planeIndex1, angleIndex1, planeIndex2, angleIndex2}, value);
+}
+
+void ScatterSpace::incrementValueFlat(size_t flatIdx, float value)
+{
+	mp_values->incrementFlat(flatIdx, value);
+}
+
 void ScatterSpace::symmetrize()
 {
 	// Here, make it so that for all elements of this scatter space,
@@ -447,12 +590,11 @@ void ScatterSpace::symmetrize()
 						const float d2d1Value =
 						    getValue(0, planeIndex2, angleIndex2, planeIndex1,
 						             angleIndex1);
-						if (d1d2Value != d2d1Value)
-						{
-							setValue(0, planeIndex1, angleIndex1, planeIndex2,
-							         angleIndex2,
-							         std::max(d1d2Value, d2d1Value));
-						}
+
+						// Just put the largest one of both (if one is 0 and the
+						// other is non-null, use the non-null one)
+						setValue(0, planeIndex1, angleIndex1, planeIndex2,
+						         angleIndex2, std::max(d1d2Value, d2d1Value));
 					}
 				}
 			}
@@ -512,6 +654,24 @@ size_t ScatterSpace::getNumPlanes() const
 size_t ScatterSpace::getNumAngles() const
 {
 	return m_numAngles;
+}
+
+size_t ScatterSpace::getSizeTotal() const
+{
+	return mp_values->getSizeTotal();
+}
+
+ScatterSpace::ScatterSpaceIndex
+    ScatterSpace::unravelIndex(size_t flatIndex) const
+{
+	const auto indices = mp_values->unravelIdx(flatIndex);
+	return {indices[0], indices[1], indices[2], indices[3], indices[4]};
+}
+
+size_t ScatterSpace::getFlatIdx(const ScatterSpaceIndex& idx) const
+{
+	return mp_values->getFlatIdx({idx.tofBin, idx.planeIndex1, idx.angleIndex1,
+	                              idx.planeIndex2, idx.angleIndex2});
 }
 
 float ScatterSpace::getTOFBinStep_ps() const
@@ -592,40 +752,8 @@ void ScatterSpace::clearProjections(float value)
 float ScatterSpace::getProjectionValueFromHistogramBin(
     histo_bin_t histoBinId) const
 {
-	det_id_t d1, d2;
-	float tof_ps = 0.0f;
-	if (std::holds_alternative<det_pair_t>(histoBinId))
-	{
-		auto detPair = std::get<det_pair_t>(histoBinId);
-		d1 = detPair.d1;
-		d2 = detPair.d2;
-	}
-	else if (std::holds_alternative<det_pair_tof_t>(histoBinId))
-	{
-		auto detPairTOF = std::get<det_pair_tof_t>(histoBinId);
-		d1 = detPairTOF.d1;
-		d2 = detPairTOF.d2;
-		tof_ps = detPairTOF.tof_ps;
-	}
-	else
-	{
-		throw std::runtime_error("Unsupported histogram bin type");
-	}
-
-	// Gather the LOR for the scanner's LUT
-	const Vector3D p1 = mr_scanner.getDetectorPos(d1);
-	const Vector3D p2 = mr_scanner.getDetectorPos(d2);
-	const auto lor = Line3D{p1, p2};
-
-	ScatterSpacePosition pos{};
-
-	// Convert the LOR to a pair of cylindrical coordinates
-	computeCylindricalCoordinates(lor, pos.planePosition1, pos.angle1,
-	                              pos.planePosition2, pos.angle2);
-
-	pos.tof_ps = tof_ps;
-
-	// Do linear interpolation on the scatter-space value ans return
+	ScatterSpacePosition pos = histogramBinToScatterSpacePosition(histoBinId);
+	// Do linear interpolation on the scatter-space value and return
 	return getLinearInterpolationValue(pos);
 }
 

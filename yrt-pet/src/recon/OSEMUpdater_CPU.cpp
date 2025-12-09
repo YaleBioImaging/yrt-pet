@@ -64,7 +64,7 @@ void OSEMUpdater_CPU::computeSensitivityImage(Image& destImage) const
 		                           constraintParams);
 		    if (binFilter->isValid(consManager, constraintParams, tid))
 		    {
-			    progressDisplay.progress(tid, 1);
+			    progressDisplay.incrementProgress(tid, 1);
 			    sensImgGenProjData->getProjectionProperties(
 			        projectionProperties, projPropManager, bin, tid);
 			    const float projValue =

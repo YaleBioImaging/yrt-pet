@@ -64,6 +64,10 @@ public:
 	ScatterSpace(const Scanner& pr_scanner, size_t p_numTOFBins,
 	             size_t p_numPlanes, size_t p_numAngles);
 
+	// Memory management
+	void allocate();
+	bool isMemoryValid() const;
+
 	// I/O
 	void readFromFile(const std::string& fname);
 	void writeToFile(const std::string& fname) const;
@@ -82,6 +86,17 @@ public:
 	                                          float& angle1,
 	                                          float& planePosition2,
 	                                          float& angle2);
+	Line3D lineFromCylindricalCoordinates(float planePosition1, float angle1,
+	                                      float planePosition2,
+	                                      float angle2) const;
+
+	// Getters
+	ScatterSpacePosition getPosition(const ScatterSpaceIndex& idx) const;
+	std::tuple<float, Line3D>
+	    getTOFAndLORFromIndex(const ScatterSpaceIndex& idx) const;
+	Line3D getLORFromIndex(const ScatterSpaceIndex& idx) const;  // Ignore TOF
+	ScatterSpacePosition
+	    histogramBinToScatterSpacePosition(const histo_bin_t& histoBinId) const;
 
 	// Get the continuous position from the logical index
 	float getTOF_ps(size_t TOFBin) const;             // in picoseconds
@@ -100,6 +115,12 @@ public:
 	void setValue(const ScatterSpaceIndex& idx, float value);
 	void setValue(size_t tofBin, size_t planeIndex1, size_t angleIndex1,
 	              size_t planeIndex2, size_t angleIndex2, float value);
+	void setValueFlat(size_t flatIdx, float value);
+	void incrementValue(const ScatterSpaceIndex& idx, float value);
+	void incrementValueAtomic(const ScatterSpaceIndex& idx, float value);
+	void incrementValue(size_t tofBin, size_t planeIndex1, size_t angleIndex1,
+	                    size_t planeIndex2, size_t angleIndex2, float value);
+	void incrementValueFlat(size_t flatIdx, float value);
 
 	// To avoid d1-d2 vs d2-d1 problems (for no TOF)
 	void symmetrize();
@@ -114,6 +135,9 @@ public:
 	size_t getNumTOFBins() const;
 	size_t getNumPlanes() const;
 	size_t getNumAngles() const;
+	size_t getSizeTotal() const;
+	ScatterSpaceIndex unravelIndex(size_t flatIndex) const;
+	size_t getFlatIdx(const ScatterSpaceIndex& idx) const;
 
 	// Scatter-space properties
 	float getTOFBinStep_ps() const;

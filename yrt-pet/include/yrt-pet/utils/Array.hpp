@@ -60,7 +60,10 @@ template <int ndim, typename T>
 class Array
 {
 public:
-	Array() : _shape(nullptr), _data(nullptr) {}
+	Array() : _data(nullptr)
+	{
+		_shape.fill(0ull);
+	}
 
 	virtual ~Array() = default;
 
@@ -74,6 +77,19 @@ public:
 			stride *= _shape[dim];
 		}
 		return flat_idx;
+	}
+
+	std::array<size_t, ndim> unravelIdx(size_t flatIdx) const
+	{
+		size_t flatIdxRemains = flatIdx;
+		std::array<size_t, ndim> strides = getStrides();
+		std::array<size_t, ndim> indices;
+		for (size_t dim = 0; dim < ndim; ++dim)
+		{
+			indices[dim] = flatIdxRemains / strides[dim];
+			flatIdxRemains -= indices[dim] * strides[dim];
+		}
+		return indices;
 	}
 
 	T& get(const std::array<size_t, ndim>& idx) const
@@ -103,7 +119,7 @@ public:
 
 	size_t getSize(size_t dim) const
 	{
-		if (_shape == nullptr)
+		if (!isShapeSet())
 		{
 			return 0;
 		}
@@ -113,13 +129,13 @@ public:
 		}
 		else
 		{
-			return _shape.get()[dim];
+			return _shape[dim];
 		}
 	}
 
 	size_t getSizeTotal() const
 	{
-		if (_shape == nullptr)
+		if (!isShapeSet())
 		{
 			return 0;
 		}
@@ -128,7 +144,7 @@ public:
 			size_t size = 1;
 			for (int dim = 0; dim < ndim; dim++)
 			{
-				size *= _shape.get()[dim];
+				size *= _shape[dim];
 			}
 			return size;
 		}
@@ -138,18 +154,13 @@ public:
 	{
 		for (int dim = 0; dim < ndim; dim++)
 		{
-			output[dim] = _shape.get()[dim];
+			output[dim] = _shape[dim];
 		}
 	}
 
 	std::array<size_t, ndim> getDims() const
 	{
-		std::array<size_t, ndim> dims;
-		for (int dim = 0; dim < ndim; dim++)
-		{
-			dims[dim] = _shape.get()[dim];
-		}
-		return dims;
+		return _shape;
 	}
 
 	std::array<size_t, ndim> getStrides() const
@@ -185,9 +196,10 @@ public:
 		}
 		int magic = MAGIC_NUMBER;
 		int num_dims = ndim;
+		const size_t* shape_ptr = &_shape[0];
 		file.write((char*)&magic, sizeof(int));
 		file.write((char*)&num_dims, sizeof(int));
-		file.write((char*)_shape.get(), ndim * sizeof(size_t));
+		file.write((char*)shape_ptr, ndim * sizeof(size_t));
 		file.write((char*)_data, getSizeTotal() * sizeof(T));
 	}
 
@@ -399,23 +411,15 @@ public:
 	}
 
 protected:
-	std::unique_ptr<size_t[]> _shape;
+	//std::unique_ptr<size_t[]> _shape;
+	std::array<size_t, ndim> _shape;
 	T* _data;
 
 	void setShape(size_t* dims)
 	{
-		if (_shape == nullptr)
-		{
-			_shape = std::make_unique<size_t[]>(ndim);
-		}
 		for (int dim = 0; dim < ndim; dim++)
 		{
-			_shape.get()[dim] = dims[dim];
-		}
-		if (_shape == nullptr)
-		{
-			throw std::runtime_error(
-			    "Error occured while trying to change the array shape");
+			_shape[dim] = dims[dim];
 		}
 	}
 
@@ -435,6 +439,18 @@ protected:
 			throw;
 		}
 		return data_ptr;
+	}
+
+	bool isShapeSet() const
+	{
+		for (size_t dim = 0; dim < ndim; dim++)
+		{
+			if (_shape[dim] == 0)
+			{
+				return false;
+			}
+		}
+		return true;
 	}
 };
 
@@ -547,12 +563,12 @@ public:
 
 	T* operator[](size_t ri) const
 	{
-		return &this->_data[ri * this->_shape.get()[1]];
+		return &this->_data[ri * this->_shape[1]];
 	}
 
 	T* operator[](size_t ri)
 	{
-		return &this->_data[ri * this->_shape.get()[1]];
+		return &this->_data[ri * this->_shape[1]];
 	}
 
 private:
@@ -645,20 +661,20 @@ public:
 
 	T* getSlicePtr(size_t ri)
 	{
-		return &this->_data[ri * this->_shape.get()[1] * this->_shape.get()[2]];
+		return &this->_data[ri * this->_shape[1] * this->_shape[2]];
 	}
 
 	T* getSlicePtr(size_t ri) const
 	{
-		return &this->_data[ri * this->_shape.get()[1] * this->_shape.get()[2]];
+		return &this->_data[ri * this->_shape[1] * this->_shape[2]];
 	}
 
 	Array2DAlias<T> operator[](size_t ri)
 	{
 		Array2DAlias<T> slice_array;
 		T* data_slice = getSlicePtr(ri);
-		slice_array.bind(data_slice, this->_shape.get()[1],
-		                 this->_shape.get()[2]);
+		slice_array.bind(data_slice, this->_shape[1],
+		                 this->_shape[2]);
 		return slice_array;
 	}
 
@@ -666,8 +682,8 @@ public:
 	{
 		Array2DAlias<T> slice_array;
 		T* data_slice = getSlicePtr(ri);
-		slice_array.bind(data_slice, this->_shape.get()[1],
-		                 this->_shape.get()[2]);
+		slice_array.bind(data_slice, this->_shape[1],
+		                 this->_shape[2]);
 		return slice_array;
 	}
 

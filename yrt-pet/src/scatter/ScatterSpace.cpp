@@ -519,6 +519,11 @@ float ScatterSpace::getValue(size_t tofBin, size_t planeIndex1,
 	    {tofBin, planeIndex1, angleIndex1, planeIndex2, angleIndex2});
 }
 
+float ScatterSpace::getValueFlat(size_t flatIdx) const
+{
+	return mp_values->getFlat(flatIdx);
+}
+
 void ScatterSpace::setValue(const ScatterSpaceIndex& idx, float value)
 {
 	setValue(idx.tofBin, idx.planeIndex1, idx.angleIndex1, idx.planeIndex2,
@@ -661,10 +666,9 @@ size_t ScatterSpace::getSizeTotal() const
 	return mp_values->getSizeTotal();
 }
 
-ScatterSpace::ScatterSpaceIndex
-    ScatterSpace::unravelIndex(size_t flatIndex) const
+ScatterSpace::ScatterSpaceIndex ScatterSpace::unravelIndex(size_t flatIdx) const
 {
-	const auto indices = mp_values->unravelIdx(flatIndex);
+	const auto indices = mp_values->unravelIdx(flatIdx);
 	return {indices[0], indices[1], indices[2], indices[3], indices[4]};
 }
 

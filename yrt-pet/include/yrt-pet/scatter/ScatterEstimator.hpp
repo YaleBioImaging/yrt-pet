@@ -45,8 +45,9 @@ public:
 
 	// Steps (YN: Maybe they should be protected/private)
 	void computeScatterEstimate();
+	void computeAcfInScatterSpace();
 	void computeScatterTailsMask();
-	void computePromptsAcfAndRandomsInScatterSpace();
+	void computePromptsAndRandomsInScatterSpace();
 	float computeTailFittingFactor() const;
 
 	// Getters
@@ -59,9 +60,9 @@ public:
 	bool useSensitivity() const;
 
 protected:
+	void fillAcf();
 	void fillScatterTailsMask();
 	void fillPromptsAndRandoms();
-	void fillAcf();
 
 private:
 	// TODO: Eventually, this class should not depend on the fully-sampled
@@ -87,14 +88,15 @@ private:
 	// Where to save intermediary scatter-space values
 	std::filesystem::path m_saveIntermediary_dir;
 
+	// Note: "scs" stands for "scatter-space"
 	// Scatter estimate in scatter-space
 	std::unique_ptr<ScatterSpace> mp_scatter_scs;
 
 	// Scatter-space values for tail-fitting purposes
-	std::unique_ptr<ScatterSpace> mp_prompts_scs;
-	std::unique_ptr<ScatterSpace> mp_acf_scs;
-	std::unique_ptr<ScatterSpace> mp_randoms_scs;
-	std::unique_ptr<ScatterSpace> mp_tail_scs;
+	std::unique_ptr<ScatterSpace> mp_prompts_scs;  // From "mr_prompts"
+	std::unique_ptr<ScatterSpace> mp_acf_scs;      // Used to generate tail mask
+	std::unique_ptr<ScatterSpace> mp_randoms_scs;  // Randoms estimates
+	std::unique_ptr<ScatterSpace> mp_tail_scs;     // Tail mask
 };
 }  // namespace scatter
 }  // namespace yrt

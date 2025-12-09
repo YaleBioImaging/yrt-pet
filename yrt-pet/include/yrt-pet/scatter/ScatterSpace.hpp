@@ -112,6 +112,7 @@ public:
 	float getValue(const ScatterSpaceIndex& idx) const;
 	float getValue(size_t tofBin, size_t planeIndex1, size_t angleIndex1,
 	               size_t planeIndex2, size_t angleIndex2) const;
+	float getValueFlat(size_t flatIdx) const;
 	void setValue(const ScatterSpaceIndex& idx, float value);
 	void setValue(size_t tofBin, size_t planeIndex1, size_t angleIndex1,
 	              size_t planeIndex2, size_t angleIndex2, float value);
@@ -136,7 +137,7 @@ public:
 	size_t getNumPlanes() const;
 	size_t getNumAngles() const;
 	size_t getSizeTotal() const;
-	ScatterSpaceIndex unravelIndex(size_t flatIndex) const;
+	ScatterSpaceIndex unravelIndex(size_t flatIdx) const;
 	size_t getFlatIdx(const ScatterSpaceIndex& idx) const;
 
 	// Scatter-space properties

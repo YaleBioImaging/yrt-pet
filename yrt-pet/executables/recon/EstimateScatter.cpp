@@ -180,6 +180,8 @@ int main(int argc, char** argv)
 		scatter::CrystalMaterial crystalMaterial =
 		    scatter::getCrystalMaterialFromName(crystalMaterial_name);
 
+		/*
+
 		std::cout << "Reading prompts histogram..." << std::endl;
 		auto promptsHis =
 		    std::make_unique<Histogram3DOwned>(*scanner, promptsHis_fname);
@@ -258,6 +260,8 @@ int main(int argc, char** argv)
 		                                                      denormalize);
 
 		scatterEstimate->writeToFile(scatterOut_fname);
+
+		*/
 	}
 	catch (const cxxopts::exceptions::exception& e)
 	{

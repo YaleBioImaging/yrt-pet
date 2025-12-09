@@ -8,8 +8,10 @@
 #include "yrt-pet/datastruct/image/Image.hpp"
 #include "yrt-pet/datastruct/scanner/Scanner.hpp"
 #include "yrt-pet/geometry/Constants.hpp"
+#include "yrt-pet/operators/OperatorProjectorSiddon.hpp"
 #include "yrt-pet/scatter/Crystal.hpp"
 #include "yrt-pet/utils/Assert.hpp"
+#include "yrt-pet/utils/ProgressDisplayMultiThread.hpp"
 #include "yrt-pet/utils/ReconstructionUtils.hpp"
 
 #if BUILD_PYBIND11
@@ -42,7 +44,7 @@ void py_setup_scatterestimator(py::module& m)
 	      &scatter::ScatterEstimator::computeScatterEstimate, "num_z"_a,
 	      "num_phi"_a, "num_r"_a);
 	c.def("generateScatterTailsMask",
-	      &scatter::ScatterEstimator::generateScatterTailsMask);
+	      &scatter::ScatterEstimator::computeScatterTailsMask);
 	c.def("computeTailFittingFactor",
 	      &scatter::ScatterEstimator::computeTailFittingFactor,
 	      "scatter_histogram"_a, "scatter_tails_mask"_a);
@@ -51,57 +53,77 @@ void py_setup_scatterestimator(py::module& m)
 
 #endif
 
-namespace yrt
-{
-namespace scatter
+namespace yrt::scatter
 {
 
 ScatterEstimator::ScatterEstimator(
     const Scanner& pr_scanner, const Image& pr_lambda, const Image& pr_mu,
-    const Histogram3D* pp_promptsHis, const Histogram3D* pp_randomsHis,
-    const Histogram3D* pp_acfHis, const Histogram3D* pp_sensitivityHis,
-    CrystalMaterial p_crystalMaterial, int seedi, int maskWidth,
-    float maskThreshold, const std::string& saveIntermediary_dir)
+    const ProjectionData& pr_prompts, size_t numTOFBins, size_t numPlanes,
+    size_t numAngles, const Histogram3D* pp_randomsHis,
+    const Histogram3D* pp_sensitivityHis, CrystalMaterial p_crystalMaterial,
+    int seedi, size_t maskWidth, float maskThreshold,
+    const std::string& saveIntermediary_dir)
     : mr_scanner(pr_scanner),
-      m_sss(pr_scanner, pr_mu, pr_lambda, p_crystalMaterial, seedi)
+      m_sss(pr_scanner, pr_mu, pr_lambda, p_crystalMaterial, seedi),
+      mr_prompts(pr_prompts),
+      mp_randomsHis(pp_randomsHis),
+      mp_sensitivityHis(pp_sensitivityHis),
+      m_scatterTailsMaskWidth(maskWidth),
+      m_maskThreshold(maskThreshold),
+      m_saveIntermediary_dir(saveIntermediary_dir)
 {
-	mp_promptsHis = pp_promptsHis;
-	mp_acfHis = pp_acfHis;
-	ASSERT_MSG(mp_promptsHis != nullptr, "Prompts histogram provided is null");
-	ASSERT_MSG(mp_acfHis != nullptr, "ACF histogram provided is null");
+	// Scatter estimate in scatter-space
+	mp_scatter_scs = std::make_unique<ScatterSpace>(mr_scanner, numTOFBins,
+	                                                numPlanes, numAngles);
 
-	mp_randomsHis = pp_randomsHis;
-	mp_sensitivityHis = pp_sensitivityHis;
-	if (maskWidth > 0)
+	// Other scatter-space components
+	mp_prompts_scs = std::make_unique<ScatterSpace>(mr_scanner, numTOFBins,
+	                                                numPlanes, numAngles);
+	mp_acf_scs = std::make_unique<ScatterSpace>(mr_scanner, numTOFBins,
+	                                            numPlanes, numAngles);
+	mp_randoms_scs = std::make_unique<ScatterSpace>(mr_scanner, numTOFBins,
+	                                                numPlanes, numAngles);
+	mp_tail_scs = std::make_unique<ScatterSpace>(mr_scanner, numTOFBins,
+	                                             numPlanes, numAngles);
+}
+
+void ScatterEstimator::allocate()
+{
+	mp_scatter_scs->allocate();
+	mp_prompts_scs->allocate();
+	mp_acf_scs->allocate();
+
+	if (useRandomsEstimates())
 	{
-		m_scatterTailsMaskWidth = maskWidth;
+		mp_randoms_scs->allocate();
 	}
-	else
-	{
-		// Use one tenth of the histogram width
-		m_scatterTailsMaskWidth = mp_promptsHis->numR / 10;
-	}
-	m_maskThreshold = maskThreshold;
-	m_saveIntermediary_dir = saveIntermediary_dir;
+
+	mp_tail_scs->allocate();
 }
 
 std::unique_ptr<Histogram3DOwned>
-    ScatterEstimator::computeTailFittedScatterEstimate(size_t numberZ,
-                                                       size_t numberPhi,
-                                                       size_t numberR,
-                                                       bool denormalize)
+    ScatterEstimator::computeTailFittedScatterEstimate()
 {
-	auto scatterEstimate = computeScatterEstimate(numberZ, numberPhi, numberR);
+	computeScatterEstimate();
 
-	const auto scatterTailsMask = generateScatterTailsMask();
 	if (!m_saveIntermediary_dir.empty())
 	{
-		scatterTailsMask->writeToFile(m_saveIntermediary_dir /
-		                              "intermediary_scatterTailsMask.his");
+		mp_scatter_scs->writeToFile(
+		    m_saveIntermediary_dir /
+		    "intermediary_scatterEstimate_nonfitted.his");
 	}
 
-	const float fac =
-	    computeTailFittingFactor(scatterEstimate.get(), scatterTailsMask.get());
+	computeScatterTailsMask();
+
+	if (!m_saveIntermediary_dir.empty())
+	{
+		mp_tail_scs->writeToFile(m_saveIntermediary_dir /
+		                         "intermediary_scatterTailsMask.his");
+	}
+
+	computePromptsAcfAndRandomsInScatterSpace();
+
+	const float fac = computeTailFittingFactor();
 
 	std::cout << "Applying tail-fit factor..." << std::endl;
 	scatterEstimate->getData() *= fac;
@@ -124,37 +146,55 @@ std::unique_ptr<Histogram3DOwned>
 	return scatterEstimate;
 }
 
-std::unique_ptr<Histogram3DOwned>
-    ScatterEstimator::computeScatterEstimate(size_t numberZ, size_t numberPhi,
-                                             size_t numberR)
+void ScatterEstimator::computeScatterEstimate()
 {
-	auto scatterHisto = std::make_unique<Histogram3DOwned>(mr_scanner);
-	scatterHisto->allocate();
-	scatterHisto->clearProjections();
+	std::cout << "Estimating scatter..." << std::endl;
+	ASSERT_MSG(mp_scatter_scs->isMemoryValid(),
+	           "Scatter-space array is unallocated (for scatter estimates)");
 
-	m_sss.runSSS(numberZ, numberPhi, numberR, *scatterHisto);
-
-	return scatterHisto;
+	m_sss.runSSS(*mp_scatter_scs);
 }
 
-std::unique_ptr<Histogram3DOwned>
-    ScatterEstimator::generateScatterTailsMask() const
+void ScatterEstimator::computeScatterTailsMask()
 {
 	std::cout << "Generating scatter tails mask..." << std::endl;
-	auto scatterTailsMask = std::make_unique<Histogram3DOwned>(mr_scanner);
-	scatterTailsMask->allocate();
+	ASSERT_MSG(mp_tail_scs->isMemoryValid(),
+	           "Scatter-space array is unallocated (for tail)");
 
-	fillScatterTailsMask(*mp_acfHis, *scatterTailsMask, m_scatterTailsMaskWidth,
-	                     m_maskThreshold);
-
-	return scatterTailsMask;
+	fillScatterTailsMask();
 }
 
-float ScatterEstimator::computeTailFittingFactor(
-    const Histogram3D* scatterHistogram,
-    const Histogram3D* scatterTailsMask) const
+void ScatterEstimator::computePromptsAcfAndRandomsInScatterSpace()
 {
-	std::cout << "Computing Tail-fit factor..." << std::endl;
+	const bool useRandoms = useRandomsEstimates();
+
+	std::cout << "Populating prompts ";
+	if (useRandoms)
+	{
+		std::cout << "and randoms estimates ";
+	}
+	std::cout << "in scatter space..." << std::endl;
+	ASSERT_MSG(mp_prompts_scs->isMemoryValid(),
+	           "Scatter-space array is unallocated (for prompts)");
+	if (useRandoms)
+	{
+		ASSERT_MSG(mp_randoms_scs->isMemoryValid(),
+		           "Scatter-space array is unallocated (for randoms estimates)");
+	}
+
+	fillPromptsAndRandoms();
+
+	std::cout << "Populating attenuation correction factors in scatter space..."
+	          << std::endl;
+	ASSERT_MSG(mp_acf_scs->isMemoryValid(),
+	           "Scatter-space array is unallocated (for ACFs)");
+
+	fillAcf();
+}
+
+float ScatterEstimator::computeTailFittingFactor() const
+{
+	std::cout << "Computing tail-fit factor..." << std::endl;
 	ASSERT_MSG(scatterHistogram->count() == scatterTailsMask->count(),
 	           "Size mismatch between input histograms");
 	double scatterSum = 0.0f;
@@ -195,85 +235,149 @@ float ScatterEstimator::computeTailFittingFactor(
 	return fac;
 }
 
-void ScatterEstimator::fillScatterTailsMask(const Histogram3D& acfHis,
-                                            Histogram3D& mask, size_t maskWidth,
-                                            float maskThreshold)
+const ScatterSpace& ScatterEstimator::getScatterEstimate() const
 {
-	const size_t numBins = acfHis.count();
-	ASSERT(mask.isMemoryValid());
-	ASSERT(acfHis.isMemoryValid());
-	mask.clearProjections(0.0f);
-
-	for (bin_t binId = 0; binId < numBins; binId++)
-	{
-		const float acfValue = acfHis.getProjectionValue(binId);
-		const bool initValueOn = acfValue == 0.0 /* For invalid acf bins */ ||
-		                         acfValue > maskThreshold;
-		mask.setProjectionValue(binId, initValueOn ? 1.0f : 0.0f);
-	}
-
-	for (size_t zBin = 0; zBin < acfHis.numZBin; zBin++)
-	{
-		for (size_t phi = 0; phi < acfHis.numPhi; phi++)
-		{
-			const size_t initRowBinId = acfHis.getBinIdFromCoords(0, phi, zBin);
-
-			// Process beginning of the mask
-			size_t r;
-			for (r = 0; r < acfHis.numR; r++)
-			{
-				const bin_t binId = initRowBinId + r;
-				if (mask.getProjectionValue(binId) < 1.0f)
-				{
-					if (r > maskWidth)
-					{
-						// Put zeros from the beginning of the row to the
-						// current position minus the width of the mask
-						for (bin_t newBinId = initRowBinId;
-						     newBinId < binId - maskWidth; newBinId++)
-						{
-							mask.setProjectionValue(newBinId, 0.0f);
-						}
-					}
-					break;
-				}
-			}
-
-			// For when the line is true everywhere
-			if (r == acfHis.numR)
-			{
-				for (bin_t binId = initRowBinId;
-				     binId < initRowBinId + acfHis.numR; binId++)
-				{
-					mask.setProjectionValue(binId, 0.0f);
-				}
-				continue;
-			}
-
-			// Process end of the mask
-			const long lastRValue = static_cast<long>(acfHis.numR - 1);
-			for (long reverseR = lastRValue; reverseR >= 0; reverseR--)
-			{
-				const bin_t binId = initRowBinId + reverseR;
-				if (mask.getProjectionValue(binId) < 1.0f)
-				{
-					if (reverseR < static_cast<long>(acfHis.numR - maskWidth))
-					{
-						// Put zeros from the end of the row to the
-						// current position plus the width of the mask
-						for (long newR = lastRValue;
-						     newR >= static_cast<long>(reverseR + maskWidth);
-						     newR--)
-						{
-							const bin_t newBinId = newR + initRowBinId;
-							mask.setProjectionValue(newBinId, 0.0f);
-						}
-					}
-					break;
-				}
-			}
-		}
-	}
+	return *mp_scatter_scs;
 }
-}  // namespace scatter
-}  // namespace yrt
+
+const ScatterSpace& ScatterEstimator::getPromptsInScatterSpace() const
+{
+	return *mp_prompts_scs;
+}
+
+const ScatterSpace& ScatterEstimator::getAcfInScatterSpace() const
+{
+	return *mp_acf_scs;
+}
+
+const ScatterSpace& ScatterEstimator::getRandomsInScatterSpace() const
+{
+	return *mp_randoms_scs;
+}
+
+const ScatterSpace& ScatterEstimator::getTailInScatterSpace() const
+{
+	return *mp_tail_scs;
+}
+
+bool ScatterEstimator::useRandomsEstimates() const
+{
+	return mp_randomsHis != nullptr || mr_prompts.hasRandomsEstimates();
+}
+
+bool ScatterEstimator::useSensitivity() const
+{
+	return mp_sensitivityHis != nullptr;
+}
+
+void ScatterEstimator::fillScatterTailsMask()
+{
+	// TODO NOW:
+	//  - For every bin in the scatter-space:
+	//    - Compute the ACF and populate the ACF scatter-space array
+	//    - Designate whether it's a tail or not
+	//  - Expand the tail by "m_scatterTailsMaskWidth" detectors
+	throw std::runtime_error("Function fillScatterTailsMask() unimplemented");
+}
+
+void ScatterEstimator::fillPromptsAndRandoms()
+{
+	// Iterate on all events or all histogram bins
+	const size_t count = mr_prompts.count();
+
+	const bool applySensitivity = useSensitivity();
+
+	// Only used for printing purposes
+	const int numThreads = globals::getNumThreads();
+	const size_t progressMax = count;
+	util::ProgressDisplayMultiThread progressBar(numThreads, progressMax, 5);
+
+	util::parallelForChunked(
+	    count, globals::getNumThreads(),
+	    [&progressBar, applySensitivity, this](size_t binId, size_t threadId)
+	    {
+		    progressBar.incrementProgress(threadId);
+
+		    // Gather prompts
+		    float promptsValue = mr_prompts.getProjectionValue(binId);
+
+		    // Histogram bin
+		    const histo_bin_t histoBin = mr_prompts.getHistogramBin(binId);
+
+		    // Normalize prompts value
+		    if (applySensitivity)
+		    {
+			    const float sensitivity =
+			        mp_sensitivityHis->getProjectionValueFromHistogramBin(
+			            histoBin);
+			    if (sensitivity > EPS_FLT)
+			    {
+				    promptsValue /= sensitivity;
+			    }
+			    else
+			    {
+				    promptsValue = 0.0f;
+			    }
+		    }
+
+		    // Gather randoms estimate if needed
+		    float randomsEstimate = 0.0f;
+		    if (mp_randomsHis != nullptr)
+		    {
+			    randomsEstimate =
+			        mp_randomsHis->getProjectionValueFromHistogramBin(histoBin);
+		    }
+		    else if (mr_prompts.hasRandomsEstimates())
+		    {
+			    randomsEstimate = mr_prompts.hasRandomsEstimates();
+		    }
+
+		    // Gather scatter-space index
+		    const ScatterSpace::ScatterSpacePosition scsPos =
+		        mp_prompts_scs->histogramBinToScatterSpacePosition(histoBin);
+		    const ScatterSpace::ScatterSpaceIndex scsIdx =
+		        mp_prompts_scs->getNearestNeighborIndex(scsPos);
+
+		    // Increment scatter-space arrays (Atomic)
+		    mp_prompts_scs->incrementValueAtomic(scsIdx, promptsValue);
+		    if (randomsEstimate > 0.0f)
+		    {
+			    mp_randoms_scs->incrementValueAtomic(scsIdx, randomsEstimate);
+		    }
+	    });
+}
+
+void ScatterEstimator::fillAcf()
+{
+
+	const size_t numSamples = mp_acf_scs->getSizeTotal();
+
+	// Only used for printing purposes
+	const int numThreads = globals::getNumThreads();
+	const size_t progressMax = numSamples;
+	util::ProgressDisplayMultiThread progressBar(numThreads, progressMax, 5);
+
+	util::parallelForChunked(
+	    numSamples, globals::getNumThreads(),
+	    [&progressBar, this](size_t sampleId, size_t threadId)
+	    {
+		    progressBar.incrementProgress(threadId, 1);
+
+		    const ScatterSpace::ScatterSpaceIndex scsIdx =
+		        mp_acf_scs->unravelIndex(sampleId);
+
+		    // Ignore TOF
+		    const Line3D lor = mp_acf_scs->getLORFromIndex(scsIdx);
+
+		    // Forward-project the attenuation image
+		    const float att = OperatorProjectorSiddon::singleForwardProjection(
+		                          &m_sss.getAttenuationImage(), lor) /
+		                      10.0f;
+		    const float acf = exp(-att);
+
+		    mp_acf_scs->setValueFlat(sampleId, acf);
+	    });
+
+}  // namespace yrt::scatter
+
+}  // namespace yrt::scatter

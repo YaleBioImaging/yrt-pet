@@ -9,6 +9,7 @@
 #include "yrt-pet/geometry/Plane.hpp"
 #include "yrt-pet/operators/OperatorProjector.hpp"
 #include "yrt-pet/scatter/Crystal.hpp"
+#include "yrt-pet/scatter/ScatterSpace.hpp"
 #include "yrt-pet/operators/OperatorProjectorUpdater.hpp"
 
 #include <vector>
@@ -30,15 +31,14 @@ public:
 	                       const Image& pr_lambda,
 	                       CrystalMaterial p_crystalMaterial, int seedi);
 
-	void runSSS(size_t numberZ, size_t numberPhi, size_t numberR,
-	            Histogram3D& scatterHisto);
+	void runSSS(ScatterSpace& outScatterSpace);
 
-	float computeSingleScatterInLOR(const Line3D& lor, const Vector3D& n1,
-	                                const Vector3D& n2) const;
+	float computeSingleScatterInLOR(const Line3D& lor, float tof_ps) const;
 
 	Vector3D getSamplePoint(int i) const;
 	int getNumSamples() const;
 	bool passCollimator(const Line3D& lor) const;
+	const Image& getAttenuationImage() const;
 
 private:
 	static float ran1(int* idum);
@@ -50,8 +50,6 @@ private:
 	// Attenuation image samples
 	int m_numSamples;
 	std::vector<float> m_xSamples, m_ySamples, m_zSamples;
-	// Histogram samples
-	std::vector<size_t> m_zBinSamples, m_phiSamples, m_rSamples;
 
 	float m_energyLLD, m_sigmaEnergy;
 	float m_scannerRadius, m_crystalDepth, m_axialFOV, m_collimatorRadius;

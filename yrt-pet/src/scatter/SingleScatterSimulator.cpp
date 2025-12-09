@@ -33,11 +33,10 @@ void py_setup_singlescattersimulator(py::module& m)
 	               scatter::CrystalMaterial, int>(),
 	      "scanner"_a, "attenuation_image"_a, "source_image"_a,
 	      "crystal_material"_a, "seed"_a);
-	c.def("runSSS", &scatter::SingleScatterSimulator::runSSS, "num_z"_a,
-	      "num_phi"_a, "num_r"_a, "scatter_histo"_a);
+	c.def("runSSS", &scatter::SingleScatterSimulator::runSSS);
 	c.def("computeSingleScatterInLOR",
 	      &scatter::SingleScatterSimulator::computeSingleScatterInLOR, "lor"_a,
-	      "n1"_a, "n2"_a);
+	      "tof"_a);
 	c.def("getSamplePoint", &scatter::SingleScatterSimulator::getSamplePoint,
 	      "i"_a);
 	c.def("getNumSamples", &scatter::SingleScatterSimulator::getNumSamples);
@@ -48,9 +47,7 @@ void py_setup_singlescattersimulator(py::module& m)
 
 #endif
 
-namespace yrt
-{
-namespace scatter
+namespace yrt::scatter
 {
 
 SingleScatterSimulator::SingleScatterSimulator(
@@ -162,152 +159,55 @@ SingleScatterSimulator::SingleScatterSimulator(
 	}
 }
 
-void SingleScatterSimulator::runSSS(size_t numberZ, size_t numberPhi,
-                                    size_t numberR, Histogram3D& scatterHisto)
+void SingleScatterSimulator::runSSS(ScatterSpace& outScatterSpace)
 {
-	const size_t num_i_z = numberZ;
-	const size_t num_i_phi = numberPhi;
-	const size_t num_i_r = numberR;
+	ASSERT_MSG(outScatterSpace.isMemoryValid(),
+	           "Destination scatter-space array is unallocated");
 
-	ASSERT_MSG(num_i_phi > 1,
-	           "The number of phis given has to be larger than 1");
-	ASSERT_MSG(num_i_r > 1, "The number of rs given has to be larger than 1");
-	ASSERT_MSG(num_i_z > 0, "The number of zs given has to be larger than 0");
-	ASSERT_MSG(&scatterHisto.getScanner() == &mr_scanner,
-	           "The histogram's scanner is not the same as the SSS's scanner");
-	ASSERT_MSG(scatterHisto.isMemoryValid(),
-	           "Destination histogram is unallocated or unbound");
-
-	constexpr size_t min_z = 0;
-	constexpr size_t min_phi = 0;
-	constexpr size_t min_r = 0;
-
-	// We only fill the perpendicular bins... What does that imply for the
-	// interpolation?
-	const size_t num_z = mr_scanner.numRings;
-	const size_t num_phi = scatterHisto.numPhi;
-	const size_t num_r = scatterHisto.numR;
-
-	// Sampling
-	const float d_z = (num_z - min_z) / static_cast<float>(num_i_z - 1);
-	const float d_phi = (num_phi - min_phi) / static_cast<float>(num_i_phi - 1);
-	const float d_r = (num_r - min_r) / static_cast<float>(num_i_r - 1);
-	m_zBinSamples.reserve(num_i_z);
-	m_phiSamples.reserve(num_i_phi);
-	m_rSamples.reserve(num_i_r);
-	// Z-bin dimension
-	for (size_t i = 0; i < num_i_z; i++)
-	{
-		const float z = static_cast<float>(min_z) + d_z * i;
-		m_zBinSamples.push_back(std::min(static_cast<size_t>(z), num_z - 1));
-	}
-	// Phi dimension
-	for (size_t i = 0; i < num_i_phi; i++)
-	{
-		const float phi = static_cast<float>(min_phi) + d_phi * i;
-		m_phiSamples.push_back(std::min(static_cast<size_t>(phi), num_phi - 1));
-	}
-	// R dimension
-	for (size_t i = 0; i < num_i_r; i++)
-	{
-		const float r = static_cast<float>(min_r) + d_r * i;
-		m_rSamples.push_back(std::min(static_cast<size_t>(r), num_r - 1));
-	}
+	const size_t numSamples = outScatterSpace.getSizeTotal();
 
 	// Only used for printing purposes
-	const int64_t progressMax = num_i_z * num_i_phi * num_i_r;
 	const int numThreads = globals::getNumThreads();
-	util::ProgressDisplayMultiThread progressBar{numThreads, progressMax, 5};
+	const size_t progressMax = numSamples;
+	util::ProgressDisplayMultiThread progressBar(numThreads, progressMax, 5);
 
 	util::parallelForChunked(
-	    num_i_z * num_i_phi * num_i_r, globals::getNumThreads(),
-	    [num_i_phi, num_i_r, &progressBar, &scatterHisto,
-	     this](size_t binIdx, size_t threadNum)
+	    numSamples, globals::getNumThreads(),
+	    [&progressBar, &outScatterSpace, this](size_t sampleId, size_t threadId)
 	    {
-		    size_t z_i = binIdx / (num_i_phi * num_i_r);
-		    size_t rem_z = binIdx - z_i * num_i_phi * num_i_r;
-		    size_t phi_i = rem_z / num_i_r;
-		    size_t r_i = rem_z % num_i_r;
-		    progressBar.progress(threadNum, 1);
+		    progressBar.incrementProgress(threadId, 1);
 
-		    const size_t z = m_zBinSamples[z_i];
-		    const size_t phi = m_phiSamples[phi_i];
-		    const size_t r = m_rSamples[r_i];
+		    const ScatterSpace::ScatterSpaceIndex scsIdx =
+		        outScatterSpace.unravelIndex(sampleId);
+		    const auto [tof, lor] =
+		        outScatterSpace.getTOFAndLORFromIndex(scsIdx);
 
-		    // Compute current LOR
-		    const size_t scatterHistoBinId =
-		        scatterHisto.getBinIdFromCoords(r, phi, z);
+		    float scatterResult = 0.0f;
 
-		    const auto [d1, d2] =
-		        scatterHisto.getDetectorPair(scatterHistoBinId);
-		    const Vector3D p1 = mr_scanner.getDetectorPos(d1);
-		    const Vector3D p2 = mr_scanner.getDetectorPos(d2);
-		    const Vector3D n1 = mr_scanner.getDetectorOrient(d1);
-		    const Vector3D n2 = mr_scanner.getDetectorOrient(d2);
+		    // Do nothing if LOR is invalid. This is done to ignore
+		    //  scatter-space bins that are defined by the same virtual detector
+		    if (lor.isValid())
+		    {
+			    scatterResult = computeSingleScatterInLOR(lor, tof);
 
-		    const Line3D lor{p1, p2};
+			    // Ensure positive values
+			    scatterResult = std::max(0.0f, scatterResult);
+		    }
 
-		    const float scatterResult = computeSingleScatterInLOR(lor, n1, n2);
-		    if (scatterResult <= 0.0)
-			    return;  // Ignore irrelevant lines?
-		    scatterHisto.setProjectionValue(scatterHistoBinId, scatterResult);
+		    outScatterSpace.setValue(scsIdx, scatterResult);
 	    });
-
-	std::cout << "Scatter simulation completed, running linear interpolation "
-	             "to fill gaps..."
-	          << std::endl;
-
-	// Run interpolations to fill non-simulated bins
-	const size_t num_i_z_to_take = (num_i_z == 1) ? 1 : (num_i_z - 1);
-	for (size_t z_i = 0; z_i < num_i_z_to_take; z_i++)
-	{
-		const size_t z1 = m_zBinSamples[z_i];
-		const size_t z2 =
-		    (num_i_z == 1) ? m_zBinSamples[0] : m_zBinSamples[z_i + 1];
-		for (size_t phi_i = 0; phi_i < num_i_phi - 1; phi_i++)
-		{
-			const size_t phi1 = m_phiSamples[phi_i];
-			const size_t phi2 = m_phiSamples[phi_i + 1];
-			for (size_t r_i = 0; r_i < num_i_r - 1; r_i++)
-			{
-				const size_t r1 = m_rSamples[r_i];
-				const size_t r2 = m_rSamples[r_i + 1];
-				util::fillBox(scatterHisto.getData(), z1, z2, phi1, phi2, r1,
-				              r2);
-			}
-		}
-	}
-	std::cout << "Histogram filled in all the transaxial bins." << std::endl;
-
-	std::cout << "Filling oblique bins..." << std::endl;
-	for (coord_t z_bin_i = mr_scanner.numRings; z_bin_i < scatterHisto.numZBin;
-	     ++z_bin_i)
-	{
-		coord_t z1, z2;
-		scatterHisto.getZ1Z2(z_bin_i, z1, z2);
-		const Array3DBase<float>& scatterHistoData_c = scatterHisto.getData();
-		Array3DBase<float>& scatterHistoData = scatterHisto.getData();
-		coord_t z_average = z1 + z2;
-		if (z_average % 2 == 0)
-		{
-			z_average = z_average / 2;
-			scatterHistoData[z_bin_i] += scatterHistoData_c[z_average];
-		}
-		else
-		{
-			const coord_t z_average_0 = z_average / 2;
-			const coord_t z_average_1 = z_average_0 + 1;
-			scatterHistoData[z_bin_i] += scatterHistoData_c[z_average_0];
-			scatterHistoData[z_bin_i] += scatterHistoData_c[z_average_1];
-			scatterHistoData[z_bin_i] *= 0.5;  // average
-		}
-	}
 }
 
-// YP LOR in which to compute the scatter contribution
-float SingleScatterSimulator::computeSingleScatterInLOR(
-    const Line3D& lor, const Vector3D& n1, const Vector3D& n2) const
+// TODO NOW: Put this function in a separate file (a ".cuh" file) as
+//  HOST_DEVICE_CALLABLE function and and use it here from the CPU. Also make a
+//  helper function that would transfer data on the GPU and call it from a
+//  kernel.
+//  This might require us to create a new projector such that we don't
+//  interfere on other branches
+float SingleScatterSimulator::computeSingleScatterInLOR(const Line3D& lor,
+                                                        float /*tof_ps*/) const
 {
+	// TODO : support TOF
 	int i;
 	float res = 0., dist1, dist2, energy, cosa, mu_scaling_factor;
 	float vatt, att_s_1_511, att_s_1, att_s_2_511, att_s_2;
@@ -319,6 +219,12 @@ float SingleScatterSimulator::computeSingleScatterInLOR(
 
 	p1.update(lor.point1);
 	p2.update(lor.point2);
+
+	// Unit vectors pointing towards the exterior of the scanner
+	Vector3D n1 = {lor.point1.x, lor.point1.y, 0.0f};
+	n1.normalize();
+	Vector3D n2 = {lor.point2.x, lor.point2.y, 0.0f};
+	n2.normalize();
 
 	tmp511 = (m_energyLLD - 511.0) / (sqrt(2.0) * m_sigmaEnergy);
 	mu_det_511 = getMuDet(511.0, m_crystalMaterial);
@@ -561,6 +467,11 @@ bool SingleScatterSimulator::passCollimator(const Line3D& lor) const
 	return false;
 }
 
+const Image& SingleScatterSimulator::getAttenuationImage() const
+{
+	return mr_mu;
+}
+
 // This is the differential KN formula up to a proportionality constant for
 // Ep=511keV.
 float SingleScatterSimulator::getKleinNishina(float cosa)
@@ -571,5 +482,4 @@ float SingleScatterSimulator::getKleinNishina(float cosa)
 	return res;
 }
 
-}  // namespace scatter
-}  // namespace yrt
+}  // namespace yrt::scatter

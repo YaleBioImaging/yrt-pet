@@ -7,6 +7,7 @@
 
 #include "yrt-pet/datastruct/projection/Histogram3D.hpp"
 #include "yrt-pet/scatter/Crystal.hpp"
+#include "yrt-pet/scatter/ScatterSpace.hpp"
 #include "yrt-pet/scatter/SingleScatterSimulator.hpp"
 
 namespace yrt
@@ -24,35 +25,43 @@ public:
 	static constexpr float DefaultACFThreshold = 0.9523809f;  // 1/1.05
 	static constexpr int DefaultSeed = 13;
 	static constexpr auto DefaultCrystal = CrystalMaterial::LYSO;
+	static constexpr size_t DefaultMaskWidth = 2ull;
 
 	ScatterEstimator(const Scanner& pr_scanner, const Image& pr_lambda,
-	                 const Image& pr_mu, const Histogram3D* pp_promptsHis,
-	                 const Histogram3D* pp_randomsHis,
-	                 const Histogram3D* pp_acfHis,
-	                 const Histogram3D* pp_sensitivityHis,
+	                 const Image& pr_mu, const ProjectionData& pr_prompts,
+	                 size_t numTOFBins, size_t numPlanes, size_t numAngles,
+	                 const Histogram3D* pp_randomsHis = nullptr,
+	                 const Histogram3D* pp_sensitivityHis = nullptr,
 	                 CrystalMaterial p_crystalMaterial = DefaultCrystal,
-	                 int seedi = DefaultSeed, int maskWidth = -1,
+	                 int seedi = DefaultSeed,
+	                 size_t maskWidth = DefaultMaskWidth,
 	                 float maskThreshold = DefaultACFThreshold,
 	                 const std::string& saveIntermediary_dir = "");
 
-	std::unique_ptr<Histogram3DOwned>
-	    computeTailFittedScatterEstimate(size_t numberZ, size_t numberPhi,
-	                                     size_t numberR,
-	                                     bool denormalize = true);
+	void allocate();
 
-	std::unique_ptr<Histogram3DOwned> computeScatterEstimate(size_t numberZ,
-	                                                         size_t numberPhi,
-	                                                         size_t numberR);
+	// This function calls all the steps
+	void computeTailFittedScatterEstimate();
 
-	std::unique_ptr<Histogram3DOwned> generateScatterTailsMask() const;
+	// Steps (YN: Maybe they should be protected/private)
+	void computeScatterEstimate();
+	void computeScatterTailsMask();
+	void computePromptsAcfAndRandomsInScatterSpace();
+	float computeTailFittingFactor() const;
 
-	float computeTailFittingFactor(const Histogram3D* scatterHistogram,
-	                               const Histogram3D* scatterTailsMask) const;
+	// Getters
+	const ScatterSpace& getScatterEstimate() const;
+	const ScatterSpace& getPromptsInScatterSpace() const;
+	const ScatterSpace& getAcfInScatterSpace() const;
+	const ScatterSpace& getRandomsInScatterSpace() const;
+	const ScatterSpace& getTailInScatterSpace() const;
+	bool useRandomsEstimates() const;
+	bool useSensitivity() const;
 
 protected:
-	static void fillScatterTailsMask(const Histogram3D& acfHis,
-	                                 Histogram3D& mask, size_t maskWidth,
-	                                 float maskThreshold);
+	void fillScatterTailsMask();
+	void fillPromptsAndRandoms();
+	void fillAcf();
 
 private:
 	// TODO: Eventually, this class should not depend on the fully-sampled
@@ -61,16 +70,31 @@ private:
 	//  fully-sampled histogram.
 	const Scanner& mr_scanner;
 	SingleScatterSimulator m_sss;
-	const Histogram3D* mp_promptsHis;
-	const Histogram3D* mp_randomsHis;
-	const Histogram3D* mp_acfHis;
-	const Histogram3D* mp_sensitivityHis;
+
+	// Inputs for tail-fitting
+	// Input projection data (can be list-mode or histogram)
+	const ProjectionData& mr_prompts;
+	// If randoms estimates histogram is null, the randoms estimates are
+	// gathered from the prompts ProjectionData
+	const Histogram* mp_randomsHis;
+	// For normalisation correction
+	const Histogram* mp_sensitivityHis;
 
 	// For the scatter tails mask
-	std::filesystem::path
-	    m_saveIntermediary_dir;  // save the scatter tails mask used
+	size_t m_scatterTailsMaskWidth;  // Number of neighboring virtual detectors
 	float m_maskThreshold;
-	size_t m_scatterTailsMaskWidth;
+
+	// Where to save intermediary scatter-space values
+	std::filesystem::path m_saveIntermediary_dir;
+
+	// Scatter estimate in scatter-space
+	std::unique_ptr<ScatterSpace> mp_scatter_scs;
+
+	// Scatter-space values for tail-fitting purposes
+	std::unique_ptr<ScatterSpace> mp_prompts_scs;
+	std::unique_ptr<ScatterSpace> mp_acf_scs;
+	std::unique_ptr<ScatterSpace> mp_randoms_scs;
+	std::unique_ptr<ScatterSpace> mp_tail_scs;
 };
 }  // namespace scatter
 }  // namespace yrt

@@ -110,10 +110,11 @@ void ScatterEstimator::computeTailFittedScatterEstimate()
 	const float fac = computeTailFittingFactor();
 
 	std::cout << "Applying tail-fit factor..." << std::endl;
-	// TODO NOW: Multiply tail-fit factor and apply the sensitivity
-	/*
-	scatterEstimate->getData() *= fac;
+	mp_scatter_scs->scaleValues(fac);
 
+	// TODO NOW: Apply sensitivity on the scatter estimate
+
+	/*
 	if (mp_sensitivityHis != nullptr && denormalize)
 	{
 	    // Since the scatter estimate was tail-fitted using the sensitivity

@@ -97,10 +97,10 @@ int main(int argc, char** argv)
 		registry.registerArgument(
 		    "acf_threshold",
 		    "Tail fitting ACF threshold for the scatter tails mask (Default: " +
-		        std::to_string(scatter::ScatterEstimator::DefaultACFThreshold) +
+		        std::to_string(scatter::ScatterEstimator::DefaultAttThreshold) +
 		        ")",
 		    false, io::TypeOfArgument::FLOAT,
-		    scatter::ScatterEstimator::DefaultACFThreshold, tailFittingGroup);
+		    scatter::ScatterEstimator::DefaultAttThreshold, tailFittingGroup);
 		registry.registerArgument(
 		    "mask_width",
 		    "Tail fitting mask width. By default, uses 1/10th of "

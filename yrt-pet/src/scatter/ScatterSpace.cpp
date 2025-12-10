@@ -571,6 +571,17 @@ void ScatterSpace::incrementValueFlat(size_t flatIdx, float value)
 	mp_values->incrementFlat(flatIdx, value);
 }
 
+void ScatterSpace::scaleValues(float scale)
+{
+	float* valuesPtr = mp_values->getRawPointer();
+	const size_t sizeTotal = getSizeTotal();
+
+	util::parallelForChunked(
+	    sizeTotal, globals::getNumThreads(),
+	    [valuesPtr, scale](size_t flatIdx, unsigned int /*threadId*/)
+	    { valuesPtr[flatIdx] *= scale; });
+}
+
 void ScatterSpace::symmetrize()
 {
 	// Here, make it so that for all elements of this scatter space,

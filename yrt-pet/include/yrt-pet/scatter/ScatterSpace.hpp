@@ -122,6 +122,7 @@ public:
 	void incrementValue(size_t tofBin, size_t planeIndex1, size_t angleIndex1,
 	                    size_t planeIndex2, size_t angleIndex2, float value);
 	void incrementValueFlat(size_t flatIdx, float value);
+	void scaleValues(float scale);
 
 	// To avoid d1-d2 vs d2-d1 problems (for no TOF)
 	void symmetrize();

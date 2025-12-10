@@ -39,15 +39,15 @@ ScatterEstimator::ScatterEstimator(
     const ProjectionData& pr_prompts, size_t numTOFBins, size_t numPlanes,
     size_t numAngles, const Histogram3D* pp_randomsHis,
     const Histogram3D* pp_sensitivityHis, CrystalMaterial p_crystalMaterial,
-    int seedi, size_t maskWidth, float maskThreshold,
+    int seedi, size_t scatterTailsMaskWidth, float attThreshold,
     const std::string& saveIntermediary_dir)
     : mr_scanner(pr_scanner),
       m_sss(pr_scanner, pr_mu, pr_lambda, p_crystalMaterial, seedi),
       mr_prompts(pr_prompts),
       mp_randomsHis(pp_randomsHis),
       mp_sensitivityHis(pp_sensitivityHis),
-      m_scatterTailsMaskWidth(maskWidth),
-      m_maskThreshold(maskThreshold),
+      m_scatterTailsMaskWidth(scatterTailsMaskWidth),
+      m_attThreshold(attThreshold),
       m_saveIntermediary_dir(saveIntermediary_dir)
 {
 	// Scatter estimate in scatter-space
@@ -57,19 +57,22 @@ ScatterEstimator::ScatterEstimator(
 	// Other scatter-space components
 	mp_prompts_scs = std::make_unique<ScatterSpace>(mr_scanner, numTOFBins,
 	                                                numPlanes, numAngles);
-	mp_acf_scs = std::make_unique<ScatterSpace>(mr_scanner, numTOFBins,
-	                                            numPlanes, numAngles);
 	mp_randoms_scs = std::make_unique<ScatterSpace>(mr_scanner, numTOFBins,
 	                                                numPlanes, numAngles);
-	mp_tail_scs = std::make_unique<ScatterSpace>(mr_scanner, numTOFBins,
-	                                             numPlanes, numAngles);
+
+	// Tail-fitting is done without TOF
+	constexpr size_t numTOFBinsForTailFitting = 1ull;
+	mp_insideMask_scs = std::make_unique<ScatterSpace>(
+	    mr_scanner, numTOFBinsForTailFitting, numPlanes, numAngles);
+	mp_tail_scs = std::make_unique<ScatterSpace>(
+	    mr_scanner, numTOFBinsForTailFitting, numPlanes, numAngles);
 }
 
 void ScatterEstimator::allocate()
 {
 	mp_scatter_scs->allocate();
 	mp_prompts_scs->allocate();
-	mp_acf_scs->allocate();
+	mp_insideMask_scs->allocate();
 
 	if (useRandomsEstimates())
 	{
@@ -91,11 +94,11 @@ void ScatterEstimator::computeTailFittedScatterEstimate()
 		    "intermediary_scatterEstimateNonFitted.his");
 	}
 
-	computeAcfInScatterSpace();
+	computeInsideMaskInScatterSpace();
 	if (saveIntermediate)
 	{
-		mp_acf_scs->writeToFile(m_saveIntermediary_dir /
-		                        "intermediary_AcfInScatterSpace.his");
+		mp_insideMask_scs->writeToFile(m_saveIntermediary_dir /
+		                               "intermediary_AcfInScatterSpace.his");
 	}
 
 	computeScatterTailsMask();
@@ -142,14 +145,21 @@ void ScatterEstimator::computeScatterEstimate()
 	m_sss.runSSS(*mp_scatter_scs);
 }
 
-void ScatterEstimator::computeAcfInScatterSpace()
+void ScatterEstimator::computeInsideMaskInScatterSpace()
 {
+	// TODO: This should be simplified.
+	//  We don't need to do the full forward projection, just a check for
+	//  whether the LOR intersects the object or not. We would need to re-write
+	//  a new "projector"
+
 	std::cout << "Populating attenuation correction factors in scatter space..."
 	          << std::endl;
-	ASSERT_MSG(mp_acf_scs->isMemoryValid(),
+
+	// Note: The attenuation image used should not include the bed
+	ASSERT_MSG(mp_insideMask_scs->isMemoryValid(),
 	           "Scatter-space array is unallocated (for ACFs)");
 
-	fillAcf();
+	fillInsideMask();
 }
 
 void ScatterEstimator::computeScatterTailsMask()
@@ -185,13 +195,12 @@ void ScatterEstimator::computePromptsAndRandomsInScatterSpace()
 
 float ScatterEstimator::computeTailFittingFactor() const
 {
-	std::cout << "Computing tail-fit factor..." << std::endl;
+	std::cout << "Computing tail-fitting factor..." << std::endl;
 
 	const size_t numSamples = mp_scatter_scs->getSizeTotal();
 
 	// Sanity checks
 	ASSERT(numSamples == mp_prompts_scs->getSizeTotal());
-	ASSERT(numSamples == mp_tail_scs->getSizeTotal());
 
 	const bool hasRandoms = mp_randoms_scs->isMemoryValid();
 	if (hasRandoms)
@@ -205,46 +214,55 @@ float ScatterEstimator::computeTailFittingFactor() const
 	util::ProgressDisplayMultiThread progressBar(numThreads, progressMax, 5);
 
 	// Scatter and prompts sum per thread
-	std::vector<double> scatterSumPerThread(numThreads, 0.0);
-	std::vector<double> promptsSumPerThread(numThreads, 0.0);
+	std::vector<double> alphaNumeratorSumPerThread(numThreads, 0.0);
+	std::vector<double> alphaDenominatorSumPerThread(numThreads, 0.0);
 
 	util::parallelForChunked(
 	    numSamples, globals::getNumThreads(),
-	    [&progressBar, &scatterSumPerThread, &promptsSumPerThread, hasRandoms,
+	    [&progressBar, &alphaDenominatorSumPerThread,
+	     &alphaNumeratorSumPerThread, hasRandoms,
 	     this](size_t sampleId, size_t threadId)
 	    {
-		    progressBar.incrementProgress(threadId, 1);
+		    progressBar.incrementProgress(threadId);
 
-		    // Only fit inside the mask
-		    if (mp_tail_scs->getValueFlat(sampleId) > 0.0f)
+		    const ScatterSpace::ScatterSpaceIndex scsIdx =
+		        mp_scatter_scs->unravelIndex(sampleId);
+
+		    // Gather the tail value using the TOF-disabled scatter-space index
+		    const float tailValue =
+		        mp_tail_scs->getValue(0, scsIdx.planeIndex1, scsIdx.angleIndex1,
+		                              scsIdx.planeIndex2, scsIdx.angleIndex2);
+
+		    // Only fit inside the tail mask (Value should be 1.0)
+		    if (tailValue > 0.0f)
 		    {
-			    float promptsMinusRandoms =
-			        mp_prompts_scs->getValueFlat(sampleId);
+			    // Gather prompts-randoms
+			    float alphaNumerator = mp_prompts_scs->getValueFlat(sampleId);
 
-			    // Remove randoms estimate
+			    // Remove randoms estimate if available
 			    if (hasRandoms)
 			    {
-				    promptsMinusRandoms -=
+				    alphaNumerator -=
 				        mp_randoms_scs->getProjectionValue(sampleId);
 			    }
 
-			    promptsSumPerThread[threadId] += promptsMinusRandoms;
+			    alphaNumeratorSumPerThread[threadId] += alphaNumerator;
 
-			    scatterSumPerThread[threadId] +=
+			    const float alphaDenominator =
 			        mp_scatter_scs->getValueFlat(sampleId);
+			    alphaDenominatorSumPerThread[threadId] += alphaDenominator;
 		    }
 	    });
 
-	// TODO NOW: Reduce the sums per thread
-	double scatterSum = 0.0;
-	double promptsSum = 0.0;
+	double alphaNumerator = 0.0;
+	double alphaDenominator = 0.0;
 	for (int threadId = 0; threadId < numThreads; threadId++)
 	{
-		scatterSum += scatterSumPerThread[threadId];
-		promptsSum += promptsSumPerThread[threadId];
+		alphaNumerator += alphaNumeratorSumPerThread[threadId];
+		alphaDenominator += alphaDenominatorSumPerThread[threadId];
 	}
 
-	const float fac = promptsSum / scatterSum;
+	const float fac = alphaNumerator / alphaDenominator;
 	std::cout << "Tail-fitting factor: " << fac << std::endl;
 	return fac;
 }
@@ -259,9 +277,9 @@ const ScatterSpace& ScatterEstimator::getPromptsInScatterSpace() const
 	return *mp_prompts_scs;
 }
 
-const ScatterSpace& ScatterEstimator::getAcfInScatterSpace() const
+const ScatterSpace& ScatterEstimator::getInsideMaskInScatterSpace() const
 {
-	return *mp_acf_scs;
+	return *mp_insideMask_scs;
 }
 
 const ScatterSpace& ScatterEstimator::getRandomsInScatterSpace() const
@@ -291,6 +309,9 @@ void ScatterEstimator::fillScatterTailsMask()
 	//    - Compute the ACF and populate the ACF scatter-space array
 	//    - Designate whether it's a tail or not
 	//  - Expand the tail by "m_scatterTailsMaskWidth" detectors
+
+
+
 	throw std::runtime_error("Function fillScatterTailsMask() unimplemented");
 }
 
@@ -363,9 +384,9 @@ void ScatterEstimator::fillPromptsAndRandoms()
 	    });
 }
 
-void ScatterEstimator::fillAcf()
+void ScatterEstimator::fillInsideMask()
 {
-	const size_t numSamples = mp_acf_scs->getSizeTotal();
+	const size_t numSamples = mp_insideMask_scs->getSizeTotal();
 
 	// Only used for printing purposes
 	const int numThreads = globals::getNumThreads();
@@ -376,23 +397,22 @@ void ScatterEstimator::fillAcf()
 	    numSamples, globals::getNumThreads(),
 	    [&progressBar, this](size_t sampleId, size_t threadId)
 	    {
-		    progressBar.incrementProgress(threadId, 1);
+		    progressBar.incrementProgress(threadId);
 
 		    const ScatterSpace::ScatterSpaceIndex scsIdx =
-		        mp_acf_scs->unravelIndex(sampleId);
+		        mp_insideMask_scs->unravelIndex(sampleId);
 
 		    // Ignore TOF
-		    const Line3D lor = mp_acf_scs->getLORFromIndex(scsIdx);
+		    const Line3D lor = mp_insideMask_scs->getLORFromIndex(scsIdx);
 
 		    // Forward-project the attenuation image
 		    const float att = OperatorProjectorSiddon::singleForwardProjection(
-		                          &m_sss.getAttenuationImage(), lor) /
-		                      10.0f;
-		    const float acf = exp(-att);
+		        &m_sss.getAttenuationImage(), lor);
 
-		    mp_acf_scs->setValueFlat(sampleId, acf);
+		    const float inside = (att > m_attThreshold) ? 1.0f : 0.0f;
+
+		    mp_insideMask_scs->setValueFlat(sampleId, inside);
 	    });
-
-}  // namespace yrt::scatter
+}
 
 }  // namespace yrt::scatter

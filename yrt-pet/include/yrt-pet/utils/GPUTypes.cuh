@@ -7,6 +7,7 @@
 
 #include "Assert.hpp"
 
+#if BUILD_CUDA
 #include <driver_types.h>
 #include <vector_types.h>
 
@@ -75,3 +76,5 @@ struct GPULaunchParams3D
 };
 
 }  // namespace yrt
+
+#endif

@@ -97,8 +97,8 @@ std::unique_ptr<BinIterator> ListMode::getBinIter(int numSubsets,
 	    "be less than or equal to zero");
 
 	size_t numEvents = count();
-	return std::make_unique<BinIteratorChronologicalInterleaved>(numSubsets, numEvents,
-	                                                  idxSubset);
+	return std::make_unique<BinIteratorChronologicalInterleaved>(
+	    numSubsets, numEvents, idxSubset);
 }
 
 void ListMode::addLORMotion(const std::string& lorMotion_fname)

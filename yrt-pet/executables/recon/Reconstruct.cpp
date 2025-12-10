@@ -43,10 +43,12 @@ void addImagePSFtoReconIfNeeded(OSEM& osem, std::string psf_fname,
 			ASSERT_MSG(varpsf_fname.empty(),
 			           "Got two different image PSF inputs");
 			osem.addImagePSF(psf_fname, ImagePSFMode::UNIFORM);
+			osem.m_imagePSFMode = ImagePSFMode::UNIFORM;
 		}
 		else if (!varpsf_fname.empty())
 		{
 			osem.addImagePSF(varpsf_fname, ImagePSFMode::VARIANT);
+			osem.m_imagePSFMode = ImagePSFMode::VARIANT;
 		}
 	}
 }

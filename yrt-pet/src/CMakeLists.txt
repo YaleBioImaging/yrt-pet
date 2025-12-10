@@ -82,6 +82,7 @@ if (USE_CUDA)
         operators/DeviceSynchronized.cu
         operators/OperatorProjectorDevice.cu
         operators/OperatorPsfDevice.cu
+        operators/OperatorVarPsfDevice.cu
         operators/OperatorProjectorDD_GPUKernels.cu
         operators/OperatorProjectorDD_GPU.cu
         operators/OperatorProjectorSiddon_GPU.cu

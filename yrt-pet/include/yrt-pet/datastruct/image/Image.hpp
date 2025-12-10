@@ -65,7 +65,7 @@ public:
 	float nearestNeighbor(const Vector3D& pt, int frame = 0) const;
 	float nearestNeighbor(const Vector3D& pt, int* pi, int* pj, int* pk,
 	                      int frame = 0) const;
-	template<bool MULT_FLAG>
+	template <bool MULT_FLAG>
 	void updateImageNearestNeighbor(const Vector3D& pt, float value,
 	                                int frame = 0);
 	void assignImageNearestNeighbor(const Vector3D& pt, float value, int frame = 0);
@@ -75,7 +75,7 @@ public:
 	float interpolateImage(const Vector3D& pt, int frame = 0) const;
 	float interpolateImage(const Vector3D& pt, const Image& sens,
 	                       int frame = 0) const;
-	template<bool MULT_FLAG>
+	template <bool MULT_FLAG>
 	void updateImageInterpolate(const Vector3D& point, float value,
 	                            int frame = 0);
 	void assignImageInterpolate(const Vector3D& point, float value, int frame = 0);
@@ -97,7 +97,7 @@ protected:
 
 private:
 	// Helper
-	template <int OPERATION> // operations 0: assign, 1: multiply, 2: add
+	template <int OPERATION>  // operations 0: assign, 1: multiply, 2: add
 	void operationImageInterpolate(const Vector3D& pt, float value, int frame);
 };
 
@@ -115,7 +115,8 @@ private:
 	                                    float imgOrigin[3],
 	                                    const int dim[8]) const;
 	void readNIfTIData(int datatype, void* data, float slope, float intercept);
-	static mat44 adjustAffineMatrix(mat44 matrix);
+	static void checkIfTransformMatrixIsSupported(const mat44& matrix);
+	static void adjustAffineMatrix(mat44& matrix);
 };
 
 class ImageAlias : public Image

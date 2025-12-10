@@ -12,6 +12,8 @@
 
 #include <memory>
 
+#if BUILD_CUDA
+
 namespace yrt::util
 {
 
@@ -29,3 +31,5 @@ std::unique_ptr<OperatorProjectorBase> createOperatorProjectorDevice(
     const cudaStream_t* mainStream, const cudaStream_t* auxStream);
 
 }  // namespace yrt::util
+
+#endif

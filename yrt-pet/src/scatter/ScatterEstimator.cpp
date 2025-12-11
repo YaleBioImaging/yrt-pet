@@ -151,6 +151,7 @@ void ScatterEstimator::computeInsideMaskInScatterSpace()
 	//  We don't need to do the full forward projection, just a check for
 	//  whether the LOR intersects the object or not. We would need to re-write
 	//  a new "projector"
+	//  It can also be simplified further by only projecting d1-d2 and not d2-d1
 
 	std::cout << "Populating attenuation correction factors in scatter space..."
 	          << std::endl;
@@ -167,6 +168,9 @@ void ScatterEstimator::computeScatterTailsMask()
 	std::cout << "Generating scatter tails mask..." << std::endl;
 	ASSERT_MSG(mp_tail_scs->isMemoryValid(),
 	           "Scatter-space array is unallocated (for tail)");
+	ASSERT_MSG(mp_insideMask_scs->isMemoryValid(),
+	           "Scatter-space array is unallocated (for tail)");
+	ASSERT(mp_insideMask_scs->getSizeTotal() == mp_tail_scs->getSizeTotal());
 
 	fillScatterTailsMask();
 }
@@ -304,15 +308,83 @@ bool ScatterEstimator::useSensitivity() const
 
 void ScatterEstimator::fillScatterTailsMask()
 {
-	// TODO NOW:
-	//  - For every bin in the scatter-space:
-	//    - Compute the ACF and populate the ACF scatter-space array
-	//    - Designate whether it's a tail or not
-	//  - Expand the tail by "m_scatterTailsMaskWidth" detectors
+	const size_t numPlanes1 = mp_insideMask_scs->getNumPlanes();
+	const size_t numAngles1 = mp_insideMask_scs->getNumAngles();
+	const size_t numPlanes2 = numPlanes1;
+	const size_t numAngles2 = numAngles1;
 
+	// For printing purposes
+	const int numThreads = globals::getNumThreads();
+	const size_t progressMax = numPlanes1;
+	util::ProgressDisplayMultiThread progressBar(numThreads, progressMax, 5);
 
+	// Parallelize over planeIndex1
+	util::parallelForChunked(
+	    numPlanes1, numThreads,
+	    [&progressBar, numAngles1, numPlanes2, numAngles2,
+	     this](size_t planeIndex1, unsigned int threadId)
+	    {
+		    progressBar.incrementProgress(threadId);
 
-	throw std::runtime_error("Function fillScatterTailsMask() unimplemented");
+		    for (size_t angleIndex1 = 0; angleIndex1 < numAngles1;
+		         angleIndex1++)
+		    {
+			    for (size_t planeIndex2 = 0; planeIndex2 < numPlanes2;
+			         planeIndex2++)
+			    {
+				    // Start from the subsequent angle
+				    size_t angleIndex2 = 1;
+				    float insideValue = mp_insideMask_scs->getValue(
+				        0, planeIndex1, angleIndex1, planeIndex2, angleIndex2);
+
+				    bool startInside = insideValue > 0.0f;
+
+				    // More forward until we reach (or leave) the object
+				    for (angleIndex2 = 2; angleIndex2 < angleIndex1;
+				         angleIndex2++)
+				    {
+					    insideValue = mp_insideMask_scs->getValue(
+					        0, planeIndex1, angleIndex1, planeIndex2,
+					        angleIndex2);
+
+					    bool isInside = insideValue > 0.0f;
+
+					    if (isInside != startInside)
+					    {
+						    // Here we went from outside the object to inside
+						    //  the object (or the other way around)
+						    for (size_t angleBackOff = 0;
+						         angleBackOff < m_scatterTailsMaskWidth;
+						         angleBackOff++)
+						    {
+							    size_t angleIndex2InTail;
+							    if (isInside)
+							    {
+								    // We went from outside to inside
+								    angleIndex2InTail =
+								        (angleIndex2 - angleBackOff) %
+								        numAngles2;
+							    }
+							    else
+							    {
+								    // We went from inside to outside
+								    angleIndex2InTail =
+								        (angleIndex2 + angleBackOff) %
+								        numAngles2;
+							    }
+
+							    mp_tail_scs->setValue(0, planeIndex1,
+							                          angleIndex1, planeIndex2,
+							                          angleIndex2InTail, 1.0f);
+						    }
+
+						    // Switch
+						    startInside = !startInside;
+					    }
+				    }
+			    }
+		    }
+	    });
 }
 
 void ScatterEstimator::fillPromptsAndRandoms()

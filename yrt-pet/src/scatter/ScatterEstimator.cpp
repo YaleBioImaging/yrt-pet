@@ -135,7 +135,7 @@ void ScatterEstimator::computeTailFittedScatterEstimate()
 	// Note: Technically, the tail selection can be done in parallel to the
 	//  scatter estimation. This would save some computation time.
 
-	// computeScatterEstimate();
+	computeScatterEstimate();
 	if (saveIntermediate)
 	{
 		mp_scatter_scs->writeToFile(

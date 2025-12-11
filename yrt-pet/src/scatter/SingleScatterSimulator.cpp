@@ -94,12 +94,15 @@ SingleScatterSimulator::SingleScatterSimulator(
 	int nxsamp = static_cast<int>(mu_params.nx / 1.5);
 	if (nxsamp < 5)
 		nxsamp = 5;  // YP number of scatter points in x direction
+	float nxsamp_f = static_cast<float>(nxsamp);
 	int nysamp = static_cast<int>(mu_params.ny / 1.5);
 	if (nysamp < 5)
 		nysamp = 5;
+	float nysamp_f = static_cast<float>(nysamp);
 	int nzsamp = static_cast<int>(mu_params.nz / 1.5);
 	if (nzsamp < 5)
 		nzsamp = 5;
+	float nzsamp_f = static_cast<float>(nzsamp);
 	std::cout << "nxsamp: " << nxsamp << std::endl;
 	std::cout << "nysamp: " << nysamp << std::endl;
 	std::cout << "nzsamp: " << nzsamp << std::endl;
@@ -107,35 +110,35 @@ SingleScatterSimulator::SingleScatterSimulator(
 	m_ySamples.reserve(nzsamp * nysamp * nxsamp);
 	m_zSamples.reserve(nzsamp * nysamp * nxsamp);
 	// YP spacing between scatter points
-	const float dxsamp = mu_params.length_x / (static_cast<float>(nxsamp));
-	const float dysamp = mu_params.length_y / (static_cast<float>(nysamp));
-	const float dzsamp = mu_params.length_z / (static_cast<float>(nzsamp));
+	const float dxsamp = mu_params.length_x / nxsamp_f;
+	const float dysamp = mu_params.length_y / nysamp_f;
+	const float dzsamp = mu_params.length_z / nzsamp_f;
 	Vector3D p;
 	m_xSamples.clear();
 	m_ySamples.clear();
 	m_zSamples.clear();
 	for (int k = 0; k < nzsamp; k++)
 	{
-		const float z = k / (static_cast<float>(nzsamp)) * mu_params.length_z -
+		const float z = k / nzsamp_f * mu_params.length_z -
 		                mu_params.length_z / 2 + mu_params.vz / 2.0 +
 		                mu_params.off_z;
 		for (int j = 0; j < nysamp; j++)
 		{
-			const float y =
-			    j / (static_cast<float>(nysamp)) * mu_params.length_y -
-			    mu_params.length_y / 2 + mu_params.vy / 2.0 + mu_params.off_y;
+			const float y = j / nysamp_f * mu_params.length_y -
+			                mu_params.length_y / 2 + mu_params.vy / 2.0 +
+			                mu_params.off_y;
 			for (int i = 0; i < nxsamp; i++)
 			{
-				const float x =
-				    i / (static_cast<float>(nxsamp)) * mu_params.length_x -
-				    mu_params.length_x / 2 + mu_params.vx / 2.0 +
-				    mu_params.off_x;
+				const float x = i / nxsamp_f * mu_params.length_x -
+				                mu_params.length_x / 2 + mu_params.vx / 2.0 +
+				                mu_params.off_x;
 				const float x2 = ran1(&seed) * dxsamp + x;
 				const float y2 = ran1(&seed) * dysamp + y;
 				const float z2 = ran1(&seed) * dzsamp + z;
-				// YP generate a random scatter poitn within its cell
+				// YP generate a random scatter point within its cell
 				p.update(x2, y2, z2);
-				if (mr_mu.nearestNeighbor(p) > 0.005)
+				if (mr_mu.nearestNeighbor(p) > 0.005 &&
+				    p.getNorm() < m_collimatorRadius)
 				{
 					// YP rejects the point if the associated att. coeff is
 					// below
@@ -148,14 +151,19 @@ SingleScatterSimulator::SingleScatterSimulator(
 			}
 		}
 	}
+
+	m_xSamples.shrink_to_fit();
+	m_ySamples.shrink_to_fit();
+	m_zSamples.shrink_to_fit();
+
 	if (m_numSamples < 10)
 	{
-		std::cerr << "Error: Small number of scatter points in "
-		             "SingleScatterSimulation::SingleScatterSimulation(). "
-		             "nsamples="
-		          << m_numSamples << "\n"
-		          << std::endl;
-		exit(-1);
+		std::string errorMessage =
+		    "Error: Small number of scatter points in "
+		    "SingleScatterSimulation::SingleScatterSimulation(). "
+		    "nsamples=" +
+		    std::to_string(m_numSamples);
+		throw std::runtime_error(errorMessage);
 	}
 }
 
@@ -283,11 +291,10 @@ float SingleScatterSimulator::computeSingleScatterInLOR(const Line3D& lor,
 		delta_1 = getIntersectionLengthLORCrystal(lor_1_s);
 		if (delta_1 > 10 * m_crystalDepth)
 		{
-			std::cerr << "Error computing propagation distance in detector in "
-			             "SingleScatterSimulation::compute_single_scatter_in_"
-			             "lor() (1).\n"
-			          << std::endl;
-			exit(-1);
+			std::string errorMessage =
+			    "Error computing propagation distance in detector. delta_1=" +
+			    std::to_string(delta_1);
+			throw std::runtime_error(errorMessage);
 		}
 
 		att_s_2_511 =
@@ -302,11 +309,10 @@ float SingleScatterSimulator::computeSingleScatterInLOR(const Line3D& lor,
 		// Check that the distance between the two cylinders is not too big
 		if (delta_2 > 10 * m_crystalDepth)
 		{
-			std::cerr << "Error computing propagation distance in detector in "
-			          << "SingleScatterSimulation::compute_single_scatter_in_"
-			          << "lor() (2)." << std::endl
-			          << std::endl;
-			exit(-1);
+			std::string errorMessage =
+			    "Error computing propagation distance in detector. delta_2=" +
+			    std::to_string(delta_2);
+			throw std::runtime_error(errorMessage);
 		}
 
 		// geometric efficiencies (n1 and n2 must be normalized unit

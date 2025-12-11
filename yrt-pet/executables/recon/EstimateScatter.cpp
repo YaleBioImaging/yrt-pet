@@ -4,6 +4,7 @@
  */
 
 #include "../ArgumentReader.hpp"
+#include "../PluginOptionsHelper.hpp"
 #include "yrt-pet/datastruct/IO.hpp"
 #include "yrt-pet/datastruct/projection/Histogram3D.hpp"
 #include "yrt-pet/datastruct/scanner/Scanner.hpp"
@@ -65,14 +66,14 @@ int main(int argc, char** argv)
 		    false, io::TypeOfArgument::FLOAT,
 		    scatter::ScatterEstimator::DefaultAttThreshold, tailFittingGroup);
 		registry.registerArgument("n_tof",
-		                          "Number of Z planes to consider for SSS",
-		                          true, io::TypeOfArgument::INT, -1, sssGroup);
+		                          "Number of TOF bins to consider for SSS",
+		                          false, io::TypeOfArgument::INT, 1, sssGroup);
 		registry.registerArgument("n_planes",
-		                          "Number of Phi angles to consider for SSS",
-		                          true, io::TypeOfArgument::INT, -1, sssGroup);
+		                          "Number of axial planes to consider for SSS",
+		                          false, io::TypeOfArgument::INT, 20, sssGroup);
 		registry.registerArgument("n_angles",
-		                          "Number of R distances to consider for SSS",
-		                          true, io::TypeOfArgument::INT, -1, sssGroup);
+		                          "Number of angles to consider for SSS",
+		                          false, io::TypeOfArgument::INT, 100, sssGroup);
 		registry.registerArgument(
 		    "crystal_mat", "Crystal material name (default: LYSO)", false,
 		    io::TypeOfArgument::STRING, "LYSO", sssGroup);
@@ -110,6 +111,9 @@ int main(int argc, char** argv)
 		            scatter::ScatterEstimator::DefaultScatterTailsMaskWidth) +
 		        ")",
 		    false, io::TypeOfArgument::INT, -1, tailFittingGroup);
+
+		plugin::addOptionsFromPlugins(registry,
+									  plugin::InputFormatsChoice::ALL);
 
 		// Load configuration
 		io::ArgumentReader config{registry, "Scatter estimation executable"};
@@ -221,9 +225,13 @@ int main(int argc, char** argv)
 		    numAngles, randomsHis, sensitivityHis, crystalMaterial, seed,
 		    maskWidth, attThreshold, saveIntermediary_dir);
 
+		scatterEstimator.allocate();
+
 		scatterEstimator.computeTailFittedScatterEstimate();
 
 		scatterEstimator.getScatterEstimate().writeToFile(scatterOut_fname);
+
+		std::cout << "Done." << std::endl;
 	}
 	catch (const cxxopts::exceptions::exception& e)
 	{

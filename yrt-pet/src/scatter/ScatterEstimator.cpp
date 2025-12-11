@@ -30,7 +30,7 @@ void py_setup_scatterestimator(py::module& m)
 	        const Scanner&, const Image&, const Image&, const ProjectionData&,
 	        size_t, size_t, size_t, const Histogram3D*, const Histogram3D*,
 	        scatter::CrystalMaterial, int, size_t, float, const std::string&>(),
-	    "scanner"_a, "lambda"_a, "mu"_a, "prompts"_a, "numTOFBins",
+	    "scanner"_a, "lambda"_a, "mu"_a, "prompts"_a, "numTOFBins"_a,
 	    "numPlanes"_a, "numAngles"_a, "randomsHis"_a = nullptr,
 	    "sensitivityHis"_a = nullptr,
 	    "crystalMaterial"_a = scatter::ScatterEstimator::DefaultCrystal,

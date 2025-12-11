@@ -86,7 +86,7 @@ void py_setup_scatterspace(py::module& m)
 	          &ScatterSpace::setValue));
 
 	// Utility functions
-	c.def("symmetrize", &ScatterSpace::symmetrize);
+	c.def("symmetrize", &ScatterSpace::symmetrizeIfNeeded);
 	c.def("clampTOF", &ScatterSpace::clampTOF);
 	c.def("clampPlanePosition", &ScatterSpace::clampPlanePosition);
 	c.def_static("wrapAngle", &ScatterSpace::wrapAngle);
@@ -591,39 +591,42 @@ void ScatterSpace::scaleValues(float scale)
 	    { valuesPtr[flatIdx] *= scale; });
 }
 
-void ScatterSpace::symmetrize()
+void ScatterSpace::symmetrizeIfNeeded()
 {
 	// Here, make it so that for all elements of this scatter space,
 	//  the value at (tof, (a1,z1), (a2,z2)) is the same as for
-	//  (tof, (a2,z2), (a1,z1)) (only when m_numTOFBins==1)
+	//  (tof, (a2,z2), (a1,z1)) (only relevant when m_numTOFBins==1)
 	if (m_numTOFBins == 1)
 	{
-		for (size_t planeIndex1 = 0; planeIndex1 < m_numPlanes; ++planeIndex1)
-		{
-			for (size_t angleIndex1 = 0; angleIndex1 < m_numAngles;
-			     ++angleIndex1)
-			{
-				for (size_t planeIndex2 = 0; planeIndex2 < m_numPlanes;
-				     ++planeIndex2)
-				{
-					for (size_t angleIndex2 = 0; angleIndex2 < m_numAngles;
-					     ++angleIndex2)
-					{
-						const float d1d2Value =
-						    getValue(0, planeIndex1, angleIndex1, planeIndex2,
-						             angleIndex2);
-						const float d2d1Value =
-						    getValue(0, planeIndex2, angleIndex2, planeIndex1,
-						             angleIndex1);
-
-						// Just put the largest one of both (if one is 0 and the
-						// other is non-null, use the non-null one)
-						setValue(0, planeIndex1, angleIndex1, planeIndex2,
-						         angleIndex2, std::max(d1d2Value, d2d1Value));
-					}
-				}
-			}
-		}
+		util::parallelForChunked(
+		    m_numPlanes, globals::getNumThreads(),
+		    [this](size_t planeIndex1, unsigned int /*threadId*/)
+		    {
+			    for (size_t angleIndex1 = 0; angleIndex1 < m_numAngles;
+			         ++angleIndex1)
+			    {
+				    for (size_t planeIndex2 = 0; planeIndex2 < m_numPlanes;
+				         ++planeIndex2)
+				    {
+					    for (size_t angleIndex2 = 0; angleIndex2 < m_numAngles;
+					         ++angleIndex2)
+					    {
+						    const float d1d2Value =
+						        getValue(0, planeIndex1, angleIndex1,
+						                 planeIndex2, angleIndex2);
+						    const float d2d1Value =
+						        getValue(0, planeIndex2, angleIndex2,
+						                 planeIndex1, angleIndex1);
+						    if (d1d2Value != d2d1Value)
+						    {
+							    setValue(0, planeIndex1, angleIndex1,
+							             planeIndex2, angleIndex2,
+							             std::max(d1d2Value, d2d1Value));
+						    }
+					    }
+				    }
+			    }
+		    });
 	}
 }
 

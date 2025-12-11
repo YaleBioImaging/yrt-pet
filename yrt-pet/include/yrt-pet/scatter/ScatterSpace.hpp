@@ -127,7 +127,7 @@ public:
 	void scaleValues(float scale);
 
 	// To avoid d1-d2 vs d2-d1 problems (for no TOF)
-	void symmetrize();
+	void symmetrizeIfNeeded();
 
 	// Clamp and wrap
 	float clampTOF(float tof_ps) const;

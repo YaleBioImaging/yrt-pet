@@ -3,7 +3,7 @@ project(executables)
 define_target_exe(yrtpet_reconstruct recon/Reconstruct.cpp PluginOptionsHelper.cpp ArgumentReader.cpp)
 define_target_exe(yrtpet_forward_project recon/ForwardProject.cpp ArgumentReader.cpp)
 define_target_exe(yrtpet_backproject recon/Backproject.cpp PluginOptionsHelper.cpp ArgumentReader.cpp)
-define_target_exe(yrtpet_estimate_scatter recon/EstimateScatter.cpp ArgumentReader.cpp)
+define_target_exe(yrtpet_estimate_scatter recon/EstimateScatter.cpp PluginOptionsHelper.cpp ArgumentReader.cpp)
 
 define_target_exe(yrtpet_convert_to_histogram conversion/ConvertToHistogram.cpp PluginOptionsHelper.cpp ArgumentReader.cpp)
 define_target_exe(yrtpet_convert_to_listmodelut conversion/ConvertToListModeLUT.cpp PluginOptionsHelper.cpp ArgumentReader.cpp)

@@ -33,9 +33,8 @@ int main(int argc, char** argv)
 		                          io::TypeOfArgument::STRING, "", coreGroup,
 		                          "s");
 #if BUILD_CUDA
-		registry.registerArgument(
-		    "gpu", "Use GPU to compute the ACF histogram (if needed)", false,
-		    io::TypeOfArgument::BOOL, false, coreGroup);
+		registry.registerArgument("gpu", "Use GPU acceleration", false,
+		                          io::TypeOfArgument::BOOL, false, coreGroup);
 #endif
 		registry.registerArgument(
 		    "save_intermediary",
@@ -49,67 +48,68 @@ int main(int argc, char** argv)
 		                          false, io::TypeOfArgument::INT,
 		                          scatter::ScatterEstimator::DefaultSeed,
 		                          coreGroup);
-		registry.registerArgument(
-		    "out", "Output scatter estimate histogram filename", true,
-		    io::TypeOfArgument::STRING, "", coreGroup, "o");
-		registry.registerArgument(
-		    "out_acf",
-		    "Output ACF histogram filename (if it needs to be calculated from "
-		    "the attenuation image)",
-		    false, io::TypeOfArgument::STRING, "", coreGroup);
+		registry.registerArgument("out", "Output scatter estimate filename",
+		                          true, io::TypeOfArgument::STRING, "",
+		                          coreGroup, "o");
 
-		registry.registerArgument("att", "Attenuation image file", true,
-		                          io::TypeOfArgument::STRING, "", sssGroup);
 		registry.registerArgument("source", "Input source image", true,
 		                          io::TypeOfArgument::STRING, "", sssGroup);
-		registry.registerArgument("n_z",
+		registry.registerArgument("att", "Attenuation image file", true,
+		                          io::TypeOfArgument::STRING, "", sssGroup);
+		registry.registerArgument(
+		    "att_threshold",
+		    "Tail fitting attenuation threshold for the scatter tails mask "
+		    "(Default: " +
+		        std::to_string(scatter::ScatterEstimator::DefaultAttThreshold) +
+		        ")",
+		    false, io::TypeOfArgument::FLOAT,
+		    scatter::ScatterEstimator::DefaultAttThreshold, tailFittingGroup);
+		registry.registerArgument("n_tof",
 		                          "Number of Z planes to consider for SSS",
 		                          true, io::TypeOfArgument::INT, -1, sssGroup);
-		registry.registerArgument("n_phi",
+		registry.registerArgument("n_planes",
 		                          "Number of Phi angles to consider for SSS",
 		                          true, io::TypeOfArgument::INT, -1, sssGroup);
-		registry.registerArgument("n_r",
+		registry.registerArgument("n_angles",
 		                          "Number of R distances to consider for SSS",
 		                          true, io::TypeOfArgument::INT, -1, sssGroup);
 		registry.registerArgument(
 		    "crystal_mat", "Crystal material name (default: LYSO)", false,
 		    io::TypeOfArgument::STRING, "LYSO", sssGroup);
 
-		registry.registerArgument("prompts", "Prompts histogram file", true,
+		registry.registerArgument(
+		    "prompts",
+		    "Prompts file (input listmode or histogram). Possible values: " +
+		        io::possibleFormats(),
+		    true, io::TypeOfArgument::STRING, "", tailFittingGroup);
+		registry.registerArgument("prompts_format", "Prompts format", true,
 		                          io::TypeOfArgument::STRING, "",
 		                          tailFittingGroup);
+		registry.registerArgument("randoms",
+		                          "Randoms histogram file (optional). Will "
+		                          "override randoms gathered from prompts",
+		                          false, io::TypeOfArgument::STRING, "",
+		                          tailFittingGroup);
 		registry.registerArgument(
-		    "randoms", "Randoms histogram file (optional)", false,
-		    io::TypeOfArgument::STRING, "", tailFittingGroup);
+		    "randoms_format",
+		    "Randoms histogram format. Possible values: " +
+		        io::possibleFormats(plugin::InputFormatsChoice::ONLYHISTOGRAMS),
+		    false, io::TypeOfArgument::STRING, "", tailFittingGroup);
 		registry.registerArgument(
 		    "sensitivity", "Sensitivity histogram file (optional)", false,
 		    io::TypeOfArgument::STRING, "", tailFittingGroup);
 		registry.registerArgument(
-		    "invert_sensitivity",
-		    "Invert the sensitivity histogram values (sensitivity -> "
-		    "1/sensitivity)",
-		    false, io::TypeOfArgument::BOOL, false, tailFittingGroup);
-		registry.registerArgument(
-		    "acf",
-		    "ACF histogram file (optional). Will be computed from "
-		    "attenuation image if not provided",
+		    "sensitivity_format",
+		    "Sensitivity histogram format. Possible values: " +
+		        io::possibleFormats(plugin::InputFormatsChoice::ONLYHISTOGRAMS),
 		    false, io::TypeOfArgument::STRING, "", tailFittingGroup);
 		registry.registerArgument(
-		    "acf_threshold",
-		    "Tail fitting ACF threshold for the scatter tails mask (Default: " +
-		        std::to_string(scatter::ScatterEstimator::DefaultAttThreshold) +
-		        ")",
-		    false, io::TypeOfArgument::FLOAT,
-		    scatter::ScatterEstimator::DefaultAttThreshold, tailFittingGroup);
-		registry.registerArgument(
 		    "mask_width",
-		    "Tail fitting mask width. By default, uses 1/10th of "
-		    "the histogram \'r\' dimension",
+		    "Tail fitting mask width (Default: " +
+		        std::to_string(
+		            scatter::ScatterEstimator::DefaultScatterTailsMaskWidth) +
+		        ")",
 		    false, io::TypeOfArgument::INT, -1, tailFittingGroup);
-		registry.registerArgument(
-		    "no_denorm",
-		    "Skip multiplication of the scatter estimate by the sensitivity", false,
-		    io::TypeOfArgument::BOOL, false, tailFittingGroup);
 
 		// Load configuration
 		io::ArgumentReader config{registry, "Scatter estimation executable"};
@@ -128,28 +128,28 @@ int main(int argc, char** argv)
 			return -1;
 		}
 
+		bool useGPU = config.getValue<bool>("gpu");
 		auto scanner_fname = config.getValue<std::string>("scanner");
-		auto promptsHis_fname = config.getValue<std::string>("prompts");
+		auto prompts_fname = config.getValue<std::string>("prompts");
+		auto prompts_format = config.getValue<std::string>("prompts_format");
 		auto randomsHis_fname = config.getValue<std::string>("randoms");
+		auto randomsHis_format = config.getValue<std::string>("randoms_format");
 		auto sensitivityHis_fname = config.getValue<std::string>("sensitivity");
-		auto acfHis_fname = config.getValue<std::string>("acf");
+		auto sensitivityHis_format =
+		    config.getValue<std::string>("sensitivity_format");
 		auto sourceImage_fname = config.getValue<std::string>("source");
 		auto attImage_fname = config.getValue<std::string>("att");
+		auto attThreshold = config.getValue<float>("att_threshold");
 		auto crystalMaterial_name = config.getValue<std::string>("crystal_mat");
-		size_t nZ = config.getValue<int>("n_z");
-		size_t nPhi = config.getValue<int>("n_phi");
-		size_t nR = config.getValue<int>("n_r");
+		size_t numTOFBins = config.getValue<int>("n_tof");
+		size_t numPlanes = config.getValue<int>("n_planes");
+		size_t numAngles = config.getValue<int>("n_angles");
 		std::string scatterOut_fname = config.getValue<std::string>("out");
-		std::string acfOutHis_fname = config.getValue<std::string>("out_acf");
 		std::string saveIntermediary_dir =
 		    config.getValue<std::string>("save_intermediary");
-		bool invertSensitivity = config.getValue<bool>("invert_sensitivity");
 		int numThreads = config.getValue<int>("num_threads");
 		int maskWidth = config.getValue<int>("mask_width");
-		float acfThreshold = config.getValue<float>("acf_threshold");
-		bool useGPU = config.getValue<bool>("gpu");
 		int seed = config.getValue<int>("seed");
-		bool denormalize = !config.getValue<bool>("no_denorm");
 
 		if (useGPU)
 		{
@@ -180,88 +180,50 @@ int main(int argc, char** argv)
 		scatter::CrystalMaterial crystalMaterial =
 		    scatter::getCrystalMaterialFromName(crystalMaterial_name);
 
-		/*
+		std::cout << "Reading prompts..." << std::endl;
+		auto prompts = io::openProjectionData(
+		    prompts_fname, prompts_format, *scanner, config.getAllArguments());
 
-		std::cout << "Reading prompts histogram..." << std::endl;
-		auto promptsHis =
-		    std::make_unique<Histogram3DOwned>(*scanner, promptsHis_fname);
-		std::unique_ptr<Histogram3DOwned> randomsHis = nullptr;
+		Histogram* randomsHis = nullptr;
+		std::unique_ptr<ProjectionData> randomsHisProjData = nullptr;
 		if (!randomsHis_fname.empty())
 		{
 			std::cout << "Reading randoms histogram..." << std::endl;
-			randomsHis =
-			    std::make_unique<Histogram3DOwned>(*scanner, randomsHis_fname);
+			ASSERT_MSG(!io::isFormatListMode(randomsHis_format),
+			           "Randoms histogram format has to a histogram format");
+			randomsHisProjData =
+			    io::openProjectionData(randomsHis_fname, randomsHis_format,
+			                           *scanner, config.getAllArguments());
+
+			randomsHis = dynamic_cast<Histogram*>(randomsHisProjData.get());
+			ASSERT(randomsHis != nullptr);
 		}
-		std::unique_ptr<Histogram3DOwned> sensitivityHis = nullptr;
+
+		Histogram* sensitivityHis = nullptr;
+		std::unique_ptr<ProjectionData> sensitivityHisProjData = nullptr;
 		if (!sensitivityHis_fname.empty())
 		{
 			std::cout << "Reading sensitivity histogram..." << std::endl;
-			sensitivityHis = std::make_unique<Histogram3DOwned>(
-			    *scanner, sensitivityHis_fname);
-			if (invertSensitivity)
-			{
-				sensitivityHis->operationOnEachBinParallel(
-				    [&sensitivityHis](bin_t bin)
-				    {
-					    const float sensitivity =
-					        sensitivityHis->getProjectionValue(bin);
-					    if (sensitivity > 1e-8)
-					    {
-						    return 1.0f / sensitivity;
-					    }
-					    return 0.0f;
-				    });
-			}
+			sensitivityHisProjData = io::openProjectionData(
+			    sensitivityHis_fname, sensitivityHis_format, *scanner,
+			    config.getAllArguments());
+
+			sensitivityHis =
+			    dynamic_cast<Histogram*>(sensitivityHisProjData.get());
+			ASSERT(sensitivityHis != nullptr);
 		}
 
 		auto attImage = std::make_unique<ImageOwned>(attImage_fname);
-
-		std::unique_ptr<Histogram3DOwned> acfHis = nullptr;
-		if (acfHis_fname.empty())
-		{
-			std::cout << "ACF histogram not specified. Forward projecting "
-			             "attenuation image..."
-			          << std::endl;
-			acfHis = std::make_unique<Histogram3DOwned>(*scanner);
-			acfHis->allocate();
-
-			util::forwProject(*scanner, *attImage, *acfHis,
-			                  OperatorProjector::ProjectorType::SIDDON, useGPU);
-
-			util::convertProjectionValuesToACF(*acfHis);
-
-			if (!acfOutHis_fname.empty())
-			{
-				acfHis->writeToFile(acfOutHis_fname);
-			}
-		}
-		else
-		{
-			acfHis = std::make_unique<Histogram3DOwned>(*scanner, acfHis_fname);
-		}
-
 		auto sourceImage = std::make_unique<ImageOwned>(sourceImage_fname);
 
-		scatter::ScatterEstimator scatterEstimator{*scanner,
-		                                           *sourceImage,
-		                                           *attImage,
-		                                           promptsHis.get(),
-		                                           randomsHis.get(),
-		                                           acfHis.get(),
-		                                           sensitivityHis.get(),
-		                                           crystalMaterial,
-		                                           seed,
-		                                           maskWidth,
-		                                           acfThreshold,
-		                                           saveIntermediary_dir};
+		scatter::ScatterEstimator scatterEstimator(
+		    *scanner, *sourceImage, *attImage, *prompts, numTOFBins, numPlanes,
+		    numAngles, randomsHis, sensitivityHis, crystalMaterial, seed,
+		    maskWidth, attThreshold, saveIntermediary_dir);
 
-		auto scatterEstimate =
-		    scatterEstimator.computeTailFittedScatterEstimate(nZ, nPhi, nR,
-		                                                      denormalize);
+		scatterEstimator.computeTailFittedScatterEstimate();
 
-		scatterEstimate->writeToFile(scatterOut_fname);
-
-		*/
+		scatterEstimator.getScatterEstimate().writeToFile(scatterOut_fname);
 	}
 	catch (const cxxopts::exceptions::exception& e)
 	{

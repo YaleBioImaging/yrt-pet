@@ -29,8 +29,8 @@ public:
 	ScatterEstimator(
 	    const Scanner& pr_scanner, const Image& pr_lambda, const Image& pr_mu,
 	    const ProjectionData& pr_prompts, size_t numTOFBins, size_t numPlanes,
-	    size_t numAngles, const Histogram3D* pp_randomsHis = nullptr,
-	    const Histogram3D* pp_sensitivityHis = nullptr,
+	    size_t numAngles, const Histogram* pp_randomsHis = nullptr,
+	    const Histogram* pp_sensitivityHis = nullptr,
 	    CrystalMaterial p_crystalMaterial = DefaultCrystal,
 	    int seedi = DefaultSeed,
 	    size_t scatterTailsMaskWidth = DefaultScatterTailsMaskWidth,

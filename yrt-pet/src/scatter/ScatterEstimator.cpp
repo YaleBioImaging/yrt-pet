@@ -83,8 +83,8 @@ namespace yrt::scatter
 ScatterEstimator::ScatterEstimator(
     const Scanner& pr_scanner, const Image& pr_lambda, const Image& pr_mu,
     const ProjectionData& pr_prompts, size_t numTOFBins, size_t numPlanes,
-    size_t numAngles, const Histogram3D* pp_randomsHis,
-    const Histogram3D* pp_sensitivityHis, CrystalMaterial p_crystalMaterial,
+    size_t numAngles, const Histogram* pp_randomsHis,
+    const Histogram* pp_sensitivityHis, CrystalMaterial p_crystalMaterial,
     int seedi, size_t scatterTailsMaskWidth, float attThreshold,
     const std::string& saveIntermediary_dir)
     : mr_scanner(pr_scanner),

@@ -58,6 +58,8 @@ public:
 		float tof_ps, planePosition1, angle1, planePosition2, angle2;
 	};
 
+	static constexpr size_t MinNumAngles = 4ull;
+
 	// Read a scatter-space file to create this object
 	ScatterSpace(const Scanner& pr_scanner, const std::string& fname);
 	// Create a virgin scatter-space

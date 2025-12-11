@@ -134,11 +134,17 @@ ScatterSpace::ScatterSpace(const Scanner& pr_scanner, const std::string& fname)
 {
 	readFromFile(fname);
 
-	const auto dims = mp_values->getDims();
+	const std::array<size_t, 5> dims = mp_values->getDims();
 
 	m_numTOFBins = dims[0];
 	m_numPlanes = dims[1];
 	m_numAngles = dims[2];
+	ASSERT_MSG(dims[1] == dims[3],
+	           "The shape of the given scatter-space file"
+	           "is incoherent. Are you sure this is a scatter-space file?");
+	ASSERT_MSG(dims[2] == dims[4],
+	           "The shape of the given scatter-space file"
+	           "is incoherent. Are you sure this is a scatter-space file?");
 
 	initStepSizes();
 }
@@ -152,7 +158,10 @@ ScatterSpace::ScatterSpace(const Scanner& pr_scanner, size_t p_numTOFBins,
 {
 	ASSERT_MSG(m_numTOFBins > 0, "Number of TOF bins must be non-null");
 	ASSERT_MSG(m_numPlanes > 0, "Number of planes must be non-null");
-	ASSERT_MSG(m_numAngles > 1, "Number of angles must be more than 1");
+
+	const std::string minAngleErrorMessage =
+	    "Number of angles must be at least " + std::to_string(MinNumAngles);
+	ASSERT_MSG(m_numAngles >= MinNumAngles, minAngleErrorMessage.c_str());
 
 	initStepSizes();
 

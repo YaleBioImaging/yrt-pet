@@ -384,18 +384,8 @@ Line3D ScatterSpace::lineFromCylindricalCoordinates(float planePosition1,
 	    [this](Vector3D& point, float angle, float planePosition)
 	{
 		{
-			if (std::abs(angle - 0.5f * PI_FLT) < 1e-6f ||
-			    std::abs(angle - 1.5f * PI_FLT) < 1e-6f)
-			{
-				point.x = 0;
-				point.y = getRadius();
-			}
-			else
-			{
-				const float ratio = std::tan(angle);
-				point.x = ratio * getRadius();
-				point.y = ratio * getRadius();
-			}
+			point.x = std::cos(angle) * getRadius();
+			point.y = std::sin(angle) * getRadius();
 			point.z = planePosition;
 		}
 	};

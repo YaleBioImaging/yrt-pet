@@ -59,6 +59,8 @@ public:
 	};
 
 	static constexpr size_t MinNumAngles = 4ull;
+	static constexpr size_t RecommendedNumPlanes = 20ull;
+	static constexpr size_t RecommendedNumAngles = 100ull;
 
 	// Read a scatter-space file to create this object
 	ScatterSpace(const Scanner& pr_scanner, const std::string& fname);

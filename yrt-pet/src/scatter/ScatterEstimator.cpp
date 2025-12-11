@@ -132,7 +132,10 @@ void ScatterEstimator::computeTailFittedScatterEstimate()
 {
 	const bool saveIntermediate = !m_saveIntermediary_dir.empty();
 
-	computeScatterEstimate();
+	// Note: Technically, the tail selection can be done in parallel to the
+	//  scatter estimation. This would save some computation time.
+
+	// computeScatterEstimate();
 	if (saveIntermediate)
 	{
 		mp_scatter_scs->writeToFile(

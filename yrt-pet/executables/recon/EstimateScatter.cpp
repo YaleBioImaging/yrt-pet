@@ -65,15 +65,20 @@ int main(int argc, char** argv)
 		        ")",
 		    false, io::TypeOfArgument::FLOAT,
 		    scatter::ScatterEstimator::DefaultAttThreshold, tailFittingGroup);
+
+		// By default, no TOF
 		registry.registerArgument("n_tof",
 		                          "Number of TOF bins to consider for SSS",
 		                          false, io::TypeOfArgument::INT, 1, sssGroup);
-		registry.registerArgument("n_planes",
-		                          "Number of axial planes to consider for SSS",
-		                          false, io::TypeOfArgument::INT, 20, sssGroup);
-		registry.registerArgument("n_angles",
-		                          "Number of angles to consider for SSS",
-		                          false, io::TypeOfArgument::INT, 100, sssGroup);
+		registry.registerArgument(
+		    "n_planes", "Number of axial planes to consider for SSS", false,
+		    io::TypeOfArgument::INT,
+		    static_cast<int>(ScatterSpace::RecommendedNumPlanes), sssGroup);
+		registry.registerArgument(
+		    "n_angles", "Number of angles to consider for SSS", false,
+		    io::TypeOfArgument::INT,
+		    static_cast<int>(ScatterSpace::RecommendedNumAngles), sssGroup);
+
 		registry.registerArgument(
 		    "crystal_mat", "Crystal material name (default: LYSO)", false,
 		    io::TypeOfArgument::STRING, "LYSO", sssGroup);
@@ -110,10 +115,13 @@ int main(int argc, char** argv)
 		        std::to_string(
 		            scatter::ScatterEstimator::DefaultScatterTailsMaskWidth) +
 		        ")",
-		    false, io::TypeOfArgument::INT, -1, tailFittingGroup);
+		    false, io::TypeOfArgument::INT,
+		    static_cast<int>(
+		        scatter::ScatterEstimator::DefaultScatterTailsMaskWidth),
+		    tailFittingGroup);
 
 		plugin::addOptionsFromPlugins(registry,
-									  plugin::InputFormatsChoice::ALL);
+		                              plugin::InputFormatsChoice::ALL);
 
 		// Load configuration
 		io::ArgumentReader config{registry, "Scatter estimation executable"};

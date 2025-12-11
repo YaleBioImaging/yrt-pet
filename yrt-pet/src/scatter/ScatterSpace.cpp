@@ -62,7 +62,7 @@ void py_setup_scatterspace(py::module& m)
 	c.def("getLinearInterpolationValue",
 	      &ScatterSpace::getLinearInterpolationValue);
 
-	// Index ↔ Position conversions
+	// Index <-> Position conversions
 	c.def("getTOF_ps", &ScatterSpace::getTOF_ps);
 	c.def("getPlanePosition", &ScatterSpace::getPlanePosition);
 	c.def("getAngle", &ScatterSpace::getAngle);

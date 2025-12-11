@@ -25,7 +25,53 @@ namespace yrt
 void py_setup_scatterestimator(py::module& m)
 {
 	auto c = py::class_<scatter::ScatterEstimator>(m, "ScatterEstimator");
-	// TODO NOW: Python bindings
+	c.def(
+	    py::init<
+	        const Scanner&, const Image&, const Image&, const ProjectionData&,
+	        size_t, size_t, size_t, const Histogram3D*, const Histogram3D*,
+	        scatter::CrystalMaterial, int, size_t, float, const std::string&>(),
+	    "scanner"_a, "lambda"_a, "mu"_a, "prompts"_a, "numTOFBins",
+	    "numPlanes"_a, "numAngles"_a, "randomsHis"_a = nullptr,
+	    "sensitivityHis"_a = nullptr,
+	    "crystalMaterial"_a = scatter::ScatterEstimator::DefaultCrystal,
+	    "seedi"_a = scatter::ScatterEstimator::DefaultSeed,
+	    "scatterTailsMaskWidth"_a =
+	        scatter::ScatterEstimator::DefaultScatterTailsMaskWidth,
+	    "attThreshold"_a = scatter::ScatterEstimator::DefaultAttThreshold,
+	    "saveIntermediary_dir"_a = "");
+
+	// Allocation
+	c.def("allocate", &scatter::ScatterEstimator::allocate);
+
+	// Main function
+	c.def("computeTailFittedScatterEstimate",
+	      &scatter::ScatterEstimator::computeTailFittedScatterEstimate);
+
+	// Steps
+	c.def("computeScatterEstimate",
+	      &scatter::ScatterEstimator::computeScatterEstimate);
+	c.def("computeInsideMaskInScatterSpace",
+	      &scatter::ScatterEstimator::computeInsideMaskInScatterSpace);
+	c.def("computeScatterTailsMask",
+	      &scatter::ScatterEstimator::computeScatterTailsMask);
+	c.def("computePromptsAndRandomsInScatterSpace",
+	      &scatter::ScatterEstimator::computePromptsAndRandomsInScatterSpace);
+	c.def("computeTailFittingFactor",
+	      &scatter::ScatterEstimator::computeTailFittingFactor);
+
+	// Getters
+	c.def("getScatterEstimate", &scatter::ScatterEstimator::getScatterEstimate);
+	c.def("getPromptsInScatterSpace",
+	      &scatter::ScatterEstimator::getPromptsInScatterSpace);
+	c.def("getRandomsInScatterSpace",
+	      &scatter::ScatterEstimator::getRandomsInScatterSpace);
+	c.def("getInsideMaskInScatterSpace",
+	      &scatter::ScatterEstimator::getInsideMaskInScatterSpace);
+	c.def("getTailInScatterSpace",
+	      &scatter::ScatterEstimator::getTailInScatterSpace);
+	c.def("useRandomsEstimates",
+	      &scatter::ScatterEstimator::useRandomsEstimates);
+	c.def("useSensitivity", &scatter::ScatterEstimator::useSensitivity);
 }
 }  // namespace yrt
 

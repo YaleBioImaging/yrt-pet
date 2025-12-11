@@ -137,21 +137,21 @@ void ScatterEstimator::computeTailFittedScatterEstimate()
 	{
 		mp_scatter_scs->writeToFile(
 		    m_saveIntermediary_dir /
-		    "intermediary_scatterEstimateNonFitted.his");
+		    "intermediary_scatterEstimateNonFitted.scs");
 	}
 
 	computeInsideMaskInScatterSpace();
 	if (saveIntermediate)
 	{
 		mp_insideMask_scs->writeToFile(m_saveIntermediary_dir /
-		                               "intermediary_AcfInScatterSpace.his");
+		                               "intermediary_AcfInScatterSpace.scs");
 	}
 
 	computeScatterTailsMask();
 	if (saveIntermediate)
 	{
 		mp_tail_scs->writeToFile(m_saveIntermediary_dir /
-		                         "intermediary_scatterTailsMask.his");
+		                         "intermediary_scatterTailsMask.scs");
 	}
 
 	computePromptsAndRandomsInScatterSpace();
@@ -199,7 +199,7 @@ void ScatterEstimator::computeInsideMaskInScatterSpace()
 	//  a new "projector"
 	//  It can also be simplified further by only projecting d1-d2 and not d2-d1
 
-	std::cout << "Populating attenuation correction factors in scatter space..."
+	std::cout << "Computing inside-outside mask in preparation for tail-fitting"
 	          << std::endl;
 
 	// Note: The attenuation image used should not include the bed
@@ -268,7 +268,7 @@ float ScatterEstimator::computeTailFittingFactor() const
 	std::vector<double> alphaDenominatorSumPerThread(numThreads, 0.0);
 
 	util::parallelForChunked(
-	    numSamples, globals::getNumThreads(),
+	    numSamples, numThreads,
 	    [&progressBar, &alphaDenominatorSumPerThread,
 	     &alphaNumeratorSumPerThread, hasRandoms,
 	     this](size_t sampleId, size_t threadId)
@@ -446,7 +446,7 @@ void ScatterEstimator::fillPromptsAndRandoms()
 	util::ProgressDisplayMultiThread progressBar(numThreads, progressMax, 5);
 
 	util::parallelForChunked(
-	    count, globals::getNumThreads(),
+	    count, numThreads,
 	    [&progressBar, applySensitivity, this](size_t binId, size_t threadId)
 	    {
 		    progressBar.incrementProgress(threadId);
@@ -512,7 +512,7 @@ void ScatterEstimator::fillInsideMask()
 	util::ProgressDisplayMultiThread progressBar(numThreads, progressMax, 5);
 
 	util::parallelForChunked(
-	    numSamples, globals::getNumThreads(),
+	    numSamples, numThreads,
 	    [&progressBar, this](size_t sampleId, size_t threadId)
 	    {
 		    progressBar.incrementProgress(threadId);

@@ -8,30 +8,17 @@ import sys
 import pytest
 import numpy as np
 import copy
+import pickle
 
 fold_py = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-sys.path.append(os.path.join(fold_py))
+sys.path.insert(0, os.path.join(fold_py))
 import pyyrtpet as yrt
-
-import pickle
 
 # %% Get paths
 
 HOME_DIR = os.path.expanduser('~yd385')
 
-root_dir = os.path.join(HOME_DIR, 'lr_pet_project')
-root_data_dir = os.path.join(root_dir, 'data')
-script_dir = os.path.join(root_dir, 'scripts')
-tools_dir = os.path.join(root_dir, 'tools')
-PYTHON_TOOLS_DIR = os.path.join(HOME_DIR, 'tools', 'toolbox', 'python_tools')
-
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-sys.path.append(os.path.join(root_dir, 'tools'))
-sys.path.append(os.path.join('/home1/yd385/deep_learning/pet_pycharm_project/tools'))
-# from helpers import autocrop
-# from nmf_TV import compute_nmf_vectorized
-
-fold_data = os.path.expanduser('~yd385/yrt-pet-integration_tests/test_data')
+fold_data = os.path.join(HOME_DIR, 'yrt-pet-integration_tests', 'test_data')
 fold_ge2d_dyn = os.path.join(fold_data, "phantom_dynamic")
 fold_ge2d = os.path.join(fold_data, "phantom_static")
 scanner = yrt.Scanner(os.path.join(fold_ge2d_dyn, "UHR2D.json"))
@@ -260,7 +247,7 @@ def _test_generic_bwd(UpdaterType, projector_type, useGPU, updateH=False):
         x_lr_img.bind(x_np_test)
 
         proj_params.updateH = updateH
-        HBasisWrite_np = np.require(np.zeros_like(HBasis_np).astype(np.float64), requirements=['C'])
+        HBasisWrite_np = np.require(np.zeros_like(HBasis_np).astype(np.float32), requirements=['C'])
         oper_H = oper_test(projector_type)(proj_params)
         oper_H.setUpdaterLRHBasisWrite(HBasisWrite_np)
         HBasis_copy = copy.deepcopy(oper_H.getUpdaterLRHBasis())
@@ -429,4 +416,3 @@ def test_bwd_LR_DD_GPU():
 
 def test_bwd_LR_Hupdate_DD_GPU():
     _test_generic_bwd('LR', projector_type='DD', useGPU=True, updateH=True)
-

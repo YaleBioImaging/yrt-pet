@@ -209,7 +209,33 @@ void ScatterEstimator::computeInsideMaskInScatterSpace()
 	ASSERT_MSG(mp_insideMask_scs->isMemoryValid(),
 	           "Scatter-space array is unallocated (for ACFs)");
 
-	fillInsideMask();
+	const size_t numSamples = mp_insideMask_scs->getSizeTotal();
+
+	// Only used for printing purposes
+	const int numThreads = globals::getNumThreads();
+	const size_t progressMax = numSamples;
+	util::ProgressDisplayMultiThread progressBar(numThreads, progressMax, 5);
+
+	util::parallelForChunked(
+	    numSamples, numThreads,
+	    [&progressBar, this](size_t sampleId, size_t threadId)
+	    {
+		    progressBar.incrementProgress(threadId);
+
+		    const ScatterSpace::ScatterSpaceIndex scsIdx =
+		        mp_insideMask_scs->unravelIndex(sampleId);
+
+		    // Ignore TOF
+		    const Line3D lor = mp_insideMask_scs->getLORFromIndex(scsIdx);
+
+		    // Forward-project the attenuation image
+		    const float att = OperatorProjectorSiddon::singleForwardProjection(
+		        &m_sss.getAttenuationImage(), lor);
+
+		    const float inside = (att > m_attThreshold) ? 1.0f : 0.0f;
+
+		    mp_insideMask_scs->setValueFlat(sampleId, inside);
+	    });
 }
 
 void ScatterEstimator::computeScatterTailsMask()
@@ -218,10 +244,86 @@ void ScatterEstimator::computeScatterTailsMask()
 	ASSERT_MSG(mp_tail_scs->isMemoryValid(),
 	           "Scatter-space array is unallocated (for tail)");
 	ASSERT_MSG(mp_insideMask_scs->isMemoryValid(),
-	           "Scatter-space array is unallocated (for tail)");
+	           "Scatter-space array is unallocated (for inside-outside mask)");
 	ASSERT(mp_insideMask_scs->getSizeTotal() == mp_tail_scs->getSizeTotal());
 
-	fillScatterTailsMask();
+	const size_t numPlanes1 = mp_insideMask_scs->getNumPlanes();
+	const size_t numAngles1 = mp_insideMask_scs->getNumAngles();
+	const size_t numPlanes2 = numPlanes1;
+	const size_t numAngles2 = numAngles1;
+
+	// For printing purposes
+	const int numThreads = globals::getNumThreads();
+	const size_t progressMax = numPlanes1;
+	util::ProgressDisplayMultiThread progressBar(numThreads, progressMax, 5);
+
+	// Parallelize over planeIndex1
+	util::parallelForChunked(
+	    numPlanes1, numThreads,
+	    [&progressBar, numAngles1, numPlanes2, numAngles2,
+	     this](size_t planeIndex1, unsigned int threadId)
+	    {
+		    progressBar.incrementProgress(threadId);
+
+		    for (size_t angleIndex1 = 0; angleIndex1 < numAngles1;
+		         angleIndex1++)
+		    {
+			    for (size_t planeIndex2 = 0; planeIndex2 < numPlanes2;
+			         planeIndex2++)
+			    {
+				    // Start from the subsequent angle
+				    size_t angleIndex2 = 1;
+				    float insideValue = mp_insideMask_scs->getValue(
+				        0, planeIndex1, angleIndex1, planeIndex2, angleIndex2);
+
+				    bool startInside = insideValue > 0.0f;
+
+				    // More forward until we reach (or leave) the object
+				    for (angleIndex2 = 2; angleIndex2 < angleIndex1;
+				         angleIndex2++)
+				    {
+					    insideValue = mp_insideMask_scs->getValue(
+					        0, planeIndex1, angleIndex1, planeIndex2,
+					        angleIndex2);
+
+					    bool isInside = insideValue > 0.0f;
+
+					    if (isInside != startInside)
+					    {
+						    // Here we went from outside the object to inside
+						    //  the object (or the other way around)
+						    for (size_t angleBackOff = 0;
+						         angleBackOff < m_scatterTailsMaskWidth;
+						         angleBackOff++)
+						    {
+							    size_t angleIndex2InTail;
+							    if (isInside)
+							    {
+								    // We went from outside to inside
+								    angleIndex2InTail =
+								        (angleIndex2 - angleBackOff) %
+								        numAngles2;
+							    }
+							    else
+							    {
+								    // We went from inside to outside
+								    angleIndex2InTail =
+								        (angleIndex2 + angleBackOff) %
+								        numAngles2;
+							    }
+
+							    mp_tail_scs->setValue(0, planeIndex1,
+							                          angleIndex1, planeIndex2,
+							                          angleIndex2InTail, 1.0f);
+						    }
+
+						    // Switch
+						    startInside = !startInside;
+					    }
+				    }
+			    }
+		    }
+	    });
 }
 
 void ScatterEstimator::computePromptsAndRandomsInScatterSpace()
@@ -243,7 +345,71 @@ void ScatterEstimator::computePromptsAndRandomsInScatterSpace()
 		    "Scatter-space array is unallocated (for randoms estimates)");
 	}
 
-	fillPromptsAndRandoms();
+	// Iterate on all events or all histogram bins
+	const size_t count = mr_prompts.count();
+
+	const bool applySensitivity = useSensitivity();
+
+	// Only used for printing purposes
+	const int numThreads = globals::getNumThreads();
+	const size_t progressMax = count;
+	util::ProgressDisplayMultiThread progressBar(numThreads, progressMax, 5);
+
+	util::parallelForChunked(
+	    count, numThreads,
+	    [&progressBar, applySensitivity, this](size_t binId, size_t threadId)
+	    {
+		    progressBar.incrementProgress(threadId);
+
+		    // Gather prompts
+		    float promptsValue = mr_prompts.getProjectionValue(binId);
+
+		    // Histogram bin
+		    const histo_bin_t histoBin = mr_prompts.getHistogramBin(binId);
+
+		    // Gather randoms estimate if needed
+		    float randomsEstimate = 0.0f;
+		    if (mp_randomsHis != nullptr)
+		    {
+			    randomsEstimate =
+			        mp_randomsHis->getProjectionValueFromHistogramBin(histoBin);
+		    }
+		    else if (mr_prompts.hasRandomsEstimates())
+		    {
+			    randomsEstimate = mr_prompts.hasRandomsEstimates();
+		    }
+
+		    // Normalize prompts and randoms estimate
+		    if (applySensitivity)
+		    {
+			    const float sensitivity =
+			        mp_sensitivityHis->getProjectionValueFromHistogramBin(
+			            histoBin);
+			    if (sensitivity > EPS_FLT)
+			    {
+				    promptsValue /= sensitivity;
+				    randomsEstimate /= sensitivity;
+			    }
+			    else
+			    {
+				    promptsValue = 0.0f;
+				    randomsEstimate = 0.0f;
+			    }
+		    }
+
+		    // Gather scatter-space index
+		    const ScatterSpace::ScatterSpacePosition scsPos =
+		        mp_prompts_scs->histogramBinToScatterSpacePosition(histoBin);
+		    const ScatterSpace::ScatterSpaceIndex scsIdx =
+		        mp_prompts_scs->getNearestNeighborIndex(scsPos);
+
+		    // Increment scatter-space arrays (Atomic)
+		    mp_prompts_scs->incrementValueAtomic(scsIdx, promptsValue);
+		    if (randomsEstimate > 0.0f)
+		    {
+			    mp_randoms_scs->incrementValueAtomic(scsIdx, randomsEstimate);
+		    }
+	    });
 }
 
 float ScatterEstimator::computeTailFittingFactor() const
@@ -353,187 +519,6 @@ bool ScatterEstimator::useRandomsEstimates() const
 bool ScatterEstimator::useSensitivity() const
 {
 	return mp_sensitivityHis != nullptr;
-}
-
-void ScatterEstimator::fillScatterTailsMask()
-{
-	const size_t numPlanes1 = mp_insideMask_scs->getNumPlanes();
-	const size_t numAngles1 = mp_insideMask_scs->getNumAngles();
-	const size_t numPlanes2 = numPlanes1;
-	const size_t numAngles2 = numAngles1;
-
-	// For printing purposes
-	const int numThreads = globals::getNumThreads();
-	const size_t progressMax = numPlanes1;
-	util::ProgressDisplayMultiThread progressBar(numThreads, progressMax, 5);
-
-	// Parallelize over planeIndex1
-	util::parallelForChunked(
-	    numPlanes1, numThreads,
-	    [&progressBar, numAngles1, numPlanes2, numAngles2,
-	     this](size_t planeIndex1, unsigned int threadId)
-	    {
-		    progressBar.incrementProgress(threadId);
-
-		    for (size_t angleIndex1 = 0; angleIndex1 < numAngles1;
-		         angleIndex1++)
-		    {
-			    for (size_t planeIndex2 = 0; planeIndex2 < numPlanes2;
-			         planeIndex2++)
-			    {
-				    // Start from the subsequent angle
-				    size_t angleIndex2 = 1;
-				    float insideValue = mp_insideMask_scs->getValue(
-				        0, planeIndex1, angleIndex1, planeIndex2, angleIndex2);
-
-				    bool startInside = insideValue > 0.0f;
-
-				    // More forward until we reach (or leave) the object
-				    for (angleIndex2 = 2; angleIndex2 < angleIndex1;
-				         angleIndex2++)
-				    {
-					    insideValue = mp_insideMask_scs->getValue(
-					        0, planeIndex1, angleIndex1, planeIndex2,
-					        angleIndex2);
-
-					    bool isInside = insideValue > 0.0f;
-
-					    if (isInside != startInside)
-					    {
-						    // Here we went from outside the object to inside
-						    //  the object (or the other way around)
-						    for (size_t angleBackOff = 0;
-						         angleBackOff < m_scatterTailsMaskWidth;
-						         angleBackOff++)
-						    {
-							    size_t angleIndex2InTail;
-							    if (isInside)
-							    {
-								    // We went from outside to inside
-								    angleIndex2InTail =
-								        (angleIndex2 - angleBackOff) %
-								        numAngles2;
-							    }
-							    else
-							    {
-								    // We went from inside to outside
-								    angleIndex2InTail =
-								        (angleIndex2 + angleBackOff) %
-								        numAngles2;
-							    }
-
-							    mp_tail_scs->setValue(0, planeIndex1,
-							                          angleIndex1, planeIndex2,
-							                          angleIndex2InTail, 1.0f);
-						    }
-
-						    // Switch
-						    startInside = !startInside;
-					    }
-				    }
-			    }
-		    }
-	    });
-}
-
-void ScatterEstimator::fillPromptsAndRandoms()
-{
-	// Iterate on all events or all histogram bins
-	const size_t count = mr_prompts.count();
-
-	const bool applySensitivity = useSensitivity();
-
-	// Only used for printing purposes
-	const int numThreads = globals::getNumThreads();
-	const size_t progressMax = count;
-	util::ProgressDisplayMultiThread progressBar(numThreads, progressMax, 5);
-
-	util::parallelForChunked(
-	    count, numThreads,
-	    [&progressBar, applySensitivity, this](size_t binId, size_t threadId)
-	    {
-		    progressBar.incrementProgress(threadId);
-
-		    // Gather prompts
-		    float promptsValue = mr_prompts.getProjectionValue(binId);
-
-		    // Histogram bin
-		    const histo_bin_t histoBin = mr_prompts.getHistogramBin(binId);
-
-		    // Gather randoms estimate if needed
-		    float randomsEstimate = 0.0f;
-		    if (mp_randomsHis != nullptr)
-		    {
-			    randomsEstimate =
-			        mp_randomsHis->getProjectionValueFromHistogramBin(histoBin);
-		    }
-		    else if (mr_prompts.hasRandomsEstimates())
-		    {
-			    randomsEstimate = mr_prompts.hasRandomsEstimates();
-		    }
-
-		    // Normalize prompts and randoms estimate
-		    if (applySensitivity)
-		    {
-			    const float sensitivity =
-			        mp_sensitivityHis->getProjectionValueFromHistogramBin(
-			            histoBin);
-			    if (sensitivity > EPS_FLT)
-			    {
-				    promptsValue /= sensitivity;
-				    randomsEstimate /= sensitivity;
-			    }
-			    else
-			    {
-				    promptsValue = 0.0f;
-				    randomsEstimate = 0.0f;
-			    }
-		    }
-
-		    // Gather scatter-space index
-		    const ScatterSpace::ScatterSpacePosition scsPos =
-		        mp_prompts_scs->histogramBinToScatterSpacePosition(histoBin);
-		    const ScatterSpace::ScatterSpaceIndex scsIdx =
-		        mp_prompts_scs->getNearestNeighborIndex(scsPos);
-
-		    // Increment scatter-space arrays (Atomic)
-		    mp_prompts_scs->incrementValueAtomic(scsIdx, promptsValue);
-		    if (randomsEstimate > 0.0f)
-		    {
-			    mp_randoms_scs->incrementValueAtomic(scsIdx, randomsEstimate);
-		    }
-	    });
-}
-
-void ScatterEstimator::fillInsideMask()
-{
-	const size_t numSamples = mp_insideMask_scs->getSizeTotal();
-
-	// Only used for printing purposes
-	const int numThreads = globals::getNumThreads();
-	const size_t progressMax = numSamples;
-	util::ProgressDisplayMultiThread progressBar(numThreads, progressMax, 5);
-
-	util::parallelForChunked(
-	    numSamples, numThreads,
-	    [&progressBar, this](size_t sampleId, size_t threadId)
-	    {
-		    progressBar.incrementProgress(threadId);
-
-		    const ScatterSpace::ScatterSpaceIndex scsIdx =
-		        mp_insideMask_scs->unravelIndex(sampleId);
-
-		    // Ignore TOF
-		    const Line3D lor = mp_insideMask_scs->getLORFromIndex(scsIdx);
-
-		    // Forward-project the attenuation image
-		    const float att = OperatorProjectorSiddon::singleForwardProjection(
-		        &m_sss.getAttenuationImage(), lor);
-
-		    const float inside = (att > m_attThreshold) ? 1.0f : 0.0f;
-
-		    mp_insideMask_scs->setValueFlat(sampleId, inside);
-	    });
 }
 
 }  // namespace yrt::scatter

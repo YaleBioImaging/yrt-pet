@@ -58,11 +58,6 @@ public:
 	bool useRandomsEstimates() const;
 	bool useSensitivity() const;
 
-protected:
-	void fillInsideMask();
-	void fillScatterTailsMask();
-	void fillPromptsAndRandoms();
-
 private:
 	const Scanner& mr_scanner;
 	SingleScatterSimulator m_sss;

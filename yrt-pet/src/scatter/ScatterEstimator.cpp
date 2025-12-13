@@ -416,6 +416,10 @@ float ScatterEstimator::computeTailFittingFactor() const
 {
 	std::cout << "Computing tail-fitting factor..." << std::endl;
 
+	ASSERT(mp_tail_scs->isMemoryValid());
+	ASSERT(mp_scatter_scs->isMemoryValid());
+	ASSERT(mp_prompts_scs->isMemoryValid());
+
 	const size_t numSamples = mp_scatter_scs->getSizeTotal();
 
 	// Sanity checks

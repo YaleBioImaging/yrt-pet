@@ -13,8 +13,7 @@ namespace yrt
 {
 namespace util
 {
-/*Warning: This class is only made to work for command-line output, not for
- * accumulating the output in a file (ex: SLURM)*/
+
 class ProgressDisplayMultiThread
 {
 public:

@@ -82,7 +82,7 @@ public:
 	std::array<size_t, ndim> unravelIdx(size_t flatIdx) const
 	{
 		size_t flatIdxRemains = flatIdx;
-		std::array<size_t, ndim> strides = getStrides();
+		std::array<size_t, ndim> strides = getStridesIdx();
 		std::array<size_t, ndim> indices;
 		for (size_t dim = 0; dim < ndim; ++dim)
 		{
@@ -165,13 +165,24 @@ public:
 
 	std::array<size_t, ndim> getStrides() const
 	{
+		return getStridesInternal<sizeof(T)>();
+	}
+
+	std::array<size_t, ndim> getStridesIdx() const
+	{
+		return getStridesInternal<1ull>();
+	}
+
+	template<size_t ElemSize>
+	std::array<size_t, ndim> getStridesInternal() const
+	{
 		std::array<size_t, ndim> strides;
 		for (int dim = ndim - 1; dim >= 0; --dim)
 		{
 			float stride;
 			if (dim == ndim - 1)
 			{
-				stride = sizeof(T);
+				stride = ElemSize;
 			}
 			else
 			{

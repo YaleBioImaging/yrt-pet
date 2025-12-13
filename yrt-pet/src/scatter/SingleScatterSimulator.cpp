@@ -217,7 +217,8 @@ float SingleScatterSimulator::computeSingleScatterInLOR(const Line3D& lor,
 {
 	// TODO : support TOF
 	int i;
-	float res = 0., dist1, dist2, energy, cosa, mu_scaling_factor;
+	double res = 0.0;
+	float dist1, dist2, energy, cosa, mu_scaling_factor;
 	float vatt, att_s_1_511, att_s_1, att_s_2_511, att_s_2;
 	float dsigcompdomega, lamb_s_1, lamb_s_2, sig_s_1, sig_s_2;
 	float eps_s_1_511, eps_s_1, eps_s_2_511, eps_s_2, fac1, fac2;

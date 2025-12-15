@@ -128,22 +128,22 @@ ImageParams::ImageParams()
 {
 }
 
-ImageParams::ImageParams(int nxi, int nyi, int nzi, float length_xi,
-                         float length_yi, float length_zi, float offset_xi,
-                         float offset_yi, float offset_zi, frame_t num_framesi)
-    : nx(nxi),
-      ny(nyi),
-      nz(nzi),
-      length_x(length_xi),
-      length_y(length_yi),
-      length_z(length_zi),
+ImageParams::ImageParams(int p_nx, int p_ny, int p_nz, float p_length_x,
+                         float p_length_y, float p_length_z, float p_offset_x,
+                         float p_offset_y, float p_offset_z, frame_t p_numFrames)
+    : nx(p_nx),
+      ny(p_ny),
+      nz(p_nz),
+      length_x(p_length_x),
+      length_y(p_length_y),
+      length_z(p_length_z),
       vx(-1.0f),
       vy(-1.0f),
       vz(-1.0f),
-      off_x(offset_xi),
-      off_y(offset_yi),
-      off_z(offset_zi),
-      num_frames(num_framesi)
+      off_x(p_offset_x),
+      off_y(p_offset_y),
+      off_z(p_offset_z),
+      num_frames(p_numFrames)
 {
 	setup();
 }

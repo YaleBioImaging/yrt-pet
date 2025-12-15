@@ -992,7 +992,7 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 			if (projectorParams.updateH || (dualUpdate && iter > 0))
 			{
 				// TODO: This is suboptimal as the update could be done on GPU
-				// instead of copying to Device to do it
+				//  instead of copying to Device to do it
 				applyHUpdate();
 			}
 

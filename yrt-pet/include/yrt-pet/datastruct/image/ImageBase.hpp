@@ -40,9 +40,10 @@ public:
 	static constexpr float PositioningPrecision = 1e-4f;
 
 	ImageParams();
-	ImageParams(int nxi, int nyi, int nzi, float length_xi, float length_yi,
-	            float length_zi, float offset_xi = 0.f, float offset_yi = 0.f,
-	            float offset_zi = 0.f, frame_t num_framesi = 1);
+	ImageParams(int p_nx, int p_ny, int p_nz, float p_length_x,
+	            float p_length_y, float p_length_z, float p_offset_x = 0.f,
+	            float p_offset_y = 0.f, float p_offset_z = 0.f,
+	            frame_t p_numFrames = 1);
 	ImageParams(const ImageParams& in);
 	ImageParams& operator=(const ImageParams& in);
 	explicit ImageParams(const std::string& fname);
@@ -91,9 +92,10 @@ public:
 	virtual void applyThreshold(const ImageBase* mask_img, float threshold,
 	                            float val_le_scale, float val_le_off,
 	                            float val_gt_scale, float val_gt_off) = 0;
-	virtual void applyThresholdBroadcast(const ImageBase* mask_img, float threshold,
-							float val_le_scale, float val_le_off,
-							float val_gt_scale, float val_gt_off) = 0;
+	virtual void applyThresholdBroadcast(const ImageBase* mask_img,
+	                                     float threshold, float val_le_scale,
+	                                     float val_le_off, float val_gt_scale,
+	                                     float val_gt_off) = 0;
 	virtual void writeToFile(const std::string& image_fname) const = 0;
 	virtual void updateEMThreshold(ImageBase* update_img,
 	                               const ImageBase* norm_img,

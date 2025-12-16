@@ -789,22 +789,22 @@ public:
 
 	T* getSlicePtr(size_t ri)
 	{
-		return &this->_data[ri * this->_shape.get()[1] *
-		                    this->_shape.get()[2] * this->_shape.get()[3]];
+		return &this->_data[ri * this->_shape[1] *
+		                    this->_shape[2] * this->_shape[3]];
 	}
 
 	T* getSlicePtr(size_t ri) const
 	{
-		return &this->_data[ri * this->_shape.get()[1] *
-		                    this->_shape.get()[2] * this->_shape.get()[3]];
+		return &this->_data[ri * this->_shape[1] *
+		                    this->_shape[2] * this->_shape[3]];
 	}
 
 	Array3DAlias<T> operator[](size_t ri)
 	{
 		Array3DAlias<T> slice_array;
 		T* data_slice = getSlicePtr(ri);
-		slice_array.bind(data_slice, this->_shape.get()[1],
-		                 this->_shape.get()[2], this->_shape.get()[3]);
+		slice_array.bind(data_slice, this->_shape[1],
+		                 this->_shape[2], this->_shape[3]);
 		return slice_array;
 	}
 
@@ -812,8 +812,8 @@ public:
 	{
 		Array3DAlias<T> slice_array;
 		T* data_slice = getSlicePtr(ri);
-		slice_array.bind(data_slice, this->_shape.get()[1],
-		                 this->_shape.get()[2], this->_shape.get()[3]);
+		slice_array.bind(data_slice, this->_shape[1],
+		                 this->_shape[2], this->_shape[3]);
 		return slice_array;
 	}
 

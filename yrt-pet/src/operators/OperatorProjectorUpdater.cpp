@@ -119,7 +119,7 @@ float OperatorProjectorUpdaterDefault3D::forwardUpdate(
 
 void OperatorProjectorUpdaterDefault3D::backUpdate(
     float value, float weight, float* cur_img_ptr, size_t offset,
-    frame_t dynamicFrame, size_t numVoxelPerFrame, int tid)
+    frame_t dynamicFrame, size_t numVoxelPerFrame, int /*tid*/)
 {
 	(void)dynamicFrame;
 	(void)numVoxelPerFrame;
@@ -138,7 +138,7 @@ float OperatorProjectorUpdaterDefault4D::forwardUpdate(
 
 void OperatorProjectorUpdaterDefault4D::backUpdate(
     float value, float weight, float* cur_img_ptr, size_t offset,
-    frame_t dynamicFrame, size_t numVoxelPerFrame, int tid)
+    frame_t dynamicFrame, size_t numVoxelPerFrame, int /*tid*/)
 {
 	float output = value * weight;
 	std::atomic_ref<float> atomic_elem(

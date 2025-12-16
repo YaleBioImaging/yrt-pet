@@ -218,11 +218,19 @@ const Array3D<double>& OperatorProjectorUpdaterLR::getHBasisWriteThread()
 void OperatorProjectorUpdaterLR::setCurrentImgBuffer(ImageBase* img)
 {
 	if (auto* imgCPU = dynamic_cast<ImageOwned*>(img))
+	{
 		m_currentImg = imgCPU->getRawPointer();
+	}
+#if BUILD_CUDA
 	else if (auto* imgGPU = dynamic_cast<ImageDevice*>(img))
+	{
 		m_currentImg = imgGPU->getDevicePointer();
+	}
+#endif
 	else
+	{
 		throw std::runtime_error("Unsupported image type");
+	}
 
 	ASSERT_MSG(m_currentImg != nullptr, "Null image data pointer");
 }

@@ -161,11 +161,11 @@ void py_setup_operatorprojector(py::module& m)
 			          "Projector needs to have a `OperatorProjectorUpdaterLR`");
 		      }
 		      auto H = updaterLR->getHBasisWrite();
-		      auto dims = H.getDims();
+		      const auto dims = H.getDims();
 		      float sum = 0.f;
-		      for (int d = 0; d < dims[0]; ++d)
+		      for (size_t d = 0; d < dims[0]; ++d)
 		      {
-			      for (int t = 0; t < dims[1]; ++t)
+			      for (size_t t = 0; t < dims[1]; ++t)
 			      {
 				      sum += H[d][t];
 			      }

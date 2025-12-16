@@ -12,10 +12,11 @@
 #include "nlohmann/json_fwd.hpp"
 #include <string>
 
-#define IMAGEPARAMS_FILE_VERSION 1.1
 
 namespace yrt
 {
+
+constexpr float IMAGEPARAMS_FILE_VERSION = 1.2f;
 
 class ImageParams
 {

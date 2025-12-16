@@ -69,6 +69,9 @@ std::pair<size_t, size_t>
 
 void OSEM_GPU::setupOperatorsForSensImgGen()
 {
+	getBinIterators().clear();
+	getBinIterators().reserve(num_OSEM_subsets);
+
 	for (int subsetId = 0; subsetId < num_OSEM_subsets; subsetId++)
 	{
 		// Create and add Bin Iterator

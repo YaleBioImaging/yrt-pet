@@ -1,7 +1,7 @@
 /*
-* This file is subject to the terms and conditions defined in
-* file 'LICENSE.txt', which is part of this source code package.
-*/
+ * This file is subject to the terms and conditions defined in
+ * file 'LICENSE.txt', which is part of this source code package.
+ */
 
 #pragma once
 
@@ -34,6 +34,7 @@ public:
 	OSEMUpdater() = default;
 	virtual ~OSEMUpdater() = default;
 
+
 	/*
 	 * This function computes the sensitivity image to use as denominator for
 	 * the OSEM equation. It uses the current projector of the OSEM object,
@@ -44,6 +45,8 @@ public:
 	 */
 	virtual void computeSensitivityImage(ImageBase& destImage) const = 0;
 
+	virtual void iterate(ImageBase& destImage) const = 0;
+
 	/*
 	 * This function computes the image that will be used in the EM update
 	 * (after the PSF forward has been applied and before the PSF backwards is
@@ -51,9 +54,10 @@ public:
 	 */
 	virtual void computeEMUpdateImage(const ImageBase& inputImage,
 	                          ImageBase& destImage) const = 0;
+protected:
+	std::unique_ptr<OperatorProjectorBase> mp_projectorForSensImgGen;
+	std::unique_ptr<OperatorProjectorBase> mp_projector;
 
 };
-
-std::unique_ptr<OSEMUpdater> createOSEMUpdater(OSEM* pp_osem);
 
 }

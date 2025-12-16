@@ -5,18 +5,19 @@
 
 #pragma once
 
+#include "yrt-pet/recon/OSEMUpdater.hpp"
+#include "yrt-pet/datastruct/projection/BinFilter.hpp"
 #include "yrt-pet/operators/OperatorProjector.hpp"
 #include "yrt-pet/recon/Corrector_CPU.hpp"
 #include "yrt-pet/utils/ProgressDisplayMultiThread.hpp"
-#include "yrt-pet/datastruct/projection/BinFilter.hpp"
 
 namespace yrt
 {
 
 class ProjectionData;
 class OSEM_CPU;
-//TODO NOW (ALMOST): remove dependcy OSEMUpdater and useless overload
-class OSEMUpdater_CPU
+
+class OSEMUpdater_CPU : public OSEMUpdater
 {
 public:
 	explicit OSEMUpdater_CPU(OSEM_CPU* pp_osem);
@@ -30,6 +31,11 @@ public:
 	 * sensitivity image generated will not have the PSF applied to it)
 	 */
 	void computeSensitivityImage(Image& destImage) const;
+
+	/*
+	 * This function updates the image using MLEM (on all subsets)
+	 */
+	void iterate(ImageBase& destImage) const override;
 
 	/*
 	 * This function computes the image that will be used in the EM update

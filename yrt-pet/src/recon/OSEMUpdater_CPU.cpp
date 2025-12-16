@@ -5,8 +5,6 @@
 
 #include "yrt-pet/recon/OSEMUpdater_CPU.hpp"
 
-#include <thread>
-
 #include "yrt-pet/datastruct/projection/BinIterator.hpp"
 #include "yrt-pet/datastruct/projection/ProjectionData.hpp"
 #include "yrt-pet/operators/OperatorProjector.hpp"
@@ -16,6 +14,8 @@
 #include "yrt-pet/utils/Concurrency.hpp"
 #include "yrt-pet/utils/Globals.hpp"
 #include "yrt-pet/utils/ProgressDisplayMultiThread.hpp"
+
+#include <thread>
 
 
 namespace yrt
@@ -74,6 +74,105 @@ void OSEMUpdater_CPU::computeSensitivityImage(Image& destImage) const
 			                              projValue, tid);
 		    }
 	    });
+}
+
+void OSEMUpdater_CPU::iterate(ImageBase& destImage) const
+{
+	const OSEM_CPU* osem = mp_osem;
+
+	// OSEM subsets
+	for (int subsetId = 0; subsetId < osem->num_OSEM_subsets; subsetId++)
+	{
+		std::cout << "OSEM subset " << subsetId + 1 << "/"
+		          << osem->num_OSEM_subsets << "..." << std::endl;
+
+		mp_projector->setBinIter(getBinIterators()[p_subsetId].get());
+		loadSubsetInternal(subsetId, true);
+
+		// SET TMP VARIABLES TO 0
+		getImageTmpBuffer(TemporaryImageSpaceBufferType::EM_RATIO)
+		    ->setValue(0.0);
+		if ((isLowRank && projectorParams.updateH) || dualUpdate)
+		{
+			initializeHBasisTmpBuffer();
+			SyncHostToDeviceHBasisWrite();
+		}
+
+		ImageBase* mlemImage_rp;
+		if (flagImagePSF)
+		{
+			getImageTmpBuffer(TemporaryImageSpaceBufferType::PSF)
+			    ->setValue(0.0);
+			// PSF
+			imagePsf->applyA(
+			    getMLEMImageBuffer(),
+			    getImageTmpBuffer(TemporaryImageSpaceBufferType::PSF));
+			mlemImage_rp =
+			    getImageTmpBuffer(TemporaryImageSpaceBufferType::PSF);
+		}
+		else
+		{
+			mlemImage_rp = getMLEMImageBuffer();
+		}
+
+		if (!projectorParams.updateH || dualUpdate)
+		{
+			computeEMUpdateImage(
+			    *mlemImage_rp,
+			    *getImageTmpBuffer(
+			        TemporaryImageSpaceBufferType::EM_RATIO));
+		}
+		else
+		{
+			// When updating H, destImage must be the actual image (and not
+			// a zeroed buffer) to retrieve the value from the image during
+			// backupdate
+			computeEMUpdateImage(*mlemImage_rp, *mlemImage_rp);
+		}
+
+		// PSF
+		if (flagImagePSF)
+		{
+			getImageTmpBuffer(TemporaryImageSpaceBufferType::PSF)
+			    ->setValue(0.0);
+			imagePsf->applyAH(
+			    getImageTmpBuffer(TemporaryImageSpaceBufferType::EM_RATIO),
+			    getImageTmpBuffer(TemporaryImageSpaceBufferType::PSF));
+		}
+
+		// UPDATE
+		if (!projectorParams.updateH || dualUpdate)
+		{
+			ImageBase* updateImage =
+			    flagImagePSF ?
+			        getImageTmpBuffer(TemporaryImageSpaceBufferType::PSF) :
+			        getImageTmpBuffer(
+			            TemporaryImageSpaceBufferType::EM_RATIO);
+			applyImageUpdate(getMLEMImageBuffer(), updateImage,
+			                 getSensImageBuffer(), EPS_FLT, isDynamic);
+		}
+		if (projectorParams.updateH || (dualUpdate && iter > 0))
+		{
+			// TODO: This is suboptimal as the update could be done on GPU
+			//  instead of copying to Device to do it
+			applyHUpdate();
+		}
+
+		if (dualUpdate)
+		{
+			printf("\nUpdating LR Sensitivity image scaling...\n");
+			// Sync with Device side values
+			Sync_cWUpdateDeviceToHost();
+
+			std::fill(m_cWUpdate.begin(), m_cWUpdate.end(), 0.0f);
+			std::fill(m_cHUpdate.begin(), m_cHUpdate.end(), 0.0f);
+			generateWUpdateSensScaling(m_cWUpdate.data());
+			generateHUpdateSensScaling(m_cHUpdate.data());
+
+			// Sync back new Host side values to device
+			Sync_cWUpdateHostToDevice();
+		}
+	}
 }
 
 void OSEMUpdater_CPU::computeEMUpdateImage(const Image& inputImage,

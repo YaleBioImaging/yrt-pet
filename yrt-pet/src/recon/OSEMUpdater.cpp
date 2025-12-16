@@ -53,9 +53,6 @@ void py_setup_osem_updater(pybind11::module& m)
 	      },
 	      py::arg("inputImage"), py::arg("destImage"));
 
-	// factory function
-	m.def("createOSEMUpdater", &yrt::createOSEMUpdater, py::arg("osem"));
-
 	// Downcast helpers (return raw pointer, may be nullptr if cast fails)
 	c.def("as_cpu",
 	      [](OSEMUpdater& self) -> OSEMUpdater_CPU* {
@@ -94,26 +91,3 @@ void py_setup_osem_updater(pybind11::module& m)
 }
 
 #endif
-
-namespace yrt
-{
-
-std::unique_ptr<OSEMUpdater> createOSEMUpdater(OSEM* pp_osem)
-{
-	if (!pp_osem) {
-		throw std::invalid_argument("OSEM pointer is null");
-	}
-
-	if (auto cpu = dynamic_cast<OSEM_CPU*>(pp_osem)) {
-		return std::make_unique<OSEMUpdater_CPU>(cpu);
-	}
-#if BUILD_CUDA
-	else if (auto gpu = dynamic_cast<OSEM_GPU*>(pp_osem)) {
-		return std::make_unique<OSEMUpdater_GPU>(gpu);
-	}
-#endif
-
-	throw std::runtime_error("Unsupported OSEM type for updater");
-}
-
-}

@@ -571,10 +571,6 @@ void OSEM::collectConstraints()
 
 void OSEM::initializeForSensImgGen()
 {
-	// Bin iterators
-	getBinIterators().clear();
-	getBinIterators().reserve(num_OSEM_subsets);
-
 	// Bin iterator constraints
 	collectConstraints();
 
@@ -586,6 +582,13 @@ void OSEM::initializeForSensImgGen()
 
 void OSEM::initializeForRecon()
 {
+	initOutImage();
+
+	initSensitivityImageBuffer();
+
+	// Corrective factors
+	getCorrector().setup();
+
 	// Bin iterators
 	getBinIterators().clear();
 	getBinIterators().reserve(num_OSEM_subsets);
@@ -836,12 +839,6 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 	ASSERT_MSG(num_OSEM_subsets > 0, "Not enough OSEM subsets");
 	ASSERT_MSG(num_MLEM_iterations > 0, "Not enough MLEM iterations");
 
-	if (!imageParams.isValid())
-	{
-		imageParams = m_sensitivityImages[0]->getParams();
-		printf("Getting ImageParams from Sensitivity Image...");
-	}
-
 	const int expectedNumberOfSensImages = getExpectedSensImagesAmount();
 	if (expectedNumberOfSensImages !=
 	    static_cast<int>(m_sensitivityImages.size()))
@@ -853,38 +850,12 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 		                       std::to_string(m_sensitivityImages.size()));
 	}
 
-	outImage = std::make_unique<ImageOwned>(imageParams);
-	outImage->allocate();
-
-	if (usingListModeInput)
-	{
-		if (needToMakeCopyOfSensImage)
-		{
-			std::cout << "Arranging sensitivity image scaling for ListMode in "
-			             "separate copy..."
-			          << std::endl;
-			// This is for the specific case of doing a list-mode reconstruction
-			// from Python
-			auto imageSensParams = m_sensitivityImages[0]->getParams();
-			// imageSensParams.num_frames = 1;
-			mp_copiedSensitivityImage =
-			    std::make_unique<ImageOwned>(imageSensParams);
-			mp_copiedSensitivityImage->allocate();
-			mp_copiedSensitivityImage->copyFromImage(m_sensitivityImages.at(0));
-			mp_copiedSensitivityImage->multWithScalar(
-			    1.0f / (static_cast<float>(num_OSEM_subsets)));
-		}
-		else if (num_OSEM_subsets != 1)
-		{
-			std::cout << "Arranging sensitivity image scaling for ListMode..."
-			          << std::endl;
-			m_sensitivityImages[0]->multWithScalar(
-			    1.0f / (static_cast<float>(num_OSEM_subsets)));
-		}
-	}
+	// If the user calls reconstruct(), the image parameters should already be
+	//  set at this point
+	ASSERT_MSG(imageParams.isValid(), "Image parameters not set");
 
 	// Calculate factor to use for sensitivity image DEFAULT4D and LR
-	const bool IS_DYNAMIC =
+	const bool isDynamic =
 	    (projectorParams.projectorUpdaterType !=
 	     OperatorProjectorParams::ProjectorUpdaterType::DEFAULT3D);
 	const bool isLowRank =
@@ -902,8 +873,6 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 	{
 		projectorParams.updateH = true;
 	}
-
-	getCorrector().setup();
 
 	initializeForRecon();
 
@@ -987,7 +956,7 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 				        getImageTmpBuffer(
 				            TemporaryImageSpaceBufferType::EM_RATIO);
 				applyImageUpdate(getMLEMImageBuffer(), updateImage,
-				                 getSensImageBuffer(), EPS_FLT, IS_DYNAMIC);
+				                 getSensImageBuffer(), EPS_FLT, isDynamic);
 			}
 			if (projectorParams.updateH || (dualUpdate && iter > 0))
 			{
@@ -1041,6 +1010,42 @@ std::unique_ptr<ImageOwned> OSEM::reconstruct(const std::string& out_fname)
 	}
 
 	return std::move(outImage);
+}
+
+void OSEM::initOutImage()
+{
+	outImage = std::make_unique<ImageOwned>(imageParams);
+	outImage->allocate();
+}
+
+void OSEM::initSensitivityImageBuffer()
+{
+	if (usingListModeInput)
+	{
+		if (needToMakeCopyOfSensImage)
+		{
+			std::cout << "Arranging sensitivity image scaling for list-mode in "
+			             "separate copy..."
+			          << std::endl;
+			// This is for the specific case of doing a list-mode reconstruction
+			// from Python
+			auto imageSensParams = m_sensitivityImages[0]->getParams();
+			// imageSensParams.num_frames = 1;
+			mp_copiedSensitivityImage =
+			    std::make_unique<ImageOwned>(imageSensParams);
+			mp_copiedSensitivityImage->allocate();
+			mp_copiedSensitivityImage->copyFromImage(m_sensitivityImages.at(0));
+			mp_copiedSensitivityImage->multWithScalar(
+			    1.0f / (static_cast<float>(num_OSEM_subsets)));
+		}
+		else if (num_OSEM_subsets != 1)
+		{
+			std::cout << "Arranging sensitivity image scaling for list-mode..."
+			          << std::endl;
+			m_sensitivityImages[0]->multWithScalar(
+			    1.0f / (static_cast<float>(num_OSEM_subsets)));
+		}
+	}
 }
 
 void OSEM::summary() const

@@ -110,6 +110,7 @@ void OSEM_CPU::setupOperatorsForSensImgGen()
 	}
 
 	mp_updater = std::make_unique<OSEMUpdater_CPU>(this);
+	mp_updater->initProjector(projParams);
 }
 
 std::unique_ptr<Image> OSEM_CPU::getLatestSensitivityImage(bool isLastSubset)
@@ -193,12 +194,13 @@ const OperatorProjector* OSEM_CPU::getProjector() const
 
 void OSEM_CPU::setupOperatorsForRecon()
 {
-	getBinIterators().clear();
-	getBinIterators().reserve(num_OSEM_subsets);
+	auto binIterators = getBinIterators();
+	binIterators.clear();
+	binIterators.reserve(num_OSEM_subsets);
 
 	for (int subsetId = 0; subsetId < num_OSEM_subsets; subsetId++)
 	{
-		getBinIterators().push_back(
+		binIterators.push_back(
 		    getDataInput()->getBinIter(num_OSEM_subsets, subsetId));
 	}
 
@@ -226,7 +228,6 @@ void OSEM_CPU::setupOperatorsForRecon()
 		throw std::runtime_error("Unknown error");
 	}
 
-	setupProjectorUpdater();
 	mp_updater = std::make_unique<OSEMUpdater_CPU>(this);
 }
 
@@ -380,9 +381,6 @@ void OSEM_CPU::generateHUpdateSensScaling(float* c_HUpdate_r)
 
 void OSEM_CPU::setupForDynamicRecon(int& rank, int& T)
 {
-	const bool IS_DYNAMIC =
-	    (projectorParams.projectorUpdaterType !=
-	     OperatorProjectorParams::ProjectorUpdaterType::DEFAULT3D);
 	const bool isLowRank =
 	    (projectorParams.projectorUpdaterType ==
 	         OperatorProjectorParams::ProjectorUpdaterType::LR ||

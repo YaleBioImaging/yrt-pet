@@ -40,6 +40,8 @@ public:
 	OSEM(const OSEM&) = delete;
 	OSEM& operator=(const OSEM&) = delete;
 
+	// TODO NOW: Reorder these functions in the .cpp, .hpp, and pybind11
+
 	// Sensitivity image generation
 	void generateSensitivityImages(const std::string& out_fname);
 	void generateSensitivityImages(
@@ -107,9 +109,6 @@ public:
 	void saveHBasisBinary(const std::string& base_path, int iter,
 	                      int numDigitsInFilename = -1) const;
 
-	// todo: remove this
-	OperatorProjectorBase* getProjectorPtr() { return mp_projector.get(); }
-
 	// ---------- Public members ----------
 	int num_MLEM_iterations;
 	int num_OSEM_subsets;
@@ -142,20 +141,12 @@ protected:
 	util::RangeList saveIterRanges;
 	std::string saveIterPath;
 	bool usingListModeInput;  // true => ListMode, false => Histogram
-	std::unique_ptr<OperatorProjectorBase> mp_projector;
 	bool needToMakeCopyOfSensImage;
 	ImageParams imageParams;
 	std::unique_ptr<ImageOwned> outImage;  // Note: This is a host image
 
 	std::vector<std::unique_ptr<BinIterator>> m_binIterators;
 	std::vector<std::unique_ptr<Constraint>> m_constraints;
-
-	// LR H Numerator in H update case
-	std::unique_ptr<Array2D<float>> mp_HNumerator;
-	// LR sensitivity matrix factor correction
-	std::vector<float> m_cWUpdate;
-	std::vector<float> m_cHUpdate;
-
 
 	// ---------- Virtual pure functions ----------
 
@@ -208,6 +199,8 @@ protected:
 	virtual void loadSubset(int p_subsetId, bool p_forRecon) = 0;
 
 private:
+	void initOutImage();
+	void initSensitivityImageBuffer();
 	void loadSubsetInternal(int p_subsetId, bool p_forRecon);
 	void initializeForSensImgGen();
 	void generateSensitivityImageForLoadedSubset();

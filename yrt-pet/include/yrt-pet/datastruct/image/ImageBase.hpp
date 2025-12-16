@@ -23,6 +23,7 @@ public:
 	int nx;
 	int ny;
 	int nz;
+	frame_t nt;
 	float length_x;
 	float length_y;
 	float length_z;
@@ -32,7 +33,6 @@ public:
 	float off_x;
 	float off_y;
 	float off_z;
-	frame_t num_frames;
 
 	// Automatically populated fields
 	float fovRadius;
@@ -43,7 +43,7 @@ public:
 	ImageParams(int p_nx, int p_ny, int p_nz, float p_length_x,
 	            float p_length_y, float p_length_z, float p_offset_x = 0.f,
 	            float p_offset_y = 0.f, float p_offset_z = 0.f,
-	            frame_t p_numFrames = 1);
+	            frame_t p_nt = 1);
 	ImageParams(const ImageParams& in);
 	ImageParams& operator=(const ImageParams& in);
 	explicit ImageParams(const std::string& fname);
@@ -59,6 +59,7 @@ public:
 
 	void copy(const ImageParams& in);
 	void setup();
+	void writeToFile(const std::string& fname) const;
 	void serialize(const std::string& fname) const;
 	void writeToJSON(nlohmann::json& j) const;
 	void deserialize(const std::string& fname);

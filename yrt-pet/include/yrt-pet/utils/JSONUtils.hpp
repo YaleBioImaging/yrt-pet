@@ -11,9 +11,7 @@
 
 using json = nlohmann::json;
 
-namespace yrt
-{
-namespace util
+namespace yrt::util
 {
 
 // Return value is whether the value was captured while being mandatory or
@@ -76,5 +74,4 @@ bool getParam(json* j, T* buffer,
 	return false;
 }
 
-}  // namespace util
-}  // namespace yrt
+}  // namespace yrt::util

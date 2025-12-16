@@ -26,15 +26,16 @@ void py_setup_imageparams(py::module& m)
 {
 	auto c = py::class_<ImageParams>(m, "ImageParams");
 	c.def(py::init<>());
-	c.def(py::init<int, int, int, float, float, float, float, float, float, int>(),
+	c.def(py::init<int, int, int, float, float, float, float, float, float,
+	               int>(),
 	      "nx"_a, "ny"_a, "nz"_a, "length_x"_a, "length_y"_a, "length_z"_a,
-	      "offset_x"_a = 0., "offset_y"_a = 0., "offset_z"_a = 0., "num_frames"_a = 1);
+	      "offset_x"_a = 0., "offset_y"_a = 0., "offset_z"_a = 0., "nt"_a = 1);
 	c.def(py::init<std::string>());
 	c.def(py::init<const ImageParams&>());
 	c.def_readwrite("nx", &ImageParams::nx);
 	c.def_readwrite("ny", &ImageParams::ny);
 	c.def_readwrite("nz", &ImageParams::nz);
-	c.def_readwrite("num_frames", &ImageParams::num_frames);
+	c.def_readwrite("nt", &ImageParams::nt);
 
 	c.def_readwrite("length_x", &ImageParams::length_x);
 	c.def_readwrite("length_y", &ImageParams::length_y);
@@ -114,6 +115,7 @@ ImageParams::ImageParams()
     : nx(-1),
       ny(-1),
       nz(-1),
+      nt(1),
       length_x(-1.0f),
       length_y(-1.0f),
       length_z(-1.0f),
@@ -123,17 +125,17 @@ ImageParams::ImageParams()
       off_x(0.0f),
       off_y(0.0f),
       off_z(0.0f),
-      num_frames(1),
       fovRadius(-1.0f)
 {
 }
 
 ImageParams::ImageParams(int p_nx, int p_ny, int p_nz, float p_length_x,
                          float p_length_y, float p_length_z, float p_offset_x,
-                         float p_offset_y, float p_offset_z, frame_t p_numFrames)
+                         float p_offset_y, float p_offset_z, frame_t p_nt)
     : nx(p_nx),
       ny(p_ny),
       nz(p_nz),
+      nt(p_nt),
       length_x(p_length_x),
       length_y(p_length_y),
       length_z(p_length_z),
@@ -142,8 +144,7 @@ ImageParams::ImageParams(int p_nx, int p_ny, int p_nz, float p_length_x,
       vz(-1.0f),
       off_x(p_offset_x),
       off_y(p_offset_y),
-      off_z(p_offset_z),
-      num_frames(p_numFrames)
+      off_z(p_offset_z)
 {
 	setup();
 }
@@ -173,7 +174,7 @@ void ImageParams::copy(const ImageParams& in)
 	vx = in.vx;
 	vy = in.vy;
 	vz = in.vz;
-	num_frames = in.num_frames;
+	nt = in.nt;
 	setup();
 }
 
@@ -256,6 +257,11 @@ void ImageParams::completeDimInfo()
 	}
 }
 
+void ImageParams::writeToFile(const std::string& fname) const
+{
+	serialize(fname);
+}
+
 void ImageParams::serialize(const std::string& fname) const
 {
 	std::ofstream output(fname);
@@ -276,7 +282,7 @@ void ImageParams::writeToJSON(json& j) const
 	j["off_x"] = off_x;
 	j["off_y"] = off_y;
 	j["off_z"] = off_z;
-	j["num_frames"] = num_frames;
+	j["nt"] = nt;
 }
 
 void ImageParams::deserialize(const std::string& fname)
@@ -329,7 +335,7 @@ void ImageParams::readFromJSON(json& j)
 	    &j, &nz, "nz", 0, true,
 	    "Error in ImageParams file version : \'nz\' unspecified");
 
-	util::getParam<frame_t>(&j, &num_frames, {"num_frames"}, 1, false);
+	util::getParam<frame_t>(&j, &nt, {"nt", "num_frames"}, 1, false);
 
 	util::getParam<float>(&j, &off_x, {"off_x", "offset_x"}, 0.0, false);
 

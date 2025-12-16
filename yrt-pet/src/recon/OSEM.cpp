@@ -486,7 +486,7 @@ void OSEM::setSensitivityImages(const std::vector<Image*>& sensImages)
 		}
 		m_sensitivityImages.push_back(sensImage);
 	}
-	imageSensParams.num_frames = imageParams.num_frames;
+	imageSensParams.nt = imageParams.nt;
 	setImageParams(imageSensParams);
 }
 

@@ -53,7 +53,7 @@ const Corrector_CPU& OSEM_CPU::getCorrector_CPU() const
 void OSEM_CPU::allocateForSensImgGen()
 {
 	auto imageParamsSens = getImageParams();
-	imageParamsSens.num_frames = 1;
+	imageParamsSens.nt = 1;
 	auto tempSensImageBuffer = std::make_unique<ImageOwned>(imageParamsSens);
 	tempSensImageBuffer->allocate();
 	mp_tempSensImageBuffer = std::move(tempSensImageBuffer);
@@ -477,7 +477,7 @@ void OSEM_CPU::setupForDynamicRecon(int& rank, int& T)
 	else
 	{
 		// 4D dynamic case
-		T = imageParams.num_frames;
+		T = imageParams.nt;
 		m_cWUpdate.resize(T, 1.f);
 	}
 }

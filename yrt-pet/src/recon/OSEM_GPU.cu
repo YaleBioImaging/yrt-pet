@@ -111,7 +111,7 @@ void OSEM_GPU::setupOperatorsForSensImgGen()
 void OSEM_GPU::allocateForSensImgGen()
 {
 	auto imageParamsSens = getImageParams();
-	imageParamsSens.num_frames = 1;
+	imageParamsSens.nt = 1;
 	// Allocate for image space
 	mpd_sensImageBuffer =
 	    std::make_unique<ImageDeviceOwned>(imageParamsSens, getMainStream());
@@ -165,7 +165,7 @@ std::unique_ptr<Image> OSEM_GPU::getLatestSensitivityImage(bool isLastSubset)
 {
 	(void)isLastSubset;  // Copy flag is obsolete since the data is not yet on
 	auto imageParamsSens = getImageParams();
-	imageParamsSens.num_frames = 1;
+	imageParamsSens.nt = 1;
 	// Host-side
 	auto img = std::make_unique<ImageOwned>(imageParamsSens);
 	img->allocate();
@@ -637,7 +637,7 @@ void OSEM_GPU::setupForDynamicRecon(int& rank, int& T)
 	else if (IS_DYNAMIC)
 	{
 		// 4D dynamic case
-		T = imageParams.num_frames;
+		T = imageParams.nt;
 		m_cWUpdate.resize(T, 1.f);
 		Sync_cWUpdateHostToDevice();
 	}

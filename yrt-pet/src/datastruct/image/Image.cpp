@@ -207,7 +207,7 @@ const Array4DBase<float>& Image::getData() const
 
 int Image::getNumFrames() const
 {
-	return getParams().num_frames;
+	return getParams().nt;
 }
 
 float* Image::getRawPointer()
@@ -911,7 +911,7 @@ void ImageOwned::readFromFile(const std::string& fname)
 		newParams.nz = niftiImage->dim[3];
 		if (is4D)
 		{
-			newParams.num_frames = niftiImage->dim[4];
+			newParams.nt = niftiImage->dim[4];
 		}
 		newParams.off_x = originToOffset(imgOrigin[0], newParams.vx,
 		                                 newParams.vx * newParams.nx);
@@ -1040,7 +1040,7 @@ void ImageOwned::checkImageParamsWithGivenImage(float voxelSpacing[3],
 	ASSERT_MSG(dim[3] == params.nz, "Size mismatch in Z dimension");
 	if (dim[0] == 4)
 	{
-		ASSERT_MSG(dim[4] == params.num_frames, "Size mismatch in time dimension");
+		ASSERT_MSG(dim[4] == params.nt, "Size mismatch in time dimension");
 	}
 
 	const float expectedOffsetX =

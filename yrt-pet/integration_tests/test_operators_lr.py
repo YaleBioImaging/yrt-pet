@@ -36,7 +36,7 @@ def prepare_data(UpdaterType):
     img_params = yrt.ImageParams(os.path.join(fold_ge2d_dyn, "img_params_2d_dyn.json"))
     rank = 1 if UpdaterType == 'DEFAULT3D' else 5
     T = 1 if UpdaterType == 'DEFAULT3D' else 20
-    img_params.num_frames = rank if 'LR' in UpdaterType else T
+    img_params.nt = rank if 'LR' in UpdaterType else T
 
     if UpdaterType in ['DEFAULT4D', 'LR']:
         HBasis_np = pickle.load(open(os.path.join(fold_ge2d_dyn,
@@ -133,7 +133,7 @@ def _test_adjoint_generic(UpdaterType, projector_type, useGPU):
     count = out_lm.count()
 
     # --- sizes ---
-    nt = img_params.num_frames
+    nt = img_params.nt
     nx_2d = img_params.nx
     ny_2d = img_params.ny
     nz_2d = img_params.nz

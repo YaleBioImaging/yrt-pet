@@ -8,6 +8,12 @@
 #include "yrt-pet/utils/GPUUtils.cuh"
 #include "yrt-pet/utils/Types.hpp"
 
+#if BUILD_CUDA
+#include "yrt-pet/utils/DeviceArray.cuh"
+#include "yrt-pet/utils/DeviceSynchronizedObject.cuh"
+#endif
+
+
 #include <map>
 #include <memory>
 #include <ostream>
@@ -45,7 +51,7 @@ template <typename Enum>
 class PropStructManager
 {
 public:
-	PropStructManager(std::set<Enum>& props);
+	explicit PropStructManager(std::set<Enum>& props);
 
 	// Helper functions
 	std::unique_ptr<char[]> createDataArray(size_t numElements) const;
@@ -168,5 +174,107 @@ std::ostream& operator<<(std::ostream& oss, const PropStructManager<Enum>& t)
 	oss << "]";
 	return oss;
 }
+
+// Wrapper to hold host-side projection-space data
+template <typename Enum>
+class PropStruct
+{
+public:
+	explicit PropStruct(std::set<Enum>& props)
+	    : m_manager(props), mp_data(nullptr)
+	{
+	}
+
+	void allocate(size_t numElements)
+	{
+		mp_data = m_manager.createDataArray(numElements);
+	}
+
+	template <typename T>
+	const T* getDataPtr(size_t idx, Enum prop) const
+	{
+		return m_manager.getDataPtr(mp_data.get(), idx, prop);
+	}
+
+	template <typename T>
+	T getValue(size_t idx, Enum prop) const
+	{
+		return *m_manager.getDataPtr(mp_data.get(), idx, prop);
+	}
+
+	template <typename T>
+	void setValue(size_t idx, Enum prop, const T& value) const
+	{
+		m_manager.setDataValue(mp_data.get(), idx, prop, value);
+	}
+
+	const PropStructManager<Enum>& getManager() const { return m_manager; }
+
+	ProjectionProperties getRawPointer() const { return mp_data.get(); }
+	ProjectionProperties getRawPointer() { return mp_data.get(); }
+
+private:
+	PropStructManager<Enum> m_manager;
+	std::unique_ptr<char[]> mp_data;
+};
+
+#if BUILD_CUDA
+template <typename Enum>
+class PropStructDevice
+{
+public:
+	// This object is meant to be passed (by copy) to kernels
+	struct PropStructDeviceObject
+	{
+		PropStructManager<Enum>* mpd_manager;  // Manager on the device
+		ProjectionProperties mpd_data;  // Raw pointer to the data on the device
+		size_t numElements;
+
+		template <typename T>
+		HOST_DEVICE_CALLABLE inline const T* getDataPtr(size_t idx,
+		                                                Enum prop) const
+		{
+			return mpd_manager->getDataPtr(mpd_data, idx, prop);
+		}
+
+		HOST_DEVICE_CALLABLE bool has(Enum prop) const
+		{
+			return mpd_manager->has(prop);
+		}
+
+		template <typename T>
+		HOST_DEVICE_CALLABLE inline void setValue(size_t idx, Enum prop,
+		                                          const T& value) const
+		{
+			mpd_manager->setDataValue(mpd_data, idx, prop, value);
+		}
+
+		template <typename T>
+		HOST_DEVICE_CALLABLE inline const T& getValue(size_t idx,
+		                                              Enum prop) const
+		{
+			return mpd_manager->getDataValue(mpd_data, idx, prop);
+		}
+	};
+
+	explicit PropStructDevice(std::set<Enum>& props) : m_manager(props) {}
+
+	void allocate(size_t numElements) { m_manager.allocate(numElements); }
+
+	bool isMemoryValid() const { return mpd_data.isMemoryValid(); }
+
+	PropStructDeviceObject getDeviceObject() const
+	{
+		return {m_manager.getDevicePointer(), mpd_data.getDevicePointer(),
+		        mpd_data.getSize()};
+	}
+
+private:
+	// The manager, which is created on the host and then copied to the device
+	DeviceSynchronizedObject<PropStructManager<Enum>> m_manager;
+	// The raw data on the device
+	DeviceArray<char> mpd_data;
+};
+#endif
 
 }  // namespace yrt

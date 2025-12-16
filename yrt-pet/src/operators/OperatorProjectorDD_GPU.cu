@@ -232,6 +232,7 @@ __global__ void DD_kernel(float* pd_projValues, float* pd_image,
 
 		const float* lor = pd_projPropManager->getDataPtr<float>(
 		    pd_projectionProperties, eventId, ProjectionPropertyType::LOR);
+		static_assert(sizeof(Line3D) == sizeof(float3) * 2);
 		const float3 imageOffset = make_float3(
 		    imgParams.offset[0], imgParams.offset[1], imgParams.offset[2]);
 

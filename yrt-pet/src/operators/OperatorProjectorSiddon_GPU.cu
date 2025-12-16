@@ -274,6 +274,7 @@ __global__ void Siddon_kernel(
 
 		const float* lor = pd_projPropManager->getDataPtr<float>(
 		    pd_projectionProperties, eventId, ProjectionPropertyType::LOR);
+		static_assert(sizeof(Line3D) == sizeof(float3) * 2);
 		float3 p1_init{lor[0], lor[1], lor[2]};
 		float3 p2_init{lor[3], lor[4], lor[5]};
 		const float* detOrient;

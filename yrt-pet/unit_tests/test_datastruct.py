@@ -9,6 +9,7 @@ import json
 import tempfile
 
 import numpy as np
+import scipy.interpolate as spint
 
 fold_py = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.append(os.path.join(fold_py))
@@ -94,3 +95,60 @@ def test_image_transform():
     img_t = img.transformImage(v_rot, v_tr)
     x_t = np.array(img_t, copy=False)
     np.testing.assert_allclose(np.moveaxis(x, 1, 2)[..., ::-1], x_t, rtol=9e-5)
+
+    # Resampling
+    x = rescale(np.random.random([12, 13, 14])).astype(np.float32)
+    img_params = yrt.ImageParams(14, 13, 12, 28.0, 26.0, 24.0, 1, 2, 3)
+    img = yrt.ImageAlias(img_params)
+    img.bind(x)
+    nx = img_params.nx
+    ny = img_params.ny
+    nz = img_params.nz
+    vx = img_params.vx
+    vy = img_params.vy
+    vz = img_params.vz
+    off_x = img_params.off_x
+    off_y = img_params.off_y
+    off_z = img_params.off_z
+    # Target image
+    nx_out = img_params.nx + np.random.randint(-2, 3)
+    ny_out = img_params.ny + np.random.randint(-2, 3)
+    nz_out = img_params.nz + np.random.randint(-2, 3)
+    vx_out = np.maximum(0.1, img_params.vx + np.random.randn())
+    vy_out = np.maximum(0.1, img_params.vy + np.random.randn())
+    vz_out = np.maximum(0.1, img_params.vz + np.random.randn())
+    off_x_out = img_params.off_x + np.random.randn()
+    off_y_out = img_params.off_y + np.random.randn()
+    off_z_out = img_params.off_z + np.random.randn()
+    img_params_out = yrt.ImageParams(
+        nx_out, ny_out, nz_out,
+        nx_out * vx_out, ny_out * vy_out, nz_out * vz_out,
+        off_x_out, off_y_out, off_z_out)
+    img_ref = yrt.ImageOwned(img_params_out)
+    img_ref.allocate()
+    # Reference
+    grid_out_i = np.vstack([
+        np.reshape(np.meshgrid(*[np.arange(s)
+                                 for s in [nz_out, ny_out, nx_out]],
+                               indexing='ij'), [3, -1]),
+        np.ones([1, nz_out * ny_out * nx_out])])
+    xform_out = np.array(
+        [[vz_out, 0, 0, -(nz_out - 1) / 2 * vz_out + off_z_out],
+         [0, vy_out, 0, -(ny_out - 1) / 2 * vy_out + off_y_out],
+         [0, 0, vx_out, -(nx_out - 1) / 2 * vx_out + off_x_out],
+         [0, 0, 0, 1]])
+    xform_in = np.array(
+        [[vz, 0, 0, -(nz - 1) / 2 * vz + off_z],
+         [0, vy, 0, -(ny - 1) / 2 * vy + off_y],
+         [0, 0, vx, -(nx - 1) / 2 * vx + off_x],
+         [0, 0, 0, 1]])
+    grid_in_i = np.linalg.inv(xform_in) @ xform_out @ grid_out_i
+    # Reference interpolator (zero-padded to match yrt edge behavior)
+    x_p = np.pad(x, [(1, 1), ] * 3)
+    img_int = spint.RegularGridInterpolator(
+        [np.arange(s) - 1 for s in x_p.shape], x_p,
+        bounds_error=False, fill_value=0, method='linear')
+    x_r_sp = np.reshape(img_int(grid_in_i[:3].T), [nz_out, ny_out, nx_out])
+    img_r = img.resampleImage(img_ref)
+    x_r = np.array(img_r, copy=False)
+    np.testing.assert_allclose(x_r_sp, x_r, rtol=1e-4)

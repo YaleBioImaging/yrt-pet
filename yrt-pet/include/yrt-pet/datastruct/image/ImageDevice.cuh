@@ -10,8 +10,6 @@
 
 #if BUILD_CUDA
 
-#if BUILD_CUDA
-
 #include <cuda_runtime_api.h>
 
 namespace yrt

@@ -27,9 +27,6 @@ public:
 	int getNumRays() const;
 	void setNumRays(int n);
 
-	int getNumRays() const;
-	void setNumRays(int n);
-
 protected:
 	void applyAOnLoadedBatch(ImageDevice& img, ProjectionListDevice& dat,
 	                         bool synchronize) override;

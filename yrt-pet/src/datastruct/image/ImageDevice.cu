@@ -439,7 +439,7 @@ void ImageDevice::updateEMThresholdDynamicWithScaling(
 		}
 	}
 	synchronizeIfNeeded({mp_stream, synchronize});
-	cudaCheckError();
+	ASSERT(cudaCheckError());
 }
 
 void ImageDevice::updateEMThresholdDynamicWith4DSens(ImageDevice* updateImg,
@@ -473,7 +473,7 @@ void ImageDevice::updateEMThresholdDynamicWith4DSens(ImageDevice* updateImg,
 		    getParams().nz, getParams().nt, threshold);
 	}
 	synchronizeIfNeeded({mp_stream, synchronize});
-	cudaCheckError();
+	ASSERT(cudaCheckError());
 }
 
 void ImageDevice::updateEMThresholdDynamic(ImageBase* updateImg,
@@ -558,22 +558,15 @@ void ImageDevice::fillDevice(float initValue, bool synchronize)
 		              *mp_stream>>>(getDevicePointer(), initValue,
 		                            getParams().nx, getParams().ny,
 		                            getParams().nz, getParams().nt);
-		if (synchronize)
-		{
-			cudaStreamSynchronize(*mp_stream);
-		}
 	}
 	else
 	{
 		fill_kernel<<<m_launchParams.gridSize, m_launchParams.blockSize>>>(
 		    getDevicePointer(), initValue, getParams().nx, getParams().ny,
 		    getParams().nz, getParams().nt);
-		if (synchronize)
-		{
-			cudaDeviceSynchronize();
-		}
 	}
-	cudaCheckError();
+	synchronizeIfNeeded({mp_stream, synchronize});
+	ASSERT(cudaCheckError());
 }
 
 void ImageDevice::updateEMThresholdStaticDevice(ImageDevice* updateImg,
@@ -603,7 +596,7 @@ void ImageDevice::updateEMThresholdStaticDevice(ImageDevice* updateImg,
 		    getParams().nz, getParams().nt, threshold);
 	}
 	synchronizeIfNeeded({mp_stream, synchronize});
-	cudaCheckError();
+	ASSERT(cudaCheckError());
 }
 
 void ImageDevice::addFirstImageToSecondDevice(ImageDevice* imgOut,
@@ -622,10 +615,6 @@ void ImageDevice::addFirstImageToSecondDevice(ImageDevice* imgOut,
 			                                   *mp_stream>>>(
 			    getDevicePointer(), imgOut->getDevicePointer(), getParams().nx,
 			    getParams().ny, getParams().nz, imgOut->getParams().nt);
-			if (synchronize)
-			{
-				cudaStreamSynchronize(*mp_stream);
-			}
 		}
 		else
 		{
@@ -633,10 +622,6 @@ void ImageDevice::addFirstImageToSecondDevice(ImageDevice* imgOut,
 			                                   m_launchParams.blockSize>>>(
 			    getDevicePointer(), imgOut->getDevicePointer(), getParams().nx,
 			    getParams().ny, getParams().nz, imgOut->getParams().nt);
-			if (synchronize)
-			{
-				cudaDeviceSynchronize();
-			}
 		}
 	}
 	else
@@ -648,10 +633,6 @@ void ImageDevice::addFirstImageToSecondDevice(ImageDevice* imgOut,
 			                               *mp_stream>>>(
 			    getDevicePointer(), imgOut->getDevicePointer(), getParams().nx,
 			    getParams().ny, getParams().nz);
-			if (synchronize)
-			{
-				cudaStreamSynchronize(*mp_stream);
-			}
 		}
 		else
 		{
@@ -659,13 +640,10 @@ void ImageDevice::addFirstImageToSecondDevice(ImageDevice* imgOut,
 			                               m_launchParams.blockSize>>>(
 			    getDevicePointer(), imgOut->getDevicePointer(), getParams().nx,
 			    getParams().ny, getParams().nz);
-			if (synchronize)
-			{
-				cudaDeviceSynchronize();
-			}
 		}
 	}
-	cudaCheckError();
+	synchronizeIfNeeded({mp_stream, synchronize});
+	ASSERT(cudaCheckError());
 }
 
 void ImageDevice::updateEMThresholdStatic(ImageBase* updateImg,

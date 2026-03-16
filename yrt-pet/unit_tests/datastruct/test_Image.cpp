@@ -7,6 +7,7 @@
 
 #include "../test_utils.hpp"
 #include "yrt-pet/datastruct/image/Image.hpp"
+#include "yrt-pet/datastruct/image/ImageBase.hpp"
 #include "yrt-pet/datastruct/projection/LORMotion.hpp"
 #include "yrt-pet/geometry/Constants.hpp"
 #include "yrt-pet/geometry/TransformUtils.hpp"
@@ -49,6 +50,45 @@ void checkImageAllPositive(const Image& img)
 }  // namespace yrt
 
 #if BUILD_CUDA
+
+TEST_CASE("imageparams-fromParams", "[image]")
+{
+	std::default_random_engine engine(
+	    static_cast<unsigned int>(std::time(nullptr)));
+
+	std::uniform_int_distribution<int> numVoxelsDistribution(1, 300);
+	std::uniform_real_distribution<float> voxelSizeDistribution(0.1f, 5.0f);
+	std::uniform_real_distribution<float> offsetDistribution(0.1f, 5.0f);
+
+	constexpr int NumTrials = 5;
+
+	for (int trial = 0; trial < NumTrials; trial++)
+	{
+		const int nx = numVoxelsDistribution(engine);
+		const int ny = numVoxelsDistribution(engine);
+		const int nz = numVoxelsDistribution(engine);
+		const float vx = voxelSizeDistribution(engine);
+		const float vy = voxelSizeDistribution(engine);
+		const float vz = voxelSizeDistribution(engine);
+		const float length_x = vx * nx;
+		const float length_y = vy * ny;
+		const float length_z = vz * nz;
+		const float off_x = offsetDistribution(engine);
+		const float off_y = offsetDistribution(engine);
+		const float off_z = offsetDistribution(engine);
+
+		yrt::ImageParams params(nx, ny, nz, length_x, length_y, length_z, off_x,
+		                        off_y, off_z);
+		// Convert offset to origin
+		yrt::Vector3D origin = params.indexToPosition(0, 0, 0);
+
+		auto paramsTest = yrt::ImageParams::fromParams(
+		    params.nx, params.ny, params.nz, params.vx, params.vy, params.vz,
+		    origin.x, origin.y, origin.z);
+
+		CHECK(params.isSameAs(paramsTest));
+	}
+}
 
 // This test validates that the image time-averaging is consistent between the
 //  CPU and the GPU implementations

@@ -44,6 +44,9 @@ public:
 	ImageParams(const ImageParams& in);
 	ImageParams& operator=(const ImageParams& in);
 	explicit ImageParams(const std::string& fname);
+	static ImageParams fromParams(int nx, int ny, int nz, float vx, float vy,
+	                              float vz, float origx, float origy,
+	                              float origz);
 	bool isSameDimensionsAs(const ImageParams& other) const;
 	bool isSameLengthsAs(const ImageParams& other) const;
 	bool isSameOffsetsAs(const ImageParams& other) const;

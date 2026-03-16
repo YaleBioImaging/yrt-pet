@@ -158,6 +158,8 @@ if (BUILD_PYBIND11)
             LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/pyyrtpet/${TARGET}_wrapper/")
         add_custom_target(copy_py_${TARGET} ALL)
         if (EXISTS ${PYFOLD}/python/${TARGET})
+	    install(DIRECTORY "${PYFOLD}/python/${TARGET}/"
+		DESTINATION "${TARGET}_wrapper")
             add_custom_command(TARGET copy_py_${TARGET}
                 COMMAND
                 ${CMAKE_COMMAND} -E copy_directory
@@ -166,12 +168,16 @@ if (BUILD_PYBIND11)
         endif ()
         add_custom_target(copy_py_init_${TARGET} ALL)
         if (EXISTS ${PYFOLD}/python/__init__.py)
+	    install(FILES "${PYFOLD}/python/__init__.py"
+		DESTINATION ".")
             add_custom_command(TARGET copy_py_init_${TARGET}
                 COMMAND
                 ${CMAKE_COMMAND} -E copy
                 ${PYFOLD}/python/__init__.py
                 ${CMAKE_BINARY_DIR}/pyyrtpet/__init__.py)
         endif ()
+	install(TARGETS ${TARGET}
+            LIBRARY DESTINATION "${TARGET}_wrapper")
     endfunction()
 
     # Add plugin sources to pybind11 library

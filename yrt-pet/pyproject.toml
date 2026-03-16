@@ -1,0 +1,21 @@
+[build-system]
+requires = ["scikit-build-core>=0.5", "pybind11", "cmake>=3.18"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "yrtpet"
+version = "0.1.0"
+description = "Yale Reconstruction Toolkit"
+
+[tool.scikit-build]
+wheel.install-dir = "pyyrtpet"
+sdist.include = [
+    "src/**/*",
+    "include/**/*",
+    "python/**/*",
+    "plugins/**/*",
+    "CMakeLists.txt"
+]
+
+[tool.scikit-build.cmake]
+build-type = "Release"

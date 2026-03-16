@@ -122,6 +122,10 @@ void py_setup_image(py::module& m)
 	      static_cast<std::unique_ptr<ImageOwned> (Image::*)(
 	          const transform_t& t) const>(&Image::transformImage),
 	      py::arg("transform"));
+	c.def("resampleImage",
+	      static_cast<std::unique_ptr<ImageOwned> (Image::*)(
+	          const Image& imageRef) const>(&Image::resampleImage),
+	      py::arg("image_ref"));
 	c.def("writeToFile", &Image::writeToFile, py::arg("filename"));
 
 	auto c_alias = py::class_<ImageAlias, Image>(m, "ImageAlias");
@@ -660,6 +664,50 @@ std::unique_ptr<ImageOwned> Image::transformImage(const transform_t& t) const
 	newImg->allocate();
 	newImg->setValue(0.0);
 	transformImage(t, *newImg, 1.0f);
+	return newImg;
+}
+
+void Image::resampleImage(const Image& imageRef, Image& dest) const
+{
+	const ImageParams paramsRef = imageRef.getParams();
+	float* destRawPtr = dest.getRawPointer();
+	const ImageParams* paramsRefPtr = &paramsRef;
+	const int nxyRef = paramsRef.nx * paramsRef.ny;
+	const int nxRef = paramsRef.nx;
+	const int nyRef = paramsRef.ny;
+	const int nzRef = paramsRef.nz;
+
+	util::parallelForChunked(
+	    nzRef, globals::getNumThreads(),
+	    [paramsRefPtr, nxRef, nyRef, nxyRef, destRawPtr, this](size_t k,
+	                                                           size_t /*tid*/)
+	    {
+		    const float z = paramsRefPtr->indexToPositionInDimension<0>(k);
+
+		    for (int j = 0; j < nyRef; j++)
+		    {
+			    const float y = paramsRefPtr->indexToPositionInDimension<1>(j);
+
+			    for (int i = 0; i < nxRef; i++)
+			    {
+				    const float x =
+				        paramsRefPtr->indexToPositionInDimension<2>(i);
+
+				    const float valueFromOriginalImage =
+				        interpolateImage({x, y, z});
+
+				    destRawPtr[k * nxyRef + j * nxRef + i] +=
+				        valueFromOriginalImage;
+			    }
+		    }
+	    });
+}
+
+std::unique_ptr<ImageOwned> Image::resampleImage(const Image& imageRef) const
+{
+	auto newImg = std::make_unique<ImageOwned>(imageRef.getParams());
+	newImg->allocate();
+	resampleImage(imageRef, *newImg);
 	return newImg;
 }
 

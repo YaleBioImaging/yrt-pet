@@ -31,7 +31,7 @@ void py_setup_imageparams(py::module& m)
 	      "offset_x"_a = 0., "offset_y"_a = 0., "offset_z"_a = 0.);
 	c.def(py::init<std::string>());
 	c.def(py::init<const ImageParams&>());
-	c.def_static("from_params", &ImageParams::fromParams, "nx"_a, "ny"_a,
+	c.def_static("fromParams", &ImageParams::fromParams, "nx"_a, "ny"_a,
 	             "nz"_a, "vx"_a, "vy"_a, "vz"_a, "origin_x"_a, "origin_y"_a,
 	             "origin_z"_a);
 	c.def_readwrite("nx", &ImageParams::nx);

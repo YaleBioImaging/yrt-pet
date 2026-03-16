@@ -31,6 +31,9 @@ void py_setup_imageparams(py::module& m)
 	      "offset_x"_a = 0., "offset_y"_a = 0., "offset_z"_a = 0.);
 	c.def(py::init<std::string>());
 	c.def(py::init<const ImageParams&>());
+	c.def_static("fromParams", &ImageParams::fromParams, "nx"_a, "ny"_a,
+	             "nz"_a, "vx"_a, "vy"_a, "vz"_a, "origin_x"_a, "origin_y"_a,
+	             "origin_z"_a);
 	c.def_readwrite("nx", &ImageParams::nx);
 	c.def_readwrite("ny", &ImageParams::ny);
 	c.def_readwrite("nz", &ImageParams::nz);
@@ -176,6 +179,15 @@ void ImageParams::copy(const ImageParams& in)
 ImageParams::ImageParams(const std::string& fname) : ImageParams{}
 {
 	deserialize(fname);
+}
+
+ImageParams ImageParams::fromParams(int nx, int ny, int nz, float vx, float vy,
+                                    float vz, float origx, float origy,
+                                    float origz)
+{
+	return ImageParams(
+	    nx, ny, nz, nx * vx, ny * vy, nz * vz, origx + (nx - 1) / 2.0f * vx,
+	    origy + (ny - 1) / 2.0f * vy, origz + (nz - 1) / 2.0f * vz);
 }
 
 void ImageParams::setup()

@@ -10,10 +10,10 @@
 #include "yrt-pet/datastruct/projection/SparseHistogram.hpp"
 #include "yrt-pet/datastruct/scanner/Scanner.hpp"
 #include "yrt-pet/operators/OperatorProjector.hpp"
-#include "yrt-pet/operators/OperatorProjectorDD.hpp"
-#include "yrt-pet/operators/OperatorProjectorSiddon.hpp"
 #include "yrt-pet/operators/OperatorPsf.hpp"
 #include "yrt-pet/operators/OperatorVarPsf.hpp"
+#include "yrt-pet/operators/ProjectorDD.hpp"
+#include "yrt-pet/operators/ProjectorSiddon.hpp"
 #include "yrt-pet/operators/SparseProjection.hpp"
 #include "yrt-pet/utils/Assert.hpp"
 #include "yrt-pet/utils/Globals.hpp"
@@ -67,6 +67,11 @@ int main(int argc, char** argv)
 		    "default projector is Siddon",
 		    false, io::TypeOfArgument::STRING, "S", projectorGroup);
 		registry.registerArgument(
+		    "projector_updater",
+		    "Projector updater to use, choices: DEFAULT4D, LR. The "
+		    "default value is DEFAULT4D",
+		    false, io::TypeOfArgument::STRING, "DEFAULT4D", projectorGroup);
+		registry.registerArgument(
 		    "proj_psf",
 		    "Projection-space PSF kernel file (for DD projector only)", false,
 		    io::TypeOfArgument::STRING, "", projectorGroup);
@@ -101,6 +106,12 @@ int main(int argc, char** argv)
 			return -1;
 		}
 
+#if BUILD_CUDA
+		const bool useGPU = config.getValue<bool>("gpu");
+#else
+		const bool useGPU = false;
+#endif
+
 		auto scanner_fname = config.getValue<std::string>("scanner");
 		auto inputImage_fname = config.getValue<std::string>("input");
 		auto imagePsf_fname = config.getValue<std::string>("psf");
@@ -112,9 +123,25 @@ int main(int argc, char** argv)
 		int numSubsets = config.getValue<int>("num_subsets");
 		int subsetId = config.getValue<int>("subset_id");
 		int numRays = config.getValue<int>("num_rays");
-		bool useGPU = config.getValue<bool>("gpu");
 		bool convertToAcf = config.getValue<bool>("to_acf");
 		bool toSparseHistogram = config.getValue<bool>("sparse");
+
+		const auto projectorUpdaterType_name =
+		    config.getValue<std::string>("projector_updater");
+		UpdaterType projectorUpdaterType;
+		if (projectorUpdaterType_name == "DEFAULT4D")
+		{
+			projectorUpdaterType = UpdaterType::DEFAULT4D;
+		}
+		else if (projectorUpdaterType_name == "LR")
+		{
+			projectorUpdaterType = UpdaterType::LR;
+		}
+		else
+		{
+			throw std::invalid_argument("Unknown projector updater type: " +
+			                            projectorUpdaterType_name);
+		}
 
 		auto scanner = std::make_unique<Scanner>(scanner_fname);
 		globals::setNumThreads(numThreads);
@@ -152,13 +179,13 @@ int main(int argc, char** argv)
 
 			// Setup forward projection
 			auto binIter = his->getBinIter(numSubsets, subsetId);
-			OperatorProjectorParams projParams(*scanner);
-			projParams.binIter = binIter.get();
+			ProjectorParams projParams(*scanner);
 			projParams.projPsf_fname = projPsf_fname;
 			projParams.numRays = numRays;
+			projParams.updaterType = projectorUpdaterType;
+			projParams.projectorType = projectorType;
 
-			util::forwProject(*inputImage, *his, projParams, projectorType,
-			                  useGPU);
+			util::forwProject(*inputImage, *his, projParams, *binIter, useGPU);
 
 			if (convertToAcf)
 			{
@@ -180,7 +207,6 @@ int main(int argc, char** argv)
 			           "Forward projection to sparse histogram is currently "
 			           "not supported for multiple subsets");
 
-			std::unique_ptr<OperatorProjector> projector;
 			std::vector<std::unique_ptr<Constraint>> constraints;
 			scanner->collectConstraints(constraints);
 			std::vector<Constraint*> constraintsPtr;
@@ -188,17 +214,12 @@ int main(int argc, char** argv)
 			{
 				constraintsPtr.emplace_back(constraint.get());
 			}
-			OperatorProjectorParams projParams(*scanner);
+
+			ProjectorParams projParams(*scanner);
 			projParams.projPsf_fname = projPsf_fname;
 			projParams.numRays = numRays;
-			if (projectorType == OperatorProjector::ProjectorType::SIDDON)
-			{
-				projector = std::make_unique<OperatorProjectorSiddon>(projParams, constraintsPtr);
-			}
-			else
-			{
-				projector = std::make_unique<OperatorProjectorDD>(projParams, constraintsPtr);
-			}
+			projParams.projectorType = projectorType;
+			auto projector = Projector::create(projParams);
 
 			const ImageParams& params = inputImage->getParams();
 			auto sparseHistogram = std::make_unique<SparseHistogram>(*scanner);

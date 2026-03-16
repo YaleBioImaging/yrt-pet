@@ -79,10 +79,9 @@ int main(int argc, char** argv)
 		}
 
 		// Read input data
-		yrt::Array3D<float> x_in;
+		yrt::Array3DOwned<float> x_in;
 		x_in.readFromFile(img_in_fname);
-		size_t shape[3];
-		x_in.getDims(shape);
+		std::array<size_t, 3> shape = x_in.getDims();
 		size_t num_pixels = shape[0] * shape[1] * shape[2];
 		size_t num_neighbors = (2 * W + 1) * (2 * W + 1) * (2 * W + 1);
 		size_t num_cols = 0;
@@ -96,11 +95,11 @@ int main(int argc, char** argv)
 		}
 
 		// Prepare output
-		yrt::Array2D<float> k_out;
+		yrt::Array2DOwned<float> k_out;
 		k_out.allocate(num_pixels, num_cols);
-		yrt::Array2D<int> k_i_out;
+		yrt::Array2DOwned<int> k_i_out;
 		k_i_out.allocate(num_pixels, num_cols);
-		yrt::Array2D<int> k_j_out;
+		yrt::Array2DOwned<int> k_j_out;
 		k_j_out.allocate(num_pixels, num_cols);
 
 		// Build K matrix

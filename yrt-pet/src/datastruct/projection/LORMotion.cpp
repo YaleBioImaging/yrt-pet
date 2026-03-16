@@ -110,7 +110,7 @@ size_t LORMotion::getNumFrames() const
 void LORMotion::readFromFile(const std::string& filename)
 {
 	std::ifstream file(filename);
-	if (!file)
+	if (!file.is_open())
 	{
 		throw std::runtime_error("Failed to open file: " + filename);
 	}
@@ -201,6 +201,9 @@ void LORMotion::readFromFile(const std::string& filename)
 		// Line is valid, store record
 		m_records.push_back(rec);
 	}
+
+	ASSERT_MSG_WARNING(m_records.size() > 0,
+	                   "The file seems to contain no records");
 }
 
 void LORMotion::writeToFile(const std::string& filename) const

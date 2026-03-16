@@ -260,8 +260,37 @@ std::tuple<bin_t, bin_t, bin_t>
 
 BinIteratorChronologicalInterleaved::BinIteratorChronologicalInterleaved(
     bin_t p_numSubsets, bin_t p_numEvents, bin_t p_idxSubset)
-    : BinIteratorRange(p_idxSubset, p_numEvents, p_numSubsets)
+    : BinIteratorRange(p_idxSubset, p_numEvents - 1, p_numSubsets)
 {
+}
+
+BinIteratorBatched::BinIteratorBatched(const BinIterator* pp_original,
+                                       size_t pp_batchStart,
+                                       size_t pp_batchSize)
+    : m_original(pp_original),
+      m_batchStart(pp_batchStart),
+      m_batchSize(pp_batchSize)
+{
+}
+
+bin_t BinIteratorBatched::getSafe(bin_t idx) const
+{
+	return m_original->get(idx + m_batchStart);
+}
+
+bin_t BinIteratorBatched::begin() const
+{
+	return m_original->begin() + m_batchStart;
+}
+
+bin_t BinIteratorBatched::end() const
+{
+	return std::min(begin() + m_batchSize, m_original->end());
+}
+
+size_t BinIteratorBatched::size() const
+{
+	return m_batchSize;
 }
 
 }  // namespace yrt

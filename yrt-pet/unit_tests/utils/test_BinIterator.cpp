@@ -9,6 +9,9 @@
 
 #include "yrt-pet/datastruct/projection/BinIterator.hpp"
 
+#include "yrt-pet/datastruct/projection/ListModeLUT.hpp"
+#include "test_utils.hpp"
+
 bool test_iter(yrt::BinIterator* iter, size_t begin, size_t second,
                size_t end_t, size_t numEl)
 {
@@ -110,18 +113,47 @@ TEST_CASE("biniterator_chronological", "[iterator]")
 
 TEST_CASE("biniterator_chronological_interleaved", "[iterator]")
 {
-	size_t numSubsets = 3;
-	size_t numEvents = 13;
 	std::vector<size_t> endListRef{12, 10, 11};
 	SECTION("chronological-interleaved")
 	{
-		for (size_t idxSubset = 0; idxSubset < numSubsets; idxSubset++)
+		constexpr size_t NumSubsets = 3;
+		constexpr size_t NumEvents = 13;
+
+		for (size_t idxSubset = 0; idxSubset < NumSubsets; idxSubset++)
 		{
 			auto iter = yrt::BinIteratorChronologicalInterleaved(
-			    numSubsets, numEvents - 1, idxSubset);
-			REQUIRE(test_iter(&iter, idxSubset, idxSubset + numSubsets,
-			                  endListRef.at(idxSubset), numEvents));
+			    NumSubsets, NumEvents, idxSubset);
+			REQUIRE(test_iter(&iter, idxSubset, idxSubset + NumSubsets,
+			                  endListRef.at(idxSubset), NumEvents));
 		}
+	}
+
+	SECTION("listmode-sum-of-events")
+	{
+		constexpr int NumSubsets = 9;
+		constexpr size_t NumEvents = 15000;
+
+		const auto scanner = yrt::util::test::makeFakeScanner();
+
+		auto lm = yrt::ListModeLUTOwned(*scanner);
+		lm.allocate(NumEvents);
+
+		std::vector<std::unique_ptr<yrt::BinIterator>> binIterators;
+
+		size_t totalSize = 0;
+
+		for (int idxSubset = 0; idxSubset < NumSubsets; idxSubset++)
+		{
+			binIterators.push_back(lm.getBinIter(NumSubsets, idxSubset));
+
+			// Ensure ListModes return a BinIteratorChronologicalInterleaved
+			REQUIRE(typeid(*binIterators[binIterators.size() - 1]) ==
+			        typeid(yrt::BinIteratorChronologicalInterleaved));
+
+			totalSize += binIterators[binIterators.size() - 1]->size();
+		}
+
+		REQUIRE(totalSize == NumEvents);
 	}
 }
 

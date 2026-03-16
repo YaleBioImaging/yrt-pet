@@ -23,55 +23,73 @@ class Image : public ImageBase
 public:
 	~Image() override = default;
 
-	Array3DBase<float>& getData();
-	const Array3DBase<float>& getData() const;
+	Array4DBase<float>& getData();
+	const Array4DBase<float>& getData() const;
 	float* getRawPointer();
 	const float* getRawPointer() const;
 	bool isMemoryValid() const;
+	int getNumFrames() const;
 
 	void copyFromImage(const ImageBase* imSrc) override;
 	void multWithScalar(float scalar);
 	void addFirstImageToSecond(ImageBase* secondImage) const override;
 
 	float voxelSum() const;
-	void setValue(float initValue) override;
+	void fill(float initValue) override;
 	void applyThreshold(const ImageBase* maskImg, float threshold,
 	                    float val_le_scale, float val_le_off,
 	                    float val_gt_scale, float val_gt_off) override;
-	void updateEMThreshold(ImageBase* updateImg, const ImageBase* normImg,
-	                       float threshold) override;
+	void applyThresholdBroadcast(const ImageBase* maskImg, float threshold,
+	                             float val_le_scale, float val_le_off,
+	                             float val_gt_scale, float val_gt_off) override;
+
+	// EM update multiplication
+	void updateEMThresholdStatic(ImageBase* updateImg, const ImageBase* sensImg,
+	                             float threshold) override;
+	void updateEMThresholdDynamic(ImageBase* updateImg,
+	                              const ImageBase* sensImg,
+	                              float threshold) override;
+	void updateEMThresholdDynamic(ImageBase* updateImg,
+	                              const ImageBase* sensImg,
+	                              const std::vector<float>& sensScaling,
+	                              float threshold) override;
+
 	void writeToFile(const std::string& fname) const override;
 
-	Array3DAlias<float> getArray() const;
+	Array4DAlias<float> getArray() const;
 
 	void transformImage(const Vector3D& rotation, const Vector3D& translation,
 	                    Image& dest, float weight) const;
 	std::unique_ptr<ImageOwned>
 	    transformImage(const Vector3D& rotation,
 	                   const Vector3D& translation) const;
-	void transformImage(const transform_t& t, Image& dest, float weight) const;
+	void transformImage(const transform_t& t, Image& dest, float weight,
+	                    int destDynamicFrame = 0) const;
 	std::unique_ptr<ImageOwned> transformImage(const transform_t& t) const;
 
 	float dotProduct(const Image& y) const;
-	float nearestNeighbor(const Vector3D& pt) const;
-	float nearestNeighbor(const Vector3D& pt, int* pi, int* pj, int* pk) const;
-	template<bool MULT_FLAG>
-	void updateImageNearestNeighbor(const Vector3D& pt, float value);
-	void assignImageNearestNeighbor(const Vector3D& pt, float value);
-	bool getNearestNeighborIdx(const Vector3D& pt, int* pi, int* pj,
-	                           int* pk) const;
+	float nearestNeighbor(const Vector3D& pt, int frame = 0) const;
+	float nearestNeighbor(const Vector3D& pt, int* pi, int* pj, int* pk,
+	                      int frame = 0) const;
+	template <bool MULT_FLAG>
+	void updateImageNearestNeighbor(const Vector3D& pt, float value,
+	                                int frame = 0);
+	void assignImageNearestNeighbor(const Vector3D& pt, float value,
+	                                int frame = 0);
+	bool getNearestNeighborIdx(const Vector3D& pt, int* pi, int* pj, int* pk,
+	                           int frame = 0) const;
 
-	float interpolateImage(const Vector3D& pt) const;
-	float interpolateImage(const Vector3D& pt, const Image& sens) const;
-	template<bool MULT_FLAG>
-	void updateImageInterpolate(const Vector3D& pt, float value);
-	void assignImageInterpolate(const Vector3D& pt, float value);
+	float interpolateImage(const Vector3D& pt, int frame = 0) const;
+	float interpolateImage(const Vector3D& pt, const Image& sens,
+	                       int frame = 0) const;
+	template <bool MULT_FLAG>
+	void updateImageInterpolate(const Vector3D& point, float value,
+	                            int frame = 0);
+	void assignImageInterpolate(const Vector3D& point, float value,
+	                            int frame = 0);
 
 	void operationOnEachVoxel(const std::function<float(size_t)>& func);
-	// Note: The function given as argument should be able to be called in
-	// parallel without race conditions for different bins.
-	// In other words, two different bins shouldn't point
-	// to the same memory location.
+
 	void operationOnEachVoxelParallel(const std::function<float(size_t)>& func);
 
 protected:
@@ -80,12 +98,25 @@ protected:
 
 	Image();
 	explicit Image(const ImageParams& imgParams);
-	std::unique_ptr<Array3DBase<float>> mp_array;
+	std::unique_ptr<Array4DBase<float>> mp_array;
 
 private:
 	// Helper
-	template <int OPERATION> // operations 0: assign, 1: multiply, 2: add
-	void operationImageInterpolate(const Vector3D& pt, float value);
+	template <int OPERATION>  // operations 0: assign, 1: multiply, 2: add
+	void operationImageInterpolate(const Vector3D& pt, float value, int frame);
+
+	void updateEMThresholdDynamicWith4DSens(Image* updateImg,
+	                                        const Image* sensImg,
+	                                        float threshold);
+	void updateEMThresholdDynamicWithScaling(Image* updateImg,
+	                                         const Image* sensImg,
+	                                         const float* p_sensScaling,
+	                                         float threshold);
+	void updateEMThresholdStaticInternal(Image* updateImg, const Image* sensImg,
+	                                     float threshold);
+	// helper for without scaling factors
+	void updateEMThresholdDynamicFlat(Image* updateImg, const Image* sensImg,
+	                                  float threshold);
 };
 
 class ImageOwned : public Image
@@ -102,13 +133,14 @@ private:
 	                                    float imgOrigin[3],
 	                                    const int dim[8]) const;
 	void readNIfTIData(int datatype, void* data, float slope, float intercept);
-	static mat44 adjustAffineMatrix(mat44 matrix);
+	static void checkIfTransformMatrixIsSupported(const mat44& matrix);
+	static void adjustAffineMatrix(mat44& matrix);
 };
 
 class ImageAlias : public Image
 {
 public:
 	explicit ImageAlias(const ImageParams& imgParams);
-	void bind(Array3DBase<float>& p_data);
+	void bind(Array4DBase<float>& p_data);
 };
 }  // namespace yrt

@@ -7,6 +7,7 @@
 
 #include "Assert.hpp"
 
+#if BUILD_CUDA
 #include <driver_types.h>
 #include <vector_types.h>
 
@@ -62,6 +63,8 @@ struct GPULaunchConfig
 	bool synchronize = true;
 };
 
+void synchronizeIfNeeded(const GPULaunchConfig& config);
+
 struct GPULaunchParams
 {
 	unsigned int gridSize;
@@ -75,3 +78,5 @@ struct GPULaunchParams3D
 };
 
 }  // namespace yrt
+
+#endif

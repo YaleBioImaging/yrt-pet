@@ -15,7 +15,7 @@ namespace util
 {
 
 template <typename T>
-void readCSV(const std::string& filename, Array2D<T>& output)
+void readCSV(const std::string& filename, Array2DOwned<T>& output)
 {
 	std::ifstream file(filename);
 	std::string line = "";
@@ -83,9 +83,9 @@ void readCSV(const std::string& filename, Array2D<T>& output)
 	file.close();
 }
 
-template void readCSV(const std::string& filename, Array2D<int>& output);
-template void readCSV(const std::string& filename, Array2D<float>& output);
-template void readCSV(const std::string& filename, Array2D<double>& output);
+template void readCSV(const std::string& filename, Array2DOwned<int>& output);
+template void readCSV(const std::string& filename, Array2DOwned<float>& output);
+template void readCSV(const std::string& filename, Array2DOwned<double>& output);
 
 template <typename TFloat>
 TFloat erfc(TFloat x)
@@ -228,8 +228,8 @@ void conv3D_separable(const Array3DBase<T>& src, const Array1DBase<T>& kernelX,
 		throw std::logic_error("Kernel size must be an odd number");
 	}
 
-	auto dst1 = std::make_unique<Array3D<T>>();
-	auto dst2 = std::make_unique<Array3D<T>>();
+	auto dst1 = std::make_unique<Array3DOwned<T>>();
+	auto dst2 = std::make_unique<Array3DOwned<T>>();
 	dst1->allocate(src.getSize(0), src.getSize(1), src.getSize(2));
 	dst2->allocate(src.getSize(0), src.getSize(1), src.getSize(2));
 

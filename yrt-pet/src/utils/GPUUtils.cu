@@ -5,6 +5,23 @@
 
 #include "yrt-pet/utils/GPUUtils.cuh"
 
+#include "yrt-pet/utils/Assert.hpp"
+
+#if BUILD_PYBIND11
+#include <pybind11/pybind11.h>
+
+namespace py = pybind11;
+using namespace pybind11::literals;
+
+namespace yrt
+{
+void py_setup_gpuutils(py::module& m)
+{
+	m.def("getAvailableVRAM", &globals::getAvailableVRAM, "verbose"_a = false);
+}
+}  // namespace yrt
+#endif
+
 namespace yrt
 {
 
@@ -39,11 +56,12 @@ void gpuErrchk(cudaError_t code)
 namespace globals
 {
 
-size_t getDeviceInfo(bool verbose)
+size_t getAvailableVRAM(bool verbose)
 {
 	int devicesNb = 0;
 	cudaGetDeviceCount(&devicesNb);
-	cudaCheckError();
+	ASSERT(cudaCheckError());
+	ASSERT(devicesNb > 0);
 	std::cout << "\n"
 	          << "*** GPUs INFORMATION ***" << "\n"
 	          << std::endl;

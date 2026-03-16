@@ -13,8 +13,7 @@ namespace yrt
 {
 namespace util
 {
-/*Warning: This class is only made to work for command-line output, not for
- * accumulating the output in a file (ex: SLURM)*/
+
 class ProgressDisplayMultiThread
 {
 public:
@@ -26,11 +25,9 @@ public:
 	void setTotalWork(int64_t p_totalWork);
 	void setNumThreads(int numThreads);
 	int getNumThreads() const;
-	void progress(int threadId, int64_t progressStep);
+	void incrementProgress(int threadId, int64_t progressStep = 1);
 
 private:
-	void displayPercentageIfNeeded() const;
-
 	// In percentages, so never higher than 100
 	int8_t m_lastDisplayedPercentage;
 

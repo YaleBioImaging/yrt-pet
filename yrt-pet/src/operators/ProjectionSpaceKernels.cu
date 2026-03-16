@@ -3,93 +3,94 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "yrt-pet/datastruct/projection/ProjectionSpaceKernels.cuh"
+#include "../../include/yrt-pet/operators/ProjectionSpaceKernels.cuh"
 #include "yrt-pet/geometry/Constants.hpp"
 
 #include <complex>
 
 namespace yrt
 {
-__global__ void divideMeasurements_kernel(const float* d_dataIn,
-                                          float* d_dataOut,
+__global__ void divideMeasurements_kernel(const float* pd_dataIn,
+                                          float* pd_dataOut,
                                           const size_t maxNumberOfEvents)
 {
 	const long eventId = blockIdx.x * blockDim.x + threadIdx.x;
 	if (eventId < maxNumberOfEvents)
 	{
-		if (d_dataOut[eventId] > EPS_FLT)
+		if (pd_dataOut[eventId] > EPS_FLT)
 		{
-			d_dataOut[eventId] = d_dataIn[eventId] / d_dataOut[eventId];
+			pd_dataOut[eventId] = pd_dataIn[eventId] / pd_dataOut[eventId];
 		}
 	}
 }
 
-__global__ void addProjValues_kernel(const float* d_dataIn, float* d_dataOut,
+__global__ void addProjValues_kernel(const float* pd_dataIn, float* pd_dataOut,
                                      const size_t maxNumberOfEvents)
 {
 	const long eventId = blockIdx.x * blockDim.x + threadIdx.x;
 	if (eventId < maxNumberOfEvents)
 	{
-		d_dataOut[eventId] += d_dataIn[eventId];
+		pd_dataOut[eventId] += pd_dataIn[eventId];
 	}
 }
 
-__global__ void invertProjValues_kernel(const float* d_dataIn, float* d_dataOut,
+__global__ void invertProjValues_kernel(const float* pd_dataIn,
+                                        float* pd_dataOut,
                                         const size_t maxNumberOfEvents)
 {
 	const long eventId = blockIdx.x * blockDim.x + threadIdx.x;
 	if (eventId < maxNumberOfEvents)
 	{
-		if (d_dataIn[eventId] != 0.0f)
+		if (pd_dataIn[eventId] != 0.0f)
 		{
-			d_dataOut[eventId] = 1.0f / d_dataIn[eventId];
+			pd_dataOut[eventId] = 1.0f / pd_dataIn[eventId];
 		}
 		else
 		{
-			d_dataOut[eventId] = 0.0f;
+			pd_dataOut[eventId] = 0.0f;
 		}
 	}
 }
 
-__global__ void convertToACFs_kernel(const float* d_dataIn, float* d_dataOut,
+__global__ void convertToACFs_kernel(const float* pd_dataIn, float* pd_dataOut,
                                      const float unitFactor,
                                      const size_t maxNumberOfEvents)
 {
 	const long eventId = blockIdx.x * blockDim.x + threadIdx.x;
 	if (eventId < maxNumberOfEvents)
 	{
-		d_dataOut[eventId] = exp(-d_dataIn[eventId] * unitFactor);
+		pd_dataOut[eventId] = exp(-pd_dataIn[eventId] * unitFactor);
 	}
 }
 
-__global__ void multiplyProjValues_kernel(const float* d_dataIn,
-                                          float* d_dataOut,
+__global__ void multiplyProjValues_kernel(const float* pd_dataIn,
+                                          float* pd_dataOut,
                                           const size_t maxNumberOfEvents)
 {
 	const long eventId = blockIdx.x * blockDim.x + threadIdx.x;
 	if (eventId < maxNumberOfEvents)
 	{
-		d_dataOut[eventId] *= d_dataIn[eventId];
+		pd_dataOut[eventId] *= pd_dataIn[eventId];
 	}
 }
 
-__global__ void multiplyProjValues_kernel(float scalar, float* d_dataOut,
+__global__ void multiplyProjValues_kernel(float scalar, float* pd_dataOut,
                                           const size_t maxNumberOfEvents)
 {
 	const long eventId = blockIdx.x * blockDim.x + threadIdx.x;
 	if (eventId < maxNumberOfEvents)
 	{
-		d_dataOut[eventId] *= scalar;
+		pd_dataOut[eventId] *= scalar;
 	}
 }
 
-__global__ void clearProjections_kernel(float* d_dataIn, float value,
+__global__ void clearProjections_kernel(float* pd_dataIn, float value,
                                         const size_t maxNumberOfEvents)
 {
 	const long eventId = blockIdx.x * blockDim.x + threadIdx.x;
 	if (eventId < maxNumberOfEvents)
 	{
-		d_dataIn[eventId] = value;
+		pd_dataIn[eventId] = value;
 	}
 }
 }  // namespace yrt

@@ -33,12 +33,17 @@ void py_setup_histogram3d(py::module& m);
 void py_setup_uniformhistogram(py::module& m);
 void py_setup_sparsehistogram(py::module& m);
 void py_setup_lormotion(py::module& m);
+void py_setup_dynaming_framing(py::module& m);
 void py_setup_listmode(py::module& m);
 void py_setup_listmodelut(py::module& m);
 void py_setup_listmodelutdoi(py::module& m);
 void py_setup_projectionlist(py::module& m);
+void py_setup_detectormask(py::module& m);
 void py_setup_detectorsetup(py::module& m);
 void py_setup_osem(py::module& m);
+void py_setup_osem_cpu(py::module& m);
+void py_setup_lrem(py::module& m);
+void py_setup_lrem_cpu(py::module& m);
 void py_setup_reconstructionutils(py::module& m);
 void py_setup_scanner(py::module& m);
 void py_setup_detcoord(py::module& m);
@@ -50,13 +55,17 @@ void py_setup_srtm(py::module& m);
 void py_setup_operator(py::module& m);
 void py_setup_operatorpsf(py::module& m);
 void py_setup_operatorvarpsf(py::module& m);
-void py_setup_operatorprojectorparams(py::module& m);
 void py_setup_projectionpropertytype(py::module& m);
+void py_setup_binfilter(py::module& m);
+void py_setup_binloader(py::module& m);
 void py_setup_constraints(py::module& m);
 void py_setup_operatorprojectorbase(py::module& m);
 void py_setup_operatorprojector(py::module& m);
-void py_setup_operatorprojectorsiddon(py::module& m);
-void py_setup_operatorprojectordd(py::module& m);
+void py_setup_projectorparams(py::module& m);
+void py_setup_projector(py::module& m);
+void py_setup_projectorupdater(py::module& m);
+void py_setup_projectorsiddon(py::module& m);
+void py_setup_projectordd(py::module& m);
 
 void py_setup_globals(py::module& m);
 void py_setup_log(py::module& m);
@@ -64,15 +73,20 @@ void py_setup_log(py::module& m);
 void py_setup_crystal(py::module& m);
 void py_setup_singlescattersimulator(py::module& m);
 void py_setup_scatterestimator(py::module& m);
+void py_setup_scatterspace(py::module& m);
 
 #ifdef BUILD_CUDA
+void py_setup_gpuutils(py::module&);
 void py_setup_imagedevice(py::module&);
-void py_setup_projectiondatadevice(py::module& m);
+void py_setup_projectionlistdevice(py::module& m);
 void py_setup_operatorpsfdevice(py::module& m);
+void py_setup_operatorvarpsfdevice(py::module& m);
 void py_setup_operatorprojectordevice(py::module& m);
 void py_setup_operatorprojectordd_gpu(py::module& m);
 void py_setup_operatorprojectorsiddon_gpu(py::module& m);
 void py_setup_reconstructionutilsdevice(py::module& m);
+void py_setup_osem_gpu(py::module& m);
+void py_setup_lrem_gpu(py::module& m);
 #endif
 
 
@@ -96,10 +110,12 @@ PYBIND11_MODULE(pyyrtpet, m)
 	py_setup_uniformhistogram(m);
 	py_setup_sparsehistogram(m);
 	py_setup_lormotion(m);
+	py_setup_dynaming_framing(m);
 	py_setup_listmode(m);
 	py_setup_listmodelut(m);
 	py_setup_listmodelutdoi(m);
 	py_setup_projectionlist(m);
+	py_setup_detectormask(m);
 	py_setup_detectorsetup(m);
 	py_setup_scanner(m);
 	py_setup_detcoord(m);
@@ -115,12 +131,19 @@ PYBIND11_MODULE(pyyrtpet, m)
 	py_setup_operatorvarpsf(m);
 	py_setup_operatorprojectorbase(m);
 	py_setup_operatorprojector(m);
-	py_setup_operatorprojectorparams(m);
 	py_setup_projectionpropertytype(m);
+	py_setup_binfilter(m);
+	py_setup_binloader(m);
 	py_setup_constraints(m);
-	py_setup_operatorprojectorsiddon(m);
-	py_setup_operatorprojectordd(m);
+	py_setup_projectorparams(m);
+	py_setup_projector(m);
+	py_setup_projectorupdater(m);
+	py_setup_projectorsiddon(m);
+	py_setup_projectordd(m);
 	py_setup_osem(m);
+	py_setup_osem_cpu(m);
+	py_setup_lrem(m);
+	py_setup_lrem_cpu(m);
 	py_setup_reconstructionutils(m);
 
 	py_setup_globals(m);
@@ -129,15 +152,20 @@ PYBIND11_MODULE(pyyrtpet, m)
 	py_setup_crystal(m);
 	py_setup_singlescattersimulator(m);
 	py_setup_scatterestimator(m);
+	py_setup_scatterspace(m);
 
 #ifdef BUILD_CUDA
+	py_setup_gpuutils(m);
 	py_setup_imagedevice(m);
-	py_setup_projectiondatadevice(m);
+	py_setup_projectionlistdevice(m);
 	py_setup_operatorpsfdevice(m);
+	py_setup_operatorvarpsfdevice(m);
 	py_setup_operatorprojectordevice(m);
 	py_setup_operatorprojectordd_gpu(m);
 	py_setup_operatorprojectorsiddon_gpu(m);
 	py_setup_reconstructionutilsdevice(m);
+	py_setup_osem_gpu(m);
+	py_setup_lrem_gpu(m);
 #endif
 
 	// Add the plugins

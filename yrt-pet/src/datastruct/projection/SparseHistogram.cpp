@@ -224,6 +224,10 @@ float SparseHistogram::getProjectionValueFromHistogramBin(
 {
 	ASSERT(std::holds_alternative<det_pair_t>(histoBinId));
 	const auto detPair = std::get<det_pair_t>(histoBinId);
+	if (detPair.d1 == 0 && detPair.d2 == 0)
+	{
+		return 0.0f;
+	}
 	return getProjectionValueFromDetPair(detPair);
 }
 

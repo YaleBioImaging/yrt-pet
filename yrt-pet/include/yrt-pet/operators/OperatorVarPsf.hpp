@@ -16,7 +16,7 @@ namespace yrt
 class ConvolutionKernel
 {
 public:
-	using KernelArray = Array3D<float>;
+	using KernelArray = Array3DOwned<float>;
 	// Sizes are assumed to be odd
 	size_t getHalfSizeX() const;
 	size_t getHalfSizeY() const;
@@ -68,17 +68,17 @@ public:
 
 protected:
 	const ConvolutionKernel& findNearestKernel(float x, float y, float z) const;
-
-private:
 	ConvolutionKernelCollection m_kernelLUT;
-	ImageParams m_imageParams;
-	// Ranges and gaps in mm
 	float m_xRange;
 	float m_xGap;
 	float m_yRange;
 	float m_yGap;
 	float m_zRange;
 	float m_zGap;
+
+private:
+	ImageParams m_imageParams;
+	// Ranges and gaps in mm
 };
 
 }  // namespace yrt

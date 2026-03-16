@@ -4,8 +4,8 @@
  */
 
 #include "yrt-pet/datastruct/projection/SparseHistogram.hpp"
-#include "yrt-pet/operators/OperatorProjectorDD.hpp"
-#include "yrt-pet/operators/OperatorProjectorSiddon.hpp"
+#include "yrt-pet/operators/ProjectorDD.hpp"
+#include "yrt-pet/operators/ProjectorSiddon.hpp"
 #include "yrt-pet/operators/SparseProjection.hpp"
 #include "yrt-pet/utils/ReconstructionUtils.hpp"
 
@@ -16,7 +16,7 @@
 
 TEST_CASE("sparse-projection", "[SparseProjection]")
 {
-	auto scanner = yrt::util::test::makeScanner();
+	auto scanner = yrt::util::test::makeFakeScanner();
 
 	SECTION("against-dense-histogram")
 	{
@@ -31,18 +31,20 @@ TEST_CASE("sparse-projection", "[SparseProjection]")
 		//  subsets)
 		std::cout << "Forward projecting into dense histogram..." << std::endl;
 		yrt::util::forwProject(*scanner, *image, *histogram3D,
-		                  yrt::OperatorProjector::ProjectorType::DD);
+		                       yrt::ProjectorType::DD);
 
 		// Initialize sparse histogram
 		auto sparseHistogram = std::make_unique<yrt::SparseHistogram>(*scanner);
 
 		// Create DD projector with default settings (no PSF, no TOF)
-		auto projector = std::make_unique<yrt::OperatorProjectorDD>(*scanner);
+		yrt::ProjectorParams params(*scanner);
+		params.projectorType = yrt::ProjectorType::DD;
+		auto projector = yrt::Projector::create(params);
 
 		// Forward project into sparse histogram
 		std::cout << "Forward projecting into sparse histogram..." << std::endl;
 		yrt::util::forwProjectToSparseHistogram<false>(*image, *projector,
-		                                   *sparseHistogram);
+		                                               *sparseHistogram);
 
 		// Compare both histograms
 		size_t numBins = histogram3D->count();
@@ -62,7 +64,8 @@ TEST_CASE("sparse-projection", "[SparseProjection]")
 		}
 
 		// Accumulating dense histogram into another sparse histogram
-		auto sparseHistogram2 = std::make_unique<yrt::SparseHistogram>(*scanner);
+		auto sparseHistogram2 =
+		    std::make_unique<yrt::SparseHistogram>(*scanner);
 		sparseHistogram2->accumulate<true, false>(*histogram3D);
 
 		// Comparing both sparse histograms
@@ -72,7 +75,8 @@ TEST_CASE("sparse-projection", "[SparseProjection]")
 		std::cout << "Comparing sparse histograms..." << std::endl;
 		for (yrt::bin_t bin = 0; bin < numBins; bin++)
 		{
-			const yrt::det_pair_t detPair = sparseHistogram->getDetectorPair(bin);
+			const yrt::det_pair_t detPair =
+			    sparseHistogram->getDetectorPair(bin);
 
 			const float sparseHistogramProjValue =
 			    sparseHistogram->getProjectionValueFromDetPair(detPair);
@@ -85,7 +89,8 @@ TEST_CASE("sparse-projection", "[SparseProjection]")
 
 
 		// Accumulating sparse histogram into another sparse histogram
-		auto sparseHistogram3 = std::make_unique<yrt::SparseHistogram>(*scanner);
+		auto sparseHistogram3 =
+		    std::make_unique<yrt::SparseHistogram>(*scanner);
 		sparseHistogram3->accumulate<true, false>(*sparseHistogram);
 
 		// Comparing both sparse histograms
@@ -95,7 +100,8 @@ TEST_CASE("sparse-projection", "[SparseProjection]")
 		std::cout << "Comparing sparse histograms..." << std::endl;
 		for (yrt::bin_t bin = 0; bin < numBins; bin++)
 		{
-			const yrt::det_pair_t detPair = sparseHistogram->getDetectorPair(bin);
+			const yrt::det_pair_t detPair =
+			    sparseHistogram->getDetectorPair(bin);
 
 			const float sparseHistogramProjValue =
 			    sparseHistogram->getProjectionValueFromDetPair(detPair);
@@ -109,7 +115,8 @@ TEST_CASE("sparse-projection", "[SparseProjection]")
 		// Accumulating sparse histogram into dense histogram
 		auto histogram3D2 = std::make_unique<yrt::Histogram3DOwned>(*scanner);
 		histogram3D2->allocate();
-		yrt::util::convertToHistogram3D<false, false>(*sparseHistogram, *histogram3D2);
+		yrt::util::convertToHistogram3D<false, false>(*sparseHistogram,
+		                                              *histogram3D2);
 
 		// Comparing both dense histograms
 		numBins = histogram3D2->count();

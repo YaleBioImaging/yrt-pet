@@ -352,5 +352,10 @@ void ArgumentReader::validateRequiredParameters() const
 		throw std::invalid_argument(ss.str());
 	}
 }
+
+bool ArgumentReader::hasValue(const std::string& name) const
+{
+	return m_values.find(name) != m_values.end();
+}
 }  // namespace io
 }  // namespace yrt

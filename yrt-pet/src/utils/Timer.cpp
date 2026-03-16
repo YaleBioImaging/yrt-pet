@@ -57,5 +57,13 @@ double Timer::getElapsedMilliseconds() const
 	    .count();
 }
 
+double Timer::getElapsedSeconds() const
+{
+	return std::chrono::duration_cast<
+	           std::chrono::duration<double, std::ratio<1, 1>>>(
+	           getElapsedTime())
+	    .count();
+}
+
 }  // namespace util
 }  // namespace yrt

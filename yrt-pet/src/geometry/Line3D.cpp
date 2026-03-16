@@ -54,6 +54,13 @@ void py_setup_line3dbase(py::module& m)
 	      });
 	c.def_readwrite("point1", &Line3DBase<TFloat>::point1);
 	c.def_readwrite("point2", &Line3DBase<TFloat>::point2);
+	c.def("toTuple",
+	      [](Line3DBase<TFloat>& self)
+	      {
+		      return py::make_tuple(
+		          py::make_tuple(self.point1.x, self.point1.y, self.point1.z),
+		          py::make_tuple(self.point2.x, self.point2.y, self.point2.z));
+	      });
 }
 
 void py_setup_line3dall(py::module& m)
@@ -89,6 +96,14 @@ Line3DBase<TargetType> Line3DBase<TFloat>::to() const
 }
 template Line3DBase<double> Line3DBase<float>::to() const;
 template Line3DBase<float> Line3DBase<double>::to() const;
+
+template <typename TFloat>
+bool Line3DBase<TFloat>::isValid() const
+{
+	return std::abs(point1.x - point2.x) > EPS_FLT ||
+	       std::abs(point1.y - point2.y) > EPS_FLT ||
+	       std::abs(point1.z - point2.z) > EPS_FLT;
+}
 
 template <typename TFloat>
 Line3DBase<TFloat> Line3DBase<TFloat>::nullLine()

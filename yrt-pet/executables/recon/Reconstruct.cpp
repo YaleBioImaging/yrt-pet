@@ -12,6 +12,7 @@
 #include "yrt-pet/utils/Globals.hpp"
 #include "yrt-pet/utils/ProgressDisplay.hpp"
 #include "yrt-pet/utils/ReconstructionUtils.hpp"
+#include "yrt-pet/utils/ReconstructionUtilsDevice.cuh"
 #include "yrt-pet/utils/Timer.hpp"
 
 #include <ctime>
@@ -24,12 +25,12 @@ void printTimingStatistics(const util::Timer& ioTimer,
                            const util::Timer& sensTimer,
                            const util::Timer& reconTimer)
 {
-	std::cout << "I/O time: " << ioTimer.getElapsedMilliseconds() << "ms"
+	std::cout << "I/O time: " << ioTimer.getElapsedSeconds() << "s"
 	          << std::endl;
 	std::cout << "Sensitivity generation time: "
-	          << sensTimer.getElapsedMilliseconds() << "ms" << std::endl;
-	std::cout << "Reconstruction time: " << reconTimer.getElapsedMilliseconds()
-	          << "ms" << std::endl;
+	          << sensTimer.getElapsedSeconds() << "s" << std::endl;
+	std::cout << "Reconstruction time: " << reconTimer.getElapsedSeconds()
+	          << "s" << std::endl;
 }
 
 void addImagePSFtoReconIfNeeded(OSEM& osem, std::string psf_fname,
@@ -125,6 +126,11 @@ int main(int argc, char** argv)
 		registry.registerArgument(
 		    "move_sens", "Move the provided sensitivity image based on motion",
 		    false, io::TypeOfArgument::BOOL, false, sensitivityGroup);
+		registry.registerArgument("detmask",
+		                          "Detector mask (will override the "
+		                          "\"detMask\" member in the scanner's JSON)",
+		                          false, io::TypeOfArgument::STRING, "",
+		                          sensitivityGroup);
 
 		// Input data parameters
 		registry.registerArgument("input", "Input file", false,
@@ -276,14 +282,21 @@ int main(int argc, char** argv)
 			    "pre-existing sensitivity image(s) were provided.");
 		}
 
+#if BUILD_CUDA
+		const bool useGPU = config.getValue<bool>("gpu");
+#else
+		const bool useGPU = false;
+#endif
+
 		const auto dataInputFormat = config.getValue<std::string>("format");
 		const auto dataInputFilename = config.getValue<std::string>("input");
 		ASSERT_MSG(dataInputFilename.empty() == dataInputFormat.empty(),
 		           "Input data must come with a specified format");
+		const auto out_fname = config.getValue<std::string>("out");
 
 		if (!sensOnly)
 		{
-			ASSERT_MSG(!config.getValue<std::string>("out").empty(),
+			ASSERT_MSG(!out_fname.empty(),
 			           "Output reconstruction image filename unspecified.");
 			ASSERT_MSG(!dataInputFilename.empty(), "Input data unspecified.");
 			ASSERT_MSG(!dataInputFormat.empty(),
@@ -298,16 +311,23 @@ int main(int argc, char** argv)
 		std::cout << "Initializing scanner..." << std::endl;
 		auto scanner =
 		    std::make_unique<Scanner>(config.getValue<std::string>("scanner"));
+		auto detMask_fname = config.getValue<std::string>("detmask");
+		if (!detMask_fname.empty())
+		{
+			scanner->addMask(detMask_fname);
+		}
 		auto projectorType =
 		    io::getProjector(config.getValue<std::string>("projector"));
-		std::unique_ptr<OSEM> osem =
-		    util::createOSEM(*scanner, config.getValue<bool>("gpu"));
+		std::unique_ptr<OSEM> osem = util::createOSEM(*scanner, useGPU);
+
+		float hardThreshold = config.getValue<float>("hard_threshold");
+		float globalScale = config.getValue<float>("global_scale");
 
 		osem->num_MLEM_iterations = config.getValue<int>("num_iterations");
 		osem->num_OSEM_subsets = config.getValue<int>("num_subsets");
-		osem->hardThreshold = config.getValue<float>("hard_threshold");
-		osem->projectorType = projectorType;
-		osem->numRays = config.getValue<int>("num_rays");
+		osem->hardThreshold = hardThreshold;
+		osem->setProjector(projectorType);
+		osem->setNumRays(config.getValue<int>("num_rays"));
 
 		// To make sure the sensitivity image gets generated accordingly
 		const bool useListMode =
@@ -408,7 +428,7 @@ int main(int argc, char** argv)
 			osem->setInvertSensitivity(
 			    config.getValue<bool>("invert_sensitivity"));
 		}
-		osem->setGlobalScalingFactor(config.getValue<float>("global_scale"));
+		osem->setGlobalScalingFactor(globalScale);
 
 		// Sensitivity image(s)
 		std::vector<std::unique_ptr<Image>> sensImages;
@@ -503,8 +523,24 @@ int main(int argc, char** argv)
 				if (dataInput == nullptr)
 				{
 					// Time average move based on all the frames
-					movedSensImage = util::timeAverageMoveImage(
-					    *lorMotion, unmovedSensImage);
+					if (useGPU)
+					{
+#if BUILD_CUDA
+						auto movedSensImageDevice =
+						    util::timeAverageMoveImageDevice(
+						        *lorMotion, unmovedSensImage, {});
+						movedSensImage = std::make_unique<ImageOwned>(
+						    unmovedSensImage->getParams());
+						movedSensImage->allocate();
+						movedSensImageDevice->transferToHostMemory(
+						    movedSensImage.get());
+#endif
+					}
+					else
+					{
+						movedSensImage = util::timeAverageMoveImage(
+						    *lorMotion, unmovedSensImage);
+					}
 				}
 				else
 				{
@@ -512,8 +548,25 @@ int main(int argc, char** argv)
 					const timestamp_t timeStart = dataInput->getTimestamp(0);
 					const timestamp_t timeStop =
 					    dataInput->getTimestamp(dataInput->count() - 1);
-					movedSensImage = util::timeAverageMoveImage(
-					    *lorMotion, unmovedSensImage, timeStart, timeStop);
+					if (useGPU)
+					{
+#if BUILD_CUDA
+						auto movedSensImageDevice =
+						    util::timeAverageMoveImageDevice(
+						        *lorMotion, unmovedSensImage, timeStart,
+						        timeStop, {});
+						movedSensImage = std::make_unique<ImageOwned>(
+						    unmovedSensImage->getParams());
+						movedSensImage->allocate();
+						movedSensImageDevice->transferToHostMemory(
+						    movedSensImage.get());
+#endif
+					}
+					else
+					{
+						movedSensImage = util::timeAverageMoveImage(
+						    *lorMotion, unmovedSensImage, timeStart, timeStop);
+					}
 				}
 
 				sensTimer.pause();
@@ -676,34 +729,23 @@ int main(int argc, char** argv)
 		}
 
 		// Save steps
-		ASSERT_MSG(config.getValue<int>("save_iter_step") >= 0,
-		           "save_iter_step must be positive.");
+		const auto saveIterStep = config.getValue<int>("save_iter_step");
+		const auto saveIterRanges =
+		    config.getValue<std::string>("save_iter_ranges");
+		ASSERT_MSG(saveIterStep >= 0, "save_iter_step must be positive.");
 		util::RangeList ranges;
-		if (config.getValue<int>("save_iter_step") > 0)
+		if (saveIterStep > 0)
 		{
-			if (config.getValue<int>("save_iter_step") == 1)
-			{
-				ranges.insertSorted(0,
-				                    config.getValue<int>("num_iterations") - 1);
-			}
-			else
-			{
-				for (int it = 0; it < config.getValue<int>("num_iterations");
-				     it += config.getValue<int>("save_iter_step"))
-				{
-					ranges.insertSorted(it, it);
-				}
-			}
+			ranges = util::RangeList::makeRangeListStep(
+			    0, osem->num_MLEM_iterations - 1, saveIterStep);
 		}
-		else if (!config.getValue<std::string>("save_iter_ranges").empty())
+		else if (!saveIterRanges.empty())
 		{
-			ranges.readFromString(
-			    config.getValue<std::string>("save_iter_ranges"));
+			ranges.readFromString(saveIterRanges);
 		}
 		if (!ranges.empty())
 		{
-			osem->setSaveIterRanges(ranges,
-			                        config.getValue<std::string>("out"));
+			osem->setSaveIterRanges(ranges, out_fname);
 		}
 
 		// Initial image estimate
@@ -712,14 +754,14 @@ int main(int argc, char** argv)
 		{
 			initialEstimate = std::make_unique<ImageOwned>(
 			    config.getValue<std::string>("initial_estimate"));
-			osem->initialEstimate = initialEstimate.get();
+			osem->setInitialEstimate(initialEstimate.get());
 		}
 
 		ioTimer.pause();
 		reconTimer.run();
 
 		std::cout << "Launching reconstruction..." << std::endl;
-		osem->reconstruct(config.getValue<std::string>("out"));
+		osem->reconstruct(out_fname);
 
 		reconTimer.pause();
 

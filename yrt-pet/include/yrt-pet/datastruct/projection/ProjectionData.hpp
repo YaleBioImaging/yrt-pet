@@ -5,8 +5,8 @@
 
 #pragma once
 
-#include "yrt-pet/datastruct/projection/ProjectionProperties.hpp"
 #include "yrt-pet/datastruct/projection/BinIterator.hpp"
+#include "yrt-pet/datastruct/projection/ProjectionProperties.hpp"
 #include "yrt-pet/datastruct/scanner/Scanner.hpp"
 #include "yrt-pet/geometry/Line3D.hpp"
 #include "yrt-pet/operators/Variable.hpp"
@@ -39,7 +39,8 @@ public:
 
 	// Optional methods
 	virtual timestamp_t getTimestamp(bin_t id) const;
-	virtual frame_t getFrame(bin_t id) const;
+	virtual frame_t getDynamicFrame(bin_t id) const;
+	virtual frame_t getMotionFrame(bin_t id) const;
 	virtual bool isUniform() const;
 	virtual bool hasRandomsEstimates() const;
 	virtual float getRandomsEstimate(bin_t id) const;
@@ -48,9 +49,11 @@ public:
 	virtual float getTOFValue(bin_t id) const;
 	// For motion correction
 	virtual bool hasMotion() const;
-	virtual size_t getNumFrames() const;
-	virtual transform_t getTransformOfFrame(frame_t frame) const;
-	virtual float getDurationOfFrame(frame_t frame) const;
+	virtual bool hasDynamicFraming() const;
+	virtual size_t getNumDynamicFrames() const;
+	virtual size_t getNumMotionFrames() const;
+	virtual transform_t getTransformOfMotionFrame(frame_t frame) const;
+	virtual float getDurationOfMotionFrame(frame_t frame) const;
 	virtual timestamp_t getScanDuration() const;
 	// Special case when the LOR is not defined directly from the scanner's LUT
 	virtual bool hasArbitraryLORs() const;
@@ -58,12 +61,11 @@ public:
 
 	// Helper functions
 	virtual std::set<ProjectionPropertyType> getProjectionPropertyTypes() const;
-	virtual void
-	    getProjectionProperties(ProjectionProperties& props,
-	                            const ProjectionPropertyManager& propManager,
-	                            bin_t bin, size_t pos) const;
+	virtual void collectProjectionProperties(
+	    const ProjectionPropertyManager& propManager, PropertyUnit* props,
+	    size_t pos, bin_t bin) const;
 
-	Line3D getLOR(bin_t bin) const;
+	Line3D getLOR(bin_t bin, const det_pair_t* detPair = nullptr) const;
 	virtual void clearProjections(float value);
 	virtual void divideMeasurements(const ProjectionData* measurements,
 	                                const BinIterator* binIter);

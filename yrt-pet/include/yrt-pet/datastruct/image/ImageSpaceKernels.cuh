@@ -12,30 +12,54 @@ namespace yrt
 
 __global__ void updateEM_kernel(const float* d_imgIn, float* d_imgOut,
                                 const float* d_sensImg, int nx, int ny, int nz,
-                                float EM_threshold);
+                                int nt, float EM_threshold);
+template <bool HasScaling>
+__global__ void updateEMDynamic_kernel(const float* d_imgIn, float* d_imgOut,
+                                       const float* d_sensImg, int nx, int ny,
+                                       int nz, int nt, const float* c_r,
+                                       float EM_threshold);
 
 __global__ void applyThreshold_kernel(float* pd_imgIn, const float* pd_imgMask,
                                       float threshold, float val_le_scale,
                                       float val_le_off, float val_gt_scale,
                                       float val_gt_off, int nx, int ny, int nz);
 
-__global__ void setValue_kernel(float* d_imgIn, float value, int nx, int ny,
-                                int nz);
+__global__ void applyThresholdBroadcast_kernel(
+    float* pd_imgIn, const float* pd_imgMask, float threshold,
+    float val_le_scale, float val_le_off, float val_gt_scale, float val_gt_off,
+    int nx, int ny, int nz, int nt);
+
+__global__ void fill_kernel(float* d_imgIn, float value, int nx, int ny, int nz,
+                            int nt);
 
 __global__ void addFirstImageToSecond_kernel(const float* d_imgIn,
                                              float* d_imgOut, int nx, int ny,
                                              int nz);
 
+__global__ void addFirstImage3DToSecond4D_kernel(const float* d_imgIn,
+                                                 float* d_imgOut, int nx,
+                                                 int ny, int nz, int nt);
+__global__ void multWithScalar_kernel(float* pd_img, float scalar, int nx,
+                                      int ny, int nz, int nt);
+
 template <bool WEIGHED_AVG>
-__global__ void
-    timeAverageMoveImage_kernel(const float* pd_imgIn, float* pd_imgOut, int nx,
-                                int ny, int nz, float length_x, float length_y,
-                                float length_z, float off_x, float off_y,
-                                float off_z, const transform_t* pd_invTransforms,
-                                float* frameWeights, int numTransforms);
+__global__ void timeAverageMoveImage_kernel(
+    const float* pd_imgIn, float* pd_imgOut, frame_t outDynamicFrame, int nx,
+    int ny, int nz, float length_x, float length_y, float length_z, float off_x,
+    float off_y, float off_z, const transform_t* pd_invTransforms,
+    float* frameWeights, int numTransforms);
 
 template <int Axis>
 __global__ void convolve3DSeparable_kernel(const float* input, float* output,
                                            const float* kernel, int kernelSize,
                                            int nx, int ny, int nz);
+
+template <bool Transposed>
+__global__ void convolve3D_kernel(
+    const float* input, float* output, const float* kernelsFlat,
+    const int* kernelOffsets, const int* kernelDims, const int* kernelHalf,
+    int lut_x_dim, int lut_y_dim, int lut_z_dim, float xGap, float yGap,
+    float zGap, float xCenter, float yCenter, float zCenter, float vx, float vy,
+    float vz, int nx, int ny, int nz);
+
 }  // namespace yrt

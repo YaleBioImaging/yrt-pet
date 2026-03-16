@@ -54,7 +54,6 @@ void ProjectionPsfManagerDevice::readFromFileInternal(
 void ProjectionPsfManagerDevice::copyKernelsToDevice(
     GPULaunchConfig launchConfig)
 {
-	// TODO: Copy kernels to device
 	const size_t kernelSize = m_kernels.getSizeTotal();
 	ASSERT(kernelSize == m_kernelsFlipped.getSizeTotal());
 

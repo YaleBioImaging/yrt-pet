@@ -28,6 +28,7 @@ public:
 
 	duration_t getElapsedTime() const;
 	double getElapsedMilliseconds() const;
+	double getElapsedSeconds() const;
 	bool isRunning() const;
 
 private:

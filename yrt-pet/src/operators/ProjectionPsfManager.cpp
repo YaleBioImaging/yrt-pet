@@ -5,7 +5,7 @@
 
 #include "yrt-pet/operators/ProjectionPsfManager.hpp"
 
-#include "yrt-pet/geometry/ProjectorUtils.hpp"
+#include "yrt-pet/operators/ProjectorUtils.hpp"
 #include "yrt-pet/utils/Tools.hpp"
 
 namespace yrt

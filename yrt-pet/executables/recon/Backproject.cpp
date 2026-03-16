@@ -43,6 +43,11 @@ int main(int argc, char** argv)
 		registry.registerArgument(
 		    "lor_motion", "Motion CSV file for motion correction", false,
 		    io::TypeOfArgument::STRING, "", inputGroup, "m");
+		registry.registerArgument("detmask",
+		                          "Detector mask (will override the "
+		                          "\"detMask\" member in the scanner's JSON)",
+		                          false, io::TypeOfArgument::STRING, "",
+		                          inputGroup);
 
 #if BUILD_CUDA
 		registry.registerArgument("gpu", "Use GPU acceleration", false,
@@ -64,6 +69,11 @@ int main(int argc, char** argv)
 		    "Projector to use, choices: Siddon (S), Distance-Driven (D). The "
 		    "default projector is Siddon",
 		    false, io::TypeOfArgument::STRING, "S", projectorGroup);
+		registry.registerArgument(
+		    "projector_updater",
+		    "Projector updater to use, choices: DEFAULT4D, LR. The "
+		    "default value is DEFAULT4D",
+		    false, io::TypeOfArgument::STRING, "DEFAULT4D", projectorGroup);
 		registry.registerArgument(
 		    "psf",
 		    "Image-space PSF kernel file (Applied after the backprojection)",
@@ -117,9 +127,21 @@ int main(int argc, char** argv)
 			return -1;
 		}
 
+		globals::setNumThreads(config.getValue<int>("num_threads"));
+
+#if BUILD_CUDA
+		const bool useGPU = config.getValue<bool>("gpu");
+#else
+		const bool useGPU = false;
+#endif
+
 		const auto scanner =
 		    std::make_unique<Scanner>(config.getValue<std::string>("scanner"));
-		globals::setNumThreads(config.getValue<int>("num_threads"));
+		auto detMask_fname = config.getValue<std::string>("detmask");
+		if (!detMask_fname.empty())
+		{
+			scanner->addMask(detMask_fname);
+		}
 
 		// Output image
 		std::cout << "Preparing output image..." << std::endl;
@@ -165,18 +187,40 @@ int main(int argc, char** argv)
 		const auto binIter =
 		    dataInput->getBinIter(config.getValue<int>("num_subsets"),
 		                          config.getValue<int>("subset_id"));
-		OperatorProjectorParams projParams(*scanner);
-		projParams.binIter = binIter.get();
-		projParams.tofWidth_ps = config.getValue<float>("tof_width_ps");
-		projParams.tofNumStd = config.getValue<int>("tof_n_std");
+		ProjectorParams projParams(*scanner);
+		auto tofWidth_ps = config.getValue<float>("tof_width_ps");
+		auto tofNumStd = config.getValue<int>("tof_n_std");
+		if (tofWidth_ps > 0.0f)
+		{
+			projParams.addTOF(tofWidth_ps, tofNumStd);
+		}
 		projParams.projPsf_fname = config.getValue<std::string>("proj_psf");
 		projParams.numRays = config.getValue<int>("num_rays");
 
+		const auto projectorUpdaterType_name =
+		    config.getValue<std::string>("projector_updater");
+		UpdaterType projectorUpdaterType;
+		if (projectorUpdaterType_name == "DEFAULT4D")
+		{
+			projectorUpdaterType = UpdaterType::DEFAULT4D;
+		}
+		else if (projectorUpdaterType_name == "LR")
+		{
+			projectorUpdaterType = UpdaterType::LR;
+		}
+		else
+		{
+			throw std::invalid_argument("Unknown projector updater type: " +
+			                            projectorUpdaterType_name);
+		}
+		projParams.updaterType = projectorUpdaterType;
+
 		const auto projectorType =
 		    io::getProjector(config.getValue<std::string>("projector"));
+		projParams.projectorType = projectorType;
 
-		util::backProject(*outputImage, *dataInput, projParams, projectorType,
-		                  config.getValue<bool>("gpu"));
+		util::backProject(*outputImage, *dataInput, projParams, *binIter,
+		                  useGPU);
 
 		// Image-space PSF
 		auto imagePsf_fname = config.getValue<std::string>("psf");

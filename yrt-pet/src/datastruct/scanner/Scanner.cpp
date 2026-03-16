@@ -5,6 +5,7 @@
 
 #include "yrt-pet/datastruct/scanner/Scanner.hpp"
 
+#include "yrt-pet/datastruct/scanner/DetCoord.hpp"
 #include "yrt-pet/datastruct/scanner/DetRegular.hpp"
 #include "yrt-pet/datastruct/scanner/DetectorSetup.hpp"
 #include "yrt-pet/geometry/Constants.hpp"
@@ -26,20 +27,25 @@ void py_setup_scanner(pybind11::module& m)
 {
 	auto c = py::class_<Scanner>(m, "Scanner");
 	c.def_property_readonly_static("SCANNER_FILE_VERSION", [](py::object)
-	                               { return SCANNER_FILE_VERSION; });
+	                               { return Scanner::SCANNER_FILE_VERSION; });
 
 	c.def(py::init<std::string, float, float, float, float, float, size_t,
 	               size_t, size_t, size_t, size_t, size_t>(),
-	      "scannerName"_a, "axialFOV"_a, "crystalSize_z"_a,
-	      "crystalSize_trans"_a, "crystalDepth"_a, "scannerRadius"_a,
-	      "detsPerRing"_a, "numRings"_a, "numDOI"_a, "maxRingDiff"_a,
-	      "minAngDiff"_a, "detsPerBlock"_a);
-	c.def(py::init<const std::string&>());
+	      "scanner_name"_a, "axial_fov"_a, "crystal_size_z"_a,
+	      "crystal_size_trans"_a, "crystal_depth"_a, "scanner_radius"_a,
+	      "dets_per_ring"_a, "num_rings"_a, "num_doi"_a, "max_ring_diff"_a,
+	      "min_ang_diff"_a, "dets_per_block"_a,
+	      "Create a scanner while using the parameters to generate a regular "
+	      "structure. The structure can still later be overridden by a LUT");
+	c.def(py::init<const std::string&>(),
+	      "Create a scanner using a given JSON file");
 	c.def("getNumDets", &Scanner::getNumDets);
-	c.def("getTheoreticalNumDets", &Scanner::getTheoreticalNumDets);
+	c.def("getExpectedNumDets", &Scanner::getExpectedNumDets);
 	c.def("getDetectorPos", &Scanner::getDetectorPos, "det_id"_a);
 	c.def("getDetectorOrient", &Scanner::getDetectorOrient, "det_id"_a);
 	c.def("isDetectorAllowed", &Scanner::isDetectorAllowed, "det_id"_a);
+	c.def("isValid", &Scanner::isValid);
+	c.def("hasMask", &Scanner::hasMask);
 	c.def_readwrite("scannerName", &Scanner::scannerName);
 	c.def_readwrite("axialFOV", &Scanner::axialFOV);
 	c.def_readwrite("crystalSize_z", &Scanner::crystalSize_z);
@@ -56,16 +62,19 @@ void py_setup_scanner(pybind11::module& m)
 	c.def_readwrite("maxRingDiff", &Scanner::maxRingDiff);
 	c.def_readwrite("minAngDiff", &Scanner::minAngDiff);
 	c.def_readwrite("detsPerBlock", &Scanner::detsPerBlock);
-	c.def("createLUT",
-	      [](const Scanner& s)
-	      {
-		      auto lut = std::make_unique<Array2D<float>>();
-		      s.createLUT(*lut.get());
-		      size_t shape[2]{s.getNumDets(), 6};
-		      auto lut_array = py::array_t<float>(
-		          shape, std::move(lut.get())->getRawPointer());
-		      return lut_array;
-	      });
+	c.def(
+	    "createLUT",
+	    [](const Scanner& self)
+	    {
+		    ASSERT_MSG(self.getNumDets() > 0, "The scanner LUT is empty");
+		    const auto lut = std::make_unique<Array2DOwned<float>>();
+		    self.createLUT(*lut.get());
+		    const size_t shape[2]{self.getNumDets(), 6};
+		    auto lut_array = py::array_t<float>(
+		        shape, std::move(lut.get())->getRawPointer());
+		    return lut_array;
+	    },
+	    "Package the scanner LUT in a numpy array");
 	c.def("readFromFile", &Scanner::readFromFile, "fname"_a);
 	c.def("readFromString", &Scanner::readFromString, "json_string"_a);
 	c.def(pybind11::pickle([](const Scanner& s) { return s.getScannerPath(); },
@@ -78,12 +87,14 @@ void py_setup_scanner(pybind11::module& m)
 	c.def("setDetectorSetup",
 	      [](Scanner& s, const std::shared_ptr<DetectorSetup>& detCoords)
 	      { s.setDetectorSetup(detCoords); });
+	c.def("getDetectorSetup", &Scanner::getDetectorSetup);
 }
 }  // namespace yrt
 #endif
 
 namespace yrt
 {
+
 Scanner::Scanner(std::string pr_scannerName, float p_axialFOV,
                  float p_crystalSize_z, float p_crystalSize_trans,
                  float p_crystalDepth, float p_scannerRadius,
@@ -106,6 +117,9 @@ Scanner::Scanner(std::string pr_scannerName, float p_axialFOV,
       minAngDiff(p_minAngDiff),
       detsPerBlock(p_detsPerBlock)
 {
+	// Give it a regular LUT by default
+	mp_detectors = std::make_shared<DetRegular>(this);
+	reinterpret_cast<DetRegular*>(mp_detectors.get())->generateLUT();
 }
 
 Scanner::Scanner(const std::string& p_definitionFile)
@@ -115,10 +129,11 @@ Scanner::Scanner(const std::string& p_definitionFile)
 
 size_t Scanner::getNumDets() const
 {
+	ASSERT(mp_detectors != nullptr);
 	return mp_detectors->getNumDets();
 }
 
-size_t Scanner::getTheoreticalNumDets() const
+size_t Scanner::getExpectedNumDets() const
 {
 	return numDOI * numRings * detsPerRing;
 }
@@ -163,7 +178,17 @@ void Scanner::collectConstraints(
 	}
 }
 
-void Scanner::createLUT(Array2D<float>& lut) const
+void Scanner::addMask(const std::string& mask_fname)
+{
+	mp_detectors->addMask(mask_fname);
+}
+
+void Scanner::addMask(const DetectorMask& mask)
+{
+	mp_detectors->addMask(mask);
+}
+
+void Scanner::createLUT(Array2DOwned<float>& lut) const
 {
 	lut.allocate(this->getNumDets(), 6);
 	for (size_t i = 0; i < this->getNumDets(); i++)
@@ -182,7 +207,7 @@ void Scanner::createLUT(Array2D<float>& lut) const
 void Scanner::setDetectorSetup(
     const std::shared_ptr<DetectorSetup>& pp_detectors)
 {
-	if (pp_detectors->getNumDets() != getTheoreticalNumDets())
+	if (pp_detectors->getNumDets() != getExpectedNumDets())
 		throw std::runtime_error(
 		    "The number of detectors given by the LUT does not match "
 		    "the scanner's characteristics. Namely, num_doi * num_rings * "
@@ -252,10 +277,16 @@ void Scanner::readFromString(const std::string& fileContents)
 	// Check for errors
 	if (scannerFileVersion > SCANNER_FILE_VERSION + SMALL_FLT)
 	{
-		throw std::invalid_argument(
-		    "Wrong file version for Scanner JSON file, the "
-		    "current version is " +
-		    std::to_string(SCANNER_FILE_VERSION));
+		throw std::invalid_argument("Scanner JSON version too recent, the "
+		                            "current version is " +
+		                            std::to_string(SCANNER_FILE_VERSION));
+	}
+
+	// Get detector mask
+	fs::path detMask_path = "";
+	if (isDetMaskGiven)
+	{
+		detMask_path = m_scannerPath.parent_path() / fs::path(detMask);
 	}
 
 	// Join paths for DetCoord
@@ -263,14 +294,9 @@ void Scanner::readFromString(const std::string& fileContents)
 	{
 		const fs::path detCoord_path =
 		    m_scannerPath.parent_path() / fs::path(detCoord);
-		fs::path detMask_path = "";
-		if (isDetMaskGiven)
-		{
-			detMask_path = m_scannerPath.parent_path() / fs::path(detMask);
-		}
 		mp_detectors = std::make_shared<DetCoordOwned>(detCoord_path.string(),
 		                                               detMask_path.string());
-		if (mp_detectors->getNumDets() != getTheoreticalNumDets())
+		if (mp_detectors->getNumDets() != getExpectedNumDets())
 			throw std::runtime_error(
 			    "The number of detectors given by the LUT file does not match "
 			    "the scanner's characteristics. Namely, (num_doi * num_rings * "
@@ -280,6 +306,11 @@ void Scanner::readFromString(const std::string& fileContents)
 	{
 		mp_detectors = std::make_shared<DetRegular>(this);
 		reinterpret_cast<DetRegular*>(mp_detectors.get())->generateLUT();
+		if (isDetMaskGiven)
+		{
+			ASSERT(!detMask_path.empty());  // Sanity check
+			mp_detectors->addMask(detMask_path);
+		}
 	}
 
 	ASSERT_MSG(
@@ -309,4 +340,5 @@ void Scanner::readFromFile(const std::string& p_definitionFile)
 	std::string fileContents = ss.str();
 	readFromString(fileContents);
 }
+
 }  // namespace yrt

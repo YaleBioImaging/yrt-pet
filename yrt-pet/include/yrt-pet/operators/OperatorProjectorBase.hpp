@@ -5,10 +5,8 @@
 
 #pragma once
 
-#include "yrt-pet/datastruct/projection/BinFilter.hpp"
-#include "yrt-pet/datastruct/projection/ProjectionData.hpp"
-#include "yrt-pet/datastruct/projection/ProjectionProperties.hpp"
 #include "yrt-pet/operators/Operator.hpp"
+#include "yrt-pet/operators/ProjectorParams.hpp"
 
 namespace yrt
 {
@@ -19,59 +17,19 @@ class Scanner;
 class ProjectionData;
 class Histogram;
 
-
-class OperatorProjectorParams
-{
-public:
-	OperatorProjectorParams(const Scanner& pr_scanner);
-
-	const BinIterator* binIter;
-	const Scanner& scanner;
-
-	// Time of Flight
-	float tofWidth_ps;
-	int tofNumStd;
-
-	// Projection-domain PSF
-	std::string projPsf_fname;
-
-	// Multi-ray siddon only
-	int numRays;
-
-	// Number of threads
-	int numThreads;
-
-	// Projection property types (in addition to types needed for projector and
-	// included in projection data) - Ignored for now
-	std::set<ProjectionPropertyType> projPropertyTypesExtra;
-};
-
 // Device-agnostic virtual class
 class OperatorProjectorBase : public Operator
 {
 public:
-	explicit OperatorProjectorBase(
-	    const OperatorProjectorParams& p_projParams,
-	    const std::vector<Constraint*>& pr_constraints = {});
+	explicit OperatorProjectorBase(const ProjectorParams& pr_projParams,
+	                               const BinIterator* pp_binIter = nullptr);
 
 	const Scanner& getScanner() const;
 	const BinIterator* getBinIter() const;
-	const BinFilter* getBinFilter() const;
-	ProjectionProperties getProjectionProperties() const;
-	ConstraintParams getConstraintParams() const;
+	ProjectorType getProjectorType() const;
+	UpdaterType getUpdaterType() const;
 
 	void setBinIter(const BinIterator* p_binIter);
-
-	virtual std::set<ProjectionPropertyType> getProjectionPropertyTypes() const;
-
-	virtual void initBinFilter(
-	    const std::set<ProjectionPropertyType>& projPropertyTypesExtra,
-	    const int numThreads);
-
-	void setupBinFilter(
-	    const std::set<ProjectionPropertyType>& pr_projPropertiesExtra);
-
-	void allocateBuffers(int numThreads);
 
 protected:
 	// To take scanner properties into account
@@ -81,11 +39,8 @@ protected:
 	// the future)
 	const BinIterator* binIter;
 
-	// Constraints for bin iterator
-	std::vector<Constraint*> m_constraints;
-	std::unique_ptr<BinFilter> m_binFilter;
-	std::unique_ptr<char[]> m_projectionProperties;
-	std::unique_ptr<char[]> m_constraintParams;
+	ProjectorType m_projectorType;
+	UpdaterType m_updaterType;
 };
 
 }  // namespace yrt

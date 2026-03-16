@@ -13,7 +13,9 @@
 
 namespace yrt
 {
-
+// YN: This class should be renamed OperatorSinglePsfDevice and should inherit
+//  from a class named OperatorPsfDevice, which should inherit from a class
+//  named OperatorPsfBase, which should inherit from Operator
 class OperatorPsfDevice : public DeviceSynchronized, public OperatorPsf
 {
 public:

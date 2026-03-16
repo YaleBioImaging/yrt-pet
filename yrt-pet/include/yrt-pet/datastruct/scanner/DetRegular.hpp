@@ -6,7 +6,6 @@
 #pragma once
 
 #include "yrt-pet/datastruct/scanner/DetectorSetup.hpp"
-#include "yrt-pet/datastruct/scanner/Scanner.hpp"
 #include "yrt-pet/utils/Array.hpp"
 
 #include <memory>
@@ -16,7 +15,8 @@ namespace yrt
 class DetRegular : public DetectorSetup
 {
 public:
-	DetRegular(Scanner* pp_scanner);
+	explicit DetRegular(const Scanner* pp_scanner);
+	~DetRegular() override = default;
 	void generateLUT();
 
 	size_t getNumDets() const override;
@@ -36,26 +36,25 @@ public:
 	virtual void setYorient(det_id_t detID, float f);
 	virtual void setZorient(det_id_t detID, float f);
 
-	Array1D<float>* getXposArrayRef() const { return (mp_Xpos.get()); }
-	Array1D<float>* getYposArrayRef() const { return (mp_Ypos.get()); }
-	Array1D<float>* getZposArrayRef() const { return (mp_Zpos.get()); }
-	Array1D<float>* getXorientArrayRef() const { return (mp_Xorient.get()); }
-	Array1D<float>* getYorientArrayRef() const { return (mp_Yorient.get()); }
-	Array1D<float>* getZorientArrayRef() const { return (mp_Zorient.get()); }
+	Array1DOwned<float>* getXposArrayRef() const { return (mp_Xpos.get()); }
+	Array1DOwned<float>* getYposArrayRef() const { return (mp_Ypos.get()); }
+	Array1DOwned<float>* getZposArrayRef() const { return (mp_Zpos.get()); }
+	Array1DOwned<float>* getXorientArrayRef() const { return (mp_Xorient.get()); }
+	Array1DOwned<float>* getYorientArrayRef() const { return (mp_Yorient.get()); }
+	Array1DOwned<float>* getZorientArrayRef() const { return (mp_Zorient.get()); }
 
-	Scanner* getScanner() { return mp_scanner; }
-	virtual ~DetRegular() {}
+	const Scanner* getScanner() const { return mp_scanner; }
 
 protected:
 	void allocate();
 
 protected:
-	std::unique_ptr<Array1D<float>> mp_Xpos;
-	std::unique_ptr<Array1D<float>> mp_Ypos;
-	std::unique_ptr<Array1D<float>> mp_Zpos;
-	std::unique_ptr<Array1D<float>> mp_Xorient;
-	std::unique_ptr<Array1D<float>> mp_Yorient;
-	std::unique_ptr<Array1D<float>> mp_Zorient;
-	Scanner* mp_scanner;
+	std::unique_ptr<Array1DOwned<float>> mp_Xpos;
+	std::unique_ptr<Array1DOwned<float>> mp_Ypos;
+	std::unique_ptr<Array1DOwned<float>> mp_Zpos;
+	std::unique_ptr<Array1DOwned<float>> mp_Xorient;
+	std::unique_ptr<Array1DOwned<float>> mp_Yorient;
+	std::unique_ptr<Array1DOwned<float>> mp_Zorient;
+	const Scanner* mp_scanner;
 };
 }  // namespace yrt

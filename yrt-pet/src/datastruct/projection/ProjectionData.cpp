@@ -8,7 +8,6 @@
 #include "yrt-pet/geometry/Constants.hpp"
 
 #include "yrt-pet/geometry/Matrix.hpp"
-#include "yrt-pet/recon/OSEMUpdater_CPU.hpp"
 #include "yrt-pet/utils/Globals.hpp"
 #include "yrt-pet/utils/Types.hpp"
 
@@ -29,50 +28,57 @@ void py_setup_projectiondata(py::module& m)
 	auto c = py::class_<ProjectionData, Variable>(m, "ProjectionData");
 	c.def("getScanner", &ProjectionData::getScanner);
 	c.def("count", &ProjectionData::count);
-	c.def("getProjectionValue", &ProjectionData::getProjectionValue,
-	      py::arg("id"));
-	c.def("setProjectionValue", &ProjectionData::setProjectionValue,
-	      py::arg("id"), py::arg("value"));
-	c.def("getDetector1", &ProjectionData::getDetector1, py::arg("id"));
-	c.def("getDetector2", &ProjectionData::getDetector2, py::arg("id"));
-	c.def("getDetectorPair",
-	      [](const ProjectionData& self, bin_t ev)
-	      {
-		      auto [d1, d2] = self.getDetectorPair(ev);
-		      return py::make_tuple(d1, d2);
-	      });
-	c.def("getHistogramBin", &ProjectionData::getHistogramBin, py::arg("id"));
-	c.def("getBinIter", &ProjectionData::getBinIter, py::arg("numSubsets"),
-	      py::arg("idxSubset"));
-	c.def("getTimestamp", &ProjectionData::getTimestamp, py::arg("id"));
-	c.def("getFrame", &ProjectionData::getFrame, py::arg("id"));
+	c.def("getProjectionValue", &ProjectionData::getProjectionValue, "bin"_a);
+	c.def("setProjectionValue", &ProjectionData::setProjectionValue, "bin"_a,
+	      "value"_a);
+	c.def("getDetector1", &ProjectionData::getDetector1, "bin"_a);
+	c.def("getDetector2", &ProjectionData::getDetector2, "bin"_a);
+	c.def(
+	    "getDetectorPair",
+	    [](const ProjectionData& self, bin_t ev)
+	    {
+		    auto [d1, d2] = self.getDetectorPair(ev);
+		    return py::make_tuple(d1, d2);
+	    },
+	    "bin"_a);
+	c.def("getHistogramBin", &ProjectionData::getHistogramBin, "bin"_a);
+	c.def("getBinIter", &ProjectionData::getBinIter, "num_subsets"_a,
+	      "idx_subset"_a);
+	c.def(
+	    "getBinIter", [](const ProjectionData& self)
+	    { return self.getBinIter(1, 0); }, "Alias for \"getBinIter(1,0)\"");
+	c.def("getTimestamp", &ProjectionData::getTimestamp, "bin"_a);
+	c.def("getMotionFrame", &ProjectionData::getMotionFrame, "bin"_a);
+	c.def("getDynamicFrame", &ProjectionData::getDynamicFrame, "bin"_a);
 	c.def("isUniform", &ProjectionData::isUniform);
-	c.def("getRandomsEstimate", &ProjectionData::getRandomsEstimate,
-	      py::arg("id"));
+	c.def("getRandomsEstimate", &ProjectionData::getRandomsEstimate, "bin"_a);
 	c.def("hasTOF", &ProjectionData::hasTOF);
 	c.def("hasRandomsEstimates", &ProjectionData::hasRandomsEstimates);
-	c.def("getTOFValue", &ProjectionData::getTOFValue, py::arg("id"));
+	c.def("getTOFValue", &ProjectionData::getTOFValue, "bin"_a);
 	c.def("hasMotion", &ProjectionData::hasMotion);
-	c.def("getNumFrames", &ProjectionData::getNumFrames);
-	c.def("getTransformOfFrame", &ProjectionData::getTransformOfFrame,
-	      py::arg("frame"));
-	c.def("getDurationOfFrame", &ProjectionData::getDurationOfFrame,
-	      py::arg("frame"));
+	c.def("hasDynamicFraming", &ProjectionData::hasDynamicFraming);
+	c.def("getNumMotionFrames", &ProjectionData::getNumMotionFrames);
+	c.def("getNumDynamicFrames", &ProjectionData::getNumDynamicFrames);
+	c.def("getTransformOfMotionFrame",
+	      &ProjectionData::getTransformOfMotionFrame, "frame"_a);
+	c.def("getDurationOfMotionFrame", &ProjectionData::getDurationOfMotionFrame,
+	      "frame"_a);
 	c.def("getScanDuration", &ProjectionData::getScanDuration);
 	c.def("hasArbitraryLORs", &ProjectionData::hasArbitraryLORs);
-	c.def("getArbitraryLOR",
-	      [](const ProjectionData& self, bin_t bin)
-	      {
-		      const Line3D l = self.getArbitraryLOR(bin);
-		      // Return the raw data
-		      return py::make_tuple(l.point1.x, l.point1.y, l.point1.z,
-		                            l.point2.x, l.point2.y, l.point2.z);
-	      });
-	c.def("getLOR", &ProjectionData::getLOR, "bin"_a);
-	c.def("clearProjections", &ProjectionData::clearProjections,
-	      py::arg("value"));
+	c.def(
+	    "getArbitraryLOR",
+	    [](const ProjectionData& self, bin_t bin)
+	    {
+		    const Line3D l = self.getArbitraryLOR(bin);
+		    // Return the raw data
+		    return py::make_tuple(l.point1.x, l.point1.y, l.point1.z,
+		                          l.point2.x, l.point2.y, l.point2.z);
+	    },
+	    "bin"_a);
+	c.def("getLOR", &ProjectionData::getLOR, "bin"_a, "det_pair"_a = nullptr);
+	c.def("clearProjections", &ProjectionData::clearProjections, "value"_a);
 	c.def("divideMeasurements", &ProjectionData::divideMeasurements,
-	      py::arg("measurements"), py::arg("binIterator"));
+	      "measurements"_a, "bin_iter"_a);
 }
 }  // namespace yrt
 
@@ -80,6 +86,7 @@ void py_setup_projectiondata(py::module& m)
 
 namespace yrt
 {
+
 ProjectionData::ProjectionData(const Scanner& pr_scanner)
     : mr_scanner(pr_scanner)
 {
@@ -116,23 +123,32 @@ bool ProjectionData::hasMotion() const
 	return false;
 }
 
-size_t ProjectionData::getNumFrames() const
+bool ProjectionData::hasDynamicFraming() const
+{
+	return getNumDynamicFrames() > 1;
+}
+
+size_t ProjectionData::getNumMotionFrames() const
 {
 	// By default, only one frame
 	return 1ull;
 }
 
-transform_t ProjectionData::getTransformOfFrame(frame_t frame) const
+size_t ProjectionData::getNumDynamicFrames() const
 {
-	(void)frame;
+	// By default, only one frame
+	return 1ull;
+}
+
+transform_t ProjectionData::getTransformOfMotionFrame(frame_t /*frame*/) const
+{
 	// Return identity rotation and null translation
 	return {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0};
 }
 
-float ProjectionData::getDurationOfFrame(frame_t frame) const
+float ProjectionData::getDurationOfMotionFrame(frame_t /*frame*/) const
 {
-	(void)frame;
-	throw std::logic_error("getDurationOfFrame unimplemented");
+	throw std::logic_error("getDurationOfMotionFrame unimplemented");
 }
 
 timestamp_t ProjectionData::getScanDuration() const
@@ -140,15 +156,13 @@ timestamp_t ProjectionData::getScanDuration() const
 	throw std::logic_error("getScanDuration unimplemented");
 }
 
-float ProjectionData::getTOFValue(bin_t id) const
+float ProjectionData::getTOFValue(bin_t /*id*/) const
 {
-	(void)id;
 	throw std::logic_error("getTOFValue unimplemented");
 }
 
-float ProjectionData::getRandomsEstimate(bin_t id) const
+float ProjectionData::getRandomsEstimate(bin_t /*id*/) const
 {
-	(void)id;
 	return 0.0f;
 }
 
@@ -162,9 +176,8 @@ bool ProjectionData::hasArbitraryLORs() const
 	return false;
 }
 
-Line3D ProjectionData::getArbitraryLOR(bin_t id) const
+Line3D ProjectionData::getArbitraryLOR(bin_t /*id*/) const
 {
-	(void)id;
 	throw std::logic_error("getArbitraryLOR Unimplemented");
 }
 
@@ -179,13 +192,30 @@ std::set<ProjectionPropertyType>
 	return projPropertyTypes;
 }
 
-void ProjectionData::getProjectionProperties(
-    ProjectionProperties& props, const ProjectionPropertyManager& propManager,
-    bin_t bin, size_t pos) const
+void ProjectionData::collectProjectionProperties(
+    const ProjectionPropertyManager& propManager, PropertyUnit* props,
+    size_t pos, bin_t bin) const
 {
+	det_pair_t detPair{};
+	const bool gatherDetPair = propManager.has(ProjectionPropertyType::DET_ID);
+	if (gatherDetPair)
+	{
+		detPair = getDetectorPair(bin);
+		propManager.setDataValue(props, pos, ProjectionPropertyType::DET_ID,
+		                         detPair);
+	}
+
 	if (propManager.has(ProjectionPropertyType::LOR))
 	{
-		const Line3D lor = getLOR(bin);
+		Line3D lor;
+		if (gatherDetPair)
+		{
+			lor = getLOR(bin, &detPair);
+		}
+		else
+		{
+			lor = getLOR(bin);
+		}
 		propManager.setDataValue(props, pos, ProjectionPropertyType::LOR, lor);
 	}
 
@@ -200,6 +230,23 @@ void ProjectionData::getProjectionProperties(
 		                         tofValue);
 	}
 
+	if (propManager.has(ProjectionPropertyType::TIMESTAMP))
+	{
+		propManager.setDataValue(props, pos, ProjectionPropertyType::TIMESTAMP,
+		                         getTimestamp(bin));
+	}
+
+	if (propManager.has(ProjectionPropertyType::RANDOMS_ESTIMATE))
+	{
+		float randoms = 0.0f;
+		if (hasRandomsEstimates())
+		{
+			randoms = getRandomsEstimate(bin);
+		}
+		propManager.setDataValue(
+		    props, pos, ProjectionPropertyType::RANDOMS_ESTIMATE, randoms);
+	}
+
 	if (propManager.has(ProjectionPropertyType::DET_ORIENT))
 	{
 		auto [d1, d2] = getDetectorPair(bin);
@@ -209,9 +256,20 @@ void ProjectionData::getProjectionProperties(
 		propManager.setDataValue(props, pos, ProjectionPropertyType::DET_ORIENT,
 		                         detOrient);
 	}
+	if (propManager.has(ProjectionPropertyType::DYNAMIC_FRAME))
+	{
+		frame_t dynamicFrame = 0;
+		if (hasDynamicFraming())
+		{
+			dynamicFrame = getDynamicFrame(bin);
+		}
+
+		propManager.setDataValue(
+		    props, pos, ProjectionPropertyType::DYNAMIC_FRAME, dynamicFrame);
+	}
 }
 
-Line3D ProjectionData::getLOR(bin_t bin) const
+Line3D ProjectionData::getLOR(bin_t bin, const det_pair_t* detPair) const
 {
 	Line3D lor;
 
@@ -221,7 +279,18 @@ Line3D ProjectionData::getLOR(bin_t bin) const
 	}
 	else
 	{
-		auto [d1, d2] = getDetectorPair(bin);
+		det_id_t d1, d2;
+		if (detPair != nullptr)
+		{
+			d1 = detPair->d1;
+			d2 = detPair->d2;
+		}
+		else
+		{
+			const det_pair_t currentDetPair = getDetectorPair(bin);
+			d1 = currentDetPair.d1;
+			d2 = currentDetPair.d2;
+		}
 		const Vector3D p1 = mr_scanner.getDetectorPos(d1);
 		const Vector3D p2 = mr_scanner.getDetectorPos(d2);
 		lor = Line3D{p1, p2};
@@ -229,8 +298,8 @@ Line3D ProjectionData::getLOR(bin_t bin) const
 
 	if (hasMotion())
 	{
-		const frame_t frame = getFrame(bin);
-		const transform_t transfo = getTransformOfFrame(frame);
+		const frame_t frame = getMotionFrame(bin);
+		const transform_t transfo = getTransformOfMotionFrame(frame);
 
 		const Matrix MRot{transfo.r00, transfo.r01, transfo.r02,
 		                  transfo.r10, transfo.r11, transfo.r12,
@@ -248,15 +317,18 @@ Line3D ProjectionData::getLOR(bin_t bin) const
 	return lor;
 }
 
-timestamp_t ProjectionData::getTimestamp(bin_t id) const
+timestamp_t ProjectionData::getTimestamp(bin_t /*id*/) const
 {
-	(void)id;
 	return 0u;
 }
 
-frame_t ProjectionData::getFrame(bin_t id) const
+frame_t ProjectionData::getMotionFrame(bin_t /*id*/) const
 {
-	(void)id;
+	return 0u;
+}
+
+frame_t ProjectionData::getDynamicFrame(bin_t /*id*/) const
+{
 	return 0u;
 }
 
@@ -276,9 +348,8 @@ histo_bin_t ProjectionData::getHistogramBin(bin_t bin) const
 	return getDetectorPair(bin);
 }
 
-void ProjectionData::clearProjections(float value)
+void ProjectionData::clearProjections(float /*value*/)
 {
-	(void)value;
 	throw std::logic_error("clearProjections undefined on this object");
 }
 
@@ -301,4 +372,5 @@ void ProjectionData::divideMeasurements(const ProjectionData* measurements,
 		    }
 	    });
 }
+
 }  // namespace yrt

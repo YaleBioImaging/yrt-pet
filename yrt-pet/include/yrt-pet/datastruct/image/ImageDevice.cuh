@@ -7,9 +7,11 @@
 
 #include "yrt-pet/datastruct/image/ImageBase.hpp"
 #include "yrt-pet/utils/GPUTypes.cuh"
-#include "yrt-pet/utils/PageLockedBuffer.cuh"
+
+#if BUILD_CUDA
 
 #include <cuda_runtime_api.h>
+
 namespace yrt
 {
 class Image;
@@ -30,30 +32,61 @@ public:
 	                          bool p_synchronize = true) const;
 	void transferToHostMemory(Image* ph_img_ptr,
 	                          bool p_synchronize = true) const;
+	int getNumFrames() const;
 	GPULaunchParams3D getLaunchParams() const;
-	void setValue(float initValue) override;
+	void fill(float initValue) override;
+	void multWithScalar(float scalar, bool synchronize);
 	void copyFromImage(const ImageBase* imSrc) override;
-	void addFirstImageToSecond(ImageBase* imgOut) const override;
+	void addFirstImageToSecond(ImageBase* second) const override;
 	void applyThreshold(const ImageBase* maskImg, float threshold,
 	                    float val_le_scale, float val_le_off,
 	                    float val_gt_scale, float val_gt_off) override;
-	void updateEMThreshold(ImageBase* updateImg, const ImageBase* normImg,
-	                       float threshold) override;
+	void applyThresholdBroadcast(const ImageBase* maskImg, float threshold,
+	                             float val_le_scale, float val_le_off,
+	                             float val_gt_scale, float val_gt_off) override;
+
+	// EM update multiplication
+	void updateEMThresholdStatic(ImageBase* updateImg, const ImageBase* sensImg,
+	                             float threshold) override;
+	void updateEMThresholdStaticDevice(ImageDevice* updateImg,
+	                                   const ImageDevice* sensImg,
+	                                   float threshold, bool synchronize);
+
+	void updateEMThresholdDynamic(ImageBase* updateImg,
+	                              const ImageBase* sensImg,
+	                              float threshold) override;
+	void updateEMThresholdDynamicDevice(ImageDevice* updateImg,
+	                                    const ImageDevice* sensImg,
+	                                    float threshold, bool synchronize);
+	void updateEMThresholdDynamicWith4DSens(ImageDevice* updateImg,
+	                                        const ImageDevice* sensImg,
+	                                        float threshold, bool synchronize);
+
+	void updateEMThresholdDynamic(ImageBase* updateImg,
+	                              const ImageBase* sensImg,
+	                              const std::vector<float>& sensScaling,
+	                              float threshold) override;
+	void updateEMThresholdDynamicWithScaling(ImageDevice* updateImg,
+	                                         const ImageDevice* sensImg,
+	                                         const float* pd_sensScaling,
+	                                         float threshold, bool synchronize);
+
 	void writeToFile(const std::string& image_fname) const override;
 
 	void copyFromHostImage(const Image* imSrc, bool synchronize);
 	void copyFromDeviceImage(const ImageDevice* imSrc, bool p_synchronize);
 
-	void setValueDevice(float initValue, bool synchronize);
-	void updateEMThresholdDevice(ImageDevice* updateImg,
-	                             const ImageDevice* normImg, float threshold,
-	                             bool synchronize);
+	void fillDevice(float initValue, bool synchronize);
 	void addFirstImageToSecondDevice(ImageDevice* imgOut,
 	                                 bool synchronize) const;
 	void applyThresholdDevice(const ImageDevice* maskImg, float threshold,
 	                          float val_le_scale, float val_le_off,
 	                          float val_gt_scale, float val_gt_off,
 	                          bool synchronize);
+	void applyThresholdBroadcastDevice(const ImageDevice* maskImg,
+	                                   float threshold, float val_le_scale,
+	                                   float val_le_off, float val_gt_scale,
+	                                   float val_gt_off, bool synchronize);
 
 protected:
 	explicit ImageDevice(const cudaStream_t* stream_ptr = nullptr);
@@ -107,3 +140,5 @@ private:
 	float* mpd_devicePointer;
 };
 }  // namespace yrt
+
+#endif

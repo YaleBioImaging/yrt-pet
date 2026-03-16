@@ -29,16 +29,18 @@ void py_setup_detectormask(pybind11::module& m)
 	c.def_buffer(
 	    [](DetectorMask& self) -> py::buffer_info
 	    {
-		    Array1D<bool>& d = self.getData();
+		    Array1DOwned<bool>& d = self.getData();
 		    return py::buffer_info(d.getRawPointer(), sizeof(bool),
 		                           py::format_descriptor<bool>::format(), 1,
 		                           d.getDims(), d.getStrides());
 	    });
 	c.def("getData",
-	      static_cast<const Array1D<bool>& (DetectorMask::*)() const>(
+	      static_cast<const Array1DOwned<bool>& (DetectorMask::*)() const>(
 	          &DetectorMask::getData));
 	c.def("enableAllDetectors", &DetectorMask::enableAllDetectors);
 	c.def("disableAllDetectors", &DetectorMask::disableAllDetectors);
+	c.def("setDetectorEnabled", &DetectorMask::setDetectorEnabled, "detId"_a,
+	      "enabled"_a);
 	c.def("enableDetector", &DetectorMask::enableDetector, "detId"_a);
 	c.def("disableDetector", &DetectorMask::disableDetector, "detId"_a);
 	c.def("checkAgainstScanner", &DetectorMask::checkAgainstScanner);
@@ -65,7 +67,7 @@ namespace yrt
 
 DetectorMask::DetectorMask(size_t numDets)
 {
-	mp_data = std::make_unique<Array1D<bool>>();
+	mp_data = std::make_unique<Array1DOwned<bool>>();
 	mp_data->allocate(numDets);
 
 	// By default, all detectors are enabled
@@ -79,14 +81,14 @@ DetectorMask::DetectorMask(const std::string& pr_fname)
 
 DetectorMask::DetectorMask(const Array1DBase<bool>& pr_data)
 {
-	mp_data = std::make_unique<Array1D<bool>>();
+	mp_data = std::make_unique<Array1DOwned<bool>>();
 	mp_data->allocate(pr_data.getSizeTotal());
 	mp_data->copy(pr_data);
 }
 
 DetectorMask::DetectorMask(const Array3DBase<float>& pr_data)
 {
-	mp_data = std::make_unique<Array1D<bool>>();
+	mp_data = std::make_unique<Array1DOwned<bool>>();
 
 	const size_t size = pr_data.getSizeTotal();
 	mp_data->allocate(size);
@@ -99,7 +101,7 @@ DetectorMask::DetectorMask(const Array3DBase<float>& pr_data)
 
 DetectorMask::DetectorMask(const DetectorMask& other)
 {
-	mp_data = std::make_unique<Array1D<bool>>();
+	mp_data = std::make_unique<Array1DOwned<bool>>();
 	mp_data->allocate(other.getNumDets());
 	mp_data->copy(other.getData());
 }
@@ -108,7 +110,7 @@ void DetectorMask::setNumDets(size_t numDets)
 {
 	const auto oldData = std::move(mp_data);
 
-	mp_data = std::make_unique<Array1D<bool>>();
+	mp_data = std::make_unique<Array1DOwned<bool>>();
 	mp_data->allocate(numDets);
 
 	// By default, all detectors are enabled
@@ -128,7 +130,7 @@ void DetectorMask::setNumDets(size_t numDets)
 
 void DetectorMask::readFromFile(const std::string& fname)
 {
-	mp_data = std::make_unique<Array1D<bool>>();
+	mp_data = std::make_unique<Array1DOwned<bool>>();
 
 	// Open the file
 	std::ifstream file;
@@ -151,13 +153,13 @@ void DetectorMask::readFromFile(const std::string& fname)
 	          fileSize * sizeof(bool));
 }
 
-Array1D<bool>& DetectorMask::getData()
+Array1DOwned<bool>& DetectorMask::getData()
 {
 	ASSERT(mp_data != nullptr);
 	return *mp_data;
 }
 
-const Array1D<bool>& DetectorMask::getData() const
+const Array1DOwned<bool>& DetectorMask::getData() const
 {
 	ASSERT(mp_data != nullptr);
 	return *mp_data;

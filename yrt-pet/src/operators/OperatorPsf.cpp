@@ -124,7 +124,7 @@ void OperatorPsf::readFromFile(const std::string& imagePsf_fname)
 
 void OperatorPsf::readFromFileInternal(const std::string& imagePsf_fname)
 {
-	Array2D<float> kernelsArray2D;
+	Array2DOwned<float> kernelsArray2D;
 	std::cout << "Reading image space PSF kernel csv file..." << std::endl;
 	util::readCSV<float>(imagePsf_fname, kernelsArray2D);
 

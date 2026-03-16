@@ -102,12 +102,12 @@ namespace yrt
 
 DetRegular::DetRegular(const Scanner* pp_scanner) : mp_scanner(pp_scanner)
 {
-	mp_Xpos = std::make_unique<Array1D<float>>();
-	mp_Ypos = std::make_unique<Array1D<float>>();
-	mp_Zpos = std::make_unique<Array1D<float>>();
-	mp_Xorient = std::make_unique<Array1D<float>>();
-	mp_Yorient = std::make_unique<Array1D<float>>();
-	mp_Zorient = std::make_unique<Array1D<float>>();
+	mp_Xpos = std::make_unique<Array1DOwned<float>>();
+	mp_Ypos = std::make_unique<Array1DOwned<float>>();
+	mp_Zpos = std::make_unique<Array1DOwned<float>>();
+	mp_Xorient = std::make_unique<Array1DOwned<float>>();
+	mp_Yorient = std::make_unique<Array1DOwned<float>>();
+	mp_Zorient = std::make_unique<Array1DOwned<float>>();
 }
 
 void DetRegular::generateLUT()
@@ -184,7 +184,7 @@ void DetRegular::generateLUT()
 
 void DetRegular::allocate()
 {
-	size_t num_dets = mp_scanner->getTheoreticalNumDets();
+	size_t num_dets = mp_scanner->getExpectedNumDets();
 	mp_Xpos->allocate(num_dets);
 	mp_Ypos->allocate(num_dets);
 	mp_Zpos->allocate(num_dets);

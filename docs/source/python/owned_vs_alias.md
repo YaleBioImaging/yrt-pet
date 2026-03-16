@@ -94,8 +94,12 @@ img_size_mm = (100.0, 100.0, 50.0)  # in x, y, z dimensions
 params = yrt.ImageParams(*img_shape, *img_size_mm)
 
 # %% Create Torch array and bind it to an ImageDeviceAlias
-ones_img = torch.zeros([params.nz,params.ny,params.nx], device=cuda0,
-                       dtype=torch.float32, layout=torch.strided)
+ones_img = torch.zeros(
+    [params.nz, params.ny, params.nx],
+    device=cuda0,
+    dtype=torch.float32,
+    layout=torch.strided,
+)
 img_dev = yrt.ImageDeviceAlias(params)
 # Bind Torch array to YRT-PET Image
 img_dev.setDevicePointer(ones_img.data_ptr())
@@ -117,22 +121,29 @@ his.clearProjections(1.0)
 bin_iter = his.getBinIter(1, 0)
 
 # Define the projector parameters
-proj_params = yrt.OperatorProjectorParams(bin_iter, scanner)
+proj_params = yrt.ProjectorParams(scanner)
+proj_params.setProjector("DD")
 
 # Create the projector
 oper = yrt.OperatorProjectorDD_GPU(proj_params)
+mem_available = oper.getMemAvailable()
+props = oper.getProjectionPropertyTypes()
 
 # %% Create a projection-space device buffer
-# Use 'his' as a reference to comute LORs and use 1 OSEM subset
-his_dev = yrt.ProjectionDataDeviceAlias(scanner, his, 1)
+# Use 'his' as a reference to compute LORs and use 1 OSEM subset
+his_dev = yrt.ProjectionListDeviceAlias(scanner, his, props, mem_available, 1)
 
 # Important: This is needed to precompute all LORs and load them into the device
 # Arguments: Load events from the batch 0 of the subset 0
 his_dev.prepareBatchLORs(0, 0)
 
 # Create a Torch array with the appropriate size
-ones_proj = torch.ones([his_dev.getLoadedBatchSize()], device=cuda0,
-                       dtype=torch.float32, layout=torch.strided)
+ones_proj = torch.ones(
+    [his_dev.getLoadedBatchSize()],
+    device=cuda0,
+    dtype=torch.float32,
+    layout=torch.strided,
+)
 
 # Bind Torch array to YRT-PET ProjectionData
 his_dev.setProjValuesDevicePointer(ones_proj.data_ptr())

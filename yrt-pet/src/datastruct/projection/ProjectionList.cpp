@@ -91,9 +91,14 @@ void ProjectionList::clearProjections(float value)
 	mp_projs->fill(value);
 }
 
-frame_t ProjectionList::getFrame(bin_t id) const
+frame_t ProjectionList::getDynamicFrame(bin_t id) const
 {
-	return mp_reference->getFrame(id);
+	return mp_reference->getDynamicFrame(id);
+}
+
+frame_t ProjectionList::getMotionFrame(bin_t id) const
+{
+	return mp_reference->getMotionFrame(id);
 }
 
 timestamp_t ProjectionList::getTimestamp(bin_t id) const
@@ -101,14 +106,19 @@ timestamp_t ProjectionList::getTimestamp(bin_t id) const
 	return mp_reference->getTimestamp(id);
 }
 
-size_t ProjectionList::getNumFrames() const
+size_t ProjectionList::getNumDynamicFrames() const
 {
-	return mp_reference->getNumFrames();
+	return mp_reference->getNumDynamicFrames();
 }
 
-float ProjectionList::getDurationOfFrame(frame_t frame) const
+size_t ProjectionList::getNumMotionFrames() const
 {
-	return mp_reference->getDurationOfFrame(frame);
+	return mp_reference->getNumMotionFrames();
+}
+
+float ProjectionList::getDurationOfMotionFrame(frame_t frame) const
+{
+	return mp_reference->getDurationOfMotionFrame(frame);
 }
 
 timestamp_t ProjectionList::getScanDuration() const
@@ -161,9 +171,9 @@ bool ProjectionList::hasMotion() const
 	return mp_reference->hasMotion();
 }
 
-transform_t ProjectionList::getTransformOfFrame(frame_t frame) const
+transform_t ProjectionList::getTransformOfMotionFrame(frame_t frame) const
 {
-	return mp_reference->getTransformOfFrame(frame);
+	return mp_reference->getTransformOfMotionFrame(frame);
 }
 
 bool ProjectionList::hasArbitraryLORs() const
@@ -209,13 +219,13 @@ histo_bin_t ProjectionList::getHistogramBin(bin_t id) const
 ProjectionListOwned::ProjectionListOwned(const ProjectionData* r)
     : ProjectionList(r)
 {
-	mp_projs = std::make_unique<Array1D<float>>();
+	mp_projs = std::make_unique<Array1DOwned<float>>();
 }
 
 void ProjectionListOwned::allocate()
 {
 	const size_t numBins = mp_reference->count();
-	static_cast<Array1D<float>*>(mp_projs.get())->allocate(numBins);
+	static_cast<Array1DOwned<float>*>(mp_projs.get())->allocate(numBins);
 }
 
 ProjectionListAlias::ProjectionListAlias(const ProjectionData* p)
@@ -239,4 +249,5 @@ std::unique_ptr<BinIterator> ProjectionList::getBinIter(int numSubsets,
 {
 	return mp_reference->getBinIter(numSubsets, idxSubset);
 }
+
 }  // namespace yrt

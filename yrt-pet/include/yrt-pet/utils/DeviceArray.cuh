@@ -71,6 +71,7 @@ public:
 	}
 
 	bool isAllocated() const { return m_size > 0; }
+	bool isMemoryValid() const { return mpd_data != nullptr; }
 	size_t getSize() const { return m_size; }
 
 	T* getDevicePointer() { return mpd_data; }

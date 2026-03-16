@@ -4,8 +4,8 @@
  */
 
 #include "yrt-pet/datastruct/projection/SparseHistogram.hpp"
-#include "yrt-pet/operators/OperatorProjectorDD.hpp"
-#include "yrt-pet/operators/OperatorProjectorSiddon.hpp"
+#include "yrt-pet/operators/ProjectorDD.hpp"
+#include "yrt-pet/operators/ProjectorSiddon.hpp"
 #include "yrt-pet/operators/SparseProjection.hpp"
 #include "yrt-pet/utils/ReconstructionUtils.hpp"
 
@@ -16,7 +16,7 @@
 
 TEST_CASE("sparse-projection", "[SparseProjection]")
 {
-	auto scanner = yrt::util::test::makeScanner();
+	auto scanner = yrt::util::test::makeFakeScanner();
 
 	SECTION("against-dense-histogram")
 	{
@@ -31,14 +31,15 @@ TEST_CASE("sparse-projection", "[SparseProjection]")
 		//  subsets)
 		std::cout << "Forward projecting into dense histogram..." << std::endl;
 		yrt::util::forwProject(*scanner, *image, *histogram3D,
-		                       yrt::OperatorProjector::ProjectorType::DD);
+		                       yrt::ProjectorType::DD);
 
 		// Initialize sparse histogram
 		auto sparseHistogram = std::make_unique<yrt::SparseHistogram>(*scanner);
 
 		// Create DD projector with default settings (no PSF, no TOF)
-		yrt::OperatorProjectorParams params(*scanner);
-		auto projector = std::make_unique<yrt::OperatorProjectorDD>(params);
+		yrt::ProjectorParams params(*scanner);
+		params.projectorType = yrt::ProjectorType::DD;
+		auto projector = yrt::Projector::create(params);
 
 		// Forward project into sparse histogram
 		std::cout << "Forward projecting into sparse histogram..." << std::endl;

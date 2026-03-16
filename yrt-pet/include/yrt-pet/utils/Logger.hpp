@@ -15,6 +15,8 @@
 namespace yrt
 {
 
+std::string getLoggerSectionDescriptor(globals::VerbositySection section);
+
 // A logging proxy object for a given LEVEL
 template <int LEVEL>
 class Logger
@@ -33,8 +35,9 @@ public:
 			const std::tm* tm = std::localtime(&t);
 
 			// Print with i/o manipulators
-			std::cout << "[" << std::put_time(tm, "%Y-%m-%d %H:%M:%S") << "] "
-			          << value << std::endl;
+			std::cout << getLoggerSectionDescriptor(section) << " ["
+			          << std::put_time(tm, "%Y-%m-%d %H:%M:%S") << "] " << value
+			          << std::endl;
 		}
 		return *this;
 	}

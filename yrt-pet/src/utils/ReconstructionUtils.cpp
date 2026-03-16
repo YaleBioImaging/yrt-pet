@@ -13,8 +13,7 @@
 #include "yrt-pet/datastruct/projection/ProjectionProperties.hpp"
 #include "yrt-pet/datastruct/scanner/DetectorMask.hpp"
 #include "yrt-pet/geometry/Matrix.hpp"
-#include "yrt-pet/operators/OperatorProjectorDD.hpp"
-#include "yrt-pet/operators/OperatorProjectorSiddon.hpp"
+#include "yrt-pet/recon/LREM_CPU.hpp"
 #include "yrt-pet/recon/OSEM_CPU.hpp"
 #include "yrt-pet/utils/Assert.hpp"
 #include "yrt-pet/utils/Concurrency.hpp"
@@ -23,14 +22,14 @@
 #include "yrt-pet/utils/Tools.hpp"
 
 #if BUILD_CUDA
-#include "yrt-pet/operators/OperatorProjectorDD_GPU.cuh"
-#include "yrt-pet/operators/OperatorProjectorSiddon_GPU.cuh"
-#include "yrt-pet/recon/OSEM_GPU.cuh"
+#include "yrt-pet/utils/GPUStream.cuh"
+#include "yrt-pet/utils/ReconstructionUtilsDevice.cuh"
 #endif
 
 
 #if BUILD_PYBIND11
 #include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
 
 namespace py = pybind11;
 using namespace pybind11::literals;
@@ -50,7 +49,7 @@ void py_setup_reconstructionutils(pybind11::module& m)
 		    util::convertToHistogram3D<false, true>(dat, histoOut,
 		                                            detectorMask);
 	    },
-	    "histogramDataInput"_a, "histoOut"_a, "detectorMask"_a = nullptr);
+	    "histo_input"_a, "histo_out"_a, "detector_mask"_a = nullptr);
 	m.def(
 	    "convertToHistogram3D",
 	    [](const ListMode& dat, Histogram3D& histoOut,
@@ -58,98 +57,153 @@ void py_setup_reconstructionutils(pybind11::module& m)
 	    {
 		    util::convertToHistogram3D<true, true>(dat, histoOut, detectorMask);
 	    },
-	    "listmodeDataInput"_a, "histoOut"_a, "detectorMask"_a = nullptr);
+	    "listmode_input"_a, "histo_out"_a, "detector_mask"_a = nullptr);
 	m.def(
 	    "convertToHistogram3D",
 	    [](const Histogram& dat, const DetectorMask* detectorMask)
 	    { return util::convertToHistogram3D<false, true>(dat, detectorMask); },
-	    "histogramDataInput"_a, "detectorMask"_a = nullptr);
+	    "histo_input"_a, "detector_mask"_a = nullptr);
 	m.def(
 	    "convertToHistogram3D",
 	    [](const ListMode& dat, const DetectorMask* detectorMask)
 	    { return util::convertToHistogram3D<true, true>(dat, detectorMask); },
-	    "listmodeDataInput"_a, "detectorMask"_a = nullptr);
+	    "listmode_input"_a, "detector_mask"_a = nullptr);
 
 	m.def("convertToListModeLUT", &util::convertToListModeLUT<true>,
-	      "listmode"_a, "detectorMask"_a = nullptr);
+	      "listmode"_a, "detector_mask"_a = nullptr);
 
 	m.def(
 	    "createOSEM",
-	    [](const Scanner& scanner, bool useGPU)
+	    [](const Scanner& scanner, bool useGPU, bool isLowRank)
 	    {
-		    auto osem = util::createOSEM(scanner, useGPU);
+		    auto osem = util::createOSEM(scanner, useGPU, isLowRank);
 		    osem->enableNeedToMakeCopyOfSensImage();
 		    return osem;
 	    },
-	    "scanner"_a, "useGPU"_a = false);
+	    "scanner"_a, "use_gpu"_a = false, "is_low_rank"_a = false);
 
-	m.def("getFullTimeRange", util::getFullTimeRange, "lorMotion"_a,
+	m.def(
+	    "createOperatorProjector",
+	    [](const ProjectorParams& projParams, const BinIterator* binIter,
+	       const std::vector<Constraint*>& constraints)
+	    {
+		    return std::make_unique<OperatorProjector>(projParams, binIter,
+		                                               constraints);
+	    },
+	    "proj_params"_a, "bin_iter"_a,
+	    "constraints"_a = std::vector<Constraint*>(),
+	    "Helper function that create a projection operator. This function will "
+	    "simply call the constructor of OperatorProjector");
+
+	m.def("getFullTimeRange", util::getFullTimeRange, "lor_motion"_a,
 	      "Get the maximum time range occupied by an LORMotion");
+
 	m.def("timeAverageMoveImage",
 	      static_cast<std::unique_ptr<ImageOwned> (*)(
 	          const LORMotion&, const Image*)>(&util::timeAverageMoveImage),
-	      "lorMotion"_a, "unmovedSensImage"_a,
-	      "Blur a given image based on given motion information");
+	      "lor_motion"_a, "unmoved_image"_a,
+	      "Blur a given image based on given motion information. Return the "
+	      "resulting image.");
+
+	m.def(
+	    "timeAverageMoveImage",
+	    static_cast<void (*)(const LORMotion&, const Image*, Image*, frame_t)>(
+	        &util::timeAverageMoveImage),
+	    "lor_motion"_a, "unmoved_image"_a, "out_image"_a,
+	    "out_dynamic_frame"_a = 0,
+	    "Blur a given image based on given motion information. Write directly "
+	    "in \"out_image\" in the dynamic frame \"out_dynamic_frame\".");
 
 	m.def("timeAverageMoveImage",
 	      static_cast<std::unique_ptr<ImageOwned> (*)(
 	          const LORMotion&, const Image*, timestamp_t, timestamp_t)>(
 	          &util::timeAverageMoveImage),
-	      "lorMotion"_a, "unmovedSensImage"_a, "timeStart"_a, "timeStop"_a,
-	      "Blur a given image based on given motion information");
+	      "lor_motion"_a, "unmoved_image"_a, "time_start"_a, "time_stop"_a,
+	      "Blur a given image based on given motion information. Return the "
+	      "resulting image. Use \"time_start\" and \"time_stop\" to define how "
+	      "motion frames are selected and weighted.");
+
+	m.def("timeAverageMoveImage",
+	      static_cast<void (*)(const LORMotion&, const Image*, Image*,
+	                           timestamp_t, timestamp_t, frame_t)>(
+	          &util::timeAverageMoveImage),
+	      "lor_motion"_a, "unmoved_image"_a, "out_image"_a, "time_start"_a,
+	      "time_stop"_a, "out_dynamic_frame"_a = 0,
+	      "Blur a given image based on given motion information. Write "
+	      "directly in \"out_image\" in the dynamic frame "
+	      "\"out_dynamic_frame\". Use \"time_start\" and \"time_stop\" to "
+	      "define how motion frames are selected and weighted.");
+
+	m.def("timeAverageMoveImageDynamic",
+	      static_cast<std::unique_ptr<ImageOwned> (*)(
+	          const LORMotion& lorMotion, const Image* unmovedImage,
+	          const DynamicFraming& dynamicFraming)>(
+	          &util::timeAverageMoveImageDynamic),
+	      "lor_motion"_a, "unmoved_image"_a, "dynamic_framing"_a,
+	      "Blur a given image based on the given motion information, but "
+	      "follow the dynamic framing provided. The dynamic framing provided "
+	      "will be used to select the motion frames to use for each blurring. "
+	      "This is used for generating a 4-dimensional sensitivity image "
+	      "with both a dynamic framing and rigid motion correction. Return the "
+	      "resulting image.");
+	m.def("timeAverageMoveImageDynamic",
+	      static_cast<void (*)(const LORMotion&, const Image*, Image*,
+	                           const DynamicFraming&)>(
+	          &util::timeAverageMoveImageDynamic),
+	      "lor_motion"_a, "unmoved_image"_a, "out_image"_a, "dynamic_framing"_a,
+	      "Blur a given image based on the given motion information, but "
+	      "follow the dynamic framing provided. The dynamic framing provided "
+	      "will be used to select the motion frames to use for each blurring. "
+	      "This is used for generating a 4-dimensional sensitivity image "
+	      "with both a dynamic framing and rigid motion correction. The "
+	      "resulting image will be written in \"out_image\".");
 
 	m.def("generateTORRandomDOI", &util::generateTORRandomDOI, "scanner"_a,
 	      "d1"_a, "d2"_a, "vmax"_a);
 
-	m.def(
-	    "forwProject",
-	    static_cast<void (*)(
-	        const Scanner& scanner, const Image& img, ProjectionData& projData,
-	        OperatorProjector::ProjectorType projectorType, bool useGPU)>(
-	        &util::forwProject),
-	    "scanner"_a, "img"_a, "projData"_a,
-	    "projectorType"_a = OperatorProjector::ProjectorType::SIDDON,
-	    "useGPU"_a = false);
+	m.def("forwProject",
+	      static_cast<void (*)(const Scanner& scanner, const Image& img,
+	                           ProjectionData& projData,
+	                           ProjectorType projectorType, bool useGPU)>(
+	          &util::forwProject),
+	      "scanner"_a, "img"_a, "proj_data"_a,
+	      "projectorType"_a = ProjectorType::SIDDON, "use_gpu"_a = false);
 	m.def("forwProject",
 	      static_cast<void (*)(
 	          const Scanner& scanner, const Image& img,
 	          ProjectionData& projData, const BinIterator& binIterator,
-	          OperatorProjector::ProjectorType projectorType, bool useGPU)>(
-	          &util::forwProject),
-	      "scanner"_a, "img"_a, "projData"_a, "binIterator"_a,
-	      "projectorType"_a = OperatorProjector::SIDDON, "useGPU"_a = false);
+	          ProjectorType projectorType, bool useGPU)>(&util::forwProject),
+	      "scanner"_a, "img"_a, "proj_data"_a, "bin_iter"_a,
+	      "projector_type"_a = ProjectorType::SIDDON, "use_gpu"_a = false);
 	m.def("forwProject",
 	      static_cast<void (*)(const Image& img, ProjectionData& projData,
-	                           const OperatorProjectorParams& projParams,
-	                           OperatorProjector::ProjectorType projectorType,
-	                           bool useGPU)>(&util::forwProject),
-	      "img"_a, "projData"_a, "projParams"_a,
-	      "projectorType"_a = OperatorProjector::SIDDON, "useGPU"_a = false);
+	                           const ProjectorParams& projParams,
+	                           const BinIterator& binIter, bool useGPU)>(
+	          &util::forwProject),
+	      "img"_a, "proj_data"_a, "proj_params"_a, "bin_iter"_a,
+	      "use_gpu"_a = false);
 
-	m.def(
-	    "backProject",
-	    static_cast<void (*)(
-	        const Scanner& scanner, Image& img, const ProjectionData& projData,
-	        OperatorProjector::ProjectorType projectorType, bool useGPU)>(
-	        &util::backProject),
-	    "scanner"_a, "img"_a, "projData"_a,
-	    "projectorType"_a = OperatorProjector::ProjectorType::SIDDON,
-	    "useGPU"_a = false);
+	m.def("backProject",
+	      static_cast<void (*)(const Scanner& scanner, Image& img,
+	                           const ProjectionData& projData,
+	                           ProjectorType projectorType, bool useGPU)>(
+	          &util::backProject),
+	      "scanner"_a, "img"_a, "proj_data"_a,
+	      "projector_type"_a = ProjectorType::SIDDON, "use_gpu"_a = false);
 	m.def("backProject",
 	      static_cast<void (*)(
 	          const Scanner& scanner, Image& img,
 	          const ProjectionData& projData, const BinIterator& binIterator,
-	          OperatorProjector::ProjectorType projectorType, bool useGPU)>(
-	          &util::backProject),
-	      "scanner"_a, "img"_a, "projData"_a, "binIterator"_a,
-	      "projectorType"_a = OperatorProjector::SIDDON, "useGPU"_a = false);
+	          ProjectorType projectorType, bool useGPU)>(&util::backProject),
+	      "scanner"_a, "img"_a, "proj_data"_a, "bin_iter"_a,
+	      "projector_type"_a = ProjectorType::SIDDON, "use_gpu"_a = false);
 	m.def("backProject",
 	      static_cast<void (*)(Image& img, const ProjectionData& projData,
-	                           const OperatorProjectorParams& projParams,
-	                           OperatorProjector::ProjectorType projectorType,
-	                           bool useGPU)>(&util::backProject),
-	      "img"_a, "projData"_a, "projParams"_a,
-	      "projectorType"_a = OperatorProjector::SIDDON, "useGPU"_a = false);
+	                           const ProjectorParams& projParams,
+	                           const BinIterator& binIter, bool useGPU)>(
+	          &util::backProject),
+	      "img"_a, "proj_data"_a, "proj_params"_a, "bin_iter"_a,
+	      "use_gpu"_a = false);
 }
 }  // namespace yrt
 
@@ -195,7 +249,7 @@ void histogram3DToListModeLUT(const Histogram3D* histo, ListModeLUTOwned* lmOut,
 	{
 		size_t numBinsPerThread =
 		    std::ceil(double(histo->count()) / (double)numThreads);
-		Array1D<size_t> partialSums;
+		Array1DOwned<size_t> partialSums;
 		partialSums.allocate(numThreads);
 
 		// Phase 3: prepare partial sums for parallelization
@@ -215,7 +269,7 @@ void histogram3DToListModeLUT(const Histogram3D* histo, ListModeLUTOwned* lmOut,
 		    });
 
 		// Calculate indices
-		Array1D<size_t> lmStartIdx;
+		Array1DOwned<size_t> lmStartIdx;
 		lmStartIdx.allocate(numThreads);
 		lmStartIdx[0] = 0;
 		for (int ti = 1; ti < numThreads; ti++)
@@ -310,10 +364,10 @@ size_t compareListModes(const ListMode& lm1, const ListMode& lm2)
 	{
 		variables.insert(ProjectionPropertyType::RANDOMS_ESTIMATE);
 	}
-	ProjectionPropertyManager propManager(variables);
 
-	auto props = propManager.createDataArray(2 * numThreads);
-	char* props_ptr = props.get();
+	const ProjectionPropertyManager propManager(variables);
+	const auto props = propManager.createDataArray(2 * numThreads);
+	PropertyUnit* props_ptr = props.get();
 
 	parallelForChunked(
 	    numEvents, numThreads,
@@ -323,8 +377,10 @@ size_t compareListModes(const ListMode& lm1, const ListMode& lm2)
 		    const size_t lm2Index = 2 * threadId + 1;
 
 		    // Gather properties
-		    lm1.getProjectionProperties(props_ptr, propManager, evId, lm1Index);
-		    lm2.getProjectionProperties(props_ptr, propManager, evId, lm2Index);
+		    lm1.collectProjectionProperties(propManager, props_ptr, lm1Index,
+		                                    evId);
+		    lm2.collectProjectionProperties(propManager, props_ptr, lm2Index,
+		                                    evId);
 
 		    // Check timestamp
 		    const timestamp_t timestamp1 =
@@ -428,29 +484,61 @@ std::unique_ptr<ImageOwned> timeAverageMoveImage(const LORMotion& lorMotion,
 	                                           timeStart, timeStop);
 }
 template std::unique_ptr<ImageOwned>
-    timeAverageMoveImage<true>(const LORMotion& lorMotion,
-                               const Image* unmovedImage);
+    timeAverageMoveImage<true>(const LORMotion&, const Image*);
 template std::unique_ptr<ImageOwned>
-    timeAverageMoveImage<false>(const LORMotion& lorMotion,
-                                const Image* unmovedImage);
+    timeAverageMoveImage<false>(const LORMotion&, const Image*);
+
+template <bool PrintProgress>
+void timeAverageMoveImage(const LORMotion& lorMotion, const Image* unmovedImage,
+                          Image* outImage, frame_t outDynamicFrame)
+{
+	auto [timeStart, timeStop] = getFullTimeRange(lorMotion);
+	timeAverageMoveImage<PrintProgress>(lorMotion, unmovedImage, outImage,
+	                                    timeStart, timeStop, outDynamicFrame);
+}
+template void timeAverageMoveImage<true>(const LORMotion&, const Image*, Image*,
+                                         frame_t);
+template void timeAverageMoveImage<false>(const LORMotion&, const Image*,
+                                          Image*, frame_t);
 
 template <bool PrintProgress>
 std::unique_ptr<ImageOwned>
     timeAverageMoveImage(const LORMotion& lorMotion, const Image* unmovedImage,
                          timestamp_t timeStart, timestamp_t timeStop)
 {
+	ASSERT_MSG(unmovedImage != nullptr, "Null input image given");
 	const ImageParams& params = unmovedImage->getParams();
 	ASSERT_MSG(params.isValid(), "Image parameters incomplete");
 	ASSERT_MSG(unmovedImage->isMemoryValid(),
 	           "Sensitivity image given is not allocated");
 
+	auto outImage = std::make_unique<ImageOwned>(params);
+	outImage->allocate();
+
+	timeAverageMoveImage<PrintProgress>(lorMotion, unmovedImage, outImage.get(),
+	                                    timeStart, timeStop, 0);
+
+	return outImage;
+}
+template std::unique_ptr<ImageOwned>
+    timeAverageMoveImage<true>(const LORMotion&, const Image*, timestamp_t,
+                               timestamp_t);
+template std::unique_ptr<ImageOwned>
+    timeAverageMoveImage<false>(const LORMotion&, const Image*, timestamp_t,
+                                timestamp_t);
+
+template <bool PrintProgress>
+void timeAverageMoveImage(const LORMotion& lorMotion, const Image* unmovedImage,
+                          Image* outImage, timestamp_t timeStart,
+                          timestamp_t timeStop, frame_t outDynamicFrame)
+{
+	ASSERT_MSG(unmovedImage != nullptr, "Null input image given");
+	ASSERT_MSG(outImage->isMemoryValid(), "Output image not allocated");
+
 	const int64_t numFrames = lorMotion.getNumFrames();
 	const auto scanDuration = static_cast<float>(timeStop - timeStart);
 
 	ProgressDisplay progress{numFrames};
-
-	auto movedSensImage = std::make_unique<ImageOwned>(params);
-	movedSensImage->allocate();
 
 	// TODO: Consider edge case:
 	//  timeStart precedes the first frame's start time, therefore, we must
@@ -477,20 +565,69 @@ std::unique_ptr<ImageOwned>
 			}
 			transform_t transform = lorMotion.getTransform(frame);
 			const float weight = lorMotion.getDuration(frame) / scanDuration;
-			unmovedImage->transformImage(transform, *movedSensImage, weight);
+			unmovedImage->transformImage(transform, *outImage, weight,
+			                             outDynamicFrame);
 		}
 	}
-
-	return movedSensImage;
 }
-template std::unique_ptr<ImageOwned>
-    timeAverageMoveImage<true>(const LORMotion& lorMotion,
-                               const Image* unmovedImage, timestamp_t timeStart,
-                               timestamp_t timeStop);
-template std::unique_ptr<ImageOwned>
-    timeAverageMoveImage<false>(const LORMotion& lorMotion,
+template void timeAverageMoveImage<true>(const LORMotion&, const Image*, Image*,
+                                         timestamp_t, timestamp_t, frame_t);
+template void timeAverageMoveImage<false>(const LORMotion&, const Image*,
+                                          Image*, timestamp_t, timestamp_t,
+                                          frame_t);
+
+
+template <bool PrintProgress>
+std::unique_ptr<ImageOwned>
+    timeAverageMoveImageDynamic(const LORMotion& lorMotion,
                                 const Image* unmovedImage,
-                                timestamp_t timeStart, timestamp_t timeStop);
+                                const DynamicFraming& dynamicFraming)
+{
+	ASSERT_MSG(unmovedImage != nullptr, "Null input image given");
+
+	ImageParams params = unmovedImage->getParams();
+	params.nt = dynamicFraming.getNumFrames();
+
+	auto outImage = std::make_unique<ImageOwned>(params);
+	outImage->allocate();
+
+	timeAverageMoveImageDynamic<PrintProgress>(lorMotion, unmovedImage,
+	                                           outImage.get(), dynamicFraming);
+
+	return outImage;
+}
+
+template <bool PrintProgress>
+void timeAverageMoveImageDynamic(const LORMotion& lorMotion,
+                                 const Image* unmovedImage, Image* outImage,
+                                 const DynamicFraming& dynamicFraming)
+{
+	ASSERT_MSG(unmovedImage != nullptr, "Null input image given");
+	ASSERT_MSG(outImage != nullptr, "Output image given is null");
+
+	const frame_t numDynamicFrames =
+	    static_cast<frame_t>(dynamicFraming.getNumFrames());
+
+	ASSERT_MSG(outImage->getNumFrames() != numDynamicFrames,
+	           "Output image does not have the same number of frames as the "
+	           "given dynamic framing.");
+
+	for (frame_t dynamicFrame = 0; dynamicFrame < numDynamicFrames;
+	     dynamicFrame++)
+	{
+		const timestamp_t dynamicFrameStart =
+		    dynamicFraming.getStartingTimestamp(dynamicFrame);
+		const timestamp_t dynamicFrameStop =
+		    dynamicFraming.getStoppingTimestamp(dynamicFrame);
+		timeAverageMoveImage<PrintProgress>(lorMotion, unmovedImage, outImage,
+		                                    dynamicFrameStart, dynamicFrameStop,
+		                                    dynamicFrame);
+	}
+}
+template void timeAverageMoveImageDynamic<true>(const LORMotion&, const Image*,
+                                                Image*, const DynamicFraming&);
+template void timeAverageMoveImageDynamic<false>(const LORMotion&, const Image*,
+                                                 Image*, const DynamicFraming&);
 
 // Helper function
 template <bool RequiresAtomicAccumulation, bool UseDetectorMask,
@@ -743,13 +880,14 @@ std::tuple<Line3D, Vector3D, Vector3D>
 	return {lorDOI, n1, n2};
 }
 
-std::unique_ptr<OSEM> createOSEM(const Scanner& scanner, bool useGPU)
+std::unique_ptr<OSEM> createOSEM(const Scanner& scanner, bool useGPU,
+                                 bool isLowRank)
 {
 	std::unique_ptr<OSEM> osem;
 	if (useGPU)
 	{
 #if BUILD_CUDA
-		osem = std::make_unique<OSEM_GPU>(scanner);
+		osem = createOSEM_GPU(scanner, isLowRank);
 #else
 		throw std::runtime_error(
 		    "Project not compiled with CUDA, GPU projectors unavailable.");
@@ -757,17 +895,28 @@ std::unique_ptr<OSEM> createOSEM(const Scanner& scanner, bool useGPU)
 	}
 	else
 	{
-		osem = std::make_unique<OSEM_CPU>(scanner);
+		osem = createOSEM_CPU(scanner, isLowRank);
 	}
 	return osem;
 }
 
+std::unique_ptr<OSEM> createOSEM_CPU(const Scanner& scanner, bool isLowRank)
+{
+	if (!isLowRank)
+	{
+		return std::make_unique<OSEM_CPU>(scanner);
+	}
+	else
+	{
+		return std::make_unique<LREM_CPU>(scanner);
+	}
+}
 
 // Forward and backward projections
 template <bool IS_FWD>
 static void project(Image* img, ProjectionData* projData,
-                    const OperatorProjectorParams& projParams,
-                    OperatorProjector::ProjectorType projectorType, bool useGPU)
+                    const ProjectorParams& projParams,
+                    const BinIterator& binIter, bool useGPU)
 {
 #ifdef BUILD_CUDA
 	std::unique_ptr<GPUStream> mainStream;
@@ -783,7 +932,6 @@ static void project(Image* img, ProjectionData* projData,
 		                         "not compiled with CUDA");
 #endif
 	}
-
 	std::unique_ptr<OperatorProjectorBase> oper;
 	std::vector<std::unique_ptr<Constraint>> constraints;
 	projData->getScanner().collectConstraints(constraints);
@@ -792,49 +940,22 @@ static void project(Image* img, ProjectionData* projData,
 	{
 		constraintsPtr.emplace_back(constraint.get());
 	}
-	if (projectorType == OperatorProjector::SIDDON)
+
+	if (useGPU)
 	{
-		if (useGPU)
-		{
-#ifdef BUILD_CUDA
-			oper = std::make_unique<OperatorProjectorSiddon_GPU>(
-			    projParams, constraintsPtr, &mainStream->getStream(),
-			    &auxStream->getStream());
+#if BUILD_CUDA
+		oper = createOperatorProjectorDevice(
+		    projParams, binIter, constraintsPtr, &mainStream->getStream(),
+		    &auxStream->getStream());
 #else
-			throw std::runtime_error(
-			    "Siddon GPU projector not supported because "
-			    "project was not compiled with CUDA");
+		throw std::runtime_error("GPU is not supported because project was "
+		                         "not compiled with CUDA");
 #endif
-		}
-		else
-		{
-			oper = std::make_unique<OperatorProjectorSiddon>(projParams,
-			                                                 constraintsPtr);
-		}
-	}
-	else if (projectorType == OperatorProjector::DD)
-	{
-		if (useGPU)
-		{
-#ifdef BUILD_CUDA
-			oper = std::make_unique<OperatorProjectorDD_GPU>(
-			    projParams, constraintsPtr, &mainStream->getStream(),
-			    &auxStream->getStream());
-#else
-			throw std::runtime_error(
-			    "Distance-driven GPU projector not supported because "
-			    "project was not compiled with CUDA");
-#endif
-		}
-		else
-		{
-			oper = std::make_unique<OperatorProjectorDD>(projParams,
-			                                             constraintsPtr);
-		}
 	}
 	else
 	{
-		throw std::runtime_error("Unknown error");
+		oper = std::make_unique<OperatorProjector>(projParams, &binIter,
+		                                           constraintsPtr);
 	}
 
 	if constexpr (IS_FWD)
@@ -850,61 +971,61 @@ static void project(Image* img, ProjectionData* projData,
 }
 
 void forwProject(const Scanner& scanner, const Image& img,
-                 ProjectionData& projData,
-                 OperatorProjector::ProjectorType projectorType, bool useGPU)
+                 ProjectionData& projData, ProjectorType projectorType,
+                 bool useGPU)
 {
 	const auto binIter = projData.getBinIter(1, 0);
-	OperatorProjectorParams projParams(scanner);
-	projParams.binIter = binIter.get();
-	projParams.numThreads = globals::getNumThreads();
-	forwProject(img, projData, projParams, projectorType, useGPU);
+	ProjectorParams projParams(scanner);
+	projParams.projectorType = projectorType;
+
+	forwProject(img, projData, projParams, *binIter, useGPU);
 }
 
 void forwProject(const Scanner& scanner, const Image& img,
-                 ProjectionData& projData, const BinIterator& binIterator,
-                 OperatorProjector::ProjectorType projectorType, bool useGPU)
+                 ProjectionData& projData, const BinIterator& binIter,
+                 ProjectorType projectorType, bool useGPU)
 {
-	OperatorProjectorParams projParams(scanner);
-	projParams.binIter = &binIterator;
-	projParams.numThreads = globals::getNumThreads();
-	forwProject(img, projData, projParams, projectorType, useGPU);
+	ProjectorParams projParams(scanner);
+	projParams.projectorType = projectorType;
+
+	forwProject(img, projData, projParams, binIter, useGPU);
 }
 
 void forwProject(const Image& img, ProjectionData& projData,
-                 const OperatorProjectorParams& projParams,
-                 OperatorProjector::ProjectorType projectorType, bool useGPU)
+                 const ProjectorParams& projParams, const BinIterator& binIter,
+                 bool useGPU)
 {
-	project<true>(const_cast<Image*>(&img), &projData, projParams,
-	              projectorType, useGPU);
+	project<true>(const_cast<Image*>(&img), &projData, projParams, binIter,
+	              useGPU);
 }
 
 void backProject(const Scanner& scanner, Image& img,
-                 const ProjectionData& projData,
-                 OperatorProjector::ProjectorType projectorType, bool useGPU)
+                 const ProjectionData& projData, ProjectorType projectorType,
+                 bool useGPU)
 {
 	const auto binIter = projData.getBinIter(1, 0);
-	OperatorProjectorParams projParams(scanner);
-	projParams.binIter = binIter.get();
-	projParams.numThreads = globals::getNumThreads();
-	backProject(img, projData, projParams, projectorType, useGPU);
+	ProjectorParams projParams(scanner);
+	projParams.projectorType = projectorType;
+
+	backProject(img, projData, projParams, *binIter, useGPU);
 }
 
 void backProject(const Scanner& scanner, Image& img,
                  const ProjectionData& projData, const BinIterator& binIterator,
-                 OperatorProjector::ProjectorType projectorType, bool useGPU)
+                 ProjectorType projectorType, bool useGPU)
 {
-	OperatorProjectorParams projParams(scanner);
-	projParams.binIter = &binIterator;
-	projParams.numThreads = globals::getNumThreads();
-	backProject(img, projData, projParams, projectorType, useGPU);
+	ProjectorParams projParams(scanner);
+	projParams.projectorType = projectorType;
+
+	backProject(img, projData, projParams, binIterator, useGPU);
 }
 
 void backProject(Image& img, const ProjectionData& projData,
-                 const OperatorProjectorParams& projParams,
-                 OperatorProjector::ProjectorType projectorType, bool useGPU)
+                 const ProjectorParams& projParams,
+                 const BinIterator& binIterator, bool useGPU)
 {
 	project<false>(&img, const_cast<ProjectionData*>(&projData), projParams,
-	               projectorType, useGPU);
+	               binIterator, useGPU);
 }
 
 }  // namespace yrt::util

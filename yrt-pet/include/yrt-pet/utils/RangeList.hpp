@@ -30,6 +30,7 @@ public:
 	void sort();
 	const std::vector<std::pair<int, int>>& get() const;
 	size_t getSizeTotal() const;
+	bool contains(int idx) const;
 	bool isIn(int idx) const;
 	bool empty() const;
 	friend std::ostream& operator<<(std::ostream& os, const RangeList& ranges)

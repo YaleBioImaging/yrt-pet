@@ -8,92 +8,131 @@
 #include "yrt-pet/datastruct/image/Image.hpp"
 #include "yrt-pet/datastruct/image/ImageDevice.cuh"
 #include "yrt-pet/datastruct/projection/ProjectionData.hpp"
-#include "yrt-pet/datastruct/projection/ProjectionDataDevice.cuh"
-#include "yrt-pet/operators/OperatorProjectorBase.hpp"
+#include "yrt-pet/datastruct/projection/ProjectionListDevice.cuh"
+#include "yrt-pet/operators/ProjectionPsfManagerDevice.cuh"
+#include "yrt-pet/operators/Projector.hpp"
+#include "yrt-pet/operators/ProjectorUpdaterDevice.cuh"
 #include "yrt-pet/recon/Corrector_GPU.cuh"
 #include "yrt-pet/recon/OSEM.hpp"
-#include "yrt-pet/recon/OSEMUpdater_GPU.cuh"
 #include "yrt-pet/utils/GPUStream.cuh"
 
 
 namespace yrt
 {
+
+struct CUScannerParams;
+struct CUImage;
+
 class OSEM_GPU : public OSEM
 {
 public:
 	explicit OSEM_GPU(const Scanner& pr_scanner);
-	~OSEM_GPU() override;
+	~OSEM_GPU() override = default;
 
-	// Getters for internal objects
-	const Corrector& getCorrector() const override;
-	Corrector& getCorrector() override;
-	const Corrector_GPU& getCorrector_GPU() const;
-	Corrector_GPU& getCorrector_GPU();
-	OperatorProjectorDevice* getProjector() const;
-	const cudaStream_t* getAuxStream() const;
-	const cudaStream_t* getMainStream() const;
+	void addImagePSF(const std::string& p_imagePsf_fname,
+	                 ImagePSFMode p_imagePSFMode) override;
 
+protected:
 	// Sens Image generator driver
-	void setupOperatorsForSensImgGen(
-		const OperatorProjectorParams& projParams) override;
+	void setupProjectorForSensImgGen() override;
 	void allocateForSensImgGen() override;
-	std::unique_ptr<Image>
-	    getLatestSensitivityImage(bool isLastSubset) override;
-	void computeSensitivityImage(ImageBase& destImage) override;
+	std::unique_ptr<Image> generateSensitivityImageForCurrentSubset() override;
 	void endSensImgGen() override;
 
 	// Reconstruction driver
-	void setupOperatorsForRecon(
-	    const OperatorProjectorParams& projParams) override;
+	void setupForDynamicRecon() override;
+	void setupProjectorForRecon() override;
 	void allocateForRecon() override;
-	void endRecon() override;
+	void loadCurrentSubset(bool forRecon) override;
+	void resetEMUpdateImage() override;
+	void computeEMUpdateImage() override;
+	void applyImageUpdate() override;
+	void completeSubset() override;
 	void completeMLEMIteration() override;
-	void computeEMUpdateImage(const ImageBase& inputImage,
-	                          ImageBase& destImage) override;
+	void endRecon() override;
 
-	// Internal getters
+	// Getters for internal objects
+	const cudaStream_t* getAuxStream() const;
+	const cudaStream_t* getMainStream() const;
+
+	// Overridden abstract getters
 	ImageBase* getSensImageBuffer() override;
 	ImageBase* getMLEMImageBuffer() override;
-	ImageBase* getImageTmpBuffer(TemporaryImageSpaceBufferType type) override;
-	const ProjectionData* getMLEMDataBuffer() override;
-	ProjectionData* getMLEMDataTmpBuffer() override;
-	int getNumBatches(int subsetId, bool forRecon) const;
-	int getCurrentOSEMSubset() const;
-	const ProjectionDataDeviceOwned* getSensitivityDataDeviceBuffer() const;
-	ProjectionDataDeviceOwned* getSensitivityDataDeviceBuffer();
-	const ProjectionDataDeviceOwned* getMLEMDataDeviceBuffer() const;
-	ProjectionDataDeviceOwned* getMLEMDataDeviceBuffer();
-	const ProjectionDataDeviceOwned* getMLEMDataTmpDeviceBuffer() const;
-	ProjectionDataDeviceOwned* getMLEMDataTmpDeviceBuffer();
+	ImageBase* getEMUpdateImageBuffer() override;
+	const Corrector& getCorrector() const override;
+	Corrector& getCorrector() override;
 
-	// Common methods
-	void loadSubset(int subsetId, bool forRecon) override;
-	void addImagePSF(const std::string& p_imagePsf_fname,
-	                 ImagePSFMode p_imagePSFMode) override;
+	// Abstract member functions
+	virtual void setupProjectorUpdater(const ProjectorParams& params);
 
 	// Use 90% of what is available
 	static constexpr float DefaultMemoryShare = 0.9f;
 
-	std::pair<size_t, size_t> calculateMemProj(float shareOfMemoryToUse) const;
+	// Helpers
+	size_t getMemAvailable(float shareOfMemoryToUse) const;
+	size_t getBatchSize(int subsetId, int batchId) const;
+	size_t getMaxBatchSize() const;
+	int getNumBatchesInSubset(int subsetId) const;
 
-private:
+	// Precompute values for batch loading for sensitivity image generation
+	void precomputeBatchPropsForSensImgGen(int subsetId, int batchId);
+	// Precompute values for batch loading for reconstruction
+	void precomputeBatchPropsForRecon(int subsetId, int batchId);
+	// Transfer projection properties to the device strcture
+	void loadPrecomputedBatchPropsToDevice(int subsetId, int batchId,
+	                                       GPULaunchConfig launchConfig);
+	// Add to sensitivity image for the currently-loaded batch
+	void generateSensImageForLoadedBatch(int subsetId, int batchId,
+	                                     GPULaunchConfig launchConfig);
+	// Add to EM update image for the currently-loaded batch
+	void computeEMUpdateImageForLoadedBatch(int subsetId, int batchId,
+	                                        GPULaunchConfig launchConfig);
+
 	std::unique_ptr<ImageDeviceOwned> mpd_sensImageBuffer;
 	std::unique_ptr<ImageDeviceOwned> mpd_mlemImage;
-	std::unique_ptr<ImageDeviceOwned> mpd_mlemImageTmpEMRatio;
-	std::unique_ptr<ImageDeviceOwned> mpd_imageTmpPsf;
+	// Temporary buffers
+	std::unique_ptr<ImageDeviceOwned> mpd_tmpImage1;
+	std::unique_ptr<ImageDeviceOwned> mpd_tmpImage2;
 
-	// Buffer used for sensitivity image generation
-	std::unique_ptr<ProjectionDataDeviceOwned> mpd_tempSensDataInput;
-	// Buffers used for reconstruction
-	std::unique_ptr<ProjectionDataDeviceOwned> mpd_dat;
-	std::unique_ptr<ProjectionDataDeviceOwned> mpd_datTmp;
-
+	// Buffers used for sensitivity image generation and reconstruction
+	std::unique_ptr<BinLoader> mp_binLoader;
+	std::unique_ptr<PropStructDevice<ProjectionPropertyType>> mpd_propStruct;
+	std::vector<GPUBatchSetup> m_batchSetups;  // One batch setup per subset
+	// Corrector
 	std::unique_ptr<Corrector_GPU> mp_corrector;
-	std::unique_ptr<OSEMUpdater_GPU> mp_updater;
+	// Objects used for projections
+	std::unique_ptr<ProjectionPsfManagerDevice> mp_projPsfManager;
+	ProjectorUpdaterDeviceWrapper m_updaterContainer;
+	std::unique_ptr<DeviceSynchronizedObject<TimeOfFlightHelper>> mp_tofHelper;
 
-	int m_current_OSEM_subset;
+	// This projector is only used as a shortcut to gather the correct
+	//  projection properties, not to actually project
+	std::unique_ptr<Projector> mp_projector;
+
+private:
+	std::set<ProjectionPropertyType> getNeededProperties(bool forRecon) const;
 
 	GPUStream m_mainStream;
 	GPUStream m_auxStream;
 };
+
+template <bool UseUpdater>
+__global__ void computeEMUpdateImage_kernel(
+    CUImage forwImage, CUImage emImage, float globalScaleFactor,
+    float measurementUniformValue,
+    const ProjectionPropertyManager* pd_projPropManager,
+    const PropertyUnit* pd_projectionProperties, UpdaterPointer pd_updater,
+    const TimeOfFlightHelper* pd_tofHelper,
+    ProjectionPsfKernelStruct projPsfKernelStruct,
+    CUScannerParams scannerParams, int numRays, ProjectorType projectorType,
+    size_t batchSize);
+
+__global__ void generateSensImage_kernel(
+    CUImage sensImage, CUImage attImage,
+    const ProjectionPropertyManager* pd_projPropManager,
+    const PropertyUnit* pd_projectionProperties,
+    ProjectionPsfKernelStruct projPsfKernelStruct,
+    CUScannerParams scannerParams, int numRays, ProjectorType projectorType,
+    size_t batchSize);
+
 }  // namespace yrt

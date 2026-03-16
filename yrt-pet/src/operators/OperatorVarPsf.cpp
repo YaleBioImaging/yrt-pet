@@ -178,10 +178,9 @@ const ConvolutionKernel& OperatorVarPsf::findNearestKernel(float x, float y,
 
 void OperatorVarPsf::readFromFile(const std::string& imageVarPsf_fname)
 {
-	Array2D<float> data;
+	Array2DOwned<float> data;
 	util::readCSV<float>(imageVarPsf_fname, data);
-	size_t dims[2];
-	data.getDims(dims);
+	const std::array<size_t, 2> dims = data.getDims();
 
 	ASSERT_MSG(dims[0] > 3, "CSV file format error: At least 4 rows expected");
 	ASSERT_MSG(dims[1] == 3, "CSV file format error: 3 columns expected");

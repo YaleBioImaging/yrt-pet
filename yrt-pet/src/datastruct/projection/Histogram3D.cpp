@@ -203,7 +203,7 @@ Histogram3D::~Histogram3D() {}
 Histogram3DOwned::Histogram3DOwned(const Scanner& pr_scanner)
     : Histogram3D(pr_scanner)
 {
-	mp_data = std::make_unique<Array3D<float>>();
+	mp_data = std::make_unique<Array3DOwned<float>>();
 }
 
 Histogram3DOwned::Histogram3DOwned(const Scanner& pr_scanner,
@@ -251,7 +251,7 @@ void Histogram3DAlias::bind(Array3DBase<float>& pr_data)
 
 void Histogram3DOwned::allocate()
 {
-	static_cast<Array3D<float>*>(mp_data.get())
+	static_cast<Array3DOwned<float>*>(mp_data.get())
 	    ->allocate(numZBin, numPhi, numR);
 }
 

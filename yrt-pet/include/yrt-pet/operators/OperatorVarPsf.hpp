@@ -16,7 +16,7 @@ namespace yrt
 class ConvolutionKernel
 {
 public:
-	using KernelArray = Array3D<float>;
+	using KernelArray = Array3DOwned<float>;
 	// Sizes are assumed to be odd
 	size_t getHalfSizeX() const;
 	size_t getHalfSizeY() const;

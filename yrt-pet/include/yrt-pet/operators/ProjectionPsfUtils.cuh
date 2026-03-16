@@ -5,7 +5,7 @@
 
 #pragma once
 
-#include "yrt-pet/geometry/ProjectorUtils.hpp"
+#include "yrt-pet/operators/ProjectorUtils.hpp"
 #include "yrt-pet/operators/ProjectionPsfManagerDevice.cuh"
 
 namespace yrt

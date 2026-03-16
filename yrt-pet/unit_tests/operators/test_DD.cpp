@@ -9,34 +9,26 @@
 #include "yrt-pet/datastruct/image/Image.hpp"
 #include "yrt-pet/datastruct/projection/ListMode.hpp"
 #include "yrt-pet/datastruct/projection/ListModeLUT.hpp"
-#include "yrt-pet/operators/OperatorProjectorDD.hpp"
-#include "yrt-pet/operators/OperatorProjectorSiddon.hpp"
+#include "yrt-pet/operators/ProjectorDD.hpp"
+#include "yrt-pet/operators/ProjectorSiddon.hpp"
 #include "yrt-pet/utils/Assert.hpp"
 #include "yrt-pet/utils/ReconstructionUtils.hpp"
 
 #include <algorithm>
 #include <utility>
 
-#if BUILD_CUDA
-#include "yrt-pet/recon/OSEM_GPU.cuh"
-#endif
-
 TEST_CASE("DD-simple", "[dd]")
 {
-	SECTION("get_overlap")
+	SECTION("getOverlap")
 	{
-		CHECK(yrt::OperatorProjectorDD::get_overlap(1.1, 4.1, 2.1, 3.1) ==
-		      Approx(1.0));
-		CHECK(yrt::OperatorProjectorDD::get_overlap(4, 1, 2, 3) == Approx(0.0));
-		CHECK(yrt::OperatorProjectorDD::get_overlap(4.5, 2.3, 1.6, 3.2) ==
-		      Approx(0.0));
-		CHECK(yrt::OperatorProjectorDD::get_overlap(1.1, 1.2, 1.3, 1.4) ==
-		      Approx(0.0));
-		CHECK(yrt::OperatorProjectorDD::get_overlap(1.4, 1.3, 1.1, 1.2) ==
-		      Approx(0.0));
-		CHECK(yrt::OperatorProjectorDD::get_overlap(9.2, 10.9, 8.3, 10.0) ==
+		CHECK(yrt::ProjectorDD::getOverlap(1.1, 4.1, 2.1, 3.1) == Approx(1.0));
+		CHECK(yrt::ProjectorDD::getOverlap(4, 1, 2, 3) == Approx(0.0));
+		CHECK(yrt::ProjectorDD::getOverlap(4.5, 2.3, 1.6, 3.2) == Approx(0.0));
+		CHECK(yrt::ProjectorDD::getOverlap(1.1, 1.2, 1.3, 1.4) == Approx(0.0));
+		CHECK(yrt::ProjectorDD::getOverlap(1.4, 1.3, 1.1, 1.2) == Approx(0.0));
+		CHECK(yrt::ProjectorDD::getOverlap(9.2, 10.9, 8.3, 10.0) ==
 		      Approx(10.0 - 9.2));
-		CHECK(yrt::OperatorProjectorDD::get_overlap(9.2, 9.9, 8.3, 10.0) ==
+		CHECK(yrt::ProjectorDD::getOverlap(9.2, 9.9, 8.3, 10.0) ==
 		      Approx(9.9 - 9.2));
 	}
 }
@@ -47,7 +39,7 @@ TEST_CASE("DD", "[dd]")
 	srand(13);
 
 	// Create Scanner
-	const auto scanner = yrt::util::test::makeScanner();
+	const auto scanner = yrt::util::test::makeFakeScanner();
 
 	const size_t numDets = scanner->getNumDets();
 
@@ -82,17 +74,17 @@ TEST_CASE("DD", "[dd]")
 
 	const ImageSharedPTR img_cpu = std::make_shared<yrt::ImageOwned>(imgParams);
 	toOwned(img_cpu)->allocate();
-	img_cpu->setValue(0.0);
-	yrt::util::backProject(*scanner, *img_cpu, *data,
-	                       yrt::OperatorProjector::DD, false);
+	img_cpu->fill(0.0);
+	yrt::util::backProject(*scanner, *img_cpu, *data, yrt::ProjectorType::DD,
+	                       false);
 
 	REQUIRE(img_cpu->voxelSum() > 0.0f);
 
 	const ImageSharedPTR img_gpu = std::make_shared<yrt::ImageOwned>(imgParams);
 	toOwned(img_gpu)->allocate();
-	img_gpu->setValue(0.0);
-	yrt::util::backProject(*scanner, *img_gpu, *data,
-	                       yrt::OperatorProjector::DD, true);
+	img_gpu->fill(0.0);
+	yrt::util::backProject(*scanner, *img_gpu, *data, yrt::ProjectorType::DD,
+	                       true);
 
 	REQUIRE(img_gpu->voxelSum() > 0.0f);
 
@@ -106,13 +98,13 @@ TEST_CASE("DD", "[dd]")
 	projList_cpu->allocate();
 	projList_cpu->clearProjections(0.0f);
 	yrt::util::forwProject(*scanner, imgToFwdProj, *projList_cpu,
-	                       yrt::OperatorProjector::DD, false);
+	                       yrt::ProjectorType::DD, false);
 
 	auto projList_gpu = std::make_unique<yrt::ProjectionListOwned>(data.get());
 	projList_gpu->allocate();
 	projList_gpu->clearProjections(0.0f);
 	yrt::util::forwProject(*scanner, imgToFwdProj, *projList_gpu,
-	                       yrt::OperatorProjector::DD, true);
+	                       yrt::ProjectorType::DD, true);
 
 	rmseCpuGpu = yrt::util::test::getRMSE(*projList_cpu, *projList_gpu);
 

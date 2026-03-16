@@ -6,6 +6,7 @@
 #pragma once
 
 #include "yrt-pet/utils/Array.hpp"
+#include "yrt-pet/utils/GPUUtils.cuh"
 
 #include <string>
 
@@ -22,7 +23,7 @@ namespace util
 
 // CSV Reader
 template <typename T>
-void readCSV(const std::string& filename, Array2D<T>& output);
+void readCSV(const std::string& filename, Array2DOwned<T>& output);
 
 template <typename T>
 void conv3D(const Array3DBase<T>& image, const Array3DBase<T>& kernel,
@@ -89,7 +90,7 @@ int numberOfDigits(int n);
 std::string padZeros(int number, int numDigits);
 
 template <typename T>
-T getAttenuationCoefficientFactor(T proj, T unitFactor = 0.1)
+HOST_DEVICE_CALLABLE T getAttenuationCoefficientFactor(T proj, T unitFactor = 0.1)
 {
 	return exp(-proj * unitFactor);
 }

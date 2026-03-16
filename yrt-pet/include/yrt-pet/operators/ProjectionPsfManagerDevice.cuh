@@ -5,7 +5,6 @@
 
 #pragma once
 
-#include "yrt-pet/geometry/ProjectorUtils.hpp"
 #include "yrt-pet/operators/ProjectionPsfManager.hpp"
 #include "yrt-pet/utils/DeviceArray.cuh"
 
@@ -20,6 +19,12 @@ struct ProjectionPsfProperties
 	int numKernels;
 	int kernelSize;
 	float halfWidth;
+};
+
+struct ProjectionPsfKernelStruct
+{
+	ProjectionPsfProperties properties = {};
+	const float* kernels = nullptr;
 };
 
 class ProjectionPsfManagerDevice : public ProjectionPsfManager

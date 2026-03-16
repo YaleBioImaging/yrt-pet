@@ -1,0 +1,464 @@
+/*
+ * This file is subject to the terms and conditions defined in
+ * file 'LICENSE.txt', which is part of this source code package.
+ */
+
+#include "yrt-pet/datastruct/image/ImageParams.hpp"
+#include "yrt-pet/datastruct/image/ImageUtils.cuh"
+#include "yrt-pet/geometry/Constants.hpp"
+#include "yrt-pet/utils/Assert.hpp"
+#include "yrt-pet/utils/JSONUtils.hpp"
+
+#include "nlohmann/json.hpp"
+#include <fstream>
+
+using json = nlohmann::json;
+
+#if BUILD_PYBIND11
+#include <pybind11/pybind11.h>
+namespace py = pybind11;
+using namespace py::literals;
+
+namespace yrt
+{
+void py_setup_imageparams(py::module& m)
+{
+	auto c = py::class_<ImageParams>(m, "ImageParams");
+	c.def(py::init<>());
+	c.def(py::init<int, int, int, float, float, float, float, float, float,
+	               int>(),
+	      "nx"_a, "ny"_a, "nz"_a, "length_x"_a, "length_y"_a, "length_z"_a,
+	      "offset_x"_a = 0., "offset_y"_a = 0., "offset_z"_a = 0., "nt"_a = 1);
+	// TODO: Add a constructor that would take as input a "py::kwargs". This
+	//  would make it possible to create an image parameters without having to
+	//  compute the length in all dimensions.
+	c.def(py::init<std::string>());
+	c.def(py::init<const ImageParams&>());
+	c.def_static("fromParams", &ImageParams::fromParams, "nx"_a, "ny"_a, "nz"_a,
+	             "vx"_a, "vy"_a, "vz"_a, "origin_x"_a, "origin_y"_a,
+	             "origin_z"_a, "nt"_a = 1);
+	c.def_readwrite("nx", &ImageParams::nx);
+	c.def_readwrite("ny", &ImageParams::ny);
+	c.def_readwrite("nz", &ImageParams::nz);
+	c.def_readwrite("nt", &ImageParams::nt);
+
+	c.def_readwrite("length_x", &ImageParams::length_x);
+	c.def_readwrite("length_y", &ImageParams::length_y);
+	c.def_readwrite("length_z", &ImageParams::length_z);
+
+	c.def_readwrite("off_x", &ImageParams::off_x);
+	c.def_readwrite("off_y", &ImageParams::off_y);
+	c.def_readwrite("off_z", &ImageParams::off_z);
+
+	// Automatically populated fields
+	c.def_readwrite("vx", &ImageParams::vx);
+	c.def_readwrite("vy", &ImageParams::vy);
+	c.def_readwrite("vz", &ImageParams::vz);
+	c.def_readwrite("fov_radius", &ImageParams::fovRadius);
+
+	c.def("setup", &ImageParams::setup);
+	c.def("writeToFile", &ImageParams::writeToFile);
+	c.def("serialize", &ImageParams::serialize);
+	c.def("deserialize", &ImageParams::deserialize);
+	c.def("getShape", [](const ImageParams& self)
+	      { return py::make_tuple(self.nt, self.nz, self.ny, self.nx); });
+
+	c.def("isSameAs", &ImageParams::isSameAs, "other"_a);
+	c.def("isSameAsIgnoreFrames", &ImageParams::isSameAsIgnoreFrames,
+	      "other"_a);
+	c.def("isSameOffsetAs", &ImageParams::isSameOffsetAs, "other"_a);
+	c.def("isSameLengthsAs", &ImageParams::isSameLengthsAs, "other"_a);
+	c.def("isSameDimensionsAs", &ImageParams::isSameDimensionsAs, "other"_a);
+	c.def("indexToPositionInZDimension",
+	      &ImageParams::indexToPositionInDimension<0>, "index"_a);
+	c.def("indexToPositionInYDimension",
+	      &ImageParams::indexToPositionInDimension<1>, "index"_a);
+	c.def("indexToPositionInXDimension",
+	      &ImageParams::indexToPositionInDimension<2>, "index"_a);
+	c.def("indexToPosition", &ImageParams::indexToPosition, "ix"_a, "iy"_a,
+	      "iz"_a);
+	c.def("getOrigin", &ImageParams::getOrigin);
+	c.def("getOffset", &ImageParams::getOffset);
+
+	c.def(py::pickle(
+	    [](const ImageParams& g)
+	    {
+		    nlohmann::json geom_json;
+		    g.writeToJSON(geom_json);
+		    std::stringstream oss;
+		    oss << geom_json;
+		    return oss.str();
+	    },
+	    [](const std::string& s)
+	    {
+		    nlohmann::json geom_json;
+		    geom_json = json::parse(s);
+		    ImageParams g;
+		    g.readFromJSON(geom_json);
+		    return g;
+	    }));
+}
+}  // namespace yrt
+#endif
+
+namespace yrt
+{
+
+ImageParams::ImageParams()
+    : nx(-1),
+      ny(-1),
+      nz(-1),
+      nt(1),
+      length_x(-1.0f),
+      length_y(-1.0f),
+      length_z(-1.0f),
+      vx(-1.0f),
+      vy(-1.0f),
+      vz(-1.0f),
+      off_x(0.0f),
+      off_y(0.0f),
+      off_z(0.0f),
+      fovRadius(-1.0f)
+{
+}
+
+ImageParams::ImageParams(int p_nx, int p_ny, int p_nz, float p_length_x,
+                         float p_length_y, float p_length_z, float p_offset_x,
+                         float p_offset_y, float p_offset_z, frame_t p_nt)
+    : nx(p_nx),
+      ny(p_ny),
+      nz(p_nz),
+      nt(p_nt),
+      length_x(p_length_x),
+      length_y(p_length_y),
+      length_z(p_length_z),
+      vx(-1.0f),
+      vy(-1.0f),
+      vz(-1.0f),
+      off_x(p_offset_x),
+      off_y(p_offset_y),
+      off_z(p_offset_z)
+{
+	setup();
+}
+
+ImageParams::ImageParams(const ImageParams& in)
+{
+	copy(in);
+}
+
+ImageParams& ImageParams::operator=(const ImageParams& in)
+{
+	copy(in);
+	return *this;
+}
+
+ImageParams ImageParams::fromParams(int nx, int ny, int nz, float vx, float vy,
+                                    float vz, float origx, float origy,
+                                    float origz, frame_t p_nt)
+{
+	return ImageParams(
+	    nx, ny, nz, nx * vx, ny * vy, nz * vz, origx + (nx - 1) / 2.0f * vx,
+	    origy + (ny - 1) / 2.0f * vy, origz + (nz - 1) / 2.0f * vz, p_nt);
+}
+
+void ImageParams::copy(const ImageParams& in)
+{
+	nx = in.nx;
+	ny = in.ny;
+	nz = in.nz;
+	length_x = in.length_x;
+	length_y = in.length_y;
+	length_z = in.length_z;
+	off_x = in.off_x;
+	off_y = in.off_y;
+	off_z = in.off_z;
+	vx = in.vx;
+	vy = in.vy;
+	vz = in.vz;
+	nt = in.nt;
+	setup();
+}
+
+ImageParams::ImageParams(const std::string& fname) : ImageParams{}
+{
+	deserialize(fname);
+}
+
+void ImageParams::setup()
+{
+	ASSERT_MSG(nx > 0, "ImageParams object incomplete in X dimension");
+	ASSERT_MSG(ny > 0, "ImageParams object incomplete in Y dimension");
+	ASSERT_MSG(nz > 0, "ImageParams object incomplete in Z dimension");
+
+	completeDimInfo<0>();
+	completeDimInfo<1>();
+	completeDimInfo<2>();
+
+	fovRadius = std::max(length_x / 2.0f, length_y / 2.0f);
+	fovRadius -= std::max(vx, vy) / 1000.0f;
+}
+
+template <int Dim>
+void ImageParams::completeDimInfo()
+{
+	const int* n = nullptr;
+	float* v = nullptr;
+	float* length = nullptr;
+	float* off = nullptr;
+
+	static_assert(Dim >= 0 && Dim < 3);
+	if constexpr (Dim == 0)
+	{
+		v = &vx;
+		n = &nx;
+		length = &length_x;
+		off = &off_x;
+	}
+	if constexpr (Dim == 1)
+	{
+		v = &vy;
+		n = &ny;
+		length = &length_y;
+		off = &off_y;
+	}
+	if constexpr (Dim == 2)
+	{
+		v = &vz;
+		n = &nz;
+		length = &length_z;
+		off = &off_z;
+	}
+
+	ASSERT(v != nullptr);
+	ASSERT(n != nullptr);
+	ASSERT(length != nullptr);
+
+	if (*v > 0.0f && *length > 0.0f)
+	{
+		return;
+	}
+	if (*v < 0.0f && *length > 0.0f)
+	{
+		*v = *length / static_cast<float>(*n);
+	}
+	else if (*v > 0.0f && *length < 0.0f)
+	{
+		*length = *v * static_cast<float>(*n);
+	}
+	else if (*v < 0.0f && *length < 0.0f)
+	{
+		throw std::invalid_argument(
+		    "Image parameters incorrectly defined in X");
+	}
+
+	// Force offset to be zero in case it is lower than 0.1 micrometers
+	if (std::abs(*off) < PositioningPrecision)
+	{
+		*off = 0.0f;
+	}
+}
+
+void ImageParams::writeToFile(const std::string& fname) const
+{
+	serialize(fname);
+}
+
+void ImageParams::serialize(const std::string& fname) const
+{
+	std::ofstream output(fname);
+	json geom_json;
+	writeToJSON(geom_json);
+	output << geom_json << std::endl;
+}
+
+void ImageParams::writeToJSON(json& j) const
+{
+	j["VERSION"] = IMAGEPARAMS_FILE_VERSION;
+	j["nx"] = nx;
+	j["ny"] = ny;
+	j["nz"] = nz;
+	j["vx"] = vx;
+	j["vy"] = vy;
+	j["vz"] = vz;
+	j["off_x"] = off_x;
+	j["off_y"] = off_y;
+	j["off_z"] = off_z;
+	j["nt"] = nt;
+}
+
+void ImageParams::deserialize(const std::string& fname)
+{
+	std::ifstream ifs(fname);
+	if (!ifs.is_open())
+	{
+		throw std::runtime_error("Error opening ImageParams file: " + fname);
+	}
+	auto ss = std::ostringstream{};
+	ss << ifs.rdbuf();
+	std::string fileContents = ss.str();
+	json j;
+	try
+	{
+		j = json::parse(fileContents);
+	}
+	catch (json::exception& e)
+	{
+		throw std::invalid_argument("Error in ImageParams JSON file parsing");
+	}
+	readFromJSON(j);
+}
+
+void ImageParams::readFromJSON(json& j)
+{
+	float version;
+
+	util::getParam<float>(
+	    &j, &version, {"VERSION", "GCIMAGEPARAMS_FILE_VERSION"}, -1.0, true,
+	    "Error in ImageParams file version : Version unspecified");
+
+	if (version > IMAGEPARAMS_FILE_VERSION + SMALL_FLT)
+	{
+		throw std::logic_error("Error in ImageParams file version : Wrong "
+		                       "version. Current version: " +
+		                       std::to_string(IMAGEPARAMS_FILE_VERSION) +
+		                       ", Given version: " + std::to_string(version));
+	}
+
+	util::getParam<int>(
+	    &j, &nx, "nx", 0, true,
+	    "Error in ImageParams file version : \'nx\' unspecified");
+
+	util::getParam<int>(
+	    &j, &ny, "ny", 0, true,
+	    "Error in ImageParams file version : \'ny\' unspecified");
+
+	util::getParam<int>(
+	    &j, &nz, "nz", 0, true,
+	    "Error in ImageParams file version : \'nz\' unspecified");
+
+	util::getParam<frame_t>(&j, &nt, {"nt", "num_frames"}, 1, false);
+
+	util::getParam<float>(&j, &off_x, {"off_x", "offset_x"}, 0.0, false);
+
+	util::getParam<float>(&j, &off_y, {"off_y", "offset_y"}, 0.0, false);
+
+	util::getParam<float>(&j, &off_z, {"off_z", "offset_z"}, 0.0, false);
+
+	length_x = readLengthFromJSON(j, "length_x", "vx", nx);
+	length_y = readLengthFromJSON(j, "length_y", "vy", ny);
+	length_z = readLengthFromJSON(j, "length_z", "vz", nz);
+
+	setup();
+}
+
+float ImageParams::readLengthFromJSON(nlohmann::json& j,
+                                      const std::string& length_name,
+                                      const std::string& v_name, int n)
+{
+	float given_v;
+	if (!util::getParam<float>(&j, &given_v, v_name, -1.0, false))
+	{
+		float length;
+		util::getParam<float>(&j, &length, length_name, -1.0, true,
+		                      "You need to specify either the voxel size (vx, "
+		                      "vy or vz) or the length (length_x, length_y or "
+		                      "length_z) for all three dimensions.");
+		return length;
+	}
+	return given_v * n;
+}
+
+bool ImageParams::isValid() const
+{
+	return nx > 0 && ny > 0 && nz > 0 && length_x > 0. && length_y > 0. &&
+	       length_z > 0.;
+}
+
+bool ImageParams::isSameNumFramesAs(const ImageParams& other) const
+{
+	return nt == other.nt;
+}
+
+bool ImageParams::isSameDimensionsAs(const ImageParams& other) const
+{
+	return nx == other.nx && ny == other.ny && nz == other.nz;
+}
+
+bool ImageParams::isSameLengthsAs(const ImageParams& other) const
+{
+	return APPROX_EQ_THRESH(length_x, other.length_x, PositioningPrecision) &&
+	       APPROX_EQ_THRESH(length_y, other.length_y, PositioningPrecision) &&
+	       APPROX_EQ_THRESH(length_z, other.length_z, PositioningPrecision);
+}
+
+bool ImageParams::isSameOffsetAs(const ImageParams& other) const
+{
+	return APPROX_EQ_THRESH(off_x, other.off_x, PositioningPrecision) &&
+	       APPROX_EQ_THRESH(off_y, other.off_y, PositioningPrecision) &&
+	       APPROX_EQ_THRESH(off_z, other.off_z, PositioningPrecision);
+}
+
+bool ImageParams::isSameAs(const ImageParams& other) const
+{
+	return isSameNumFramesAs(other) && isSameDimensionsAs(other) &&
+	       isSameLengthsAs(other) && isSameOffsetAs(other);
+}
+
+bool ImageParams::isSameAsIgnoreFrames(const ImageParams& other) const
+{
+	return isSameDimensionsAs(other) && isSameLengthsAs(other) &&
+	       isSameOffsetAs(other);
+}
+
+template <int Dimension>
+float ImageParams::indexToPositionInDimension(int index) const
+{
+	static_assert(Dimension >= 0 && Dimension < 3);
+	float voxelSize, length, offset;
+	if constexpr (Dimension == 0)
+	{
+		voxelSize = vz;
+		length = length_z;
+		offset = off_z;
+	}
+	else if constexpr (Dimension == 1)
+	{
+		voxelSize = vy;
+		length = length_y;
+		offset = off_y;
+	}
+	else if constexpr (Dimension == 2)
+	{
+		voxelSize = vx;
+		length = length_x;
+		offset = off_x;
+	}
+	else
+	{
+		throw std::runtime_error("Unknown error");
+	}
+	return util::indexToPosition(index, voxelSize, length, offset);
+}
+template float ImageParams::indexToPositionInDimension<0>(int index) const;
+template float ImageParams::indexToPositionInDimension<1>(int index) const;
+template float ImageParams::indexToPositionInDimension<2>(int index) const;
+
+Vector3D ImageParams::indexToPosition(int ix, int iy, int iz) const
+{
+	const float posZ = indexToPositionInDimension<0>(iz);
+	const float posY = indexToPositionInDimension<1>(iy);
+	const float posX = indexToPositionInDimension<2>(ix);
+	return Vector3D{posX, posY, posZ};
+}
+
+Vector3D ImageParams::getOrigin() const
+{
+	return indexToPosition(0, 0, 0);
+}
+
+Vector3D ImageParams::getOffset() const
+{
+	return {off_x, off_y, off_z};
+}
+}  // namespace yrt

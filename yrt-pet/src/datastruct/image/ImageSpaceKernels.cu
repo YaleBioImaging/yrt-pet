@@ -11,15 +11,14 @@ namespace yrt
 {
 
 __global__ void updateEM_kernel(const float* pd_imgIn, float* pd_imgOut,
-                                const float* pd_sensImg, const int nx,
-                                const int ny, const int nz,
-                                const float EM_threshold)
+                                const float* pd_sensImg, int nx, int ny, int nz,
+                                int nt, const float EM_threshold)
 {
 	const long id_z = blockIdx.z * blockDim.z + threadIdx.z;
 	const long id_y = blockIdx.y * blockDim.y + threadIdx.y;
 	const long id_x = blockIdx.x * blockDim.x + threadIdx.x;
 
-	if (id_z < nz && id_y < ny && id_x < nx)
+	if (id_z < (nz * nt) && id_y < ny && id_x < nx)
 	{
 		const long pixelId = id_z * nx * ny + id_y * nx + id_x;
 		if (pd_sensImg[pixelId] > EM_threshold)
@@ -29,10 +28,57 @@ __global__ void updateEM_kernel(const float* pd_imgIn, float* pd_imgOut,
 	}
 }
 
-__global__ void applyThreshold_kernel(
-    float* pd_imgIn, const float* pd_imgMask, const float threshold,
-    const float val_le_scale, const float val_le_off, const float val_gt_scale,
-    const float val_gt_off, const int nx, const int ny, const int nz)
+template <bool HasScaling>
+__global__ void updateEMDynamic_kernel(const float* pd_imgIn, float* pd_imgOut,
+                                       const float* pd_sensImg, int nx, int ny,
+                                       int nz, int nt, const float* c_r,
+                                       float EM_threshold)
+{
+	const long id_z = blockIdx.z * blockDim.z + threadIdx.z;
+	const long id_y = blockIdx.y * blockDim.y + threadIdx.y;
+	const long id_x = blockIdx.x * blockDim.x + threadIdx.x;
+
+	if (id_z < (nz * nt) && id_y < ny && id_x < nx)
+	{
+		const int t = id_z / nz;
+		const int local_z = id_z % nz;
+
+		const long pixelId = local_z * nx * ny + id_y * nx + id_x;
+		const long idx = id_z * nx * ny + id_y * nx + id_x;
+
+		// Only space idx for sens image
+		const auto sens = pd_sensImg[pixelId];
+		float inv_c_r;
+		if constexpr (HasScaling)
+		{
+			inv_c_r = 1.0f / c_r[t];
+		}
+		else
+		{
+			inv_c_r = 1.0f;
+		}
+		auto thr_r = EM_threshold * inv_c_r;
+		if (sens > thr_r)
+		{
+			pd_imgOut[idx] *= (pd_imgIn[idx] * inv_c_r) / sens;
+		}
+	}
+}
+template __global__ void updateEMDynamic_kernel<true>(const float*, float*,
+                                                      const float*, int, int,
+                                                      int, int, const float*,
+                                                      float);
+template __global__ void updateEMDynamic_kernel<false>(const float*, float*,
+                                                       const float*, int, int,
+                                                       int, int, const float*,
+                                                       float);
+
+// TODO: Modify to work with dynamic images (add num_frames)
+__global__ void
+    applyThreshold_kernel(float* pd_imgIn, const float* pd_imgMask,
+                          const float threshold, const float val_le_scale,
+                          const float val_le_off, const float val_gt_scale,
+                          const float val_gt_off, int nx, int ny, int nz)
 {
 	const long id_z = blockIdx.z * blockDim.z + threadIdx.z;
 	const long id_y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -52,17 +98,76 @@ __global__ void applyThreshold_kernel(
 	}
 }
 
-__global__ void setValue_kernel(float* pd_imgIn, const float value,
-                                const int nx, const int ny, const int nz)
+__global__ void applyThresholdBroadcast_kernel(
+    float* pd_imgIn, const float* pd_imgMask, const float threshold,
+    const float val_le_scale, const float val_le_off, const float val_gt_scale,
+    const float val_gt_off, int nx, int ny, int nz, int nt)
 {
 	const long id_z = blockIdx.z * blockDim.z + threadIdx.z;
 	const long id_y = blockIdx.y * blockDim.y + threadIdx.y;
 	const long id_x = blockIdx.x * blockDim.x + threadIdx.x;
 
-	if (id_z < nz && id_y < ny && id_x < nx)
+	if (id_z < (nz * nt) && id_y < ny && id_x < nx)
+	{
+		const int local_z = id_z % nz;
+
+		const long pixelId = local_z * nx * ny + id_y * nx + id_x;
+
+		if (pd_imgMask[pixelId] <= threshold)
+		{
+			const long idx = id_z * nx * ny + id_y * nx + id_x;
+			pd_imgIn[idx] = pd_imgIn[idx] * val_le_scale + val_le_off;
+		}
+		else
+		{
+			const long idx = id_z * nx * ny + id_y * nx + id_x;
+			pd_imgIn[idx] = pd_imgIn[idx] * val_gt_scale + val_gt_off;
+		}
+	}
+}
+
+__global__ void fill_kernel(float* pd_imgIn, const float value, int nx, int ny,
+                            int nz, int nt)
+{
+	const long id_z = blockIdx.z * blockDim.z + threadIdx.z;
+	const long id_y = blockIdx.y * blockDim.y + threadIdx.y;
+	const long id_x = blockIdx.x * blockDim.x + threadIdx.x;
+
+	if (id_z < (nz * nt) && id_y < ny && id_x < nx)
 	{
 		const long pixelId = id_z * nx * ny + id_y * nx + id_x;
 		pd_imgIn[pixelId] = value;
+	}
+}
+
+__global__ void addFirstImage3DToSecond4D_kernel(const float* pd_imgIn,
+                                                 float* pd_imgOut, int nx,
+                                                 int ny, int nz, int nt)
+{
+	const long id_z = blockIdx.z * blockDim.z + threadIdx.z;
+	const long id_y = blockIdx.y * blockDim.y + threadIdx.y;
+	const long id_x = blockIdx.x * blockDim.x + threadIdx.x;
+
+	if (id_z < (nz * nt) && id_y < ny && id_x < nx)
+	{
+		const int local_z = id_z % nz;
+		const long pixelId = local_z * nx * ny + id_y * nx + id_x;
+		const long idx = id_z * nx * ny + id_y * nx + id_x;
+		pd_imgOut[idx] = pd_imgOut[idx] + pd_imgIn[pixelId];
+	}
+}
+
+__global__ void multWithScalar_kernel(float* pd_img, float scalar, int nx,
+                                      int ny, int nz, int nt)
+{
+	const long id_z = blockIdx.z * blockDim.z + threadIdx.z;
+	const long id_y = blockIdx.y * blockDim.y + threadIdx.y;
+	const long id_x = blockIdx.x * blockDim.x + threadIdx.x;
+
+	if (id_z < (nz * nt) && id_y < ny && id_x < nx)
+	{
+		const long idx = id_z * nx * ny + id_y * nx + id_x;
+		pd_img[idx] = pd_img[idx] * scalar;
 	}
 }
 
@@ -83,10 +188,10 @@ __global__ void addFirstImageToSecond_kernel(const float* pd_imgIn,
 
 template <bool WEIGHED_AVG>
 __global__ void timeAverageMoveImage_kernel(
-    const float* pd_imgIn, float* pd_imgOut, int nx, int ny, int nz,
-    float length_x, float length_y, float length_z, float off_x, float off_y,
-    float off_z, const transform_t* pd_invTransforms, float* frameWeights,
-    int numTransforms)
+    const float* pd_imgIn, float* pd_imgOut, frame_t outDynamicFrame, int nx,
+    int ny, int nz, float length_x, float length_y, float length_z, float off_x,
+    float off_y, float off_z, const transform_t* pd_invTransforms,
+    float* frameWeights, int numTransforms)
 {
 	const long id_x = blockIdx.x * blockDim.x + threadIdx.x;
 	const long id_y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -94,7 +199,8 @@ __global__ void timeAverageMoveImage_kernel(
 
 	if (id_z < nz && id_y < ny && id_x < nx)
 	{
-		const long flatId = id_z * nx * ny + id_y * nx + id_x;
+		const long flatId =
+		    outDynamicFrame * nz * ny * nx + id_z * nx * ny + id_y * nx + id_x;
 
 		const float vx = length_x / nx;
 		const float vy = length_y / ny;
@@ -156,15 +262,15 @@ __global__ void timeAverageMoveImage_kernel(
 	}
 }
 template __global__ void timeAverageMoveImage_kernel<true>(
-    const float* d_imgIn, float* d_imgOut, int nx, int ny, int nz,
-    float length_x, float length_y, float length_z, float off_x, float off_y,
-    float off_z, const transform_t* transforms, float* frameWeights,
-    int numTransforms);
+    const float* d_imgIn, float* d_imgOut, frame_t outDynamicFrame, int nx,
+    int ny, int nz, float length_x, float length_y, float length_z, float off_x,
+    float off_y, float off_z, const transform_t* transforms,
+    float* frameWeights, int numTransforms);
 template __global__ void timeAverageMoveImage_kernel<false>(
-    const float* d_imgIn, float* d_imgOut, int nx, int ny, int nz,
-    float length_x, float length_y, float length_z, float off_x, float off_y,
-    float off_z, const transform_t* transforms, float* frameWeights,
-    int numTransforms);
+    const float* d_imgIn, float* d_imgOut, frame_t outDynamicFrame, int nx,
+    int ny, int nz, float length_x, float length_y, float length_z, float off_x,
+    float off_y, float off_z, const transform_t* transforms,
+    float* frameWeights, int numTransforms);
 
 __device__ constexpr int circular(int M, int x)
 {
@@ -248,105 +354,99 @@ template __global__ void convolve3DSeparable_kernel<2>(const float* input,
                                                        int kernelSize, int nx,
                                                        int ny, int nz);
 
-template<bool Transposed>
+template <bool Transposed>
 __global__ void convolve3D_kernel(
-	const float* input, float* output,
-	const float* kernelsFlat, const int* kernelOffsets,
-	const int* kernelDims, const int* kernelHalf,
-	int lut_x_dim, int lut_y_dim, int lut_z_dim,
-	float xGap, float yGap, float zGap,
-	float xCenter, float yCenter, float zCenter,
-	float vx, float vy, float vz,
-	int nx, int ny, int nz)
+    const float* input, float* output, const float* kernelsFlat,
+    const int* kernelOffsets, const int* kernelDims, const int* kernelHalf,
+    int lut_x_dim, int lut_y_dim, int lut_z_dim, float xGap, float yGap,
+    float zGap, float xCenter, float yCenter, float zCenter, float vx, float vy,
+    float vz, int nx, int ny, int nz)
 {
 	const int i = blockIdx.x * blockDim.x + threadIdx.x;
-    const int j = blockIdx.y * blockDim.y + threadIdx.y;
-    const int k = blockIdx.z * blockDim.z + threadIdx.z;
+	const int j = blockIdx.y * blockDim.y + threadIdx.y;
+	const int k = blockIdx.z * blockDim.z + threadIdx.z;
 
-    if (i >= nx || j >= ny || k >= nz) return;
+	if (i >= nx || j >= ny || k >= nz)
+		return;
 
-    // Compute voxel centre in mm
-    float x_mm = (i + 0.5f) * vx;
-    float y_mm = (j + 0.5f) * vy;
-    float z_mm = (k + 0.5f) * vz;
+	// Compute voxel centre in mm
+	float x_mm = (i + 0.5f) * vx;
+	float y_mm = (j + 0.5f) * vy;
+	float z_mm = (k + 0.5f) * vz;
 
 	// Distance to image centre and corresponding kernel index along each axis
-    float tx = fabsf(x_mm - xCenter);
-    float ty = fabsf(y_mm - yCenter);
-    float tz = fabsf(z_mm - zCenter);
-    int ix = static_cast<int>(roundf(tx / xGap));
-    int iy = static_cast<int>(roundf(ty / yGap));
-    int iz = static_cast<int>(roundf(tz / zGap));
-    ix = min(ix, lut_x_dim - 1);
-    iy = min(iy, lut_y_dim - 1);
-    iz = min(iz, lut_z_dim - 1);
+	float tx = fabsf(x_mm - xCenter);
+	float ty = fabsf(y_mm - yCenter);
+	float tz = fabsf(z_mm - zCenter);
+	int ix = static_cast<int>(roundf(tx / xGap));
+	int iy = static_cast<int>(roundf(ty / yGap));
+	int iz = static_cast<int>(roundf(tz / zGap));
+	ix = min(ix, lut_x_dim - 1);
+	iy = min(iy, lut_y_dim - 1);
+	iz = min(iz, lut_z_dim - 1);
 
-    // PSF kernel index
-    int kernelIndex = ix + iy * lut_x_dim + iz * lut_x_dim * lut_y_dim;
-    int offset = kernelOffsets[kernelIndex];
-    int hx = kernelHalf[3 * kernelIndex];
-    int hy = kernelHalf[3 * kernelIndex + 1];
-    int hz = kernelHalf[3 * kernelIndex + 2];
+	// PSF kernel index
+	int kernelIndex = ix + iy * lut_x_dim + iz * lut_x_dim * lut_y_dim;
+	int offset = kernelOffsets[kernelIndex];
+	int hx = kernelHalf[3 * kernelIndex];
+	int hy = kernelHalf[3 * kernelIndex + 1];
+	int hz = kernelHalf[3 * kernelIndex + 2];
 
-    int idx = offset;
-    if constexpr (!Transposed)
-    {
-        //Forward convolution
-        float sum = 0.0f;
-        for (int kz = -hz; kz <= hz; ++kz)
-        {
-            for (int ky = -hy; ky <= hy; ++ky)
-            {
-                for (int kx = -hx; kx <= hx; ++kx, ++idx)
-                {
-                    int r_x = circular(nx, i + kx);
-                    int r_y = circular(ny, j + ky);
-                    int r_z = circular(nz, k + kz);
-                    int inIndex = r_x + r_y * nx + r_z * nx * ny;
-                    sum += kernelsFlat[idx] * input[inIndex];
-                }
-            }
-        }
-        output[idx3(i, j, k, nx, ny)] = sum;
-    }
-    else
-    {
-        //Transposed convolution
-        float temp1 = input[idx3(i, j, k, nx, ny)];
+	int idx = offset;
+	if constexpr (!Transposed)
+	{
+		// Forward convolution
+		float sum = 0.0f;
+		for (int kz = -hz; kz <= hz; ++kz)
+		{
+			for (int ky = -hy; ky <= hy; ++ky)
+			{
+				for (int kx = -hx; kx <= hx; ++kx, ++idx)
+				{
+					int r_x = circular(nx, i + kx);
+					int r_y = circular(ny, j + ky);
+					int r_z = circular(nz, k + kz);
+					int inIndex = r_x + r_y * nx + r_z * nx * ny;
+					sum += kernelsFlat[idx] * input[inIndex];
+				}
+			}
+		}
+		output[idx3(i, j, k, nx, ny)] = sum;
+	}
+	else
+	{
+		// Transposed convolution
+		float temp1 = input[idx3(i, j, k, nx, ny)];
 
-        for (int kz = -hz; kz <= hz; ++kz)
-        {
-            for (int ky = -hy; ky <= hy; ++ky)
-            {
-                for (int kx = -hx; kx <= hx; ++kx, ++idx)
-                {
-                    int r_x = circular(nx, i + kx);
-                    int r_y = circular(ny, j + ky);
-                    int r_z = circular(nz, k + kz);
-                    int outIndex = idx3(r_x, r_y, r_z, nx, ny);
+		for (int kz = -hz; kz <= hz; ++kz)
+		{
+			for (int ky = -hy; ky <= hy; ++ky)
+			{
+				for (int kx = -hx; kx <= hx; ++kx, ++idx)
+				{
+					int r_x = circular(nx, i + kx);
+					int r_y = circular(ny, j + ky);
+					int r_z = circular(nz, k + kz);
+					int outIndex = idx3(r_x, r_y, r_z, nx, ny);
 
-                    atomicAdd(&output[outIndex],
-                              temp1 * kernelsFlat[idx]);
-                }
-            }
-        }
-    }
+					atomicAdd(&output[outIndex], temp1 * kernelsFlat[idx]);
+				}
+			}
+		}
+	}
 }
+template __global__ void convolve3D_kernel<false>(const float*, float*,
+                                                  const float*, const int*,
+                                                  const int*, const int*, int,
+                                                  int, int, float, float, float,
+                                                  float, float, float, float,
+                                                  float, float, int, int, int);
 
-template __global__ void convolve3D_kernel<false>(
-	const float*, float*, const float*, const int*, const int*, const int*,
-	int, int, int,
-	float, float, float,
-	float, float, float,
-	float, float, float,
-	int, int, int);
-
-template __global__ void convolve3D_kernel<true>(
-	const float*, float*, const float*, const int*, const int*, const int*,
-	int, int, int,
-	float, float, float,
-	float, float, float,
-	float, float, float,
-	int, int, int);
+template __global__ void convolve3D_kernel<true>(const float*, float*,
+                                                 const float*, const int*,
+                                                 const int*, const int*, int,
+                                                 int, int, float, float, float,
+                                                 float, float, float, float,
+                                                 float, float, int, int, int);
 
 }  // namespace yrt

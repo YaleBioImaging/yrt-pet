@@ -8,6 +8,7 @@
 #include "yrt-pet/recon/OSEM.hpp"
 
 #include <memory>
+#include <yrt-pet/datastruct/projection/DynamicFraming.hpp>
 
 namespace yrt
 {
@@ -35,10 +36,27 @@ template <bool PrintProgress = true>
 std::unique_ptr<ImageOwned> timeAverageMoveImage(const LORMotion& lorMotion,
                                                  const Image* unmovedImage);
 template <bool PrintProgress = true>
+void timeAverageMoveImage(const LORMotion& lorMotion, const Image* unmovedImage,
+                          Image* outImage, frame_t outDynamicFrame = 0);
+
+template <bool PrintProgress = true>
 std::unique_ptr<ImageOwned>
     timeAverageMoveImage(const LORMotion& lorMotion, const Image* unmovedImage,
                          timestamp_t timeStart, timestamp_t timeStop);
+template <bool PrintProgress = true>
+void timeAverageMoveImage(const LORMotion& lorMotion, const Image* unmovedImage,
+                          Image* outImage, timestamp_t timeStart,
+                          timestamp_t timeStop, frame_t outDynamicFrame = 0);
 
+template <bool PrintProgress = true>
+std::unique_ptr<ImageOwned>
+    timeAverageMoveImageDynamic(const LORMotion& lorMotion,
+                                const Image* unmovedImage,
+                                const DynamicFraming& dynamicFraming);
+template <bool PrintProgress = true>
+void timeAverageMoveImageDynamic(const LORMotion& lorMotion,
+                                 const Image* unmovedImage, Image* outImage,
+                                 const DynamicFraming& dynamicFraming);
 
 template <bool RequiresAtomic, bool PrintProgress = true>
 void convertToHistogram3D(const ProjectionData& pr_dat,
@@ -61,43 +79,40 @@ Line3D getNativeLOR(const Scanner& scanner, const ProjectionData& dat,
 
 void convertProjectionValuesToACF(ProjectionData& dat, float unitFactor = 0.1f);
 
-std::unique_ptr<OSEM> createOSEM(const Scanner& scanner, bool useGPU = false);
+std::unique_ptr<OSEM> createOSEM(const Scanner& scanner, bool useGPU = false,
+                                 bool isLowRank = false);
+std::unique_ptr<OSEM> createOSEM_CPU(const Scanner& scanner,
+                                     bool isLowRank = false);
 
 std::tuple<Line3D, Vector3D, Vector3D>
     generateTORRandomDOI(const Scanner& scanner, det_id_t d1, det_id_t d2,
                          int vmax = 256);
 
 // Forward projection
-void forwProject(
-    const Scanner& scanner, const Image& img, ProjectionData& projData,
-    OperatorProjector::ProjectorType projectorType = OperatorProjector::SIDDON,
-    bool useGPU = false);
-void forwProject(
-    const Scanner& scanner, const Image& img, ProjectionData& projData,
-    const BinIterator& binIterator,
-    OperatorProjector::ProjectorType projectorType = OperatorProjector::SIDDON,
-    bool useGPU = false);
-void forwProject(
-    const Image& img, ProjectionData& projData,
-    const OperatorProjectorParams& projParams,
-    OperatorProjector::ProjectorType projectorType = OperatorProjector::SIDDON,
-    bool useGPU = false);
+void forwProject(const Scanner& scanner, const Image& img,
+                 ProjectionData& projData,
+                 ProjectorType projectorType = ProjectorType::SIDDON,
+                 bool useGPU = false);
+void forwProject(const Scanner& scanner, const Image& img,
+                 ProjectionData& projData, const BinIterator& binIterator,
+                 ProjectorType projectorType = ProjectorType::SIDDON,
+                 bool useGPU = false);
+void forwProject(const Image& img, ProjectionData& projData,
+                 const ProjectorParams& projParams, const BinIterator& binIter,
+                 bool useGPU = false);
 
 // Back projection
-void backProject(
-    const Scanner& scanner, Image& img, const ProjectionData& projData,
-    OperatorProjector::ProjectorType projectorType = OperatorProjector::SIDDON,
-    bool useGPU = false);
-void backProject(
-    const Scanner& scanner, Image& img, const ProjectionData& projData,
-    const BinIterator& binIterator,
-    OperatorProjector::ProjectorType projectorType = OperatorProjector::SIDDON,
-    bool useGPU = false);
-void backProject(
-    Image& img, const ProjectionData& projData,
-    const OperatorProjectorParams& projParams,
-    OperatorProjector::ProjectorType projectorType = OperatorProjector::SIDDON,
-    bool useGPU = false);
+void backProject(const Scanner& scanner, Image& img,
+                 const ProjectionData& projData,
+                 ProjectorType projectorType = ProjectorType::SIDDON,
+                 bool useGPU = false);
+void backProject(const Scanner& scanner, Image& img,
+                 const ProjectionData& projData, const BinIterator& binIterator,
+                 ProjectorType projectorType = ProjectorType::SIDDON,
+                 bool useGPU = false);
+void backProject(Image& img, const ProjectionData& projData,
+                 const ProjectorParams& projParams,
+                 const BinIterator& binIterator, bool useGPU = false);
 
 }  // namespace util
 }  // namespace yrt

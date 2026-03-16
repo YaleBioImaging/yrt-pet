@@ -3,6 +3,7 @@ project(src)
 # List source files explicitly
 set(SOURCES
     datastruct/projection/BinIterator.cpp
+    datastruct/projection/DynamicFraming.cpp
     datastruct/projection/Histogram.cpp
     datastruct/projection/Histogram3D.cpp
     datastruct/projection/ListMode.cpp
@@ -11,6 +12,7 @@ set(SOURCES
     datastruct/projection/LORMotion.cpp
     datastruct/projection/ProjectionData.cpp
     datastruct/projection/BinFilter.cpp
+    datastruct/projection/BinLoader.cpp
     datastruct/projection/Constraints.cpp
     datastruct/projection/ProjectionList.cpp
     datastruct/projection/SparseHistogram.cpp
@@ -23,6 +25,7 @@ set(SOURCES
     datastruct/scanner/Scanner.cpp
     datastruct/image/Image.cpp
     datastruct/image/ImageBase.cpp
+    datastruct/image/ImageParams.cpp
     datastruct/image/nifti/nifti1_io.cpp
     datastruct/image/nifti/znzlib.cpp
     datastruct/IO.cpp
@@ -37,23 +40,28 @@ set(SOURCES
     kernel/Kernel.cpp
     kinetic/SRTM.cpp
     operators/Operator.cpp
+    operators/ProjectorParams.cpp
     operators/OperatorProjectorBase.cpp
     operators/OperatorProjector.cpp
-    operators/OperatorProjectorSiddon.cpp
-    operators/OperatorProjectorDD.cpp
+    operators/ProjectorUpdater.cpp
     operators/OperatorPsf.cpp
     operators/OperatorVarPsf.cpp
+    operators/Projector.cpp
+    operators/ProjectorSiddon.cpp
+    operators/ProjectorDD.cpp
     operators/ProjectionPsfManager.cpp
     operators/SparseProjection.cpp
     operators/TimeOfFlight.cpp
     operators/Variable.cpp
     recon/Corrector.cpp
     recon/Corrector_CPU.cpp
-    recon/OSEMUpdater_CPU.cpp
     recon/OSEM.cpp
     recon/OSEM_CPU.cpp
+    recon/LREM.cpp
+    recon/LREM_CPU.cpp
     scatter/Crystal.cpp
     scatter/ScatterEstimator.cpp
+    scatter/ScatterSpace.cpp
     scatter/SingleScatterSimulator.cpp
     utils/Array.cpp
     utils/Assert.cpp
@@ -75,21 +83,20 @@ if (USE_CUDA)
         datastruct/image/ImageDevice.cu
         datastruct/image/ImageSpaceKernels.cu
         datastruct/projection/LORsDevice.cu
-        datastruct/projection/ProjectionDataDevice.cu
-        datastruct/projection/ProjectionSpaceKernels.cu
+        datastruct/projection/ProjectionListDevice.cu
+        operators/ProjectionSpaceKernels.cu
         operators/DeviceSynchronized.cu
         operators/OperatorProjectorDevice.cu
         operators/OperatorPsfDevice.cu
         operators/OperatorVarPsfDevice.cu
-        operators/OperatorProjectorDD_GPUKernels.cu
-        operators/OperatorProjectorSiddon_GPUKernels.cu
         operators/OperatorProjectorDD_GPU.cu
         operators/OperatorProjectorSiddon_GPU.cu
         operators/ProjectionPsfManagerDevice.cu
         recon/Corrector_GPU.cu
-        recon/OSEMUpdater_GPU.cu
         recon/OSEM_GPU.cu
+        recon/LREM_GPU.cu
         utils/GPUStream.cu
+        utils/GPUTypes.cu
         utils/GPUUtils.cu
         utils/GPUKernelUtils.cu
         utils/PageLockedBuffer.cu

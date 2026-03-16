@@ -24,8 +24,10 @@
 #define PY_PUB_STATIC_METHOD(CLASS, NAME) .def_static(#NAME, &CLASS::NAME)
 
 #define STRCAT3(x, y, z) x##y##z
-#define PY_DECLARE_ARRAY(TYPE, NDIM) \
-	declare_array<STRCAT3(Array, NDIM, D) < TYPE>, TYPE, NDIM > (m, #TYPE)
+#define STRCAT4(x, y, z, a) x##y##z##a
+#define PY_DECLARE_ARRAY(TYPE, NDIM)                            \
+	declare_array<STRCAT4(Array, NDIM, D, Owned) < TYPE>, TYPE, \
+	    NDIM > (m, #TYPE)
 
 
 #endif  // if BUILD_PYBIND11

@@ -100,6 +100,9 @@ void py_setup_utilities(py::module& m)
 		                  return detPair;
 	                  }),
 	              "detector_pair"_a);
+	c_detpair.def(
+	    py::init([](det_id_t d1, det_id_t d2) { return det_pair_t{d1, d2}; }),
+	    "d1"_a, "d2"_a);
 
 	c_detpair.def("toTuple", [](const det_pair_t& self)
 	              { return py::make_tuple(self.d1, self.d2); });
@@ -167,8 +170,8 @@ std::string stripWhitespaces(const std::string& input)
 
 	const std::string whiteSpace(" \t");
 
-	int idxBeg = input.find_first_not_of(whiteSpace);
-	int idxEnd = input.find_last_not_of(whiteSpace);
+	const int idxBeg = input.find_first_not_of(whiteSpace);
+	const int idxEnd = input.find_last_not_of(whiteSpace);
 
 	int len;
 

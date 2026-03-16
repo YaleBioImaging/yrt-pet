@@ -83,7 +83,7 @@ def test_image_transform():
     v_rot = yrt.Vector3D(0.0, 0.0, 0.0)
     v_tr = yrt.Vector3D(2.0, 0.0, 0.0)
     img_t = img.transformImage(v_rot, v_tr)
-    x_t = np.array(img_t, copy=False)
+    x_t = np.array(img_t, copy=False).squeeze()
     np.testing.assert_allclose(x[..., :-1], x_t[..., 1:], rtol=9e-6)
     # Simple rotation
     x = rescale(np.random.random([14, 12, 12])).astype(np.float32)
@@ -93,7 +93,7 @@ def test_image_transform():
     v_rot = yrt.Vector3D(0.0, 0.0, np.pi / 2)
     v_tr = yrt.Vector3D(0.0, 0.0, 0.0)
     img_t = img.transformImage(v_rot, v_tr)
-    x_t = np.array(img_t, copy=False)
+    x_t = np.array(img_t, copy=False).squeeze()
     np.testing.assert_allclose(np.moveaxis(x, 1, 2)[..., ::-1], x_t, rtol=9e-5)
 
     # Resampling

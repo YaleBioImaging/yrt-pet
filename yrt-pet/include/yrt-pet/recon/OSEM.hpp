@@ -6,9 +6,8 @@
 #pragma once
 
 #include "yrt-pet/datastruct/image/Image.hpp"
-#include "yrt-pet/datastruct/projection/ProjectionProperties.hpp"
-#include "yrt-pet/datastruct/projection/UniformHistogram.hpp"
-#include "yrt-pet/operators/OperatorProjector.hpp"
+#include "yrt-pet/operators/Operator.hpp"
+#include "yrt-pet/operators/ProjectorParams.hpp"
 #include "yrt-pet/recon/Corrector.hpp"
 #include "yrt-pet/utils/RangeList.hpp"
 #include <vector>
@@ -21,7 +20,7 @@
 namespace yrt
 {
 
-enum ImagePSFMode
+enum class ImagePSFMode
 {
 	UNIFORM = 0,
 	VARIANT
@@ -30,11 +29,11 @@ enum ImagePSFMode
 class OSEM
 {
 public:
-	// ---------- Constants ----------
+	// Constants
 	static constexpr int DEFAULT_NUM_ITERATIONS = 10;
 	static constexpr float DEFAULT_HARD_THRESHOLD = 1.0f;
 	static constexpr float INITIAL_VALUE_MLEM = 0.125f;
-	// ---------- Public methods ----------
+	// Constructors/Destructors
 	explicit OSEM(const Scanner& pr_scanner);
 	virtual ~OSEM() = default;
 	OSEM(const OSEM&) = delete;
@@ -57,32 +56,35 @@ public:
 	void setSensitivityImage(Image* sensImage, int subset = 0);
 
 	// OSEM Reconstruction
-	std::unique_ptr<ImageOwned> reconstruct(const std::string& out_fname);
+	std::unique_ptr<Image> reconstruct(const std::string& out_fname);
 
 	// Prints a summary of the parameters
 	void summary() const;
 
-	// ---------- Getters and setters ----------
+	// Configuration of the reconstruction
 	void setSensitivityHistogram(const Histogram* pp_sensitivity);
+	const Histogram* getSensitivityHistogram() const;
 	void setGlobalScalingFactor(float globalScalingFactor);
 	void setInvertSensitivity(bool invert = true);
-	const Histogram* getSensitivityHistogram() const;
 	const ProjectionData* getDataInput() const;
 	void setDataInput(const ProjectionData* pp_dataInput);
 	void addTOF(float p_tofWidth_ps, int p_tofNumStd);
+	void setNumRays(int p_numRays);
 	void addProjPSF(const std::string& pr_projPsf_fname);
-	virtual void
-	    addImagePSF(const std::string& p_imagePsf_fname,
-	                ImagePSFMode p_imagePSFMode = ImagePSFMode::UNIFORM);
-	void setSaveIterRanges(util::RangeList p_saveIterList,
+	virtual void addImagePSF(const std::string& p_imagePsf_fname,
+	                         ImagePSFMode p_imagePSFMode) = 0;
+	void addImagePSF(const std::string& p_imagePsf_fname);
+	void setSaveIterRanges(const util::RangeList& p_saveIterList,
 	                       const std::string& p_saveIterPath);
 	void setListModeEnabled(bool enabled);
-	void setProjector(const std::string& projectorName);  // Helper
 	bool isListModeEnabled() const;
+	void setProjector(const std::string& projectorName);  // Helper
+	void setProjector(ProjectorType projectorType);
 	bool hasImagePSF() const;
-	void enableNeedToMakeCopyOfSensImage();
-	ImageParams getImageParams() const;
+	void enableNeedToMakeCopyOfSensImage();  // For Python
 	void setImageParams(const ImageParams& params);
+	ImageParams getImageParams() const;
+	ImageParams getImageParamsForSensitivityImage() const;
 	void setRandomsHistogram(const Histogram* pp_randoms);
 	void setScatterHistogram(const Histogram* pp_scatter);
 	void setAttenuationImage(const Image* pp_attenuationImage);
@@ -91,101 +93,91 @@ public:
 	void setHardwareACFHistogram(const Histogram* pp_hardwareAcf);
 	void setInVivoAttenuationImage(const Image* pp_inVivoAttenuationImage);
 	void setInVivoACFHistogram(const Histogram* pp_inVivoAcf);
-	virtual const Corrector& getCorrector() const = 0;
+	void setProjectorUpdaterType(  // Check with YD: Should this be accessible ?
+	    UpdaterType projectorUpdaterType);
+	void setInitialEstimate(const Image* p_initialEstimate);
+	void setMaskImage(const Image* p_maskImage);
 
-	// ---------- Public members ----------
+	// Public getters
+	const ProjectorParams& getProjectorParams() const;
+	UpdaterType getProjectorUpdaterType() const;
+
+	// Public members
 	int num_MLEM_iterations;
 	int num_OSEM_subsets;
 	float hardThreshold;
-	int numRays;  // For Siddon only
-	OperatorProjector::ProjectorType projectorType;
-	const Scanner& scanner;
-	const Image* maskImage;
-	const Image* initialEstimate;
-	ImagePSFMode m_imagePSFMode{ImagePSFMode::UNIFORM};
 
 protected:
-	enum class TemporaryImageSpaceBufferType
-	{
-		EM_RATIO,
-		PSF
-	};
-
-	// ---------- Internal Getters ----------
-	auto& getBinIterators() { return m_binIterators; }
-	const auto& getBinIterators() const { return m_binIterators; }
-
-	const Image* getSensitivityImage(int subsetId) const;
-	Image* getSensitivityImage(int subsetId);
-
-	// ---------- Protected members ----------
-	bool flagImagePSF;
-	std::string imagePsf_fname;
-	std::unique_ptr<Operator> imagePsf;
-	bool flagProjPSF;
-	std::string projPsf_fname;
-	bool flagProjTOF;
-	float tofWidth_ps;
-	int tofNumStd;
-	util::RangeList saveIterRanges;
-	std::string saveIterPath;
-	bool usingListModeInput;  // true => ListMode, false => Histogram
-	std::unique_ptr<OperatorProjectorBase> mp_projector;
-	bool needToMakeCopyOfSensImage;
-	ImageParams imageParams;
-	std::unique_ptr<ImageOwned> outImage;  // Note: This is a host image
-
-	std::vector<std::unique_ptr<BinIterator>> m_binIterators;
-	std::vector<std::unique_ptr<Constraint>> m_constraints;
-
-	// ---------- Virtual pure functions ----------
-
 	// Sens Image generator driver
-	virtual void setupOperatorsForSensImgGen(
-	    const OperatorProjectorParams& projParams) = 0;
+	// TODO NOW: Maybe rename this to setupProjectorFor... (same for recon)
+	virtual void setupProjectorForSensImgGen() = 0;
 	virtual void allocateForSensImgGen() = 0;
 	virtual std::unique_ptr<Image>
-	    getLatestSensitivityImage(bool isLastSubset) = 0;
-	virtual void computeSensitivityImage(ImageBase& destImage) = 0;
+	    generateSensitivityImageForCurrentSubset() = 0;
 	virtual void endSensImgGen() = 0;
 
 	// Reconstruction driver
-	virtual void
-	    setupOperatorsForRecon(const OperatorProjectorParams& projParams) = 0;
+	virtual void iterate();
+	virtual void saveForCurrentIteration();
+	virtual void setupForDynamicRecon();
+	virtual void setupProjectorForRecon() = 0;
 	virtual void allocateForRecon() = 0;
-	virtual void computeEMUpdateImage(const ImageBase& inputImage,
-	                                  ImageBase& destImage) = 0;
-	virtual void endRecon() = 0;
+	virtual void loadCurrentSubset(bool p_forRecon) = 0;
+	virtual void resetEMUpdateImage() = 0;
+	virtual void computeEMUpdateImage() = 0;
+	virtual void applyImageUpdate() = 0;
+	virtual void completeSubset() = 0;
 	virtual void completeMLEMIteration() = 0;
+	virtual void endRecon() = 0;
 
 	// Abstract Getters
 	virtual ImageBase* getSensImageBuffer() = 0;
 	virtual ImageBase* getMLEMImageBuffer() = 0;
-	virtual ImageBase*
-	    getImageTmpBuffer(TemporaryImageSpaceBufferType type) = 0;
-	virtual const ProjectionData* getMLEMDataBuffer() = 0;
-	virtual ProjectionData* getMLEMDataTmpBuffer() = 0;
+	virtual ImageBase* getEMUpdateImageBuffer() = 0;
 	virtual Corrector& getCorrector() = 0;
+	virtual const Corrector& getCorrector() const = 0;
 
-	// Common methods
-	virtual void loadSubset(int p_subsetId, bool p_forRecon) = 0;
+	// Internal Getters
+	const Image* getSensitivityImage(int subsetId) const;
+	Image* getSensitivityImage(int subsetId);
+	std::vector<Constraint*> getConstraintsAsVectorOfPointers() const;
+	int getCurrentOSEMSubset() const;
+	int getCurrentMLEMIteration() const;
+	const BinIterator* getBinIterator(int subsetId) const;
+
+	// Protected members
+	ProjectorParams projectorParams;
+	const Scanner& scanner;
+	bool flagImagePSF;
+	std::string imagePsf_fname;
+	std::unique_ptr<Operator> imagePsf;
+	util::RangeList saveIterRanges;
+	std::string saveIterPath;
+	bool usingListModeInput;  // true => ListMode, false => Histogram
+	bool needToMakeCopyOfSensImage;
+	ImagePSFMode m_imagePSFMode{ImagePSFMode::UNIFORM};
+	ImageParams imageParams;
+	const Image* maskImage;
+	const Image* initialEstimate;
+	std::unique_ptr<Image> outImage;  // Note: This is a host image
+	std::vector<std::unique_ptr<BinIterator>> m_binIterators;
+	std::vector<std::unique_ptr<Constraint>> m_constraints;
 
 private:
 	void loadSubsetInternal(int p_subsetId, bool p_forRecon);
 	void initializeForSensImgGen();
-	void generateSensitivityImageForLoadedSubset();
+	void initializeForRecon();
 	void generateSensitivityImagesCore(
 	    bool saveOnDisk, const std::string& out_fname, bool saveOnMemory,
 	    std::vector<std::unique_ptr<Image>>& sensImages);
-	void initializeForRecon();
+	void initializeBinIterators(const ProjectionData* targetProjData);
+	void initializeOutImageBuffer();
+	void initializeSensImageBuffer();
 	void collectConstraints();
 
+	int m_current_OSEM_subset;
+	int m_current_MLEM_iteration;
 	const ProjectionData* mp_dataInput;
-
-	// Histogram used to iterate on all bins for sensitivity image generation,
-	//  in case it's needed
-	std::unique_ptr<UniformHistogram> mp_uniformHistogram;
-
 	std::vector<Image*> m_sensitivityImages;
 	// In the specific case of ListMode reconstructions launched from Python
 	std::unique_ptr<ImageOwned> mp_copiedSensitivityImage;

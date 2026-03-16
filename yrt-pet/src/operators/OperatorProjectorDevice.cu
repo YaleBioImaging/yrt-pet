@@ -7,11 +7,18 @@
 
 #include "yrt-pet/datastruct/image/Image.hpp"
 #include "yrt-pet/datastruct/scanner/Scanner.hpp"
+#include "yrt-pet/operators/OperatorProjectorDD_GPU.cuh"
+#include "yrt-pet/operators/OperatorProjectorSiddon_GPU.cuh"
+#include "yrt-pet/operators/ProjectorUpdaterDevice.cuh"
 #include "yrt-pet/utils/GPUUtils.cuh"
 
 #if BUILD_PYBIND11
+#include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
+
 namespace py = pybind11;
+using namespace py::literals;
 
 namespace yrt
 {
@@ -19,6 +26,19 @@ void py_setup_operatorprojectordevice(py::module& m)
 {
 	auto c = py::class_<OperatorProjectorDevice, OperatorProjectorBase>(
 	    m, "OperatorProjectorDevice");
+
+	c.def_static(
+	    "create",
+	    [](const ProjectorParams& projParams, const BinIterator* binIter,
+	       const std::vector<Constraint*>& constaints, size_t memAvailable)
+	    {
+		    return OperatorProjectorDevice::create(projParams, binIter,
+		                                           constaints, nullptr, nullptr,
+		                                           memAvailable);
+	    },
+	    "proj_params"_a, "bin_iter"_a,
+	    "constraints"_a = std::vector<Constraint>(), "mem_available"_a = 0ull);
+
 	c.def(
 	    "applyA",
 	    [](OperatorProjectorDevice& self, const ImageDevice* img,
@@ -32,12 +52,12 @@ void py_setup_operatorprojectordevice(py::module& m)
 	c.def(
 	    "applyA",
 	    [](OperatorProjectorDevice& self, const ImageDevice* img,
-	       ProjectionDataDevice* proj) { self.applyA(img, proj); },
+	       ProjectionListDevice* proj) { self.applyA(img, proj); },
 	    py::arg("img"), py::arg("proj"));
 	c.def(
 	    "applyA",
 	    [](OperatorProjectorDevice& self, const Image* img,
-	       ProjectionDataDevice* proj) { self.applyA(img, proj); },
+	       ProjectionListDevice* proj) { self.applyA(img, proj); },
 	    py::arg("img"), py::arg("proj"));
 
 	c.def(
@@ -52,14 +72,186 @@ void py_setup_operatorprojectordevice(py::module& m)
 	    py::arg("proj"), py::arg("img"));
 	c.def(
 	    "applyAH",
-	    [](OperatorProjectorDevice& self, const ProjectionDataDevice* proj,
+	    [](OperatorProjectorDevice& self, const ProjectionListDevice* proj,
 	       Image* img) { self.applyAH(proj, img); },
 	    py::arg("proj"), py::arg("img"));
 	c.def(
 	    "applyAH",
-	    [](OperatorProjectorDevice& self, const ProjectionDataDevice* proj,
+	    [](OperatorProjectorDevice& self, const ProjectionListDevice* proj,
 	       ImageDevice* img) { self.applyAH(proj, img); },
 	    py::arg("proj"), py::arg("img"));
+
+	c.def("getProjectionPropertyTypes",
+	      &OperatorProjectorDevice::getProjectionPropertyTypes, "data_input"_a);
+
+	c.def("setUpdaterLRUpdateH",
+	      [](OperatorProjectorDevice& self, bool updateH)
+	      {
+		      auto* updater = self.getUpdaterDeviceWrapper();
+		      if (updater == nullptr)
+		      {
+			      throw std::bad_cast();
+		      }
+
+		      auto updaterType = updater->getUpdaterType();
+		      if (updaterType == UpdaterType::LR ||
+		          updaterType == UpdaterType::LRDUALUPDATE)
+		      {
+			      updater->setUpdateH(updateH);
+		      }
+		      else
+		      {
+			      throw std::logic_error(
+			          "Cannot set UpdateH on updaterType that is not LR");
+		      }
+	      });
+
+	c.def("getUpdaterLRUpdateH",
+	      [](OperatorProjectorDevice& self)
+	      {
+		      auto* updater = self.getUpdaterDeviceWrapper();
+		      if (updater == nullptr)
+		      {
+			      throw std::bad_cast();
+		      }
+		      auto updaterType = updater->getUpdaterType();
+		      if (updaterType == UpdaterType::LR ||
+		          updaterType == UpdaterType::LRDUALUPDATE)
+		      {
+			      return updater->getUpdateH();
+		      }
+		      throw std::logic_error(
+		          "Cannot get UpdateH on updaterType that is not LR");
+	      });
+
+
+	c.def(
+	    "setUpdaterLRHBasis",
+	    [](OperatorProjectorDevice& self, py::buffer& np_data)
+	    {
+		    py::buffer_info buffer = np_data.request();
+		    if (buffer.ndim != 2)
+		    {
+			    throw std::invalid_argument(
+			        "The buffer given has to have 2 dimensions");
+		    }
+		    if (buffer.format != py::format_descriptor<float>::format())
+		    {
+			    throw std::invalid_argument(
+			        "The buffer given has to have a float32 format");
+		    }
+
+		    auto* updater = self.getUpdaterDeviceWrapper();
+		    if (updater == nullptr)
+		    {
+			    throw std::bad_cast();
+		    }
+
+		    auto updaterType = updater->getUpdaterType();
+		    if (updaterType == UpdaterType::LR ||
+		        updaterType == UpdaterType::LRDUALUPDATE)
+		    {
+			    Array2DAlias<float> hBasis;
+			    hBasis.bind(reinterpret_cast<float*>(buffer.ptr),
+			                buffer.shape[0], buffer.shape[1]);
+			    updater->setHBasis(hBasis);
+		    }
+		    else
+		    {
+			    throw std::logic_error(
+			        "Cannot set HBasis on updaterType that is not LR");
+		    }
+	    },
+	    py::arg("np_data"));
+
+	c.def("getUpdaterLRHBasis",
+	      [](OperatorProjectorDevice& self)
+	      {
+		      auto* updater = self.getUpdaterDeviceWrapper();
+		      if (updater == nullptr)
+		      {
+			      throw std::bad_cast();
+		      }
+		      auto updaterType = updater->getUpdaterType();
+		      if (updaterType == UpdaterType::LR ||
+		          updaterType == UpdaterType::LRDUALUPDATE)
+		      {
+			      auto H = updater->getHBasis();
+			      auto dims = H.getDims();
+			      py::array_t<float> arr({dims[0], dims[1]});  // C-contiguous
+			      std::memcpy(arr.mutable_data(),  // copy all at once
+			                  H.getRawPointer(),
+			                  static_cast<size_t>(dims[0] * dims[1]) *
+			                      sizeof(float));
+			      return arr;  // copy
+		      }
+		      throw std::logic_error(
+		          "Cannot get HBasis on updaterType that is not LR");
+	      });
+
+	c.def(
+	    "setUpdaterLRHBasisWrite",
+	    [](OperatorProjectorDevice& self, py::buffer& np_data)
+	    {
+		    py::buffer_info buffer = np_data.request();
+		    if (buffer.ndim != 2)
+		    {
+			    throw std::invalid_argument(
+			        "The buffer given has to have 2 dimensions");
+		    }
+		    if (buffer.format != py::format_descriptor<float>::format())
+		    {
+			    throw std::invalid_argument(
+			        "The buffer given has to have a float32 format");
+		    }
+
+		    auto* updater = self.getUpdaterDeviceWrapper();
+		    if (updater == nullptr)
+		    {
+			    throw std::bad_cast();
+		    }
+
+		    auto updaterType = updater->getUpdaterType();
+		    if (updaterType == UpdaterType::LR ||
+		        updaterType == UpdaterType::LRDUALUPDATE)
+		    {
+			    Array2DAlias<float> hBasis;
+			    hBasis.bind(reinterpret_cast<float*>(buffer.ptr),
+			                buffer.shape[0], buffer.shape[1]);
+			    updater->setHBasisWrite(hBasis);
+		    }
+		    else
+		    {
+			    throw std::logic_error(
+			        "Cannot set HBasisWrite on updaterType that is not LR");
+		    }
+	    },
+	    py::arg("np_data"));
+
+	c.def("getUpdaterLRHBasisWrite",
+	      [](OperatorProjectorDevice& self)
+	      {
+		      auto* updater = self.getUpdaterDeviceWrapper();
+		      if (updater == nullptr)
+		      {
+			      throw std::bad_cast();
+		      }
+		      auto updaterType = updater->getUpdaterType();
+		      if (updaterType == UpdaterType::LR ||
+		          updaterType == UpdaterType::LRDUALUPDATE)
+		      {
+			      auto H = updater->getHBasisWrite();
+			      auto dims = H.getDims();
+			      py::array_t<float> arr({dims[0], dims[1]});  // C-contiguous
+			      std::memcpy(arr.mutable_data(),  // copy all at once
+			                  H.getRawPointer(),
+			                  static_cast<size_t>(dims[0] * dims[1]) *
+			                      sizeof(float));
+			      return arr;  // copy
+		      }
+		      throw std::logic_error(
+		          "Cannot get HBasisWrite on updaterType that is not LR");
+	      });
 }
 }  // namespace yrt
 
@@ -67,21 +259,26 @@ void py_setup_operatorprojectordevice(py::module& m)
 
 namespace yrt
 {
+
 OperatorProjectorDevice::OperatorProjectorDevice(
-    const OperatorProjectorParams& pr_projParams,
+    const ProjectorParams& pr_projParams, const BinIterator* pp_binIter,
     const std::vector<Constraint*>& pr_constraints,
     const cudaStream_t* pp_mainStream, const cudaStream_t* pp_auxStream,
-    const size_t p_memAvailBytes)
-    : OperatorProjectorBase{pr_projParams, pr_constraints},
-      DeviceSynchronized{pp_mainStream, pp_auxStream},
-      m_memAvailBytes(
-          p_memAvailBytes == 0 ?
+    size_t p_memAvailable_bytes)
+    : OperatorProjectorBase(pr_projParams, pp_binIter),
+      DeviceSynchronized(pp_mainStream, pp_auxStream),
+      m_batchSize(0ull),
+      m_memAvailable_bytes(
+          p_memAvailable_bytes == 0 ?
               static_cast<size_t>(
-                  static_cast<float>(globals::getDeviceInfo(false)) *
+                  static_cast<float>(globals::getAvailableVRAM(false)) *
                   DefaultMemoryShare) :
-              p_memAvailBytes),
-      m_batchSize(0ull)
+              p_memAvailable_bytes),
+      m_constraints(pr_constraints)
 {
+	mp_projector = Projector::create(pr_projParams);
+
+	// Create device-side objects to use within GPU kernels
 	if (pr_projParams.hasTOF())
 	{
 		setupTOFHelper(pr_projParams.getTOFWidth_ps(),
@@ -91,18 +288,113 @@ OperatorProjectorDevice::OperatorProjectorDevice(
 	{
 		setupProjPsfManager(pr_projParams.projPsf_fname);
 	}
+	setupUpdater(pr_projParams);
 }
 
-void OperatorProjectorDevice::initBinFilter(
-    const std::set<ProjectionPropertyType>& projPropertyTypesExtra,
-    const int numThreads)
+std::unique_ptr<OperatorProjectorDevice> OperatorProjectorDevice::create(
+    const ProjectorParams& pr_projParams, const BinIterator* pp_binIter,
+    const std::vector<Constraint*>& pr_constraints,
+    const cudaStream_t* pp_mainStream, const cudaStream_t* pp_auxStream,
+    size_t p_memAvailable_bytes)
 {
-	OperatorProjectorBase::initBinFilter(projPropertyTypesExtra, numThreads);
-	std::set<ProjectionPropertyType> projPropertyTypes =
-	    mp_binFilter->getProjPropertyTypes();
-	mp_projPropManager =
-	    std::make_unique<DeviceObject<ProjectionPropertyManager>>(
-	        projPropertyTypes);
+	if (pr_projParams.projectorType == ProjectorType::SIDDON)
+	{
+		return std::make_unique<OperatorProjectorSiddon_GPU>(
+		    pr_projParams, pp_binIter, pr_constraints, pp_mainStream,
+		    pp_auxStream, p_memAvailable_bytes);
+	}
+	if (pr_projParams.projectorType == ProjectorType::DD)
+	{
+		return std::make_unique<OperatorProjectorDD_GPU>(
+		    pr_projParams, pp_binIter, pr_constraints, pp_mainStream,
+		    pp_auxStream, p_memAvailable_bytes);
+	}
+	throw std::runtime_error("Unsupported projector type");
+}
+
+size_t OperatorProjectorDevice::getBatchSize() const
+{
+	return m_batchSize;
+}
+
+void OperatorProjectorDevice::setupProjPsfManager(
+    const std::string& psfFilename)
+{
+	mp_projPsfManager =
+	    std::make_unique<ProjectionPsfManagerDevice>(psfFilename);
+	ASSERT_MSG(mp_projPsfManager != nullptr,
+	           "Error occured during the setup of ProjectionPsfManagerDevice");
+}
+
+std::set<ProjectionPropertyType>
+    OperatorProjectorDevice::getProjectionPropertyTypes(
+        const ProjectionData* dataInput) const
+{
+	auto projProperties = mp_projector->getProjectionPropertyTypes();
+
+	if (dataInput->hasDynamicFraming())
+	{
+		projProperties.insert(ProjectionPropertyType::DYNAMIC_FRAME);
+	}
+
+	return projProperties;
+}
+
+unsigned int OperatorProjectorDevice::getGridSize() const
+{
+	return m_launchParams.gridSize;
+}
+
+unsigned int OperatorProjectorDevice::getBlockSize() const
+{
+	return m_launchParams.blockSize;
+}
+
+void OperatorProjectorDevice::setupTOFHelper(float tofWidth_ps, int tofNumStd)
+{
+	mp_tofHelper =
+	    std::make_unique<DeviceSynchronizedObject<TimeOfFlightHelper>>(
+	        tofWidth_ps, tofNumStd);
+}
+
+UpdaterPointer OperatorProjectorDevice::getUpdaterDevicePointer()
+{
+	return m_updaterContainer.getUpdaterDevicePointer();
+}
+
+void OperatorProjectorDevice::setupUpdater(const ProjectorParams& pr_projParams)
+{
+	if (pr_projParams.updaterType == UpdaterType::LR)
+	{
+		if (pr_projParams.HBasis.getSizeTotal() == 0)
+		{
+			throw std::invalid_argument(
+			    "LR updater was requested but HBasis is empty");
+		}
+
+		m_updaterContainer.initUpdater(pr_projParams.updaterType,
+		                               pr_projParams.HBasis,
+		                               pr_projParams.updateH);
+	}
+	else if (pr_projParams.updaterType == UpdaterType::LRDUALUPDATE)
+	{
+		if (pr_projParams.HBasis.getSizeTotal() == 0)
+		{
+			throw std::invalid_argument(
+			    "LRDUALUPDATE updater was requested but HBasis is empty");
+		}
+		throw std::invalid_argument("LRDUALUPDATE is unimplemented in GPU");
+	}
+	else
+	{
+		// DEFAULT4D is the equivalent of using no updater. Leave it to nullptr
+	}
+}
+
+ProjectorUpdaterDeviceWrapper*
+    OperatorProjectorDevice::getUpdaterDeviceWrapper()
+{
+	return &m_updaterContainer;
 }
 
 void OperatorProjectorDevice::applyA(const Variable* in, Variable* out)
@@ -119,7 +411,7 @@ void OperatorProjectorDevice::applyA(const Variable* in, Variable* out,
                                      bool synchronize)
 {
 	auto* img_in_const = dynamic_cast<const ImageDevice*>(in);
-	auto* dat_out = dynamic_cast<ProjectionDataDevice*>(out);
+	auto* dat_out = dynamic_cast<ProjectionListDevice*>(out);
 
 	// In case the user provided a host-side image
 	std::unique_ptr<ImageDeviceOwned> deviceImg_out = nullptr;
@@ -147,24 +439,23 @@ void OperatorProjectorDevice::applyA(const Variable* in, Variable* out,
 
 	// In case the user provided a Host-side ProjectionData
 	bool isProjDataDeviceOwned = false;
-	std::unique_ptr<ProjectionDataDeviceOwned> deviceDat_out = nullptr;
+	std::unique_ptr<ProjectionListDeviceOwned> deviceDat_out = nullptr;
 	ProjectionData* hostDat_out = nullptr;
 	if (dat_out == nullptr)
 	{
 		hostDat_out = dynamic_cast<ProjectionData*>(out);
 		ASSERT_MSG(hostDat_out != nullptr,
-		           "The Projection Data provded is not a ProjectionDataDevice "
+		           "The Projection Data provded is not a ProjectionListDevice "
 		           "nor a ProjectionData (host)");
 		ASSERT_MSG(binIter != nullptr, "BinIterator undefined");
 
 		std::vector<const BinIterator*> binIterators;
 		binIterators.push_back(binIter);  // We project only one subset
-		deviceDat_out = std::make_unique<ProjectionDataDeviceOwned>(
-		    getScanner(), hostDat_out, binIterators,
-		    mp_binFilter->getPropertyManager().getElementSize(),
-		    m_memAvailBytes);
+		deviceDat_out = std::make_unique<ProjectionListDeviceOwned>(
+		    getScanner(), hostDat_out, binIterators, m_constraints,
+		    getProjectionPropertyTypes(hostDat_out), m_memAvailable_bytes);
 
-		// Use owned ProjectionDataDevice
+		// Use owned ProjectionListDevice
 		dat_out = deviceDat_out.get();
 		isProjDataDeviceOwned = true;
 	}
@@ -185,8 +476,8 @@ void OperatorProjectorDevice::applyA(const Variable* in, Variable* out,
 		const size_t numBatches = dat_out->getBatchSetup(0).getNumBatches();
 
 		std::cout << "Loading batch 1/" << numBatches << "..." << std::endl;
-		dat_out->precomputeBatchLORs(0, 0, *mp_binFilter.get());
-		deviceDat_out->allocateForProjValues({getMainStream(), false});
+		dat_out->precomputeBatchLORs(0, 0);
+		deviceDat_out->allocateForProjValuesIfNeeded({getMainStream(), false});
 
 		for (size_t batchId = 0; batchId < numBatches; batchId++)
 		{
@@ -195,6 +486,7 @@ void OperatorProjectorDevice::applyA(const Variable* in, Variable* out,
 			std::cout << "Forward projecting batch " << batchId + 1 << "/"
 			          << numBatches << "..." << std::endl;
 			dat_out->clearProjectionsDevice({getMainStream(), false});
+
 			applyAOnLoadedBatch(*img_in, *dat_out, false);
 
 			// If a future batch is due
@@ -202,8 +494,7 @@ void OperatorProjectorDevice::applyA(const Variable* in, Variable* out,
 			{
 				std::cout << "Loading batch " << batchId + 2 << "/"
 				          << numBatches << "..." << std::endl;
-				dat_out->precomputeBatchLORs(0, batchId + 1,
-				                             *mp_binFilter.get());
+				dat_out->precomputeBatchLORs(0, batchId + 1);
 			}
 			std::cout << "Transferring batch to Host..." << std::endl;
 			// This will force a necessary synchronization
@@ -215,7 +506,7 @@ void OperatorProjectorDevice::applyA(const Variable* in, Variable* out,
 void OperatorProjectorDevice::applyAH(const Variable* in, Variable* out,
                                       bool synchronize)
 {
-	auto* dat_in_const = dynamic_cast<const ProjectionDataDevice*>(in);
+	auto* dat_in_const = dynamic_cast<const ProjectionListDevice*>(in);
 	auto* img_out = dynamic_cast<ImageDevice*>(out);
 
 	bool isImageDeviceOwned = false;
@@ -240,35 +531,34 @@ void OperatorProjectorDevice::applyAH(const Variable* in, Variable* out,
 		isImageDeviceOwned = true;
 	}
 
-	ProjectionDataDevice* dat_in = nullptr;
+	ProjectionListDevice* dat_in = nullptr;
 	bool isProjDataDeviceOwned = false;
 
 	// In case the user provided a Host-side ProjectionData
-	std::unique_ptr<ProjectionDataDeviceOwned> deviceDat_in = nullptr;
+	std::unique_ptr<ProjectionListDeviceOwned> deviceDat_in = nullptr;
 	if (dat_in_const == nullptr)
 	{
 		auto* hostDat_in = dynamic_cast<const ProjectionData*>(in);
 		ASSERT_MSG(hostDat_in != nullptr,
-		           "The Projection Data provded is not a ProjectionDataDevice "
+		           "The Projection Data provded is not a ProjectionListDevice "
 		           "nor a ProjectionData (host)");
 		ASSERT_MSG(binIter != nullptr, "BinIterator undefined");
 
 		std::vector<const BinIterator*> binIterators;
 		binIterators.push_back(binIter);  // We project only one subset
-		deviceDat_in = std::make_unique<ProjectionDataDeviceOwned>(
-		    getScanner(), hostDat_in, binIterators,
-		    mp_binFilter->getPropertyManager().getElementSize(),
-		    m_memAvailBytes);
+		deviceDat_in = std::make_unique<ProjectionListDeviceOwned>(
+		    getScanner(), hostDat_in, binIterators, m_constraints,
+		    getProjectionPropertyTypes(hostDat_in), m_memAvailable_bytes);
 
-		// Use owned ProjectionDataDevice
+		// Use owned ProjectionListDevice
 		dat_in = deviceDat_in.get();
 		isProjDataDeviceOwned = true;
 	}
 	else
 	{
-		dat_in = const_cast<ProjectionDataDevice*>(dat_in_const);
+		dat_in = const_cast<ProjectionListDevice*>(dat_in_const);
 		ASSERT_MSG(dat_in != nullptr,
-		           "ProjectionDataDevice is null. Cast failed");
+		           "ProjectionListDevice is null. Cast failed");
 	}
 
 	if (!isProjDataDeviceOwned)
@@ -280,10 +570,9 @@ void OperatorProjectorDevice::applyAH(const Variable* in, Variable* out,
 		// Iterate over all the batches of the current subset
 		const size_t numBatches = dat_in->getBatchSetup(0).getNumBatches();
 		const cudaStream_t* mainStream = getMainStream();
-
 		std::cout << "Loading batch 1/" << numBatches << "..." << std::endl;
-		dat_in->precomputeBatchLORs(0, 0, *mp_binFilter.get());
-		deviceDat_in->allocateForProjValues({mainStream, false});
+		dat_in->precomputeBatchLORs(0, 0);
+		deviceDat_in->allocateForProjValuesIfNeeded({mainStream, false});
 
 		for (size_t batchId = 0; batchId < numBatches; batchId++)
 		{
@@ -308,8 +597,7 @@ void OperatorProjectorDevice::applyAH(const Variable* in, Variable* out,
 			{
 				std::cout << "Loading batch " << batchId + 2 << "/"
 				          << numBatches << "..." << std::endl;
-				dat_in->precomputeBatchLORs(0, batchId + 1,
-				                            *mp_binFilter.get());
+				dat_in->precomputeBatchLORs(0, batchId + 1);
 			}
 		}
 
@@ -322,6 +610,7 @@ void OperatorProjectorDevice::applyAH(const Variable* in, Variable* out,
 		{
 			cudaDeviceSynchronize();
 		}
+		ASSERT(cudaCheckError());
 	}
 
 	if (isImageDeviceOwned)
@@ -331,40 +620,10 @@ void OperatorProjectorDevice::applyAH(const Variable* in, Variable* out,
 	}
 }
 
-unsigned int OperatorProjectorDevice::getGridSize() const
-{
-	return m_launchParams.gridSize;
-}
-
-unsigned int OperatorProjectorDevice::getBlockSize() const
-{
-	return m_launchParams.blockSize;
-}
-
 void OperatorProjectorDevice::setBatchSize(size_t newBatchSize)
 {
 	m_batchSize = newBatchSize;
 	m_launchParams = util::initiateDeviceParameters(m_batchSize);
-}
-
-size_t OperatorProjectorDevice::getBatchSize() const
-{
-	return m_batchSize;
-}
-
-void OperatorProjectorDevice::setupProjPsfManager(
-    const std::string& psfFilename)
-{
-	mp_projPsfManager =
-	    std::make_unique<ProjectionPsfManagerDevice>(psfFilename);
-	ASSERT_MSG(mp_projPsfManager != nullptr,
-	           "Error occured during the setup of ProjectionPsfManagerDevice");
-}
-
-void OperatorProjectorDevice::setupTOFHelper(float tofWidth_ps, int tofNumStd)
-{
-	mp_tofHelper = std::make_unique<DeviceObject<TimeOfFlightHelper>>(
-	    tofWidth_ps, tofNumStd);
 }
 
 const TimeOfFlightHelper*
@@ -373,16 +632,6 @@ const TimeOfFlightHelper*
 	if (mp_tofHelper != nullptr)
 	{
 		return mp_tofHelper->getDevicePointer();
-	}
-	return nullptr;
-}
-
-const ProjectionPropertyManager*
-    OperatorProjectorDevice::getProjPropManagerDevicePointer() const
-{
-	if (mp_projPropManager != nullptr)
-	{
-		return mp_projPropManager->getDevicePointer();
 	}
 	return nullptr;
 }
@@ -400,4 +649,6 @@ const float*
 	}
 	return nullptr;
 }
+
+
 }  // namespace yrt

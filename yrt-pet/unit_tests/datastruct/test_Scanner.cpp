@@ -14,11 +14,11 @@
 
 TEST_CASE("scanner", "[createLUT]")
 {
-	auto scanner = yrt::util::test::makeScanner();
+	auto scanner = yrt::util::test::makeFakeScanner();
 
 	auto histo3d = std::make_unique<yrt::Histogram3DOwned>(*scanner);
 
-	yrt::Array2D<float> lut;
+	yrt::Array2DOwned<float> lut;
 	scanner->createLUT(lut);
 
 	SECTION("lut-size")

@@ -14,8 +14,9 @@ void assertion_failed(char const* expr, char const* function, char const* file,
                       long line, bool critical)
 {
 	std::string fullErrorMessage;
-	fullErrorMessage += "Assertion failed: (" + std::string{expr} + ") in " +
-	                    file + ":" + std::to_string(line) + ": " + function;
+	fullErrorMessage += "\nAssertion failed: (" + std::string{expr} + ") in " +
+	                    file + ":" + std::to_string(line) + ": " + function +
+	                    "\n";
 
 	if (critical)
 	{
@@ -43,7 +44,7 @@ void assertion_failed_msg(char const* expr, char const* msg,
 
 	fullErrorMessage += "\n\nDetails: assertion failed: (" + std::string{expr} +
 	                    ") in " + file + ":" + std::to_string(line) + ": " +
-	                    function;
+	                    function + "\n";
 
 	if (critical)
 	{

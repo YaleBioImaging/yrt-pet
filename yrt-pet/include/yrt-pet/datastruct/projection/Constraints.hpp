@@ -13,18 +13,19 @@ namespace yrt
 
 class Scanner;
 
-using ConstraintParams = char*;
-using ConstraintManager = PropStructManager<ConstraintVariable>;
+using ConstraintManager = PropStructManager<ConstraintVariableType>;
 
 class Constraint
 {
 public:
 	bool isValid(const ConstraintManager& manager,
-	             ConstraintParams& info, size_t pos) const;
-	virtual std::vector<ConstraintVariable> getVariables() const = 0;
+	             const PropertyUnit* info, size_t pos) const;
+	virtual std::vector<ConstraintVariableType> getVariables() const = 0;
 	virtual ~Constraint() = default;
+
 protected:
-	std::function<bool(const ConstraintManager&, ConstraintParams&, size_t)>
+	std::function<bool(const ConstraintManager&, const PropertyUnit*,
+	                   size_t)>
 	    m_constraintFcn;
 };
 
@@ -32,25 +33,25 @@ class ConstraintAngleDiffIndex : public Constraint
 {
 public:
 	ConstraintAngleDiffIndex(int p_minAngleDiffIdx);
-	std::vector<ConstraintVariable> getVariables() const override;
+	std::vector<ConstraintVariableType> getVariables() const override;
 };
 class ConstraintAngleDiffDeg : public Constraint
 {
 public:
 	ConstraintAngleDiffDeg(float p_minAngleDiffDeg);
-	std::vector<ConstraintVariable> getVariables() const override;
+	std::vector<ConstraintVariableType> getVariables() const override;
 };
 class ConstraintBlockDiffIndex : public Constraint
 {
 public:
 	ConstraintBlockDiffIndex(int p_minBlockDiffIdx);
-	std::vector<ConstraintVariable> getVariables() const override;
+	std::vector<ConstraintVariableType> getVariables() const override;
 };
 class ConstraintDetectorMask : public Constraint
 {
 public:
 	ConstraintDetectorMask(const Scanner* scanner);
-	std::vector<ConstraintVariable> getVariables() const override;
+	std::vector<ConstraintVariableType> getVariables() const override;
 };
 
 }  // namespace yrt

@@ -3,17 +3,22 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
+#include "yrt-pet/operators/OperatorProjectorDD_GPU.cuh"
+#include "yrt-pet/operators/OperatorProjectorSiddon_GPU.cuh"
 #include "yrt-pet/utils/ReconstructionUtilsDevice.cuh"
 
 #include "yrt-pet/datastruct/image/ImageDevice.cuh"
 #include "yrt-pet/datastruct/image/ImageSpaceKernels.cuh"
 #include "yrt-pet/geometry/TransformUtils.hpp"
 #include "yrt-pet/operators/DeviceSynchronized.cuh"
+#include "yrt-pet/recon/LREM_GPU.cuh"
+#include "yrt-pet/recon/OSEM_GPU.cuh"
 #include "yrt-pet/utils/DeviceArray.cuh"
 #include "yrt-pet/utils/ReconstructionUtils.hpp"
 
 #if BUILD_PYBIND11
 #include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
 
 namespace py = pybind11;
 using namespace pybind11::literals;
@@ -41,6 +46,16 @@ void py_setup_reconstructionutilsdevice(pybind11::module& m)
 	    },
 	    "lorMotion"_a, "unmovedSensImage"_a, "timeStart"_a, "timeStop"_a,
 	    "Blur a given image based on given motion information using the GPU");
+	m.def(
+	    "createOperatorProjectorDevice",
+	    [](const ProjectorParams& projParams, const BinIterator& binIter,
+	       const std::vector<Constraint*>& constraints)
+	    {
+		    return util::createOperatorProjectorDevice(
+		        projParams, binIter, constraints, nullptr, nullptr);
+	    },
+	    "proj_params"_a, "bin_iter"_a,
+	    "constraints"_a = std::vector<Constraint*>());
 }
 }  // namespace yrt
 #endif
@@ -83,10 +98,8 @@ std::unique_ptr<ImageDevice> timeAverageMoveImageDevice(
 		    dynamic_cast<const Image*>(unmovedImage);
 		ASSERT_MSG(unmovedImageHost_ptr != nullptr, "Unknown image type");
 
-		unmovedImageDevice = std::make_unique<ImageDeviceOwned>(
-		    unmovedImageHost_ptr->getParams());
-		unmovedImageDevice->allocate();
-		unmovedImageDevice->copyFromHostImage(unmovedImageHost_ptr, true);
+		unmovedImageDevice =
+		    std::make_unique<ImageDeviceOwned>(unmovedImageHost_ptr);
 
 		unmovedImageDevice_ptr = unmovedImageDevice.get();
 	}
@@ -162,35 +175,73 @@ std::unique_ptr<ImageDevice> timeAverageMoveImageDevice(
 		    <<<launchParams.gridSize, launchParams.blockSize, 0,
 		       *launchConfig.stream>>>(
 		        unmovedImageDevice_ptr->getDevicePointer(),
-		        outImage->getDevicePointer(), params.nx, params.ny, params.nz,
+		        outImage->getDevicePointer(), 0, params.nx, params.ny, params.nz,
 		        params.length_x, params.length_y, params.length_z, params.off_x,
 		        params.off_y, params.off_z, transformsDevice.getDevicePointer(),
 		        weightsDevice.getDevicePointer(), numFramesUsed);
-
-		if (launchConfig.synchronize)
-		{
-			cudaStreamSynchronize(*launchConfig.stream);
-		}
 	}
 	else
 	{
 		timeAverageMoveImage_kernel<true>
 		    <<<launchParams.gridSize, launchParams.blockSize>>>(
 		        unmovedImageDevice_ptr->getDevicePointer(),
-		        outImage->getDevicePointer(), params.nx, params.ny, params.nz,
+		        outImage->getDevicePointer(), 0, params.nx, params.ny, params.nz,
 		        params.length_x, params.length_y, params.length_z, params.off_x,
 		        params.off_y, params.off_z, transformsDevice.getDevicePointer(),
 		        weightsDevice.getDevicePointer(), numFramesUsed);
-
-		if (launchConfig.synchronize)
-		{
-			cudaDeviceSynchronize();
-		}
 	}
+	synchronizeIfNeeded(launchConfig);
 	ASSERT(cudaCheckError());
 
 
 	return outImage;
+}
+
+std::unique_ptr<OSEM> createOSEM_GPU(const Scanner& scanner, bool isLowRank)
+{
+	std::unique_ptr<OSEM> osem;
+	if (!isLowRank)
+	{
+		osem = std::make_unique<OSEM_GPU>(scanner);
+	}
+	else
+	{
+		osem = std::make_unique<LREM_GPU>(scanner);
+	}
+	return osem;
+}
+
+std::unique_ptr<OperatorProjectorBase> createOperatorProjectorDevice(
+    const ProjectorParams& projParams, const BinIterator& binIter,
+    const std::vector<Constraint*>& constraintsPtr,
+    const cudaStream_t* mainStream, const cudaStream_t* auxStream)
+{
+	const ProjectorType projType = projParams.projectorType;
+	if (projType == ProjectorType::SIDDON)
+	{
+#ifdef BUILD_CUDA
+		return std::make_unique<OperatorProjectorSiddon_GPU>(
+		    projParams, &binIter, constraintsPtr, mainStream, auxStream);
+#else
+		throw std::runtime_error("Siddon GPU projector not supported because "
+		                         "project was not compiled with CUDA");
+#endif
+	}
+	else if (projType == ProjectorType::DD)
+	{
+#ifdef BUILD_CUDA
+		return std::make_unique<OperatorProjectorDD_GPU>(
+		    projParams, &binIter, constraintsPtr, mainStream, auxStream);
+#else
+		throw std::runtime_error(
+		    "Distance-driven GPU projector not supported because "
+		    "project was not compiled with CUDA");
+#endif
+	}
+	else
+	{
+		throw std::runtime_error("Unknown error");
+	}
 }
 
 }  // namespace yrt::util

@@ -29,8 +29,8 @@ def parse_header(fname):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description='Converts a CASToR ListMode file (uint32-uint32-uint32) ' +
-        'to a YRT-PET ListMode file (float32-uint32-uint32)')
+        description='Converts a CASToR ListMode file ' +
+        'to a YRT-PET ListMode file')
     parser.add_argument('-i', '--input', dest='input_file', type=str,
                         required=True, nargs='+',
                         help='Input list-mode filename for Castor (.Cdh)')

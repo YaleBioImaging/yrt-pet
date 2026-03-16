@@ -168,7 +168,7 @@ std::unique_ptr<ImageOwned>
 
 	auto image = std::make_unique<ImageOwned>(params);
 	image->allocate();
-	image->setValue(0.0f);
+	image->fill(0.0f);
 
 	bool mustTryAgain = false;
 
@@ -222,14 +222,19 @@ std::unique_ptr<ImageOwned>
 	return image;
 }
 
-std::unique_ptr<yrt::Scanner> makeScanner()
+std::unique_ptr<Scanner> makeFakeScanner(float axialFOV, float crystalSize_z,
+                                         float crystalSize_trans,
+                                         float crystalDepth,
+                                         float scannerRadius,
+                                         size_t detsPerRing, size_t numRings,
+                                         size_t numDOI, size_t maxRingDiff,
+                                         size_t minAngDiff, size_t detsPerBlock)
 {
 	// Fake small scanner
-	auto scanner = std::make_unique<Scanner>("FakeScanner", 200, 1, 1, 10, 200,
-	                                         48, 12, 2, 8, 6, 4);
-	const auto detRegular = std::make_shared<DetRegular>(scanner.get());
-	detRegular->generateLUT();
-	scanner->setDetectorSetup(detRegular);
+	auto scanner = std::make_unique<Scanner>(
+	    "FakeScanner", axialFOV, crystalSize_z, crystalSize_trans, crystalDepth,
+	    scannerRadius, detsPerRing, numRings, numDOI, maxRingDiff, minAngDiff,
+	    detsPerBlock);
 
 	// Sanity check
 	if (!scanner->isValid())

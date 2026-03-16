@@ -34,10 +34,17 @@ def get_plugin_executables_folder():
     fold_plugins = os.path.join(os.path.dirname(__file__), '../plugins')
     return fold_plugins
 
+def get_plugin_executables_folder():
+    fold_plugins = os.path.join(os.path.dirname(__file__), '../plugins')
+    return fold_plugins
+
+
 # %% Helper test functions
 def _test_subsets(scanner: yrt.Scanner, img_params: yrt.ImageParams,
-                  projData: yrt.ProjectionData, **args):
-    k = yrt.ProjectionOper(scanner, img_params, projData, **args)
+                  projData: yrt.ProjectionData, projector: str, use_gpu: bool,
+                  **args):
+    k = yrt.ProjectionOper(scanner, img_params, projData, projector=projector,
+                           use_gpu=use_gpu, **args)
 
     x = np.random.random([img_params.nz, img_params.ny, img_params.nx])
     y = np.random.random(projData.count())
@@ -50,7 +57,10 @@ def _test_subsets(scanner: yrt.Scanner, img_params: yrt.ImageParams,
         k_sub = yrt.ProjectionOper(
             scanner,
             img_params, projData,
-            idx_subset=subset, num_subsets=num_subsets,
+            idx_subset=subset,
+            num_subsets=num_subsets,
+            projector=projector,
+            use_gpu=use_gpu,
             **args)
         Ax_s = k_sub.A(x)
         Ax_sub += Ax_s
@@ -64,11 +74,12 @@ def _test_subsets(scanner: yrt.Scanner, img_params: yrt.ImageParams,
 
 
 def _test_adjoint(scanner: yrt.Scanner, img_params: yrt.ImageParams,
-                  projData: yrt.ProjectionData, **args):
-    k = yrt.ProjectionOper(scanner, img_params, projData, **args)
+                  proj_data: yrt.ProjectionData, use_gpu=False, **args):
+    k = yrt.ProjectionOper(scanner, img_params, proj_data, use_gpu=use_gpu,
+                           **args)
 
     x = np.random.random([img_params.nz, img_params.ny, img_params.nx])
-    y = np.random.random(projData.count())
+    y = np.random.random(proj_data.count())
 
     Ax = k.A(x)
     ATy = k.At(y)
@@ -106,8 +117,8 @@ def get_test_summary(x0, x1):
     x0_mean = np.mean(x0)
     x0_median = np.median(x0)
 
-    rmse = np.sqrt(np.mean((x0 - x1)**2))
-    nrmse = rmse / np.sqrt(np.mean(x0**2))
+    rmse = np.sqrt(np.mean((x0 - x1) ** 2))
+    nrmse = rmse / np.sqrt(np.mean(x0 ** 2))
     linf = np.max(np.abs(x0 - x1))
     npix_diff = np.size(np.nonzero(x0 != x1)[0])
     return {'x0_max': x0_max,
@@ -128,12 +139,12 @@ def get_linf(x0, x1):
 
 
 def get_rmse(x0, x1):
-    return np.sqrt(np.mean((x0 - x1)**2))
+    return np.sqrt(np.mean((x0 - x1) ** 2))
 
 
 def get_nrmse(x0, x1):
     rmse = get_rmse(x0, x1)
-    return rmse / np.sqrt(np.mean(x0**2))
+    return rmse / np.sqrt(np.mean(x0 ** 2))
 
 
 # %% Datasets

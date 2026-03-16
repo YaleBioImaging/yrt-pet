@@ -18,7 +18,12 @@ class ProjectionList;
 namespace util::test
 {
 
-std::unique_ptr<Scanner> makeScanner();
+std::unique_ptr<Scanner>
+    makeFakeScanner(float axialFOV = 200.0f, float crystalSize_z = 1.0f,
+                float crystalSize_trans = 1.0f, float crystalDepth = 10.0f,
+                float scannerRadius = 200.0f, size_t detsPerRing = 48,
+                size_t numRings = 12, size_t numDOI = 2, size_t maxRingDiff = 8,
+                size_t minAngDiff = 6, size_t detsPerBlock = 4);
 double getRMSE(const Image& imgRef, const Image& img);
 double getRMSE(const ProjectionList& projListRef,
                const ProjectionList& projList);

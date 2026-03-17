@@ -3,14 +3,16 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "yrt-pet/operators/OperatorProjectorDD_GPU.cuh"
-#include "yrt-pet/operators/OperatorProjectorSiddon_GPU.cuh"
 #include "yrt-pet/utils/ReconstructionUtilsDevice.cuh"
 
 #include "yrt-pet/datastruct/image/ImageDevice.cuh"
 #include "yrt-pet/datastruct/image/ImageSpaceKernels.cuh"
+#include "yrt-pet/datastruct/projection/DynamicFraming.hpp"
+#include "yrt-pet/datastruct/projection/LORMotion.hpp"
 #include "yrt-pet/geometry/TransformUtils.hpp"
 #include "yrt-pet/operators/DeviceSynchronized.cuh"
+#include "yrt-pet/operators/OperatorProjectorDD_GPU.cuh"
+#include "yrt-pet/operators/OperatorProjectorSiddon_GPU.cuh"
 #include "yrt-pet/recon/LREM_GPU.cuh"
 #include "yrt-pet/recon/OSEM_GPU.cuh"
 #include "yrt-pet/utils/DeviceArray.cuh"
@@ -73,15 +75,45 @@ std::unique_ptr<ImageDevice>
 	                                  timeStop, launchConfig);
 }
 
+void timeAverageMoveImageDevice(const LORMotion& lorMotion,
+                                const ImageBase* unmovedImage,
+                                ImageDevice* outImage, frame_t outDynamicFrame,
+                                GPULaunchConfig launchConfig)
+{
+	auto [timeStart, timeStop] = getFullTimeRange(lorMotion);
+	timeAverageMoveImageDevice(lorMotion, unmovedImage, outImage, timeStart,
+	                           timeStop, outDynamicFrame, launchConfig);
+}
+
 std::unique_ptr<ImageDevice> timeAverageMoveImageDevice(
     const LORMotion& lorMotion, const ImageBase* unmovedImage,
     timestamp_t timeStart, timestamp_t timeStop, GPULaunchConfig launchConfig)
 {
+	const ImageParams& params = unmovedImage->getParams();
+
+	// Prepare output image
+	auto outImage = std::make_unique<ImageDeviceOwned>(params);
+	outImage->allocate(true, true);
+
+	timeAverageMoveImageDevice(lorMotion, unmovedImage, outImage.get(),
+	                           timeStart, timeStop, 0, launchConfig);
+
+	return outImage;
+}
+
+void timeAverageMoveImageDevice(const LORMotion& lorMotion,
+                                const ImageBase* unmovedImage,
+                                ImageDevice* outImage, timestamp_t timeStart,
+                                timestamp_t timeStop, frame_t outDynamicFrame,
+                                GPULaunchConfig launchConfig)
+{
 	ASSERT_MSG(unmovedImage != nullptr, "Input image is null");
+	ASSERT_MSG(outImage != nullptr, "Output image is null");
+	ASSERT_MSG(outImage->isMemoryValid(), "Output image is not allocated");
 	ASSERT_MSG(timeStop > timeStart,
 	           "Time stop must be greater than time start");
 
-	const int64_t numFrames = lorMotion.getNumFrames();
+	const int64_t numMotionFrames = lorMotion.getNumFrames();
 	const auto scanDuration = static_cast<float>(timeStop - timeStart);
 
 	// Check if image is already in device
@@ -109,10 +141,10 @@ std::unique_ptr<ImageDevice> timeAverageMoveImageDevice(
 	const GPULaunchParams3D launchParams = initiateDeviceParameters(params);
 
 	frame_t frameStart = -1;
-	frame_t frameStop = numFrames;
+	frame_t frameStop = numMotionFrames;
 
 	// Compute how many frames in total
-	for (frame_t frame = 0; frame < numFrames; frame++)
+	for (frame_t frame = 0; frame < numMotionFrames; frame++)
 	{
 		const timestamp_t startingTimestamp =
 		    lorMotion.getStartingTimestamp(frame);
@@ -165,19 +197,16 @@ std::unique_ptr<ImageDevice> timeAverageMoveImageDevice(
 	weightsDevice.copyFromHost(weights_ptr, numFramesUsed,
 	                           {launchConfig.stream, false});
 
-	// Prepare output image
-	auto outImage = std::make_unique<ImageDeviceOwned>(params);
-	outImage->allocate(true, true);
-
 	if (launchConfig.stream != nullptr)
 	{
 		timeAverageMoveImage_kernel<true>
 		    <<<launchParams.gridSize, launchParams.blockSize, 0,
 		       *launchConfig.stream>>>(
 		        unmovedImageDevice_ptr->getDevicePointer(),
-		        outImage->getDevicePointer(), 0, params.nx, params.ny, params.nz,
-		        params.length_x, params.length_y, params.length_z, params.off_x,
-		        params.off_y, params.off_z, transformsDevice.getDevicePointer(),
+		        outImage->getDevicePointer(), outDynamicFrame, params.nx,
+		        params.ny, params.nz, params.length_x, params.length_y,
+		        params.length_z, params.off_x, params.off_y, params.off_z,
+		        transformsDevice.getDevicePointer(),
 		        weightsDevice.getDevicePointer(), numFramesUsed);
 	}
 	else
@@ -185,16 +214,86 @@ std::unique_ptr<ImageDevice> timeAverageMoveImageDevice(
 		timeAverageMoveImage_kernel<true>
 		    <<<launchParams.gridSize, launchParams.blockSize>>>(
 		        unmovedImageDevice_ptr->getDevicePointer(),
-		        outImage->getDevicePointer(), 0, params.nx, params.ny, params.nz,
-		        params.length_x, params.length_y, params.length_z, params.off_x,
-		        params.off_y, params.off_z, transformsDevice.getDevicePointer(),
+		        outImage->getDevicePointer(), outDynamicFrame, params.nx,
+		        params.ny, params.nz, params.length_x, params.length_y,
+		        params.length_z, params.off_x, params.off_y, params.off_z,
+		        transformsDevice.getDevicePointer(),
 		        weightsDevice.getDevicePointer(), numFramesUsed);
 	}
 	synchronizeIfNeeded(launchConfig);
 	ASSERT(cudaCheckError());
+}
 
+std::unique_ptr<ImageDevice> timeAverageMoveImageDynamicDevice(
+    const LORMotion& lorMotion, const ImageBase* unmovedImage,
+    const DynamicFraming& dynamicFraming, GPULaunchConfig launchConfig)
+{
+	ASSERT_MSG(unmovedImage != nullptr, "Null input image given");
+
+	const frame_t numDynamicFrames =
+	    static_cast<frame_t>(dynamicFraming.getNumFrames());
+
+	// Create the output image on the device
+	ImageParams params = unmovedImage->getParams();
+	params.nt = numDynamicFrames;
+	auto outImage = std::make_unique<ImageDeviceOwned>(params);
+	outImage->allocate();
+
+	timeAverageMoveImageDynamicDevice(lorMotion, unmovedImage, outImage.get(),
+	                                  dynamicFraming,
+	                                  {launchConfig.stream, true});
 
 	return outImage;
+}
+
+void timeAverageMoveImageDynamicDevice(const LORMotion& lorMotion,
+                                       const ImageBase* unmovedImage,
+                                       ImageDevice* outImage,
+                                       const DynamicFraming& dynamicFraming,
+                                       GPULaunchConfig launchConfig)
+{
+	ASSERT_MSG(unmovedImage != nullptr, "Null input image given");
+
+	const frame_t numDynamicFrames =
+	    static_cast<frame_t>(dynamicFraming.getNumFrames());
+
+	ASSERT_MSG(outImage->getNumFrames() != numDynamicFrames,
+	           "Output image does not have the same number of frames as the "
+	           "given dynamic framing.");
+
+	// Make sure the input image is in the device
+	//  (otherwise create it and copy it there)
+	std::unique_ptr<ImageDeviceOwned> unmovedImageDevice;
+	auto unmovedImageDevice_ptr =
+	    dynamic_cast<const ImageDevice*>(unmovedImage);
+	if (unmovedImageDevice_ptr == nullptr)
+	{
+		const auto unmovedImageHost_ptr =
+		    dynamic_cast<const Image*>(unmovedImage);
+		ASSERT_MSG(unmovedImageHost_ptr != nullptr, "Unknown image type");
+
+		unmovedImageDevice =
+		    std::make_unique<ImageDeviceOwned>(unmovedImageHost_ptr);
+
+		unmovedImageDevice_ptr = unmovedImageDevice.get();
+	}
+	ASSERT(unmovedImageDevice_ptr != nullptr);
+
+
+	for (frame_t dynamicFrame = 0; dynamicFrame < numDynamicFrames;
+	     dynamicFrame++)
+	{
+		const timestamp_t dynamicFrameStart =
+		    dynamicFraming.getStartingTimestamp(dynamicFrame);
+		const timestamp_t dynamicFrameStop =
+		    dynamicFraming.getStoppingTimestamp(dynamicFrame);
+
+		timeAverageMoveImageDevice(lorMotion, unmovedImageDevice_ptr, outImage,
+		                           dynamicFrameStart, dynamicFrameStop,
+		                           dynamicFrame, {launchConfig.stream, false});
+	}
+
+	synchronizeIfNeeded(launchConfig);
 }
 
 std::unique_ptr<OSEM> createOSEM_GPU(const Scanner& scanner, bool isLowRank)

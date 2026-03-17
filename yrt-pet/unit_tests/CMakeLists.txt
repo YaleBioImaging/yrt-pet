@@ -16,7 +16,6 @@ set(SOURCES_DATASTRUCT
     datastruct/test_Scanner.cpp
     datastruct/test_ProjectionProperties.cpp
     operators/test_TimeOfFlight.cpp
-    recon/test_LREM.cpp
     scatter/test_ScatterSpace.cpp
     utils/test_BinIterator.cpp
     datastruct/test_BinFilter.cpp)
@@ -40,6 +39,8 @@ set(SOURCES_ALGORITHMS
     operators/test_SparseProjection.cpp
     operators/test_Siddon.cpp
     operators/test_PSF.cpp
+    recon/test_LREM.cpp
+    recon/test_TimeAverageMove.cpp
 )
 
 if (${USE_CUDA})

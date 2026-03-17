@@ -1,8 +1,12 @@
+/*
+ * This file is subject to the terms and conditions defined in
+ * file 'LICENSE.txt', which is part of this source code package.
+ */
+
 #include "test_utils.hpp"
 
 #include "yrt-pet/datastruct/image/Image.hpp"
 #include "yrt-pet/datastruct/projection/ProjectionList.hpp"
-#include "yrt-pet/datastruct/scanner/DetRegular.hpp"
 #include "yrt-pet/utils/Assert.hpp"
 
 #include <algorithm>
@@ -141,6 +145,22 @@ template bool allclose<float, true>(const float* valuesRef, const float* values,
 template bool allclose<double, true>(const double* valuesRef,
                                      const double* values, size_t numValues,
                                      double rtol, double atol);
+
+bool checkImageAllPositive(const Image& img)
+{
+	const ImageParams& params = img.getParams();
+
+	const float* i_ptr = img.getRawPointer();
+	const int numVoxels = params.nx * params.ny * params.nz;
+	for (int i = 0; i < numVoxels; i++)
+	{
+		if (i_ptr[i] < 0)
+		{
+			return false;
+		}
+	}
+	return true;
+}
 
 std::unique_ptr<ImageOwned>
     makeImageWithRandomPrism(const ImageParams& params,

@@ -596,6 +596,12 @@ std::unique_ptr<ImageOwned>
 
 	return outImage;
 }
+template std::unique_ptr<ImageOwned>
+    timeAverageMoveImageDynamic<true>(const LORMotion&, const Image*,
+                                      const DynamicFraming&);
+template std::unique_ptr<ImageOwned>
+    timeAverageMoveImageDynamic<false>(const LORMotion&, const Image*,
+                                       const DynamicFraming&);
 
 template <bool PrintProgress>
 void timeAverageMoveImageDynamic(const LORMotion& lorMotion,
@@ -608,7 +614,7 @@ void timeAverageMoveImageDynamic(const LORMotion& lorMotion,
 	const frame_t numDynamicFrames =
 	    static_cast<frame_t>(dynamicFraming.getNumFrames());
 
-	ASSERT_MSG(outImage->getNumFrames() != numDynamicFrames,
+	ASSERT_MSG(outImage->getNumFrames() == numDynamicFrames,
 	           "Output image does not have the same number of frames as the "
 	           "given dynamic framing.");
 

@@ -167,6 +167,7 @@ void ImageParams::copy(const ImageParams& in)
 	nx = in.nx;
 	ny = in.ny;
 	nz = in.nz;
+	nt = in.nt;
 	length_x = in.length_x;
 	length_y = in.length_y;
 	length_z = in.length_z;
@@ -176,7 +177,6 @@ void ImageParams::copy(const ImageParams& in)
 	vx = in.vx;
 	vy = in.vy;
 	vz = in.vz;
-	nt = in.nt;
 	setup();
 }
 

@@ -257,7 +257,7 @@ void timeAverageMoveImageDynamicDevice(const LORMotion& lorMotion,
 	const frame_t numDynamicFrames =
 	    static_cast<frame_t>(dynamicFraming.getNumFrames());
 
-	ASSERT_MSG(outImage->getNumFrames() != numDynamicFrames,
+	ASSERT_MSG(outImage->getNumFrames() == numDynamicFrames,
 	           "Output image does not have the same number of frames as the "
 	           "given dynamic framing.");
 

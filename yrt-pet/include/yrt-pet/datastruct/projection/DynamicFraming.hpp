@@ -20,6 +20,10 @@ public:
 	// Create from an existing std::vector
 	explicit DynamicFraming(
 	    const std::vector<timestamp_t>& dynamicFramingVector);
+	explicit DynamicFraming(const std::string& fname);
+
+	void readFromFile(const std::string& fname);
+	void writeToFile(const std::string& fname) const;
 
 	// Return the number of frames
 	size_t getNumFrames() const;

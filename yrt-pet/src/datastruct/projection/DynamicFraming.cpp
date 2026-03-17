@@ -8,6 +8,7 @@
 
 #include "yrt-pet/utils/Assert.hpp"
 
+#include <fstream>
 #include <iostream>
 
 #if BUILD_PYBIND11
@@ -85,6 +86,32 @@ DynamicFraming::DynamicFraming(
 {
 	ASSERT_MSG(m_frameTimestamps.size() > 1,
 	           "Need at least two timestamps to define one frame");
+}
+
+DynamicFraming::DynamicFraming(const std::string& fname)
+{
+	readFromFile(fname);
+}
+
+void DynamicFraming::readFromFile(const std::string& fname)
+{
+	std::ifstream infile(fname);
+	std::vector<timestamp_t> dynamicFramingVector;
+	timestamp_t timestamp;
+	while (infile >> timestamp)
+	{
+		dynamicFramingVector.push_back(timestamp);
+	}
+	m_frameTimestamps = dynamicFramingVector;
+}
+
+void DynamicFraming::writeToFile(const std::string& fname) const
+{
+	std::ofstream myfile(fname);
+	for (auto& timestamp : m_frameTimestamps)
+	{
+		myfile << timestamp;
+	}
 }
 
 size_t DynamicFraming::getNumFrames() const

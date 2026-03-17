@@ -261,6 +261,12 @@ void ImageDevice::transferToHostMemory(float* ph_img_ptr,
 void ImageDevice::transferToHostMemory(Image* ph_img_ptr,
                                        bool p_synchronize) const
 {
+	ASSERT_MSG(ph_img_ptr->getParams().isSameDimensionsAs(getParams()), "Dimensions mismatch between host and device image.");
+
+	// We allow to transfer a device image to a host image that has more frames
+	//  than the device image. It would only transfer the first frames.
+	ASSERT_MSG(ph_img_ptr->getParams().nt >= getParams().nt, "The number of frames in the host image is smaller than the device image");
+
 	float* ph_ptr = ph_img_ptr->getRawPointer();
 
 	std::cout << "Transferring image from Device to Host..." << std::endl;

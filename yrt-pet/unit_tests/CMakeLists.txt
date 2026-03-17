@@ -8,6 +8,7 @@ set(SOURCES_DATASTRUCT
     ${SOURCES_COMMON}
     datastruct/test_Array.cpp
     datastruct/test_CSV.cpp
+    datastruct/test_DynamicFraming.cpp
     datastruct/test_SparseHistogram.cpp
     datastruct/test_Histogram3D.cpp
     datastruct/test_LORMotion.cpp

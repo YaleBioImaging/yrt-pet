@@ -151,7 +151,7 @@ bool checkImageAllPositive(const Image& img)
 	const ImageParams& params = img.getParams();
 
 	const float* i_ptr = img.getRawPointer();
-	const int numVoxels = params.nx * params.ny * params.nz;
+	const int numVoxels = params.nx * params.ny * params.nz * params.nt;
 	for (int i = 0; i < numVoxels; i++)
 	{
 		if (i_ptr[i] < 0)

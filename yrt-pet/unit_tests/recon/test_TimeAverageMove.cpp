@@ -90,8 +90,8 @@ TEST_CASE("image-timeavg-3d", "[timeavg]")
 		outImage_gpu->allocate();
 		outImageDevice_gpu->transferToHostMemory(outImage_gpu.get());
 
-		yrt::util::test::checkImageAllPositive(*outImage_gpu);
-		yrt::util::test::checkImageAllPositive(*outImage_cpu);
+		REQUIRE(yrt::util::test::checkImageAllPositive(*outImage_gpu));
+		REQUIRE(yrt::util::test::checkImageAllPositive(*outImage_cpu));
 
 		CHECK(yrt::util::test::allclose(*outImage_cpu, *outImage_gpu, 0.001,
 		                                0.001));
@@ -117,12 +117,12 @@ TEST_CASE("image-timeavg-4d", "[timeavg]")
 	std::uniform_real_distribution<float> translationDistribution(0.1f, 5.0f);
 
 	std::uniform_int_distribution<yrt::timestamp_t> scanDurationDistribution(
-		15'000, 300'000);  // in ms
+	    1'500, 30'000);  // in ms
 	std::uniform_int_distribution<yrt::timestamp_t>
-	    dynamicFrameDurationDistribution(5'000, 15'000);  // in ms
+	    dynamicFrameDurationDistribution(500, 1'500);  // in ms
 
-	// We say that every motion frame is 15 ms
-	constexpr yrt::timestamp_t motionFrameDuration = 15;
+	// Say that every motion frame is 1/10 s
+	constexpr yrt::timestamp_t motionFrameDuration = 100;  // in ms
 
 	constexpr int NumTrials = 5;
 
@@ -174,7 +174,8 @@ TEST_CASE("image-timeavg-4d", "[timeavg]")
 		while (!finished)
 		{
 			dynamicFramingTimestamps.push_back(currentTimeStamp);
-			const yrt::timestamp_t dynamicFrameLength = dynamicFrameDurationDistribution(engine);
+			const yrt::timestamp_t dynamicFrameLength =
+			    dynamicFrameDurationDistribution(engine);
 			currentTimeStamp += dynamicFrameLength;
 			finished = currentTimeStamp > scanDuration;
 		}
@@ -182,18 +183,19 @@ TEST_CASE("image-timeavg-4d", "[timeavg]")
 		yrt::DynamicFraming dynamicFraming(dynamicFramingTimestamps);
 
 		// Time-average using CPU
-		auto outImage_cpu =
-		    yrt::util::timeAverageMoveImageDynamic<false>(lorMotion, inputImage.get(), dynamicFraming);
+		auto outImage_cpu = yrt::util::timeAverageMoveImageDynamic<false>(
+		    lorMotion, inputImage.get(), dynamicFraming);
 
 		// Time-average using GPU
 		auto outImageDevice_gpu = yrt::util::timeAverageMoveImageDynamicDevice(
 		    lorMotion, inputImage.get(), dynamicFraming, {nullptr, true});
-		auto outImage_gpu = std::make_unique<yrt::ImageOwned>(params);
+		auto outImage_gpu =
+		    std::make_unique<yrt::ImageOwned>(outImageDevice_gpu->getParams());
 		outImage_gpu->allocate();
 		outImageDevice_gpu->transferToHostMemory(outImage_gpu.get());
 
-		yrt::util::test::checkImageAllPositive(*outImage_gpu);
-		yrt::util::test::checkImageAllPositive(*outImage_cpu);
+		REQUIRE(yrt::util::test::checkImageAllPositive(*outImage_gpu));
+		REQUIRE(yrt::util::test::checkImageAllPositive(*outImage_cpu));
 
 		CHECK(yrt::util::test::allclose(*outImage_cpu, *outImage_gpu, 0.001,
 		                                0.001));

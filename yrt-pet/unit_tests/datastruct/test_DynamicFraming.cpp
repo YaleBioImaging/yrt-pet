@@ -76,38 +76,49 @@ TEST_CASE("dynamicframing-io", "[DynamicFraming]")
 {
 	std::string filename = "test.dyn";
 
-	// Create a dynamic framing with known timestamps
-	std::vector<timestamp_t> originalTimestamps = {1000, 1500, 2300, 3000,
-	                                               4000};
-	DynamicFraming original(originalTimestamps);
+	// Use a fixed seed for reproducible tests
+	std::mt19937 rng(13);
+	std::uniform_int_distribution<size_t> numFramesDist(2, 20);
+	std::uniform_int_distribution<timestamp_t> durationDist(1, 100);
+
+	const size_t numFrames = numFramesDist(rng);
+	std::vector<timestamp_t> timestamps;
+	timestamps.reserve(numFrames + 1);
+
+	// Generate strictly increasing timestamps
+	timestamp_t current = 0;
+	timestamps.push_back(current);
+	for (size_t i = 0; i < numFrames; ++i) {
+		current += durationDist(rng);
+		timestamps.push_back(current);
+	}
+
+	DynamicFraming original(timestamps);
+	REQUIRE(original.isValid());
 
 	// Write to file
 	original.writeToFile(filename);
 
-	// Read back into a new object
+	// Read back
 	DynamicFraming fromFile(filename);
 
 	// Compare
 	REQUIRE(fromFile.getNumTimestamps() == original.getNumTimestamps());
-	for (size_t i = 0; i < original.getNumTimestamps(); ++i)
-	{
-		CHECK(fromFile.getStartingTimestamp(i) ==
-		      original.getStartingTimestamp(i));
+	for (size_t i = 0; i < original.getNumTimestamps(); ++i) {
+		CHECK(fromFile.getStartingTimestamp(i) == original.getStartingTimestamp(i));
 	}
 
-	// Also verify that the file content is exactly the timestamps
+	// Also verify raw file content
 	{
 		std::ifstream infile(filename);
 		std::vector<timestamp_t> readBack;
 		timestamp_t t;
-		while (infile >> t)
-		{
+		while (infile >> t) {
 			readBack.push_back(t);
 		}
-		CHECK(readBack == originalTimestamps);
+		CHECK(readBack == timestamps);
 	}
 
-	// Clean up
 	std::remove(filename.c_str());
 }
 
@@ -115,6 +126,7 @@ TEST_CASE("dynamicframing-methods", "[DynamicFraming]")
 {
 	std::vector<timestamp_t> timestamps = {10, 20, 35, 50, 70};
 	DynamicFraming df(timestamps);
+	REQUIRE(df.isValid());
 
 	SECTION("getStartingTimestamp and getStoppingTimestamp")
 	{
@@ -217,7 +229,7 @@ TEST_CASE("dynamicframing-edge-cases", "[DynamicFraming]")
 
 	SECTION("Large number of frames")
 	{
-		size_t big = 1000;
+		constexpr size_t big = 1000;
 		DynamicFraming df(big);
 		CHECK(df.getNumFrames() == big);
 		CHECK(df.getNumTimestamps() == big + 1);

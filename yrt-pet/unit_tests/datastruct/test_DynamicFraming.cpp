@@ -144,10 +144,10 @@ TEST_CASE("dynamicframing-methods", "[DynamicFraming]")
 
 	SECTION("getDuration")
 	{
-		CHECK(df.getDuration(0) == 10.0f);  // 20-10
-		CHECK(df.getDuration(1) == 15.0f);  // 35-20
-		CHECK(df.getDuration(2) == 15.0f);  // 50-35
-		CHECK(df.getDuration(3) == 20.0f);  // 70-50
+		CHECK(df.getDuration(0) == 10);  // 20-10
+		CHECK(df.getDuration(1) == 15);  // 35-20
+		CHECK(df.getDuration(2) == 15);  // 50-35
+		CHECK(df.getDuration(3) == 20);  // 70-50
 
 		// Out-of-range frame index throws
 		REQUIRE_THROWS_AS(df.getDuration(4), std::runtime_error);
@@ -156,7 +156,7 @@ TEST_CASE("dynamicframing-methods", "[DynamicFraming]")
 
 	SECTION("getTotalDuration")
 	{
-		CHECK(df.getTotalDuration() == 60.0f);  // 70-10
+		CHECK(df.getTotalDuration() == 60);  // 70-10
 	}
 
 	SECTION("setStartingTimestamp and setLastTimestamp")
@@ -168,7 +168,7 @@ TEST_CASE("dynamicframing-methods", "[DynamicFraming]")
 
 		df.setLastTimestamp(80);
 		CHECK(df.getStoppingTimestamp(df.getNumFrames() - 1) == 80);
-		CHECK(df.getTotalDuration() == 70.0f);  // 80-10
+		CHECK(df.getTotalDuration() == 70);  // 80-10
 
 		// Verify internal consistency
 		CHECK(df.getNumTimestamps() == 5);
@@ -206,25 +206,24 @@ TEST_CASE("dynamicframing-methods", "[DynamicFraming]")
 
 TEST_CASE("dynamicframing-edge-cases", "[DynamicFraming]")
 {
-	SECTION("Two frames (minimum valid)")
+	SECTION("One frame (minimum valid)")
 	{
-		DynamicFraming df(2);  // 2 frames -> 3 timestamps, all zero
-		CHECK(df.getNumFrames() == 2);
-		CHECK(df.getNumTimestamps() == 3);
-		CHECK(df.getDuration(0) == 0.0f);
-		CHECK(df.getDuration(1) == 0.0f);
-		CHECK(df.getTotalDuration() == 0.0f);
-		CHECK(df.isValid() ==
-		      false);  // because timestamps are not strictly increasing (0,0,0)
+		DynamicFraming df(1);  // 2 frames -> 3 timestamps
 
-		// Set increasing timestamps to make it valid
-		df.setStartingTimestamp(0, 10);
-		df.setStartingTimestamp(1, 20);
-		df.setLastTimestamp(30);
-		CHECK(df.isValid() == true);
-		CHECK(df.getDuration(0) == 10.0f);
-		CHECK(df.getDuration(1) == 10.0f);
-		CHECK(df.getTotalDuration() == 20.0f);
+		// Initial state before setting the timestamps
+		CHECK(df.getNumFrames() == 1);
+		CHECK(df.getNumTimestamps() == 2);
+		CHECK(df.isValid() == false);
+
+		// Set timestamps
+		df.setStartingTimestamp(0, 12);
+		df.setLastTimestamp(24);
+
+		CHECK(df.getNumFrames() == 1);
+		CHECK(df.getNumTimestamps() == 2);
+		CHECK(df.getDuration(0) == 12);
+		CHECK(df.getTotalDuration() == 12);
+		CHECK(df.isValid());
 	}
 
 	SECTION("Large number of frames")

@@ -72,6 +72,9 @@ void py_setup_reconstructionutils(pybind11::module& m)
 	m.def("convertToListModeLUT", &util::convertToListModeLUT<true>,
 	      "listmode"_a, "detector_mask"_a = nullptr);
 
+	m.def("doesDynamicFramingMatch", &util::doesDynamicFramingMatch,
+		  "data_input"_a, "params"_a);
+
 	m.def(
 	    "createOSEM",
 	    [](const Scanner& scanner, bool useGPU, bool isLowRank)
@@ -846,6 +849,12 @@ template std::unique_ptr<ListModeLUTOwned>
 template std::unique_ptr<ListModeLUTOwned>
     convertToListModeLUT<false>(const ListMode& lm,
                                 const DetectorMask* detectorMask);
+
+bool doesDynamicFramingMatch(const ProjectionData& dataInput,
+                             const ImageParams& params)
+{
+	return dataInput.getNumDynamicFrames() == static_cast<size_t>(params.nt);
+}
 
 Line3D getNativeLOR(const Scanner& scanner, const ProjectionData& dat,
                     bin_t binId)

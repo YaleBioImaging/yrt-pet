@@ -73,6 +73,8 @@ std::unique_ptr<ListModeLUTOwned>
     convertToListModeLUT(const ListMode& lm,
                          const DetectorMask* detectorMask = nullptr);
 
+bool doesDynamicFramingMatch(const ProjectionData& dataInput,
+                             const ImageParams& params);
 
 Line3D getNativeLOR(const Scanner& scanner, const ProjectionData& dat,
                     bin_t binId);

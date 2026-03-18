@@ -46,6 +46,7 @@ public:
 	bool hasTOF() const override;
 	float getTOFValue(bin_t id) const override;
 	bool hasMotion() const override;
+	bool hasDynamicFraming() const override;
 	transform_t getTransformOfMotionFrame(frame_t frame) const override;
 	bool hasArbitraryLORs() const override;
 	Line3D getArbitraryLOR(bin_t id) const override;

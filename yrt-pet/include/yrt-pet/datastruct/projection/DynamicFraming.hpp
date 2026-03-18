@@ -28,9 +28,9 @@ public:
 	// Return the number of frames
 	size_t getNumFrames() const;
 	// Return the timestamp of the frame "frame" minus the subsequent timestamp
-	float getDuration(frame_t frame) const;
+	timestamp_t getDuration(frame_t frame) const;
 	// Return the last timestamp minus the first timestamp
-	float getTotalDuration() const;
+	timestamp_t getTotalDuration() const;
 	// Different from "getNumFrames" as this includes the last timestamp
 	size_t getNumTimestamps() const;
 	// Set the timestamp at which the frame "frame" starts
@@ -43,6 +43,8 @@ public:
 	timestamp_t getStartingTimestamp(frame_t frame) const;
 	// Get the timestamp at which a frame ends
 	timestamp_t getStoppingTimestamp(frame_t frame) const;
+	// Get the timestamp at which the whole dynamic framing ends
+	timestamp_t getLastTimestamp() const;
 
 private:
 	// Vector of n + 1 elements (where n = number of frames),

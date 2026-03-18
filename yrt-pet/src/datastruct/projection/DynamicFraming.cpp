@@ -44,6 +44,18 @@ void py_setup_dynaming_framing(py::module& m)
 	      "frame_timestamps"_a);
 	c.def(py::init<size_t>(), "num_frames"_a);
 	c.def(py::init<const std::string&>(), "fname"_a);
+	c.def("__repr__",
+	      [](const DynamicFraming& self)
+	      {
+		      std::stringstream ss;
+		      for (frame_t f = 0; f < static_cast<frame_t>(self.getNumFrames());
+		           f++)
+		      {
+			      ss << self.getStartingTimestamp(f) << "\n";
+		      }
+		      ss << self.getLastTimestamp() << std::endl;
+		      return ss.str();
+	      });
 
 	c.def("writeToFile", &DynamicFraming::writeToFile, "fname"_a);
 	c.def("readFromFile", &DynamicFraming::readFromFile, "fname"_a);
@@ -80,7 +92,7 @@ namespace yrt
 
 DynamicFraming::DynamicFraming(size_t numFrames)
 {
-	ASSERT_MSG(numFrames > 1, "The number of frames must be greater than 0");
+	ASSERT_MSG(numFrames >= 1, "The number of frames must be greater than 0");
 	m_frameTimestamps = std::vector<timestamp_t>(numFrames + 1, 0);
 }
 
@@ -123,19 +135,21 @@ size_t DynamicFraming::getNumFrames() const
 	return m_frameTimestamps.size() - 1;
 }
 
-float DynamicFraming::getDuration(frame_t frame) const
+timestamp_t DynamicFraming::getDuration(frame_t frame) const
 {
 	const size_t numFrames = getNumFrames();
 
 	if (frame >= 0 && static_cast<size_t>(frame) < numFrames)
 	{
+		ASSERT(m_frameTimestamps[frame + 1] > m_frameTimestamps[frame]);
 		return m_frameTimestamps[frame + 1] - m_frameTimestamps[frame];
 	}
 	throw std::runtime_error("Frame index out of range");
 }
 
-float DynamicFraming::getTotalDuration() const
+timestamp_t DynamicFraming::getTotalDuration() const
 {
+	ASSERT(m_frameTimestamps[getNumFrames()] > m_frameTimestamps[0]);
 	return m_frameTimestamps[getNumFrames()] - m_frameTimestamps[0];
 }
 
@@ -184,6 +198,11 @@ timestamp_t DynamicFraming::getStartingTimestamp(frame_t frame) const
 timestamp_t DynamicFraming::getStoppingTimestamp(frame_t frame) const
 {
 	return m_frameTimestamps[frame + 1];
+}
+
+timestamp_t DynamicFraming::getLastTimestamp() const
+{
+	return m_frameTimestamps[getNumFrames()];
 }
 
 }  // namespace yrt

@@ -11,6 +11,7 @@
 #include "yrt-pet/operators/OperatorProjectorSiddon_GPU.cuh"
 #include "yrt-pet/operators/ProjectorUpdaterDevice.cuh"
 #include "yrt-pet/utils/GPUUtils.cuh"
+#include "yrt-pet/utils/ReconstructionUtils.hpp"
 
 #if BUILD_PYBIND11
 #include <pybind11/numpy.h>
@@ -26,6 +27,11 @@ void py_setup_operatorprojectordevice(py::module& m)
 {
 	auto c = py::class_<OperatorProjectorDevice, OperatorProjectorBase>(
 	    m, "OperatorProjectorDevice");
+
+	c.def("addTOF", &OperatorProjectorDevice::addTOF, "tof_width_ps"_a,
+	      "tof_num_std"_a);
+	c.def("addProjPSF", &OperatorProjectorDevice::addProjPSF,
+	      "proj_psf_fname"_a);
 
 	c.def_static(
 	    "create",
@@ -312,6 +318,16 @@ std::unique_ptr<OperatorProjectorDevice> OperatorProjectorDevice::create(
 	throw std::runtime_error("Unsupported projector type");
 }
 
+void OperatorProjectorDevice::addTOF(float tofWidth_ps, int tofNumStd)
+{
+	setupTOFHelper(tofWidth_ps, tofNumStd);
+}
+
+void OperatorProjectorDevice::addProjPSF(const std::string& projPsf_fname)
+{
+	setupProjPsfManager(projPsf_fname);
+}
+
 size_t OperatorProjectorDevice::getBatchSize() const
 {
 	return m_batchSize;
@@ -465,6 +481,9 @@ void OperatorProjectorDevice::applyA(const Variable* in, Variable* out,
 		ASSERT_MSG(dat_out->hasTOF(), "Projector configured with TOF but "
 		                              "input data has no TOF information");
 	}
+	ASSERT_MSG(util::doesDynamicFramingMatch(*dat_out, img_in->getParams()),
+	           "The number of dynamic frames in the the projection data does "
+	           "not match the image's fourth dimension");
 
 	if (!isProjDataDeviceOwned)
 	{
@@ -560,6 +579,15 @@ void OperatorProjectorDevice::applyAH(const Variable* in, Variable* out,
 		ASSERT_MSG(dat_in != nullptr,
 		           "ProjectionListDevice is null. Cast failed");
 	}
+
+	if (getTOFHelperDevicePointer())
+	{
+		ASSERT_MSG(dat_in->hasTOF(), "Projector configured with TOF but "
+		                             "input data has no TOF information");
+	}
+	ASSERT_MSG(util::doesDynamicFramingMatch(*dat_in, img_out->getParams()),
+	           "The number of dynamic frames in the the projection data does "
+	           "not match the image's fourth dimension");
 
 	if (!isProjDataDeviceOwned)
 	{

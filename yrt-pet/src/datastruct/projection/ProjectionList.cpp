@@ -171,6 +171,11 @@ bool ProjectionList::hasMotion() const
 	return mp_reference->hasMotion();
 }
 
+bool ProjectionList::hasDynamicFraming() const
+{
+	return mp_reference->hasDynamicFraming();
+}
+
 transform_t ProjectionList::getTransformOfMotionFrame(frame_t frame) const
 {
 	return mp_reference->getTransformOfMotionFrame(frame);

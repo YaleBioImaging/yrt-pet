@@ -30,6 +30,10 @@ public:
 	    const cudaStream_t* pp_mainStream = nullptr,
 	    const cudaStream_t* pp_auxStream = nullptr, size_t p_memAvailable_bytes = 0);
 
+	// Aliases for uniformity
+	void addTOF(float tofWidth_ps, int tofNumStd = -1);
+	void addProjPSF(const std::string& projPsf_fname);
+
 	size_t getBatchSize() const;
 	void setupProjPsfManager(const std::string& psfFilename);
 

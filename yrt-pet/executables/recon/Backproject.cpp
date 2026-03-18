@@ -43,6 +43,9 @@ int main(int argc, char** argv)
 		registry.registerArgument(
 		    "lor_motion", "Motion CSV file for motion correction", false,
 		    io::TypeOfArgument::STRING, "", inputGroup, "m");
+		registry.registerArgument(
+		    "dyn", "Dynamic framing file for dynamic backprojection", false,
+		    io::TypeOfArgument::STRING, "", inputGroup);
 		registry.registerArgument("detmask",
 		                          "Detector mask (will override the "
 		                          "\"detMask\" member in the scanner's JSON)",
@@ -158,6 +161,10 @@ int main(int argc, char** argv)
 		                           format, *scanner, config.getAllArguments());
 
 		const auto lorMotion_fname = config.getValue<std::string>("lor_motion");
+		const auto dynamicFraming_fname = config.getValue<std::string>("dyn");
+
+		// Input data as listmode
+		auto* dataInput_lm = dynamic_cast<ListMode*>(dataInput.get());
 
 		if (!lorMotion_fname.empty())
 		{
@@ -165,11 +172,10 @@ int main(int argc, char** argv)
 
 			if (useListMode)
 			{
-				// Input data as listmode
-				auto* dataInput_lm = dynamic_cast<ListMode*>(dataInput.get());
+				// This error should normally never trigger
 				ASSERT_MSG(dataInput_lm != nullptr,
-				           "(Unexpected error) Input data has to be in "
-				           "ListMode format to include motion correction");
+				           "Input data has to be in ListMode format to include "
+				           "motion correction");
 
 				// Link input data to LOR motion (to allow event-by-event motion
 				//  correction)
@@ -182,6 +188,30 @@ int main(int argc, char** argv)
 				          << std::endl;
 			}
 		}
+
+		if (!dynamicFraming_fname.empty())
+		{
+			auto dynamicFraming =
+			    std::make_shared<DynamicFraming>(dynamicFraming_fname);
+
+			if (useListMode)
+			{
+				// This error should normally never trigger
+				ASSERT_MSG(dataInput_lm != nullptr,
+				           "Input data has to be in ListMode format to include "
+				           "dynamic framing");
+
+				// Link input data to the dynamic framing
+				dataInput_lm->addDynamicFraming(dynamicFraming);
+			}
+			else
+			{
+				std::cerr << "Warning: Dynamic framing is not available for "
+				             "Histogram data"
+				          << std::endl;
+			}
+		}
+
 
 		// Setup forward projection
 		const auto binIter =

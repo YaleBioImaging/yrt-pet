@@ -15,7 +15,6 @@
 #include "yrt-pet/utils/ReconstructionUtilsDevice.cuh"
 #include "yrt-pet/utils/Timer.hpp"
 
-#include <ctime>
 #include <cxxopts.hpp>
 #include <iostream>
 
@@ -143,6 +142,9 @@ int main(int argc, char** argv)
 		registry.registerArgument(
 		    "lor_motion", "Motion CSV file for motion correction", false,
 		    io::TypeOfArgument::STRING, "", inputGroup, "m");
+		registry.registerArgument(
+		    "dyn", "Dynamic framing file for dynamic reconstruction", false,
+		    io::TypeOfArgument::STRING, "", inputGroup);
 
 		// Reconstruction parameters
 		registry.registerArgument(
@@ -484,6 +486,8 @@ int main(int argc, char** argv)
 
 		const std::string lorMotion_fname =
 		    config.getValue<std::string>("lor_motion");
+		const std::string dynamicFraming_fname =
+		    config.getValue<std::string>("dyn");
 
 		// No need to read data input if in sens_only mode
 		if (sensOnly && lorMotion_fname.empty())
@@ -504,6 +508,13 @@ int main(int argc, char** argv)
 			osem->setDataInput(dataInput.get());
 		}
 
+		std::shared_ptr<DynamicFraming> dynamicFraming;
+		if (!dynamicFraming_fname.empty())
+		{
+			dynamicFraming =
+			    std::make_shared<DynamicFraming>(dynamicFraming_fname);
+		}
+
 		std::shared_ptr<LORMotion> lorMotion;
 		std::unique_ptr<ImageOwned> movedSensImage = nullptr;
 		if (!lorMotion_fname.empty())
@@ -520,15 +531,18 @@ int main(int argc, char** argv)
 				sensTimer.run();
 
 				std::cout << "Moving sensitivity image..." << std::endl;
-				if (dataInput == nullptr)
+
+				if (dynamicFraming != nullptr)
 				{
-					// Time average move based on all the frames
+					// Case with dynamic framing
+
 					if (useGPU)
 					{
 #if BUILD_CUDA
 						auto movedSensImageDevice =
-						    util::timeAverageMoveImageDevice(
-						        *lorMotion, unmovedSensImage, {});
+						    util::timeAverageMoveImageDynamicDevice(
+						        *lorMotion, unmovedSensImage, *dynamicFraming,
+						        {});
 						movedSensImage = std::make_unique<ImageOwned>(
 						    unmovedSensImage->getParams());
 						movedSensImage->allocate();
@@ -538,34 +552,63 @@ int main(int argc, char** argv)
 					}
 					else
 					{
-						movedSensImage = util::timeAverageMoveImage(
-						    *lorMotion, unmovedSensImage);
+						movedSensImage = util::timeAverageMoveImageDynamic(
+						    *lorMotion, unmovedSensImage, *dynamicFraming);
 					}
 				}
 				else
 				{
-					// Time average move based on the frames of the listmode
-					const timestamp_t timeStart = dataInput->getTimestamp(0);
-					const timestamp_t timeStop =
-					    dataInput->getTimestamp(dataInput->count() - 1);
-					if (useGPU)
+					// Case without dynamic framing
+
+					if (dataInput == nullptr)
 					{
+						// Time average move based on all the frames
+						if (useGPU)
+						{
 #if BUILD_CUDA
-						auto movedSensImageDevice =
-						    util::timeAverageMoveImageDevice(
-						        *lorMotion, unmovedSensImage, timeStart,
-						        timeStop, {});
-						movedSensImage = std::make_unique<ImageOwned>(
-						    unmovedSensImage->getParams());
-						movedSensImage->allocate();
-						movedSensImageDevice->transferToHostMemory(
-						    movedSensImage.get());
+							auto movedSensImageDevice =
+							    util::timeAverageMoveImageDevice(
+							        *lorMotion, unmovedSensImage, {});
+							movedSensImage = std::make_unique<ImageOwned>(
+							    unmovedSensImage->getParams());
+							movedSensImage->allocate();
+							movedSensImageDevice->transferToHostMemory(
+							    movedSensImage.get());
 #endif
+						}
+						else
+						{
+							movedSensImage = util::timeAverageMoveImage(
+							    *lorMotion, unmovedSensImage);
+						}
 					}
 					else
 					{
-						movedSensImage = util::timeAverageMoveImage(
-						    *lorMotion, unmovedSensImage, timeStart, timeStop);
+						// Time average move based on the frames of the listmode
+						const timestamp_t timeStart =
+						    dataInput->getTimestamp(0);
+						const timestamp_t timeStop =
+						    dataInput->getTimestamp(dataInput->count() - 1);
+						if (useGPU)
+						{
+#if BUILD_CUDA
+							auto movedSensImageDevice =
+							    util::timeAverageMoveImageDevice(
+							        *lorMotion, unmovedSensImage, timeStart,
+							        timeStop, {});
+							movedSensImage = std::make_unique<ImageOwned>(
+							    unmovedSensImage->getParams());
+							movedSensImage->allocate();
+							movedSensImageDevice->transferToHostMemory(
+							    movedSensImage.get());
+#endif
+						}
+						else
+						{
+							movedSensImage = util::timeAverageMoveImage(
+							    *lorMotion, unmovedSensImage, timeStart,
+							    timeStop);
+						}
 					}
 				}
 
@@ -610,15 +653,18 @@ int main(int argc, char** argv)
 		addImagePSFtoReconIfNeeded(*osem, config.getValue<std::string>("psf"),
 		                           config.getValue<std::string>("varpsf"));
 
+		// Input data as listmode (used by LOR motion and dynamic framing)
+		auto* dataInput_lm = dynamic_cast<ListMode*>(dataInput.get());
+
+		// Add Motion information in case it was provided
 		if (lorMotion != nullptr)
 		{
 			if (useListMode)
 			{
-				// Input data as listmode
-				auto* dataInput_lm = dynamic_cast<ListMode*>(dataInput.get());
+				// This error should normally never trigger
 				ASSERT_MSG(dataInput_lm != nullptr,
-				           "(Unexpected error) Input data has to be in "
-				           "ListMode format to include motion correction");
+				           "Input data has to be in ListMode format to include "
+				           "motion correction");
 
 				// Link input data to LOR motion (to allow event-by-event motion
 				//  correction)
@@ -628,6 +674,27 @@ int main(int argc, char** argv)
 			{
 				std::cerr << "Warning: Event-by-event motion correction is not "
 				             "available for Histogram data"
+				          << std::endl;
+			}
+		}
+
+		// Integrate dynamic framing in case it was provided
+		if (dynamicFraming != nullptr)
+		{
+			if (useListMode)
+			{
+				// This error should normally never trigger
+				ASSERT_MSG(dataInput_lm != nullptr,
+				           "Input data has to be in ListMode format to include "
+				           "dynamic framing");
+
+				// Link input data to the dynamic framing
+				dataInput_lm->addDynamicFraming(dynamicFraming);
+			}
+			else
+			{
+				std::cerr << "Warning: Dynamic framing is not available for "
+				             "Histogram data"
 				          << std::endl;
 			}
 		}

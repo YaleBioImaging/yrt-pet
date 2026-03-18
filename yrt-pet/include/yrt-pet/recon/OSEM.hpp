@@ -109,7 +109,6 @@ public:
 
 protected:
 	// Sens Image generator driver
-	// TODO NOW: Maybe rename this to setupProjectorFor... (same for recon)
 	virtual void setupProjectorForSensImgGen() = 0;
 	virtual void allocateForSensImgGen() = 0;
 	virtual std::unique_ptr<Image>

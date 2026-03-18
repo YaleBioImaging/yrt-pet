@@ -88,7 +88,7 @@ TEST_CASE("dynamicframing-io", "[DynamicFraming]")
 	DynamicFraming fromFile(filename);
 
 	// Compare
-	CHECK(fromFile.getNumTimestamps() == original.getNumTimestamps());
+	REQUIRE(fromFile.getNumTimestamps() == original.getNumTimestamps());
 	for (size_t i = 0; i < original.getNumTimestamps(); ++i)
 	{
 		CHECK(fromFile.getStartingTimestamp(i) ==

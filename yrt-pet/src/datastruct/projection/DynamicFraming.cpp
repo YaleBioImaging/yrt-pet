@@ -43,6 +43,10 @@ void py_setup_dynaming_framing(py::module& m)
 	          }),
 	      "frame_timestamps"_a);
 	c.def(py::init<size_t>(), "num_frames"_a);
+	c.def(py::init<const std::string&>(), "fname"_a);
+
+	c.def("writeToFile", &DynamicFraming::writeToFile, "fname"_a);
+	c.def("readFromFile", &DynamicFraming::readFromFile, "fname"_a);
 
 	c.def("getNumFrames", &DynamicFraming::getNumFrames,
 	      "Return the number of frames");
@@ -110,7 +114,7 @@ void DynamicFraming::writeToFile(const std::string& fname) const
 	std::ofstream myfile(fname);
 	for (auto& timestamp : m_frameTimestamps)
 	{
-		myfile << timestamp;
+		myfile << timestamp << "\n";
 	}
 }
 

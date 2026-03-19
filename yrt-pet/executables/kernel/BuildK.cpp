@@ -7,6 +7,7 @@
 #include "yrt-pet/utils/Array.hpp"
 #include "yrt-pet/utils/Assert.hpp"
 #include "yrt-pet/utils/Globals.hpp"
+#include "yrt-pet/utils/Version.hpp"
 
 #include <cxxopts.hpp>
 
@@ -52,10 +53,16 @@ int main(int argc, char** argv)
 		 cxxopts::value<std::string>(mode))
 		("t,nthreads", "Number of threads to use",
 		 cxxopts::value<int>(num_threads))
+		("v,version", "Print version information")
 		("h,help", "Print help");
 		/* clang-format on */
 
 		auto result = options.parse(argc, argv);
+		if (result.count("version"))
+		{
+			yrt::version::printVersion();
+			return 0;
+		}
 		if (result.count("help"))
 		{
 			std::cout << options.help() << std::endl;

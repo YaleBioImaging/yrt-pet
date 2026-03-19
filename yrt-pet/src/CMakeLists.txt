@@ -66,7 +66,8 @@ set(SOURCES
     utils/ReconstructionUtils.cpp
     utils/Timer.cpp
     utils/Tools.cpp
-    utils/Utilities.cpp)
+    utils/Utilities.cpp
+    utils/Version.cpp)
 
 # cuda
 if (USE_CUDA)

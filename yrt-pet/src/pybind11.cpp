@@ -21,6 +21,7 @@ void py_setup_timeofflight(py::module& m);
 void py_setup_multiraygenerator(py::module& m);
 void py_setup_utilities(py::module& m);
 void py_setup_utilities_rangelist(py::module& m);
+void py_setup_version(py::module& m);
 
 void py_setup_variable(py::module& m);
 void py_setup_imagebase(py::module&);
@@ -114,6 +115,7 @@ PYBIND11_MODULE(pyyrtpet, m)
 	py_setup_srtm(m);
 	py_setup_utilities(m);
 	py_setup_utilities_rangelist(m);
+	py_setup_version(m);
 
 	py_setup_operator(m);
 	py_setup_operatorpsf(m);

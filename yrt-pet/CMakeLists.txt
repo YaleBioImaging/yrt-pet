@@ -3,6 +3,60 @@
 cmake_minimum_required(VERSION 3.28)
 project(yrt-pet VERSION 0.0.1 LANGUAGES CXX)
 
+# Find Git for version information
+find_package(Git QUIET)
+message(STATUS "Git found: ${GIT_FOUND}, Git executable: ${GIT_EXECUTABLE}")
+message(STATUS "PROJECT_SOURCE_DIR: ${PROJECT_SOURCE_DIR}")
+message(STATUS ".git exists: ${EXISTS_${PROJECT_SOURCE_DIR}/.git}")
+
+# Get git hash if available (short hash)
+# Check parent directory for .git since project is in yrt-pet/yrt-pet
+set(YRTPET_GIT_ROOT "${CMAKE_SOURCE_DIR}")
+if(NOT EXISTS "${YRTPET_GIT_ROOT}/.git")
+    get_filename_component(YRTPET_GIT_ROOT "${CMAKE_SOURCE_DIR}" DIRECTORY)
+endif()
+
+message(STATUS "Git root: ${YRTPET_GIT_ROOT}")
+
+if(GIT_FOUND AND EXISTS "${YRTPET_GIT_ROOT}/.git")
+    execute_process(
+        COMMAND ${GIT_EXECUTABLE} rev-parse --short HEAD
+        WORKING_DIRECTORY "${YRTPET_GIT_ROOT}"
+        OUTPUT_VARIABLE YRTPET_GIT_HASH
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET)
+    
+    # Check if git repo is dirty
+    execute_process(
+        COMMAND ${GIT_EXECUTABLE} diff-index --quiet HEAD
+        WORKING_DIRECTORY "${YRTPET_GIT_ROOT}"
+        RESULT_VARIABLE GIT_DIRTY_RESULT
+        ERROR_QUIET)
+    if(NOT GIT_DIRTY_RESULT EQUAL 0)
+        set(YRTPET_GIT_DIRTY TRUE)
+    else()
+        set(YRTPET_GIT_DIRTY FALSE)
+    endif()
+    
+    message(STATUS "Git hash: ${YRTPET_GIT_HASH}, dirty: ${YRTPET_GIT_DIRTY}")
+else()
+    set(YRTPET_GIT_HASH "")
+    set(YRTPET_GIT_DIRTY FALSE)
+    message(STATUS "No git found or not a git repository")
+endif()
+
+# Construct full version string
+set(YRTPET_VERSION_STRING "${PROJECT_VERSION}")
+if(YRTPET_GIT_HASH)
+    if(YRTPET_GIT_DIRTY)
+        set(YRTPET_VERSION_STRING "${PROJECT_VERSION}-${YRTPET_GIT_HASH}-dirty")
+    else()
+        set(YRTPET_VERSION_STRING "${PROJECT_VERSION}-${YRTPET_GIT_HASH}")
+    endif()
+endif()
+
+message(STATUS "YRT-PET Version: ${YRTPET_VERSION_STRING}")
+
 
 # # Dependencies
 find_package(ZLIB REQUIRED)
@@ -94,6 +148,7 @@ function(setup_target TARGET JSON CXXOPTS PYBIND11)
         target_compile_definitions(${TARGET} PUBLIC BUILD_PYBIND11)
     endif ()
     add_compile_definitions(HAVE_ZLIB)
+add_compile_definitions(YRTPET_VERSION_STRING="${YRTPET_VERSION_STRING}")
 endfunction()
 
 # Wrapper for library target

@@ -12,6 +12,7 @@
 #include "yrt-pet/datastruct/image/Image.hpp"
 #include "yrt-pet/datastruct/projection/LORMotion.hpp"
 #include "yrt-pet/utils/Assert.hpp"
+#include "yrt-pet/utils/Version.hpp"
 
 #include <cxxopts.hpp>
 
@@ -48,10 +49,16 @@ int main(int argc, char* argv[])
 		("o,out",
 			"Output image filename",
 			cxxopts::value(out_fname))
+		("v,version", "Print version information")
 		("help", "Print help");
 		/* clang-format on */
 
 		auto result = options.parse(argc, argv);
+		if (result.count("version"))
+		{
+			yrt::version::printVersion();
+			return 0;
+		}
 		if (result.count("help"))
 		{
 			std::cout << options.help() << std::endl;

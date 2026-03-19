@@ -34,31 +34,12 @@ void py_setup_listmode(py::module& m)
 	          &ListMode::addLORMotion),
 	      "lorMotion_fname"_a);
 
-	// bind the shared_ptr<DynamicFraming> overload
 	c.def(
 	    "addDynamicFraming",
 	    py::overload_cast<const std::shared_ptr<DynamicFraming>&>(
 	        &ListMode::addDynamicFraming),
 	    py::arg("framing"));
 
-	// Possibility to bind a NumPy 1D array
-//	c.def("addDynamicFraming",
-//	       [](ListMode &self,
-//	          py::array_t<timestamp_t, py::array::c_style|py::array::forcecast> np_data) {
-//		       auto buffer = np_data.request();
-//		       if (buffer.ndim != 1)
-//			       throw std::invalid_argument("addDynamicFraming() expects a 1D array");
-//
-//		       // Copy into std::vector<timestamp_t>
-//		       size_t n = buffer.shape[0];
-//		       std::vector<timestamp_t> v(n);
-//		       std::memcpy(v.data(), buffer.ptr, n * sizeof(timestamp_t));
-//
-//		       // Build a DynamicFraming and hand it over
-//		       auto df = std::make_shared<DynamicFraming>(v);
-//		       self.addDynamicFraming(df);
-//	       },
-//	       py::arg("timestamps"));
 }
 }  // namespace yrt
 #endif  // if BUILD_PYBIND11

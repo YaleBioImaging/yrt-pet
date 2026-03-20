@@ -1031,16 +1031,6 @@ __global__ void generateSensImage_kernel(
 		const float3 p1Init{lor[0], lor[1], lor[2]};
 		const float3 p2Init{lor[3], lor[4], lor[5]};
 
-		// Subtract image offset
-		float3 p1 = p1Init;
-		float3 p2 = p2Init;
-		p1.x -= sensImage.params.off_x;
-		p1.y -= sensImage.params.off_y;
-		p1.z -= sensImage.params.off_z;
-		p2.x -= sensImage.params.off_x;
-		p2.y -= sensImage.params.off_y;
-		p2.z -= sensImage.params.off_z;
-
 		float toBackproject = 1.0f;
 
 		if (hasSensitivityFactor)
@@ -1064,9 +1054,9 @@ __global__ void generateSensImage_kernel(
 		{
 			float attenuationFactor = 0.0f;
 
-			// This time, subtract the offset of the attenuation image
-			p1 = p1Init;
-			p2 = p2Init;
+			// Subtract the offset of the attenuation image
+			float3 p1 = p1Init;
+			float3 p2 = p2Init;
 			p1.x -= attImage.params.off_x;
 			p1.y -= attImage.params.off_y;
 			p1.z -= attImage.params.off_z;
@@ -1109,6 +1099,16 @@ __global__ void generateSensImage_kernel(
 			    pd_projectionProperties, eventId,
 			    ProjectionPropertyType::DYNAMIC_FRAME);
 		}
+
+		// Subtract the offset of the reconstruction image's grid
+		float3 p1 = p1Init;
+		float3 p2 = p2Init;
+		p1.x -= sensImage.params.off_x;
+		p1.y -= sensImage.params.off_y;
+		p1.z -= sensImage.params.off_z;
+		p2.x -= sensImage.params.off_x;
+		p2.y -= sensImage.params.off_y;
+		p2.z -= sensImage.params.off_z;
 
 		projectAny<false, false, false>(toBackproject, sensImage, nullptr, p1,
 		                                p2, n1, n2, dynamicFrame, nullptr, 0.0f,

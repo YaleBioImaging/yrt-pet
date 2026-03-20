@@ -127,6 +127,10 @@ void py_setup_image(py::module& m)
 	      py::arg("transform"));
 	c.def("resampleImage",
 	      static_cast<std::unique_ptr<ImageOwned> (Image::*)(
+	          const ImageParams& imageRef) const>(&Image::resampleImage),
+	      py::arg("image_params_ref"));
+	c.def("resampleImage",
+	      static_cast<std::unique_ptr<ImageOwned> (Image::*)(
 	          const Image& imageRef) const>(&Image::resampleImage),
 	      py::arg("image_ref"));
 	c.def("writeToFile", &Image::writeToFile, py::arg("filename"));
@@ -865,8 +869,7 @@ void Image::transformImage(const transform_t& t, Image& dest, float weight,
 				    newZ += inv.tz;
 
 				    const float valueFromOriginalImage =
-				        weight *
-				        interpolateImage({newX, newY, newZ}, 0);
+				        weight * interpolateImage({newX, newY, newZ}, 0);
 
 				    destRawPtr[i * numXY + j * nx + k] +=
 				        valueFromOriginalImage;
@@ -884,9 +887,8 @@ std::unique_ptr<ImageOwned> Image::transformImage(const transform_t& t) const
 	return newImg;
 }
 
-void Image::resampleImage(const Image& imageRef, Image& dest) const
+void Image::resampleImage(const ImageParams& paramsRef, Image& dest) const
 {
-	const ImageParams paramsRef = imageRef.getParams();
 	float* destRawPtr = dest.getRawPointer();
 	const ImageParams* paramsRefPtr = &paramsRef;
 	const int nxyRef = paramsRef.nx * paramsRef.ny;
@@ -924,7 +926,16 @@ std::unique_ptr<ImageOwned> Image::resampleImage(const Image& imageRef) const
 {
 	auto newImg = std::make_unique<ImageOwned>(imageRef.getParams());
 	newImg->allocate();
-	resampleImage(imageRef, *newImg);
+	resampleImage(imageRef.getParams(), *newImg);
+	return newImg;
+}
+
+std::unique_ptr<ImageOwned>
+    Image::resampleImage(const ImageParams& paramsRef) const
+{
+	auto newImg = std::make_unique<ImageOwned>(paramsRef);
+	newImg->allocate();
+	resampleImage(paramsRef, *newImg);
 	return newImg;
 }
 

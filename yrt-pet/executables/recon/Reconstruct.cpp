@@ -544,7 +544,7 @@ int main(int argc, char** argv)
 						        *lorMotion, unmovedSensImage, *dynamicFraming,
 						        {});
 						movedSensImage = std::make_unique<ImageOwned>(
-						    unmovedSensImage->getParams());
+						    movedSensImageDevice->getParams());
 						movedSensImage->allocate();
 						movedSensImageDevice->transferToHostMemory(
 						    movedSensImage.get());
@@ -570,7 +570,7 @@ int main(int argc, char** argv)
 							    util::timeAverageMoveImageDevice(
 							        *lorMotion, unmovedSensImage, {});
 							movedSensImage = std::make_unique<ImageOwned>(
-							    unmovedSensImage->getParams());
+							    movedSensImageDevice->getParams());
 							movedSensImage->allocate();
 							movedSensImageDevice->transferToHostMemory(
 							    movedSensImage.get());

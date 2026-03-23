@@ -112,6 +112,8 @@ DynamicFraming::DynamicFraming(const std::string& fname)
 void DynamicFraming::readFromFile(const std::string& fname)
 {
 	std::ifstream infile(fname);
+	ASSERT_MSG(infile.is_open(),
+	           ("Error opening file \"" + fname + "\"").c_str());
 	std::vector<timestamp_t> dynamicFramingVector;
 	timestamp_t timestamp;
 	while (infile >> timestamp)
@@ -123,10 +125,12 @@ void DynamicFraming::readFromFile(const std::string& fname)
 
 void DynamicFraming::writeToFile(const std::string& fname) const
 {
-	std::ofstream myfile(fname);
+	std::ofstream outfile(fname);
+	ASSERT_MSG(outfile.is_open(),
+	           ("Error opening file \"" + fname + "\"").c_str());
 	for (auto& timestamp : m_frameTimestamps)
 	{
-		myfile << timestamp << "\n";
+		outfile << timestamp << "\n";
 	}
 }
 

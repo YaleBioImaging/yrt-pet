@@ -23,9 +23,6 @@ class LORMotion;
 namespace util
 {
 
-// TODO NOW: Add a function that would do this but with an ImageDevice given as
-//  input
-// TODO NOW: Make the kernel receive a dynamic frame as input
 std::unique_ptr<ImageDevice>
     timeAverageMoveImageDevice(const LORMotion& lorMotion,
                                const ImageBase* unmovedImage,

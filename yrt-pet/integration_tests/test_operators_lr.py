@@ -11,7 +11,7 @@ import copy
 import pickle
 
 fold_py = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-sys.path.insert(0, os.path.join(fold_py))
+sys.path.insert(0, fold_py)
 import pyyrtpet as yrt
 
 yrt.setNumThreads(-1)

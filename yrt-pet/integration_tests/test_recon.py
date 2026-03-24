@@ -9,7 +9,7 @@ import pytest
 import numpy as np
 
 fold_py = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-sys.path.append(os.path.join(fold_py))
+sys.path.append(fold_py)
 import pyyrtpet as yrt
 
 yrt.setNumThreads(-1)

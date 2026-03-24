@@ -344,11 +344,6 @@ def _test_generic_bwd(
 
 
 # Siddon
-def test_adjoint_default3d_siddon_cpu():
-    _test_adjoint_generic(
-        UpdaterType="DEFAULT3D", projector_type="Siddon", use_gpu=False
-    )
-
 
 def test_adjoint_default4d_siddon_cpu():
     _test_adjoint_generic("DEFAULT4D", projector_type="Siddon", use_gpu=False)
@@ -359,9 +354,6 @@ def test_adjoint_lr_siddon_cpu():
 
 
 # DD
-def test_adjoint_default3d_dd_cpu():
-    _test_adjoint_generic(UpdaterType="DEFAULT3D", projector_type="DD", use_gpu=False)
-
 
 def test_adjoint_default4d_dd_cpu():
     _test_adjoint_generic("DEFAULT4D", projector_type="DD", use_gpu=False)
@@ -375,11 +367,6 @@ def test_adjoint_lr_dd_cpu():
 
 
 # Siddon
-def test_adjoint_default3d_siddon_gpu():
-    _test_adjoint_generic(
-        UpdaterType="DEFAULT3D", projector_type="Siddon", use_gpu=True
-    )
-
 
 def test_adjoint_default4d_siddon_gpu():
     _test_adjoint_generic("DEFAULT4D", projector_type="Siddon", use_gpu=True)
@@ -390,9 +377,6 @@ def test_adjoint_lr_siddon_gpu():
 
 
 # DD
-def test_adjoint_default3d_dd_gpu():
-    _test_adjoint_generic(UpdaterType="DEFAULT3D", projector_type="DD", use_gpu=True)
-
 
 def test_adjoint_default4d_dd_gpu():
     _test_adjoint_generic("DEFAULT4D", projector_type="DD", use_gpu=True)

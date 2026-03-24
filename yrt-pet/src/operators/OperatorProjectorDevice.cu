@@ -413,6 +413,22 @@ ProjectorUpdaterDeviceWrapper*
 	return &m_updaterContainer;
 }
 
+bool OperatorProjectorDevice::hasUpdater() const
+{
+	return m_updaterContainer.isUpdaterInit();
+}
+
+bool OperatorProjectorDevice::isDEFAULT4D() const
+{
+	if (hasUpdater())
+	{
+		// Check if the updater is DEFAULT4D
+		return m_updaterContainer.getUpdaterType() == UpdaterType::DEFAULT4D;
+	}
+	// No updater -> same as DEFAULT4D
+	return true;
+}
+
 void OperatorProjectorDevice::applyA(const Variable* in, Variable* out)
 {
 	applyA(in, out, true);
@@ -481,9 +497,14 @@ void OperatorProjectorDevice::applyA(const Variable* in, Variable* out,
 		ASSERT_MSG(dat_out->hasTOF(), "Projector configured with TOF but "
 		                              "input data has no TOF information");
 	}
-	ASSERT_MSG(util::doesDynamicFramingMatch(*dat_out, img_in->getParams()),
-	           "The number of dynamic frames in the the projection data does "
-	           "not match the image's fourth dimension");
+
+	if (isDEFAULT4D())
+	{
+		ASSERT_MSG(
+		    util::doesDynamicFramingMatch(*dat_out, img_in->getParams()),
+		    "The number of dynamic frames in the the projection data does "
+		    "not match the image's fourth dimension");
+	}
 
 	if (!isProjDataDeviceOwned)
 	{
@@ -585,9 +606,14 @@ void OperatorProjectorDevice::applyAH(const Variable* in, Variable* out,
 		ASSERT_MSG(dat_in->hasTOF(), "Projector configured with TOF but "
 		                             "input data has no TOF information");
 	}
-	ASSERT_MSG(util::doesDynamicFramingMatch(*dat_in, img_out->getParams()),
-	           "The number of dynamic frames in the the projection data does "
-	           "not match the image's fourth dimension");
+
+	if (isDEFAULT4D())
+	{
+		ASSERT_MSG(
+		    util::doesDynamicFramingMatch(*dat_in, img_out->getParams()),
+		    "The number of dynamic frames in the the projection data does "
+		    "not match the image's fourth dimension");
+	}
 
 	if (!isProjDataDeviceOwned)
 	{

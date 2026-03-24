@@ -46,6 +46,8 @@ public:
 	UpdaterPointer getUpdaterDevicePointer();
 	void setupUpdater(const ProjectorParams& pr_projParams);
 	ProjectorUpdaterDeviceWrapper* getUpdaterDeviceWrapper();
+	bool hasUpdater() const;
+	bool isDEFAULT4D() const;
 
 	void applyA(const Variable* in, Variable* out) override;
 	void applyAH(const Variable* in, Variable* out) override;

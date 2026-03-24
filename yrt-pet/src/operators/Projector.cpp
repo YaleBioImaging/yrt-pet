@@ -101,9 +101,8 @@ void Projector::setupUpdater(const ProjectorParams& pr_projParams)
 		}
 		else
 		{
-			throw std::runtime_error(
-			    "ProjectorUpdater type needs to be "
-			    "ProjectorUpdaterLR to get/set updateH");
+			throw std::runtime_error("ProjectorUpdater type needs to be "
+			                         "ProjectorUpdaterLR to get/set updateH");
 		}
 	}
 	else if (pr_projParams.updaterType == UpdaterType::LRDUALUPDATE)
@@ -160,9 +159,15 @@ const ProjectionPsfManager* Projector::getProjectionPsfManager() const
 {
 	return mp_projPsfManager.get();
 }
+
 ProjectorUpdater* Projector::getUpdater()
 {
 	return mp_updater.get();
+}
+
+bool Projector::hasUpdater() const
+{
+	return mp_updater != nullptr;
 }
 
 UpdaterType Projector::getUpdaterType() const

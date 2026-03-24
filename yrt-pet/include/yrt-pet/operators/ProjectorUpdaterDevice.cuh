@@ -318,9 +318,11 @@ public:
 		cudaDeviceSynchronize();
 	}
 
-	UpdaterType getUpdaterType() { return m_updaterType; }
+	UpdaterType getUpdaterType() const { return m_updaterType; }
 
 	UpdaterPointer getUpdaterDevicePointer() { return mpd_updater; }
+
+	bool isUpdaterInit() const { return mpd_updater != nullptr; }
 
 	void allocateForHBasisDevice() const
 	{

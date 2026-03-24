@@ -264,9 +264,13 @@ void OperatorProjector::applyA(const Variable* in, Variable* out)
 	ASSERT_MSG(img != nullptr, "Input variable has to be an Image");
 	ASSERT_MSG(img->isMemoryValid(), "Image array is unallocated");
 	ASSERT_MSG(binIter != nullptr, "BinIterator undefined");
-	ASSERT_MSG(util::doesDynamicFramingMatch(*dat, img->getParams()),
-	           "The number of dynamic frames in the the projection data does "
-	           "not match the image's fourth dimension");
+	if (mp_projector->getUpdaterType() == UpdaterType::DEFAULT4D)
+	{
+		ASSERT_MSG(
+		    util::doesDynamicFramingMatch(*dat, img->getParams()),
+		    "The number of dynamic frames in the the projection data does "
+		    "not match the image's fourth dimension");
+	}
 
 	mp_binLoader->parallelDoOnBins(
 	    *dat, *binIter,
@@ -288,9 +292,13 @@ void OperatorProjector::applyAH(const Variable* in, Variable* out)
 	ASSERT_MSG(img != nullptr, "Output variable has to be an Image");
 	ASSERT_MSG(img->isMemoryValid(), "Image array is unallocated");
 	ASSERT_MSG(binIter != nullptr, "BinIterator undefined");
-	ASSERT_MSG(util::doesDynamicFramingMatch(*dat, img->getParams()),
-	           "The number of dynamic frames in the the projection data does "
-	           "not match the image's fourth dimension");
+	if (mp_projector->getUpdaterType() == UpdaterType::DEFAULT4D)
+	{
+		ASSERT_MSG(
+		    util::doesDynamicFramingMatch(*dat, img->getParams()),
+		    "The number of dynamic frames in the the projection data does "
+		    "not match the image's fourth dimension");
+	}
 
 	mp_binLoader->parallelDoOnBins(
 	    *dat, *binIter,

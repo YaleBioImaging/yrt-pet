@@ -23,8 +23,7 @@ public:
 	virtual ~Projector() = default;
 
 	explicit Projector(const ProjectorParams& pr_projParams);
-	static std::unique_ptr<Projector>
-	    create(const ProjectorParams& params);
+	static std::unique_ptr<Projector> create(const ProjectorParams& params);
 
 	// Virtual functions
 	virtual float forwardProjection(
@@ -44,6 +43,7 @@ public:
 	const TimeOfFlightHelper* getTOFHelper() const;
 	const ProjectionPsfManager* getProjectionPsfManager() const;
 	ProjectorUpdater* getUpdater();
+	bool hasUpdater() const;
 	UpdaterType getUpdaterType() const;
 
 protected:

@@ -14,23 +14,27 @@ fold_py = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, os.path.join(fold_py))
 import pyyrtpet as yrt
 
+yrt.setNumThreads(-1)
+
 # %% Get paths
 
-HOME_DIR = os.path.expanduser("~yd385")
+import helper as _helper
 
-fold_data = os.path.join(HOME_DIR, "yrt-pet-integration_tests", "test_data")
-fold_ge2d_dyn = os.path.join(fold_data, "phantom_dynamic")
-fold_ge2d = os.path.join(fold_data, "phantom_static")
-scanner = yrt.Scanner(os.path.join(fold_ge2d_dyn, "UHR2D.json"))
+fold_data = _helper.fold_data
+fold_out = _helper.fold_out
+fold_bin = _helper.fold_bin
+
+fold_uhr2d = os.path.join(fold_data, 'uhr2d')
+scanner_path = os.path.join(fold_uhr2d, 'UHR2D.json')
+fold_uhr2d_hbasis = os.path.join(fold_uhr2d, 'hbasis')
 
 rng = np.random.default_rng(0)
 
-
 def create_operator_projector(proj_params, bin_iter=None, use_gpu: bool = False):
     if use_gpu:
-        oper = yrt.OperatorProjectorDevice.create(proj_params, bin_iter)
+        oper = yrt.createOperatorProjectorDevice(proj_params, bin_iter)
     else:
-        oper = yrt.OperatorProjector(proj_params, bin_iter)
+        oper = yrt.createOperatorProjector(proj_params, bin_iter)
     return oper
 
 
@@ -38,17 +42,18 @@ def create_operator_projector(proj_params, bin_iter=None, use_gpu: bool = False)
 
 
 def prepare_data(updater_type):
+    scanner = yrt.Scanner(scanner_path)
     out_lm = yrt.ListModeLUTOwned(
-        scanner, os.path.join(fold_ge2d_dyn, "shepp_logan_dyn.lmDat")
+        scanner, os.path.join(fold_uhr2d, "shepp_logan_dyn.lmDat")
     )
-    img_params = yrt.ImageParams(os.path.join(fold_ge2d_dyn, "img_params_2d_dyn.json"))
+    img_params = yrt.ImageParams(os.path.join(fold_uhr2d, "img_params_2d_dyn.json"))
     rank = 1 if updater_type == "DEFAULT3D" else 5
     T = 1 if updater_type == "DEFAULT3D" else 20
     img_params.nt = rank if "LR" in updater_type else T
 
     if updater_type in ["DEFAULT4D", "LR"]:
         HBasis_np = pickle.load(
-            open(os.path.join(fold_ge2d_dyn, f"HBasis_r{rank}.pik"), "rb")
+            open(os.path.join(fold_uhr2d_hbasis, f"HBasis_r{rank}.pik"), "rb")
         )["HBasis"].astype(np.float32)
         HBasis_np = np.require(HBasis_np, requirements=["C"])
 
@@ -76,6 +81,7 @@ def prepare_data(updater_type):
         proj_params.setHBasisFromNumpy(HBasis_np)
 
     return {
+        "scanner": scanner,
         "lm": out_lm,
         "proj_params": proj_params,
         "df": df,
@@ -137,6 +143,7 @@ def _ref_fwd_bwd_cpu(projector_type):
     ).T
 
     return {
+        "scanner": prep_dict_ref['scanner'],
         "x_ref_np_backward": x_ref_np_backward,
         "x_ref_np": x_ref_np,
         "W_ref_np_backward": W_ref_np_backward,
@@ -149,9 +156,8 @@ def _ref_fwd_bwd_cpu(projector_type):
 @pytest.fixture(scope="module")
 def fwd_bwd():
     """
-    Prepare CPU reference forward/backward projections for Siddon and DD.
-    If this fails, only tests depending on this fixture are skipped —
-    other test files are unaffected.
+    Prepare reference forward/backward projection data for Siddon and DD.
+    If this fails, only tests depending on this fixture will be skipped.
     """
     result = {}
     for proj in ("Siddon", "DD"):
@@ -164,11 +170,10 @@ def fwd_bwd():
 
 # %% Generic test function used later for each Updater type and projector
 
-
-def _test_adjoint_generic(UpdaterType, projector_type, use_gpu):
+def _test_adjoint_generic(updater_type, projector_type, use_gpu):
     if use_gpu and not yrt.compiledWithCuda():
         pytest.skip("Code not compiled with cuda. Skipping...")
-    prep_dict = prepare_data(UpdaterType)
+    prep_dict = prepare_data(updater_type)
     out_lm = prep_dict["lm"]
     proj_params = prep_dict["proj_params"]
     proj_params.setProjector(projector_type)
@@ -224,7 +229,7 @@ def _test_adjoint_generic(UpdaterType, projector_type, use_gpu):
     rel_err = abs(lhs - rhs) / max(1.0, abs(lhs), abs(rhs))
     assert rel_err < 1e-3
 
-    print(f"\n\n ................Adjoint test for {UpdaterType}................\n")
+    print(f"\n\n ................Adjoint test for {updater_type}................\n")
     print(f"<A x, y>   = {lhs:.6e}")
     print(f"<x, A^H y> = {rhs:.6e}")
     print(f"relative error = {rel_err:.3e}")
@@ -267,11 +272,11 @@ def _test_generic_fwd(UpdaterType, projector_type, use_gpu: bool, fwd_bwd: dict)
 
 
 def _test_generic_bwd(
-    UpdaterType, projector_type, use_gpu: bool, updateH: bool, fwd_bwd: dict
+    updater_type, projector_type, use_gpu: bool, updateH: bool, fwd_bwd: dict
 ):
     if use_gpu and not yrt.compiledWithCuda():
         pytest.skip("Code not compiled with cuda. Skipping...")
-    prep_dict = prepare_data(UpdaterType)
+    prep_dict = prepare_data(updater_type)
     out_lm = prep_dict["lm"]
     proj_params = prep_dict["proj_params"]
     proj_params.setProjector(projector_type)
@@ -284,7 +289,7 @@ def _test_generic_bwd(
 
     oper = create_operator_projector(proj_params, bin_iter, use_gpu)
 
-    x_np_test = ref_load["x_ref_np"] if "DEFAULT4D" in UpdaterType else ref_load["W_np"]
+    x_np_test = ref_load["x_ref_np"] if "DEFAULT4D" in updater_type else ref_load["W_np"]
     y_proj_ref = yrt.ProjectionListAlias(out_lm)
     y_proj_ref.bind(ref_load["y_proj_ref_np"])
 
@@ -299,19 +304,19 @@ def _test_generic_bwd(
 
         backward_ref = (
             ref_load["x_ref_np_backward"]
-            if "DEFAULT4D" in UpdaterType
+            if "DEFAULT4D" in updater_type
             else ref_load["W_ref_np_backward"]
         )
 
         np.testing.assert_allclose(backward_ref, W_lr_np_backward, atol=1e-5, rtol=2e-3)
         print(
-            f"\n\n ................Backward test passed for {UpdaterType}!................\n"
+            f"\n\n ................Backward test passed for {updater_type}!................\n"
         )
 
     else:
-        if "LR" not in UpdaterType:
+        if "LR" not in updater_type:
             raise ValueError(
-                f"Cannot apply H-update backward on an opertor that is not LR (given {UpdaterType})"
+                f"Cannot apply H-update backward on an opertor that is not LR (given {updater_type})"
             )
         x_lr_img = yrt.ImageAlias(img_params)
         x_lr_img.bind(x_np_test)
@@ -335,7 +340,7 @@ def _test_generic_bwd(
             ref_load["H_ref_np_backward"], H_lr_np_backward, atol=1e-5, rtol=3e-3
         )
         print(
-            f"\n\n ................Backward test passed for {UpdaterType} (H update)!................\n"
+            f"\n\n ................Backward test passed for {updater_type} (H update)!................\n"
         )
 
 

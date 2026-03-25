@@ -146,6 +146,10 @@ def get_nrmse(x0, x1):
     rmse = get_rmse(x0, x1)
     return rmse / np.sqrt(np.mean(x0 ** 2))
 
+def assert_allclose_with_threshold(img1, img2, threshold, rtol=1e-3, atol=0):
+    mask = (img1 > threshold) & (img2 > threshold)
+    assert mask.any(), "No voxels above threshold"
+    np.testing.assert_allclose(img1[mask], img2[mask], rtol=rtol, atol=atol)
 
 # %% Datasets
 

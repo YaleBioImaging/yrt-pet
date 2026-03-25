@@ -209,8 +209,9 @@ void OSEM::setSensitivityImages(const std::vector<Image*>& sensImages)
 		}
 		else
 		{
-			ASSERT_MSG(sensImage->getParams().isSameAs(sensImageParams),
-			           "Image parameters mismatch");
+			ASSERT_MSG(
+			    sensImage->getParams().isSameAsIgnoreFrames(sensImageParams),
+			    "Image parameters mismatch");
 		}
 		m_sensitivityImages.push_back(sensImage);
 	}
@@ -274,7 +275,7 @@ void OSEM::setSensitivityImage(Image* sensImage, int subset)
 
 	if (imageParams.isValid())
 	{
-		ASSERT_MSG(sensImage->getParams().isSameAs(imageParams),
+		ASSERT_MSG(sensImage->getParams().isSameAsIgnoreFrames(imageParams),
 		           "Image parameters mismatch");
 	}
 	else
@@ -570,8 +571,10 @@ void OSEM::setInitialEstimate(const Image* p_initialEstimate)
 	ASSERT(p_initialEstimate != nullptr);
 	if (imageParams.isValid())
 	{
-		ASSERT_MSG(p_initialEstimate->getParams().isSameAsIgnoreFrames(imageParams),
-				   "Image parameters mismatch for initial estimate image");
+		// YN: Here maybe we should check the number of frames too
+		ASSERT_MSG(
+		    p_initialEstimate->getParams().isSameAsIgnoreFrames(imageParams),
+		    "Image parameters mismatch for initial estimate image");
 	}
 	else
 	{
@@ -585,7 +588,7 @@ void OSEM::setMaskImage(const Image* p_maskImage)
 	ASSERT(p_maskImage != nullptr);
 	const ImageParams& imgParamsForSens = getImageParamsForSensitivityImage();
 	ASSERT_MSG(imgParamsForSens.isValid(), "Image parameters not set for OSEM");
-	ASSERT_MSG(p_maskImage->getParams().isSameAs(imgParamsForSens),
+	ASSERT_MSG(p_maskImage->getParams().isSameAsIgnoreFrames(imgParamsForSens),
 	           "Image parameters mismatch for mask image");
 	maskImage = p_maskImage;
 }

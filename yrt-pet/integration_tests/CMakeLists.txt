@@ -2,6 +2,7 @@ project(integration_tests)
 
 set(SOURCE_PYTEST
   test_recon.py
+  test_recon_lr.py
   test_operators_lr.py
   helper.py)
 

@@ -19,13 +19,13 @@ import pyyrtpet as yrt
 import helper as _helper
 
 # %% Paths
-
 fold_data = _helper.fold_data
 fold_out  = _helper.fold_out
 fold_bin  = _helper.fold_bin
 
 fold_uhr2d        = os.path.join(fold_data, "uhr2d")
 scanner_path      = os.path.join(fold_uhr2d, "UHR2D.json")
+fold_uhr2d_ref    = os.path.join(fold_uhr2d, "ref")
 fold_uhr2d_hbasis = os.path.join(fold_uhr2d, "hbasis")
 
 # TODO NOW: Make sure these files are valid
@@ -42,11 +42,7 @@ fold_uhr2d_hbasis = os.path.join(fold_uhr2d, "hbasis")
 #   fold_uhr2d/{lr_recon_fname}.nii                                   (LR-H OSEM initial W)
 #   fold_uhr2d/{lr_recon_fname}/{lr_H_recon_fname}.pik                (LR-H OSEM reference H)
 
-num_subsets = 1
-idx_subset  = 0
-
 # %% OSEM reconstruction parameters
-
 OSEM_3D_NUM_ITER   = 30
 OSEM_4D_NUM_ITER   = 60
 OSEM_LR_NUM_ITER   = 30
@@ -81,14 +77,14 @@ def osem_3d_data():
         )
         ref_img    = yrt.ImageOwned(
             img_params,
-            os.path.join(fold_uhr2d, "shepp_logan_mlem_his_400.nii"),
+            os.path.join(fold_uhr2d_ref, "shepp_logan_mlem_his_400.nii"),
         )
         np_ref_img = np.array(ref_img, copy=False)
     except Exception as e:
         pytest.skip(f"osem_3d_data setup failed: {e}")
 
-    return {"scanner": scanner,
-            "dataset": dataset,
+    return {"scanner":    scanner,
+            "dataset":    dataset,
             "img_params": img_params,
             "np_ref_img": np_ref_img}
 
@@ -101,7 +97,7 @@ def osem_4d_data():
             f"shepp_logan_mlem_lm_it{OSEM_4D_NUM_ITER}_sub{OSEM_NUM_SUBSETS}.pik"
         )
         load_ref_dict        = pickle.load(
-            open(os.path.join(fold_uhr2d, ref_fname), "rb")
+            open(os.path.join(fold_uhr2d_ref, ref_fname), "rb")
         )
         np_ref_img           = load_ref_dict["x"]
         dynamic_framing_array = load_ref_dict["dynamic_framing"]
@@ -119,10 +115,10 @@ def osem_4d_data():
         pytest.skip(f"osem_4d_data setup failed: {e}")
 
     return {
-        "scanner": scanner,
-        "dataset":    dataset,
-        "img_params": img_params,
-        "np_ref_img": np_ref_img,
+        "scanner":     scanner,
+        "dataset":     dataset,
+        "img_params":  img_params,
+        "np_ref_img":  np_ref_img,
         "elapsed_cpu": elapsed_cpu,
     }
 
@@ -136,7 +132,7 @@ def osem_lr_data():
             f"sub{OSEM_NUM_SUBSETS}_r{RANK}.pik"
         )
         load_ref_dict        = pickle.load(
-            open(os.path.join(fold_uhr2d, ref_fname), "rb")
+            open(os.path.join(fold_uhr2d_ref, ref_fname), "rb")
         )
         np_ref_img           = load_ref_dict["x"]
         np_ref_W             = load_ref_dict["W"]
@@ -177,7 +173,7 @@ def osem_lr_H_data():
         scanner = yrt.Scanner(scanner_path)
         # Load reference W reconstruction used as the initial estimate
         load_ref_dict        = pickle.load(
-            open(os.path.join(fold_uhr2d, _lr_recon_fname + ".pik"), "rb")
+            open(os.path.join(fold_uhr2d_ref, _lr_recon_fname + ".pik"), "rb")
         )
         np_ref_W             = load_ref_dict["W"]
         HBasis_np            = load_ref_dict["H_orig"]
@@ -195,7 +191,7 @@ def osem_lr_H_data():
         dataset.addDynamicFraming(df)
 
         W_init    = yrt.ImageOwned(
-            img_params, os.path.join(fold_uhr2d, _lr_recon_fname + ".nii")
+            img_params, os.path.join(fold_uhr2d_ref, _lr_recon_fname + ".nii")
         )
         np_W_init = np.array(W_init, copy=True)
 
@@ -203,7 +199,7 @@ def osem_lr_H_data():
         load_H_ref_dict = pickle.load(
             open(
                 os.path.join(
-                    fold_uhr2d, _lr_recon_fname, _lr_H_recon_fname + ".pik"
+                    fold_uhr2d_ref, _lr_recon_fname, _lr_H_recon_fname + ".pik"
                 ),
                 "rb",
             )
@@ -254,7 +250,6 @@ def test_3d_osem(osem_3d_data):
 
 
 def test_4d_osem(osem_4d_data):
-    """Dynamic list-mode OSEM reconstruction (DEFAULT4D) and comparison to reference."""
     d          = osem_4d_data
     scanner = d['scanner']
     img_params = d["img_params"]

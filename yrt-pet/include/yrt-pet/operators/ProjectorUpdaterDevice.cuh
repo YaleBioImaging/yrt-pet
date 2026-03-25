@@ -107,7 +107,7 @@ public:
 #pragma unroll
 			for (int l = 0; l < Rank; ++l)
 			{
-				atomicAdd(H_ptr, AHy * (*img_ptr));
+				atomicAdd(H_ptr, static_cast<double>(AHy * (*img_ptr)));
 				img_ptr += numVoxelPerFrame;
 				H_ptr += m_numDynamicFrames;
 			}
@@ -161,7 +161,7 @@ public:
 	                           frame_t dynamicFrame,
 	                           size_t numVoxelPerFrame) override
 	{
-		const float AHy = value * weight;
+		const double AHy = value * weight;
 
 		if (!m_updateH)
 		{

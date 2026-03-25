@@ -69,8 +69,8 @@ public:
 	                               size_t numVoxelPerFrame) const override
 	{
 		float cur_img_lr_val = 0.0f;
-		const float* __restrict__ H_ptr = mpd_HBasisDevice_ptr + dynamicFrame;
-		const float* __restrict__ img_ptr = cur_img_ptr + offset;
+		const float* H_ptr = mpd_HBasisDevice_ptr + dynamicFrame;
+		const float* img_ptr = cur_img_ptr + offset;
 #pragma unroll
 		for (int l = 0; l < Rank; ++l)
 		{
@@ -89,8 +89,8 @@ public:
 
 		if (!m_updateH)
 		{
-			float* __restrict__ img_ptr = cur_img_ptr + offset;
-			const float* __restrict__ H_ptr =
+			float* img_ptr = cur_img_ptr + offset;
+			const float* H_ptr =
 			    mpd_HBasisDevice_ptr + dynamicFrame;
 #pragma unroll
 			for (int l = 0; l < Rank; ++l)
@@ -102,8 +102,8 @@ public:
 		}
 		else
 		{
-			const float* __restrict__ img_ptr = cur_img_ptr + offset;
-			auto* __restrict__ H_ptr = mpd_HBasisDeviceWrite_ptr + dynamicFrame;
+			const float* img_ptr = cur_img_ptr + offset;
+			auto* H_ptr = mpd_HBasisDeviceWrite_ptr + dynamicFrame;
 #pragma unroll
 			for (int l = 0; l < Rank; ++l)
 			{
@@ -139,13 +139,13 @@ public:
 	}
 
 	__device__ float forwardUpdate(float weight,
-	                               float* __restrict__ cur_img_ptr,
+	                               float* cur_img_ptr,
 	                               size_t offset, frame_t dynamicFrame,
 	                               size_t numVoxelPerFrame) const override
 	{
 		float cur_img_lr_val = 0.0f;
-		const auto* __restrict__ H_ptr = mpd_HBasisDevice_ptr + dynamicFrame;
-		const float* __restrict__ img_ptr = cur_img_ptr + offset;
+		const auto* H_ptr = mpd_HBasisDevice_ptr + dynamicFrame;
+		const float* img_ptr = cur_img_ptr + offset;
 
 		for (int l = 0; l < m_rank; ++l)
 		{
@@ -157,7 +157,7 @@ public:
 	}
 
 	__device__ void backUpdate(float value, float weight,
-	                           float* __restrict__ cur_img_ptr, size_t offset,
+	                           float* cur_img_ptr, size_t offset,
 	                           frame_t dynamicFrame,
 	                           size_t numVoxelPerFrame) override
 	{
@@ -165,8 +165,8 @@ public:
 
 		if (!m_updateH)
 		{
-			float* __restrict__ img_ptr = cur_img_ptr + offset;
-			const auto* __restrict__ H_ptr =
+			float* img_ptr = cur_img_ptr + offset;
+			const auto* H_ptr =
 			    mpd_HBasisDevice_ptr + dynamicFrame;
 			for (int l = 0; l < m_rank; ++l)
 			{
@@ -177,8 +177,8 @@ public:
 		}
 		else
 		{
-			const float* __restrict__ img_ptr = cur_img_ptr + offset;
-			auto* __restrict__ H_ptr = mpd_HBasisDeviceWrite_ptr + dynamicFrame;
+			const float* img_ptr = cur_img_ptr + offset;
+			auto* H_ptr = mpd_HBasisDeviceWrite_ptr + dynamicFrame;
 			for (int l = 0; l < m_rank; ++l)
 			{
 				atomicAdd(H_ptr, AHy * (*img_ptr));

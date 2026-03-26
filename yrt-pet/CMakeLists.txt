@@ -1,7 +1,12 @@
 # Jinsong Ouyang, 03-2019
 
 cmake_minimum_required(VERSION 3.28)
-project(yrt-pet VERSION 0.0.1 LANGUAGES CXX)
+
+# Read version from VERSION.txt
+file(READ "${CMAKE_SOURCE_DIR}/VERSION.txt" YRTPET_VERSION_STRING)
+string(STRIP "${YRTPET_VERSION_STRING}" YRTPET_VERSION_STRING)
+
+project(yrt-pet VERSION ${YRTPET_VERSION_STRING} LANGUAGES CXX)
 
 # Find Git for version information
 find_package(Git QUIET)

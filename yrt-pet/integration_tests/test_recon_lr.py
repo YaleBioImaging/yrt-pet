@@ -28,20 +28,6 @@ scanner_path = os.path.join(fold_uhr2d, "UHR2D.json")
 fold_uhr2d_ref = os.path.join(fold_uhr2d, "ref")
 fold_uhr2d_hbasis = os.path.join(fold_uhr2d, "hbasis")
 
-# TODO NOW: Make sure these files are valid
-# Files read by this script (all under fold_uhr2d):
-#   fold_uhr2d/UHR2D.json
-#   fold_uhr2d/shepp_logan.lmDat                                      (3D OSEM)
-#   fold_uhr2d/img_params_2d.json                                     (3D OSEM)
-#   fold_uhr2d/shepp_logan_mlem_his_400.nii                           (3D OSEM reference)
-#   fold_uhr2d/shepp_logan_dyn.lmDat                                  (4D / LR OSEM)
-#   fold_uhr2d/img_params_2d_dyn.json                                 (4D / LR OSEM)
-#   fold_uhr2d/shepp_logan_mlem_lm_it{N}_sub{S}.pik                  (4D OSEM reference)
-#   fold_uhr2d/shepp_logan_mlem_lm_lr_it{N}_sub{S}_r{R}.pik          (LR OSEM reference)
-#   fold_uhr2d/{lr_recon_fname}.pik                                   (LR-H OSEM reference W)
-#   fold_uhr2d/{lr_recon_fname}.nii                                   (LR-H OSEM initial W)
-#   fold_uhr2d/{lr_recon_fname}/{lr_H_recon_fname}.pik                (LR-H OSEM reference H)
-
 # %% OSEM reconstruction parameters
 OSEM_3D_NUM_ITER = 400
 OSEM_4D_NUM_ITER = 60

@@ -10,6 +10,7 @@
 #include "yrt-pet/datastruct/projection/LORMotion.hpp"
 #include "yrt-pet/datastruct/projection/ListModeLUT.hpp"
 #include "yrt-pet/datastruct/projection/ProjectionData.hpp"
+#include "yrt-pet/datastruct/projection/ProjectionList.hpp"
 #include "yrt-pet/datastruct/projection/ProjectionProperties.hpp"
 #include "yrt-pet/datastruct/scanner/DetectorMask.hpp"
 #include "yrt-pet/geometry/Matrix.hpp"
@@ -60,6 +61,15 @@ void py_setup_reconstructionutils(pybind11::module& m)
 	    "listmode_input"_a, "histo_out"_a, "detector_mask"_a = nullptr);
 	m.def(
 	    "convertToHistogram3D",
+	    [](const ProjectionList& dat, Histogram3D& histoOut,
+	       const DetectorMask* detectorMask)
+	    {
+		    util::convertToHistogram3D<true, true>(dat, histoOut, detectorMask);
+	    },
+	    "projectionlist_input"_a, "histo_out"_a, "detector_mask"_a = nullptr);
+
+	m.def(
+	    "convertToHistogram3D",
 	    [](const Histogram& dat, const DetectorMask* detectorMask)
 	    { return util::convertToHistogram3D<false, true>(dat, detectorMask); },
 	    "histo_input"_a, "detector_mask"_a = nullptr);
@@ -68,12 +78,17 @@ void py_setup_reconstructionutils(pybind11::module& m)
 	    [](const ListMode& dat, const DetectorMask* detectorMask)
 	    { return util::convertToHistogram3D<true, true>(dat, detectorMask); },
 	    "listmode_input"_a, "detector_mask"_a = nullptr);
+	m.def(
+	    "convertToHistogram3D",
+	    [](const ProjectionList& dat, const DetectorMask* detectorMask)
+	    { return util::convertToHistogram3D<true, true>(dat, detectorMask); },
+	    "projectionlist_input"_a, "detector_mask"_a = nullptr);
 
 	m.def("convertToListModeLUT", &util::convertToListModeLUT<true>,
 	      "listmode"_a, "detector_mask"_a = nullptr);
 
 	m.def("doesDynamicFramingMatch", &util::doesDynamicFramingMatch,
-		  "data_input"_a, "params"_a);
+	      "data_input"_a, "params"_a);
 
 	m.def(
 	    "createOSEM",
@@ -170,7 +185,7 @@ void py_setup_reconstructionutils(pybind11::module& m)
 	                           ProjectorType projectorType, bool useGPU)>(
 	          &util::forwProject),
 	      "scanner"_a, "img"_a, "proj_data"_a,
-	      "projectorType"_a = ProjectorType::SIDDON, "use_gpu"_a = false);
+	      "projector_type"_a = ProjectorType::SIDDON, "use_gpu"_a = false);
 	m.def("forwProject",
 	      static_cast<void (*)(
 	          const Scanner& scanner, const Image& img,

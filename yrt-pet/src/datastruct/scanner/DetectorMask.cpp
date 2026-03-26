@@ -19,10 +19,10 @@ namespace yrt
 void py_setup_detectormask(pybind11::module& m)
 {
 	auto c = py::class_<DetectorMask>(m, "DetectorMask", py::buffer_protocol());
-	c.def(py::init<size_t>(), "numDets"_a);
+	c.def(py::init<size_t>(), "num_dets"_a);
 	c.def(py::init<const std::string&>(), "fname"_a);
-	c.def(py::init<const Array1DBase<bool>&>(), "maskArray"_a);
-	c.def(py::init<const Array3DBase<float>&>(), "maskArray"_a);
+	c.def(py::init<const Array1DBase<bool>&>(), "mask_array"_a);
+	c.def(py::init<const Array3DBase<float>&>(), "mask_array"_a);
 	c.def(py::init<const DetectorMask&>(), "other"_a);
 	c.def("setNumDets", &DetectorMask::setNumDets);
 	c.def("readFromFile", &DetectorMask::readFromFile, "fname"_a);
@@ -39,14 +39,14 @@ void py_setup_detectormask(pybind11::module& m)
 	          &DetectorMask::getData));
 	c.def("enableAllDetectors", &DetectorMask::enableAllDetectors);
 	c.def("disableAllDetectors", &DetectorMask::disableAllDetectors);
-	c.def("setDetectorEnabled", &DetectorMask::setDetectorEnabled, "detId"_a,
+	c.def("setDetectorEnabled", &DetectorMask::setDetectorEnabled, "det_id"_a,
 	      "enabled"_a);
-	c.def("enableDetector", &DetectorMask::enableDetector, "detId"_a);
-	c.def("disableDetector", &DetectorMask::disableDetector, "detId"_a);
+	c.def("enableDetector", &DetectorMask::enableDetector, "det_id"_a);
+	c.def("disableDetector", &DetectorMask::disableDetector, "det_id"_a);
 	c.def("checkAgainstScanner", &DetectorMask::checkAgainstScanner);
 	c.def("getNumDets", &DetectorMask::getNumDets);
-	c.def("checkDetector", &DetectorMask::checkDetector, "detId"_a);
-	c.def("isDetectorEnabled", &DetectorMask::isDetectorEnabled, "detId"_a);
+	c.def("checkDetector", &DetectorMask::checkDetector, "det_id"_a);
+	c.def("isDetectorEnabled", &DetectorMask::isDetectorEnabled, "det_id"_a);
 	c.def("areAllDetectorsEnabled", &DetectorMask::areAllDetectorsEnabled);
 	c.def("areAllDetectorsDisabled", &DetectorMask::areAllDetectorsDisabled);
 	c.def("writeToFile", &DetectorMask::writeToFile, "fname"_a);

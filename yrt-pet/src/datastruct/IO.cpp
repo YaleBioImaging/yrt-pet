@@ -21,7 +21,7 @@ namespace yrt
 void py_setup_io(py::module& m)
 {
 	m.def("openProjectionData", &io::openProjectionData, "input_fname"_a,
-	      "input_format"_a, "scanner"_a, "pluginOptions"_a);
+	      "input_format"_a, "scanner"_a, "plugin_options"_a);
 	m.def("getProjector", io::getProjector, "projector_name"_a);
 	m.def("possibleFormats", io::possibleFormats);
 }

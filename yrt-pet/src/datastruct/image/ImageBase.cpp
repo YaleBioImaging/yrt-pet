@@ -28,7 +28,7 @@ void py_setup_imagebase(py::module& m)
 	      "Set all voxels to the given value (legacy)");
 	c.def("addFirstImageToSecond", &ImageBase::addFirstImageToSecond,
 	      "second"_a);
-	c.def("applyThreshold", &ImageBase::applyThreshold, "maskImage"_a,
+	c.def("applyThreshold", &ImageBase::applyThreshold, "mask_image"_a,
 	      "threshold"_a, "val_le_scale"_a, "val_le_off"_a, "val_gt_scale"_a,
 	      "val_gt_off"_a);
 	c.def("writeToFile", &ImageBase::writeToFile, "filename"_a);

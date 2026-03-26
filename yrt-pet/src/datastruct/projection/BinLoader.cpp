@@ -24,8 +24,8 @@ void py_setup_binloader(py::module& m)
 	auto c = py::class_<BinLoader>(m, "BinLoader");
 	c.def(py::init<const std::vector<Constraint*>&,
 	               const std::set<ProjectionPropertyType>&>(),
-	      "contraints"_a, "projProperties"_a);
-	c.def("allocate", &BinLoader::allocate, "numElementsProperties"_a);
+	      "contraints"_a, "proj_properties"_a);
+	c.def("allocate", &BinLoader::allocate, "num_elements_properties"_a);
 	c.def("isAllocated", &BinLoader::isAllocated);
 	c.def("clearConstraints", &BinLoader::clearConstraints);
 	c.def("collectFromBins", &BinLoader::collectFromBins, "proj_data"_a,

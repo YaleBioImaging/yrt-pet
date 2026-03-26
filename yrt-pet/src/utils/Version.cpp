@@ -27,7 +27,7 @@ namespace yrt
 {
 namespace version
 {
-static constexpr const char* versionString = YRTPET_VERSION_STRING;
+
 std::string getVersionString()
 {
 	return versionString;

@@ -30,7 +30,7 @@ if(GIT_FOUND AND EXISTS "${YRTPET_GIT_ROOT}/.git")
         OUTPUT_VARIABLE YRTPET_GIT_HASH
         OUTPUT_STRIP_TRAILING_WHITESPACE
         ERROR_QUIET)
-    
+
     # Check if git repo is dirty
     execute_process(
         COMMAND ${GIT_EXECUTABLE} diff-index --quiet HEAD
@@ -42,7 +42,7 @@ if(GIT_FOUND AND EXISTS "${YRTPET_GIT_ROOT}/.git")
     else()
         set(YRTPET_GIT_DIRTY FALSE)
     endif()
-    
+
     message(STATUS "Git hash: ${YRTPET_GIT_HASH}, dirty: ${YRTPET_GIT_DIRTY}")
 else()
     set(YRTPET_GIT_HASH "")
@@ -61,6 +61,14 @@ if(YRTPET_GIT_HASH)
 endif()
 
 message(STATUS "YRT-PET Version: ${YRTPET_VERSION_STRING}")
+
+# Generate version.h from template
+configure_file(
+    "${CMAKE_SOURCE_DIR}/include/yrt-pet/version.h.in"
+    "${CMAKE_BINARY_DIR}/include/yrt-pet/version.h"
+    @ONLY)
+# Add generated directory to include path
+list(APPEND CMAKE_INCLUDE_CURRENT_DIR "${CMAKE_BINARY_DIR}/include")
 
 
 # # Dependencies
@@ -135,6 +143,7 @@ function(setup_target TARGET JSON CXXOPTS PYBIND11)
     target_link_libraries(${TARGET} PRIVATE ${LINK_EXTRA})
     target_include_directories(${TARGET} PUBLIC ${YRTPET_INCLUDE_DIRECTORIES}
         $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include/>
+        $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/include/>
         $<INSTALL_INTERFACE:include/>)
     target_link_libraries(${TARGET} PUBLIC ${YRTPET_LINK_LIBRARIES})
     target_compile_options(${TARGET} PRIVATE
@@ -153,7 +162,6 @@ function(setup_target TARGET JSON CXXOPTS PYBIND11)
         target_compile_definitions(${TARGET} PUBLIC BUILD_PYBIND11)
     endif ()
     add_compile_definitions(HAVE_ZLIB)
-add_compile_definitions(YRTPET_VERSION_STRING="${YRTPET_VERSION_STRING}")
 endfunction()
 
 # Wrapper for library target

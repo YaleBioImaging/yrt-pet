@@ -75,7 +75,10 @@ void py_setup_projectiondata(py::module& m)
 		                          l.point2.x, l.point2.y, l.point2.z);
 	    },
 	    "bin"_a);
-	c.def("getLOR", &ProjectionData::getLOR, "bin"_a, "det_pair"_a = nullptr);
+	c.def(
+	    "getLOR", [](const ProjectionData& self, bin_t bin)
+	    { return self.getLOR(bin, nullptr); }, "bin"_a);
+	c.def("getLOR", &ProjectionData::getLOR, "bin"_a, "det_pair"_a);
 	c.def("clearProjections", &ProjectionData::clearProjections, "value"_a);
 	c.def("divideMeasurements", &ProjectionData::divideMeasurements,
 	      "measurements"_a, "bin_iter"_a);

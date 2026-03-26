@@ -31,7 +31,7 @@ namespace yrt
 void py_setup_projectorsiddon(py::module& m)
 {
 	auto c = py::class_<ProjectorSiddon, Projector>(m, "ProjectorSiddon");
-	c.def(py::init<const ProjectorParams&>(), "projParams"_a);
+	c.def(py::init<const ProjectorParams&>(), "proj_params"_a);
 	c.def("setNumRays", &ProjectorSiddon::setNumRays, "num_rays"_a);
 	c.def("getNumRays", &ProjectorSiddon::getNumRays);
 	c.def(

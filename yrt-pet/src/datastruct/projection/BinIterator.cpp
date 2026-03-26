@@ -25,8 +25,8 @@ void py_setup_biniterator(py::module& m)
 	auto c_range =
 	    py::class_<BinIteratorRange, BinIterator>(m, "BinIteratorRange");
 	c_range.def(py::init<bin_t>(), "num"_a);
-	c_range.def(py::init<bin_t, bin_t, bin_t>(), "idxStart"_a, "idxEnd"_a,
-	            "idxStride"_a = 1);
+	c_range.def(py::init<bin_t, bin_t, bin_t>(), "idx_start"_a, "idx_end"_a,
+	            "idx_stride"_a = 1);
 
 	auto c_vector =
 	    py::class_<BinIteratorVector, BinIterator>(m, "BinIteratorVector");
@@ -41,15 +41,15 @@ void py_setup_biniterator(py::module& m)
 	auto c_chronological =
 	    py::class_<BinIteratorChronological, BinIteratorRange>(
 	        m, "BinIteratorChronological");
-	c_chronological.def(py::init<bin_t, bin_t, bin_t>(), "numSubsets"_a,
-	                    "numEvents"_a, "idxSubset"_a);
+	c_chronological.def(py::init<bin_t, bin_t, bin_t>(), "num_subsets"_a,
+	                    "num_events"_a, "idx_subset"_a);
 
 	auto c_chronological_interleaved =
 	    py::class_<BinIteratorChronologicalInterleaved, BinIteratorRange>(
 	        m, "BinIteratorChronologicalInterleaved");
 	c_chronological_interleaved.def(py::init<bin_t, bin_t, bin_t>(),
-	                                "numSubsets"_a, "numEvents"_a,
-	                                "idxSubset"_a);
+	                                "num_subsets"_a, "num_events"_a,
+	                                "idx_subset"_a);
 }
 }  // namespace yrt
 #endif

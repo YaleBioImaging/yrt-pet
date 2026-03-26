@@ -89,8 +89,8 @@ void py_setup_imagedevice(py::module& m)
 	    "Copy from a given host image", "src_host_image"_a);
 
 	c.def("addFirstImageToSecond", &ImageDevice::addFirstImageToSecond,
-	      "imgOut"_a);
-	c.def("applyThreshold", &ImageDevice::applyThreshold, "maskImage"_a,
+	      "img_out"_a);
+	c.def("applyThreshold", &ImageDevice::applyThreshold, "mask_image"_a,
 	      "threshold"_a, "val_le_scale"_a, "val_le_off"_a, "val_gt_scale"_a,
 	      "val_gt_off"_a);
 	c.def("writeToFile", &ImageDevice::writeToFile, "image_fname"_a);

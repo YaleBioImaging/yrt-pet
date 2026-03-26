@@ -30,14 +30,14 @@ void py_setup_scatterestimator(py::module& m)
 	        const Scanner&, const Image&, const Image&, const ProjectionData&,
 	        size_t, size_t, size_t, const Histogram3D*, const Histogram3D*,
 	        scatter::CrystalMaterial, int, size_t, float, const std::string&>(),
-	    "scanner"_a, "lambda"_a, "mu"_a, "prompts"_a, "numTOFBins"_a,
-	    "numPlanes"_a, "numAngles"_a, "randomsHis"_a = nullptr,
-	    "sensitivityHis"_a = nullptr,
-	    "crystalMaterial"_a = scatter::ScatterEstimator::DefaultCrystal,
+	    "scanner"_a, "lambda"_a, "mu"_a, "prompts"_a, "num_tof_bins"_a,
+	    "num_planes"_a, "num_angles"_a, "randoms_his"_a = nullptr,
+	    "sensitivity_his"_a = nullptr,
+	    "crystal_material"_a = scatter::ScatterEstimator::DefaultCrystal,
 	    "seedi"_a = scatter::ScatterEstimator::DefaultSeed,
-	    "scatterTailsMaskWidth"_a =
+	    "scatter_tails_mask_width"_a =
 	        scatter::ScatterEstimator::DefaultScatterTailsMaskWidth,
-	    "attThreshold"_a = scatter::ScatterEstimator::DefaultAttThreshold,
+	    "att_threshold"_a = scatter::ScatterEstimator::DefaultAttThreshold,
 	    "saveIntermediary_dir"_a = "");
 
 	// Allocation

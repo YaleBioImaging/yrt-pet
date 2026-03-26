@@ -27,7 +27,7 @@ namespace yrt
 void py_setup_projectordd(py::module& m)
 {
 	auto c = py::class_<ProjectorDD, Projector>(m, "ProjectorDD");
-	c.def(py::init<const ProjectorParams&>(), "projParams"_a);
+	c.def(py::init<const ProjectorParams&>(), "proj_params"_a);
 	c.def(
 	    "forwardProjection",
 	    [](const ProjectorDD& self, const Image* in_image, const Line3D& lor,

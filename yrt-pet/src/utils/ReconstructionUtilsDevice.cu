@@ -36,7 +36,7 @@ void py_setup_reconstructionutilsdevice(pybind11::module& m)
 		    return util::timeAverageMoveImageDevice(lorMotion, unmovedImage,
 		                                            {nullptr, true});
 	    },
-	    "lorMotion"_a, "unmovedSensImage"_a,
+	    "lor_motion"_a, "unmoved_sens_image"_a,
 	    "Blur a given image based on given motion information using the GPU");
 	m.def(
 	    "timeAverageMoveImageDevice",
@@ -46,7 +46,7 @@ void py_setup_reconstructionutilsdevice(pybind11::module& m)
 		    return util::timeAverageMoveImageDevice(
 		        lorMotion, unmovedImage, timeStart, timeStop, {nullptr, true});
 	    },
-	    "lorMotion"_a, "unmovedSensImage"_a, "timeStart"_a, "timeStop"_a,
+	    "lor_motion"_a, "unmoved_sens_image"_a, "time_start"_a, "time_stop"_a,
 	    "Blur a given image based on given motion information using the GPU");
 	m.def(
 	    "createOperatorProjectorDevice",

@@ -17,14 +17,14 @@ void py_setup_detectorsetup(pybind11::module& m)
 	auto c = py::class_<DetectorSetup, std::shared_ptr<DetectorSetup>>(
 	    m, "DetectorSetup");
 	c.def("getNumDets", &DetectorSetup::getNumDets);
-	c.def("getXpos", &DetectorSetup::getXpos, "detId"_a);
-	c.def("getYpos", &DetectorSetup::getYpos, "detId"_a);
-	c.def("getZpos", &DetectorSetup::getZpos, "detId"_a);
-	c.def("getXorient", &DetectorSetup::getXorient, "detId"_a);
-	c.def("getYorient", &DetectorSetup::getYorient, "detId"_a);
-	c.def("getZorient", &DetectorSetup::getZorient, "detId"_a);
-	c.def("getPos", &DetectorSetup::getPos, "detId"_a);
-	c.def("getOrient", &DetectorSetup::getOrient, "detId"_a);
+	c.def("getXpos", &DetectorSetup::getXpos, "det_id"_a);
+	c.def("getYpos", &DetectorSetup::getYpos, "det_id"_a);
+	c.def("getZpos", &DetectorSetup::getZpos, "det_id"_a);
+	c.def("getXorient", &DetectorSetup::getXorient, "det_id"_a);
+	c.def("getYorient", &DetectorSetup::getYorient, "det_id"_a);
+	c.def("getZorient", &DetectorSetup::getZorient, "det_id"_a);
+	c.def("getPos", &DetectorSetup::getPos, "det_id"_a);
+	c.def("getOrient", &DetectorSetup::getOrient, "det_id"_a);
 	c.def("writeToFile", &DetectorSetup::writeToFile,"fname"_a);
 	c.def("hasMask", &DetectorSetup::hasMask);
 	c.def("addMask", static_cast<void(DetectorSetup::*)(const std::string&)>(&DetectorSetup::addMask), "mask_fname"_a);

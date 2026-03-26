@@ -53,7 +53,7 @@ void py_setup_utilities(py::module& m)
 
 		                    return transform;
 	                    }),
-	                "transformTuple"_a,
+	                "transform_as_tuple"_a,
 	                "Initialize transform_t object from tuple. Format: (r00, "
 	                "r01, r02, tx, r10, r11, r12, ty, r20, r21, r22, tz)");
 	c_transform.def("toTuple",

@@ -76,7 +76,7 @@ void LREM_GPU::setupProjectorForRecon()
 		m_cHUpdate.resize(rank, 0.f);
 		// TODO: This is suboptimal as the HUpdateSensScaling could be done
 		//  on GPU
-		//generateHUpdateSensScalingInternal();
+		generateHUpdateSensScalingInternal();
 		// Is this necessary ?
 	}
 }

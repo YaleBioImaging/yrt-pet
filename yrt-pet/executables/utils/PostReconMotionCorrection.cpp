@@ -12,6 +12,7 @@
 #include "yrt-pet/datastruct/image/Image.hpp"
 #include "yrt-pet/datastruct/projection/LORMotion.hpp"
 #include "yrt-pet/utils/Assert.hpp"
+#include "yrt-pet/utils/Version.hpp"
 
 #include <cxxopts.hpp>
 
@@ -38,20 +39,23 @@ int main(int argc, char* argv[])
 
 		/* clang-format off */
 		options.add_options()
-		("i,input",
-			"Paths to each image (separated by commas). "
+		("i,input", "Paths to each image (separated by commas). "
 			"Specify one image per frame",
 			cxxopts::value(images_fname))
-		("lor_motion",
-			"LOR motion file for motion correction",
+		("lor_motion", "LOR motion file for motion correction",
 			cxxopts::value(lorMotion_fname))
-		("o,out",
-			"Output image filename",
+		("o,out", "Output image filename",
 			cxxopts::value(out_fname))
+		("version", "Print version information")
 		("help", "Print help");
 		/* clang-format on */
 
 		auto result = options.parse(argc, argv);
+		if (result.count("version"))
+		{
+			yrt::version::printVersion();
+			return 0;
+		}
 		if (result.count("help"))
 		{
 			std::cout << options.help() << std::endl;

@@ -9,6 +9,7 @@
 #include "yrt-pet/utils/Assert.hpp"
 #include "yrt-pet/utils/Globals.hpp"
 #include "yrt-pet/utils/ReconstructionUtils.hpp"
+#include "yrt-pet/utils/Version.hpp"
 
 #include <cxxopts.hpp>
 #include <iostream>
@@ -38,10 +39,16 @@ int main(int argc, char** argv)
 		("o,out", "Output list-mode filename", cxxopts::value<std::string>(out_fname))
 		("n,num", "Number of list-mode events", cxxopts::value<size_t>(numEvents))
 		("num_threads", "Number of threads to use", cxxopts::value<int>(numThreads))
+		("version", "Print version information")
 		("h,help", "Print help");
 		/* clang-format on */
 
 		const auto result = options.parse(argc, argv);
+		if (result.count("version"))
+		{
+			yrt::version::printVersion();
+			return 0;
+		}
 		if (result.count("help"))
 		{
 			std::cout << options.help() << std::endl;

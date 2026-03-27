@@ -14,6 +14,7 @@
 #include "yrt-pet/utils/ReconstructionUtils.hpp"
 #include "yrt-pet/utils/ReconstructionUtilsDevice.cuh"
 #include "yrt-pet/utils/Timer.hpp"
+#include "yrt-pet/utils/Version.hpp"
 
 #include <cxxopts.hpp>
 #include <iostream>

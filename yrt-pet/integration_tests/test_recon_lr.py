@@ -127,12 +127,10 @@ def osem_lr_H_data():
 
     # Derived filenames (used by multiple fixtures / tests)
     _lr_recon_fname = (
-        f'shepp_logan_mlem_lm_lr_it{OSEM_LR_NUM_ITER}_'
-        f'sub{OSEM_NUM_SUBSETS}_r{RANK_UPDATEH}'
+        f"shepp_logan_mlem_lm_lr_it{OSEM_LR_NUM_ITER}_"
+        f"sub{OSEM_NUM_SUBSETS}_r{RANK_UPDATEH}"
     )
-    _lr_H_recon_fname = (
-        f"shepp_logan_mlem_lm_lr_H_it{OSEM_LR_H_NUM_ITER}_sub{OSEM_NUM_SUBSETS_H}_r{RANK_UPDATEH}"
-    )
+    _lr_H_recon_fname = f"shepp_logan_mlem_lm_lr_H_it{OSEM_LR_H_NUM_ITER}_sub{OSEM_NUM_SUBSETS_H}_r{RANK_UPDATEH}"
 
     # Load reference W reconstruction used as the initial estimate
     load_ref_dict = pickle.load(
@@ -306,6 +304,7 @@ def test_uhr2d_shepp_logan_lrem_updateh(osem_lr_H_data):
     HBasis_np_orig = d["HBasis_np_orig"]
     initial_estimate = d["W_init"]
     init_W = d["np_W_init"]
+    lm = d["dataset"]
 
     osem_H = yrt.createOSEM(scanner, use_gpu=False, is_low_rank=True)
     osem_H.setImageParams(img_params)
@@ -316,7 +315,7 @@ def test_uhr2d_shepp_logan_lrem_updateh(osem_lr_H_data):
     osem_H.setNumRays(1)
     osem_H.num_MLEM_iterations = OSEM_LR_H_NUM_ITER
     osem_H.num_OSEM_subsets = OSEM_NUM_SUBSETS_H
-    osem_H.setDataInput(d["dataset"])
+    osem_H.setDataInput(lm)
     sens_img = osem_H.generateSensitivityImages()
     osem_H.setSensitivityImage(sens_img[0])
 

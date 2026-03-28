@@ -24,11 +24,12 @@ fold_data = _helper.fold_data
 fold_out = _helper.fold_out
 fold_bin = _helper.fold_bin
 
-fold_uhr2d = os.path.join(fold_data, 'uhr2d')
-scanner_path = os.path.join(fold_uhr2d, 'UHR2D.json')
-fold_uhr2d_hbasis = os.path.join(fold_uhr2d, 'hbasis')
+fold_uhr2d = os.path.join(fold_data, "uhr2d")
+scanner_path = os.path.join(fold_uhr2d, "UHR2D.json")
+fold_uhr2d_hbasis = os.path.join(fold_uhr2d, "hbasis")
 
 rng = np.random.default_rng(0)
+
 
 def create_operator_projector(proj_params, bin_iter=None, use_gpu: bool = False):
     if use_gpu:
@@ -143,7 +144,7 @@ def _ref_fwd_bwd_cpu(projector_type):
     ).T
 
     return {
-        "scanner": prep_dict_ref['scanner'],
+        "scanner": prep_dict_ref["scanner"],
         "x_ref_np_backward": x_ref_np_backward,
         "x_ref_np": x_ref_np,
         "W_ref_np_backward": W_ref_np_backward,
@@ -169,6 +170,7 @@ def fwd_bwd():
 
 
 # %% Generic test function used later for each Updater type and projector
+
 
 def _test_adjoint_generic(updater_type, projector_type, use_gpu):
     if use_gpu and not yrt.compiledWithCuda():
@@ -289,7 +291,9 @@ def _test_generic_bwd(
 
     oper = create_operator_projector(proj_params, bin_iter, use_gpu)
 
-    x_np_test = ref_load["x_ref_np"] if "DEFAULT4D" in updater_type else ref_load["W_np"]
+    x_np_test = (
+        ref_load["x_ref_np"] if "DEFAULT4D" in updater_type else ref_load["W_np"]
+    )
     y_proj_ref = yrt.ProjectionListAlias(out_lm)
     y_proj_ref.bind(ref_load["y_proj_ref_np"])
 
@@ -350,6 +354,7 @@ def _test_generic_bwd(
 
 # Siddon
 
+
 def test_adjoint_default4d_siddon_cpu():
     _test_adjoint_generic("DEFAULT4D", projector_type="Siddon", use_gpu=False)
 
@@ -359,6 +364,7 @@ def test_adjoint_lr_siddon_cpu():
 
 
 # DD
+
 
 def test_adjoint_default4d_dd_cpu():
     _test_adjoint_generic("DEFAULT4D", projector_type="DD", use_gpu=False)
@@ -373,6 +379,7 @@ def test_adjoint_lr_dd_cpu():
 
 # Siddon
 
+
 def test_adjoint_default4d_siddon_gpu():
     _test_adjoint_generic("DEFAULT4D", projector_type="Siddon", use_gpu=True)
 
@@ -382,6 +389,7 @@ def test_adjoint_lr_siddon_gpu():
 
 
 # DD
+
 
 def test_adjoint_default4d_dd_gpu():
     _test_adjoint_generic("DEFAULT4D", projector_type="DD", use_gpu=True)

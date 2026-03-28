@@ -53,7 +53,7 @@ int main(int argc, char* argv[])
 		auto result = options.parse(argc, argv);
 		if (result.count("version"))
 		{
-			yrt::version::printVersion();
+			version::printVersion();
 			return 0;
 		}
 		if (result.count("help"))

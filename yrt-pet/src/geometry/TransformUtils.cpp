@@ -7,6 +7,25 @@
 
 #include <cmath>
 
+
+#if BUILD_PYBIND11
+#include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
+
+namespace py = pybind11;
+using namespace pybind11::literals;
+
+namespace yrt
+{
+void py_setup_transformutils(pybind11::module& m)
+{
+	m.def("fromRotationAndTranslationVectors",
+	      &util::fromRotationAndTranslationVectors, "rotation"_a,
+	      "translation"_a);
+}
+}  // namespace yrt
+#endif
+
 namespace yrt::util
 {
 

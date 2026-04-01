@@ -41,13 +41,17 @@ void py_setup_image(py::module& m)
 		                           d.getDims(), d.getStrides());
 	    });
 	c.def("isMemoryValid", &Image::isMemoryValid);
-	c.def("copyFromImage", &Image::copyFromImage, py::arg("sourceImage"));
+	c.def("copyFromImage", &Image::copyFromImage, py::arg("source_image"));
 	c.def("multWithScalar", &Image::multWithScalar, py::arg("scalar"));
 	c.def("addFirstImageToSecond", &Image::addFirstImageToSecond,
 	      py::arg("secondImage"));
-	c.def("applyThreshold", &Image::applyThreshold, py::arg("maskImage"),
+	c.def("applyThreshold", &Image::applyThreshold, py::arg("mask_image"),
 	      py::arg("threshold"), py::arg("val_le_scale"), py::arg("val_le_off"),
 	      py::arg("val_gt_scale"), py::arg("val_gt_off"));
+	c.def("applyThresholdBroadcast", &Image::applyThresholdBroadcast,
+	      py::arg("mask_image"), py::arg("threshold"), py::arg("val_le_scale"),
+	      py::arg("val_le_off"), py::arg("val_gt_scale"),
+	      py::arg("val_gt_off"));
 
 	c.def("dotProduct", &Image::dotProduct, py::arg("y"));
 	c.def("getRadius", &Image::getRadius);
@@ -563,6 +567,9 @@ void Image::applyThreshold(const ImageBase* maskImg, float threshold,
 {
 	const Image* maskImg_Image = dynamic_cast<const Image*>(maskImg);
 	ASSERT_MSG(maskImg_Image != nullptr, "Input image has the wrong type");
+	ASSERT_MSG(maskImg_Image->getNumFrames() == getNumFrames(),
+	           "The mask image does not have the same number of frames as the "
+	           "image being masked");
 
 	float* ptr = mp_array->getRawPointer();
 	const float* mask_ptr = maskImg_Image->getRawPointer();
@@ -588,13 +595,13 @@ void Image::applyThresholdBroadcast(const ImageBase* maskImg, float threshold,
 
 	float* ptr = mp_array->getRawPointer();
 	const float* mask_ptr = maskImg_Image->getRawPointer();
-	const auto rank = this->getNumFrames();
+	const auto nt = this->getNumFrames();
 	const auto params = this->getParams();
 	const size_t J = params.nx * params.ny * params.nz;
 
-	for (int r = 0; r < rank; r++)
+	for (int frameIndex = 0; frameIndex < nt; frameIndex++)
 	{
-		float* ptr_r = ptr + r * J;
+		float* ptr_r = ptr + frameIndex * J;
 
 		for (size_t k = 0; k < J; k++)
 		{

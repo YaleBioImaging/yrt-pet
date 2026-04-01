@@ -288,7 +288,6 @@ for frame_i in range(num_motion_frames):
 ### Turning the histograms into one large list-mode
 
 ```python
-
 lm_total = yrt.ListModeLUTAlias(scanner)
 lm_ts = list()
 lm_d1 = list()
@@ -386,8 +385,9 @@ sensitivity image.
 
 ```python
 # This method will make all voxels that are zeros in `sens_image` to be
-#  multiplied by zero in `sens_image_moved`
-sens_image_moved.applyThreshold(sens_image, 0, 0, 0, 1, 0)
+#  multiplied by zero in `sens_image_moved`. We also need to "broadcast" because
+#  `sens_image` is in 3D but `sens_image_moved` is in 4D.
+sens_image_moved.applyThresholdBroadcast(sens_image, 0, 0, 0, 1, 0)
 ```
 
 ### The actual reconstruction
@@ -401,4 +401,11 @@ Then, launch the reconstruction
 
 ```python
 recon_image = osem.reconstruct()
+```
+
+You can then visualize the reconstructed image as a numpy array using:
+```python
+recon_image_np = np.array(recon_image)
+dynamic_frame_to_show = 2 # Say you want to display the third dynamic frame
+# Then use matplotlib to display `recon_image_np[dynamic_frame_to_show, 0]`
 ```

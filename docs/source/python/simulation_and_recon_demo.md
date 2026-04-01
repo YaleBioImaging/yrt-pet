@@ -2,12 +2,13 @@
 
 This demo will show how to:
 - Create a scanner with a regular geometry
-- Define a dynamic phantom (ground truth)
+- Define a dynamic phantom (ground truth) with both motion and kinetics
 - Perform a forward projection and add Poisson noise ("simulation")
 - Transform the histogram into a list-mode
 - Reconstruct the list-mode
 
 This demonstration is entirely done in 2D to keep it simple.
+We will not incorporate factors such as attenuation, normalisation or scatter/randoms.
 
 ## Imports
 
@@ -16,6 +17,7 @@ We will need to import YRT-PET's Python interface and NumPy.
 ```python
 import pyyrtpet as yrt
 import numpy as np
+import tqdm # For visualization only
 ```
 
 ## Scanner definition
@@ -237,5 +239,166 @@ for motion_frame_i in range(num_motion_frames):
 
 ## Simulating the phantom
 
-Let us create a `Histogram3D` object for every motion frame and forward project the associated image from the dynamic `full_phantom` computed above.
+As a simulation, we will generate a list-mode from the forward projection (in histogram)
 
+### Forward projection
+
+Let us create a `Histogram3D` object for every motion frame and forward project the associated image from the dynamic `full_phantom` computed above. We will use the Siddon projector.
+
+```python
+# Start with one histogram
+forw_his = yrt.Histogram3DOwned(scanner)
+forw_his.allocate()
+bin_iter = forw_his.getBinIter(num_subsets=1, idx_subset=0)
+
+# Initialize projector
+proj_params = yrt.ProjectorParams(scanner)
+proj_params.setProjector("S") # Siddon
+proj_oper = yrt.createOperatorProjector(proj_params, bin_iter)
+
+# Prepare the histograms
+forw_his_list = list()
+for frame_i in tqdm.trange(num_motion_frames):
+    # Prepare histogram for projection
+    frame_forw_his = yrt.Histogram3DOwned(scanner)
+    frame_forw_his.allocate()
+
+    # Gather image to forward project
+    frame_image_np = full_phantom[frame_i]
+    frame_image = yrt.ImageAlias(img_params)
+    frame_image.bind(frame_image_np)
+
+    # Forward project
+    proj_oper.applyA(frame_image, frame_forw_his)
+
+    # Add to list
+    forw_his_list.append(frame_forw_his)
+```
+
+### Adding Poisson noise to the histograms
+
+```python
+histo_scaling = 0.05
+for frame_i in range(num_motion_frames):
+    frame_forw_his = forw_his_list[frame_i]
+    frame_forw_his_np = np.array(frame_forw_his, copy=False)
+    frame_forw_his_np[:] = rng.poisson(frame_forw_his_np * histo_scaling)
+```
+
+### Turning the histograms into one large list-mode
+
+```python
+
+lm_total = yrt.ListModeLUTAlias(scanner)
+lm_ts = list()
+lm_d1 = list()
+lm_d2 = list()
+
+for frame_i in tqdm.trange(num_motion_frames):
+    lm = yrt.ListModeLUTOwned(scanner)
+    
+    frame_forw_his = forw_his_list[frame_i]
+    yrt.histogram3DToListModeLUT(frame_forw_his, lm, 0)
+
+    lm_ts_frame = np.array([lor_motion.getStartingTimestamp(frame_i)] * \
+                            lm.count()).astype(np.uint32)
+    lm_d1_frame = lm.getDetector1Array()
+    lm_d2_frame = lm.getDetector2Array()
+
+    lm_ts.append(lm_ts_frame)
+    lm_d1.append(lm_d1_frame)
+    lm_d2.append(lm_d2_frame)
+
+lm_ts = np.concatenate(lm_ts)
+lm_d1 = np.concatenate(lm_d1)
+lm_d2 = np.concatenate(lm_d2)
+lm_total.bind(lm_ts, lm_d1, lm_d2)
+
+# Assign the motion information to the list-mode
+lm_total.addLORMotion(lor_motion)
+
+# Assign the dynamic framing to the list-mode
+lm_total.addDynamicFraming(dynamic_framing)
+```
+
+## Reconstructing the list-mode
+
+Now we have a list-mode with both motion information and dynamic framing,
+which came from a simulation of several regions with varying kinetics.
+
+Now let us reconstruct it (with motion correction).
+
+First, we need to define the inputs to our OSEM reconstruction:
+```python
+# Prepare the image parameters to use for the dynamic reconstruction:
+img_params_dyn = yrt.ImageParams(img_params)
+img_params_dyn.nt = num_dynamic_frames
+
+# OSEM object
+osem = yrt.createOSEM(scanner, use_gpu=False)
+osem.setDataInput(lm_total)
+osem.setImageParams(img_params_dyn)
+osem.setProjector("S")
+
+osem.num_MLEM_iterations = 10 # iterations
+osem.num_OSEM_subsets = 1 # subsets (We keep it simple at one here)
+
+# We do not need to mention motion correction or dynamic framing here as those
+#  were embedded in the list-mode object
+
+```
+
+
+### Sensitivity image generation
+
+The first step is to generate the sensitivity image.
+This is the sensitivity image without any motion.
+Notice that the function `generateSensitivityImages` is in plural.
+This is because there can be multiple sensitivity images
+(in case of a histogram-based reconstruction with multiple subsets).
+The method will therefore return a list with one image.
+
+```python
+sens_images = osem.generateSensitivityImages()
+assert len(sens_images) == 1
+sens_image = sens_images[0]
+```
+
+### Time-averaging of the sensitivity image
+
+Since we need to perform the reconstruction with motion correction, we must perform
+a time-averaging of the sensitivity image by moving the sensitivity image for every motion frame
+and summing it with a weight relative to the duration of each motion frame.
+
+Moreover, we need to do this process for every dynamic frame since each dynamic frame
+has a different set of motion frames.
+
+```python
+sens_image_moved = yrt.timeAverageMoveImageDynamic(lor_motion, sens_image, dynamic_framing)
+```
+
+Because of the moving of the sensitivity image, it might lead some of the voxels in
+the moved sensitivity image to have a non-null value while the non-moved sensitivity image
+had a null value.
+This leads to severe artifacts caused by numerical instability.
+One way to remedy this is to mask the moved sensitivity image using the non-moved
+sensitivity image.
+
+```python
+# This method will make all voxels that are zeros in `sens_image` to be
+#  multiplied by zero in `sens_image_moved`
+sens_image_moved.applyThreshold(sens_image, 0, 0, 0, 1, 0)
+```
+
+### The actual reconstruction
+
+First, specify to the OSEM object the sensitivity image you want to use:
+```python
+osem.setSensitivityImage(sens_image_moved)
+```
+
+Then, launch the reconstruction
+
+```python
+recon_image = osem.reconstruct()
+```

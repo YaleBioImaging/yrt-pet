@@ -18,6 +18,9 @@ template <typename T>
 void readCSV(const std::string& filename, Array2DOwned<T>& output)
 {
 	std::ifstream file(filename);
+	ASSERT_MSG(file.is_open(),
+	           ("Error opening file \'" + filename + "\'").c_str());
+
 	std::string line = "";
 	size_t numLines = 0;
 	size_t numCols = 0;
@@ -85,7 +88,8 @@ void readCSV(const std::string& filename, Array2DOwned<T>& output)
 
 template void readCSV(const std::string& filename, Array2DOwned<int>& output);
 template void readCSV(const std::string& filename, Array2DOwned<float>& output);
-template void readCSV(const std::string& filename, Array2DOwned<double>& output);
+template void readCSV(const std::string& filename,
+                      Array2DOwned<double>& output);
 
 template <typename TFloat>
 TFloat erfc(TFloat x)

@@ -51,7 +51,7 @@ public:
 	using ConvolutionKernelCollection =
 	    std::vector<std::unique_ptr<ConvolutionKernel>>;
 
-	OperatorVarPsf(const ImageParams& p_imageParams);
+	explicit OperatorVarPsf(const ImageParams& p_imageParams);
 	OperatorVarPsf(const std::string& imageVarPsf_fname,
 	               const ImageParams& p_imageParams);
 	~OperatorVarPsf() override = default;

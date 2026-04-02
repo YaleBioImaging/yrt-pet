@@ -44,7 +44,7 @@ void py_setup_image(py::module& m)
 	c.def("copyFromImage", &Image::copyFromImage, py::arg("source_image"));
 	c.def("multWithScalar", &Image::multWithScalar, py::arg("scalar"));
 	c.def("addFirstImageToSecond", &Image::addFirstImageToSecond,
-	      py::arg("secondImage"));
+	      py::arg("second_image"));
 	c.def("applyThreshold", &Image::applyThreshold, py::arg("mask_image"),
 	      py::arg("threshold"), py::arg("val_le_scale"), py::arg("val_le_off"),
 	      py::arg("val_gt_scale"), py::arg("val_gt_off"));

@@ -5,6 +5,7 @@
 
 #include "yrt-pet/operators/OperatorPsf.hpp"
 
+#include "yrt-pet/geometry/Constants.hpp"
 #include "yrt-pet/utils/Assert.hpp"
 #include "yrt-pet/utils/Tools.hpp"
 
@@ -14,25 +15,38 @@
 #include <pybind11/stl.h>
 namespace py = pybind11;
 
+using namespace py::literals;
+
 namespace yrt
 {
 void py_setup_operatorpsf(py::module& m)
 {
 	auto c = py::class_<OperatorPsf, Operator>(m, "OperatorPsf");
 	c.def(py::init<>());
-	c.def(py::init<const std::string&>());
-	c.def("readFromFile", &OperatorPsf::readFromFile);
-	c.def("convolve", &OperatorPsf::convolve);
+	c.def(py::init<const std::string&>(), "fname"_a);
+	c.def(py::init<const std::vector<float>&, const std::vector<float>&,
+	               const std::vector<float>&>(),
+	      "kernel_x"_a, "kernel_y"_a, "kernel_z"_a);
+
+	c.def_static("createGaussianfromFWHM", &OperatorPsf::createGaussianfromFWHM,
+	             "fwhm_x"_a, "fwhm_y"_a, "fwhm_z"_a, "vx"_a, "vy"_a, "vz"_a,
+	             "kernel_size_x"_a = nullptr, "kernel_size_y"_a = nullptr,
+	             "kernel_size_z"_a = nullptr);
+	c.def_static("createGaussianfromSigma",
+	             &OperatorPsf::createGaussianfromSigma, "sigma_x"_a,
+	             "sigma_y"_a, "sigma_z"_a, "vx"_a, "vy"_a, "vz"_a,
+	             "kernel_size_x"_a = nullptr, "kernel_size_y"_a = nullptr,
+	             "kernel_size_z"_a = nullptr);
+
+	c.def("readFromFile", &OperatorPsf::readFromFile, "fname"_a);
+	c.def("convolve", &OperatorPsf::convolve, "in"_a, "out"_a, "kernel_x"_a,
+	      "kernel_y"_a, "kernel_z"_a);
 	c.def(
-	    "applyA",
-	    [](OperatorPsf& self, const Image* img_in, Image* img_out)
-	    { self.applyA(img_in, img_out); },
-	    py::arg("img_in"), py::arg("img_out"));
+	    "applyA", [](OperatorPsf& self, const Image* img_in, Image* img_out)
+	    { self.applyA(img_in, img_out); }, "img_in"_a, "img_out"_a);
 	c.def(
-	    "applyAH",
-	    [](OperatorPsf& self, const Image* img_in, Image* img_out)
-	    { self.applyAH(img_in, img_out); },
-	    py::arg("img_in"), py::arg("img_out"));
+	    "applyAH", [](OperatorPsf& self, const Image* img_in, Image* img_out)
+	    { self.applyAH(img_in, img_out); }, "img_in"_a, "img_out"_a);
 
 	c.def("getKernelX",
 	      [](const OperatorPsf& self) -> py::array_t<float>
@@ -115,6 +129,108 @@ OperatorPsf::OperatorPsf(const std::vector<float>& kernelX,
 	m_kernelX_flipped = std::vector<float>(kernelX.rbegin(), kernelX.rend());
 	m_kernelY_flipped = std::vector<float>(kernelY.rbegin(), kernelY.rend());
 	m_kernelZ_flipped = std::vector<float>(kernelZ.rbegin(), kernelZ.rend());
+}
+
+OperatorPsf OperatorPsf::createGaussianfromSigma(
+    float sigmaX, float sigmaY, float sigmaZ, float vx, float vy, float vz,
+    const size_t* kerSizeX, const size_t* kerSizeY, const size_t* kerSizeZ)
+{
+	// If we compute the kernel size automatically, this would be the max size
+	//  allowed
+	constexpr size_t KERNEL_MAX_SIZE = 31;
+
+	std::size_t sizeX = kerSizeX ? *kerSizeX : 0;
+	std::size_t sizeY = kerSizeY ? *kerSizeY : 0;
+	std::size_t sizeZ = kerSizeZ ? *kerSizeZ : 0;
+
+	// Compute the kernel size automatically in each dimension
+	// This computation ensures that the size of the kernel makes it so that the
+	//  lowest value is lower than `SMALL_FLT`
+	if (sizeX == 0)
+	{
+		sizeX = 1;
+		while (std::exp(-0.5f *
+		                std::pow(static_cast<float>(sizeX / 2) * vx / sigmaX,
+		                         2.f)) > SMALL_FLT &&
+		       sizeX <= KERNEL_MAX_SIZE)
+		{
+			sizeX += 2;
+		}
+	}
+	if (sizeY == 0)
+	{
+		sizeY = 1;
+		while (std::exp(-0.5f *
+		                std::pow(static_cast<float>(sizeY / 2) * vy / sigmaY,
+		                         2.f)) > SMALL_FLT &&
+		       sizeY <= KERNEL_MAX_SIZE)
+		{
+			sizeY += 2;
+		}
+	}
+	if (sizeZ == 0)
+	{
+		sizeZ = 1;
+		while (std::exp(-0.5f *
+		                std::pow(static_cast<float>(sizeZ / 2) * vz / sigmaZ,
+		                         2.f)) > SMALL_FLT &&
+		       sizeZ <= KERNEL_MAX_SIZE)
+		{
+			sizeZ += 2;
+		}
+	}
+
+	std::vector<float> kernelX, kernelY, kernelZ;
+
+	for (std::size_t i = 0; i < sizeX; i++)
+	{
+		const float x = static_cast<float>(static_cast<int>(i) -
+		                                   static_cast<int>(sizeX / 2));
+		kernelX.push_back(std::exp(-0.5f * std::pow(x * vx / sigmaX, 2.f)));
+	}
+	for (std::size_t i = 0; i < sizeY; i++)
+	{
+		const float x = static_cast<float>(static_cast<int>(i) -
+		                                   static_cast<int>(sizeY / 2));
+		kernelY.push_back(std::exp(-0.5f * std::pow(x * vy / sigmaY, 2.f)));
+	}
+	for (std::size_t i = 0; i < sizeZ; i++)
+	{
+		const float x = static_cast<float>(static_cast<int>(i) -
+		                                   static_cast<int>(sizeZ / 2));
+		kernelZ.push_back(std::exp(-0.5f * std::pow(x * vz / sigmaZ, 2.f)));
+	}
+
+	const float sumX = std::accumulate(kernelX.begin(), kernelX.end(), 0.0f);
+	const float sumY = std::accumulate(kernelY.begin(), kernelY.end(), 0.0f);
+	const float sumZ = std::accumulate(kernelZ.begin(), kernelZ.end(), 0.0f);
+
+	for (auto& v : kernelX)
+	{
+		v /= sumX;
+	}
+	for (auto& v : kernelY)
+	{
+		v /= sumY;
+	}
+	for (auto& v : kernelZ)
+	{
+		v /= sumZ;
+	}
+
+	return OperatorPsf(kernelX, kernelY, kernelZ);
+}
+
+OperatorPsf OperatorPsf::createGaussianfromFWHM(
+    float fwhmX, float fwhmY, float fwhmZ, float vx, float vy, float vz,
+    const size_t* kerSizeX, const size_t* kerSizeY, const size_t* kerSizeZ)
+{
+	const float sigmaX = fwhmX / static_cast<float>(SIGMA_TO_FWHM);
+	const float sigmaY = fwhmY / static_cast<float>(SIGMA_TO_FWHM);
+	const float sigmaZ = fwhmZ / static_cast<float>(SIGMA_TO_FWHM);
+
+	return createGaussianfromSigma(sigmaX, sigmaY, sigmaZ, vx, vy, vz, kerSizeX,
+	                               kerSizeY, kerSizeZ);
 }
 
 void OperatorPsf::readFromFile(const std::string& imagePsf_fname)
@@ -208,6 +324,9 @@ void OperatorPsf::convolve(const Image* in, Image* out,
 	const std::array<int, 3> kerSize{static_cast<int>(kernelX.size()),
 	                                 static_cast<int>(kernelY.size()),
 	                                 static_cast<int>(kernelZ.size())};
+	ASSERT_MSG(kerSize[0] != 0, "X-kernel seems empty");
+	ASSERT_MSG(kerSize[1] != 0, "Y-kernel seems empty");
+	ASSERT_MSG(kerSize[2] != 0, "Z-kernel seems empty");
 	ASSERT_MSG(kerSize[0] % 2 != 0, "Kernel size must be odd");
 	ASSERT_MSG(kerSize[1] % 2 != 0, "Kernel size must be odd");
 	ASSERT_MSG(kerSize[2] % 2 != 0, "Kernel size must be odd");

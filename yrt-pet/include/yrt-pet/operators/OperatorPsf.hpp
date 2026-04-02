@@ -26,6 +26,17 @@ public:
 	            const std::vector<float>& kernelZ);
 	~OperatorPsf() override = default;
 
+	static OperatorPsf createGaussianfromSigma(
+	    float sigmaX, float sigmaY, float sigmaZ, float vx, float vy, float vz,
+	    const size_t* kerSizeX = nullptr, const size_t* kerSizeY = nullptr,
+	    const size_t* kerSizeZ = nullptr);
+	static OperatorPsf createGaussianfromFWHM(float fwhmX, float fwhmY,
+	                                          float fwhmZ, float vx, float vy,
+	                                          float vz,
+	                                          const size_t* kerSizeX = nullptr,
+	                                          const size_t* kerSizeY = nullptr,
+	                                          const size_t* kerSizeZ = nullptr);
+
 	virtual void readFromFile(const std::string& imagePsf_fname);
 
 	void applyA(const Variable* in, Variable* out) override;

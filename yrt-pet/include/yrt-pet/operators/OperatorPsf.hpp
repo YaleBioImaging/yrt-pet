@@ -26,6 +26,8 @@ public:
 	            const std::vector<float>& kernelZ);
 	~OperatorPsf() override = default;
 
+	static std::vector<float> createGaussianKernel1D(float sigma, float voxSize,
+										   const size_t* kerSize);
 	static OperatorPsf createGaussianfromSigma(
 	    float sigmaX, float sigmaY, float sigmaZ, float vx, float vy, float vz,
 	    const size_t* kerSizeX = nullptr, const size_t* kerSizeY = nullptr,

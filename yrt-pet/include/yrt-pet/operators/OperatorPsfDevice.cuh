@@ -26,6 +26,14 @@ public:
 	                           const std::vector<float>& kernelY,
 	                           const std::vector<float>& kernelZ,
 	                           const cudaStream_t* pp_stream = nullptr);
+	static OperatorPsfDevice createGaussianfromSigma(
+	    float sigmaX, float sigmaY, float sigmaZ, float vx, float vy, float vz,
+	    const size_t* kerSizeX = nullptr, const size_t* kerSizeY = nullptr,
+	    const size_t* kerSizeZ = nullptr);
+	static OperatorPsfDevice createGaussianfromFWHM(
+	    float fwhmX, float fwhmY, float fwhmZ, float vx, float vy, float vz,
+	    const size_t* kerSizeX = nullptr, const size_t* kerSizeY = nullptr,
+	    const size_t* kerSizeZ = nullptr);
 
 	void readFromFile(const std::string& pr_imagePsf_fname) override;
 	void readFromFile(const std::string& pr_imagePsf_fname, bool p_synchronize);

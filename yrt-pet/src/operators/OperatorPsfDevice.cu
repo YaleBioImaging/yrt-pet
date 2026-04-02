@@ -6,11 +6,15 @@
 #include "yrt-pet/operators/OperatorPsfDevice.cuh"
 
 #include "yrt-pet/datastruct/image/ImageSpaceKernels.cuh"
+#include "yrt-pet/geometry/Constants.hpp"
 
 #if BUILD_PYBIND11
+#include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 namespace py = pybind11;
+
+using namespace py::literals;
 
 namespace yrt
 {
@@ -20,6 +24,16 @@ void py_setup_operatorpsfdevice(py::module& m)
 	auto c = py::class_<OperatorPsfDevice, OperatorPsf>(m, "OperatorPsfDevice");
 	c.def(py::init<>());
 	c.def(py::init<const std::string&>());
+	c.def_static("createGaussianfromFWHM",
+	             &OperatorPsfDevice::createGaussianfromFWHM, "fwhm_x"_a,
+	             "fwhm_y"_a, "fwhm_z"_a, "vx"_a, "vy"_a, "vz"_a,
+	             "kernel_size_x"_a = nullptr, "kernel_size_y"_a = nullptr,
+	             "kernel_size_z"_a = nullptr);
+	c.def_static("createGaussianfromSigma",
+	             &OperatorPsfDevice::createGaussianfromSigma, "sigma_x"_a,
+	             "sigma_y"_a, "sigma_z"_a, "vx"_a, "vy"_a, "vz"_a,
+	             "kernel_size_x"_a = nullptr, "kernel_size_y"_a = nullptr,
+	             "kernel_size_z"_a = nullptr);
 	c.def("convolve",
 	      static_cast<void (OperatorPsfDevice::*)(
 	          const Image* in, Image* out, const std::vector<float>& kernelX,
@@ -85,6 +99,29 @@ OperatorPsfDevice::OperatorPsfDevice(const std::vector<float>& kernelX,
       OperatorPsf(kernelX, kernelY, kernelZ)
 {
 	copyToDevice(true);
+}
+
+OperatorPsfDevice OperatorPsfDevice::createGaussianfromSigma(
+    float sigmaX, float sigmaY, float sigmaZ, float vx, float vy, float vz,
+    const size_t* kerSizeX, const size_t* kerSizeY, const size_t* kerSizeZ)
+{
+	const auto kernelX = createGaussianKernel1D(sigmaX, vx, kerSizeX);
+	const auto kernelY = createGaussianKernel1D(sigmaY, vy, kerSizeY);
+	const auto kernelZ = createGaussianKernel1D(sigmaZ, vz, kerSizeZ);
+
+	return OperatorPsfDevice(kernelX, kernelY, kernelZ);
+}
+
+OperatorPsfDevice OperatorPsfDevice::createGaussianfromFWHM(
+    float fwhmX, float fwhmY, float fwhmZ, float vx, float vy, float vz,
+    const size_t* kerSizeX, const size_t* kerSizeY, const size_t* kerSizeZ)
+{
+	const float sigmaX = fwhmX / static_cast<float>(SIGMA_TO_FWHM);
+	const float sigmaY = fwhmY / static_cast<float>(SIGMA_TO_FWHM);
+	const float sigmaZ = fwhmZ / static_cast<float>(SIGMA_TO_FWHM);
+
+	return OperatorPsfDevice::createGaussianfromSigma(
+	    sigmaX, sigmaY, sigmaZ, vx, vy, vz, kerSizeX, kerSizeY, kerSizeZ);
 }
 
 void OperatorPsfDevice::readFromFileInternal(

@@ -28,6 +28,8 @@ void py_setup_operatorpsf(py::module& m)
 	               const std::vector<float>&>(),
 	      "kernel_x"_a, "kernel_y"_a, "kernel_z"_a);
 
+	c.def_static("createGaussianKernel1D", &OperatorPsf::createGaussianKernel1D,
+	             "sigma"_a, "voxel_size"_a, "kernel_size"_a = nullptr);
 	c.def_static("createGaussianfromFWHM", &OperatorPsf::createGaussianfromFWHM,
 	             "fwhm_x"_a, "fwhm_y"_a, "fwhm_z"_a, "vx"_a, "vy"_a, "vz"_a,
 	             "kernel_size_x"_a = nullptr, "kernel_size_y"_a = nullptr,
@@ -131,92 +133,50 @@ OperatorPsf::OperatorPsf(const std::vector<float>& kernelX,
 	m_kernelZ_flipped = std::vector<float>(kernelZ.rbegin(), kernelZ.rend());
 }
 
+std::vector<float> OperatorPsf::createGaussianKernel1D(float sigma,
+                                                       float voxSize,
+                                                       const size_t* kerSize)
+{
+
+	std::size_t size = kerSize ? *kerSize : 0;
+
+	if (size == 0)
+	{
+		constexpr size_t KERNEL_MAX_SIZE = 31;
+		size = 1;
+		while (std::exp(-0.5f *
+		                std::pow(static_cast<float>(size / 2) * voxSize / sigma,
+		                         2.f)) > SMALL_FLT &&
+		       size <= KERNEL_MAX_SIZE)
+		{
+			size += 2;
+		}
+	}
+
+	std::vector<float> kernel;
+	for (std::size_t i = 0; i < size; i++)
+	{
+		const float x = static_cast<float>(static_cast<int>(i) -
+		                                   static_cast<int>(size / 2));
+		kernel.push_back(std::exp(-0.5f * std::pow(x * voxSize / sigma, 2.f)));
+	}
+
+	const float sum = std::accumulate(kernel.begin(), kernel.end(), 0.0f);
+	for (auto& v : kernel)
+	{
+		v /= sum;
+	}
+
+	return kernel;
+}
+
 OperatorPsf OperatorPsf::createGaussianfromSigma(
     float sigmaX, float sigmaY, float sigmaZ, float vx, float vy, float vz,
     const size_t* kerSizeX, const size_t* kerSizeY, const size_t* kerSizeZ)
 {
-	// If we compute the kernel size automatically, this would be the max size
-	//  allowed
-	constexpr size_t KERNEL_MAX_SIZE = 31;
-
-	std::size_t sizeX = kerSizeX ? *kerSizeX : 0;
-	std::size_t sizeY = kerSizeY ? *kerSizeY : 0;
-	std::size_t sizeZ = kerSizeZ ? *kerSizeZ : 0;
-
-	// Compute the kernel size automatically in each dimension
-	// This computation ensures that the size of the kernel makes it so that the
-	//  lowest value is lower than `SMALL_FLT`
-	if (sizeX == 0)
-	{
-		sizeX = 1;
-		while (std::exp(-0.5f *
-		                std::pow(static_cast<float>(sizeX / 2) * vx / sigmaX,
-		                         2.f)) > SMALL_FLT &&
-		       sizeX <= KERNEL_MAX_SIZE)
-		{
-			sizeX += 2;
-		}
-	}
-	if (sizeY == 0)
-	{
-		sizeY = 1;
-		while (std::exp(-0.5f *
-		                std::pow(static_cast<float>(sizeY / 2) * vy / sigmaY,
-		                         2.f)) > SMALL_FLT &&
-		       sizeY <= KERNEL_MAX_SIZE)
-		{
-			sizeY += 2;
-		}
-	}
-	if (sizeZ == 0)
-	{
-		sizeZ = 1;
-		while (std::exp(-0.5f *
-		                std::pow(static_cast<float>(sizeZ / 2) * vz / sigmaZ,
-		                         2.f)) > SMALL_FLT &&
-		       sizeZ <= KERNEL_MAX_SIZE)
-		{
-			sizeZ += 2;
-		}
-	}
-
-	std::vector<float> kernelX, kernelY, kernelZ;
-
-	for (std::size_t i = 0; i < sizeX; i++)
-	{
-		const float x = static_cast<float>(static_cast<int>(i) -
-		                                   static_cast<int>(sizeX / 2));
-		kernelX.push_back(std::exp(-0.5f * std::pow(x * vx / sigmaX, 2.f)));
-	}
-	for (std::size_t i = 0; i < sizeY; i++)
-	{
-		const float x = static_cast<float>(static_cast<int>(i) -
-		                                   static_cast<int>(sizeY / 2));
-		kernelY.push_back(std::exp(-0.5f * std::pow(x * vy / sigmaY, 2.f)));
-	}
-	for (std::size_t i = 0; i < sizeZ; i++)
-	{
-		const float x = static_cast<float>(static_cast<int>(i) -
-		                                   static_cast<int>(sizeZ / 2));
-		kernelZ.push_back(std::exp(-0.5f * std::pow(x * vz / sigmaZ, 2.f)));
-	}
-
-	const float sumX = std::accumulate(kernelX.begin(), kernelX.end(), 0.0f);
-	const float sumY = std::accumulate(kernelY.begin(), kernelY.end(), 0.0f);
-	const float sumZ = std::accumulate(kernelZ.begin(), kernelZ.end(), 0.0f);
-
-	for (auto& v : kernelX)
-	{
-		v /= sumX;
-	}
-	for (auto& v : kernelY)
-	{
-		v /= sumY;
-	}
-	for (auto& v : kernelZ)
-	{
-		v /= sumZ;
-	}
+	const auto kernelX = createGaussianKernel1D(sigmaX, vx, kerSizeX);
+	const auto kernelY = createGaussianKernel1D(sigmaY, vy, kerSizeY);
+	const auto kernelZ = createGaussianKernel1D(sigmaZ, vz, kerSizeZ);
 
 	return OperatorPsf(kernelX, kernelY, kernelZ);
 }

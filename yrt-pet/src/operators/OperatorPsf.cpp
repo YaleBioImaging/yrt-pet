@@ -29,16 +29,40 @@ void py_setup_operatorpsf(py::module& m)
 	      "kernel_x"_a, "kernel_y"_a, "kernel_z"_a);
 
 	c.def_static("createGaussianKernel1D", &OperatorPsf::createGaussianKernel1D,
-	             "sigma"_a, "voxel_size"_a, "kernel_size"_a = nullptr);
-	c.def_static("createGaussianfromFWHM", &OperatorPsf::createGaussianFromFWHM,
+	             "sigma"_a, "voxel_size"_a, "kernel_size"_a);
+	c.def_static("createGaussianFromFWHM", &OperatorPsf::createGaussianFromFWHM,
 	             "fwhm_x"_a, "fwhm_y"_a, "fwhm_z"_a, "vx"_a, "vy"_a, "vz"_a,
-	             "kernel_size_x"_a = nullptr, "kernel_size_y"_a = nullptr,
-	             "kernel_size_z"_a = nullptr);
-	c.def_static("createGaussianfromSigma",
+	             "kernel_size_x"_a, "kernel_size_y"_a, "kernel_size_z"_a);
+	c.def_static("createGaussianFromSigma",
 	             &OperatorPsf::createGaussianFromSigma, "sigma_x"_a,
 	             "sigma_y"_a, "sigma_z"_a, "vx"_a, "vy"_a, "vz"_a,
-	             "kernel_size_x"_a = nullptr, "kernel_size_y"_a = nullptr,
-	             "kernel_size_z"_a = nullptr);
+	             "kernel_size_x"_a, "kernel_size_y"_a, "kernel_size_z"_a);
+
+	c.def_static(
+	    "createGaussianKernel1D",
+	    [](float sigma, float voxelSize)
+	    {
+		    return OperatorPsf::createGaussianKernel1D(sigma, voxelSize,
+		                                               nullptr);
+	    },
+	    "sigma"_a, "voxel_size"_a);
+	c.def_static(
+	    "createGaussianFromFWHM",
+	    [](float fwhmX, float fwhmY, float fwhmZ, float vx, float vy, float vz)
+	    {
+		    return OperatorPsf::createGaussianFromFWHM(
+		        fwhmX, fwhmY, fwhmZ, vx, vy, vz, nullptr, nullptr, nullptr);
+	    },
+	    "fwhm_x"_a, "fwhm_y"_a, "fwhm_z"_a, "vx"_a, "vy"_a, "vz"_a);
+	c.def_static(
+	    "createGaussianFromSigma",
+	    [](float sigmaX, float sigmaY, float sigmaZ, float vx, float vy,
+	       float vz)
+	    {
+		    return OperatorPsf::createGaussianFromSigma(
+		        sigmaX, sigmaY, sigmaZ, vx, vy, vz, nullptr, nullptr, nullptr);
+	    },
+	    "sigma_x"_a, "sigma_y"_a, "sigma_z"_a, "vx"_a, "vy"_a, "vz"_a);
 
 	c.def("readFromFile", &OperatorPsf::readFromFile, "fname"_a);
 	c.def("convolve", &OperatorPsf::convolve, "in"_a, "out"_a, "kernel_x"_a,

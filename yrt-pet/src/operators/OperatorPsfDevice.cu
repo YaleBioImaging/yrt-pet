@@ -24,16 +24,35 @@ void py_setup_operatorpsfdevice(py::module& m)
 	auto c = py::class_<OperatorPsfDevice, OperatorPsf>(m, "OperatorPsfDevice");
 	c.def(py::init<>());
 	c.def(py::init<const std::string&>());
-	c.def_static("createGaussianfromFWHM",
-	             &OperatorPsfDevice::createGaussianfromFWHM, "fwhm_x"_a,
+	c.def_static("createGaussianFromFWHM",
+	             &OperatorPsfDevice::createGaussianFromFWHM, "fwhm_x"_a,
 	             "fwhm_y"_a, "fwhm_z"_a, "vx"_a, "vy"_a, "vz"_a,
 	             "kernel_size_x"_a = nullptr, "kernel_size_y"_a = nullptr,
 	             "kernel_size_z"_a = nullptr);
-	c.def_static("createGaussianfromSigma",
-	             &OperatorPsfDevice::createGaussianfromSigma, "sigma_x"_a,
+	c.def_static("createGaussianFromSigma",
+	             &OperatorPsfDevice::createGaussianFromSigma, "sigma_x"_a,
 	             "sigma_y"_a, "sigma_z"_a, "vx"_a, "vy"_a, "vz"_a,
 	             "kernel_size_x"_a = nullptr, "kernel_size_y"_a = nullptr,
 	             "kernel_size_z"_a = nullptr);
+
+	c.def_static(
+	    "createGaussianFromFWHM",
+	    [](float fwhmX, float fwhmY, float fwhmZ, float vx, float vy, float vz)
+	    {
+		    return OperatorPsfDevice::createGaussianFromFWHM(
+		        fwhmX, fwhmY, fwhmZ, vx, vy, vz, nullptr, nullptr, nullptr);
+	    },
+	    "fwhm_x"_a, "fwhm_y"_a, "fwhm_z"_a, "vx"_a, "vy"_a, "vz"_a);
+	c.def_static(
+	    "createGaussianFromSigma",
+	    [](float sigmaX, float sigmaY, float sigmaZ, float vx, float vy,
+	       float vz)
+	    {
+		    return OperatorPsfDevice::createGaussianFromSigma(
+		        sigmaX, sigmaY, sigmaZ, vx, vy, vz, nullptr, nullptr, nullptr);
+	    },
+	    "sigma_x"_a, "sigma_y"_a, "sigma_z"_a, "vx"_a, "vy"_a, "vz"_a);
+
 	c.def("convolve",
 	      static_cast<void (OperatorPsfDevice::*)(
 	          const Image* in, Image* out, const std::vector<float>& kernelX,
@@ -101,7 +120,7 @@ OperatorPsfDevice::OperatorPsfDevice(const std::vector<float>& kernelX,
 	copyToDevice(true);
 }
 
-std::unique_ptr<OperatorPsfDevice> OperatorPsfDevice::createGaussianfromSigma(
+std::unique_ptr<OperatorPsfDevice> OperatorPsfDevice::createGaussianFromSigma(
     float sigmaX, float sigmaY, float sigmaZ, float vx, float vy, float vz,
     const size_t* kerSizeX, const size_t* kerSizeY, const size_t* kerSizeZ)
 {
@@ -112,7 +131,7 @@ std::unique_ptr<OperatorPsfDevice> OperatorPsfDevice::createGaussianfromSigma(
 	return std::make_unique<OperatorPsfDevice>(kernelX, kernelY, kernelZ);
 }
 
-std::unique_ptr<OperatorPsfDevice> OperatorPsfDevice::createGaussianfromFWHM(
+std::unique_ptr<OperatorPsfDevice> OperatorPsfDevice::createGaussianFromFWHM(
     float fwhmX, float fwhmY, float fwhmZ, float vx, float vy, float vz,
     const size_t* kerSizeX, const size_t* kerSizeY, const size_t* kerSizeZ)
 {
@@ -120,7 +139,7 @@ std::unique_ptr<OperatorPsfDevice> OperatorPsfDevice::createGaussianfromFWHM(
 	const float sigmaY = fwhmY / static_cast<float>(SIGMA_TO_FWHM);
 	const float sigmaZ = fwhmZ / static_cast<float>(SIGMA_TO_FWHM);
 
-	return OperatorPsfDevice::createGaussianfromSigma(
+	return OperatorPsfDevice::createGaussianFromSigma(
 	    sigmaX, sigmaY, sigmaZ, vx, vy, vz, kerSizeX, kerSizeY, kerSizeZ);
 }
 

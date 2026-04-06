@@ -441,11 +441,6 @@ void OperatorPsfDevice::convolveDevice(const ImageDevice& inputImage,
 		        params.nx, params.ny, params.nz);
 
 		outputImage.copyFromDeviceImage(mpd_intermediaryImage.get(), false);
-
-		if (synchronize)
-		{
-			cudaStreamSynchronize(*stream);
-		}
 	}
 	else
 	{
@@ -468,14 +463,10 @@ void OperatorPsfDevice::convolveDevice(const ImageDevice& inputImage,
 		        params.nx, params.ny, params.nz);
 
 		outputImage.copyFromDeviceImage(mpd_intermediaryImage.get(), false);
-
-		if (synchronize)
-		{
-			cudaDeviceSynchronize();
-		}
 	}
 
-	cudaCheckError();
+	synchronizeIfNeeded({stream, synchronize});
+	ASSERT(cudaCheckError());
 }
 
 }  // namespace yrt

@@ -279,87 +279,90 @@ void OperatorPsf::convolve(const Image* in, Image* out,
 	const int nx = params.nx;
 	const int ny = params.ny;
 	const int nz = params.nz;
+	const int nt = params.nt;
 
+	const size_t frameSize = static_cast<size_t>(nx) * ny * nz;
 	const size_t sizeBuffer = std::max(std::max(nx, ny), nz);
 	m_buffer_tmp.resize(sizeBuffer);
 
 	const std::array<int, 3> kerSize{static_cast<int>(kernelX.size()),
 	                                 static_cast<int>(kernelY.size()),
 	                                 static_cast<int>(kernelZ.size())};
-	ASSERT_MSG(kerSize[0] != 0, "X-kernel seems empty");
-	ASSERT_MSG(kerSize[1] != 0, "Y-kernel seems empty");
-	ASSERT_MSG(kerSize[2] != 0, "Z-kernel seems empty");
-	ASSERT_MSG(kerSize[0] % 2 != 0, "Kernel size must be odd");
-	ASSERT_MSG(kerSize[1] % 2 != 0, "Kernel size must be odd");
-	ASSERT_MSG(kerSize[2] % 2 != 0, "Kernel size must be odd");
-
-	// kernel size must always be an odd number and must have same size in all 3
-	// dimensions
 	const int kerIndexCenteredX = kerSize[0] / 2;
 	const int kerIndexCenteredY = kerSize[1] / 2;
 	const int kerIndexCenteredZ = kerSize[2] / 2;
-	const float* inPtr = in->getRawPointer();
-	float* outPtr = out->getRawPointer();
 
-	for (int k = 0; k < nz; k++)
+	for (int t = 0; t < nt; t++)
 	{
-		for (int j = 0; j < ny; j++)
+		const float* inPtr = in->getRawPointer() + t * frameSize;
+		float* outPtr = out->getRawPointer() + t * frameSize;
+
+		for (int k = 0; k < nz; k++)
+		{
+			for (int j = 0; j < ny; j++)
+			{
+				for (int i = 0; i < nx; i++)
+				{
+					m_buffer_tmp[i] = inPtr[IDX3(i, j, k, nx, ny)];
+				}
+				for (int i = 0; i < nx; i++)
+				{
+					float sum = 0.0f;
+					for (int kk = -kerIndexCenteredX; kk <= kerIndexCenteredX;
+					     kk++)
+					{
+						const int r = util::circular(nx, i - kk);
+						sum +=
+						    kernelX[kk + kerIndexCenteredX] * m_buffer_tmp[r];
+					}
+					outPtr[IDX3(i, j, k, nx, ny)] = sum;
+				}
+			}
+		}
+
+		for (int k = 0; k < nz; k++)
 		{
 			for (int i = 0; i < nx; i++)
 			{
-				m_buffer_tmp[i] = inPtr[IDX3(i, j, k, nx, ny)];
-			}
-			for (int i = 0; i < nx; i++)
-			{
-				float sum = 0.0;
-				for (int kk = -kerIndexCenteredX; kk <= kerIndexCenteredX; kk++)
+				for (int j = 0; j < ny; j++)
 				{
-					const int r = util::circular(nx, i - kk);
-					sum += kernelX[kk + kerIndexCenteredX] * m_buffer_tmp[r];
+					m_buffer_tmp[j] = outPtr[IDX3(i, j, k, nx, ny)];
 				}
-				outPtr[IDX3(i, j, k, nx, ny)] = sum;
+				for (int j = 0; j < ny; j++)
+				{
+					float sum = 0.0f;
+					for (int kk = -kerIndexCenteredY; kk <= kerIndexCenteredY;
+					     kk++)
+					{
+						const int r = util::circular(ny, j - kk);
+						sum +=
+						    kernelY[kk + kerIndexCenteredY] * m_buffer_tmp[r];
+					}
+					outPtr[IDX3(i, j, k, nx, ny)] = sum;
+				}
 			}
 		}
-	}
 
-	for (int k = 0; k < nz; k++)
-	{
 		for (int i = 0; i < nx; i++)
 		{
 			for (int j = 0; j < ny; j++)
 			{
-				m_buffer_tmp[j] = outPtr[IDX3(i, j, k, nx, ny)];
-			}
-			for (int j = 0; j < ny; j++)
-			{
-				float sum = 0.0;
-				for (int kk = -kerIndexCenteredY; kk <= kerIndexCenteredY; kk++)
+				for (int k = 0; k < nz; k++)
 				{
-					const int r = util::circular(ny, j - kk);
-					sum += kernelY[kk + kerIndexCenteredY] * m_buffer_tmp[r];
+					m_buffer_tmp[k] = outPtr[IDX3(i, j, k, nx, ny)];
 				}
-				outPtr[IDX3(i, j, k, nx, ny)] = sum;
-			}
-		}
-	}
-
-	for (int i = 0; i < nx; i++)
-	{
-		for (int j = 0; j < ny; j++)
-		{
-			for (int k = 0; k < nz; k++)
-			{
-				m_buffer_tmp[k] = outPtr[IDX3(i, j, k, nx, ny)];
-			}
-			for (int k = 0; k < nz; k++)
-			{
-				float sum = 0.0;
-				for (int kk = -kerIndexCenteredZ; kk <= kerIndexCenteredZ; kk++)
+				for (int k = 0; k < nz; k++)
 				{
-					const int r = util::circular(nz, k - kk);
-					sum += kernelZ[kk + kerIndexCenteredZ] * m_buffer_tmp[r];
+					float sum = 0.0f;
+					for (int kk = -kerIndexCenteredZ; kk <= kerIndexCenteredZ;
+					     kk++)
+					{
+						const int r = util::circular(nz, k - kk);
+						sum +=
+						    kernelZ[kk + kerIndexCenteredZ] * m_buffer_tmp[r];
+					}
+					outPtr[IDX3(i, j, k, nx, ny)] = sum;
 				}
-				outPtr[IDX3(i, j, k, nx, ny)] = sum;
 			}
 		}
 	}

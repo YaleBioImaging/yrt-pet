@@ -230,8 +230,12 @@ std::unique_ptr<ImageOwned>
 		{
 			for (int i_z = prismBeginZ; i_z < prismEndZ; i_z++)
 			{
-				const size_t flatIdx = image->unravel(i_z, i_y, i_x);
-				image_ptr[flatIdx] = prismValueDistribution(*usedEngine);
+				for (frame_t t = 0; t < params.nt; t++)
+				{
+					const float value = prismValueDistribution(*usedEngine);
+					const size_t flatIdx = image->unravel(i_z, i_y, i_x, t);
+					image_ptr[flatIdx] = value;
+				}
 			}
 		}
 	}

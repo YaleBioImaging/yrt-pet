@@ -342,6 +342,9 @@ osem.setProjector("S")
 osem.num_MLEM_iterations = 10 # iterations
 osem.num_OSEM_subsets = 1 # subsets (We keep it simple at one here)
 
+# Let's add a PSF of 3mm x 3mm x 3mm FWHM
+osem.addUniformGaussianImagePSFFromFWHM(3,3,3)
+
 # We do not need to mention motion correction or dynamic framing here as those
 #  were embedded in the list-mode object
 

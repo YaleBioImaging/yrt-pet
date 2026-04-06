@@ -73,6 +73,13 @@ public:
 	void addProjPSF(const std::string& pr_projPsf_fname);
 	virtual void addImagePSF(const std::string& p_imagePsf_fname,
 	                         ImagePSFMode p_imagePSFMode) = 0;
+	virtual void addUniformGaussianImagePSFFromFWHM(
+	    float fwhmX, float fwhmY, float fwhmZ, const size_t* kerSizeX = nullptr,
+	    const size_t* kerSizeY = nullptr, const size_t* kerSizeZ = nullptr) = 0;
+	virtual void addUniformGaussianImagePSFFromSigma(
+	    float sigmaX, float sigmaY, float sigmaZ,
+	    const size_t* kerSizeX = nullptr, const size_t* kerSizeY = nullptr,
+	    const size_t* kerSizeZ = nullptr) = 0;
 	void addImagePSF(const std::string& p_imagePsf_fname);
 	void setSaveIterRanges(const util::RangeList& p_saveIterList,
 	                       const std::string& p_saveIterPath);

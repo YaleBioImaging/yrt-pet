@@ -101,7 +101,7 @@ OperatorPsfDevice::OperatorPsfDevice(const std::vector<float>& kernelX,
 	copyToDevice(true);
 }
 
-OperatorPsfDevice OperatorPsfDevice::createGaussianfromSigma(
+std::unique_ptr<OperatorPsfDevice> OperatorPsfDevice::createGaussianfromSigma(
     float sigmaX, float sigmaY, float sigmaZ, float vx, float vy, float vz,
     const size_t* kerSizeX, const size_t* kerSizeY, const size_t* kerSizeZ)
 {
@@ -109,10 +109,10 @@ OperatorPsfDevice OperatorPsfDevice::createGaussianfromSigma(
 	const auto kernelY = createGaussianKernel1D(sigmaY, vy, kerSizeY);
 	const auto kernelZ = createGaussianKernel1D(sigmaZ, vz, kerSizeZ);
 
-	return OperatorPsfDevice(kernelX, kernelY, kernelZ);
+	return std::make_unique<OperatorPsfDevice>(kernelX, kernelY, kernelZ);
 }
 
-OperatorPsfDevice OperatorPsfDevice::createGaussianfromFWHM(
+std::unique_ptr<OperatorPsfDevice> OperatorPsfDevice::createGaussianfromFWHM(
     float fwhmX, float fwhmY, float fwhmZ, float vx, float vy, float vz,
     const size_t* kerSizeX, const size_t* kerSizeY, const size_t* kerSizeZ)
 {

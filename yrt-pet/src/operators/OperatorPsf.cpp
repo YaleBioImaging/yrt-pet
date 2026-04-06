@@ -30,12 +30,12 @@ void py_setup_operatorpsf(py::module& m)
 
 	c.def_static("createGaussianKernel1D", &OperatorPsf::createGaussianKernel1D,
 	             "sigma"_a, "voxel_size"_a, "kernel_size"_a = nullptr);
-	c.def_static("createGaussianfromFWHM", &OperatorPsf::createGaussianfromFWHM,
+	c.def_static("createGaussianfromFWHM", &OperatorPsf::createGaussianFromFWHM,
 	             "fwhm_x"_a, "fwhm_y"_a, "fwhm_z"_a, "vx"_a, "vy"_a, "vz"_a,
 	             "kernel_size_x"_a = nullptr, "kernel_size_y"_a = nullptr,
 	             "kernel_size_z"_a = nullptr);
 	c.def_static("createGaussianfromSigma",
-	             &OperatorPsf::createGaussianfromSigma, "sigma_x"_a,
+	             &OperatorPsf::createGaussianFromSigma, "sigma_x"_a,
 	             "sigma_y"_a, "sigma_z"_a, "vx"_a, "vy"_a, "vz"_a,
 	             "kernel_size_x"_a = nullptr, "kernel_size_y"_a = nullptr,
 	             "kernel_size_z"_a = nullptr);
@@ -137,6 +137,8 @@ std::vector<float> OperatorPsf::createGaussianKernel1D(float sigma,
                                                        float voxSize,
                                                        const size_t* kerSize)
 {
+	ASSERT_MSG(sigma >= 0, "Gaussian Sigma or FWHM cannot be null or negative");
+	ASSERT_MSG(voxSize >= 0, "Voxel size cannot be null or negative");
 
 	std::size_t size = kerSize ? *kerSize : 0;
 
@@ -170,7 +172,7 @@ std::vector<float> OperatorPsf::createGaussianKernel1D(float sigma,
 	return kernel;
 }
 
-OperatorPsf OperatorPsf::createGaussianfromSigma(
+std::unique_ptr<OperatorPsf> OperatorPsf::createGaussianFromSigma(
     float sigmaX, float sigmaY, float sigmaZ, float vx, float vy, float vz,
     const size_t* kerSizeX, const size_t* kerSizeY, const size_t* kerSizeZ)
 {
@@ -178,10 +180,10 @@ OperatorPsf OperatorPsf::createGaussianfromSigma(
 	const auto kernelY = createGaussianKernel1D(sigmaY, vy, kerSizeY);
 	const auto kernelZ = createGaussianKernel1D(sigmaZ, vz, kerSizeZ);
 
-	return OperatorPsf(kernelX, kernelY, kernelZ);
+	return std::make_unique<OperatorPsf>(kernelX, kernelY, kernelZ);
 }
 
-OperatorPsf OperatorPsf::createGaussianfromFWHM(
+std::unique_ptr<OperatorPsf> OperatorPsf::createGaussianFromFWHM(
     float fwhmX, float fwhmY, float fwhmZ, float vx, float vy, float vz,
     const size_t* kerSizeX, const size_t* kerSizeY, const size_t* kerSizeZ)
 {
@@ -189,7 +191,7 @@ OperatorPsf OperatorPsf::createGaussianfromFWHM(
 	const float sigmaY = fwhmY / static_cast<float>(SIGMA_TO_FWHM);
 	const float sigmaZ = fwhmZ / static_cast<float>(SIGMA_TO_FWHM);
 
-	return createGaussianfromSigma(sigmaX, sigmaY, sigmaZ, vx, vy, vz, kerSizeX,
+	return createGaussianFromSigma(sigmaX, sigmaY, sigmaZ, vx, vy, vz, kerSizeX,
 	                               kerSizeY, kerSizeZ);
 }
 

@@ -10,6 +10,8 @@
 #include "yrt-pet/operators/OperatorPsf.hpp"
 #include "yrt-pet/utils/DeviceArray.cuh"
 
+#include <memory>
+
 
 namespace yrt
 {
@@ -26,11 +28,11 @@ public:
 	                           const std::vector<float>& kernelY,
 	                           const std::vector<float>& kernelZ,
 	                           const cudaStream_t* pp_stream = nullptr);
-	static OperatorPsfDevice createGaussianfromSigma(
+	static std::unique_ptr<OperatorPsfDevice> createGaussianfromSigma(
 	    float sigmaX, float sigmaY, float sigmaZ, float vx, float vy, float vz,
 	    const size_t* kerSizeX = nullptr, const size_t* kerSizeY = nullptr,
 	    const size_t* kerSizeZ = nullptr);
-	static OperatorPsfDevice createGaussianfromFWHM(
+	static std::unique_ptr<OperatorPsfDevice> createGaussianfromFWHM(
 	    float fwhmX, float fwhmY, float fwhmZ, float vx, float vy, float vz,
 	    const size_t* kerSizeX = nullptr, const size_t* kerSizeY = nullptr,
 	    const size_t* kerSizeZ = nullptr);

@@ -31,6 +31,14 @@ public:
 
 	void addImagePSF(const std::string& p_imagePsf_fname,
 	                 ImagePSFMode p_imagePSFMode) override;
+	void addUniformGaussianImagePSFFromFWHM(
+	    float fwhmX, float fwhmY, float fwhmZ, const size_t* kerSizeX = nullptr,
+	    const size_t* kerSizeY = nullptr,
+	    const size_t* kerSizeZ = nullptr) override;
+	void addUniformGaussianImagePSFFromSigma(
+	    float sigmaX, float sigmaY, float sigmaZ,
+	    const size_t* kerSizeX = nullptr, const size_t* kerSizeY = nullptr,
+	    const size_t* kerSizeZ = nullptr) override;
 
 protected:
 	// Sens Image generator driver

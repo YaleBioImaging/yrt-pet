@@ -69,6 +69,32 @@ void OSEM_GPU::addImagePSF(const std::string& p_imagePsf_fname,
 	flagImagePSF = true;
 }
 
+void OSEM_GPU::addUniformGaussianImagePSFFromFWHM(float fwhmX, float fwhmY,
+                                                  float fwhmZ,
+                                                  const size_t* kerSizeX,
+                                                  const size_t* kerSizeY,
+                                                  const size_t* kerSizeZ)
+{
+	ASSERT_MSG(imageParams.isValid(), "Image parameters not set");
+	imagePsf = OperatorPsfDevice::createGaussianFromFWHM(
+	    fwhmX, fwhmY, fwhmZ, imageParams.vx, imageParams.vy, imageParams.vz,
+	    kerSizeX, kerSizeY, kerSizeZ);
+	m_imagePSFMode = ImagePSFMode::UNIFORM;
+}
+
+void OSEM_GPU::addUniformGaussianImagePSFFromSigma(float sigmaX, float sigmaY,
+                                                   float sigmaZ,
+                                                   const size_t* kerSizeX,
+                                                   const size_t* kerSizeY,
+                                                   const size_t* kerSizeZ)
+{
+	ASSERT_MSG(imageParams.isValid(), "Image parameters not set");
+	imagePsf = OperatorPsfDevice::createGaussianFromSigma(
+	    sigmaX, sigmaY, sigmaZ, imageParams.vx, imageParams.vy, imageParams.vz,
+	    kerSizeX, kerSizeY, kerSizeZ);
+	m_imagePSFMode = ImagePSFMode::UNIFORM;
+}
+
 void OSEM_GPU::setupProjectorForSensImgGen()
 {
 	ASSERT(projectorParams.numRays > 0);

@@ -86,11 +86,35 @@ void py_setup_osem(pybind11::module& m)
 	c.def("addTOF", &OSEM::addTOF, "tof_width_ps"_a, "tof_num_std"_a);
 	c.def("setNumRays", &OSEM::setNumRays, "num_rays"_a);
 	c.def("addProjPSF", &OSEM::addProjPSF, "proj_psf_fname"_a);
+
 	c.def("addImagePSF",
 	      static_cast<void (OSEM::*)(const std::string& p_imagePsf_fname,
 	                                 ImagePSFMode p_imagePSFMode)>(
 	          &OSEM::addImagePSF),
 	      "image_psf_fname"_a, "image_psf_mode"_a = ImagePSFMode::UNIFORM);
+	c.def("addUniformGaussianImagePSFFromFWHM",
+	      &OSEM::addUniformGaussianImagePSFFromFWHM, "fwhm_x"_a, "fwhm_y"_a,
+	      "fwhm_z"_a, "kernel_size_x"_a, "kernel_size_y"_a, "kernel_size_z"_a);
+	c.def("addUniformGaussianImagePSFFromSigma",
+	      &OSEM::addUniformGaussianImagePSFFromSigma, "sigma_x"_a, "sigma_y"_a,
+	      "sigma_z"_a, "kernel_size_x"_a, "kernel_size_y"_a, "kernel_size_z"_a);
+	c.def(
+	    "addUniformGaussianImagePSFFromFWHM",
+	    [](OSEM& self, float fwhmX, float fwhmY, float fwhmZ)
+	    {
+		    self.addUniformGaussianImagePSFFromFWHM(fwhmX, fwhmY, fwhmZ,
+		                                            nullptr, nullptr, nullptr);
+	    },
+	    "fwhm_x"_a, "fwhm_y"_a, "fwhm_z"_a);
+	c.def(
+	    "addUniformGaussianImagePSFFromSigma",
+	    [](OSEM& self, float sigmaX, float sigmaY, float sigmaZ)
+	    {
+		    self.addUniformGaussianImagePSFFromSigma(sigmaX, sigmaY, sigmaZ,
+		                                             nullptr, nullptr, nullptr);
+	    },
+	    "sigma_x"_a, "sigma_y"_a, "sigma_z"_a);
+
 	c.def("setSaveIterRanges", &OSEM::setSaveIterRanges, "range_list"_a,
 	      "path"_a);
 	c.def("setListModeEnabled", &OSEM::setListModeEnabled, "enabled"_a);

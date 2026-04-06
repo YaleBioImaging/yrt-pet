@@ -109,7 +109,7 @@ void OSEM_CPU::setupProjectorForSensImgGen()
 
 void OSEM_CPU::allocateForSensImgGen()
 {
-	auto imageParamsSens = getImageParamsForSensitivityImage();
+	auto imageParamsSens = getImageParamsForSensImgGen();
 
 	auto tempSensImageBuffer = std::make_unique<ImageOwned>(imageParamsSens);
 	tempSensImageBuffer->allocate();
@@ -121,7 +121,7 @@ void OSEM_CPU::allocateForSensImgGen()
 		reinterpret_cast<ImageOwned*>(mp_imageTmpPsf.get())->allocate();
 	}
 
-	initBinLoaderIfNeeded(false);
+	initBinLoader(false);
 }
 
 std::unique_ptr<Image> OSEM_CPU::generateSensitivityImageForCurrentSubset()
@@ -178,7 +178,7 @@ std::unique_ptr<Image> OSEM_CPU::generateSensitivityImageForCurrentSubset()
 	if (getCurrentOSEMSubset() != num_OSEM_subsets - 1)
 	{
 		auto tempSensImageBuffer =
-		    std::make_unique<ImageOwned>(getImageParamsForSensitivityImage());
+		    std::make_unique<ImageOwned>(getImageParamsForSensImgGen());
 		tempSensImageBuffer->allocate();
 		mp_tempSensImageBuffer = std::move(tempSensImageBuffer);
 	}
@@ -272,7 +272,7 @@ void OSEM_CPU::allocateForRecon()
 
 	mp_corrector->precomputeCorrectionFactors(*dataInput);
 
-	initBinLoaderIfNeeded(true);
+	initBinLoader(true);
 }
 
 void OSEM_CPU::loadCurrentSubset(bool /*forRecon*/) {}
@@ -449,23 +449,15 @@ const Corrector_CPU& OSEM_CPU::getCorrector_CPU() const
 	return *mp_corrector;
 }
 
-void OSEM_CPU::initBinLoaderIfNeeded(bool forRecon)
+void OSEM_CPU::initBinLoader(bool forRecon)
 {
-	if (mp_binLoader == nullptr)
-	{
-		std::vector<Constraint*> constraints =
-		    getConstraintsAsVectorOfPointers();
-		std::set<ProjectionPropertyType> properties =
-		    getNeededProperties(forRecon);
+	std::vector<Constraint*> constraints = getConstraintsAsVectorOfPointers();
+	std::set<ProjectionPropertyType> properties = getNeededProperties(forRecon);
 
-		mp_binLoader = std::make_unique<BinLoader>(constraints, properties);
-	}
+	mp_binLoader = std::make_unique<BinLoader>(constraints, properties);
 
-	if (!mp_binLoader->isAllocated())
-	{
-		const int numThreads = globals::getNumThreads();
-		mp_binLoader->allocate(numThreads);
-	}
+	const int numThreads = globals::getNumThreads();
+	mp_binLoader->allocate(numThreads);
 }
 
 std::set<ProjectionPropertyType>

@@ -122,7 +122,7 @@ void OSEM_GPU::setupProjectorForSensImgGen()
 
 void OSEM_GPU::allocateForSensImgGen()
 {
-	auto imageParamsSens = getImageParamsForSensitivityImage();
+	auto imageParamsSens = getImageParamsForSensImgGen();
 
 	// Allocate for image space
 	mpd_sensImageBuffer =

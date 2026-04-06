@@ -91,7 +91,7 @@ public:
 	void enableNeedToMakeCopyOfSensImage();  // For Python
 	void setImageParams(const ImageParams& params);
 	ImageParams getImageParams() const;
-	ImageParams getImageParamsForSensitivityImage() const;
+	ImageParams getImageParamsForSensImgGen() const;
 	void setRandomsHistogram(const Histogram* pp_randoms);
 	void setScatterHistogram(const Histogram* pp_scatter);
 	void setAttenuationImage(const Image* pp_attenuationImage);

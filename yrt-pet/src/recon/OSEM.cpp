@@ -130,8 +130,7 @@ void py_setup_osem(pybind11::module& m)
 	c.def("hasImagePSF", &OSEM::hasImagePSF);
 	c.def("setImageParams", &OSEM::setImageParams, "params"_a);
 	c.def("getImageParams", &OSEM::getImageParams);
-	c.def("getImageParamsForSensitivityImage",
-	      &OSEM::getImageParamsForSensitivityImage);
+	c.def("getImageParamsForSensImgGen", &OSEM::getImageParamsForSensImgGen);
 	c.def("setRandomsHistogram", &OSEM::setRandomsHistogram, "randoms_his"_a);
 	c.def("setScatterHistogram", &OSEM::setScatterHistogram, "scatter_his"_a);
 	c.def("setAttenuationImage", &OSEM::setAttenuationImage, "att_image"_a);
@@ -538,7 +537,7 @@ ImageParams OSEM::getImageParams() const
 	return imageParams;
 }
 
-ImageParams OSEM::getImageParamsForSensitivityImage() const
+ImageParams OSEM::getImageParamsForSensImgGen() const
 {
 	auto imageParamsSens = getImageParams();
 	imageParamsSens.nt = 1;
@@ -610,7 +609,7 @@ void OSEM::setInitialEstimate(const Image* p_initialEstimate)
 void OSEM::setMaskImage(const Image* p_maskImage)
 {
 	ASSERT(p_maskImage != nullptr);
-	const ImageParams& imgParamsForSens = getImageParamsForSensitivityImage();
+	const ImageParams& imgParamsForSens = getImageParamsForSensImgGen();
 	ASSERT_MSG(imgParamsForSens.isValid(), "Image parameters not set for OSEM");
 	ASSERT_MSG(p_maskImage->getParams().isSameAsIgnoreFrames(imgParamsForSens),
 	           "Image parameters mismatch for mask image");

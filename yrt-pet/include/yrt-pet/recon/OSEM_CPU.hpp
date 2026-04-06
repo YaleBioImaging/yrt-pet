@@ -67,7 +67,7 @@ protected:
 	std::unique_ptr<Corrector_CPU> mp_corrector;
 
 private:
-	void initBinLoaderIfNeeded(bool forRecon);
+	void initBinLoader(bool forRecon);
 	std::set<ProjectionPropertyType> getNeededProperties(bool forRecon) const;
 };
 }  // namespace yrt

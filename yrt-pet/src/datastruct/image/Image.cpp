@@ -850,7 +850,6 @@ void Image::transformImage(const transform_t& t, Image& dest, float weight,
 	const int numXYZ = numXY * nz;
 	float* destRawPtr = dest.getRawPointer() + destDynamicFrame * numXYZ;
 
-	// TODO: Maybe this is done backwards
 	const transform_t inv = util::invertTransform(t);
 
 	util::parallelForChunked(

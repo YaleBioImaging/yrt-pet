@@ -27,13 +27,16 @@ Plane::Plane(const Vector3D& pt1, const Vector3D& pt2, const Vector3D& pt3)
 	dir = vector_pos1 * vector_pos2;
 	if (dir.getNorm() < SMALL_FLT)
 	{
-		std::cout << "\nThe 3 points in input of Plane::Plane() do not "
-		             "define a plane.\n";
-		std::cout << "point1 = ( " << pt1.x << ", " << pt1.y << ", " << pt1.z
-		          << " )  point2 = ( " << pt2.x << ", " << pt2.y << ", "
-		          << pt2.z << " )  point3 = ( " << pt3.x << ", " << pt3.y
-		          << ", " << pt3.z << " )\n\n";
-		exit(-1);
+		std::string errorMessage =
+		    "The 3 points in input of Plane::Plane() do not define a plane.";
+		errorMessage += "point1 = ( " + std::to_string(pt1.x) + ", " +
+		                std::to_string(pt1.y) + ", " + std::to_string(pt1.z) +
+		                " )  point2 = ( " + std::to_string(pt2.x) + ", " +
+		                std::to_string(pt2.y) + ", " + std::to_string(pt2.z) +
+		                " )  point3 = ( " + std::to_string(pt3.x) + ", " +
+		                std::to_string(pt3.y) + ", " + std::to_string(pt3.z) +
+		                " )";
+		throw std::runtime_error(errorMessage);
 	}
 	// find equation of the plane:
 	update_eq(pt1, pt2, pt3);
@@ -55,14 +58,16 @@ void Plane::update(const Vector3D& pt1, const Vector3D& pt2,
 	dir.update(dir_tmp.x, dir_tmp.y, dir_tmp.z);
 	if (dir.getNorm() < SMALL_FLT)
 	{
-		std::cout << "\nThe 3 points in input of Plane::Plane() do not "
-		             "define a plane.\n";
-		std::cout << "point1 = ( " << pt1.x << ", " << pt1.y << ", " << pt1.z
-		          << " )  point2 = ( " << pt2.x << ", " << pt2.y << ", "
-		          << pt2.z << " )  point3 = ( " << pt3.x << ", " << pt3.y
-		          << ", " << pt3.z << " )\n\n",
-		    getchar();
-		exit(-1);
+		std::string errorMessage =
+		    "The 3 points in input of Plane::Plane() do not define a plane.";
+		errorMessage += "point1 = ( " + std::to_string(pt1.x) + ", " +
+		                std::to_string(pt1.y) + ", " + std::to_string(pt1.z) +
+		                " )  point2 = ( " + std::to_string(pt2.x) + ", " +
+		                std::to_string(pt2.y) + ", " + std::to_string(pt2.z) +
+		                " )  point3 = ( " + std::to_string(pt3.x) + ", " +
+		                std::to_string(pt3.y) + ", " + std::to_string(pt3.z) +
+		                " )";
+		throw std::runtime_error(errorMessage);
 	}
 	// update equation:
 	update_eq(pt1, pt2, pt3);

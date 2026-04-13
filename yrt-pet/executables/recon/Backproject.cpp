@@ -13,6 +13,7 @@
 #include "yrt-pet/utils/Assert.hpp"
 #include "yrt-pet/utils/Globals.hpp"
 #include "yrt-pet/utils/ReconstructionUtils.hpp"
+#include "yrt-pet/utils/Version.hpp"
 
 #include <cxxopts.hpp>
 #include <iostream>
@@ -43,6 +44,9 @@ int main(int argc, char** argv)
 		registry.registerArgument(
 		    "lor_motion", "Motion CSV file for motion correction", false,
 		    io::TypeOfArgument::STRING, "", inputGroup, "m");
+		registry.registerArgument(
+		    "dyn", "Dynamic framing file for dynamic backprojection", false,
+		    io::TypeOfArgument::STRING, "", inputGroup);
 		registry.registerArgument("detmask",
 		                          "Detector mask (will override the "
 		                          "\"detMask\" member in the scanner's JSON)",
@@ -69,6 +73,11 @@ int main(int argc, char** argv)
 		    "Projector to use, choices: Siddon (S), Distance-Driven (D). The "
 		    "default projector is Siddon",
 		    false, io::TypeOfArgument::STRING, "S", projectorGroup);
+		registry.registerArgument(
+		    "projector_updater",
+		    "Projector updater to use, choices: DEFAULT4D, LR. The "
+		    "default value is DEFAULT4D",
+		    false, io::TypeOfArgument::STRING, "DEFAULT4D", projectorGroup);
 		registry.registerArgument(
 		    "psf",
 		    "Image-space PSF kernel file (Applied after the backprojection)",
@@ -124,6 +133,12 @@ int main(int argc, char** argv)
 
 		globals::setNumThreads(config.getValue<int>("num_threads"));
 
+#if BUILD_CUDA
+		const bool useGPU = config.getValue<bool>("gpu");
+#else
+		const bool useGPU = false;
+#endif
+
 		const auto scanner =
 		    std::make_unique<Scanner>(config.getValue<std::string>("scanner"));
 		auto detMask_fname = config.getValue<std::string>("detmask");
@@ -147,6 +162,10 @@ int main(int argc, char** argv)
 		                           format, *scanner, config.getAllArguments());
 
 		const auto lorMotion_fname = config.getValue<std::string>("lor_motion");
+		const auto dynamicFraming_fname = config.getValue<std::string>("dyn");
+
+		// Input data as listmode
+		auto* dataInput_lm = dynamic_cast<ListMode*>(dataInput.get());
 
 		if (!lorMotion_fname.empty())
 		{
@@ -154,11 +173,10 @@ int main(int argc, char** argv)
 
 			if (useListMode)
 			{
-				// Input data as listmode
-				auto* dataInput_lm = dynamic_cast<ListMode*>(dataInput.get());
+				// This error should normally never trigger
 				ASSERT_MSG(dataInput_lm != nullptr,
-				           "(Unexpected error) Input data has to be in "
-				           "ListMode format to include motion correction");
+				           "Input data has to be in ListMode format to include "
+				           "motion correction");
 
 				// Link input data to LOR motion (to allow event-by-event motion
 				//  correction)
@@ -172,12 +190,35 @@ int main(int argc, char** argv)
 			}
 		}
 
+		if (!dynamicFraming_fname.empty())
+		{
+			auto dynamicFraming =
+			    std::make_shared<DynamicFraming>(dynamicFraming_fname);
+
+			if (useListMode)
+			{
+				// This error should normally never trigger
+				ASSERT_MSG(dataInput_lm != nullptr,
+				           "Input data has to be in ListMode format to include "
+				           "dynamic framing");
+
+				// Link input data to the dynamic framing
+				dataInput_lm->addDynamicFraming(dynamicFraming);
+			}
+			else
+			{
+				std::cerr << "Warning: Dynamic framing is not available for "
+				             "Histogram data"
+				          << std::endl;
+			}
+		}
+
+
 		// Setup forward projection
 		const auto binIter =
 		    dataInput->getBinIter(config.getValue<int>("num_subsets"),
 		                          config.getValue<int>("subset_id"));
-		OperatorProjectorParams projParams(*scanner);
-		projParams.binIter = binIter.get();
+		ProjectorParams projParams(*scanner);
 		auto tofWidth_ps = config.getValue<float>("tof_width_ps");
 		auto tofNumStd = config.getValue<int>("tof_n_std");
 		if (tofWidth_ps > 0.0f)
@@ -187,11 +228,30 @@ int main(int argc, char** argv)
 		projParams.projPsf_fname = config.getValue<std::string>("proj_psf");
 		projParams.numRays = config.getValue<int>("num_rays");
 
+		const auto projectorUpdaterType_name =
+		    config.getValue<std::string>("projector_updater");
+		UpdaterType projectorUpdaterType;
+		if (projectorUpdaterType_name == "DEFAULT4D")
+		{
+			projectorUpdaterType = UpdaterType::DEFAULT4D;
+		}
+		else if (projectorUpdaterType_name == "LR")
+		{
+			projectorUpdaterType = UpdaterType::LR;
+		}
+		else
+		{
+			throw std::invalid_argument("Unknown projector updater type: " +
+			                            projectorUpdaterType_name);
+		}
+		projParams.updaterType = projectorUpdaterType;
+
 		const auto projectorType =
 		    io::getProjector(config.getValue<std::string>("projector"));
+		projParams.projectorType = projectorType;
 
-		util::backProject(*outputImage, *dataInput, projParams, projectorType,
-		                  config.getValue<bool>("gpu"));
+		util::backProject(*outputImage, *dataInput, projParams, *binIter,
+		                  useGPU);
 
 		// Image-space PSF
 		auto imagePsf_fname = config.getValue<std::string>("psf");

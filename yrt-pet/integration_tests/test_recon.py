@@ -9,7 +9,7 @@ import pytest
 import numpy as np
 
 fold_py = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-sys.path.append(os.path.join(fold_py))
+sys.path.insert(0, fold_py)
 import pyyrtpet as yrt
 
 yrt.setNumThreads(-1)
@@ -89,7 +89,7 @@ def _test_savant_sim_ultra_micro_hotspot_motion_mlem_gpu_exec(
                                                 keyword + '.vc')
     exec_str += ' -o ' + out_path
     exec_str += ' --projector ' + proj_name_upper + ' --gpu'
-
+    print('Running: ' + exec_str)
     ret = os.system(exec_str)
     assert ret == 0
 
@@ -171,6 +171,7 @@ def test_savant_sim_sens_image_siddon_exec():
                                              'SAVANT_sim.json')
     exec_str += ' --params ' + img_params_path
     exec_str += ' --out_sens ' + out_image_path
+    print('Running: ' + exec_str)
     ret = os.system(exec_str)
     assert ret == 0
 
@@ -324,9 +325,9 @@ def _test_psf_adjoint(use_gpu: bool):
     Ax = yrt.ImageOwned(img_params)
     Aty = yrt.ImageOwned(img_params)
     Ax.allocate()
-    Ax.setValue(0.0)
+    Ax.fill(0.0)
     Aty.allocate()
-    Aty.setValue(0.0)
+    Aty.fill(0.0)
 
     oper_psf.applyA(img_x, Ax)
     oper_psf.applyAH(img_y, Aty)
@@ -367,7 +368,7 @@ def _test_savant_sim_ultra_micro_hotspot_nomotion_osem_6rays(use_gpu: bool):
     osem.setImageParams(img_params)
     osem.num_MLEM_iterations = 3
     osem.num_OSEM_subsets = 12
-    osem.numRays = num_siddon_rays
+    osem.setNumRays(num_siddon_rays)
     osem.setDataInput(dataset)
     osem.setSensitivityImage(sens_img)
 
@@ -396,12 +397,12 @@ def _test_savant_sim_ultra_micro_hotspot_nomotion_osem_6rays(use_gpu: bool):
 
     out_img_np = np.array(out_img, copy=False)
     ref_img_np = np.array(ref_img, copy=False)
-    is_close = np.isclose(ref_img_np, out_img_np, atol=0, rtol=1e-3)
-    num_mismatch = (~is_close).sum()
-    print(f'Number of mismatched voxels: {num_mismatch}')
 
-    # Allow up to 10 mismatches
-    assert num_mismatch < 5, f'Too many mismatched voxels: {num_mismatch}'
+    _helper.assert_allclose_with_threshold(ref_img_np,
+                                           out_img_np,
+                                           threshold=1e-4,
+                                           atol=1e-3,
+                                           rtol=1e-4)
 
 
 def test_savant_sim_ultra_micro_hotspot_nomotion_osem_6rays_cpu():
@@ -412,7 +413,8 @@ def test_savant_sim_ultra_micro_hotspot_nomotion_osem_6rays_gpu():
     _test_savant_sim_ultra_micro_hotspot_nomotion_osem_6rays(True)
 
 
-def _test_savant_sim_ultra_micro_hotpot_nomotion_subsets(projector: str):
+def _test_savant_sim_ultra_micro_hotpot_nomotion_subsets(projector: str,
+                                                         use_gpu: bool):
     fold_savant_sim = os.path.join(fold_data, 'savant_sim')
     scanner = yrt.Scanner(os.path.join(fold_savant_sim, 'SAVANT_sim.json'))
     img_params = yrt.ImageParams(
@@ -420,25 +422,34 @@ def _test_savant_sim_ultra_micro_hotpot_nomotion_subsets(projector: str):
     lm = yrt.ListModeLUTOwned(scanner, os.path.join(fold_savant_sim,
                                                     'ultra_micro_hotspot',
                                                     'nomotion.lmDat'))
-    _helper._test_subsets(scanner, img_params, lm, projector=projector)
+    _helper._test_subsets(scanner, img_params, lm, projector=projector,
+                          use_gpu=use_gpu)
 
 
 def test_savant_sim_ultra_micro_hotpot_nomotion_subsets_siddon():
-    _test_savant_sim_ultra_micro_hotpot_nomotion_subsets('Siddon')
+    _test_savant_sim_ultra_micro_hotpot_nomotion_subsets('Siddon', False)
 
 
 def test_savant_sim_ultra_micro_hotpot_nomotion_subsets_dd():
-    _test_savant_sim_ultra_micro_hotpot_nomotion_subsets('DD')
+    _test_savant_sim_ultra_micro_hotpot_nomotion_subsets('DD', False)
 
 
 def test_savant_sim_ultra_micro_hotpot_nomotion_subsets_dd_gpu():
     if yrt.compiledWithCuda():
-        _test_savant_sim_ultra_micro_hotpot_nomotion_subsets('DD_GPU')
+        _test_savant_sim_ultra_micro_hotpot_nomotion_subsets('DD', True)
     else:
         pytest.skip('Code not compiled with cuda. Skipping...')
 
 
-def _test_uhr2d_shepp_logan_adjoint(projector: str, num_rays: int = 1):
+def test_savant_sim_ultra_micro_hotpot_nomotion_subsets_siddon_gpu():
+    if yrt.compiledWithCuda():
+        _test_savant_sim_ultra_micro_hotpot_nomotion_subsets('Siddon', True)
+    else:
+        pytest.skip('Code not compiled with cuda. Skipping...')
+
+
+def _test_uhr2d_shepp_logan_adjoint(projector: str, num_rays: int = 1,
+                                    use_gpu: bool = False):
     fold_uhr2d = os.path.join(fold_data, 'uhr2d')
     scanner = yrt.Scanner(os.path.join(fold_uhr2d, 'UHR2D.json'))
     img_params = yrt.ImageParams(os.path.join(fold_uhr2d,
@@ -446,7 +457,7 @@ def _test_uhr2d_shepp_logan_adjoint(projector: str, num_rays: int = 1):
     his = yrt.ListModeLUTOwned(scanner,
                                os.path.join(fold_uhr2d, 'shepp_logan.lmDat'))
     _helper._test_adjoint(scanner, img_params, his, projector=projector,
-                          num_rays=num_rays)
+                          num_rays=num_rays, use_gpu=use_gpu)
 
 
 def test_uhr2d_shepp_logan_adjoint_siddon():
@@ -463,7 +474,7 @@ def test_uhr2d_shepp_logan_adjoint_dd():
 
 def test_uhr2d_shepp_logan_adjoint_dd_gpu():
     if yrt.compiledWithCuda():
-        _test_uhr2d_shepp_logan_adjoint('DD_GPU')
+        _test_uhr2d_shepp_logan_adjoint('DD', True)
     else:
         pytest.skip('Code not compiled with cuda. Skipping...')
 
@@ -571,6 +582,7 @@ def test_large_flat_panel_xcat_osem_tof_dd_gpu_exec():
     exec_str += ' --flag_tof --tof_width_ps 70 --tof_n_std 5'
     exec_str += ' --num_iterations 5 --num_subsets 12'
     exec_str += ' --out ' + out_path
+    print('Running: ' + exec_str)
     ret = os.system(exec_str)
     assert ret == 0
 

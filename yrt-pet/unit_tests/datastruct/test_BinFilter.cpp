@@ -29,7 +29,7 @@ void testBinFilterHelper(yrt::Scanner& scanner, yrt::Constraint& constraint,
 	std::set<yrt::ProjectionPropertyType> projProperties{
 	    yrt::ProjectionPropertyType::LOR};
 
-	yrt::BinFilter binFilter(constraints, projProperties);
+	yrt::BinFilterOwned binFilter(constraints, projProperties);
 	yrt::BinFilter::CollectInfoFlags collectFlags;
 	binFilter.collectFlags(collectFlags);
 
@@ -83,7 +83,7 @@ double angleBetweenVectors(const yrt::Vector3D& a, const yrt::Vector3D& b)
 
 TEST_CASE("binfilter", "[binfilter]")
 {
-	auto scanner = yrt::util::test::makeScanner();
+	auto scanner = yrt::util::test::makeFakeScanner();
 
 	SECTION("block_idx-diff")
 	{
@@ -144,7 +144,7 @@ TEST_CASE("binfilter", "[binfilter]")
 		    static_cast<yrt::DetCoord*>(scanner->getDetectorSetup().get());
 
 		// Scanner mask
-		yrt::Array1D<bool> maskArray;
+		yrt::Array1DOwned<bool> maskArray;
 		maskArray.allocate(scanner->getNumDets());
 		std::fill(&maskArray[0], &maskArray[maskArray.getSizeTotal() - 1], true);
 		for (size_t detID = 0; detID < scanner->getNumDets(); detID++)
@@ -164,7 +164,7 @@ TEST_CASE("binfilter", "[binfilter]")
 		    detCoords->getZposArrayRef(), detCoords->getXorientArrayRef(),
 		    detCoords->getYorientArrayRef(), detCoords->getZorientArrayRef());
 		detCoordsMask->addMask(mask);
-		auto scannerMasked = yrt::util::test::makeScanner();
+		auto scannerMasked = yrt::util::test::makeFakeScanner();
 		scannerMasked->setDetectorSetup(detCoordsMask);
 
 		// Collect constraints

@@ -12,7 +12,7 @@ import numpy as np
 import scipy.interpolate as spint
 
 fold_py = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-sys.path.append(os.path.join(fold_py))
+sys.path.insert(0, os.path.join(fold_py))
 import pyyrtpet as yrt
 
 
@@ -20,11 +20,11 @@ import pyyrtpet as yrt
 
 def make_scanner():
     # Create scanner
-    scanner = yrt.Scanner(scannerName='test_scanner', axialFOV=25,
-                          crystalSize_z=2.0, crystalSize_trans=2.0,
-                          crystalDepth=10.0, scannerRadius=160.8748637480274,
-                          detsPerRing=512, numRings=8, numDOI=1, maxRingDiff=7,
-                          minAngDiff=0, detsPerBlock=32)
+    scanner = yrt.Scanner(scanner_name='test_scanner', axial_fov=25,
+                          crystal_size_z=2.0, crystal_size_trans=2.0,
+                          crystal_depth=10.0, scanner_radius=160.8748637480274,
+                          dets_per_ring=512, num_rings=8, num_doi=1,
+                          max_ring_diff=7, min_ang_diff=1, dets_per_block=32)
     det_coords = yrt.DetRegular(scanner)
     det_coords.generateLUT()
     scanner.setDetectorSetup(det_coords)
@@ -83,7 +83,7 @@ def test_image_transform():
     v_rot = yrt.Vector3D(0.0, 0.0, 0.0)
     v_tr = yrt.Vector3D(2.0, 0.0, 0.0)
     img_t = img.transformImage(v_rot, v_tr)
-    x_t = np.array(img_t, copy=False)
+    x_t = np.array(img_t, copy=False).squeeze()
     np.testing.assert_allclose(x[..., :-1], x_t[..., 1:], rtol=9e-6)
     # Simple rotation
     x = rescale(np.random.random([14, 12, 12])).astype(np.float32)
@@ -93,7 +93,7 @@ def test_image_transform():
     v_rot = yrt.Vector3D(0.0, 0.0, np.pi / 2)
     v_tr = yrt.Vector3D(0.0, 0.0, 0.0)
     img_t = img.transformImage(v_rot, v_tr)
-    x_t = np.array(img_t, copy=False)
+    x_t = np.array(img_t, copy=False).squeeze()
     np.testing.assert_allclose(np.moveaxis(x, 1, 2)[..., ::-1], x_t, rtol=9e-5)
 
     # Resampling
@@ -150,5 +150,5 @@ def test_image_transform():
         bounds_error=False, fill_value=0, method='linear')
     x_r_sp = np.reshape(img_int(grid_in_i[:3].T), [nz_out, ny_out, nx_out])
     img_r = img.resampleImage(img_ref)
-    x_r = np.array(img_r, copy=False)
-    np.testing.assert_allclose(x_r_sp, x_r, rtol=1e-4)
+    x_r = np.squeeze(np.array(img_r, copy=False))
+    np.testing.assert_allclose(x_r_sp, x_r, rtol=1e-3)

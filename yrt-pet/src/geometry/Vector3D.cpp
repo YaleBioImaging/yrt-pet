@@ -25,7 +25,7 @@ void py_setup_vector3dbase(py::module& m)
 	std::string className = "Vector3D";
 	if (typeid(TFloat) == typeid(double))
 	{
-		className += "double";
+		className += "Double";
 	}
 
 	auto c = py::class_<Vector3DBase<TFloat>>(m, className.c_str());
@@ -79,7 +79,7 @@ void py_setup_vector3dbase(py::module& m)
 	      static_cast<Vector3DBase<TFloat> (Vector3DBase<TFloat>::*)(TFloat)
 	                      const>(&Vector3DBase<TFloat>::operator*),
 	      py::is_operator(), "scalar"_a);
-	c.def("__div__",
+	c.def("__truediv__",
 	      static_cast<Vector3DBase<TFloat> (Vector3DBase<TFloat>::*)(TFloat)
 	                      const>(&Vector3DBase<TFloat>::operator/),
 	      py::is_operator(), "scalar"_a);

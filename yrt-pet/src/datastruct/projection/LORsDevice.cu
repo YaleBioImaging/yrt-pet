@@ -7,20 +7,13 @@
 
 #include "yrt-pet/datastruct/projection/ProjectionData.hpp"
 #include "yrt-pet/operators/OperatorProjectorDevice.cuh"
-#include "yrt-pet/utils/Concurrency.hpp"
-#include "yrt-pet/utils/Globals.hpp"
-#include "yrt-pet/utils/PageLockedBuffer.cuh"
-#include "yrt-pet/utils/ReconstructionUtils.hpp"
 
-#include <cstddef>
-#include <cstring>
-#include <functional>
 
 namespace yrt
 {
-LORsDevice::LORsDevice()
-    : m_hasTOF(false),
-      m_precomputedBatchSize(0ull),
+LORsDevice::LORsDevice(const std::vector<Constraint*>& constraints,
+                       const std::set<ProjectionPropertyType>& projProperties)
+    : m_precomputedBatchSize(0ull),
       m_precomputedBatchId(-1),
       m_precomputedSubsetId(-1),
       m_areLORsPrecomputed(false),
@@ -28,69 +21,31 @@ LORsDevice::LORsDevice()
       m_loadedBatchId(-1),
       m_loadedSubsetId(-1)
 {
-	initializeDeviceArrays();
+	initializeDeviceArray(projProperties);
+	initBinLoader(constraints, projProperties);
 }
 
 void LORsDevice::precomputeBatchLORs(const BinIterator& binIter,
                                      const GPUBatchSetup& batchSetup,
                                      int subsetId, int batchId,
-                                     const ProjectionData& reference,
-                                     const BinFilter& binFilter)
+                                     const ProjectionData& reference)
 {
 	if (m_precomputedSubsetId != subsetId || m_precomputedBatchId != batchId ||
 	    m_areLORsPrecomputed == false)
 	{
 		m_areLORsPrecomputed = false;
-		m_hasTOF = reference.hasTOF();
 
 		const size_t batchSize = batchSetup.getBatchSize(batchId);
-		const int numThreads = globals::getNumThreads();
 
-		auto projPropManager = binFilter.getPropertyManager();
-		m_elementSize = projPropManager.getElementSize();
+		allocateBinFilterIfNeeded(batchSize);
 
-		m_tempProjectionProperties.reAllocateIfNeeded(batchSize *
-		                                              m_elementSize);
-		char* tempBufferProjectionProperties_ptr =
-		    m_tempProjectionProperties.getPointer();
-		auto consManager = binFilter.getConstraintManager();
-		auto info = consManager.createDataArray(numThreads);
-		auto infoPtr = info.get();
-		BinFilter::CollectInfoFlags collectInfoFlags(false);
-		binFilter.collectFlags(collectInfoFlags);
+		const size_t offset = batchId * batchSetup.getBatchSize(0);
+		const BinIteratorBatched binIterForBatch(&binIter, offset, batchSize);
 
-		const size_t offset = static_cast<size_t>(batchId) * batchSetup.getBatchSize(0);
-		auto* binIter_ptr = &binIter;
-		const ProjectionData* reference_ptr = &reference;
+		// The batch loading:
+		mp_binLoader->collectFromBins(reference, binIterForBatch, true);
 
-		util::parallelForChunked(
-		    batchSize, numThreads,
-		    [offset, batchSize, &binFilter, consManager, projPropManager,
-		     collectInfoFlags, binIter_ptr, &infoPtr,
-		     &tempBufferProjectionProperties_ptr,
-		     reference_ptr](size_t binIdx, int tid)
-		    {
-			    bin_t bin = binIter_ptr->get(binIdx + offset);
-			    binFilter.collectInfo(
-			        bin, binIdx, tid, *reference_ptr, collectInfoFlags,
-			        tempBufferProjectionProperties_ptr, infoPtr);
-			    if (binFilter.isValid(consManager, infoPtr, tid))
-			    {
-				    reference_ptr->getProjectionProperties(
-				        tempBufferProjectionProperties_ptr, projPropManager,
-				        bin, binIdx);
-			    }
-			    else
-			    {
-				    // Assume first 6 floats of ProjectionProperties are LOR
-				    // end-points
-				    float* ptr = projPropManager.getDataPtr<float>(
-				        tempBufferProjectionProperties_ptr, binIdx,
-				        ProjectionPropertyType::LOR);
-				    memset(ptr, 0, sizeof(Line3D));
-			    }
-		    });
-
+		// Save for future
 		m_precomputedBatchSize = batchSize;
 		m_precomputedBatchId = batchId;
 		m_precomputedSubsetId = subsetId;
@@ -108,9 +63,9 @@ void LORsDevice::loadPrecomputedLORsToDevice(GPULaunchConfig launchConfig)
 	{
 		allocateForPrecomputedLORsIfNeeded({stream, false});
 
-		mp_projectionProperties->copyFromHost(
-		    m_tempProjectionProperties.getPointer(),
-		    m_precomputedBatchSize * m_elementSize, {stream, false});
+		mp_projectionProperties->getDeviceArray().copyFromHost(
+		    mp_binLoader->getProjectionPropertiesRawPointer(),
+		    m_precomputedBatchSize * getElementSize(), {stream, false});
 
 		// In case the LOR loading is done for other reasons than projections
 		if (launchConfig.synchronize == true)
@@ -146,9 +101,60 @@ int LORsDevice::getPrecomputedSubsetId() const
 	return m_precomputedSubsetId;
 }
 
-void LORsDevice::initializeDeviceArrays()
+size_t LORsDevice::getLoadedBatchSize() const
 {
-	mp_projectionProperties = std::make_unique<DeviceArray<char>>();
+	return m_loadedBatchSize;
+}
+
+int LORsDevice::getLoadedBatchId() const
+{
+	return m_loadedBatchId;
+}
+
+int LORsDevice::getLoadedSubsetId() const
+{
+	return m_loadedSubsetId;
+}
+
+const ProjectionPropertyManager*
+    LORsDevice::getProjectionPropertyManagerDevicePointer() const
+{
+	return mp_projectionProperties->getManagerDevicePointer();
+}
+
+const PropertyUnit* LORsDevice::getProjectionPropertiesDevicePointer() const
+{
+	return mp_projectionProperties->getDevicePointer();
+}
+
+PropertyUnit* LORsDevice::getProjectionPropertiesDevicePointer()
+{
+	return mp_projectionProperties->getDevicePointer();
+}
+
+bool LORsDevice::areLORsGathered() const
+{
+	return m_areLORsPrecomputed;
+}
+
+size_t LORsDevice::getElementSize() const
+{
+	return mp_binLoader->getPropertyManager().getElementSize();
+}
+
+void LORsDevice::initializeDeviceArray(
+    const std::set<ProjectionPropertyType>& projProperties)
+{
+	mp_projectionProperties =
+	    std::make_unique<PropStructDevice<ProjectionPropertyType>>(
+	        projProperties);
+}
+
+void LORsDevice::initBinLoader(
+    const std::vector<Constraint*>& constraints,
+    const std::set<ProjectionPropertyType>& projProperties)
+{
+	mp_binLoader = std::make_unique<BinLoader>(constraints, projProperties);
 }
 
 void LORsDevice::allocateForPrecomputedLORsIfNeeded(
@@ -156,7 +162,7 @@ void LORsDevice::allocateForPrecomputedLORsIfNeeded(
 {
 	ASSERT_MSG(m_precomputedBatchSize > 0, "No batch of LORs precomputed");
 	const bool hasAllocated = mp_projectionProperties->allocate(
-	    m_precomputedBatchSize * m_elementSize, {launchConfig.stream, false});
+	    m_precomputedBatchSize, {launchConfig.stream, false});
 
 	if (hasAllocated && launchConfig.synchronize)
 	{
@@ -171,34 +177,12 @@ void LORsDevice::allocateForPrecomputedLORsIfNeeded(
 	}
 }
 
-const char* LORsDevice::getProjectionPropertiesDevicePointer() const
+void LORsDevice::allocateBinFilterIfNeeded(size_t newBatchSize)
 {
-	return mp_projectionProperties->getDevicePointer();
-}
-
-char* LORsDevice::getProjectionPropertiesDevicePointer()
-{
-	return mp_projectionProperties->getDevicePointer();
-}
-
-bool LORsDevice::areLORsGathered() const
-{
-	return m_areLORsPrecomputed;
-}
-
-size_t LORsDevice::getLoadedBatchSize() const
-{
-	return m_loadedBatchSize;
-}
-
-int LORsDevice::getLoadedBatchId() const
-{
-	return m_loadedBatchId;
-}
-
-int LORsDevice::getLoadedSubsetId() const
-{
-	return m_loadedSubsetId;
+	if (mp_binLoader->getProjectionPropertiesSize() < newBatchSize)
+	{
+		mp_binLoader->allocate(newBatchSize);
+	}
 }
 
 }  // namespace yrt

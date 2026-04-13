@@ -24,9 +24,9 @@ public:
 
 protected:
 	ProjectionPsfManager();
-	Array2D<float> m_kernelDataRaw;
+	Array2DOwned<float> m_kernelDataRaw;
 	Array2DAlias<float> m_kernels;
-	Array2D<float> m_kernelsFlipped;
+	Array2DOwned<float> m_kernelsFlipped;
 	float m_sStep;
 	float m_kSpacing;
 

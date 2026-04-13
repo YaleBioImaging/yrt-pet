@@ -45,7 +45,7 @@ void ProgressDisplayMultiThread::reset()
 	m_lastDisplayedPercentage = -1;
 }
 
-void ProgressDisplayMultiThread::progress(int threadId, int64_t progressStep)
+void ProgressDisplayMultiThread::incrementProgress(int threadId, int64_t progressStep)
 {
 	ASSERT_MSG(m_totalWork > 0, "Total work not defined");
 	m_progressPerThread[threadId] += progressStep;

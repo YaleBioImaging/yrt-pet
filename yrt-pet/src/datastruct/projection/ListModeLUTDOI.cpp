@@ -31,7 +31,7 @@ void py_setup_listmodelutdoi(py::module& m)
 	    m, "ListModeLUTDOIAlias");
 	c_alias.def(py::init<const Scanner&, bool, bool, int>(), "scanner"_a,
 	            "flag_tof"_a = false, "flag_randoms"_a = false,
-	            "numLayers"_a = 256);
+	            "num_layers"_a = 256);
 
 	c_alias.def("bind",
 	            static_cast<void (ListModeLUTDOIAlias::*)(
@@ -51,10 +51,10 @@ void py_setup_listmodelutdoi(py::module& m)
 	    m, "ListModeLUTDOIOwned");
 	c_owned.def(py::init<const Scanner&, bool, bool, int>(), "scanner"_a,
 	            "flag_tof"_a = false, "flag_randoms"_a = false,
-	            "numLayers"_a = 256);
+	            "num_layers"_a = 256);
 	c_owned.def(py::init<const Scanner&, std::string, bool, bool, int>(),
 	            "scanner"_a, "listMode_fname"_a, "flag_tof"_a = false,
-	            "flag_randoms"_a = false, "numLayers"_a = 256);
+	            "flag_randoms"_a = false, "num_layers"_a = 256);
 	c_owned.def("readFromFile", &ListModeLUTDOIOwned::readFromFile);
 	c_owned.def("allocate", &ListModeLUTDOIOwned::allocate);
 }
@@ -75,18 +75,18 @@ ListModeLUTDOIOwned::ListModeLUTDOIOwned(const Scanner& pr_scanner,
                                          int numLayers)
     : ListModeLUTDOI(pr_scanner, numLayers)
 {
-	mp_timestamps = std::make_unique<Array1D<timestamp_t>>();
-	mp_detectorId1 = std::make_unique<Array1D<det_id_t>>();
-	mp_detectorId2 = std::make_unique<Array1D<det_id_t>>();
-	mp_doi1 = std::make_unique<Array1D<unsigned char>>();
-	mp_doi2 = std::make_unique<Array1D<unsigned char>>();
+	mp_timestamps = std::make_unique<Array1DOwned<timestamp_t>>();
+	mp_detectorId1 = std::make_unique<Array1DOwned<det_id_t>>();
+	mp_detectorId2 = std::make_unique<Array1DOwned<det_id_t>>();
+	mp_doi1 = std::make_unique<Array1DOwned<unsigned char>>();
+	mp_doi2 = std::make_unique<Array1DOwned<unsigned char>>();
 	if (p_flagTOF)
 	{
-		mp_tof_ps = std::make_unique<Array1D<float>>();
+		mp_tof_ps = std::make_unique<Array1DOwned<float>>();
 	}
 	if (p_flagRandoms)
 	{
-		mp_randoms = std::make_unique<Array1D<float>>();
+		mp_randoms = std::make_unique<Array1DOwned<float>>();
 	}
 }
 
@@ -339,19 +339,19 @@ void ListModeLUTDOI::writeToFile(const std::string& listMode_fname) const
 
 void ListModeLUTDOIOwned::allocate(size_t num_events)
 {
-	static_cast<Array1D<timestamp_t>*>(mp_timestamps.get())
+	static_cast<Array1DOwned<timestamp_t>*>(mp_timestamps.get())
 	    ->allocate(num_events);
-	static_cast<Array1D<det_id_t>*>(mp_detectorId1.get())->allocate(num_events);
-	static_cast<Array1D<det_id_t>*>(mp_detectorId2.get())->allocate(num_events);
-	static_cast<Array1D<unsigned char>*>(mp_doi1.get())->allocate(num_events);
-	static_cast<Array1D<unsigned char>*>(mp_doi2.get())->allocate(num_events);
+	static_cast<Array1DOwned<det_id_t>*>(mp_detectorId1.get())->allocate(num_events);
+	static_cast<Array1DOwned<det_id_t>*>(mp_detectorId2.get())->allocate(num_events);
+	static_cast<Array1DOwned<unsigned char>*>(mp_doi1.get())->allocate(num_events);
+	static_cast<Array1DOwned<unsigned char>*>(mp_doi2.get())->allocate(num_events);
 	if (hasTOF())
 	{
-		static_cast<Array1D<float>*>(mp_tof_ps.get())->allocate(num_events);
+		static_cast<Array1DOwned<float>*>(mp_tof_ps.get())->allocate(num_events);
 	}
 	if (hasRandomsEstimates())
 	{
-		static_cast<Array1D<float>*>(mp_randoms.get())->allocate(num_events);
+		static_cast<Array1DOwned<float>*>(mp_randoms.get())->allocate(num_events);
 	}
 }
 

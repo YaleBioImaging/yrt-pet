@@ -52,29 +52,23 @@ void UniformHistogram::writeToFile(const std::string& filename) const
 	}
 }
 
-float UniformHistogram::getProjectionValue(bin_t binId) const
+float UniformHistogram::getProjectionValue(bin_t /*binId*/) const
 {
-	(void)binId;
 	return m_value;
 }
 
 float UniformHistogram::getProjectionValueFromHistogramBin(
-    histo_bin_t histoBinId) const
+    histo_bin_t /*histoBinId*/) const
 {
-	(void)histoBinId;
 	return m_value;
 }
 
-void UniformHistogram::setProjectionValue(bin_t binId, float val)
+void UniformHistogram::setProjectionValue(bin_t /*binId*/, float /*val*/)
 {
-	(void)binId;
-	(void)val;
 }
 
-void UniformHistogram::incrementProjection(bin_t binId, float val)
+void UniformHistogram::incrementProjection(bin_t /*binId*/, float /*val*/)
 {
-	(void)binId;
-	(void)val;
 }
 
 void UniformHistogram::clearProjections(float p_value)

@@ -5,12 +5,9 @@
 
 #pragma once
 
-#include "Concurrency.hpp"
-#include "Globals.hpp"
 #include "yrt-pet/utils/Concurrency.hpp"
 #include "yrt-pet/utils/Globals.hpp"
 #include <array>
-#include <atomic>
 #include <cmath>
 #include <filesystem>
 #include <fstream>
@@ -23,10 +20,12 @@
 #if BUILD_PYBIND11
 #include <pybind11/pybind11.h>
 
+namespace py = pybind11;
+
 namespace yrt
 {
 
-void py_setup_array(pybind11::module& m);
+void py_setup_array(py::module& m);
 
 }
 #endif
@@ -60,9 +59,14 @@ template <int ndim, typename T>
 class Array
 {
 public:
-	Array() : _shape(nullptr), _data(nullptr) {}
+	static constexpr int NDim = ndim;
+	using DType = T;
+
+	Array() : _data(nullptr) { _shape.fill(0ull); }
 
 	virtual ~Array() = default;
+
+	bool isMemoryValid() const { return getRawPointer() != nullptr; }
 
 	size_t getFlatIdx(const std::array<size_t, ndim>& idx) const
 	{
@@ -74,6 +78,19 @@ public:
 			stride *= _shape[dim];
 		}
 		return flat_idx;
+	}
+
+	std::array<size_t, ndim> unravelIdx(size_t flatIdx) const
+	{
+		size_t flatIdxRemains = flatIdx;
+		std::array<size_t, ndim> strides = getStridesIdx();
+		std::array<size_t, ndim> indices;
+		for (size_t dim = 0; dim < ndim; ++dim)
+		{
+			indices[dim] = flatIdxRemains / strides[dim];
+			flatIdxRemains -= indices[dim] * strides[dim];
+		}
+		return indices;
 	}
 
 	T& get(const std::array<size_t, ndim>& idx) const
@@ -103,72 +120,46 @@ public:
 
 	size_t getSize(size_t dim) const
 	{
-		if (_shape == nullptr)
+		if (!isMemoryValid())
 		{
 			return 0;
 		}
-		else if (dim >= ndim)
+		if (dim >= ndim)
 		{
 			return 1;
 		}
-		else
-		{
-			return _shape.get()[dim];
-		}
+		return _shape[dim];
 	}
 
 	size_t getSizeTotal() const
 	{
-		if (_shape == nullptr)
+		if (!isMemoryValid())
 		{
 			return 0;
 		}
-		else
-		{
-			size_t size = 1;
-			for (int dim = 0; dim < ndim; dim++)
-			{
-				size *= _shape.get()[dim];
-			}
-			return size;
-		}
+		return totalSizeFromShape(_shape);
 	}
 
-	void getDims(size_t output[]) const
+	static size_t totalSizeFromShape(const std::array<size_t, ndim>& shape)
 	{
+		size_t size = 1;
 		for (int dim = 0; dim < ndim; dim++)
 		{
-			output[dim] = _shape.get()[dim];
+			size *= shape[dim];
 		}
+		return size;
 	}
 
-	std::array<size_t, ndim> getDims() const
-	{
-		std::array<size_t, ndim> dims;
-		for (int dim = 0; dim < ndim; dim++)
-		{
-			dims[dim] = _shape.get()[dim];
-		}
-		return dims;
-	}
+	std::array<size_t, ndim> getDims() const { return _shape; }
 
 	std::array<size_t, ndim> getStrides() const
 	{
-		std::array<size_t, ndim> strides;
-		for (int dim = ndim - 1; dim >= 0; --dim)
-		{
-			float stride;
-			if (dim == ndim - 1)
-			{
-				stride = sizeof(T);
-			}
-			else
-			{
-				stride = getSize(dim + 1) * strides[dim + 1];
-			}
-			strides[dim] = stride;
-		}
-		return strides;
+		return getStridesInternal<sizeof(T)>();
+	}
+
+	std::array<size_t, ndim> getStridesIdx() const
+	{
+		return getStridesInternal<1ull>();
 	}
 
 	void fill(T val) { std::fill(_data, _data + getSizeTotal(), val); }
@@ -185,9 +176,10 @@ public:
 		}
 		int magic = MAGIC_NUMBER;
 		int num_dims = ndim;
+		const size_t* shape_ptr = &_shape[0];
 		file.write((char*)&magic, sizeof(int));
 		file.write((char*)&num_dims, sizeof(int));
-		file.write((char*)_shape.get(), ndim * sizeof(size_t));
+		file.write((char*)shape_ptr, ndim * sizeof(size_t));
 		file.write((char*)_data, getSizeTotal() * sizeof(T));
 	}
 
@@ -217,13 +209,13 @@ public:
 		const size_t fileSize = file.tellg();
 		file.seekg(0, std::ios::beg);
 
-		file.read((char*)&magic, sizeof(int));
+		file.read(reinterpret_cast<char*>(&magic), sizeof(int));
 		if (magic != MAGIC_NUMBER)
 		{
 			throw std::runtime_error("The file given \"" + fname +
 			                         "\" does not have a proper MAGIC_NUMBER");
 		}
-		file.read((char*)&num_dims, sizeof(int));
+		file.read(reinterpret_cast<char*>(&num_dims), sizeof(int));
 		if (num_dims != ndim)
 		{
 			throw std::runtime_error(
@@ -234,8 +226,10 @@ public:
 			    " dimensions instead of the expected " + std::to_string(ndim) +
 			    " dimensions");
 		}
-		auto dims = std::make_unique<size_t[]>(num_dims);
-		file.read((char*)dims.get(), ndim * sizeof(size_t));
+
+		auto dims = std::array<size_t, ndim>();
+		file.read(reinterpret_cast<char*>(dims.data()), ndim * sizeof(size_t));
+
 		if (expected_dims.size())
 		{
 			if (expected_dims.size() != (size_t)num_dims)
@@ -251,7 +245,7 @@ public:
 			bool dim_check = true;
 			for (int i = 0; i < num_dims; i++)
 			{
-				size_t expected_dim = expected_dims[i];
+				const size_t expected_dim = expected_dims[i];
 				if (expected_dim != 0)
 				{
 					dim_check &= expected_dim == dims[i];
@@ -264,8 +258,7 @@ public:
 				                         "match the expected sizes");
 			}
 		}
-		setShape(dims.get());
-		const size_t totalSize = getSizeTotal();
+		const size_t totalSize = totalSizeFromShape(dims);
 		constexpr size_t headerSize =
 		    sizeof(int) + sizeof(int) + ndim * sizeof(size_t);
 		const size_t expectedFileSize = headerSize + totalSize * sizeof(T);
@@ -278,91 +271,82 @@ public:
 			                         std::to_string(fileSize) + ".");
 		}
 
+		setShape(dims);
 		allocateFlat(totalSize);
-		file.read((char*)_data, totalSize * sizeof(T));
+		file.read(reinterpret_cast<char*>(_data), totalSize * sizeof(T));
 	}
 
-	T* getRawPointer() { return _data; }
-	const T* getRawPointer() const { return _data; }
+	T* getRawPointer() const { return _data; }
 
 	Array<ndim, T>& operator+=(const Array<ndim, T>& other)
 	{
-		for (size_t i = 0; i < getSizeTotal(); i++)
-		{
-			_data[i] += other._data[i];
-		}
+		util::parallelForChunked(getSizeTotal(), globals::getNumThreads(),
+		                         [this, &other](size_t i, unsigned int /*tid*/)
+		                         { _data[i] += other._data[i]; });
 		return *this;
 	}
 
 	Array<ndim, T>& operator+=(T other)
 	{
-		for (size_t i = 0; i < getSizeTotal(); i++)
-		{
-			_data[i] += other;
-		}
+		util::parallelForChunked(getSizeTotal(), globals::getNumThreads(),
+		                         [this, other](size_t i, unsigned int /*tid*/)
+		                         { _data[i] += other; });
 		return *this;
 	}
 
 	Array<ndim, T>& operator*=(const Array<ndim, T>& other)
 	{
-		for (size_t i = 0; i < getSizeTotal(); i++)
-		{
-			_data[i] *= other._data[i];
-		}
+		util::parallelForChunked(getSizeTotal(), globals::getNumThreads(),
+		                         [this, &other](size_t i, unsigned int /*tid*/)
+		                         { _data[i] *= other._data[i]; });
 		return *this;
 	}
 
 	Array<ndim, T>& operator/=(const Array<ndim, T>& other)
 	{
-		for (size_t i = 0; i < getSizeTotal(); i++)
-		{
-			_data[i] /= other._data[i];
-		}
+		util::parallelForChunked(getSizeTotal(), globals::getNumThreads(),
+		                         [this, &other](size_t i, unsigned int /*tid*/)
+		                         { _data[i] /= other._data[i]; });
 		return *this;
 	}
 
 	Array<ndim, T>& operator*=(T other)
 	{
-		for (size_t i = 0; i < getSizeTotal(); i++)
-		{
-			_data[i] *= other;
-		}
+		util::parallelForChunked(getSizeTotal(), globals::getNumThreads(),
+		                         [this, &other](size_t i, unsigned int /*tid*/)
+		                         { _data[i] *= other; });
 		return *this;
 	}
 
 	Array<ndim, T>& operator/=(T other)
 	{
-		for (size_t i = 0; i < getSizeTotal(); i++)
-		{
-			_data[i] /= other;
-		}
+		util::parallelForChunked(getSizeTotal(), globals::getNumThreads(),
+		                         [this, other](size_t i, unsigned int /*tid*/)
+		                         { _data[i] /= other; });
 		return *this;
 	}
 
 	Array<ndim, T>& operator-=(const Array<ndim, T>& other)
 	{
-		for (size_t i = 0; i < getSizeTotal(); i++)
-		{
-			_data[i] -= other._data[i];
-		}
+		util::parallelForChunked(getSizeTotal(), globals::getNumThreads(),
+		                         [this, &other](size_t i, unsigned int /*tid*/)
+		                         { _data[i] -= other._data[i]; });
 		return *this;
 	}
 
 	Array<ndim, T>& operator-=(T other)
 	{
-		for (size_t i = 0; i < getSizeTotal(); i++)
-		{
-			_data[i] -= other;
-		}
+		util::parallelForChunked(getSizeTotal(), globals::getNumThreads(),
+		                         [this, other](size_t i, unsigned int /*tid*/)
+		                         { _data[i] -= other; });
 		return *this;
 	}
 
 	Array<ndim, T>& invert()
 	{
-		for (size_t i = 0; i < getSizeTotal(); i++)
-		{
-			_data[i] = 1 / _data[i];
-		}
+		util::parallelForChunked(getSizeTotal(), globals::getNumThreads(),
+		                         [this](size_t i, unsigned int /*tid*/)
+		                         { _data[i] = 1 / _data[i]; });
 		return *this;
 	}
 
@@ -370,10 +354,21 @@ public:
 	{
 		const size_t totalSize = getSizeTotal();
 		const T* arr = getRawPointer();
-		std::function<T(T, T)> func_max = [](T a, T b) { return std::max(a, b); };
-		return util::simpleReduceArray(
-		    arr, totalSize, func_max,
-		    std::numeric_limits<T>::lowest(), globals::getNumThreads());
+		std::function<T(T, T)> func_max = [](T a, T b) -> T
+		{ return std::max(a, b); };
+		return util::simpleReduceArray(arr, totalSize, func_max,
+		                               std::numeric_limits<T>::lowest(),
+		                               globals::getNumThreads());
+	}
+
+	T sum() const
+	{
+		const size_t totalSize = getSizeTotal();
+		const T* arr = getRawPointer();
+		std::function<T(T, T)> func_sum = [](T a, T b) -> T { return a + b; };
+		return util::simpleReduceArray(arr, totalSize, func_sum,
+		                               static_cast<T>(0),
+		                               globals::getNumThreads());
 	}
 
 	// Copy from array object (memory must be allocated and appropriately sized)
@@ -390,33 +385,47 @@ public:
 			throw std::runtime_error("The array has not yet been allocated, "
 			                         "impossible to copy data");
 		}
-		size_t size[ndim];
-		src.getDims(size);
+		std::array size = src.getDims();
 		setShape(size);
 		const T* data_ptr = src.getRawPointer();
 		std::copy(data_ptr, data_ptr + num_el, _data);
 	}
 
+#if BUILD_PYBIND11
+	// This function, although public, is only meant to be used within Python
+	//  from an ArrayNDAlias.
+	void bindFromNumpy(py::buffer np_data)
+	{
+		py::buffer_info buffer = np_data.request();
+
+		if (buffer.ndim != NDim)
+		{
+			throw std::invalid_argument(
+			    "The buffer given has the wrong number of dimensions");
+		}
+
+		if (buffer.format != py::format_descriptor<DType>::format())
+		{
+			throw std::invalid_argument(
+			    "The buffer given has the wrong data type");
+		}
+
+		std::array<size_t, NDim> shape;
+		for (int i = 0; i < buffer.ndim; i++)
+		{
+			shape[i] = buffer.shape[i];
+		}
+
+		setShape(shape);
+		_data = reinterpret_cast<T*>(buffer.ptr);
+	}
+#endif
+
 protected:
-	std::unique_ptr<size_t[]> _shape;
+	std::array<size_t, ndim> _shape;
 	T* _data;
 
-	void setShape(size_t* dims)
-	{
-		if (_shape == nullptr)
-		{
-			_shape = std::make_unique<size_t[]>(ndim);
-		}
-		for (int dim = 0; dim < ndim; dim++)
-		{
-			_shape.get()[dim] = dims[dim];
-		}
-		if (_shape == nullptr)
-		{
-			throw std::runtime_error(
-			    "Error occured while trying to change the array shape");
-		}
-	}
+	void setShape(const std::array<size_t, ndim>& shape) { _shape = shape; }
 
 	virtual void allocateFlat(size_t size) = 0;
 
@@ -435,6 +444,38 @@ protected:
 		}
 		return data_ptr;
 	}
+
+	bool isShapeSet() const
+	{
+		for (size_t dim = 0; dim < ndim; dim++)
+		{
+			if (_shape[dim] == 0)
+			{
+				return false;
+			}
+		}
+		return true;
+	}
+
+	template <size_t ElemSize>
+	std::array<size_t, ndim> getStridesInternal() const
+	{
+		std::array<size_t, ndim> strides;
+		for (int dim = ndim - 1; dim >= 0; --dim)
+		{
+			float stride;
+			if (dim == ndim - 1)
+			{
+				stride = ElemSize;
+			}
+			else
+			{
+				stride = getSize(dim + 1) * strides[dim + 1];
+			}
+			strides[dim] = stride;
+		}
+		return strides;
+	}
 };
 
 
@@ -444,24 +485,21 @@ template <typename T>
 class Array1DBase : public Array<1, T>
 {
 public:
-	Array1DBase() : Array<1, T>()
-	{
-		size_t dims[1] = {0};
-		this->setShape(dims);
-	}
+	using BaseClass = Array1DBase<T>;
+
+	Array1DBase() : Array<1, T>() {}
 
 	T& operator[](size_t ri) const { return this->_data[ri]; }
 	T& operator[](size_t ri) { return this->_data[ri]; }
-
-private:
-	Array1DBase(const Array1DBase<T>&) = delete;
 };
 
 template <typename T>
-class Array1D : public Array1DBase<T>
+class Array1DOwned : public Array1DBase<T>
 {
 public:
-	Array1D() : Array1DBase<T>() {}
+	static constexpr bool IsOwned = true;
+
+	Array1DOwned() : Array1DBase<T>() {}
 
 	void allocate(size_t num_el)
 	{
@@ -473,12 +511,9 @@ public:
 			}
 			allocateFlat(num_el);
 		}
-		size_t dims[1] = {num_el};
+		std::array dims = {num_el};
 		this->setShape(dims);
 	}
-
-private:
-	Array1D(const Array1D<T>&) = delete;
 
 protected:
 	std::unique_ptr<T[]> _data_ptr;
@@ -488,7 +523,7 @@ protected:
 		_data_ptr = this->allocateFlatPointer(size);
 		this->_data = _data_ptr.get();
 		if (_data_ptr == nullptr)
-			throw std::runtime_error("Error occured during memory allocation");
+			throw std::runtime_error("Error occurred during memory allocation");
 	}
 };
 
@@ -496,35 +531,31 @@ template <typename T>
 class Array1DAlias : public Array1DBase<T>
 {
 public:
+	static constexpr bool IsOwned = false;
+
 	Array1DAlias() : Array1DBase<T>() {}
 
-	void bind(const Array1DBase<T>& array)
-	{
-		size_t dims[1];
-		array.getDims(dims);
-		this->setShape(dims);
-		this->_data = &(array[0]);
-	}
-
-	void bind(T* data, size_t num_el)
-	{
-		size_t dims[1] = {num_el};
-		this->setShape(dims);
-		this->_data = data;
-	}
-
-	Array1DAlias(const Array1DAlias<T>& array) : Array1DBase<T>()
+	explicit Array1DAlias(const Array1DBase<T>& array) : Array1DBase<T>()
 	{
 		bind(array);
 	}
 
-	Array1DAlias(const Array1DBase<T>* array) { bind(*array); }
-	Array1DAlias(const Array1D<T>& array) { bind(array); }
+	void bind(const Array1DBase<T>& array)
+	{
+		std::array dims = array.getDims();
+		this->setShape(dims);
+		this->_data = array.getRawPointer();
+	}
+
+	void bind(T* data, size_t num_el)
+	{
+		this->setShape({num_el});
+		this->_data = data;
+	}
 
 protected:
-	void allocateFlat(size_t size) override
+	void allocateFlat(size_t /*size*/) override
 	{
-		(void)size;
 		throw std::runtime_error(
 		    "Unsupported operation, cannot Allocate on Alias array");
 	}
@@ -538,31 +569,25 @@ template <typename T>
 class Array2DBase : public Array<2, T>
 {
 public:
-	Array2DBase() : Array<2, T>()
-	{
-		size_t dims[2] = {0, 0};
-		this->setShape(dims);
-	}
+	using BaseClass = Array2DBase<T>;
+
+	Array2DBase() : Array<2, T>() {}
 
 	T* operator[](size_t ri) const
 	{
-		return &this->_data[ri * this->_shape.get()[1]];
+		return &this->_data[ri * this->_shape[1]];
 	}
 
-	T* operator[](size_t ri)
-	{
-		return &this->_data[ri * this->_shape.get()[1]];
-	}
-
-private:
-	Array2DBase(const Array2DBase<T>&) = delete;
+	T* operator[](size_t ri) { return &this->_data[ri * this->_shape[1]]; }
 };
 
 template <typename T>
-class Array2D : public Array2DBase<T>
+class Array2DOwned : public Array2DBase<T>
 {
 public:
-	Array2D() : Array2DBase<T>() {}
+	static constexpr bool IsOwned = true;
+
+	Array2DOwned() : Array2DBase<T>() {}
 
 	void allocate(size_t num_rows, size_t num_el)
 	{
@@ -574,12 +599,8 @@ public:
 			}
 			allocateFlat(num_rows * num_el);
 		}
-		size_t dims[2] = {num_rows, num_el};
-		this->setShape(dims);
+		this->setShape({num_rows, num_el});
 	}
-
-private:
-	Array2D(const Array2D<T>&) = delete;
 
 protected:
 	std::unique_ptr<T[]> _data_ptr;
@@ -589,7 +610,7 @@ protected:
 		_data_ptr = this->allocateFlatPointer(size);
 		this->_data = _data_ptr.get();
 		if (_data_ptr == nullptr)
-			throw std::runtime_error("Error occured during memory allocation");
+			throw std::runtime_error("Error occurred during memory allocation");
 	}
 };
 
@@ -597,35 +618,31 @@ template <typename T>
 class Array2DAlias : public Array2DBase<T>
 {
 public:
+	static constexpr bool IsOwned = false;
+
 	Array2DAlias() : Array2DBase<T>() {}
 
-	void bind(const Array2DBase<T>& array)
-	{
-		size_t dims[2];
-		array.getDims(dims);
-		this->setShape(dims);
-		this->_data = array[0];
-	}
-
-	void bind(T* data, size_t num_rows, size_t num_el)
-	{
-		size_t dims[2] = {num_rows, num_el};
-		this->setShape(dims);
-		this->_data = data;
-	}
-
-	Array2DAlias(const Array2DAlias<T>& array) : Array2DBase<T>()
+	explicit Array2DAlias(const Array2DBase<T>& array) : Array2DBase<T>()
 	{
 		bind(array);
 	}
 
-	Array2DAlias(const Array2DBase<T>* array) { bind(*array); }
-	Array2DAlias(const Array2D<T>& array) { bind(array); }
+	void bind(const Array2DBase<T>& array)
+	{
+		std::array dims = array.getDims();
+		this->setShape(dims);
+		this->_data = array.getRawPointer();
+	}
+
+	void bind(T* data, size_t num_rows, size_t num_el)
+	{
+		this->setShape({num_rows, num_el});
+		this->_data = data;
+	}
 
 protected:
-	void allocateFlat(size_t size) override
+	void allocateFlat(size_t /*size*/) override
 	{
-		(void)size;
 		throw std::runtime_error(
 		    "Unsupported operation, cannot Allocate on Alias array");
 	}
@@ -636,28 +653,25 @@ template <typename T>
 class Array3DBase : public Array<3, T>
 {
 public:
-	Array3DBase() : Array<3, T>()
-	{
-		size_t dims[3] = {0, 0, 0};
-		this->setShape(dims);
-	}
+	using BaseClass = Array3DBase<T>;
+
+	Array3DBase() : Array<3, T>() {}
 
 	T* getSlicePtr(size_t ri)
 	{
-		return &this->_data[ri * this->_shape.get()[1] * this->_shape.get()[2]];
+		return &this->_data[ri * this->_shape[1] * this->_shape[2]];
 	}
 
 	T* getSlicePtr(size_t ri) const
 	{
-		return &this->_data[ri * this->_shape.get()[1] * this->_shape.get()[2]];
+		return &this->_data[ri * this->_shape[1] * this->_shape[2]];
 	}
 
 	Array2DAlias<T> operator[](size_t ri)
 	{
 		Array2DAlias<T> slice_array;
 		T* data_slice = getSlicePtr(ri);
-		slice_array.bind(data_slice, this->_shape.get()[1],
-		                 this->_shape.get()[2]);
+		slice_array.bind(data_slice, this->_shape[1], this->_shape[2]);
 		return slice_array;
 	}
 
@@ -665,20 +679,18 @@ public:
 	{
 		Array2DAlias<T> slice_array;
 		T* data_slice = getSlicePtr(ri);
-		slice_array.bind(data_slice, this->_shape.get()[1],
-		                 this->_shape.get()[2]);
+		slice_array.bind(data_slice, this->_shape[1], this->_shape[2]);
 		return slice_array;
 	}
-
-private:
-	Array3DBase(const Array3DBase<T>&) = delete;
 };
 
 template <typename T>
-class Array3D : public Array3DBase<T>
+class Array3DOwned : public Array3DBase<T>
 {
 public:
-	Array3D() : Array3DBase<T>() {}
+	static constexpr bool IsOwned = true;
+
+	Array3DOwned() : Array3DBase<T>() {}
 
 	void allocate(size_t num_slices, size_t num_rows, size_t num_el)
 	{
@@ -690,12 +702,198 @@ public:
 			}
 			allocateFlat(num_slices * num_rows * num_el);
 		}
-		size_t dims[3] = {num_slices, num_rows, num_el};
-		this->setShape(dims);
+		this->setShape({num_slices, num_rows, num_el});
 	}
 
-private:
-	Array3D(const Array3D<T>&) = delete;
+protected:
+	std::unique_ptr<T[]> _data_ptr;
+
+	void allocateFlat(size_t size) override
+	{
+		_data_ptr = this->allocateFlatPointer(size);
+		this->_data = _data_ptr.get();
+		if (_data_ptr == nullptr)
+			throw std::runtime_error("Error occurred during memory allocation");
+	}
+};
+
+
+template <typename T>
+class Array3DAlias : public Array3DBase<T>
+{
+public:
+	static constexpr bool IsOwned = false;
+
+	Array3DAlias() : Array3DBase<T>() {}
+
+	explicit Array3DAlias(const Array3DBase<T>& array) : Array3DBase<T>()
+	{
+		bind(array);
+	}
+
+	void bind(const Array3DBase<T>& array)
+	{
+		std::array dims = array.getDims();
+		this->setShape(dims);
+		this->_data = array.getRawPointer();
+	}
+
+	void bind(T* data, size_t num_slices, size_t num_rows, size_t num_el)
+	{
+		this->setShape({num_slices, num_rows, num_el});
+		this->_data = data;
+	}
+
+protected:
+	void allocateFlat(size_t /*size*/) override
+	{
+		throw std::runtime_error(
+		    "Unsupported operation, cannot Allocate on Alias array");
+	}
+};
+
+
+template <typename T>
+class Array4DBase : public Array<4, T>
+{
+public:
+	using BaseClass = Array4DBase<T>;
+
+	Array4DBase() : Array<4, T>() {}
+
+	T* getSlicePtr(size_t ri)
+	{
+		return &this->_data[ri * this->_shape[1] * this->_shape[2] *
+		                    this->_shape[3]];
+	}
+
+	T* getSlicePtr(size_t ri) const
+	{
+		return &this->_data[ri * this->_shape[1] * this->_shape[2] *
+		                    this->_shape[3]];
+	}
+
+	Array3DAlias<T> operator[](size_t ri)
+	{
+		Array3DAlias<T> slice_array;
+		T* data_slice = getSlicePtr(ri);
+		slice_array.bind(data_slice, this->_shape[1], this->_shape[2],
+		                 this->_shape[3]);
+		return slice_array;
+	}
+
+	Array3DAlias<T> operator[](size_t ri) const
+	{
+		Array3DAlias<T> slice_array;
+		T* data_slice = getSlicePtr(ri);
+		slice_array.bind(data_slice, this->_shape[1], this->_shape[2],
+		                 this->_shape[3]);
+		return slice_array;
+	}
+};
+
+template <typename T>
+class Array4DOwned : public Array4DBase<T>
+{
+public:
+	static constexpr bool IsOwned = true;
+
+	Array4DOwned() : Array4DBase<T>() {}
+
+	void allocate(size_t num_t, size_t num_slices, size_t num_rows,
+	              size_t num_el)
+	{
+		if (num_t * num_slices * num_rows * num_el != this->getSizeTotal())
+		{
+			if (_data_ptr != nullptr)
+			{
+				_data_ptr.reset();
+			}
+			allocateFlat(num_t * num_slices * num_rows * num_el);
+		}
+		this->setShape({num_t, num_slices, num_rows, num_el});
+	}
+
+protected:
+	std::unique_ptr<T[]> _data_ptr;
+
+	void allocateFlat(size_t size) override
+	{
+		_data_ptr = this->allocateFlatPointer(size);
+		this->_data = _data_ptr.get();
+		if (_data_ptr == nullptr)
+			throw std::runtime_error("Error occurred during memory allocation");
+	}
+};
+
+
+template <typename T>
+class Array4DAlias : public Array4DBase<T>
+{
+public:
+	static constexpr bool IsOwned = false;
+
+	Array4DAlias() : Array4DBase<T>() {}
+
+	explicit Array4DAlias(const Array4DBase<T>& array) : Array4DBase<T>()
+	{
+		bind(array);
+	}
+
+	void bind(const Array4DBase<T>& array)
+	{
+		std::array dims = array.getDims();
+		this->setShape(dims);
+		this->_data = array.getRawPointer();
+	}
+
+	void bind(T* data, size_t num_t, size_t num_slices, size_t num_rows,
+	          size_t num_el)
+	{
+		this->setShape({num_t, num_slices, num_rows, num_el});
+		this->_data = data;
+	}
+
+protected:
+	void allocateFlat(size_t /*size*/) override
+	{
+		throw std::runtime_error(
+		    "Unsupported operation, cannot Allocate on Alias array");
+	}
+};
+
+
+template <typename T>
+class Array5DBase : public Array<5, T>
+{
+public:
+	using BaseClass = Array5DBase<T>;
+
+	Array5DBase() : Array<5, T>() {}
+};
+
+template <typename T>
+class Array5DOwned : public Array5DBase<T>
+{
+public:
+	static constexpr bool IsOwned = true;
+
+	Array5DOwned() : Array5DBase<T>() {}
+
+	void allocate(size_t dim0, size_t dim1, size_t dim2, size_t dim3,
+	              size_t dim4)
+	{
+		const size_t totalSize = dim0 * dim1 * dim2 * dim3 * dim4;
+		if (totalSize != this->getSizeTotal())
+		{
+			if (_data_ptr != nullptr)
+			{
+				_data_ptr.reset();
+			}
+			allocateFlat(totalSize);
+		}
+		this->setShape({dim0, dim1, dim2, dim3, dim4});
+	}
 
 protected:
 	std::unique_ptr<T[]> _data_ptr;
@@ -709,41 +907,36 @@ protected:
 	}
 };
 
-
 template <typename T>
-class Array3DAlias : public Array3DBase<T>
+class Array5DAlias : public Array5DBase<T>
 {
 public:
-	Array3DAlias() : Array3DBase<T>() {}
+	static constexpr bool IsOwned = false;
 
-	void bind(const Array3DBase<T>& array)
-	{
-		size_t dims[3];
-		array.getDims(dims);
-		this->setShape(dims);
-		this->_data = array[0][0];
-	}
+	Array5DAlias() : Array5DBase<T>() {}
 
-	void bind(T* data, size_t num_slices, size_t num_rows, size_t num_el)
-	{
-		size_t dims[3] = {num_slices, num_rows, num_el};
-		this->setShape(dims);
-		this->_data = data;
-	}
-
-	Array3DAlias(const Array3DBase<T>* array) { bind(*array); }
-
-	Array3DAlias(const Array3DAlias<T>& array) : Array3DBase<T>()
+	explicit Array5DAlias(const Array5DBase<T>& array) : Array5DBase<T>()
 	{
 		bind(array);
 	}
 
-	Array3DAlias(const Array3D<T>& array) { bind(array); }
+	void bind(const Array5DBase<T>& array)
+	{
+		std::array dims = array.getDims();
+		this->setShape(dims);
+		this->_data = array.getRawPointer();
+	}
+
+	void bind(T* data, size_t dim0, size_t dim1, size_t dim2, size_t dim3,
+	          size_t dim4)
+	{
+		this->setShape({dim0, dim1, dim2, dim3, dim4});
+		this->_data = data;
+	}
 
 protected:
-	void allocateFlat(size_t size) override
+	void allocateFlat(size_t /*size*/) override
 	{
-		(void)size;
 		throw std::runtime_error(
 		    "Unsupported operation, cannot Allocate on Alias array");
 	}

@@ -25,8 +25,8 @@ void py_setup_biniterator(py::module& m)
 	auto c_range =
 	    py::class_<BinIteratorRange, BinIterator>(m, "BinIteratorRange");
 	c_range.def(py::init<bin_t>(), "num"_a);
-	c_range.def(py::init<bin_t, bin_t, bin_t>(), "idxStart"_a, "idxEnd"_a,
-	            "idxStride"_a = 1);
+	c_range.def(py::init<bin_t, bin_t, bin_t>(), "idx_start"_a, "idx_end"_a,
+	            "idx_stride"_a = 1);
 
 	auto c_vector =
 	    py::class_<BinIteratorVector, BinIterator>(m, "BinIteratorVector");
@@ -41,15 +41,15 @@ void py_setup_biniterator(py::module& m)
 	auto c_chronological =
 	    py::class_<BinIteratorChronological, BinIteratorRange>(
 	        m, "BinIteratorChronological");
-	c_chronological.def(py::init<bin_t, bin_t, bin_t>(), "numSubsets"_a,
-	                    "numEvents"_a, "idxSubset"_a);
+	c_chronological.def(py::init<bin_t, bin_t, bin_t>(), "num_subsets"_a,
+	                    "num_events"_a, "idx_subset"_a);
 
 	auto c_chronological_interleaved =
 	    py::class_<BinIteratorChronologicalInterleaved, BinIteratorRange>(
 	        m, "BinIteratorChronologicalInterleaved");
 	c_chronological_interleaved.def(py::init<bin_t, bin_t, bin_t>(),
-	                                "numSubsets"_a, "numEvents"_a,
-	                                "idxSubset"_a);
+	                                "num_subsets"_a, "num_events"_a,
+	                                "idx_subset"_a);
 }
 }  // namespace yrt
 #endif
@@ -262,6 +262,35 @@ BinIteratorChronologicalInterleaved::BinIteratorChronologicalInterleaved(
     bin_t p_numSubsets, bin_t p_numEvents, bin_t p_idxSubset)
     : BinIteratorRange(p_idxSubset, p_numEvents - 1, p_numSubsets)
 {
+}
+
+BinIteratorBatched::BinIteratorBatched(const BinIterator* pp_original,
+                                       size_t pp_batchStart,
+                                       size_t pp_batchSize)
+    : m_original(pp_original),
+      m_batchStart(pp_batchStart),
+      m_batchSize(pp_batchSize)
+{
+}
+
+bin_t BinIteratorBatched::getSafe(bin_t idx) const
+{
+	return m_original->get(idx + m_batchStart);
+}
+
+bin_t BinIteratorBatched::begin() const
+{
+	return m_original->begin() + m_batchStart;
+}
+
+bin_t BinIteratorBatched::end() const
+{
+	return std::min(begin() + m_batchSize, m_original->end());
+}
+
+size_t BinIteratorBatched::size() const
+{
+	return m_batchSize;
 }
 
 }  // namespace yrt

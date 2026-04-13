@@ -4,7 +4,7 @@ Relating to image manipulation:
 - I have a NIfTI image and I want to generate the corresponding image parameters
   JSON file
     - With Python, this one-liner:
-      ``yrt.ImageOwned("my_image.nii").getParams().serialize("my_params.json")``
+      ``yrt.ImageOwned("<my_image.nii>").getParams().serialize("<my_params.json>")``
       - Without Python, this can be done manually quite easily.
         The only caveat is that the image parameters file needs to specify
         an *offset*, which is the position of the center of the image.

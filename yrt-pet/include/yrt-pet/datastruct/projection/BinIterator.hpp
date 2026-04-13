@@ -117,4 +117,22 @@ public:
 	                                    bin_t p_idxSubset);
 };
 
+class BinIteratorBatched : public BinIterator
+{
+public:
+	BinIteratorBatched(const BinIterator* pp_original, size_t pp_batchStart,
+	                   size_t pp_batchSize);
+
+	bin_t getSafe(bin_t idx) const override;
+
+	bin_t begin() const override;
+	bin_t end() const override;
+	size_t size() const override;
+
+private:
+	const BinIterator* m_original;
+	const size_t m_batchStart;  // offset
+	const size_t m_batchSize;
+};
+
 }  // namespace yrt

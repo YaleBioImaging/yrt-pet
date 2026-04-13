@@ -24,7 +24,7 @@ void gpuErrchk(cudaError_t code);
 namespace globals
 {
 
-__host__ size_t getDeviceInfo(bool verbose = false);
+__host__ size_t getAvailableVRAM(bool verbose = false);
 
 }
 

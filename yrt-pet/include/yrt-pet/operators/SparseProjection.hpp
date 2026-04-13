@@ -9,14 +9,14 @@ namespace yrt
 {
 
 class Image;
-class OperatorProjector;
+class Projector;
 class SparseHistogram;
 
 namespace util
 {
 template <bool PrintProgress = true>
 void forwProjectToSparseHistogram(const Image& sourceImage,
-                                  const OperatorProjector& projector,
+                                  const Projector& projector,
                                   SparseHistogram& sparseHistogram);
 }
 }  // namespace yrt

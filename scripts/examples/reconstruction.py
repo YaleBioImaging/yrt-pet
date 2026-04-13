@@ -11,7 +11,7 @@ imgParams = yrt.ImageParams("<path to the image parameters file>")
 # Create OSEM object
 osem = yrt.createOSEM(scanner)
 # or, alternatively, use GPU reconstruction (available only if yrt.compiledWithCuda() returns True)
-osem = yrt.createOSEM(scanner, useGPU=True)
+osem = yrt.createOSEM(scanner, use_gpu=True)
 
 osem.setProjector("<Projector>") # Possible values: S (Siddon), DD (Distance-Driven)
 osem.setImageParams(imgParams) # Set the parameters of the output image

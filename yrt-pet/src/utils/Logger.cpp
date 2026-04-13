@@ -15,24 +15,44 @@ namespace yrt
 {
 void py_setup_log(pybind11::module& m)
 {
-	m.def("log",
-	      [](int level, globals::VerbositySection section,
-	         const std::string& message)
-	      {
-		      ASSERT_MSG(level >= 1 && level <= 5,
-		                 "Log level has to be inclusively between 1 and 5");
-		      switch (level)
-		      {
-		      case 1: log<1>(section, message); break;
-		      case 2: log<2>(section, message); break;
-		      case 3: log<3>(section, message); break;
-		      case 4: log<4>(section, message); break;
-		      case 5: log<5>(section, message); break;
-		      default:
-			      // Should never reach here.
-			      throw std::runtime_error("Unknown error");
-		      }
-	      });
+	m.def(
+	    "log",
+	    [](int level, globals::VerbositySection section,
+	       const std::string& message)
+	    {
+		    ASSERT_MSG(level >= 1 && level <= 5,
+		               "Log level has to be inclusively between 1 and 5");
+		    switch (level)
+		    {
+		    case 1: log<1>(section, message); break;
+		    case 2: log<2>(section, message); break;
+		    case 3: log<3>(section, message); break;
+		    case 4: log<4>(section, message); break;
+		    case 5: log<5>(section, message); break;
+		    default:
+			    // Should never reach here.
+			    throw std::runtime_error("Unknown error");
+		    }
+	    },
+	    py::arg("level"), py::arg("section"), py::arg("message"));
 }
 }  // namespace yrt
 #endif
+
+namespace yrt
+{
+std::string getLoggerSectionDescriptor(globals::VerbositySection section)
+{
+	switch (section)
+	{
+	case globals::VerbositySection::GENERAL: return "[  GENERAL ]";
+	case globals::VerbositySection::ALLOCATION: return "[ALLOCATION]";
+	case globals::VerbositySection::FILESYSTEM: return "[FILESYSTEM]";
+	case globals::VerbositySection::IMAGE: return "[   IMAGE  ]";
+	case globals::VerbositySection::PROJECTOR: return "[ PROJECTOR]";
+	case globals::VerbositySection::CORRECTOR: return "[ CORRECTOR]";
+	case globals::VerbositySection::OPTIMIZER: return "[ OPTIMIZER]";
+	default: return "[  UNKNOWN ]";
+	}
+}
+}  // namespace yrt

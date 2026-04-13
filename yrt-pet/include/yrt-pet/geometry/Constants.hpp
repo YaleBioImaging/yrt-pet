@@ -16,6 +16,7 @@ constexpr float PIHALF_FLT = 1.57079632679489661923f;
 constexpr float PI_FLT = 3.14159265358979f;
 constexpr float TWOPI_FLT = 6.28318530717959f;
 constexpr double SPEED_OF_LIGHT_MM_PS = 0.299792458;
+constexpr double SPEED_OF_LIGHT_MM_PS_FLT = 0.299792458f;
 constexpr double DOUBLE_PRECISION = 10e-25;
 constexpr double LARGE_VALUE = 10e25;
 constexpr double SIZE_STRING_BUFFER = 1024;

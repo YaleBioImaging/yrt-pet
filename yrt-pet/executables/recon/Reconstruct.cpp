@@ -14,8 +14,8 @@
 #include "yrt-pet/utils/ReconstructionUtils.hpp"
 #include "yrt-pet/utils/ReconstructionUtilsDevice.cuh"
 #include "yrt-pet/utils/Timer.hpp"
+#include "yrt-pet/utils/Version.hpp"
 
-#include <ctime>
 #include <cxxopts.hpp>
 #include <iostream>
 
@@ -43,12 +43,10 @@ void addImagePSFtoReconIfNeeded(OSEM& osem, std::string psf_fname,
 			ASSERT_MSG(varpsf_fname.empty(),
 			           "Got two different image PSF inputs");
 			osem.addImagePSF(psf_fname, ImagePSFMode::UNIFORM);
-			osem.m_imagePSFMode = ImagePSFMode::UNIFORM;
 		}
 		else if (!varpsf_fname.empty())
 		{
 			osem.addImagePSF(varpsf_fname, ImagePSFMode::VARIANT);
-			osem.m_imagePSFMode = ImagePSFMode::VARIANT;
 		}
 	}
 }
@@ -145,6 +143,9 @@ int main(int argc, char** argv)
 		registry.registerArgument(
 		    "lor_motion", "Motion CSV file for motion correction", false,
 		    io::TypeOfArgument::STRING, "", inputGroup, "m");
+		registry.registerArgument(
+		    "dyn", "Dynamic framing file for dynamic reconstruction", false,
+		    io::TypeOfArgument::STRING, "", inputGroup);
 
 		// Reconstruction parameters
 		registry.registerArgument(
@@ -284,16 +285,21 @@ int main(int argc, char** argv)
 			    "pre-existing sensitivity image(s) were provided.");
 		}
 
+#if BUILD_CUDA
 		const bool useGPU = config.getValue<bool>("gpu");
+#else
+		const bool useGPU = false;
+#endif
 
 		const auto dataInputFormat = config.getValue<std::string>("format");
 		const auto dataInputFilename = config.getValue<std::string>("input");
 		ASSERT_MSG(dataInputFilename.empty() == dataInputFormat.empty(),
 		           "Input data must come with a specified format");
+		const auto out_fname = config.getValue<std::string>("out");
 
 		if (!sensOnly)
 		{
-			ASSERT_MSG(!config.getValue<std::string>("out").empty(),
+			ASSERT_MSG(!out_fname.empty(),
 			           "Output reconstruction image filename unspecified.");
 			ASSERT_MSG(!dataInputFilename.empty(), "Input data unspecified.");
 			ASSERT_MSG(!dataInputFormat.empty(),
@@ -317,11 +323,14 @@ int main(int argc, char** argv)
 		    io::getProjector(config.getValue<std::string>("projector"));
 		std::unique_ptr<OSEM> osem = util::createOSEM(*scanner, useGPU);
 
+		float hardThreshold = config.getValue<float>("hard_threshold");
+		float globalScale = config.getValue<float>("global_scale");
+
 		osem->num_MLEM_iterations = config.getValue<int>("num_iterations");
 		osem->num_OSEM_subsets = config.getValue<int>("num_subsets");
-		osem->hardThreshold = config.getValue<float>("hard_threshold");
-		osem->projectorType = projectorType;
-		osem->numRays = config.getValue<int>("num_rays");
+		osem->hardThreshold = hardThreshold;
+		osem->setProjector(projectorType);
+		osem->setNumRays(config.getValue<int>("num_rays"));
 
 		// To make sure the sensitivity image gets generated accordingly
 		const bool useListMode =
@@ -422,7 +431,7 @@ int main(int argc, char** argv)
 			osem->setInvertSensitivity(
 			    config.getValue<bool>("invert_sensitivity"));
 		}
-		osem->setGlobalScalingFactor(config.getValue<float>("global_scale"));
+		osem->setGlobalScalingFactor(globalScale);
 
 		// Sensitivity image(s)
 		std::vector<std::unique_ptr<Image>> sensImages;
@@ -478,6 +487,8 @@ int main(int argc, char** argv)
 
 		const std::string lorMotion_fname =
 		    config.getValue<std::string>("lor_motion");
+		const std::string dynamicFraming_fname =
+		    config.getValue<std::string>("dyn");
 
 		// No need to read data input if in sens_only mode
 		if (sensOnly && lorMotion_fname.empty())
@@ -498,6 +509,13 @@ int main(int argc, char** argv)
 			osem->setDataInput(dataInput.get());
 		}
 
+		std::shared_ptr<DynamicFraming> dynamicFraming;
+		if (!dynamicFraming_fname.empty())
+		{
+			dynamicFraming =
+			    std::make_shared<DynamicFraming>(dynamicFraming_fname);
+		}
+
 		std::shared_ptr<LORMotion> lorMotion;
 		std::unique_ptr<ImageOwned> movedSensImage = nullptr;
 		if (!lorMotion_fname.empty())
@@ -514,17 +532,20 @@ int main(int argc, char** argv)
 				sensTimer.run();
 
 				std::cout << "Moving sensitivity image..." << std::endl;
-				if (dataInput == nullptr)
+
+				if (dynamicFraming != nullptr)
 				{
-					// Time average move based on all the frames
+					// Case with dynamic framing
+
 					if (useGPU)
 					{
 #if BUILD_CUDA
 						auto movedSensImageDevice =
-						    util::timeAverageMoveImageDevice(
-						        *lorMotion, unmovedSensImage, {});
+						    util::timeAverageMoveImageDynamicDevice(
+						        *lorMotion, unmovedSensImage, *dynamicFraming,
+						        {});
 						movedSensImage = std::make_unique<ImageOwned>(
-						    unmovedSensImage->getParams());
+						    movedSensImageDevice->getParams());
 						movedSensImage->allocate();
 						movedSensImageDevice->transferToHostMemory(
 						    movedSensImage.get());
@@ -532,34 +553,63 @@ int main(int argc, char** argv)
 					}
 					else
 					{
-						movedSensImage = util::timeAverageMoveImage(
-						    *lorMotion, unmovedSensImage);
+						movedSensImage = util::timeAverageMoveImageDynamic(
+						    *lorMotion, unmovedSensImage, *dynamicFraming);
 					}
 				}
 				else
 				{
-					// Time average move based on the frames of the listmode
-					const timestamp_t timeStart = dataInput->getTimestamp(0);
-					const timestamp_t timeStop =
-					    dataInput->getTimestamp(dataInput->count() - 1);
-					if (useGPU)
+					// Case without dynamic framing
+
+					if (dataInput == nullptr)
 					{
+						// Time average move based on all the frames
+						if (useGPU)
+						{
 #if BUILD_CUDA
-						auto movedSensImageDevice =
-						    util::timeAverageMoveImageDevice(
-						        *lorMotion, unmovedSensImage, timeStart,
-						        timeStop, {});
-						movedSensImage = std::make_unique<ImageOwned>(
-						    unmovedSensImage->getParams());
-						movedSensImage->allocate();
-						movedSensImageDevice->transferToHostMemory(
-						    movedSensImage.get());
+							auto movedSensImageDevice =
+							    util::timeAverageMoveImageDevice(
+							        *lorMotion, unmovedSensImage, {});
+							movedSensImage = std::make_unique<ImageOwned>(
+							    movedSensImageDevice->getParams());
+							movedSensImage->allocate();
+							movedSensImageDevice->transferToHostMemory(
+							    movedSensImage.get());
 #endif
+						}
+						else
+						{
+							movedSensImage = util::timeAverageMoveImage(
+							    *lorMotion, unmovedSensImage);
+						}
 					}
 					else
 					{
-						movedSensImage = util::timeAverageMoveImage(
-						    *lorMotion, unmovedSensImage, timeStart, timeStop);
+						// Time average move based on the frames of the listmode
+						const timestamp_t timeStart =
+						    dataInput->getTimestamp(0);
+						const timestamp_t timeStop =
+						    dataInput->getTimestamp(dataInput->count() - 1);
+						if (useGPU)
+						{
+#if BUILD_CUDA
+							auto movedSensImageDevice =
+							    util::timeAverageMoveImageDevice(
+							        *lorMotion, unmovedSensImage, timeStart,
+							        timeStop, {});
+							movedSensImage = std::make_unique<ImageOwned>(
+							    unmovedSensImage->getParams());
+							movedSensImage->allocate();
+							movedSensImageDevice->transferToHostMemory(
+							    movedSensImage.get());
+#endif
+						}
+						else
+						{
+							movedSensImage = util::timeAverageMoveImage(
+							    *lorMotion, unmovedSensImage, timeStart,
+							    timeStop);
+						}
 					}
 				}
 
@@ -604,15 +654,18 @@ int main(int argc, char** argv)
 		addImagePSFtoReconIfNeeded(*osem, config.getValue<std::string>("psf"),
 		                           config.getValue<std::string>("varpsf"));
 
+		// Input data as listmode (used by LOR motion and dynamic framing)
+		auto* dataInput_lm = dynamic_cast<ListMode*>(dataInput.get());
+
+		// Add Motion information in case it was provided
 		if (lorMotion != nullptr)
 		{
 			if (useListMode)
 			{
-				// Input data as listmode
-				auto* dataInput_lm = dynamic_cast<ListMode*>(dataInput.get());
+				// This error should normally never trigger
 				ASSERT_MSG(dataInput_lm != nullptr,
-				           "(Unexpected error) Input data has to be in "
-				           "ListMode format to include motion correction");
+				           "Input data has to be in ListMode format to include "
+				           "motion correction");
 
 				// Link input data to LOR motion (to allow event-by-event motion
 				//  correction)
@@ -622,6 +675,27 @@ int main(int argc, char** argv)
 			{
 				std::cerr << "Warning: Event-by-event motion correction is not "
 				             "available for Histogram data"
+				          << std::endl;
+			}
+		}
+
+		// Integrate dynamic framing in case it was provided
+		if (dynamicFraming != nullptr)
+		{
+			if (useListMode)
+			{
+				// This error should normally never trigger
+				ASSERT_MSG(dataInput_lm != nullptr,
+				           "Input data has to be in ListMode format to include "
+				           "dynamic framing");
+
+				// Link input data to the dynamic framing
+				dataInput_lm->addDynamicFraming(dynamicFraming);
+			}
+			else
+			{
+				std::cerr << "Warning: Dynamic framing is not available for "
+				             "Histogram data"
 				          << std::endl;
 			}
 		}
@@ -723,34 +797,23 @@ int main(int argc, char** argv)
 		}
 
 		// Save steps
-		ASSERT_MSG(config.getValue<int>("save_iter_step") >= 0,
-		           "save_iter_step must be positive.");
+		const auto saveIterStep = config.getValue<int>("save_iter_step");
+		const auto saveIterRanges =
+		    config.getValue<std::string>("save_iter_ranges");
+		ASSERT_MSG(saveIterStep >= 0, "save_iter_step must be positive.");
 		util::RangeList ranges;
-		if (config.getValue<int>("save_iter_step") > 0)
+		if (saveIterStep > 0)
 		{
-			if (config.getValue<int>("save_iter_step") == 1)
-			{
-				ranges.insertSorted(0,
-				                    config.getValue<int>("num_iterations") - 1);
-			}
-			else
-			{
-				for (int it = 0; it < config.getValue<int>("num_iterations");
-				     it += config.getValue<int>("save_iter_step"))
-				{
-					ranges.insertSorted(it, it);
-				}
-			}
+			ranges = util::RangeList::makeRangeListStep(
+			    0, osem->num_MLEM_iterations - 1, saveIterStep);
 		}
-		else if (!config.getValue<std::string>("save_iter_ranges").empty())
+		else if (!saveIterRanges.empty())
 		{
-			ranges.readFromString(
-			    config.getValue<std::string>("save_iter_ranges"));
+			ranges.readFromString(saveIterRanges);
 		}
 		if (!ranges.empty())
 		{
-			osem->setSaveIterRanges(ranges,
-			                        config.getValue<std::string>("out"));
+			osem->setSaveIterRanges(ranges, out_fname);
 		}
 
 		// Initial image estimate
@@ -759,14 +822,14 @@ int main(int argc, char** argv)
 		{
 			initialEstimate = std::make_unique<ImageOwned>(
 			    config.getValue<std::string>("initial_estimate"));
-			osem->initialEstimate = initialEstimate.get();
+			osem->setInitialEstimate(initialEstimate.get());
 		}
 
 		ioTimer.pause();
 		reconTimer.run();
 
 		std::cout << "Launching reconstruction..." << std::endl;
-		osem->reconstruct(config.getValue<std::string>("out"));
+		osem->reconstruct(out_fname);
 
 		reconTimer.pause();
 

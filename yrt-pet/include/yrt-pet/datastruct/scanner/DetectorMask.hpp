@@ -34,11 +34,12 @@ public:
 	void setNumDets(size_t numDets);
 	void readFromFile(const std::string& fname);
 
-	Array1D<bool>& getData();
-	const Array1D<bool>& getData() const;
+	Array1DOwned<bool>& getData();
+	const Array1DOwned<bool>& getData() const;
 
 	void enableAllDetectors();
 	void disableAllDetectors();
+	void setDetectorEnabled(det_id_t detId, bool enabled);
 	void enableDetector(det_id_t detId);
 	void disableDetector(det_id_t detId);
 
@@ -70,11 +71,9 @@ private:
 	template <BinaryOperations Oper>
 	void logicalOperWithOther(const DetectorMask& other);
 
-	void setDetectorEnabled(det_id_t detId, bool enabled);
-
 	// true -> enabled
 	// false -> disabled
-	std::unique_ptr<Array1D<bool>> mp_data;
+	std::unique_ptr<Array1DOwned<bool>> mp_data;
 };
 
 }  // namespace yrt

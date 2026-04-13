@@ -144,12 +144,13 @@ void py_setup_listmodelut(py::module& m)
 	c_owned.def(py::init<const Scanner&, bool, bool>(), "scanner"_a,
 	            "flag_tof"_a = false, "flag_randoms"_a = false);
 	c_owned.def(py::init<const Scanner&, const std::string&, bool, bool>(),
-	            "scanner"_a, "listMode_fname"_a, "flag_tof"_a = false,
+	            "scanner"_a, "listmode_fname"_a, "flag_tof"_a = false,
 	            "flag_randoms"_a = false);
-	c_owned.def("readFromFile", &ListModeLUTOwned::readFromFile, "filename"_a);
+	c_owned.def("readFromFile", &ListModeLUTOwned::readFromFile,
+	            "listmode_fname"_a);
 	c_owned.def("allocate", &ListModeLUTOwned::allocate, "num_events"_a);
 	c_owned.def(
-	    "createFromHistogram3D",
+	    "fromHistogram3D",
 	    [](ListModeLUTOwned* self, const Histogram3D* histo, size_t num_events)
 	    { util::histogram3DToListModeLUT(histo, self, num_events); }, "histo"_a,
 	    "num_events"_a);
@@ -165,16 +166,16 @@ ListModeLUTOwned::ListModeLUTOwned(const Scanner& pr_scanner, bool p_flagTOF,
                                    bool p_flagRandoms)
     : ListModeLUT(pr_scanner)
 {
-	mp_timestamps = std::make_unique<Array1D<timestamp_t>>();
-	mp_detectorId1 = std::make_unique<Array1D<det_id_t>>();
-	mp_detectorId2 = std::make_unique<Array1D<det_id_t>>();
+	mp_timestamps = std::make_unique<Array1DOwned<timestamp_t>>();
+	mp_detectorId1 = std::make_unique<Array1DOwned<det_id_t>>();
+	mp_detectorId2 = std::make_unique<Array1DOwned<det_id_t>>();
 	if (p_flagTOF)
 	{
-		mp_tof_ps = std::make_unique<Array1D<float>>();
+		mp_tof_ps = std::make_unique<Array1DOwned<float>>();
 	}
 	if (p_flagRandoms)
 	{
-		mp_randoms = std::make_unique<Array1D<float>>();
+		mp_randoms = std::make_unique<Array1DOwned<float>>();
 	}
 }
 
@@ -451,17 +452,20 @@ void ListModeLUTOwned::allocate(size_t numEvents)
 {
 	ASSERT_MSG(numEvents > 0,
 	           "Number of events to allocate must be larger than zero");
-	static_cast<Array1D<timestamp_t>*>(mp_timestamps.get())
+	static_cast<Array1DOwned<timestamp_t>*>(mp_timestamps.get())
 	    ->allocate(numEvents);
-	static_cast<Array1D<det_id_t>*>(mp_detectorId1.get())->allocate(numEvents);
-	static_cast<Array1D<det_id_t>*>(mp_detectorId2.get())->allocate(numEvents);
+	static_cast<Array1DOwned<det_id_t>*>(mp_detectorId1.get())
+	    ->allocate(numEvents);
+	static_cast<Array1DOwned<det_id_t>*>(mp_detectorId2.get())
+	    ->allocate(numEvents);
 	if (hasTOF())
 	{
-		static_cast<Array1D<float>*>(mp_tof_ps.get())->allocate(numEvents);
+		static_cast<Array1DOwned<float>*>(mp_tof_ps.get())->allocate(numEvents);
 	}
 	if (hasRandomsEstimates())
 	{
-		static_cast<Array1D<float>*>(mp_randoms.get())->allocate(numEvents);
+		static_cast<Array1DOwned<float>*>(mp_randoms.get())
+		    ->allocate(numEvents);
 	}
 }
 
@@ -646,6 +650,8 @@ std::unique_ptr<ProjectionData>
 
 plugin::OptionsListPerPlugin ListModeLUTOwned::getOptions()
 {
+	// TODO: Add time_start and time_stop arguments here and add support for
+	//  them in the readFromFile function
 	return {
 	    {"flag_tof", {"Flag for reading TOF column", io::TypeOfArgument::BOOL}},
 	    {"flag_randoms",

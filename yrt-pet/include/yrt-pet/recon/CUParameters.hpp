@@ -7,19 +7,27 @@
 
 namespace yrt
 {
-typedef struct CUScannerParams
+
+struct CUScannerParams
 {
 	float crystalSize_trans;
 	float crystalSize_z;
 	size_t numDets;
-} CUScannerParams;
+};
 
-typedef struct CUImageParams
+struct CUImageParams
 {
-	int voxelNumber[3];
-	float voxelSize[3];
-	float imgLength[3];
-	float offset[3];
+	int nx,ny,nz;
+	float vx, vy, vz;
+	float length_x, length_y, length_z;
+	float off_x, off_y, off_z;
 	float fovRadius;
-} CUImageParams;
+};
+
+struct CUImage
+{
+	CUImageParams params;
+	float* devicePointer = nullptr;
+};
+
 }  // namespace yrt

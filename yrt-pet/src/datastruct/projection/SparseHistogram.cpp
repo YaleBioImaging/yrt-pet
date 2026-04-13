@@ -28,13 +28,13 @@ void py_setup_sparsehistogram(py::module& m)
 	c.def(py::init<const Scanner&, const std::string&>(), "scanner"_a,
 	      "filename"_a);
 	c.def(py::init<const Scanner&, const ProjectionData&>(), "scanner"_a,
-	      "projectionData"_a);
-	c.def("allocate", &SparseHistogram::allocate, "numBins"_a);
+	      "projection_data"_a);
+	c.def("allocate", &SparseHistogram::allocate, "num_bins"_a);
 	c.def(
 	    "accumulate",
 	    static_cast<void (SparseHistogram::*)(
 	        det_pair_t detPair, float projValue)>(&SparseHistogram::accumulate),
-	    "detPair"_a, "projValue"_a);
+	    "det_pair"_a, "proj_value"_a);
 	c.def(
 	    "accumulate",
 	    [](SparseHistogram& self, const ProjectionData& projData,
@@ -63,9 +63,9 @@ void py_setup_sparsehistogram(py::module& m)
 			    }
 		    }
 	    },
-	    "projData"_a, "ignoreZeros"_a = true, "printProgress"_a = true);
+	    "proj_data"_a, "ignore_zeros"_a = true, "print_progress"_a = true);
 	c.def("getProjectionValueFromDetPair",
-	      &SparseHistogram::getProjectionValueFromDetPair, "detPair"_a);
+	      &SparseHistogram::getProjectionValueFromDetPair, "det_pair"_a);
 	c.def("readFromFile", &SparseHistogram::readFromFile, "filename"_a);
 	c.def("writeToFile", &SparseHistogram::writeToFile, "filename"_a);
 }

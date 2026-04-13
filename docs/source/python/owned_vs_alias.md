@@ -45,7 +45,7 @@ img_np = np.array(img_yrt, copy=False)
 img_np[:] = 1 # The "[:]" is important to avoid reassignment
 
 # This will write the image into a file
-img_yrt.writeToFile("my_image.nii")
+img_yrt.writeToFile("<my_image.nii>")
 ```
 
 ### Example usage of `Alias` object
@@ -74,7 +74,7 @@ img_yrt.bind(img_np)
 img_np[:, 0, :] = 2
 
 # This will write the image into a file
-img_yrt.writeToFile("my_image.nii")
+img_yrt.writeToFile("<my_image.nii>")
 ```
 
 ### Example usage of `Alias` object *in GPU*
@@ -88,14 +88,21 @@ import pyyrtpet as yrt
 # %% Use CUDA device 0
 cuda0 = torch.device('cuda:0')
 
+# %% Ask YRT-PET for the available VRAM
+mem_available = yrt.getAvailableVRAM()
+
 # %% Define image parameters
 img_shape = (100, 100, 50)  # in x, y, z dimensions
 img_size_mm = (100.0, 100.0, 50.0)  # in x, y, z dimensions
 params = yrt.ImageParams(*img_shape, *img_size_mm)
 
 # %% Create Torch array and bind it to an ImageDeviceAlias
-ones_img = torch.zeros([params.nz,params.ny,params.nx], device=cuda0,
-                       dtype=torch.float32, layout=torch.strided)
+ones_img = torch.zeros(
+    [params.nz, params.ny, params.nx],
+    device=cuda0,
+    dtype=torch.float32,
+    layout=torch.strided,
+)
 img_dev = yrt.ImageDeviceAlias(params)
 # Bind Torch array to YRT-PET Image
 img_dev.setDevicePointer(ones_img.data_ptr())
@@ -104,7 +111,13 @@ img_dev.setDevicePointer(ones_img.data_ptr())
 # as the "img_dev" YRT-PET ImageDevice object
 
 # %% Initialize the scanner
-scanner = yrt.Scanner("./MYSCANNER.json")
+#  (Here we define a regular scanner using geometric properties, but we could
+#  also do it with a JSON file)
+scanner = yrt.Scanner(scanner_name='MYSCANNER', axial_fov=25,
+                      crystal_size_z=2.0, crystal_size_trans=2.0,
+                      crystal_depth=10.0, scanner_radius=161,
+                      dets_per_ring=256, num_rings=8, num_doi=1,
+                      max_ring_diff=7, min_ang_diff=1, dets_per_block=32)
 
 # %% Initialize an empty histogram
 his = yrt.Histogram3DOwned(scanner)
@@ -117,22 +130,28 @@ his.clearProjections(1.0)
 bin_iter = his.getBinIter(1, 0)
 
 # Define the projector parameters
-proj_params = yrt.OperatorProjectorParams(bin_iter, scanner)
+proj_params = yrt.ProjectorParams(scanner)
+proj_params.setProjector("DD")
 
 # Create the projector
 oper = yrt.OperatorProjectorDD_GPU(proj_params)
+props = oper.getProjectionPropertyTypes(his)
 
 # %% Create a projection-space device buffer
-# Use 'his' as a reference to comute LORs and use 1 OSEM subset
-his_dev = yrt.ProjectionDataDeviceAlias(scanner, his, 1)
+# Use 'his' as a reference to compute LORs and use 1 OSEM subset
+his_dev = yrt.ProjectionListDeviceAlias(scanner, his, props, mem_available, 1)
 
 # Important: This is needed to precompute all LORs and load them into the device
 # Arguments: Load events from the batch 0 of the subset 0
 his_dev.prepareBatchLORs(0, 0)
 
 # Create a Torch array with the appropriate size
-ones_proj = torch.ones([his_dev.getLoadedBatchSize()], device=cuda0,
-                       dtype=torch.float32, layout=torch.strided)
+ones_proj = torch.ones(
+    [his_dev.getLoadedBatchSize()],
+    device=cuda0,
+    dtype=torch.float32,
+    layout=torch.strided,
+)
 
 # Bind Torch array to YRT-PET ProjectionData
 his_dev.setProjValuesDevicePointer(ones_proj.data_ptr())
@@ -141,5 +160,5 @@ his_dev.setProjValuesDevicePointer(ones_proj.data_ptr())
 oper.applyAH(his_dev, img_dev)
 
 # Save image
-img_dev.writeToFile("./my_image.nii") # save img
+img_dev.writeToFile("<my_image.nii>") # save img
 ```

@@ -63,6 +63,8 @@ struct GPULaunchConfig
 	bool synchronize = true;
 };
 
+void synchronizeIfNeeded(const GPULaunchConfig& config);
+
 struct GPULaunchParams
 {
 	unsigned int gridSize;

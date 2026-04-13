@@ -19,6 +19,7 @@ YRT-PET documentation
 
    usage/index
    usage/config
+   usage/dynamic-framing
 
 .. toctree::
    :maxdepth: 2
@@ -26,19 +27,27 @@ YRT-PET documentation
 
    usage/data_formats
    usage/scanner
-   usage/image_parameters
+   usage/image
    usage/list-mode_file
    usage/motion_file
    usage/histogram3d_format
    usage/rawd_file
    usage/sparse-histogram
-   usage/ImagePSF_file
+   usage/imagepsf_file
 
 .. toctree::
    :maxdepth: 2
    :caption: Python
 
+   python/array
+   python/line3d-vector3d
+   python/projector
+   python/bin-iterator
+   python/operator-projector
+   python/projectionlist
    python/owned_vs_alias
+   python/osem
+   python/constraints
 
 .. toctree::
    :maxdepth: 2

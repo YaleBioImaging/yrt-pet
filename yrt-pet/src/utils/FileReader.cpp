@@ -73,7 +73,7 @@ namespace util
 		if (mr_istream.fail())
 		{
 			throw std::range_error(
-			    "Error reading file: Either the seeked position"
+			    "Error reading file: Either the seeked position "
 			    "is outside the file or the file is corrupt");
 		}
 		mr_istream.read(m_cache.getRawPointer(), m_cacheSize);
@@ -118,13 +118,10 @@ namespace util
 		       (!isUsingCache() || (m_readPos >= cacheStart() + cacheSize()));
 	}
 
-	std::streamsize FileReaderContiguous::read(std::streamoff startPos,
-	                                           char* receivingBuffer,
-	                                           std::streamsize bytesToRead)
+	std::streamsize FileReaderContiguous::read(std::streamoff /*startPos*/,
+	                                           char* /*receivingBuffer*/,
+	                                           std::streamsize /*bytesToRead*/)
 	{
-		(void)startPos;
-		(void)receivingBuffer;
-		(void)bytesToRead;
 		throw std::runtime_error(
 		    "Arbitrary access unsupported on contiguous reading");
 	}

@@ -14,7 +14,7 @@
 
 TEST_CASE("sparsehisto", "[sparsehisto]")
 {
-	auto scanner = yrt::util::test::makeScanner();
+	auto scanner = yrt::util::test::makeFakeScanner();
 
 	SECTION("from-listmodes")
 	{

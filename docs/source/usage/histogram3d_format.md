@@ -29,8 +29,8 @@ Histogram3D class respects the Python buffer protocol:
 import pyyrtpet as yrt
 import numpy as np
 
-scanner = yrt.Scanner("myscanner.json")
-his = yrt.Histogram3DOwned(scanner, "myhistogram.his")
+scanner = yrt.Scanner("<myscanner>.json")
+his = yrt.Histogram3DOwned(scanner, "<myhistogram>.his")
 np_his = np.array(his, copy=False)  # np_his is now a 3D numpy array
 ```
 

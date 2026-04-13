@@ -9,6 +9,7 @@
 #include "yrt-pet/utils/Array.hpp"
 #include "yrt-pet/utils/Assert.hpp"
 #include "yrt-pet/utils/Globals.hpp"
+#include "yrt-pet/utils/Version.hpp"
 
 #include <cxxopts.hpp>
 #include <iostream>
@@ -91,12 +92,12 @@ int main(int argc, char** argv)
 
 		std::cout << "Initializing buffer for each thread..." << std::endl;
 		// Accumulated map for every thread
-		std::vector<std::unique_ptr<Array3D<float>>> maps;
+		std::vector<std::unique_ptr<Array3DOwned<float>>> maps;
 		maps.resize(numThreads);
 
 		for (auto threadId = 0; threadId < numThreads; threadId++)
 		{
-			auto map = std::make_unique<Array3D<float>>();
+			auto map = std::make_unique<Array3DOwned<float>>();
 			map->allocate(scanner->numDOI, scanner->numRings,
 			              scanner->detsPerRing);
 			map->fill(0.0f);
@@ -111,8 +112,7 @@ int main(int argc, char** argv)
 
 		util::parallelForChunked(
 		    numBins, numThreads,
-		    [numBins, mapsPtr, dataInputPtr, numDets](bin_t bin,
-		                                              size_t threadId)
+		    [mapsPtr, dataInputPtr, numDets](bin_t bin, size_t threadId)
 		    {
 			    const det_pair_t detPair = dataInputPtr->getDetectorPair(bin);
 			    const float projValue = dataInputPtr->getProjectionValue(bin);
@@ -124,12 +124,12 @@ int main(int argc, char** argv)
 
 		// Reduction (accumulate what each thread accumulated)
 		std::cout << "Reduction..." << std::endl;
-		auto map = std::make_unique<Array3D<float>>();
+		auto map = std::make_unique<Array3DOwned<float>>();
 		map->allocate(scanner->numDOI, scanner->numRings, scanner->detsPerRing);
 		map->fill(0.0f);
 		for (auto threadId = 0; threadId < numThreads; threadId++)
 		{
-			const Array3D<float>& currentMap = *maps[threadId];
+			const Array3DOwned<float>& currentMap = *maps[threadId];
 			for (det_id_t detId = 0; detId < numDets; detId++)
 			{
 				map->incrementFlat(detId, currentMap.getFlat(detId));

@@ -19,32 +19,34 @@ namespace yrt
 void py_setup_detectormask(pybind11::module& m)
 {
 	auto c = py::class_<DetectorMask>(m, "DetectorMask", py::buffer_protocol());
-	c.def(py::init<size_t>(), "numDets"_a);
+	c.def(py::init<size_t>(), "num_dets"_a);
 	c.def(py::init<const std::string&>(), "fname"_a);
-	c.def(py::init<const Array1DBase<bool>&>(), "maskArray"_a);
-	c.def(py::init<const Array3DBase<float>&>(), "maskArray"_a);
+	c.def(py::init<const Array1DBase<bool>&>(), "mask_array"_a);
+	c.def(py::init<const Array3DBase<float>&>(), "mask_array"_a);
 	c.def(py::init<const DetectorMask&>(), "other"_a);
 	c.def("setNumDets", &DetectorMask::setNumDets);
 	c.def("readFromFile", &DetectorMask::readFromFile, "fname"_a);
 	c.def_buffer(
 	    [](DetectorMask& self) -> py::buffer_info
 	    {
-		    Array1D<bool>& d = self.getData();
+		    Array1DOwned<bool>& d = self.getData();
 		    return py::buffer_info(d.getRawPointer(), sizeof(bool),
 		                           py::format_descriptor<bool>::format(), 1,
 		                           d.getDims(), d.getStrides());
 	    });
 	c.def("getData",
-	      static_cast<const Array1D<bool>& (DetectorMask::*)() const>(
+	      static_cast<const Array1DOwned<bool>& (DetectorMask::*)() const>(
 	          &DetectorMask::getData));
 	c.def("enableAllDetectors", &DetectorMask::enableAllDetectors);
 	c.def("disableAllDetectors", &DetectorMask::disableAllDetectors);
-	c.def("enableDetector", &DetectorMask::enableDetector, "detId"_a);
-	c.def("disableDetector", &DetectorMask::disableDetector, "detId"_a);
+	c.def("setDetectorEnabled", &DetectorMask::setDetectorEnabled, "det_id"_a,
+	      "enabled"_a);
+	c.def("enableDetector", &DetectorMask::enableDetector, "det_id"_a);
+	c.def("disableDetector", &DetectorMask::disableDetector, "det_id"_a);
 	c.def("checkAgainstScanner", &DetectorMask::checkAgainstScanner);
 	c.def("getNumDets", &DetectorMask::getNumDets);
-	c.def("checkDetector", &DetectorMask::checkDetector, "detId"_a);
-	c.def("isDetectorEnabled", &DetectorMask::isDetectorEnabled, "detId"_a);
+	c.def("checkDetector", &DetectorMask::checkDetector, "det_id"_a);
+	c.def("isDetectorEnabled", &DetectorMask::isDetectorEnabled, "det_id"_a);
 	c.def("areAllDetectorsEnabled", &DetectorMask::areAllDetectorsEnabled);
 	c.def("areAllDetectorsDisabled", &DetectorMask::areAllDetectorsDisabled);
 	c.def("writeToFile", &DetectorMask::writeToFile, "fname"_a);
@@ -65,7 +67,7 @@ namespace yrt
 
 DetectorMask::DetectorMask(size_t numDets)
 {
-	mp_data = std::make_unique<Array1D<bool>>();
+	mp_data = std::make_unique<Array1DOwned<bool>>();
 	mp_data->allocate(numDets);
 
 	// By default, all detectors are enabled
@@ -79,14 +81,14 @@ DetectorMask::DetectorMask(const std::string& pr_fname)
 
 DetectorMask::DetectorMask(const Array1DBase<bool>& pr_data)
 {
-	mp_data = std::make_unique<Array1D<bool>>();
+	mp_data = std::make_unique<Array1DOwned<bool>>();
 	mp_data->allocate(pr_data.getSizeTotal());
 	mp_data->copy(pr_data);
 }
 
 DetectorMask::DetectorMask(const Array3DBase<float>& pr_data)
 {
-	mp_data = std::make_unique<Array1D<bool>>();
+	mp_data = std::make_unique<Array1DOwned<bool>>();
 
 	const size_t size = pr_data.getSizeTotal();
 	mp_data->allocate(size);
@@ -99,7 +101,7 @@ DetectorMask::DetectorMask(const Array3DBase<float>& pr_data)
 
 DetectorMask::DetectorMask(const DetectorMask& other)
 {
-	mp_data = std::make_unique<Array1D<bool>>();
+	mp_data = std::make_unique<Array1DOwned<bool>>();
 	mp_data->allocate(other.getNumDets());
 	mp_data->copy(other.getData());
 }
@@ -108,7 +110,7 @@ void DetectorMask::setNumDets(size_t numDets)
 {
 	const auto oldData = std::move(mp_data);
 
-	mp_data = std::make_unique<Array1D<bool>>();
+	mp_data = std::make_unique<Array1DOwned<bool>>();
 	mp_data->allocate(numDets);
 
 	// By default, all detectors are enabled
@@ -128,7 +130,7 @@ void DetectorMask::setNumDets(size_t numDets)
 
 void DetectorMask::readFromFile(const std::string& fname)
 {
-	mp_data = std::make_unique<Array1D<bool>>();
+	mp_data = std::make_unique<Array1DOwned<bool>>();
 
 	// Open the file
 	std::ifstream file;
@@ -151,13 +153,13 @@ void DetectorMask::readFromFile(const std::string& fname)
 	          fileSize * sizeof(bool));
 }
 
-Array1D<bool>& DetectorMask::getData()
+Array1DOwned<bool>& DetectorMask::getData()
 {
 	ASSERT(mp_data != nullptr);
 	return *mp_data;
 }
 
-const Array1D<bool>& DetectorMask::getData() const
+const Array1DOwned<bool>& DetectorMask::getData() const
 {
 	ASSERT(mp_data != nullptr);
 	return *mp_data;

@@ -121,7 +121,7 @@ int main(int argc, char** argv)
 		                          false, io::TypeOfArgument::BOOL, false,
 		                          sensitivityGroup);
 		registry.registerArgument(
-		    "global_scale", "Global scaling factor to apply on the sensitivity",
+		    "global_scale", "Global scaling factor",
 		    false, io::TypeOfArgument::FLOAT, 1.0f, sensitivityGroup);
 		registry.registerArgument(
 		    "move_sens", "Move the provided sensitivity image based on motion",

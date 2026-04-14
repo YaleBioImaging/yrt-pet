@@ -15,6 +15,7 @@
 #include "yrt-pet/utils/Tools.hpp"
 #include "yrt-pet/utils/Types.hpp"
 #include "yrt-pet/utils/Utilities.hpp"
+#include "yrt-pet/utils/Version.hpp"
 
 #include <cmath>
 #include <cstring>
@@ -551,7 +552,18 @@ void Image::writeToFile(const std::string& fname) const
 	nim->xyz_units = NIFTI_UNITS_MM;
 	nim->time_units = NIFTI_UNITS_SEC;
 	nim->nifti_type = NIFTI_FTYPE_NIFTI1_1;
-	// Write something here in nim->descrip;
+
+	// Write something in the NIfTI description;
+	std::string yrtpetVersionString = version::getVersionString();
+	const size_t versionStringLength = yrtpetVersionString.size();
+
+	// In case the length of the YRT version string is larger than 80 characters
+	const size_t versionStringToCopy =
+	    versionStringLength > 80 ? 80 : versionStringLength;
+	for (size_t i = 0ull; i < versionStringToCopy; i++)
+	{
+		nim->descrip[i] = yrtpetVersionString[i];
+	}
 
 	nim->fname = strdup(fname.c_str());
 

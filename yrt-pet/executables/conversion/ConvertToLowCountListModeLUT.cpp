@@ -21,7 +21,7 @@
 
 using namespace yrt;
 
-int main(int argc, char** argv)p -o generate_low_dose_lut.o \
+int main(int argc, char** argv)
 {
 	try
 	{
@@ -128,7 +128,7 @@ int main(int argc, char** argv)p -o generate_low_dose_lut.o \
 			std::cout << "Reading detector mask..." << std::endl;
 			detmask = std::make_unique<DetectorMask>(detmask_fname);
 		}
-		
+
 		// Pass 1: Assign each event randomly to a sub-listmode
 		std::cout << "Splitting into " << N << " sub-listmodes..." << std::endl;
 		std::mt19937_64 rng(seed); // random seed

@@ -58,8 +58,10 @@ public:
 	// OSEM Reconstruction
 	std::unique_ptr<Image> reconstruct(const std::string& out_fname);
 
-	// Prints a summary of the parameters
-	void summary() const;
+	// Prints a summary of the parameters.
+	//  This function is meant to be run AFTER the reconstruction or
+	//  sensitivity image generation was complete.
+	std::string summary() const;
 
 	// Configuration of the reconstruction
 	void setSensitivityHistogram(const Histogram* pp_sensitivity);

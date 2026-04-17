@@ -50,7 +50,7 @@ public:
 	                              float vz, float originx, float originy,
 	                              float originz, frame_t p_nt = 1);
 	static ImageParams fromParams(int nx, int ny, int nz, float vx, float vy,
-								  float vz, frame_t p_nt = 1);
+	                              float vz, frame_t p_nt = 1);
 	explicit ImageParams(const std::string& fname);
 	bool isSameNumFramesAs(const ImageParams& other) const;
 	bool isSameDimensionsAs(const ImageParams& other) const;
@@ -70,7 +70,9 @@ public:
 	void setup();
 	void writeToFile(const std::string& fname) const;
 	void serialize(const std::string& fname) const;
+	std::string toString() const;
 	void writeToJSON(nlohmann::json& j) const;
+	void readFromFile(const std::string& fname);
 	void deserialize(const std::string& fname);
 	void readFromJSON(nlohmann::json& j);
 	bool isValid() const;

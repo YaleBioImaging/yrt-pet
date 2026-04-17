@@ -318,6 +318,11 @@ bool Corrector::hasRandomsEstimates(const ProjectionData& measurements) const
 	return mp_randoms != nullptr || measurements.hasRandomsEstimates();
 }
 
+bool Corrector::doesRandomsEstimateComeFromHistogram() const
+{
+	return mp_randoms != nullptr;
+}
+
 bool Corrector::hasScatterEstimates() const
 {
 	return mp_scatter != nullptr;

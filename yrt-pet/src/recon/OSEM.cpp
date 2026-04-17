@@ -361,13 +361,24 @@ std::unique_ptr<Image> OSEM::reconstruct(const std::string& out_fname)
 	return std::move(outImage);
 }
 
-void OSEM::summary() const
+std::string OSEM::summary() const
 {
-	std::cout << "Number of iterations: " << num_MLEM_iterations << std::endl;
-	std::cout << "Number of subsets: " << num_OSEM_subsets << std::endl;
+	std::stringstream ss;
+	ss << "Number of iterations: " << num_MLEM_iterations << std::endl;
+	ss << "Number of subsets: " << num_OSEM_subsets << std::endl;
 	if (usingListModeInput)
 	{
-		std::cout << "Uses List-Mode data as input" << std::endl;
+		ss << "Uses List-Mode data as input.\n";
+	}
+
+	ss << "Reconstruction image parameters:\n";
+	if (imageParams.isValid())
+	{
+		ss << imageParams.toString();
+	}
+	else
+	{
+		ss << "Image parameters invalid.\n";
 	}
 
 	int numberOfSensImagesSet = 0;
@@ -378,51 +389,166 @@ void OSEM::summary() const
 			numberOfSensImagesSet++;
 		}
 	}
-	std::cout << "Number of sensitivity images set: " << numberOfSensImagesSet
-	          << std::endl;
+	ss << "Number of sensitivity images set: " << numberOfSensImagesSet
+	   << std::endl;
 
-	std::cout << "Hard threshold: " << hardThreshold << std::endl;
+	ss << "Hard threshold: " << hardThreshold << std::endl;
 	if (projectorParams.projectorType == ProjectorType::SIDDON)
 	{
-		std::cout << "Projector type: Siddon" << std::endl;
-		std::cout << "Number of Siddon rays: " << projectorParams.numRays
-		          << std::endl;
+		ss << "Projector type: Siddon.\n";
+		ss << "Number of Siddon rays: " << projectorParams.numRays << std::endl;
 	}
 	else if (projectorParams.projectorType == ProjectorType::DD)
 	{
-		std::cout << "Projector type: Distance-Driven" << std::endl;
+		ss << "Projector type: Distance-Driven\n";
+		if (!projectorParams.projPsf_fname.empty())
+		{
+			ss << "Uses Projection-space PSF.\n";
+		}
 	}
 
-	std::cout << "Number of threads used: " << globals::getNumThreads()
-	          << std::endl;
-	std::cout << "Scanner name: " << scanner.scannerName << std::endl;
+	ss << "Number of threads used: " << globals::getNumThreads() << std::endl;
+	ss << "Scanner name: " << scanner.scannerName << std::endl;
 
 	if (flagImagePSF)
 	{
-		if (dynamic_cast<OperatorVarPsf*>(imagePsf.get()) == nullptr)
+		const auto invariantPsf =
+		    dynamic_cast<const OperatorPsf*>(imagePsf.get());
+		const auto variantPsf =
+		    dynamic_cast<const OperatorVarPsf*>(imagePsf.get());
+		if (invariantPsf != nullptr)
 		{
-			std::cout << "Uses Image-space PSF" << std::endl;
+			ss << "Uses spatially-invariant image-space PSF.\n";
+			ss << "PSF properties:\n";
+
+			const auto kernelX = invariantPsf->getKernelX();
+			const auto kernelY = invariantPsf->getKernelY();
+			const auto kernelZ = invariantPsf->getKernelZ();
+			const std::vector kernels = {kernelX, kernelY, kernelZ};
+			const auto kernelDimNames = "XYZ";
+
+			for (size_t dim = 0; dim < kernels.size(); dim++)
+			{
+				ss << "\tKernel in " << kernelDimNames[dim] << " dimension: [";
+				const auto& currentKernel = kernels[dim];
+				for (size_t i = 0; i < currentKernel.size(); i++)
+				{
+					ss << currentKernel[i];
+					if (i != currentKernel.size() - 1)
+					{
+						ss << ", ";
+					}
+				}
+				ss << "]\n";
+			}
+		}
+		else if (variantPsf != nullptr)
+		{
+			ss << "Uses spatially-variant image-space PSF.\n";
 		}
 		else
 		{
-			std::cout << "Uses Image-space variant PSF" << std::endl;
+			ASSERT_MSG_WARNING(false, "Unknown PSF mode");
 		}
 	}
-	if (projectorParams.projPsf_fname.empty())
-	{
-		std::cout << "Uses Projection-space PSF" << std::endl;
-	}
+
 	if (projectorParams.hasTOF())
 	{
-		std::cout << "Uses Time-of-flight" << std::endl;
+		ss << "Uses Time-of-flight.\n";
+		ss << "TOF width (ps): " << projectorParams.getTOFNumStd() << std::endl;
+		ss << "TOF number of STDs to use: " << projectorParams.getTOFNumStd()
+		   << std::endl;
 	}
 
-	std::cout << "Saved iterations list: " << saveIterRanges << std::endl;
+	ss << "Saved iterations list: " << saveIterRanges << std::endl;
 	if (!saveIterRanges.empty())
 	{
-		std::cout << "Saved image files prefix name: " << saveIterPath
-		          << std::endl;
+		ss << "Saved image files prefix name: " << saveIterPath << std::endl;
 	}
+
+	auto& corrector = getCorrector();
+	if (corrector.hasHardwareAttenuation())
+	{
+		if (corrector.doesHardwareACFComeFromHistogram())
+		{
+			ss << "Has hardware attenuation coming from an ACF histogram.\n";
+		}
+		else
+		{
+			ss << "Has hardware attenuation coming from an attenuation "
+			      "image.\n";
+
+			const ImageParams& hardwareAttImageParams =
+			    corrector.getHardwareAttenuationImage()->getParams();
+
+			ss << "\tHardware attenuation image's parameters:";
+			ss << hardwareAttImageParams.toString();
+		}
+	}
+
+	if (corrector.hasInVivoAttenuation())
+	{
+		if (corrector.doesInVivoACFComeFromHistogram())
+		{
+			ss << "Has precorrective attenuation coming from an ACF "
+			      "histogram.\n";
+		}
+		else
+		{
+			ss << "Has precorrective attenuation coming from an attenuation "
+			      "image.\n";
+
+			const ImageParams& invivoAttImageParams =
+			    corrector.getInVivoAttenuationImage()->getParams();
+
+			ss << "\tPrecorrective attenuation image's parameters:";
+			ss << invivoAttImageParams.toString();
+		}
+	}
+
+	if (corrector.hasSensitivityHistogram())
+	{
+		ss << "Has sensitivity correction.\n";
+	}
+
+	// Randoms, scatter, motion and dynamic framing
+	const ProjectionData* dataInput_ptr = getDataInput();
+	if (dataInput_ptr != nullptr)
+	{
+		const ProjectionData& dataInput = *dataInput_ptr;
+		if (corrector.hasRandomsEstimates(dataInput))
+		{
+			if (corrector.doesRandomsEstimateComeFromHistogram())
+			{
+				ss << "Has randoms estimates coming from a histogram.\n";
+			}
+			else
+			{
+				ss << "Has randoms estimates coming from the input data "
+				      "itself.\n";
+			}
+		}
+
+		if (corrector.hasScatterEstimates())
+		{
+			ss << "Has scatter estimates.\n";
+		}
+
+		const auto* listMode_ptr = dynamic_cast<const ListMode*>(dataInput_ptr);
+		if (listMode_ptr != nullptr)
+		{
+			if (listMode_ptr->hasMotion())
+			{
+				ss << "Input list-mode has motion information.\n";
+			}
+			if (listMode_ptr->hasDynamicFraming())
+			{
+				ss << "Input list-mode embeds a dynamic framing.\n";
+			}
+		}
+	}
+
+	return ss.str();
 }
 
 void OSEM::setSensitivityHistogram(const Histogram* pp_sensitivityData)

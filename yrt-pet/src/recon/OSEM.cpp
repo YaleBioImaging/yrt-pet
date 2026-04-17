@@ -72,7 +72,7 @@ void py_setup_osem(pybind11::module& m)
 	          &OSEM::setSensitivityImages));
 
 	c.def("reconstruct", &OSEM::reconstruct, "out_fname"_a = "");
-	c.def("summary", &OSEM::summary);
+	c.def("getSummary", &OSEM::getSummary);
 
 	c.def("setSensitivityHistogram", &OSEM::setSensitivityHistogram,
 	      "sens_his"_a);
@@ -361,17 +361,14 @@ std::unique_ptr<Image> OSEM::reconstruct(const std::string& out_fname)
 	return std::move(outImage);
 }
 
-std::string OSEM::summary() const
+std::string OSEM::getSummary() const
 {
 	std::stringstream ss;
-	ss << "Number of iterations: " << num_MLEM_iterations << std::endl;
-	ss << "Number of subsets: " << num_OSEM_subsets << std::endl;
-	if (usingListModeInput)
-	{
-		ss << "Uses List-Mode data as input.\n";
-	}
 
-	ss << "Reconstruction image parameters:\n";
+	ss << "Scanner name: " << scanner.scannerName << std::endl;
+	ss << "Number of threads used: " << globals::getNumThreads() << std::endl;
+
+	ss << "Reconstruction image parameters:\n\t";
 	if (imageParams.isValid())
 	{
 		ss << imageParams.toString();
@@ -379,6 +376,11 @@ std::string OSEM::summary() const
 	else
 	{
 		ss << "Image parameters invalid.\n";
+	}
+
+	if (usingListModeInput)
+	{
+		ss << "Uses List-Mode data as input.\n";
 	}
 
 	int numberOfSensImagesSet = 0;
@@ -395,7 +397,7 @@ std::string OSEM::summary() const
 	ss << "Hard threshold: " << hardThreshold << std::endl;
 	if (projectorParams.projectorType == ProjectorType::SIDDON)
 	{
-		ss << "Projector type: Siddon.\n";
+		ss << "Projector type: Siddon\n";
 		ss << "Number of Siddon rays: " << projectorParams.numRays << std::endl;
 	}
 	else if (projectorParams.projectorType == ProjectorType::DD)
@@ -406,9 +408,6 @@ std::string OSEM::summary() const
 			ss << "Uses Projection-space PSF.\n";
 		}
 	}
-
-	ss << "Number of threads used: " << globals::getNumThreads() << std::endl;
-	ss << "Scanner name: " << scanner.scannerName << std::endl;
 
 	if (flagImagePSF)
 	{
@@ -452,6 +451,9 @@ std::string OSEM::summary() const
 		}
 	}
 
+	ss << "Number of iterations: " << num_MLEM_iterations << std::endl;
+	ss << "Number of subsets: " << num_OSEM_subsets << std::endl;
+
 	if (projectorParams.hasTOF())
 	{
 		ss << "Uses Time-of-flight.\n";
@@ -460,10 +462,10 @@ std::string OSEM::summary() const
 		   << std::endl;
 	}
 
-	ss << "Saved iterations list: " << saveIterRanges << std::endl;
 	if (!saveIterRanges.empty())
 	{
-		ss << "Saved image files prefix name: " << saveIterPath << std::endl;
+		ss << "Saved iterations list: " << saveIterRanges << std::endl;
+		ss << "Saved image files prefix name: \"" << saveIterPath << "\"\n";
 	}
 
 	auto& corrector = getCorrector();
@@ -534,20 +536,45 @@ std::string OSEM::summary() const
 			ss << "Has scatter estimates.\n";
 		}
 
+		ss << "Global scale factor: " << corrector.getGlobalScalingFactor();
+
 		const auto* listMode_ptr = dynamic_cast<const ListMode*>(dataInput_ptr);
 		if (listMode_ptr != nullptr)
 		{
 			if (listMode_ptr->hasMotion())
 			{
 				ss << "Input list-mode has motion information.\n";
+				ss << "Number of motion frames: "
+				   << listMode_ptr->getNumMotionFrames() << std::endl;
 			}
 			if (listMode_ptr->hasDynamicFraming())
 			{
 				ss << "Input list-mode embeds a dynamic framing.\n";
+				ss << "Number of dynamic frames: "
+				   << listMode_ptr->getNumDynamicFrames() << std::endl;
+
+				const auto* dynamicFraming = listMode_ptr->getDynamicFraming();
+				if (dynamicFraming != nullptr)
+				{
+					const size_t numFrames = dynamicFraming->getNumFrames();
+					ss << "\tDynamic framing: [";
+					for (size_t frame = 0; frame < numFrames; frame++)
+					{
+						ss << dynamicFraming->getStartingTimestamp(frame);
+						ss << ", ";
+					}
+					ss << dynamicFraming->getLastTimestamp() << "]";
+				}
+				else
+				{
+					// Should never happen
+					ASSERT_MSG_WARNING(false, "Unknown error");
+				}
 			}
 		}
 	}
 
+	ss << std::endl;
 	return ss.str();
 }
 

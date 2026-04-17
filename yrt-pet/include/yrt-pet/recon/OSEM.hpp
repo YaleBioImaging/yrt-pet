@@ -61,7 +61,7 @@ public:
 	// Prints a summary of the parameters.
 	//  This function is meant to be run AFTER the reconstruction or
 	//  sensitivity image generation was complete.
-	std::string summary() const;
+	std::string getSummary() const;
 
 	// Configuration of the reconstruction
 	void setSensitivityHistogram(const Histogram* pp_sensitivity);

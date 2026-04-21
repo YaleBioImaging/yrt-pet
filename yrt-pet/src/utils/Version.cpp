@@ -18,7 +18,7 @@ void py_setup_version(py::module& m)
 	auto c = py::class_<version::VersionStruct>(m, "VersionStruct");
 	c.def(py::init<>());
 	c.def(py::init<int, int, int, std::string, bool>(), "major"_a, "minor"_a,
-	      "patch"_a, "hash"_a, "isDirty"_a);
+	      "patch"_a, "hash"_a, "isDirty"_a = false);
 	c.def_readonly("major", &version::VersionStruct::major);
 	c.def_readonly("minor", &version::VersionStruct::minor);
 	c.def_readonly("patch", &version::VersionStruct::patch);
@@ -26,6 +26,11 @@ void py_setup_version(py::module& m)
 	c.def_readonly("isDirty", &version::VersionStruct::isDirty);
 	c.def("__str__", &version::encodeVersion);
 	c.def("__repr__", &version::encodeVersion);
+	c.def("__eq__", &version::VersionStruct::operator==);
+	c.def("__gt__", &version::VersionStruct::operator>);
+	c.def("__lt__", &version::VersionStruct::operator<);
+	c.def("__ge__", &version::VersionStruct::operator>=);
+	c.def("__le__", &version::VersionStruct::operator<=);
 
 	auto cs =
 	    py::class_<version::SimpleVersionStruct>(m, "SimpleVersionStruct");
@@ -33,8 +38,13 @@ void py_setup_version(py::module& m)
 	cs.def(py::init<int, int>(), "major"_a, "minor"_a);
 	cs.def_readonly("major", &version::SimpleVersionStruct::major);
 	cs.def_readonly("minor", &version::SimpleVersionStruct::minor);
-	cs.def("__str__", &version::encodeVersion);
-	cs.def("__repr__", &version::encodeVersion);
+	cs.def("__str__", &version::encodeVersionSimple);
+	cs.def("__repr__", &version::encodeVersionSimple);
+	cs.def("__eq__", &version::SimpleVersionStruct::operator==);
+	cs.def("__gt__", &version::SimpleVersionStruct::operator>);
+	cs.def("__lt__", &version::SimpleVersionStruct::operator<);
+	cs.def("__ge__", &version::SimpleVersionStruct::operator>=);
+	cs.def("__le__", &version::SimpleVersionStruct::operator<=);
 
 	m.def("getVersionString", &version::getVersionString);
 	m.def("getGitHash", &version::getGitHash);
@@ -50,10 +60,49 @@ void py_setup_version(py::module& m)
 
 #endif
 
-namespace yrt
+namespace yrt::version
 {
-namespace version
+
+bool VersionStruct::operator==(const VersionStruct& other) const
 {
+	return major == other.major && minor == other.minor && patch == other.patch;
+}
+
+bool VersionStruct::operator>(const VersionStruct& other) const
+{
+	if (major != other.major)
+	{
+		return major > other.major;
+	}
+	if (minor != other.minor)
+	{
+		return minor > other.minor;
+	}
+	return patch > other.patch;
+}
+
+bool VersionStruct::operator<(const VersionStruct& other) const
+{
+	if (major != other.major)
+	{
+		return major < other.major;
+	}
+	if (minor != other.minor)
+	{
+		return minor < other.minor;
+	}
+	return patch < other.patch;
+}
+
+bool VersionStruct::operator>=(const VersionStruct& other) const
+{
+	return !(*this < other);
+}
+
+bool VersionStruct::operator<=(const VersionStruct& other) const
+{
+	return !(*this > other);
+}
 
 std::string getVersionString()
 {
@@ -114,15 +163,15 @@ VersionStruct decodeVersion(const std::string& pr_versionString)
 		version = version.substr(0, version.length() - 6);
 	}
 
-	size_t dashPos = version.rfind('-');
+	const size_t dashPos = version.rfind('-');
 	if (dashPos != std::string::npos && dashPos + 1 < version.length())
 	{
 		vs.hash = version.substr(dashPos + 1);
 		version = version.substr(0, dashPos);
 	}
 
-	size_t firstDot = version.find('.');
-	size_t secondDot = version.find('.', firstDot + 1);
+	const size_t firstDot = version.find('.');
+	const size_t secondDot = version.find('.', firstDot + 1);
 
 	if (firstDot != std::string::npos)
 	{
@@ -167,7 +216,7 @@ SimpleVersionStruct decodeVersionSimple(const std::string& pr_versionString)
 
 	std::string version = pr_versionString;
 
-	size_t dotPos = version.find('.');
+	const size_t dotPos = version.find('.');
 	if (dotPos != std::string::npos)
 	{
 		vs.major = std::stoi(version.substr(0, dotPos));
@@ -182,11 +231,43 @@ std::string encodeVersionSimple(const SimpleVersionStruct& vs)
 	return std::to_string(vs.major) + "." + std::to_string(vs.minor);
 }
 
+bool SimpleVersionStruct::operator==(const SimpleVersionStruct& other) const
+{
+	return major == other.major && minor == other.minor;
+}
+
+bool SimpleVersionStruct::operator>(const SimpleVersionStruct& other) const
+{
+	if (major != other.major)
+	{
+		return major > other.major;
+	}
+	return minor > other.minor;
+}
+
+bool SimpleVersionStruct::operator<(const SimpleVersionStruct& other) const
+{
+	if (major != other.major)
+	{
+		return major < other.major;
+	}
+	return minor < other.minor;
+}
+
+bool SimpleVersionStruct::operator>=(const SimpleVersionStruct& other) const
+{
+	return !(*this < other);
+}
+
+bool SimpleVersionStruct::operator<=(const SimpleVersionStruct& other) const
+{
+	return !(*this > other);
+}
+
 void printVersion()
 {
 	std::cout << versionString << std::endl;
 }
 
 
-}  // namespace version
-}  // namespace yrt
+}  // namespace yrt::version

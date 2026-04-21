@@ -25,12 +25,24 @@ struct VersionStruct
 	int patch;
 	std::string hash;
 	bool isDirty;
+
+	bool operator==(const VersionStruct& other) const;
+	bool operator>(const VersionStruct& other) const;
+	bool operator<(const VersionStruct& other) const;
+	bool operator>=(const VersionStruct& other) const;
+	bool operator<=(const VersionStruct& other) const;
 };
 
 struct SimpleVersionStruct
 {
 	int major;
 	int minor;
+
+	bool operator==(const SimpleVersionStruct& other) const;
+	bool operator>(const SimpleVersionStruct& other) const;
+	bool operator<(const SimpleVersionStruct& other) const;
+	bool operator>=(const SimpleVersionStruct& other) const;
+	bool operator<=(const SimpleVersionStruct& other) const;
 };
 
 std::string getVersionString();

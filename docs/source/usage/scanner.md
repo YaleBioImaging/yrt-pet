@@ -8,7 +8,7 @@ binary format.
 
 The following parameters in the JSON file define the scanner:
 
-- `VERSION` : Scanner file format version. The current version is `3.1`.
+- `VERSION` : Scanner file format version. The current version is `3.2`.
   **\[Mandatory\]**
 - `scannerName` : Scanner name. This is value is not used in the reconstruction.
   **\[Mandatory\]**

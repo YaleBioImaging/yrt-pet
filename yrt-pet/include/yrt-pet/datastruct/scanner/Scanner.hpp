@@ -10,8 +10,8 @@
 #include "yrt-pet/geometry/Vector3D.hpp"
 
 #include <filesystem>
-#include <string>
 #include <memory>
+#include <string>
 
 namespace fs = std::filesystem;
 
@@ -68,7 +68,7 @@ public:
 	// maxRingDiff : Maximum ring difference (number of rings)
 	// minAngDiff : Minimum angular difference, in terms of detector indices
 	size_t detsPerRing, numRings, numDOI, maxRingDiff, minAngDiff;
-	size_t detsPerBlock; // optional
+	size_t detsPerBlock;  // optional
 
 protected:
 	fs::path m_scannerPath;

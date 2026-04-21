@@ -37,8 +37,7 @@ void py_setup_scanner(pybind11::module& m)
 	      "min_ang_diff"_a, "dets_per_block"_a,
 	      "Create a scanner while using the parameters to generate a regular "
 	      "structure. The structure can still later be overridden by a LUT");
-	c.def(py::init<const std::string&>(),
-		  "fname"_a,
+	c.def(py::init<const std::string&>(), "fname"_a,
 	      "Create a scanner using a given JSON file");
 	c.def("getNumDets", &Scanner::getNumDets);
 	c.def("getExpectedNumDets", &Scanner::getExpectedNumDets);

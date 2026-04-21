@@ -102,9 +102,15 @@ public:
 	ListModeLUTOwned(const Scanner& pr_scanner,
 	                 const std::string& listMode_fname, bool p_flagTOF = false,
 	                 bool p_flagRandoms = false);
+	ListModeLUTOwned(const Scanner& pr_scanner,
+					 const std::string& listMode_fname, timestamp_t timeStart,
+					 timestamp_t timeStop, bool p_flagTOF = false,
+					 bool p_flagRandoms = false);
 	~ListModeLUTOwned() override = default;
 
 	void readFromFile(const std::string& listMode_fname);
+	void readFromFileBound(const std::string& listMode_fname,
+	                       timestamp_t timeStart, timestamp_t timeStop);
 	void allocate(size_t numEvents);
 
 	// For registering the plugin

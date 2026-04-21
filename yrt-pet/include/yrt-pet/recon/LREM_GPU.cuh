@@ -17,7 +17,7 @@ public:
 	explicit LREM_GPU(const Scanner& pr_scanner);
 	~LREM_GPU() override = default;
 
-	void setupProjectorForRecon() override;
+	void allocateForRecon() override;
 	void resetEMUpdateImage() override;
 	void applyImageUpdate() override;
 	void completeSubset() override;

@@ -32,9 +32,9 @@ LREM_CPU::LREM_CPU(const Scanner& pr_scanner) : OSEM_CPU(pr_scanner), LREM()
 	projectorParams.updaterType = UpdaterType::LR;
 }
 
-void LREM_CPU::setupProjectorForRecon()
+void LREM_CPU::allocateForRecon()
 {
-	OSEM_CPU::setupProjectorForRecon();
+	OSEM_CPU::allocateForRecon();
 
 	const bool dualUpdate = isDualUpdate();
 

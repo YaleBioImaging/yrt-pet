@@ -199,8 +199,6 @@ void OSEM_CPU::setupForDynamicRecon()
 
 void OSEM_CPU::setupProjectorForRecon()
 {
-	std::vector<Constraint*> constraints = getConstraintsAsVectorOfPointers();
-
 	if (projectorParams.projectorType == ProjectorType::SIDDON)
 	{
 		mp_projector = std::make_unique<ProjectorSiddon>(projectorParams);

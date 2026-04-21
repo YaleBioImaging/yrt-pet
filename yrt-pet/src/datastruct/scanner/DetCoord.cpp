@@ -204,12 +204,12 @@ DetCoord::DetCoord() = default;
 
 DetCoordOwned::DetCoordOwned() : DetCoord()
 {
-	mp_Xpos = std::make_unique<Array1D<float>>();
-	mp_Ypos = std::make_unique<Array1D<float>>();
-	mp_Zpos = std::make_unique<Array1D<float>>();
-	mp_Xorient = std::make_unique<Array1D<float>>();
-	mp_Yorient = std::make_unique<Array1D<float>>();
-	mp_Zorient = std::make_unique<Array1D<float>>();
+	mp_Xpos = std::make_unique<Array1DOwned<float>>();
+	mp_Ypos = std::make_unique<Array1DOwned<float>>();
+	mp_Zpos = std::make_unique<Array1DOwned<float>>();
+	mp_Xorient = std::make_unique<Array1DOwned<float>>();
+	mp_Yorient = std::make_unique<Array1DOwned<float>>();
+	mp_Zorient = std::make_unique<Array1DOwned<float>>();
 }
 DetCoordOwned::DetCoordOwned(const std::string& filename,
                              const std::string& mask_fname)
@@ -231,12 +231,12 @@ DetCoordAlias::DetCoordAlias() : DetCoord()
 
 void DetCoordOwned::allocate(size_t numDets)
 {
-	reinterpret_cast<Array1D<float>*>(mp_Xpos.get())->allocate(numDets);
-	reinterpret_cast<Array1D<float>*>(mp_Ypos.get())->allocate(numDets);
-	reinterpret_cast<Array1D<float>*>(mp_Zpos.get())->allocate(numDets);
-	reinterpret_cast<Array1D<float>*>(mp_Xorient.get())->allocate(numDets);
-	reinterpret_cast<Array1D<float>*>(mp_Yorient.get())->allocate(numDets);
-	reinterpret_cast<Array1D<float>*>(mp_Zorient.get())->allocate(numDets);
+	reinterpret_cast<Array1DOwned<float>*>(mp_Xpos.get())->allocate(numDets);
+	reinterpret_cast<Array1DOwned<float>*>(mp_Ypos.get())->allocate(numDets);
+	reinterpret_cast<Array1DOwned<float>*>(mp_Zpos.get())->allocate(numDets);
+	reinterpret_cast<Array1DOwned<float>*>(mp_Xorient.get())->allocate(numDets);
+	reinterpret_cast<Array1DOwned<float>*>(mp_Yorient.get())->allocate(numDets);
+	reinterpret_cast<Array1DOwned<float>*>(mp_Zorient.get())->allocate(numDets);
 }
 
 void DetCoord::writeToFile(const std::string& detCoord_fname) const

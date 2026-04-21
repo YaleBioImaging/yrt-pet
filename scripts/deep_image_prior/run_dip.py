@@ -317,7 +317,7 @@ if __name__ == "__main__":
     # Create bin iterator for subset index 0 out of 1
     print("Initializing projector...")
     bin_iter = prompts.getBinIter(1, 0)
-    proj_params = yrt.OperatorProjectorParams(bin_iter, scanner, num_rays=args.num_rays)
+    proj_params = yrt.ProjectorParams(bin_iter, scanner, num_rays=args.num_rays)
 
     if args.projector == "S":
         op_proj = yrt.OperatorProjectorSiddon_GPU(proj_params)
@@ -329,7 +329,7 @@ if __name__ == "__main__":
     # Prepare device-side projection-space buffer
     # 1 is the number of subsets, 'prompts' is used as reference for calculating the LORs
     print("Initializing device-side projection-space buffers...")
-    projdata_device = yrt.ProjectionDataDeviceAlias(scanner, prompts, 1)
+    projdata_device = yrt.ProjectionListDeviceAlias(scanner, prompts, 1)
     assert projdata_device.getNumBatches(0) == 1
     projdata_device.prepareBatchLORs(0, 0)  # Load batch 0 subset 0
 

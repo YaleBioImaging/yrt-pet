@@ -132,12 +132,12 @@ void copyDeviceToDevice(T* ppd_dest, const T* ppd_src, size_t p_numElems,
 }
 
 template <typename T>
-void memsetDevice(T* ppd_data, int value, size_t p_numElems,
+void memsetDevice(T* ppd_data, int p_value, size_t p_numElems,
                   GPULaunchConfig p_launchConfig)
 {
 	if (p_launchConfig.stream != nullptr)
 	{
-		cudaMemsetAsync(ppd_data, value, sizeof(T) * p_numElems,
+		cudaMemsetAsync(ppd_data, p_value, sizeof(T) * p_numElems,
 		                *p_launchConfig.stream);
 		if (p_launchConfig.synchronize)
 		{
@@ -146,7 +146,7 @@ void memsetDevice(T* ppd_data, int value, size_t p_numElems,
 	}
 	else
 	{
-		cudaMemset(ppd_data, value, sizeof(T) * p_numElems);
+		cudaMemset(ppd_data, p_value, sizeof(T) * p_numElems);
 		if (p_launchConfig.synchronize)
 		{
 			cudaDeviceSynchronize();

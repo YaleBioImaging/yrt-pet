@@ -134,7 +134,7 @@ TEST_CASE("histo3d", "[histo]")
 		size_t detsPerRing = halfDetsPerRingDistribution(engine) * 2ull;
 
 		std::uniform_int_distribution<size_t> minAngDiffDistribution(
-		    1, detsPerRing / 2);
+		    2, detsPerRing / 2);
 		size_t minAngDiff = minAngDiffDistribution(engine);
 		size_t maxRingDiff;
 		if (numRings > 1)
@@ -150,12 +150,8 @@ TEST_CASE("histo3d", "[histo]")
 
 		// Create scanner
 		auto scanner = std::make_unique<yrt::Scanner>(
-		    "FakeScanner", 200, 1, 1, 10, 200, detsPerRing, numRings, numDOI,
-		    maxRingDiff, minAngDiff, 2);
-		const auto detRegular =
-		    std::make_shared<yrt::DetRegular>(scanner.get());
-		detRegular->generateLUT();
-		scanner->setDetectorSetup(detRegular);
+		    "CustomFakeScanner", 200, 1, 1, 10, 200, detsPerRing, numRings,
+		    numDOI, maxRingDiff, minAngDiff, 2);
 
 		size_t numDets =
 		    scanner->numDOI * scanner->numRings * scanner->detsPerRing;

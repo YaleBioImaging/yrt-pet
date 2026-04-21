@@ -14,8 +14,8 @@ See [Documentation on the scanner definition](scanner) for more details
 
 Images are read and stored in NIfTI format.
 YRT-PET also uses a JSON file to define the Image parameters
-(size, voxel size, offset).
-See [Documentation on the Image parameters format](image_parameters).
+(size, voxel size, offset, time dimension).
+See [Documentation on the Image parameters format](image).
 
 ## YRT-PET raw data format (`Array`)
 

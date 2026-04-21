@@ -10,40 +10,42 @@
 
 namespace yrt
 {
-class ProjectionDataDevice;
+
+class ProjectionListDevice;
 class ImageDevice;
 
 class OperatorProjectorDD_GPU : public OperatorProjectorDevice
 {
 public:
 	explicit OperatorProjectorDD_GPU(
-	    const OperatorProjectorParams& projParams,
+	    const ProjectorParams& projParams, const BinIterator* binIter = nullptr,
 	    const std::vector<Constraint*>& constraints = {},
 	    const cudaStream_t* mainStream = nullptr,
-	    const cudaStream_t* auxStream = nullptr);
+	    const cudaStream_t* auxStream = nullptr, size_t p_memAvailBytes = 0);
 
-	std::set<ProjectionPropertyType>
-	    getProjectionPropertyTypes() const override;
+	static std::set<ProjectionPropertyType> getNeededProperties();
 
 protected:
-	void applyAOnLoadedBatch(ImageDevice& img, ProjectionDataDevice& dat,
+	void applyAOnLoadedBatch(ImageDevice& img, ProjectionListDevice& dat,
 	                         bool synchronize) override;
-	void applyAHOnLoadedBatch(ProjectionDataDevice& dat, ImageDevice& img,
+	void applyAHOnLoadedBatch(ProjectionListDevice& dat, ImageDevice& img,
 	                          bool synchronize) override;
 
 private:
 	template <bool IsForward>
-	void applyOnLoadedBatch(ProjectionDataDevice& dat, ImageDevice& img,
+	void applyOnLoadedBatch(ProjectionListDevice& dat, ImageDevice& img,
 	                        bool synchronize);
 
-	template <bool IsForward, bool HasTOF, bool HasProjPsf>
+	template <bool IsForward, bool HasTOF, bool HasProjPSF>
 	static void launchKernel(
-	    float* pd_projValues, float* pd_image, const char* pd_projProperties,
+	    float* pd_projValues, float* pd_image, UpdaterPointer pd_updater,
 	    const ProjectionPropertyManager* pd_projPropManager,
-	    const TimeOfFlightHelper* pd_tofHelper, const float* pd_projPsfKernels,
+	    const PropertyUnit* pd_projProperties,
+	    const TimeOfFlightHelper* pd_tofHelper,
 	    ProjectionPsfProperties projectionPsfProperties,
-	    CUScannerParams scannerParams, CUImageParams imgParams,
-	    size_t batchSize, unsigned int gridSize, unsigned int blockSize,
-	    const cudaStream_t* stream, bool synchronize);
+	    const float* pd_projPsfKernels, CUScannerParams scannerParams,
+	    CUImageParams imgParams, size_t batchSize, unsigned int gridSize,
+	    unsigned int blockSize, const cudaStream_t* stream, bool synchronize);
 };
+
 }  // namespace yrt

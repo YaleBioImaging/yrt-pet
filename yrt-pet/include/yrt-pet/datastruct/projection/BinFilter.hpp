@@ -6,9 +6,7 @@
 #pragma once
 
 #include <bitset>
-#include <functional>
 #include <set>
-#include <unordered_map>
 #include <vector>
 
 #include "yrt-pet/datastruct/projection/Constraints.hpp"
@@ -37,37 +35,49 @@ public:
 		COUNT
 	};
 	using CollectInfoFlags =
-	    std::bitset<static_cast<size_t>(BinFilter::CollectInfoFlag::COUNT)>;
-	BinFilter(const std::vector<Constraint*>& constraints,
-	          const std::set<ProjectionPropertyType>& projProperties);
+	    std::bitset<static_cast<size_t>(CollectInfoFlag::COUNT)>;
 
-	void clearConstraints();
+	virtual ~BinFilter() = default;
 
-	void setupManagers();
+	virtual void clearConstraints();
 
 	void collectConstraintVariables();
 	void collectFlags(CollectInfoFlags& collectFlags) const;
 	void collectInfo(bin_t bin, size_t projIdx, int consIdx,
 	                 const ProjectionData& projData,
 	                 const CollectInfoFlags& collectFlags,
-	                 ProjectionProperties& projProps,
-	                 ConstraintParams& consInfo) const;
-	bool isValid(const ConstraintManager& manager, ConstraintParams& info,
+	                 PropertyUnit* projProps, PropertyUnit* consInfo) const;
+	bool isValid(const ConstraintManager& manager, const PropertyUnit* consInfo,
 	             size_t pos) const;
 
 	const ConstraintManager& getConstraintManager() const;
 	const ProjectionPropertyManager& getPropertyManager() const;
 	const std::set<ProjectionPropertyType>& getProjPropertyTypes() const;
+	size_t getProjectionPropertiesElementSize() const;
 
-private:
+protected:
+	BinFilter(const std::vector<Constraint*>& constraints,
+	          const std::set<ProjectionPropertyType>& projProperties);
+
 	std::vector<Constraint*> m_constraints;
 
-	// Variables for constraints, sensitivity image, reconstruction
-	std::set<ConstraintVariable> m_consVariables;
-	std::unique_ptr<ConstraintManager> mp_constraintManager = nullptr;
-
+	// Variables for constraints and pr
+	std::set<ConstraintVariableType> m_consVariables;
 	std::set<ProjectionPropertyType> m_projVariables;
-	std::unique_ptr<ProjectionPropertyManager> mp_propManager = nullptr;
+
+	const ConstraintManager* mp_constraintManagerPtr;
+	const ProjectionPropertyManager* mp_propManagerPtr;
+};
+
+class BinFilterOwned : public BinFilter
+{
+public:
+	BinFilterOwned(const std::vector<Constraint*>& constraints,
+	               const std::set<ProjectionPropertyType>& projProperties);
+
+protected:
+	std::unique_ptr<ConstraintManager> mp_constraintManager;
+	std::unique_ptr<ProjectionPropertyManager> mp_propManager;
 };
 
 }  // namespace yrt

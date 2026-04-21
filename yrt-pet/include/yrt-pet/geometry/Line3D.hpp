@@ -24,6 +24,9 @@ public:
 	template <typename TargetType>
 	Line3DBase<TargetType> to() const;
 
+	// Return false if both endpoints of the line are the the same
+	bool isValid() const;
+
 	static Line3DBase<TFloat> nullLine();
 
 public:

@@ -8,6 +8,7 @@ set(SOURCES_DATASTRUCT
     ${SOURCES_COMMON}
     datastruct/test_Array.cpp
     datastruct/test_CSV.cpp
+    datastruct/test_DynamicFraming.cpp
     datastruct/test_SparseHistogram.cpp
     datastruct/test_Histogram3D.cpp
     datastruct/test_LORMotion.cpp
@@ -16,8 +17,9 @@ set(SOURCES_DATASTRUCT
     datastruct/test_Scanner.cpp
     datastruct/test_ProjectionProperties.cpp
     operators/test_TimeOfFlight.cpp
+    scatter/test_ScatterSpace.cpp
     utils/test_BinIterator.cpp
-    utils/test_BinFilter.cpp)
+    datastruct/test_BinFilter.cpp)
 
 if (${USE_CUDA})
     set(SOURCES_DATASTRUCT "${SOURCES_DATASTRUCT};utils/test_CUDA.cu")
@@ -37,7 +39,9 @@ set(SOURCES_ALGORITHMS
     operators/test_DD.cpp
     operators/test_SparseProjection.cpp
     operators/test_Siddon.cpp
-    operators/test_PSF.cpp)
+    operators/test_PSF.cpp
+    recon/test_TimeAverageMove.cpp
+)
 
 if (${USE_CUDA})
     set(SOURCES_ALGORITHMS "${SOURCES_ALGORITHMS};operators/test_Siddon_GPU.cu")

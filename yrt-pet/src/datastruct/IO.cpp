@@ -21,7 +21,7 @@ namespace yrt
 void py_setup_io(py::module& m)
 {
 	m.def("openProjectionData", &io::openProjectionData, "input_fname"_a,
-	      "input_format"_a, "scanner"_a, "pluginOptions"_a);
+	      "input_format"_a, "scanner"_a, "plugin_options"_a);
 	m.def("getProjector", io::getProjector, "projector_name"_a);
 	m.def("possibleFormats", io::possibleFormats);
 }
@@ -61,22 +61,22 @@ bool io::isFormatListMode(const std::string& format)
 	return plugin::PluginRegistry::instance().isFormatListMode(format_upper);
 }
 
-OperatorProjector::ProjectorType
-    io::getProjector(const std::string& projectorName)
+ProjectorType io::getProjector(const std::string& projectorName)
 {
 	const std::string projectorName_upper = util::toUpper(projectorName);
 
 	// Projector type
 	if (projectorName_upper == "S" || projectorName_upper == "SIDDON")
 	{
-		return OperatorProjector::ProjectorType::SIDDON;
+		return ProjectorType::SIDDON;
 	}
 	if (projectorName_upper == "D" || projectorName_upper == "DD")
 	{
-		return OperatorProjector::ProjectorType::DD;
+		return ProjectorType::DD;
 	}
-	throw std::invalid_argument(
-	    "Invalid Projector name, choices are Siddon (S), "
-	    "Distance-Driven cpu (D)");
+	throw std::invalid_argument("Invalid Projector name \"" +
+	                            projectorName_upper +
+	                            "\", choices are Siddon (S), "
+	                            "Distance-Driven (D)");
 }
 }  // namespace yrt

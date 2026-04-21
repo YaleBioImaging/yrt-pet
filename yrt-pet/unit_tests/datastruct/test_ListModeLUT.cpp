@@ -69,7 +69,7 @@ static void compareListModes(const ListModeLUT& a, const ListModeLUT& b,
 
 TEST_CASE("listmodelut", "[list-mode]")
 {
-	const auto scanner = util::test::makeScanner();
+	const auto scanner = util::test::makeFakeScanner();
 	const auto seed = static_cast<unsigned int>(std::time(nullptr));
 	const auto engine = std::make_shared<std::default_random_engine>(seed);
 

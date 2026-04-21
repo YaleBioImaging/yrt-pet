@@ -11,6 +11,7 @@ following:
   "nx": 192,
   "ny": 192,
   "nz": 89,
+  "nt" : 1,
   "vx": 2.0,
   "vy": 2.0,
   "vz": 2.8,
@@ -23,6 +24,7 @@ following:
 The properties are:
 
 - `nx`, `ny`, `nz` is the image size in X, Y, and Z in number of voxels
+- `nt` is the time dimension, which is used for dynamic reconstructions
 - `vx`, `vy`, `vz` is the voxel size in X, Y, and Z in millimeters
 - `off_x`, `off_y`, `off_z` is the X, Y and Z position of the *center* of the
   image.
@@ -56,10 +58,28 @@ spacing, The following requirements are imposed:
   provided (with `--sens`), in which case the orientation/origin/pixel size from
   the NifTI sensitivity image is used.
 
+## Fourth Dimension (Time)
+
+The image can have a fourth dimension for time, enabling dynamic PET
+reconstructions.
+The `nt` field in `ImageParams` sets the number of temporal frames.
+This is used in conjunction with {doc}`dynamic-framing` to reconstruct an image
+for each time range.
+
+
+The image dimensions are `(nt, nz, ny, nx)`. Note that time is the first
+dimension.
+
+### Notes
+When using dynamic framing:
+- Each frame is reconstructed separately (i.e., independently of other frames) but
+  the iterative updates are calculated for all frames  simultaneously
+- Sensitivity images can also be 4D when performing a dynamic reconstruction
+
 ## For Python users and plugin developers
 
 Note that the `ImageOwned` class has three constructors. One with a single
-`ImageParams` object, one with a single `std::string` for the filename, and
+`ImageParams` object, one with a single `string` for the filename, and
 one with both. The one that only takes a filename deduces the image parameters
 from the NIfTI header while the one that takes both the NIfTI file and
 the `ImageParams` object uses the latter to perform a consistency check in order

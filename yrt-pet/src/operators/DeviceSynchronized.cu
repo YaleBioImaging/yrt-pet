@@ -18,10 +18,9 @@ namespace util
 GPULaunchParams3D initiateDeviceParameters(const ImageParams& params)
 {
 	GPULaunchParams3D launchParams;
-	if (params.nz > 1)
+	if (params.nz * params.nt > 1)
 	{
-		const size_t threadsPerBlockDimImage =
-		    globals::ThreadsPerBlockImg3d;
+		const size_t threadsPerBlockDimImage = globals::ThreadsPerBlockImg3d;
 		const auto threadsPerBlockDimImage_float =
 		    static_cast<float>(threadsPerBlockDimImage);
 		const auto threadsPerBlockDimImage_uint =
@@ -32,8 +31,8 @@ GPULaunchParams3D initiateDeviceParameters(const ImageParams& params)
 		        std::ceil(params.nx / threadsPerBlockDimImage_float)),
 		    static_cast<unsigned int>(
 		        std::ceil(params.ny / threadsPerBlockDimImage_float)),
-		    static_cast<unsigned int>(
-		        std::ceil(params.nz / threadsPerBlockDimImage_float))};
+		    static_cast<unsigned int>(std::ceil(
+		        params.nz * params.nt / threadsPerBlockDimImage_float))};
 
 		launchParams.blockSize = {threadsPerBlockDimImage_uint,
 		                          threadsPerBlockDimImage_uint,
@@ -41,8 +40,7 @@ GPULaunchParams3D initiateDeviceParameters(const ImageParams& params)
 	}
 	else
 	{
-		const size_t threadsPerBlockDimImage =
-		    globals::ThreadsPerBlockImg2d;
+		const size_t threadsPerBlockDimImage = globals::ThreadsPerBlockImg2d;
 		const auto threadsPerBlockDimImage_float =
 		    static_cast<float>(threadsPerBlockDimImage);
 		const auto threadsPerBlockDimImage_uint =
@@ -95,25 +93,30 @@ CUImageParams DeviceSynchronized::getCUImageParams(const ImageParams& imgParams)
 {
 	CUImageParams params;
 
-	params.voxelNumber[0] = imgParams.nx;
-	params.voxelNumber[1] = imgParams.ny;
-	params.voxelNumber[2] = imgParams.nz;
+	params.nx = imgParams.nx;
+	params.ny = imgParams.ny;
+	params.nz = imgParams.nz;
 
-	params.imgLength[0] = imgParams.length_x;
-	params.imgLength[1] = imgParams.length_y;
-	params.imgLength[2] = imgParams.length_z;
+	params.length_x = imgParams.length_x;
+	params.length_y = imgParams.length_y;
+	params.length_z = imgParams.length_z;
 
-	params.voxelSize[0] = imgParams.vx;
-	params.voxelSize[1] = imgParams.vy;
-	params.voxelSize[2] = imgParams.vz;
+	params.vx = imgParams.vx;
+	params.vy = imgParams.vy;
+	params.vz = imgParams.vz;
 
-	params.offset[0] = imgParams.off_x;
-	params.offset[1] = imgParams.off_y;
-	params.offset[2] = imgParams.off_z;
+	params.off_x = imgParams.off_x;
+	params.off_y = imgParams.off_y;
+	params.off_z = imgParams.off_z;
 
 	params.fovRadius = imgParams.fovRadius;
 
 	return params;
+}
+
+CUImage DeviceSynchronized::getCUImage(ImageDevice& img)
+{
+	return {getCUImageParams(img.getParams()), img.getDevicePointer()};
 }
 
 DeviceSynchronized::DeviceSynchronized(const cudaStream_t* pp_mainStream,

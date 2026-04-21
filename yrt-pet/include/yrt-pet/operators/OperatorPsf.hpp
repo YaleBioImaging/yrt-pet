@@ -12,6 +12,9 @@
 
 namespace yrt
 {
+// YN: This class should be renamed OperatorSinglePsf and should inherit from
+//  a class named OperatorPsf, which should inherit from a class named
+//  OperatorPsfBase, which should inherit from Operator
 class OperatorPsf : public Operator
 {
 public:

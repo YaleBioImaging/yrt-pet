@@ -6,24 +6,66 @@
 #pragma once
 
 #include "yrt-pet/datastruct/image/ImageDevice.cuh"
-#include "yrt-pet/datastruct/projection/LORMotion.hpp"
+#include "yrt-pet/operators/OperatorProjectorBase.hpp"
+#include "yrt-pet/recon/OSEM.hpp"
 #include "yrt-pet/utils/GPUTypes.cuh"
 
 #include <memory>
 
 #if BUILD_CUDA
 
-namespace yrt::util
+namespace yrt
+{
+
+class DynamicFraming;
+class LORMotion;
+
+namespace util
 {
 
 std::unique_ptr<ImageDevice>
     timeAverageMoveImageDevice(const LORMotion& lorMotion,
                                const ImageBase* unmovedImage,
                                GPULaunchConfig launchConfig);
+void timeAverageMoveImageDevice(const LORMotion& lorMotion,
+                                const ImageBase* unmovedImage,
+                                ImageDevice* outImage, frame_t outDynamicFrame,
+                                GPULaunchConfig launchConfig);
+
 std::unique_ptr<ImageDevice> timeAverageMoveImageDevice(
     const LORMotion& lorMotion, const ImageBase* unmovedImage,
     timestamp_t timeStart, timestamp_t timeStop, GPULaunchConfig launchConfig);
+void timeAverageMoveImageDevice(const LORMotion& lorMotion,
+                                const ImageBase* unmovedImage,
+                                ImageDevice* outImage, timestamp_t timeStart,
+                                timestamp_t timeStop, frame_t outDynamicFrame,
+                                GPULaunchConfig launchConfig);
 
-}  // namespace yrt::util
+std::unique_ptr<ImageDevice> timeAverageMoveImageDynamicDevice(
+    const LORMotion& lorMotion, const ImageBase* unmovedImage,
+    const DynamicFraming& dynamicFraming, GPULaunchConfig launchConfig);
+void timeAverageMoveImageDynamicDevice(const LORMotion& lorMotion,
+                                       const ImageBase* unmovedImage,
+                                       ImageDevice* outImage,
+                                       const DynamicFraming& dynamicFraming,
+                                       GPULaunchConfig launchConfig);
+
+// This function throws an error if the project was not compiled with CUDA
+//  enabled
+std::unique_ptr<OSEM> createOSEM_GPU(const Scanner& scanner,
+                                     bool isLowRank = false);
+//  This function create either a OperatorProjectorSiddon_GPU or a
+//  OperatorProjectorDD_GPU. It will also throw an error if the project was not
+//  compiled with CUDA enabled. The bin iterator is mandatory, which is why it
+//  is being passed by reference here instead of by pointer. This is to ensure
+//  the given projector operator is usable after this
+std::unique_ptr<OperatorProjectorBase> createOperatorProjectorDevice(
+    const ProjectorParams& projParams, const BinIterator& binIter,
+    const std::vector<Constraint*>& constraintsPtr,
+    const cudaStream_t* mainStream, const cudaStream_t* auxStream);
+
+}  // namespace util
+
+}  // namespace yrt
 
 #endif

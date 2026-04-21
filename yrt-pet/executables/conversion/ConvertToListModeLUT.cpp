@@ -9,10 +9,9 @@
 #include "yrt-pet/datastruct/scanner/DetectorMask.hpp"
 #include "yrt-pet/datastruct/scanner/Scanner.hpp"
 #include "yrt-pet/utils/Assert.hpp"
-#include "yrt-pet/utils/Concurrency.hpp"
 #include "yrt-pet/utils/Globals.hpp"
-#include "yrt-pet/utils/ProgressDisplay.hpp"
 #include "yrt-pet/utils/ReconstructionUtils.hpp"
+#include "yrt-pet/utils/Version.hpp"
 
 #include <cxxopts.hpp>
 #include <iostream>

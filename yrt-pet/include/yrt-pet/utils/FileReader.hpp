@@ -32,7 +32,7 @@ protected:
 	std::streamoff cacheStart() const;
 
 private:
-	Array1D<char> m_cache;
+	Array1DOwned<char> m_cache;
 	std::streamoff m_cacheStart;
 	std::streamsize m_cacheSize;
 	std::istream& mr_istream;

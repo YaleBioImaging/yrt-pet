@@ -32,7 +32,7 @@ std::string possibleFormats(
 bool isFormatListMode(const std::string& format);
 
 // Projector-related
-OperatorProjector::ProjectorType getProjector(const std::string& projectorName);
+ProjectorType getProjector(const std::string& projectorName);
 
 }  // namespace io
 }  // namespace yrt

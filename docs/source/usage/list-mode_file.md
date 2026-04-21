@@ -37,10 +37,10 @@ If using python bindings, here's how to read a ListModeLUT:
 ```python
 import pyyrtpet as yrt
 
-scanner = yrt.Scanner("myscanner.json")
+scanner = yrt.Scanner("<myscanner>.json")
 flag_tof = True  # Indicate whether the list-mode file contains a TOF field
 flag_randoms = False  # Indicate whether it contains randoms estimates
-lm = yrt.ListModeLUTOwned(scanner, "mylistmode.lmDat",
+lm = yrt.ListModeLUTOwned(scanner, "<mylistmode>.lmDat",
                           flag_tof=flag_tof, flag_randoms=flag_randoms)
 ```
 

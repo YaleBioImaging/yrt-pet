@@ -18,11 +18,11 @@ namespace yrt
 {
 void py_setup_utilities_rangelist(py::module& m)
 {
-	auto m_utils = m.def_submodule("Utilities");
-	auto c_range = py::class_<util::RangeList>(m_utils, "RangeList");
+	auto c_range = py::class_<util::RangeList>(m, "RangeList");
 	c_range.def(py::init<>());
 	c_range.def(py::init<const std::string&>());
 	c_range.def("isIn", &util::RangeList::isIn, py::arg("idx"));
+	c_range.def("contains", &util::RangeList::contains, py::arg("idx"));
 	c_range.def("empty", &util::RangeList::empty);
 	c_range.def_static("makeRangeListStep", &util::RangeList::makeRangeListStep,
 	                   py::arg("begin"), py::arg("end_incl"), py::arg("step"));
@@ -47,9 +47,7 @@ void py_setup_utilities_rangelist(py::module& m)
 
 #endif
 
-namespace yrt
-{
-namespace util
+namespace yrt::util
 {
 
 RangeList::RangeList(const std::string& p_Ranges)
@@ -80,9 +78,16 @@ void RangeList::readFromString(const std::string& p_Ranges)
 RangeList RangeList::makeRangeListStep(int p_start, int p_end_incl, int p_step)
 {
 	RangeList ranges;
-	for (int it = p_start; it <= p_end_incl; it += p_step)
+	if (p_step == 1)
 	{
-		ranges.insertSorted(it, it);
+		ranges.insertSorted(p_start, p_end_incl);
+	}
+	else
+	{
+		for (int it = p_start; it <= p_end_incl; it += p_step)
+		{
+			ranges.insertSorted(it, it);
+		}
 	}
 	return ranges;
 }
@@ -171,6 +176,11 @@ size_t RangeList::getSizeTotal() const
 	return size;
 }
 
+bool RangeList::contains(int idx) const
+{
+	return isIn(idx);
+}
+
 bool RangeList::isIn(int idx) const
 {
 	for (auto range : m_Ranges)
@@ -188,5 +198,4 @@ bool RangeList::empty() const
 	return m_Ranges.size() == 0;
 }
 
-}  // namespace util
-}  // namespace yrt
+}  // namespace yrt::util

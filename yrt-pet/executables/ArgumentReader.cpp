@@ -5,6 +5,7 @@
 
 #include "ArgumentReader.hpp"
 #include "yrt-pet/datastruct/IO.hpp"
+#include "yrt-pet/utils/Version.hpp"
 
 #include <fstream>
 #include <sstream>
@@ -145,6 +146,13 @@ bool ArgumentReader::loadFromCommandLine(int argc, char** argv)
 	setupCommandLineOptions(options);
 
 	const auto result = options.parse(argc, argv);
+
+	if (result.count("version"))
+	{
+		version::printVersion();
+		return false;
+	}
+
 	if (result.count("help"))
 	{
 		std::cout << options.help() << std::endl;
@@ -284,6 +292,7 @@ void ArgumentReader::setupCommandLineOptions(cxxopts::Options& options) const
 	}
 
 	options.add_options()("h,help", "Print help");
+	options.add_options()("version", "Print version information");
 }
 
 void ArgumentReader::parseCommandLineResult(const cxxopts::ParseResult& result)
@@ -351,6 +360,11 @@ void ArgumentReader::validateRequiredParameters() const
 		ss << util::join(missingParams, ", ");
 		throw std::invalid_argument(ss.str());
 	}
+}
+
+bool ArgumentReader::hasValue(const std::string& name) const
+{
+	return m_values.find(name) != m_values.end();
 }
 }  // namespace io
 }  // namespace yrt

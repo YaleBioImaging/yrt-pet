@@ -11,7 +11,7 @@
 TEST_CASE("array1d", "[array]")
 {
 	yrt::Array1DBase<int>* arr;
-	auto _arr = std::make_unique<yrt::Array1D<int>>();
+	auto _arr = std::make_unique<yrt::Array1DOwned<int>>();
 	_arr->allocate(10);
 	arr = _arr.get();
 
@@ -40,7 +40,7 @@ TEST_CASE("array1d", "[array]")
 	arr->writeToFile("array1d");
 
 	yrt::Array1DBase<int>* arr2;
-	auto _arr2 = std::make_unique<yrt::Array1D<int>>();
+	auto _arr2 = std::make_unique<yrt::Array1DOwned<int>>();
 	arr2 = _arr2.get();
 	arr2->readFromFile("array1d");
 	std::remove("array1d");
@@ -63,7 +63,7 @@ TEST_CASE("array2d", "[array]")
 {
 
 	yrt::Array2DBase<int>* arr;
-	auto _arr = std::make_unique<yrt::Array2D<int>>();
+	auto _arr = std::make_unique<yrt::Array2DOwned<int>>();
 	_arr->allocate(2, 10);
 	arr = _arr.get();
 
@@ -100,7 +100,7 @@ TEST_CASE("array2d", "[array]")
 	arr->writeToFile("array2d");
 
 	yrt::Array2DBase<int>* arr2;
-	auto _arr2 = std::make_unique<yrt::Array2D<int>>();
+	auto _arr2 = std::make_unique<yrt::Array2DOwned<int>>();
 	arr2 = _arr2.get();
 	arr2->readFromFile("array2d");
 	std::remove("array2d");
@@ -120,7 +120,7 @@ TEST_CASE("array3d", "[array]")
 {
 
 	yrt::Array3DBase<int>* arr;
-	auto _arr = std::make_unique<yrt::Array3D<int>>();
+	auto _arr = std::make_unique<yrt::Array3DOwned<int>>();
 	_arr->allocate(3, 2, 10);
 	arr = _arr.get();
 
@@ -174,7 +174,7 @@ TEST_CASE("array3d", "[array]")
 	arr->writeToFile("array3d");
 
 	yrt::Array3DBase<int>* arr2;
-	auto _arr2 = std::make_unique<yrt::Array3D<int>>();
+	auto _arr2 = std::make_unique<yrt::Array3DOwned<int>>();
 	arr2 = _arr2.get();
 	arr2->readFromFile("array3d");
 	std::remove("array3d");
@@ -208,7 +208,7 @@ TEST_CASE("array1d-stl-type", "[array]")
 {
 	using Pair = std::pair<int, int>;
 
-	yrt::Array1D<Pair> arr;
+	yrt::Array1DOwned<Pair> arr;
 	arr.allocate(10);
 	arr[0] = Pair(12, 13);
 	arr[1] = {3, 2};
@@ -218,7 +218,7 @@ TEST_CASE("array1d-stl-type", "[array]")
 	}
 
 	arr.writeToFile("array-stl");
-	yrt::Array1D<Pair> arr2;
+	yrt::Array1DOwned<Pair> arr2;
 	arr2.readFromFile("array-stl");
 	std::remove("array-stl");
 

@@ -5,8 +5,8 @@
 
 #pragma once
 
-#include "yrt-pet/datastruct/projection/BinFilter.hpp"
 #include "yrt-pet/datastruct/projection/BinIterator.hpp"
+#include "yrt-pet/datastruct/projection/BinLoader.hpp"
 #include "yrt-pet/datastruct/scanner/ScannerDevice.cuh"
 #include "yrt-pet/utils/GPUTypes.cuh"
 #include "yrt-pet/utils/PageLockedBuffer.cuh"
@@ -19,15 +19,20 @@ class ProjectionData;
 class Scanner;
 class ImageParams;
 
+// This object is meant to be used in conjunction with ProjectionListDevice
+//  to hold projection properties (LOR, TOF, and everything else except for the
+//  projection value). Internally, this object uses a BinLoader to hold
+//  these properties in the host and a PropStructDevice to hold them in the
+//  device.
 class LORsDevice
 {
 public:
-	LORsDevice();
+	LORsDevice(const std::vector<Constraint*>& constraints,
+	           const std::set<ProjectionPropertyType>& projProperties);
 
 	void precomputeBatchLORs(const BinIterator& binIter,
 	                         const GPUBatchSetup& batchSetup, int subsetId,
-	                         int batchId, const ProjectionData& reference,
-	                         const BinFilter& binFilter);
+	                         int batchId, const ProjectionData& reference);
 	void loadPrecomputedLORsToDevice(GPULaunchConfig launchConfig);
 
 	// Gets the size of the last precomputed batch
@@ -43,19 +48,31 @@ public:
 	// Gets the index of the last-loaded subset
 	int getLoadedSubsetId() const;
 
-	const char* getProjectionPropertiesDevicePointer() const;
-	char* getProjectionPropertiesDevicePointer();
+	const ProjectionPropertyManager*
+	    getProjectionPropertyManagerDevicePointer() const;
+	const PropertyUnit* getProjectionPropertiesDevicePointer() const;
+	PropertyUnit* getProjectionPropertiesDevicePointer();
 	bool areLORsGathered() const;
 
-private:
-	void initializeDeviceArrays();
-	void allocateForPrecomputedLORsIfNeeded(GPULaunchConfig launchConfig);
+	// Memory (in bytes) that would be used by one row in the bin loader
+	size_t getElementSize() const;
 
-	std::unique_ptr<DeviceArray<char>> mp_projectionProperties;
-	PageLockedBuffer<char> m_tempProjectionProperties;
-	// Size (in bytes) of ProjectionProperties element of precomputed batch
-	size_t m_elementSize;
-	bool m_hasTOF;
+private:
+	void initializeDeviceArray(
+	    const std::set<ProjectionPropertyType>& projProperties);
+	void initBinLoader(
+	    const std::vector<Constraint*>& constraints = {},
+	    const std::set<ProjectionPropertyType>& projProperties = {});
+	void allocateForPrecomputedLORsIfNeeded(GPULaunchConfig launchConfig);
+	void allocateBinFilterIfNeeded(size_t newBatchSize);
+
+	// Contains temporary projection-space data in the host waiting to be loaded
+	//  on the GPU
+	std::unique_ptr<BinLoader> mp_binLoader;
+	// Projection-space data stored on the device
+	std::unique_ptr<PropStructDevice<ProjectionPropertyType>>
+	    mp_projectionProperties;
+
 	size_t m_precomputedBatchSize;
 	int m_precomputedBatchId;
 	int m_precomputedSubsetId;

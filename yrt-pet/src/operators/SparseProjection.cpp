@@ -18,21 +18,26 @@ namespace util
 {
 template <bool PrintProgress>
 void forwProjectToSparseHistogram(const Image& sourceImage,
-                                  const OperatorProjector& projector,
+                                  const Projector& projector,
                                   SparseHistogram& sparseHistogram)
 {
+	// Create the properties struct
+	// Only gather the detector pair because this is what the sparse histogram
+	//  can encode
+	std::set<ProjectionPropertyType> props = {ProjectionPropertyType::DET_ID};
+	props.merge(projector.getProjectionPropertyTypes());
+	PropStruct<ProjectionPropertyType> propStruct(props);
+	propStruct.allocate(1);
+
+	const auto& projPropManager = *propStruct.getManager();
+	PropertyUnit* projectionPropertiesPtr = propStruct.getRawPointer();
+
 	// Iterate over all LORs
 	const auto uniformHistogram =
 	    std::make_unique<UniformHistogram>(projector.getScanner());
 	const size_t numBins = uniformHistogram->count();
-	auto projPropManager = projector.getBinFilter()->getPropertyManager();
 
-	SparseHistogram* sparseHistogram_ptr = &sparseHistogram;
-	const UniformHistogram* uniformHistogram_ptr = uniformHistogram.get();
 	const Image* sourceImage_ptr = &sourceImage;
-	const OperatorProjector* projector_ptr = &projector;
-	auto projectionProperties = projPropManager.createDataArray(1);
-	auto projectionPropertiesPtr = projectionProperties.get();
 
 	ProgressDisplay progress(numBins, 5);
 
@@ -43,26 +48,27 @@ void forwProjectToSparseHistogram(const Image& sourceImage,
 			progress.progress(bin);
 		}
 
-		const det_pair_t detPair = uniformHistogram_ptr->getDetectorPair(bin);
-		uniformHistogram_ptr->getProjectionProperties(projectionPropertiesPtr,
-		                                              projPropManager, bin, 0);
+		uniformHistogram->collectProjectionProperties(
+		    projPropManager, projectionPropertiesPtr, 0, bin);
 
-		const float projValue = projector_ptr->forwardProjection(
-		    sourceImage_ptr, projectionProperties.get());
+		const float projValue = projector.forwardProjection(
+		    sourceImage_ptr, projPropManager, projectionPropertiesPtr, 0);
 
 		if (std::abs(projValue) > SMALL)
 		{
-			sparseHistogram_ptr->accumulate(detPair, projValue);
+			const auto detPair = projPropManager.getDataValue<det_pair_t>(
+			    projectionPropertiesPtr, 0, ProjectionPropertyType::DET_ID);
+			sparseHistogram.accumulate(detPair, projValue);
 		}
 	}
 }
 template void
     forwProjectToSparseHistogram<true>(const Image& sourceImage,
-                                       const OperatorProjector& projector,
+                                       const Projector& projector,
                                        SparseHistogram& sparseHistogram);
 template void
     forwProjectToSparseHistogram<false>(const Image& sourceImage,
-                                        const OperatorProjector& projector,
+                                        const Projector& projector,
                                         SparseHistogram& sparseHistogram);
 }  // namespace util
 }  // namespace yrt

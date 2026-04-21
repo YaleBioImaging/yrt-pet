@@ -213,7 +213,7 @@ TEST_CASE("biniterator_batched", "[iterator]")
 	SECTION("batched-chronological-interleaved")
 	{
 		const size_t numEvents = 4000 + rand() % 5000;
-		const size_t numSubsets = rand() % 20;
+		const size_t numSubsets = 1 + rand() % 20;
 
 		const size_t idxSubset = rand() % numSubsets;
 		const auto original = yrt::BinIteratorChronologicalInterleaved(

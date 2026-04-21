@@ -554,15 +554,16 @@ void Image::writeToFile(const std::string& fname) const
 	nim->nifti_type = NIFTI_FTYPE_NIFTI1_1;
 
 	// Write something in the NIfTI description;
-	std::string yrtpetVersionString = version::getVersionString();
-	const size_t versionStringLength = yrtpetVersionString.size();
+	const std::string yrtpetSignature =
+	    "YRT-PET " + version::getVersionString();
+	const size_t versionStringLength = yrtpetSignature.size();
 
 	// In case the length of the YRT version string is larger than 80 characters
 	const size_t versionStringToCopy =
 	    versionStringLength > 80 ? 80 : versionStringLength;
 	for (size_t i = 0ull; i < versionStringToCopy; i++)
 	{
-		nim->descrip[i] = yrtpetVersionString[i];
+		nim->descrip[i] = yrtpetSignature[i];
 	}
 
 	nim->fname = strdup(fname.c_str());

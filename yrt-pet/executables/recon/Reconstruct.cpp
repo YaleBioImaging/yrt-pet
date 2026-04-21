@@ -862,7 +862,7 @@ int main(int argc, char** argv)
 		reconTimer.pause();
 
 		printTimingStatistics(ioTimer, sensTimer, reconTimer);
-		saveSummaryIfNeeded(*osem, saveSummary, outSens_fname);
+		saveSummaryIfNeeded(*osem, saveSummary, out_fname);
 		std::cout << "Done." << std::endl;
 		return 0;
 	}

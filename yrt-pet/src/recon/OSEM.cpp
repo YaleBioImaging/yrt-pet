@@ -22,6 +22,7 @@
 #include "yrt-pet/utils/Assert.hpp"
 #include "yrt-pet/utils/Globals.hpp"
 #include "yrt-pet/utils/Tools.hpp"
+#include "yrt-pet/utils/Version.hpp"
 
 #if BUILD_PYBIND11
 #include <pybind11/numpy.h>
@@ -364,6 +365,8 @@ std::unique_ptr<Image> OSEM::reconstruct(const std::string& out_fname)
 std::string OSEM::getSummary() const
 {
 	std::stringstream ss;
+
+	ss << "YRT-PET version: " << version::getVersionString() << std::endl;
 
 	ss << "Scanner name: " << scanner.scannerName << std::endl;
 	ss << "Number of threads used: " << globals::getNumThreads() << std::endl;

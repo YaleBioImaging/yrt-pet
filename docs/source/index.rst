@@ -57,6 +57,11 @@ YRT-PET documentation
    faq
    compilation/contributing
 
+Current YRT-PET version:
+------------------------
+.. literalinclude:: ../../yrt-pet/VERSION.txt
+   :language: text
+
 Citing YRT-PET:
 ---------------
 If you use YRT-PET in one of your projects, you can cite our

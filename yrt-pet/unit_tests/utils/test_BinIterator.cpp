@@ -158,4 +158,78 @@ TEST_CASE("biniterator_chronological_interleaved", "[iterator]")
 	}
 }
 
-// TODO: Add a unit test for BinIteratorRange3D
+TEST_CASE("biniterator_batched", "[iterator]")
+{
+	SECTION("batched-range")
+	{
+		size_t begin = rand() % 100;
+		size_t stride = 1 + rand() % 20;
+		size_t end = begin + stride + (rand() % 20);
+		size_t end_t = begin;
+		while (end_t + stride <= end)
+		{
+			end_t += stride;
+		}
+
+		auto original = yrt::BinIteratorRange(begin, end, stride);
+		size_t batchStart = rand() % (original.size() / 2 + 1);
+		size_t batchSize = rand() % (original.size() - batchStart + 1);
+
+		auto batched =
+		    yrt::BinIteratorBatched(&original, batchStart, batchSize);
+
+		REQUIRE(batched.size() == batchSize);
+		for (int i = 0; i < 10; i++)
+		{
+			const int testIdx = rand() % batchSize;
+			CHECK(batched.get(testIdx) == original.get(testIdx + batchStart));
+		}
+	}
+
+	SECTION("batched-range-histogram3d")
+	{
+		const size_t numZBin = 10 + rand() % 10;
+		const size_t numPhi = 10 + rand() % 10;
+		const size_t numR = 10 + rand() % 10;
+		const int numSubsets = 1 + rand() % 5;
+		const int idxSubset = rand() % numSubsets;
+
+		const auto original = yrt::BinIteratorRangeHistogram3D(
+		    numZBin, numPhi, numR, numSubsets, idxSubset);
+		const size_t batchStart = rand() % (original.size() / 2 + 1);
+		const size_t batchSize = rand() % (original.size() - batchStart + 1);
+
+		const auto batched =
+		    yrt::BinIteratorBatched(&original, batchStart, batchSize);
+
+		REQUIRE(batched.size() == batchSize);
+		for (int i = 0; i < 10; i++)
+		{
+			const int testIdx = rand() % batchSize;
+			CHECK(batched.get(testIdx) == original.get(testIdx + batchStart));
+		}
+	}
+
+	SECTION("batched-chronological-interleaved")
+	{
+		constexpr size_t NumSubsets = 3;
+		constexpr size_t NumEvents = 13;
+
+		const size_t idxSubset = rand() % NumSubsets;
+		const auto original = yrt::BinIteratorChronologicalInterleaved(
+		    NumSubsets, NumEvents, idxSubset);
+
+		const size_t batchStart = rand() % (original.size() / 2 + 1);
+		const size_t batchSize = rand() % (original.size() - batchStart + 1);
+
+		const auto batched =
+		    yrt::BinIteratorBatched(&original, batchStart, batchSize);
+
+		REQUIRE(batched.size() == batchSize);
+		for (int i = 0; i < 10; i++)
+		{
+			const int testIdx = rand() % batchSize;
+			CHECK(batched.get(testIdx) == original.get(testIdx + batchStart));
+		}
+	}
+}

@@ -68,22 +68,6 @@ TEST_CASE("Siddon-simple", "[siddon]")
 	img_bp->fill(0.0);
 	float fov_radius = img->getRadius();
 
-	//	int numTimeFrames = 1;
-	//	int rank = 5;
-	//	yrt::Array2D<float> HBasis;
-	//	HBasis.allocate(rank, numTimeFrames);
-	//
-	//	for (int l = 0; l < rank; ++l) {
-	//		for (int t = 0; t < numTimeFrames; ++t) {
-	//			// using flat access: row l, col t
-	//			std::array<size_t, 2> idx = {static_cast<size_t>(l),
-	// static_cast<size_t>(t)}; 			HBasis.set(idx,
-	// static_cast<float>(l) + 0.1f * t);
-	//		}
-	//	}
-	//	yrt::ProjectorUpdaterLR updater;
-	//	updater.setHBasis(HBasis);
-
 	SECTION("planar_isocenter_ray")
 	{
 		int num_tests = 10;
@@ -400,21 +384,6 @@ TEST_CASE("Siddon-random", "[siddon]")
 	double dy = sy / ny;
 	double dz = sz / nz;
 
-	//	int rank = 5;
-	//	yrt::Array2D<float> HBasis;
-	//	HBasis.allocate(rank, numTimeFrames);
-	//
-	//	for (int l = 0; l < rank; ++l) {
-	//		for (int t = 0; t < numTimeFrames; ++t) {
-	//			// using flat access: row l, col t
-	//			std::array<size_t, 2> idx = {static_cast<size_t>(l),
-	// static_cast<size_t>(t)}; 			HBasis.set(idx,
-	// static_cast<float>(l) + 0.1f * t);
-	//		}
-	//	}
-	//	yrt::ProjectorUpdaterLR updater;
-	//	updater.setHBasis(HBasis);
-
 	SECTION("sampling_check")
 	{
 		int num_tests = 100;
@@ -593,23 +562,6 @@ TEST_CASE("Siddon-bugs", "[siddon]")
 		double v = rand() / (double)RAND_MAX * 1000.0;
 		img->fill(v);
 
-		//		int numTimeFrames = 1;
-		//		int rank = 5;
-		//		yrt::Array2D<float> HBasis;
-		//		HBasis.allocate(rank, numTimeFrames);
-		//
-		//		for (int l = 0; l < rank; ++l) {
-		//			for (int t = 0; t < numTimeFrames; ++t) {
-		//				// using flat access: row l, col t
-		//				std::array<size_t, 2> idx = {static_cast<size_t>(l),
-		// static_cast<size_t>(t)}; 				HBasis.set(idx,
-		// static_cast<float>(l) + 0.1f
-		//* t);
-		//			}
-		//		}
-		//		yrt::ProjectorUpdaterLR updater;
-		//		updater.setHBasis(HBasis);
-
 		yrt::Vector3D p1{-15.998346, -11.563760, 10.800007};
 		yrt::Vector3D p2{19.74, 0.0, 13.200009};
 		yrt::Line3D lor{p1, p2};
@@ -654,22 +606,6 @@ TEST_CASE("Siddon-bugs", "[siddon]")
 				}
 			}
 		}
-
-		//		int rank = 5;
-		//		yrt::Array2D<float> HBasis;
-		//		HBasis.allocate(rank, numTimeFrames);
-		//
-		//		for (int l = 0; l < rank; ++l) {
-		//			for (int t = 0; t < numTimeFrames; ++t) {
-		//				// using flat access: row l, col t
-		//				std::array<size_t, 2> idx = {static_cast<size_t>(l),
-		// static_cast<size_t>(t)}; 				HBasis.set(idx,
-		// static_cast<float>(l) + 0.1f
-		//* t);
-		//			}
-		//		}
-		//		yrt::ProjectorUpdaterLR updater;
-		//		updater.setHBasis(HBasis);
 
 		// xy
 		{

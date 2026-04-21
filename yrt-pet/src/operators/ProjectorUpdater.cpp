@@ -61,31 +61,7 @@ void py_setup_projectorupdater(py::module& m)
 	lr_upd.def(py::init<Array2DOwned<float>&>());
 	lr_upd.def("getHBasisCopy", &ProjectorUpdaterLR::getHBasisCopy);
 
-
 	lr_upd.def("setHBasis", &ProjectorUpdaterLR::setHBasis);
-
-	// new numpy version (2D: [rank, time])
-	//	lr_upd.def("setHBasisFromNumpy",
-	//	     [](ProjectorUpdaterLR& self, py::buffer& np_data) {
-	//	        py::buffer_info buffer = np_data.request();
-	//		    if (buffer.ndim != 2) {
-	//			     throw std::invalid_argument("HBasis numpy array must be 2D
-	//(rank x time).");
-	//		     }
-	//		     if (buffer.format != py::format_descriptor<float>::format())
-	//		     {
-	//			     throw std::invalid_argument(
-	//			         "HBasis buffer given has to have a float32 format");
-	//		     }
-	//
-	//		    const int rank = static_cast<int>(buffer.shape[0]);
-	//		    const int numTimeFrames = static_cast<int>(buffer.shape[1]);
-	//		    // Create an alias into the numpy data
-	//		    Array2DAlias<float> alias;
-	//		    alias.bind(reinterpret_cast<float*>(buffer.ptr), rank,
-	// numTimeFrames); 		    self.setHBasis(alias);
-	//	     },
-	//	     py::arg("HBasis"), py::keep_alive<1, 2>());
 
 	lr_upd.def("setUpdateH", [](ProjectorUpdaterLR& self, bool updateH)
 	           { self.setUpdateH(updateH); });

@@ -3,7 +3,7 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "../../include/yrt-pet/operators/ProjectionSpaceKernels.cuh"
+#include "yrt-pet/operators/ProjectionSpaceKernels.cuh"
 #include "yrt-pet/geometry/Constants.hpp"
 
 #include <complex>

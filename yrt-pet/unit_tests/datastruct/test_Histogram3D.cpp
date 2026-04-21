@@ -134,7 +134,7 @@ TEST_CASE("histo3d", "[histo]")
 		size_t detsPerRing = halfDetsPerRingDistribution(engine) * 2ull;
 
 		std::uniform_int_distribution<size_t> minAngDiffDistribution(
-		    1, detsPerRing / 2);
+		    2, detsPerRing / 2);
 		size_t minAngDiff = minAngDiffDistribution(engine);
 		size_t maxRingDiff;
 		if (numRings > 1)

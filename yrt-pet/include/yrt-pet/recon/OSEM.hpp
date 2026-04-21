@@ -119,7 +119,7 @@ public:
 protected:
 	// Sens Image generator driver
 	virtual void setupProjectorForSensImgGen() = 0;
-	virtual void allocateForSensImgGen() = 0;
+	virtual void prepareBuffersForSensImgGen() = 0;
 	virtual std::unique_ptr<Image>
 	    generateSensitivityImageForCurrentSubset() = 0;
 	virtual void endSensImgGen() = 0;
@@ -129,7 +129,7 @@ protected:
 	virtual void saveForCurrentIteration();
 	virtual void setupForDynamicRecon();
 	virtual void setupProjectorForRecon() = 0;
-	virtual void allocateForRecon() = 0;
+	virtual void prepareBuffersForRecon() = 0;
 	virtual void loadCurrentSubset(bool p_forRecon) = 0;
 	virtual void resetEMUpdateImage() = 0;
 	virtual void computeEMUpdateImage() = 0;

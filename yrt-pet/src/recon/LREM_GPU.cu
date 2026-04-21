@@ -32,9 +32,9 @@ LREM_GPU::LREM_GPU(const Scanner& pr_scanner) : OSEM_GPU(pr_scanner), LREM()
 	projectorParams.updaterType = UpdaterType::LR;
 }
 
-void LREM_GPU::allocateForRecon()
+void LREM_GPU::prepareBuffersForRecon()
 {
-	OSEM_GPU::allocateForRecon();
+	OSEM_GPU::prepareBuffersForRecon();
 
 	const bool dualUpdate = isDualUpdate();
 

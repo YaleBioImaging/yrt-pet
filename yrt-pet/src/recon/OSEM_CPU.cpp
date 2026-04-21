@@ -107,7 +107,7 @@ void OSEM_CPU::setupProjectorForSensImgGen()
 	mp_projector = Projector::create(projParams);
 }
 
-void OSEM_CPU::allocateForSensImgGen()
+void OSEM_CPU::prepareBuffersForSensImgGen()
 {
 	auto imageParamsSens = getImageParamsForSensImgGen();
 
@@ -213,7 +213,7 @@ void OSEM_CPU::setupProjectorForRecon()
 	}
 }
 
-void OSEM_CPU::allocateForRecon()
+void OSEM_CPU::prepareBuffersForRecon()
 {
 	// Allocate for projection-space buffers
 	const ProjectionData* dataInput = getDataInput();

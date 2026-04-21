@@ -120,7 +120,7 @@ void OSEM_GPU::setupProjectorForSensImgGen()
 	}
 }
 
-void OSEM_GPU::allocateForSensImgGen()
+void OSEM_GPU::prepareBuffersForSensImgGen()
 {
 	auto imageParamsSens = getImageParamsForSensImgGen();
 
@@ -308,7 +308,7 @@ void OSEM_GPU::setupProjectorForRecon()
 	setupProjectorUpdater(projectorParams);
 }
 
-void OSEM_GPU::allocateForRecon()
+void OSEM_GPU::prepareBuffersForRecon()
 {
 	// Allocate image-space buffers
 

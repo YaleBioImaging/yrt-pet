@@ -18,7 +18,7 @@ public:
 	explicit LREM_CPU(const Scanner& pr_scanner);
 	~LREM_CPU() override = default;
 
-	void allocateForRecon() override;
+	void prepareBuffersForRecon() override;
 	void resetEMUpdateImage() override;
 	void applyImageUpdate() override;
 	void completeSubset() override;

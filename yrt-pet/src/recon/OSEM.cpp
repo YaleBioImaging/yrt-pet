@@ -893,7 +893,7 @@ void OSEM::initializeForSensImgGen()
 	setupProjectorForSensImgGen();
 
 	// Allocate buffers
-	allocateForSensImgGen();
+	prepareBuffersForSensImgGen();
 }
 
 void OSEM::initializeForRecon()
@@ -917,7 +917,7 @@ void OSEM::initializeForRecon()
 	setupProjectorForRecon();
 
 	// Allocate buffers
-	allocateForRecon();
+	prepareBuffersForRecon();
 }
 
 void OSEM::generateSensitivityImagesCore(

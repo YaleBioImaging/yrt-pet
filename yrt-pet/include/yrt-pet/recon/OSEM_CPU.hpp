@@ -32,14 +32,14 @@ public:
 protected:
 	// Sens Image generator driver
 	void setupProjectorForSensImgGen() override;
-	void allocateForSensImgGen() override;
+	void prepareBuffersForSensImgGen() override;
 	std::unique_ptr<Image> generateSensitivityImageForCurrentSubset() override;
 	void endSensImgGen() override;
 
 	// Reconstruction driver
 	void setupForDynamicRecon() override;
 	void setupProjectorForRecon() override;
-	void allocateForRecon() override;
+	void prepareBuffersForRecon() override;
 	void loadCurrentSubset(bool forRecon) override;
 	void resetEMUpdateImage() override;
 	void computeEMUpdateImage() override;

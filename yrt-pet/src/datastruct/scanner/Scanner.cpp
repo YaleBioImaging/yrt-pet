@@ -46,6 +46,10 @@ void py_setup_scanner(pybind11::module& m)
 	c.def("isDetectorAllowed", &Scanner::isDetectorAllowed, "det_id"_a);
 	c.def("isValid", &Scanner::isValid);
 	c.def("hasMask", &Scanner::hasMask);
+	c.def("addMask", static_cast<void (Scanner::*)(const DetectorMask&)>(
+	                     &Scanner::addMask));
+	c.def("addMask", static_cast<void (Scanner::*)(const std::string&)>(
+	                     &Scanner::addMask));
 	c.def_readwrite("scannerName", &Scanner::scannerName);
 	c.def_readwrite("axialFOV", &Scanner::axialFOV);
 	c.def_readwrite("crystalSize_z", &Scanner::crystalSize_z);

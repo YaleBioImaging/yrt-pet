@@ -433,7 +433,7 @@ void ListModeLUTOwned::readFromFileBound(const std::string& listMode_fname,
 			size_t bufferPos_fields = numFieldsPerEvent * i;
 			timestamp_t timestamp = buff[bufferPos_fields];
 
-			if (timestamp >= timeStart && timestamp <= timeStop)
+			if (timestamp >= timeStart && timestamp < timeStop)
 			{
 				const det_id_t d1 = buff[bufferPos_fields + 1];
 				const det_id_t d2 = buff[bufferPos_fields + 2];

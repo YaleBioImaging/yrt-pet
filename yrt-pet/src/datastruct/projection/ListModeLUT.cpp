@@ -840,20 +840,42 @@ std::unique_ptr<ProjectionData>
 		flagRandoms = std::get<bool>(flagRandomsVariant);
 	}
 
-	auto lm = std::make_unique<ListModeLUTOwned>(scanner, filename, flagTOF,
-	                                             flagRandoms);
+	const auto timeStartVariant = options.at("time_start");
+	timestamp_t timeStart = 0u;
+	if (!std::holds_alternative<std::monostate>(timeStartVariant))
+	{
+		ASSERT(std::holds_alternative<int>(timeStartVariant));
+		timeStart = std::get<int>(timeStartVariant);
+	}
 
-	return lm;
+	const auto timeStopVariant = options.at("time_stop");
+	timestamp_t timeStop = ListModeLUT::DefaultStopTime;
+	if (!std::holds_alternative<std::monostate>(timeStopVariant))
+	{
+		ASSERT(std::holds_alternative<int>(timeStopVariant));
+		timeStop = std::get<int>(timeStopVariant);
+	}
+
+	if (timeStart == 0 && timeStop == ListModeLUT::DefaultStopTime)
+	{
+		return std::make_unique<ListModeLUTOwned>(scanner, filename, flagTOF,
+		                                          flagRandoms);
+	}
+	else
+	{
+		return std::make_unique<ListModeLUTOwned>(
+		    scanner, filename, timeStart, timeStop, flagTOF, flagRandoms);
+	}
 }
 
 plugin::OptionsListPerPlugin ListModeLUTOwned::getOptions()
 {
 	return {
 	    {"time_start",
-	     {"Start time (in ms) from which to start reading the file",
+	     {"Start time (in ms) from which to start reading the file (inclusive)",
 	      io::TypeOfArgument::INT}},
 	    {"time_stop",
-	     {"Stop time (in ms) from which to stop reading the file",
+	     {"Stop time (in ms) from which to stop reading the file (exclusive)",
 	      io::TypeOfArgument::INT}},
 	    {"flag_tof", {"Flag for reading TOF column", io::TypeOfArgument::BOOL}},
 	    {"flag_randoms",

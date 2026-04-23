@@ -21,6 +21,9 @@ class Scanner;
 class ListModeLUT : public ListMode
 {
 public:
+	static constexpr timestamp_t DefaultStopTime =
+	std::numeric_limits<timestamp_t>::max();
+
 	// Methods
 	~ListModeLUT() override = default;
 

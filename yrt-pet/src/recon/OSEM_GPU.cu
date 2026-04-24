@@ -328,6 +328,14 @@ void OSEM_GPU::prepareBuffersForRecon()
 		mpd_tmpImage2 = std::make_unique<ImageDeviceOwned>(getImageParams(),
 		                                                   getMainStream());
 		mpd_tmpImage2->allocate(false);
+
+		auto imagePsfOperatorPsf =
+		    dynamic_cast<OperatorPsfDevice*>(imagePsf.get());
+		if (imagePsfOperatorPsf != nullptr)
+		{
+			imagePsfOperatorPsf->allocateTemporaryDeviceImageIfNeeded(
+			    getImageParams(), {nullptr, true});
+		}
 	}
 
 	// Initialize the MLEM image values to non-zero

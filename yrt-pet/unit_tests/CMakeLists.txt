@@ -41,6 +41,7 @@ set(SOURCES_ALGORITHMS
     operators/test_Siddon.cpp
     operators/test_PSF.cpp
     recon/test_TimeAverageMove.cpp
+    recon/test_UpdateEM.cpp
 )
 
 if (${USE_CUDA})

@@ -316,8 +316,8 @@ void OSEM_GPU::prepareBuffersForRecon()
 	    std::make_unique<ImageDeviceOwned>(getImageParams(), getMainStream());
 	mpd_tmpImage1 =
 	    std::make_unique<ImageDeviceOwned>(getImageParams(), getMainStream());
-	mpd_sensImageBuffer =
-	    std::make_unique<ImageDeviceOwned>(getImageParams(), getMainStream());
+	mpd_sensImageBuffer = std::make_unique<ImageDeviceOwned>(
+	    getSensitivityImage(0)->getParams(), getMainStream());
 
 	mpd_mlemImage->allocate(false);
 	mpd_tmpImage1->allocate(false);
@@ -352,6 +352,11 @@ void OSEM_GPU::prepareBuffersForRecon()
 	// unnecessarily)
 	if (maskImage != nullptr)
 	{
+		ASSERT_MSG(
+		    maskImage->getParams().isSameDimensionsAs(getImageParams()) ||
+		        maskImage->getParams().isSameDimensionsAs(
+		            mpd_sensImageBuffer->getParams()),
+		    "Mask image given seems to have an incompatible size");
 		mpd_tmpImage1->copyFromHostImage(maskImage, true);
 	}
 	else if (num_OSEM_subsets == 1 || usingListModeInput)

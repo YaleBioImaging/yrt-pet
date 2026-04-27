@@ -40,6 +40,7 @@ set(SOURCES_ALGORITHMS
     operators/test_SparseProjection.cpp
     operators/test_Siddon.cpp
     operators/test_PSF.cpp
+    recon/test_ApplyThreshold.cpp
     recon/test_TimeAverageMove.cpp
     recon/test_UpdateEM.cpp
 )

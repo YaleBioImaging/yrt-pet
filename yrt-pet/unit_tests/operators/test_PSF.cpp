@@ -253,7 +253,12 @@ TEST_CASE("PSF", "[psf]")
 
 TEST_CASE("PSF_4D", "[psf]")
 {
-	for (int useGPU = 0; useGPU < 2; useGPU++)
+#if BUILD_CUDA
+	int numModes = 2;
+#else
+	int numModes = 1;
+#endif
+	for (int useGPU = 0; useGPU < numModes; useGPU++)
 	{
 		ImageParams imgParams4D(30, 30, 15, 30.0f, 30.0f, 15.0f, 0.0f, 0.0f,
 		                        0.0f, 2);
@@ -292,7 +297,9 @@ TEST_CASE("PSF_4D", "[psf]")
 		std::unique_ptr<Operator> op;
 		if (useGPU)
 		{
+#if BUILD_CUDA
 			op = std::make_unique<OperatorPsfDevice>(kernelX, kernelY, kernelZ);
+#endif
 		}
 		else
 		{

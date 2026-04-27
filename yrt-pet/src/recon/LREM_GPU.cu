@@ -98,8 +98,6 @@ void LREM_GPU::applyImageUpdate()
 
 	if (!projectorParams.updateH || dualUpdate)
 	{
-		// TODO NOW: YN: Check with YD. Why did we pass a host-side pointer to a
-		//  device function here ?
 		mpd_mlemImage->updateEMThresholdDynamic(mpd_tmpImage1.get(),
 		                                        mpd_sensImageBuffer.get(),
 		                                        m_cWUpdate, EPS_FLT);

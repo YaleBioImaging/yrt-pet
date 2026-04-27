@@ -184,7 +184,8 @@ void OperatorPsfDevice::allocateTemporaryDeviceImageIfNeeded(
 {
 	const auto* stream = config.stream;
 	if (mpd_intermediaryImage == nullptr ||
-	    !(mpd_intermediaryImage->getParams().isSameDimensionsAs(params)))
+	    !mpd_intermediaryImage->getParams().isSameDimensionsAs(params) ||
+	    !mpd_intermediaryImage->getParams().isSameNumFramesAs(params))
 	{
 		mpd_intermediaryImage =
 		    std::make_unique<ImageDeviceOwned>(params, stream);

@@ -404,7 +404,9 @@ void OperatorPsfDevice::convolveDevice(const ImageDevice& inputImage,
 {
 	const ImageParams& params = inputImage.getParams();
 	ASSERT_MSG(params.isSameDimensionsAs(outputImage.getParams()),
-	           "Image parameters mismatch");
+	           "Image parameters dimensions mismatch");
+	ASSERT_MSG(params.isSameNumFramesAs(outputImage.getParams()),
+	           "Image parameters number of frames mismatch");
 
 	const float* pd_inputImage = inputImage.getDevicePointer();
 	float* pd_outputImage = outputImage.getDevicePointer();
@@ -439,50 +441,58 @@ void OperatorPsfDevice::convolveDevice(const ImageDevice& inputImage,
 
 	const GPULaunchParams3D launchParams = inputImage.getLaunchParams();
 
-	if (stream != nullptr)
+	for (frame_t frame = 0; frame < params.nt; frame++)
 	{
-		// Convolve along X-axis
-		convolve3DSeparable_kernel<0>
-		    <<<launchParams.gridSize, launchParams.blockSize, 0, *stream>>>(
-		        pd_inputImage, pd_intermediaryImage, pd_kernelX, kerSize[0],
-		        params.nx, params.ny, params.nz);
+		const float* pd_inputImageOffsetted =
+		    pd_inputImage + frame * params.nx * params.ny * params.nz;
+		float* pd_intermediaryImageOffsetted =
+		    pd_intermediaryImage + frame * params.nx * params.ny * params.nz;
+		float* pd_outputImageOffsetted =
+		    pd_outputImage + frame * params.nx * params.ny * params.nz;
 
-		// Convolve along Y-axis
-		convolve3DSeparable_kernel<1>
-		    <<<launchParams.gridSize, launchParams.blockSize, 0, *stream>>>(
-		        pd_intermediaryImage, pd_outputImage, pd_kernelY, kerSize[1],
-		        params.nx, params.ny, params.nz);
+		if (stream != nullptr)
+		{
+			// Convolve along X-axis
+			convolve3DSeparable_kernel<0>
+			    <<<launchParams.gridSize, launchParams.blockSize, 0, *stream>>>(
+			        pd_inputImageOffsetted, pd_intermediaryImageOffsetted,
+			        pd_kernelX, kerSize[0], params.nx, params.ny, params.nz);
 
-		// Convolve along Z-axis
-		convolve3DSeparable_kernel<2>
-		    <<<launchParams.gridSize, launchParams.blockSize, 0, *stream>>>(
-		        pd_outputImage, pd_intermediaryImage, pd_kernelZ, kerSize[2],
-		        params.nx, params.ny, params.nz);
+			// Convolve along Y-axis
+			convolve3DSeparable_kernel<1>
+			    <<<launchParams.gridSize, launchParams.blockSize, 0, *stream>>>(
+			        pd_intermediaryImageOffsetted, pd_outputImageOffsetted,
+			        pd_kernelY, kerSize[1], params.nx, params.ny, params.nz);
 
-		outputImage.copyFromDeviceImage(mpd_intermediaryImage.get(), false);
+			// Convolve along Z-axis
+			convolve3DSeparable_kernel<2>
+			    <<<launchParams.gridSize, launchParams.blockSize, 0, *stream>>>(
+			        pd_outputImageOffsetted, pd_intermediaryImageOffsetted,
+			        pd_kernelZ, kerSize[2], params.nx, params.ny, params.nz);
+		}
+		else
+		{
+			// Convolve along X-axis
+			convolve3DSeparable_kernel<0>
+			    <<<launchParams.gridSize, launchParams.blockSize, 0>>>(
+			        pd_inputImageOffsetted, pd_intermediaryImageOffsetted,
+			        pd_kernelX, kerSize[0], params.nx, params.ny, params.nz);
+
+			// Convolve along Y-axis
+			convolve3DSeparable_kernel<1>
+			    <<<launchParams.gridSize, launchParams.blockSize, 0>>>(
+			        pd_intermediaryImageOffsetted, pd_outputImageOffsetted,
+			        pd_kernelY, kerSize[1], params.nx, params.ny, params.nz);
+
+			// Convolve along Z-axis
+			convolve3DSeparable_kernel<2>
+			    <<<launchParams.gridSize, launchParams.blockSize, 0>>>(
+			        pd_outputImageOffsetted, pd_intermediaryImageOffsetted,
+			        pd_kernelZ, kerSize[2], params.nx, params.ny, params.nz);
+		}
 	}
-	else
-	{
-		// Convolve along X-axis
-		convolve3DSeparable_kernel<0>
-		    <<<launchParams.gridSize, launchParams.blockSize, 0>>>(
-		        pd_inputImage, pd_intermediaryImage, pd_kernelX, kerSize[0],
-		        params.nx, params.ny, params.nz);
 
-		// Convolve along Y-axis
-		convolve3DSeparable_kernel<1>
-		    <<<launchParams.gridSize, launchParams.blockSize, 0>>>(
-		        pd_intermediaryImage, pd_outputImage, pd_kernelY, kerSize[1],
-		        params.nx, params.ny, params.nz);
-
-		// Convolve along Z-axis
-		convolve3DSeparable_kernel<2>
-		    <<<launchParams.gridSize, launchParams.blockSize, 0>>>(
-		        pd_outputImage, pd_intermediaryImage, pd_kernelZ, kerSize[2],
-		        params.nx, params.ny, params.nz);
-
-		outputImage.copyFromDeviceImage(mpd_intermediaryImage.get(), false);
-	}
+	outputImage.copyFromDeviceImage(mpd_intermediaryImage.get(), false);
 
 	synchronizeIfNeeded({stream, synchronize});
 	ASSERT(cudaCheckError());

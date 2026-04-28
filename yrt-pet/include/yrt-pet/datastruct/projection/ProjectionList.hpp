@@ -54,6 +54,8 @@ public:
 	const ProjectionData* getReference() const;
 	float* getRawPointer() const;
 	bool isMemoryValid() const;
+	void setForceNoDynamicFraming(bool forceNoDynamicFraming);
+	void setForceNoMotion(bool forceNoMotion);
 
 	void clearProjections(float value) override;
 	Array1DBase<float>* getProjectionsArrayRef() const;
@@ -61,6 +63,8 @@ public:
 protected:
 	const ProjectionData* mp_reference;
 	std::unique_ptr<Array1DBase<float>> mp_projs;
+	bool m_forceNoDynamicFraming;
+	bool m_forceNoMotion;
 };
 
 class ProjectionListAlias : public ProjectionList

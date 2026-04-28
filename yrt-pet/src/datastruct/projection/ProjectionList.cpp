@@ -93,11 +93,19 @@ void ProjectionList::clearProjections(float value)
 
 frame_t ProjectionList::getDynamicFrame(bin_t id) const
 {
+	if (m_forceNoDynamicFraming)
+	{
+		return 0;
+	}
 	return mp_reference->getDynamicFrame(id);
 }
 
 frame_t ProjectionList::getMotionFrame(bin_t id) const
 {
+	if (m_forceNoMotion)
+	{
+		return 0;
+	}
 	return mp_reference->getMotionFrame(id);
 }
 
@@ -108,11 +116,19 @@ timestamp_t ProjectionList::getTimestamp(bin_t id) const
 
 size_t ProjectionList::getNumDynamicFrames() const
 {
+	if (m_forceNoDynamicFraming)
+	{
+		return 1ull;
+	}
 	return mp_reference->getNumDynamicFrames();
 }
 
 size_t ProjectionList::getNumMotionFrames() const
 {
+	if (m_forceNoMotion)
+	{
+		return 1ull;
+	}
 	return mp_reference->getNumMotionFrames();
 }
 
@@ -168,16 +184,29 @@ float ProjectionList::getTOFValue(bin_t id) const
 
 bool ProjectionList::hasMotion() const
 {
+	if (m_forceNoMotion)
+	{
+		return false;
+	}
 	return mp_reference->hasMotion();
 }
 
 bool ProjectionList::hasDynamicFraming() const
 {
+	if (m_forceNoDynamicFraming)
+	{
+		return false;
+	}
 	return mp_reference->hasDynamicFraming();
 }
 
 transform_t ProjectionList::getTransformOfMotionFrame(frame_t frame) const
 {
+	if (m_forceNoMotion)
+	{
+		// Return identity rotation and null translation
+		return {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0};
+	}
 	return mp_reference->getTransformOfMotionFrame(frame);
 }
 
@@ -204,6 +233,16 @@ float* ProjectionList::getRawPointer() const
 bool ProjectionList::isMemoryValid() const
 {
 	return mp_projs != nullptr && getRawPointer() != nullptr;
+}
+
+void ProjectionList::setForceNoDynamicFraming(bool forceNoDynamicFraming)
+{
+	m_forceNoDynamicFraming = forceNoDynamicFraming;
+}
+
+void ProjectionList::setForceNoMotion(bool forceNoMotion)
+{
+	m_forceNoMotion = forceNoMotion;
 }
 
 Array1DBase<float>* ProjectionList::getProjectionsArrayRef() const

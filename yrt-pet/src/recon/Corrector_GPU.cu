@@ -25,6 +25,11 @@ void Corrector_GPU::precomputeAttenuationFactors(
 	    std::make_unique<ProjectionListOwned>(&measurements);
 	attenuationFactors->allocate();
 
+	// Since the attenuation image will not be in 4D, we need to ignore the
+	//  fourth dimension when using this ProjectionList for a forward/backward
+	//  projection
+	attenuationFactors->setForceNoDynamicFraming(true);
+
 	mp_attenuationFactors = std::move(attenuationFactors);
 
 	const bin_t numBins = measurements.count();

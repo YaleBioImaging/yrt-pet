@@ -9,10 +9,9 @@
 #include "yrt-pet/datastruct/scanner/DetectorMask.hpp"
 #include "yrt-pet/datastruct/scanner/Scanner.hpp"
 #include "yrt-pet/utils/Assert.hpp"
-#include "yrt-pet/utils/Concurrency.hpp"
 #include "yrt-pet/utils/Globals.hpp"
 #include "yrt-pet/utils/ProgressDisplay.hpp"
-#include "yrt-pet/utils/ReconstructionUtils.hpp"
+#include "yrt-pet/utils/Tools.hpp"
 
 #include <cxxopts.hpp>
 #include <iostream>
@@ -45,21 +44,22 @@ int main(int argc, char** argv)
 		    "Input listmode file format. Possible values: " +
 		        io::possibleFormats(plugin::InputFormatsChoice::ONLYLISTMODES),
 		    true, io::TypeOfArgument::STRING, "", inputGroup, "f");
-		registry.registerArgument(
-		    "detmask", "Detector mask (to disable a given set of detectors)",
-		    false, io::TypeOfArgument::STRING, "", inputGroup);
+		registry.registerArgument("detmask",
+		                          "Detector mask (to disable a given set of "
+		                          "detectors) [Ignored for now]",
+		                          false, io::TypeOfArgument::STRING, "",
+		                          inputGroup);
 
-		registry.registerArgument("out", "Output prefix (files: prefix_0.lmDat, "
-		                          "prefix_1.lmDat, ...)", true,
-		                          io::TypeOfArgument::STRING, "", outputGroup,
-		                          "o");
-		registry.registerArgument("num_splits",
-		                          "Number of low-dose sub-listmodes to generate",
-		                          false, io::TypeOfArgument::INT, 10,
-		                          outputGroup, "N");
-		registry.registerArgument("seed", "RNG seed",
-		                          false, io::TypeOfArgument::INT, -1,
-		                          outputGroup);
+		registry.registerArgument("out",
+		                          "Output prefix (files: prefix_0.lmDat, "
+		                          "prefix_1.lmDat, ...)",
+		                          true, io::TypeOfArgument::STRING, "",
+		                          outputGroup, "o");
+		registry.registerArgument(
+		    "num_splits", "Number of low-dose sub-listmodes to generate", false,
+		    io::TypeOfArgument::INT, 10, outputGroup, "N");
+		registry.registerArgument("seed", "RNG seed", false,
+		                          io::TypeOfArgument::INT, -1, outputGroup);
 
 		plugin::addOptionsFromPlugins(
 		    registry, plugin::InputFormatsChoice::ONLYLISTMODES);
@@ -89,9 +89,9 @@ int main(int argc, char** argv)
 		auto detmask_fname = config.getValue<std::string>("detmask");
 		auto out_prefix = config.getValue<std::string>("out");
 		int numThreads = config.getValue<int>("num_threads");
-		int N = config.getValue<int>("num_splits"); //num sub-listmodes to create
+		int N = config.getValue<int>("num_splits");
 
-		int seedArg = config.getValue<int>("seed"); // random seed
+		int seedArg = config.getValue<int>("seed");  // random seed
 		uint64_t seed;
 		if (seedArg < 0)
 		{
@@ -122,6 +122,7 @@ int main(int argc, char** argv)
 		std::cout << "  " << nEvents << " events (TOF=" << hasTOF
 		          << ", randoms=" << hasRandoms << ")" << std::endl;
 
+		// TODO: Apply detector mask
 		std::unique_ptr<DetectorMask> detmask = nullptr;
 		if (!detmask_fname.empty())
 		{
@@ -131,8 +132,9 @@ int main(int argc, char** argv)
 
 		// Pass 1: Assign each event randomly to a sub-listmode
 		std::cout << "Splitting into " << N << " sub-listmodes..." << std::endl;
-		std::mt19937_64 rng(seed); // random seed
-		std::uniform_int_distribution<int> lmDist(0, N - 1); // uniform distribution over [0, N-1]
+		std::mt19937_64 rng(seed);  // random seed
+		std::uniform_int_distribution<int> lmDist(
+		    0, N - 1);  // uniform distribution over [0, N-1]
 
 		std::vector<uint8_t> eventToLmMap(nEvents);
 		std::vector<size_t> lmSizes(N, 0);
@@ -158,8 +160,8 @@ int main(int argc, char** argv)
 		outputLUTs.reserve(N);
 		for (int b = 0; b < N; ++b)
 		{
-			auto lut = std::make_unique<ListModeLUTOwned>(
-			    *scanner, hasTOF, hasRandoms);
+			auto lut = std::make_unique<ListModeLUTOwned>(*scanner, hasTOF,
+			                                              hasRandoms);
 			lut->allocate(lmSizes[b]);
 			outputLUTs.push_back(std::move(lut));
 		}
@@ -177,8 +179,8 @@ int main(int argc, char** argv)
 			auto& out = *outputLUTs[b];
 
 			out.setTimestampOfEvent(writeIdx, lm->getTimestamp(i));
-			out.setDetectorIdsOfEvent(
-			    writeIdx, lm->getDetector1(i), lm->getDetector2(i));
+			out.setDetectorIdsOfEvent(writeIdx, lm->getDetector1(i),
+			                          lm->getDetector2(i));
 
 			if (hasTOF)
 				out.setTOFValueOfEvent(writeIdx, lm->getTOFValue(i));
@@ -192,10 +194,12 @@ int main(int argc, char** argv)
 
 		// Write output files
 		std::cout << "Writing output files..." << std::endl;
+		const int numDigitsInFilename = N > 1 ? util::numberOfDigits(N - 1) : 1;
 		for (int b = 0; b < N; ++b)
 		{
-			const std::string fname =
-			    out_prefix + "_" + std::to_string(b) + ".lmDat";
+			const std::string fname = util::addBeforeExtension(
+			    out_prefix,
+			    "_" + util::padZeros(b, numDigitsInFilename) + ".lmDat");
 			outputLUTs[b]->writeToFile(fname);
 			std::cout << "  " << fname << " (" << outputLUTs[b]->count()
 			          << " events)" << std::endl;

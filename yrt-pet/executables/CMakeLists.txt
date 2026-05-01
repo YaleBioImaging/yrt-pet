@@ -10,6 +10,8 @@ define_target_exe(yrtpet_convert_to_listmodelut conversion/ConvertToListModeLUT.
 define_target_exe(yrtpet_convert_to_low_count_listmodelut conversion/ConvertToLowCountListModeLUT.cpp PluginOptionsHelper.cpp ArgumentReader.cpp)
 define_target_exe(yrtpet_cumulate_histograms conversion/CumulateHistograms.cpp PluginOptionsHelper.cpp ArgumentReader.cpp)
 define_target_exe(yrtpet_histogram_to_listmode conversion/Histogram3DToListMode.cpp ArgumentReader.cpp)
+define_target_exe(yrtpet_populate_scatter_space conversion/PopulateScatterSpace.cpp PluginOptionsHelper.cpp ArgumentReader.cpp)
+define_target_exe(yrtpet_make_downsampled_sinogram conversion/MakeDownsampledSinogram.cpp PluginOptionsHelper.cpp ArgumentReader.cpp)
 
 define_target_exe(yrtpet_build_k kernel/BuildK.cpp)
 

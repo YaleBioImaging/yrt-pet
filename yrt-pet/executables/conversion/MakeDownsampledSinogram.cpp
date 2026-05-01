@@ -277,7 +277,7 @@ int main(int argc, char** argv)
 		// the bottleneck here is memory bandwidth, not CPU, so 32 threads is
 		// plenty and keeps peak extra memory at 32 * totalSize * 4 bytes.
 		const int numThreadsRequested = globals::getNumThreads();
-		const int numThreads = std::min(numThreadsRequested, 32);
+		const int numThreads = std::min(numThreadsRequested, 16);
 		const size_t totalSize = numFrames * sinoSize;
 
 		std::cout << "Allocating " << numThreads << " per-thread buffers ("
@@ -313,11 +313,11 @@ int main(int argc, char** argv)
 
 			    // View angle phi in [0, pi):
 			    // atan2(P1.y, P1.x) gives the angle of endpoint 1 in [-pi, pi].
-			    // Adding TWO_PI_FLT then fmod-ing by PI_FLT folds it to [0, pi)
+			    // Adding TWOPI_FLT then fmod-ing by PI_FLT folds it to [0, pi)
 			    // in one step, and is automatically symmetric: the opposing
 			    // endpoint P2 is at angle a1 +/- pi, so (a2 + 2pi) mod pi = phi.
 			    const float phi = std::fmod(
-			        std::atan2(lor.point1.y, lor.point1.x) + TWO_PI_FLT, PI_FLT);
+			        std::atan2(lor.point1.y, lor.point1.x) + TWOPI_FLT, PI_FLT);
 
 			    // Axial midpoint: zMid in [-axialFOV/2, axialFOV/2]
 			    const float zMid = 0.5f * (lor.point1.z + lor.point2.z);

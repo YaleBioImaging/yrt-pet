@@ -14,21 +14,17 @@
  *   Given cylindrical coordinates (planePos1, angle1, planePos2, angle2)
  *   where angle1,angle2 in [0, 2pi) and planePos in [-axialFOV/2, axialFOV/2]:
  *
- *   Computed directly from the 3D LOR endpoints (lor.point1, lor.point2):
+ *   phi and zMid from ScatterSpace::computeCylindricalCoordinates (correct
+ *   [0,2pi) wrapping); s from the 2D cross-product of LOR endpoints (DOI-correct):
  *
- *   - View angle  phi  = atan2(P1.y, P1.x) mod pi,  in [0, pi)
- *                        (angle of endpoint 1 in the transaxial plane, folded
- *                        to [0,pi) -- automatically symmetric: phi(P2) = phi(P1)
- *                        since P2 is diametrically opposite P1)
- *   - Radial offset  s   = (P1.x*P2.y - P1.y*P2.x) / |P2xy - P1xy|,  in (-R, R)  SIGNED
- *                        (signed perpendicular distance from scanner center to LOR;
- *                        s=0 for a central LOR; sign flips correctly with DOI;
- *                        no canonical detector ordering required)
- *   - Axial midpoint zMid = (P1.z + P2.z) / 2,  in [-axialFOV/2, axialFOV/2]
- *
- *   Using lor endpoints directly (rather than cylindrical coordinates) handles
- *   DOI correctly: detectors interact at depth inside the crystal, so their 3D
- *   positions are not exactly on the scanner surface.
+ *   - View angle  phi  = a1,  in [0, pi)  after canonical ordering
+ *                        (enforce a1 in [0,pi) by swapping endpoint refs if needed;
+ *                        makes (phi,s) invariant to detector ordering)
+ *   - Radial offset  s   = (P1.x*P2.y - P1.y*P2.x) / |P2xy - P1xy|,  in (-R, R)
+ *                        (signed 2D cross product; DOI-correct since it uses
+ *                        actual crystal positions, not nominal scanner radius)
+ *   - Axial midpoint zMid = (planePos1 + planePos2) / 2,
+ *                           in [-axialFOV/2, axialFOV/2]
  *
  * Memory:
  *   numAxial * numAngles * numRadial * 4 bytes per frame.
@@ -68,6 +64,7 @@
 #include "yrt-pet/datastruct/IO.hpp"
 #include "yrt-pet/datastruct/projection/ListMode.hpp"
 #include "yrt-pet/datastruct/scanner/Scanner.hpp"
+#include "yrt-pet/scatter/ScatterSpace.hpp"
 #include "yrt-pet/utils/Assert.hpp"
 #include "yrt-pet/utils/Globals.hpp"
 #include "yrt-pet/utils/ProgressDisplayMultiThread.hpp"
@@ -308,33 +305,37 @@ int main(int argc, char** argv)
 			    if (frameIdx >= numFrames)
 				    return;
 
-			    // ---- Mashed sinogram coordinates from LOR endpoints ----
+			    // ---- Mashed sinogram coordinates ----
 			    const Line3D lor = lm->getLOR(evId);
 
-			    // View angle phi in [0, pi):
-			    // atan2(P1.y, P1.x) gives the angle of endpoint 1 in [-pi, pi].
-			    // Adding TWOPI_FLT then fmod-ing by PI_FLT folds it to [0, pi)
-			    // in one step, and is automatically symmetric: the opposing
-			    // endpoint P2 is at angle a1 +/- pi, so (a2 + 2pi) mod pi = phi.
-			    const float phi = std::fmod(
-			        std::atan2(lor.point1.y, lor.point1.x) + TWOPI_FLT, PI_FLT);
+			    // Get cylindrical angles and plane positions.
+			    // computeCylindricalCoordinates wraps a1, a2 into [0, 2pi) correctly.
+			    float p1, a1, p2, a2;
+			    ScatterSpace::computeCylindricalCoordinates(lor, p1, a1, p2, a2);
 
-			    // Axial midpoint: zMid in [-axialFOV/2, axialFOV/2]
-			    const float zMid = 0.5f * (lor.point1.z + lor.point2.z);
+			    // Canonical ordering: ensure the "first" endpoint is in [0, pi).
+			    // This is required to make (phi, s) invariant to detector ordering.
+			    // Without it, swapping P1<->P2 leaves phi unchanged but flips the
+			    // sign of the cross-product s, so the same LOR maps to (phi, +s)
+			    // and (phi, -s) — producing mirrored diagonal artifacts.
+			    const bool flip    = (a1 >= PI_FLT);
+			    const auto& P1     = flip ? lor.point2 : lor.point1;
+			    const auto& P2     = flip ? lor.point1 : lor.point2;
+			    // fmod is a safety net for oblique LORs where both detectors
+			    // happen to be in the same half [0,pi) or [pi,2pi): without it,
+			    // phi = a2 could be >= pi and all such events pile up in the last
+			    // phi bin, creating a bright artifact band at the top of the sinogram.
+			    const float phi    = std::fmod(flip ? a2 : a1, PI_FLT);
+			    const float zMid   = 0.5f * (p1 + p2);  // symmetric, order doesn't matter
 
-			    // Signed radial offset s = (P1 x P2) / |P2 - P1| (2D cross product).
-			    // This is the perpendicular signed distance from the scanner center
-			    // to the LOR. Using the actual 3D coordinates of the LOR endpoints
-			    // (which already account for DOI depth) is more accurate than the
-			    // trigonometric approximation R*cos(halfDelta) which assumed detectors
-			    // sit exactly on the scanner surface.
-			    // Swapping P1<->P2 flips the sign of the cross product, but phi is
-			    // unchanged (both endpoints give the same phi mod pi), so (phi, s)
-			    // is the same bin regardless of which detector fired first.
-			    const float dx = lor.point2.x - lor.point1.x;
-			    const float dy = lor.point2.y - lor.point1.y;
-			    const float s  = (lor.point1.x * lor.point2.y -
-			                      lor.point1.y * lor.point2.x)
+			    // Signed radial offset s = (P1 x P2) / |P2xy - P1xy|  in (-R, R).
+			    // 2D cross product = signed perpendicular distance from scanner center
+			    // to the LOR. Using actual crystal positions accounts for DOI depth.
+			    // With canonical ordering enforced above, s is consistent for both
+			    // orderings of the same physical LOR.
+			    const float dx = P2.x - P1.x;
+			    const float dy = P2.y - P1.y;
+			    const float s  = (P1.x * P2.y - P1.y * P2.x)
 			                     / std::sqrt(dx * dx + dy * dy);
 
 			    // ---- Bin indices ----

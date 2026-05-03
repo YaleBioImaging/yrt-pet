@@ -85,10 +85,10 @@ public:
 	                           size_t offset, frame_t dynamicFrame,
 	                           size_t numVoxelPerFrame) override
 	{
-		const float AHy = value * weight;
 
 		if (!m_updateH)
 		{
+			const float AHy = value * weight;
 			float* img_ptr = cur_img_ptr + offset;
 			const float* H_ptr =
 			    mpd_HBasisDevice_ptr + dynamicFrame;
@@ -102,12 +102,13 @@ public:
 		}
 		else
 		{
+			const double AHy = static_cast<double>(value) * static_cast<double>(weight);
 			const float* img_ptr = cur_img_ptr + offset;
 			auto* H_ptr = mpd_HBasisDeviceWrite_ptr + dynamicFrame;
 #pragma unroll
 			for (int l = 0; l < Rank; ++l)
 			{
-				atomicAdd(H_ptr, static_cast<double>(AHy * (*img_ptr)));
+				atomicAdd(H_ptr, AHy * (*img_ptr));
 				img_ptr += numVoxelPerFrame;
 				H_ptr += m_numDynamicFrames;
 			}
@@ -161,10 +162,10 @@ public:
 	                           frame_t dynamicFrame,
 	                           size_t numVoxelPerFrame) override
 	{
-		const double AHy = value * weight;
 
 		if (!m_updateH)
 		{
+			const float AHy = value * weight;
 			float* img_ptr = cur_img_ptr + offset;
 			const auto* H_ptr =
 			    mpd_HBasisDevice_ptr + dynamicFrame;
@@ -177,6 +178,7 @@ public:
 		}
 		else
 		{
+			const double AHy = static_cast<double>(value) * static_cast<double>(weight);
 			const float* img_ptr = cur_img_ptr + offset;
 			auto* H_ptr = mpd_HBasisDeviceWrite_ptr + dynamicFrame;
 			for (int l = 0; l < m_rank; ++l)
@@ -472,7 +474,7 @@ private:
 	std::unique_ptr<DeviceArray<double>> mpd_HBasisWriteDeviceArray;
 	Array2DAlias<float> mp_HBasis;
 	Array2DAlias<float> mp_HWrite;
-	int m_updateH = false;
+	bool m_updateH = false;
 	int m_rank = 1;
 	int m_numDynamicFrames = 1;
 };

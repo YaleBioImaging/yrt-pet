@@ -71,7 +71,7 @@ void LREM_CPU::prepareBuffersForRecon()
 			lr->setUpdateH(projectorParams.updateH);
 		}
 		std::cout << "Setting HBasis for "
-		             "ProjectorUpdaterDeviceLR..."
+		             "ProjectorUpdaterLR..."
 		          << std::endl;
 		lr->setHBasis(projectorParams.HBasis);
 		lr->setHBasisWrite(*mp_HNumerator);  // write into mp_HWrite

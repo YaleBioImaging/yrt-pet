@@ -462,7 +462,7 @@ std::string OSEM::getSummary() const
 	if (projectorParams.hasTOF())
 	{
 		ss << "Uses Time-of-flight.\n";
-		ss << "TOF width (ps): " << projectorParams.getTOFNumStd() << std::endl;
+		ss << "TOF width (ps): " << projectorParams.getTOFWidth_ps() << std::endl;
 		ss << "TOF number of STDs to use: " << projectorParams.getTOFNumStd()
 		   << std::endl;
 	}

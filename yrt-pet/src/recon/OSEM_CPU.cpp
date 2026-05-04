@@ -352,7 +352,7 @@ void OSEM_CPU::computeEMUpdateImage()
 			    update *= corrector.getPrecomputedInVivoAttenuationFactor(bin);
 		    }
 
-		    if (std::abs(update) != 0.f)  // to prevent numerical instability
+		    if (std::abs(update) != 0.0f)  // to prevent numerical instability
 		    {
 			    const float measurement = measurements->getProjectionValue(bin);
 			    update = measurement / update;

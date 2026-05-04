@@ -39,7 +39,7 @@ int main(int argc, char** argv)
 		("o,out", "Output list-mode filename", cxxopts::value<std::string>(out_fname))
 		("n,num", "Number of list-mode events", cxxopts::value<size_t>(numEvents))
 		("num_threads", "Number of threads to use", cxxopts::value<int>(numThreads))
-		("version", "Print version information")
+		("v,version", "Print version information")
 		("h,help", "Print help");
 		/* clang-format on */
 

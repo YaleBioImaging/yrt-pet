@@ -53,7 +53,7 @@ int main(int argc, char** argv)
 		 cxxopts::value<std::string>(mode))
 		("t,nthreads", "Number of threads to use",
 		 cxxopts::value<int>(num_threads))
-		("version", "Print version information")
+		("v,version", "Print version information")
 		("h,help", "Print help");
 		/* clang-format on */
 

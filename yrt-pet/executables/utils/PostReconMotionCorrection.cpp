@@ -46,7 +46,7 @@ int main(int argc, char* argv[])
 			cxxopts::value(lorMotion_fname))
 		("o,out", "Output image filename",
 			cxxopts::value(out_fname))
-		("version", "Print version information")
+		("v,version", "Print version information")
 		("help", "Print help");
 		/* clang-format on */
 

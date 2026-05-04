@@ -146,7 +146,6 @@ bool ArgumentReader::loadFromCommandLine(int argc, char** argv)
 	setupCommandLineOptions(options);
 
 	const auto result = options.parse(argc, argv);
-
 	if (result.count("version"))
 	{
 		version::printVersion();
@@ -292,7 +291,7 @@ void ArgumentReader::setupCommandLineOptions(cxxopts::Options& options) const
 	}
 
 	options.add_options()("h,help", "Print help");
-	options.add_options()("version", "Print version information");
+	options.add_options()("v,version", "Print version information");
 }
 
 void ArgumentReader::parseCommandLineResult(const cxxopts::ParseResult& result)

@@ -161,7 +161,6 @@ function(setup_target TARGET JSON CXXOPTS PYBIND11)
         target_compile_definitions(${TARGET} PUBLIC BUILD_PYBIND11)
     endif ()
     add_compile_definitions(HAVE_ZLIB)
-add_compile_definitions(YRTPET_VERSION_STRING="${YRTPET_VERSION_STRING}")
 endfunction()
 
 # Wrapper for library target

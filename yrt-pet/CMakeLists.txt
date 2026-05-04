@@ -53,10 +53,9 @@ endif()
 # Construct full version string
 set(YRTPET_VERSION_STRING "${PROJECT_VERSION}")
 if(YRTPET_GIT_HASH)
+    set(YRTPET_VERSION_STRING "${PROJECT_VERSION}+${YRTPET_GIT_HASH}")
     if(YRTPET_GIT_DIRTY)
-        set(YRTPET_VERSION_STRING "${PROJECT_VERSION}-${YRTPET_GIT_HASH}-dirty")
-    else()
-        set(YRTPET_VERSION_STRING "${PROJECT_VERSION}-${YRTPET_GIT_HASH}")
+        set(YRTPET_VERSION_STRING "${YRTPET_VERSION_STRING}.dirty")
     endif()
 endif()
 

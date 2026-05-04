@@ -37,18 +37,18 @@ std::string getGitHash()
 {
 	std::string version = versionString;
 
-	if (!version.ends_with("-dirty"))
+	if (!version.ends_with(".dirty"))
 	{
-		size_t dashPos = version.rfind('-');
-		if (dashPos != std::string::npos && dashPos + 1 < version.length())
+		size_t plusPos = version.rfind('+');
+		if (plusPos != std::string::npos && plusPos + 1 < version.length())
 		{
-			return version.substr(dashPos + 1);
+			return version.substr(plusPos + 1);
 		}
 	}
 	else
 	{
 		std::string versionNoDirty = version.substr(0, version.length() - 6);
-		size_t dashPos = versionNoDirty.rfind('-');
+		size_t dashPos = versionNoDirty.rfind('+');
 		if (dashPos != std::string::npos &&
 			dashPos + 1 < versionNoDirty.length())
 		{
@@ -62,7 +62,7 @@ std::string getGitHash()
 bool isDirty()
 {
 	std::string version = versionString;
-	return version.ends_with("-dirty");
+	return version.ends_with(".dirty");
 }
 
 void printVersion()

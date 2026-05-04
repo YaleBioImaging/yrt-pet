@@ -9,6 +9,7 @@ GTAGS
 .DS_Store
 .*cache/
 compile_commands.json
+.clangd
 /build*/
 docs/build/
 dist/

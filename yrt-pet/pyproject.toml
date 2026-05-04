@@ -1,20 +1,30 @@
 [build-system]
-requires = ["scikit-build-core>=0.5", "pybind11", "cmake>=3.18"]
+requires = ["scikit-build-core>=0.8", "scikit-build-core[metadata]", "pybind11", "cmake>=3.18"]
 build-backend = "scikit_build_core.build"
 
 [project]
 name = "yrtpet"
-version = "0.1.0"
-description = "Yale Reconstruction Toolkit"
+dynamic = ["version"]
+description = "Yale Reconstruction Toolkit for PET"
+requires-python = ">=3.8"
 
 [tool.scikit-build]
-wheel.install-dir = "pyyrtpet"
-sdist.include = [
+wheel.install-dir = "yrtpet"
+
+[tool.scikit-build.metadata.version]
+provider = "scikit_build_core.metadata.regex"
+input = "VERSION.txt"
+# Matches a standard 1.2.3 version string in VERSION.txt
+regex = '(?P<value>\d+\.\d+\.\d+)'
+
+[tool.scikit-build.sdist]
+include = [
     "src/**/*",
     "include/**/*",
     "python/**/*",
     "plugins/**/*",
-    "CMakeLists.txt"
+    "CMakeLists.txt",
+    "VERSION.txt"
 ]
 
 [tool.scikit-build.cmake]

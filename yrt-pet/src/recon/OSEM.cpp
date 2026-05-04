@@ -187,6 +187,22 @@ OSEM::OSEM(const Scanner& pr_scanner)
 {
 }
 
+void OSEM::setCurrentMLEMIteration(int iter)
+{
+	m_current_MLEM_iteration = iter;
+}
+
+void OSEM::clearCopiedSensImage()
+{
+	mp_copiedSensitivityImage = nullptr;
+}
+
+int OSEM::getSensImagesCount() const
+{
+	return static_cast<int>(m_sensitivityImages.size());
+}
+
+
 void OSEM::generateSensitivityImages(const std::string& out_fname)
 {
 	std::vector<std::unique_ptr<Image>> dummy;
@@ -314,23 +330,7 @@ void OSEM::setSensitivityImage(Image* sensImage, int subset)
 
 std::unique_ptr<Image> OSEM::reconstruct(const std::string& out_fname)
 {
-	ASSERT_MSG(mp_dataInput != nullptr, "Data input unspecified");
-	ASSERT_MSG(!m_sensitivityImages.empty(), "Sensitivity image(s) not set");
-	ASSERT_MSG(num_OSEM_subsets > 0, "Not enough OSEM subsets");
-	ASSERT_MSG(num_MLEM_iterations > 0, "Not enough MLEM iterations");
-	ASSERT_MSG(imageParams.isValid(), "Image parameters not valid/set");
-
-	const int expectedNumberOfSensImages = getExpectedSensImagesAmount();
-	if (expectedNumberOfSensImages !=
-	    static_cast<int>(m_sensitivityImages.size()))
-	{
-		throw std::logic_error("The number of sensitivity images provided does "
-		                       "not match the number of subsets. Expected " +
-		                       std::to_string(expectedNumberOfSensImages) +
-		                       " but received " +
-		                       std::to_string(m_sensitivityImages.size()));
-	}
-
+	safetyChecksBeforeRecon();
 	initializeForRecon();
 
 	// MLEM iterations
@@ -353,7 +353,7 @@ std::unique_ptr<Image> OSEM::reconstruct(const std::string& out_fname)
 	endRecon();
 
 	// Deallocate the copied sensitivity image if it was allocated
-	mp_copiedSensitivityImage = nullptr;
+	clearCopiedSensImage();
 
 	if (!out_fname.empty())
 	{
@@ -362,6 +362,27 @@ std::unique_ptr<Image> OSEM::reconstruct(const std::string& out_fname)
 	}
 
 	return std::move(outImage);
+}
+
+void OSEM::safetyChecksBeforeRecon() const
+{
+	ASSERT_MSG(mp_dataInput != nullptr, "Data input unspecified");
+	ASSERT_MSG(!m_sensitivityImages.empty(), "Sensitivity image(s) not set");
+	ASSERT_MSG(num_OSEM_subsets > 0, "Not enough OSEM subsets");
+	ASSERT_MSG(num_MLEM_iterations > 0, "Not enough MLEM iterations");
+	ASSERT_MSG(imageParams.isValid(), "Image parameters not valid/set");
+
+	const int expectedNumberOfSensImages = getExpectedSensImagesAmount();
+	if (expectedNumberOfSensImages !=
+		static_cast<int>(m_sensitivityImages.size()))
+	{
+		throw std::logic_error("The number of sensitivity images provided does "
+							   "not match the number of subsets. Expected " +
+							   std::to_string(expectedNumberOfSensImages) +
+							   " but received " +
+							   std::to_string(m_sensitivityImages.size()));
+	}
+
 }
 
 std::string OSEM::getSummary() const

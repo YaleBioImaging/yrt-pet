@@ -28,6 +28,13 @@ public:
 
 	virtual ProjectorParams& getProjectorParams() = 0;
 
+	virtual std::unique_ptr<Image>
+	    reconstructAlternating(int numWUpdatesPerIteration,
+	                           int numHUpdatesPerIteration,
+	                           const std::string& out_fname = "") = 0;
+
+	virtual void prepareForUpdatePhase(bool updateH) = 0;
+
 protected:
 	void resetSensScaling();
 	void applyHUpdate();

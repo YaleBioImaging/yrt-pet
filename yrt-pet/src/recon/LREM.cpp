@@ -28,6 +28,10 @@ void py_setup_lrem(py::module& m)
 	c.def("setUpdateH", &LREM::setUpdateH, "update_h"_a);
 	c.def("setHBasis", &LREM::setHBasis, "h_basis"_a);
 
+	c.def("reconstructAlternating", &LREM::reconstructAlternating,
+	  "num_w_updates_per_iteration"_a, "num_h_updates_per_iteration"_a,
+	  "out_fname"_a = "");
+
 	c.def(
 	    "setHBasisFromNumpy",
 	    [](LREM& self, py::buffer& np_data)

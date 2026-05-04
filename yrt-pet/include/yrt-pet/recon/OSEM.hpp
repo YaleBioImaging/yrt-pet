@@ -58,6 +58,7 @@ public:
 
 	// OSEM Reconstruction
 	std::unique_ptr<Image> reconstruct(const std::string& out_fname);
+	void safetyChecksBeforeRecon() const;
 
 	// Prints a summary of the parameters.
 	//  This function is meant to be run AFTER the reconstruction or
@@ -140,6 +141,11 @@ protected:
 	virtual void completeMLEMIteration() = 0;
 	virtual void endRecon() = 0;
 
+	void initializeForRecon();
+	void setCurrentMLEMIteration(int iter);
+	void clearCopiedSensImage();
+	int getSensImagesCount() const;
+
 	// Abstract Getters
 	virtual ImageBase* getSensImageBuffer() = 0;
 	virtual ImageBase* getMLEMImageBuffer() = 0;
@@ -176,7 +182,6 @@ protected:
 private:
 	void loadSubsetInternal(int p_subsetId, bool p_forRecon);
 	void initializeForSensImgGen();
-	void initializeForRecon();
 	void generateSensitivityImagesCore(
 	    bool saveOnDisk, const std::string& out_fname, bool saveOnMemory,
 	    std::vector<std::unique_ptr<Image>>& sensImages);

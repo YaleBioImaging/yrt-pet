@@ -176,6 +176,109 @@ void LREM_GPU::saveForCurrentIteration()
 	}
 }
 
+
+std::unique_ptr<Image> LREM_GPU::reconstructAlternating(
+    int numWUpdatesPerIteration, int numHUpdatesPerIteration,
+    const std::string& out_fname)
+{
+	safetyChecksBeforeRecon();
+	ASSERT_MSG(numWUpdatesPerIteration > 0,
+			   "Number of W updates per iteration must be > 0");
+	ASSERT_MSG(numHUpdatesPerIteration > 0,
+			   "Number of H updates per iteration must be > 0");
+
+	// Initialize in W-update mode
+	setUpdateH(false);
+	initializeForRecon();
+
+	for (int outerIter = 0; outerIter < num_MLEM_iterations; outerIter++)
+	{
+		setCurrentMLEMIteration(outerIter);
+
+		std::cout << "\n=== Alternating iteration " << outerIter + 1 << "/"
+		          << num_MLEM_iterations << " ===" << std::endl;
+
+		// W-update mode. On the first outer iteration the projector is already
+		// in W mode from initializeForRecon(). On subsequent iterations,
+		// prepareForUpdatePhase(false) was called at the end of the previous H
+		// mode, so the state is already correct.
+		std::cout << "--- W-update mode (" << numWUpdatesPerIteration
+		          << " iteration(s)) ---" << std::endl;
+		for (int wIter = 0; wIter < numWUpdatesPerIteration; wIter++)
+		{
+			std::cout << "W-update " << wIter + 1 << "/"
+			          << numWUpdatesPerIteration << std::endl;
+			iterate();
+			completeMLEMIteration();
+		}
+
+		// H-update mode
+		std::cout << "--- H-update mode (" << numHUpdatesPerIteration
+		          << " iteration(s)) ---" << std::endl;
+		prepareForUpdatePhase(true);
+		for (int hIter = 0; hIter < numHUpdatesPerIteration; hIter++)
+		{
+			std::cout << "H-update " << hIter + 1 << "/"
+			          << numHUpdatesPerIteration << std::endl;
+			iterate();
+			completeMLEMIteration();
+		}
+
+		// Switch back to W mode; recomputes cWUpdate with the updated H
+		prepareForUpdatePhase(false);
+
+		// Save W and H if this outer iteration is in the save list
+		if (saveIterRanges.isIn(outerIter + 1))
+		{
+			const int numDigits = util::numberOfDigits(num_MLEM_iterations);
+			// Save W via the base OSEM implementation, bypassing the
+			// updateH-dependent branching in LREM_GPU::saveForCurrentIteration
+			OSEM::saveForCurrentIteration();
+			saveHBasisBinary(saveIterPath, outerIter + 1, numDigits);
+		}
+	}
+
+	endRecon();
+	clearCopiedSensImage();
+
+	if (!out_fname.empty())
+	{
+		std::cout << "Saving image..." << std::endl;
+		outImage->writeToFile(out_fname);
+	}
+
+	return std::move(outImage);
+}
+
+void LREM_GPU::prepareForUpdatePhase(bool updateH)
+{
+	projectorParams.updateH = updateH;
+
+	// Recreate the device-side projector updater with the new updateH flag.
+	// This also re-uploads the current HBasis to the device, which is important
+	// after an H-update mode may have modified it via applyHUpdate().
+	setupProjectorUpdater(projectorParams);
+
+	if (!updateH)
+	{
+		// Switching to W-update mode.
+		// Recompute the W sensitivity scaling in case H changed during the
+		// preceding H-update mode.
+		generateWUpdateSensScaling();
+		sync_cWUpdateHostToDevice();
+	}
+	else
+	{
+		// Switching to H-update mode.
+		// Recompute the H denominator scaling in case W changed during the
+		// preceding W-update mode, and reset the H numerator buffer.
+		mp_HNumerator->fill(0.f);
+		m_updaterContainer.setHBasisWrite(*mp_HNumerator);
+		generateHUpdateSensScalingInternal();
+	}
+}
+
+
 ProjectorParams& LREM_GPU::getProjectorParams()
 {
 	return projectorParams;

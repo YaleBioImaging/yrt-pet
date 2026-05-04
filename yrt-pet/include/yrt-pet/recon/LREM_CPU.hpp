@@ -25,6 +25,12 @@ public:
 	void setupForDynamicRecon() override;
 	void saveForCurrentIteration() override;
 
+	std::unique_ptr<Image>
+	    reconstructAlternating(int numWUpdatesPerIteration,
+	                           int numHUpdatesPerIteration,
+	                           const std::string& out_fname = "") override;
+	void prepareForUpdatePhase(bool updateH) override;
+
 protected:
 	ProjectorParams& getProjectorParams() override;
 	ImageBase* getEMUpdateImageBuffer() override;

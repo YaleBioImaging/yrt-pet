@@ -12,3 +12,6 @@ compile_commands.json
 /build*/
 docs/build/
 dist/
+session*
+*.diff
+Testing/

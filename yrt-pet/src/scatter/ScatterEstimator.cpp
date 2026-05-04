@@ -25,20 +25,21 @@ namespace yrt
 void py_setup_scatterestimator(py::module& m)
 {
 	auto c = py::class_<scatter::ScatterEstimator>(m, "ScatterEstimator");
-	c.def(
-	    py::init<
-	        const Scanner&, const Image&, const Image&, const ProjectionData&,
-	        size_t, size_t, size_t, const Histogram3D*, const Histogram3D*,
-	        scatter::CrystalMaterial, int, size_t, float, const std::string&>(),
-	    "scanner"_a, "lambda"_a, "mu"_a, "prompts"_a, "num_tof_bins"_a,
-	    "num_planes"_a, "num_angles"_a, "randoms_his"_a = nullptr,
-	    "sensitivity_his"_a = nullptr,
-	    "crystal_material"_a = scatter::ScatterEstimator::DefaultCrystal,
-	    "seedi"_a = scatter::ScatterEstimator::DefaultSeed,
-	    "scatter_tails_mask_width"_a =
-	        scatter::ScatterEstimator::DefaultScatterTailsMaskWidth,
-	    "att_threshold"_a = scatter::ScatterEstimator::DefaultAttThreshold,
-	    "saveIntermediary_dir"_a = "");
+	c.def(py::init<const Scanner&, const Image&, const Image&,
+	               const ProjectionData&, size_t, size_t, size_t,
+	               const Histogram3D*, const Histogram3D*,
+	               scatter::CrystalMaterial, int, size_t, float, float,
+	               const std::string&>(),
+	      "scanner"_a, "lambda"_a, "mu"_a, "prompts"_a, "num_tof_bins"_a,
+	      "num_planes"_a, "num_angles"_a, "randoms_his"_a = nullptr,
+	      "sensitivity_his"_a = nullptr,
+	      "crystal_material"_a = scatter::ScatterEstimator::DefaultCrystal,
+	      "seedi"_a = scatter::ScatterEstimator::DefaultSeed,
+	      "scatter_tails_mask_width"_a =
+	          scatter::ScatterEstimator::DefaultScatterTailsMaskWidth,
+	      "att_threshold"_a = scatter::ScatterEstimator::DefaultAttThreshold,
+	      "num_samp_frac"_a = scatter::ScatterEstimator::DefaultNumSampFrac,
+	      "saveIntermediary_dir"_a = "");
 
 	// Allocation
 	c.def("allocate", &scatter::ScatterEstimator::allocate);
@@ -86,9 +87,10 @@ ScatterEstimator::ScatterEstimator(
     size_t numAngles, const Histogram* pp_randomsHis,
     const Histogram* pp_sensitivityHis, CrystalMaterial p_crystalMaterial,
     int seedi, size_t scatterTailsMaskWidth, float attThreshold,
-    const std::string& saveIntermediary_dir)
+    float p_numSampFrac, const std::string& saveIntermediary_dir)
     : mr_scanner(pr_scanner),
-      m_sss(pr_scanner, pr_mu, pr_lambda, p_crystalMaterial, seedi),
+      m_sss(pr_scanner, pr_mu, pr_lambda, p_crystalMaterial, seedi,
+            p_numSampFrac),
       mr_prompts(pr_prompts),
       mp_randomsHis(pp_randomsHis),
       mp_sensitivityHis(pp_sensitivityHis),

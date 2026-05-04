@@ -29,7 +29,8 @@ class SingleScatterSimulator
 public:
 	SingleScatterSimulator(const Scanner& pr_scanner, const Image& pr_mu,
 	                       const Image& pr_lambda,
-	                       CrystalMaterial p_crystalMaterial, int seedi);
+	                       CrystalMaterial p_crystalMaterial, int seedi,
+	                       float numSampFrac = 2.f / 3.f);
 
 	void runSSS(ScatterSpace& outScatterSpace);
 

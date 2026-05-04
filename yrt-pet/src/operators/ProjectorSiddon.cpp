@@ -122,8 +122,10 @@ ProjectorSiddon::ProjectorSiddon(const ProjectorParams& pr_projParams)
 	{
 		const int numThreads = globals::getNumThreads();
 		mp_lineGen = std::make_unique<std::vector<MultiRayGenerator>>(
-		    numThreads, MultiRayGenerator{mr_scanner.crystalSize_z,
-		                                  mr_scanner.crystalSize_trans});
+		    numThreads,
+		    MultiRayGenerator{
+		      mr_scanner.crystalSize_z, mr_scanner.crystalSize_trans,
+		      mr_scanner.crystalDepth});
 	}
 	ASSERT_MSG_WARNING(
 	    mp_projPsfManager == nullptr,

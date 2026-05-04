@@ -199,6 +199,26 @@ Vector3DBase<TFloat>
 }
 
 template <typename TFloat>
+Vector3DBase<TFloat>&
+    Vector3DBase<TFloat>::operator-=(const Vector3DBase& v)
+{
+	x -= v.x;
+	y -= v.y;
+	z -= v.z;
+	return *this;
+}
+
+template <typename TFloat>
+Vector3DBase<TFloat>&
+    Vector3DBase<TFloat>::operator+=(const Vector3DBase& v)
+{
+	x += v.x;
+	y += v.y;
+	z += v.z;
+	return *this;
+}
+
+template <typename TFloat>
 TFloat Vector3DBase<TFloat>::scalProd(const Vector3DBase& vector) const
 {
 	return x * vector.x + y * vector.y + z * vector.z;

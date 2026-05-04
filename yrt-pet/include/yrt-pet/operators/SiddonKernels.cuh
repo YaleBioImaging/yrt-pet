@@ -42,11 +42,12 @@ __device__ inline curandState
 	return state;
 }
 
-template <bool UseParallelLines = false>
+template <bool UseParallelLines = false, bool HasDepth = false>
 __device__ void moveLineToRandomOffset(curandState& state, float3& p1,
                                        float3& p2,
                                        const float3& parallelToTrans1,
                                        const float3& parallelToTrans2,
+                                       const float3& n1, const float3& n2,
                                        const CUScannerParams& scannerParams)
 {
 	constexpr float3 vectParallelToZ{0, 0, 1};
@@ -72,6 +73,14 @@ __device__ void moveLineToRandomOffset(curandState& state, float3& p1,
 	     parallelToTrans1 * (rand_j_1 * scannerParams.crystalSize_trans);
 	p2 = p2 + vectParallelToZ * (rand_i_2 * scannerParams.crystalSize_z) -
 	     parallelToTrans2 * (rand_j_2 * scannerParams.crystalSize_trans);
+
+	if constexpr (HasDepth)
+	{
+		const float rand_k_1 = curand_uniform(&state) - 0.5f;
+		const float rand_k_2 = curand_uniform(&state) - 0.5f;
+		p1 += n1 * (rand_k_1 * scannerParams.crystalDepth);
+		p2 += n2 * (rand_k_2 * scannerParams.crystalDepth);
+	}
 }
 
 // Arguments:
@@ -133,7 +142,7 @@ __device__ void
 			if (i_line > 0)
 			{
 				moveLineToRandomOffset(state, p1, p2, parallelToTrans1,
-				                       parallelToTrans2, scannerParams);
+				                       parallelToTrans2, n1, n2, scannerParams);
 			}
 		}
 

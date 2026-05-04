@@ -12,12 +12,13 @@ struct CUScannerParams
 {
 	float crystalSize_trans;
 	float crystalSize_z;
+	float crystalDepth;
 	size_t numDets;
 };
 
 struct CUImageParams
 {
-	int nx,ny,nz;
+	int nx, ny, nz;
 	float vx, vy, vz;
 	float length_x, length_y, length_z;
 	float off_x, off_y, off_z;

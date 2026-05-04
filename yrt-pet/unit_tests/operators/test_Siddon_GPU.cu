@@ -8,7 +8,12 @@
 #include "../test_utils.hpp"
 #include "yrt-pet/datastruct/image/Image.hpp"
 #include "yrt-pet/datastruct/projection/ListModeLUT.hpp"
+#include "yrt-pet/operators/SiddonKernels.cuh"
+#include "yrt-pet/recon/CUParameters.hpp"
 #include "yrt-pet/utils/ReconstructionUtils.hpp"
+#include <limits>
+#include <memory>
+#include <vector_types.h>
 
 TEST_CASE("siddon_gpu_vs_cpu", "[siddon-gpu]")
 {
@@ -85,4 +90,120 @@ TEST_CASE("siddon_gpu_vs_cpu", "[siddon-gpu]")
 
 		CHECK(rmseCpuGpu < 0.0008);
 	}
+}
+
+__global__ void getMultiRayPos(float3 p1Init, float3 p2Init, float3 n1,
+                               float3 n2, int numRays,
+                               yrt::CUScannerParams scannerParams, float3* pos1,
+                               float3* pos2)
+{
+	float3 parallelToTrans1, parallelToTrans2;
+	curandState state =
+	    yrt::setupMultiRays(13, 0, n1, n2, parallelToTrans1, parallelToTrans2);
+	for (int i_line = 0; i_line < numRays; i_line++)
+	{
+		float3 p1 = p1Init;
+		float3 p2 = p2Init;
+		yrt::moveLineToRandomOffset<false, true>(
+		    state, p1, p2, parallelToTrans1, parallelToTrans2, n1, n2,
+		    scannerParams);
+		pos1[i_line] = p1;
+		pos2[i_line] = p2;
+	}
+}
+
+TEST_CASE("multiray-gpu", "[siddon-gpu]")
+{
+	const auto scanner = yrt::util::test::makeFakeScanner();
+	float3 p1Init{10, 0, 0};
+	float3 p2Init{-10, 0, 0};
+	float3 n1{-1, 0, 0};
+	float3 n2{1, 0, 0};
+	yrt::CUScannerParams scannerParams;
+	scannerParams.crystalSize_trans = scanner->crystalSize_trans;
+	scannerParams.crystalSize_z = scanner->crystalSize_z;
+	scannerParams.crystalDepth = scanner->crystalDepth;
+	scannerParams.numDets = 0;
+
+	int numRays = 1000;
+	yrt::GPULaunchConfig launchConfig;
+	float3* pos1Device = nullptr;
+	float3* pos2Device = nullptr;
+	yrt::util::allocateDevice(&pos1Device, numRays, launchConfig);
+	yrt::util::allocateDevice(&pos2Device, numRays, launchConfig);
+
+	getMultiRayPos<<<1, 1>>>(p1Init, p2Init, n1, n2, numRays, scannerParams,
+	                         pos1Device, pos2Device);
+
+	auto pos1 = std::make_unique<float3[]>(numRays);
+	auto pos2 = std::make_unique<float3[]>(numRays);
+	yrt::util::copyDeviceToHost(pos1.get(), pos1Device, numRays, launchConfig);
+	yrt::util::copyDeviceToHost(pos2.get(), pos2Device, numRays, launchConfig);
+
+	float minX1 = std::numeric_limits<float>::infinity();
+	float maxX1 = std::numeric_limits<float>::lowest();
+	float minY1 = std::numeric_limits<float>::infinity();
+	float maxY1 = std::numeric_limits<float>::lowest();
+	float minZ1 = std::numeric_limits<float>::infinity();
+	float maxZ1 = std::numeric_limits<float>::lowest();
+	float minX2 = std::numeric_limits<float>::infinity();
+	float maxX2 = std::numeric_limits<float>::lowest();
+	float minY2 = std::numeric_limits<float>::infinity();
+	float maxY2 = std::numeric_limits<float>::lowest();
+	float minZ2 = std::numeric_limits<float>::infinity();
+	float maxZ2 = std::numeric_limits<float>::lowest();
+	for (int ri = 0; ri < numRays; ri++)
+	{
+		minX1 = std::min(pos1[ri].x, minX1);
+		maxX1 = std::max(pos1[ri].x, maxX1);
+		minY1 = std::min(pos1[ri].y, minY1);
+		maxY1 = std::max(pos1[ri].y, maxY1);
+		minZ1 = std::min(pos1[ri].z, minZ1);
+		maxZ1 = std::max(pos1[ri].z, maxZ1);
+		minX2 = std::min(pos2[ri].x, minX2);
+		maxX2 = std::max(pos2[ri].x, maxX2);
+		minY2 = std::min(pos2[ri].y, minY2);
+		maxY2 = std::max(pos2[ri].y, maxY2);
+		minZ2 = std::min(pos2[ri].z, minZ2);
+		maxZ2 = std::max(pos2[ri].z, maxZ2);
+	}
+
+	std::cout << " minX1=" << minX1 << " maxX1=" << maxX1 << " minY1=" << minY1
+	          << " maxY1=" << maxY1 << " minZ1=" << minZ1 << " maxZ1=" << maxZ1
+	          << " minX2=" << minX2 << " maxX2=" << maxX2 << " minY2=" << minY2
+	          << " maxY2=" << maxY2 << " minZ2=" << minZ2 << " maxZ2=" << maxZ2
+	          << std::endl;
+	// Check bounding box
+	CHECK(((minX1 >= p1Init.x - scanner->crystalDepth / 2) &&
+	       (minX1 <= p1Init.x + scanner->crystalDepth / 2)));
+	CHECK(((maxX1 >= p1Init.x - scanner->crystalDepth / 2) &&
+	       (maxX1 <= p1Init.x + scanner->crystalDepth / 2)));
+	CHECK(((minY1 >= p1Init.y - scanner->crystalSize_trans / 2) &&
+	       (minY1 <= p1Init.y + scanner->crystalSize_trans / 2)));
+	CHECK(((maxY1 >= p1Init.y - scanner->crystalSize_trans / 2) &&
+	       (maxY1 <= p1Init.y + scanner->crystalSize_trans / 2)));
+	CHECK(((minZ1 >= p1Init.z - scanner->crystalSize_z / 2) &&
+	       (minZ1 <= p1Init.z + scanner->crystalSize_z / 2)));
+	CHECK(((maxZ1 >= p1Init.z - scanner->crystalSize_z / 2) &&
+	       (maxZ1 <= p1Init.z + scanner->crystalSize_z / 2)));
+	CHECK(((minX2 >= p2Init.x - scanner->crystalDepth / 2) &&
+	       (minX2 <= p2Init.x + scanner->crystalDepth / 2)));
+	CHECK(((maxX2 >= p2Init.x - scanner->crystalDepth / 2) &&
+	       (maxX2 <= p2Init.x + scanner->crystalDepth / 2)));
+	CHECK(((minY2 >= p2Init.y - scanner->crystalSize_trans / 2) &&
+	       (minY2 <= p2Init.y + scanner->crystalSize_trans / 2)));
+	CHECK(((maxY2 >= p2Init.y - scanner->crystalSize_trans / 2) &&
+	       (maxY2 <= p2Init.y + scanner->crystalSize_trans / 2)));
+	CHECK(((minZ2 >= p2Init.z - scanner->crystalSize_z / 2) &&
+	       (minZ2 <= p2Init.z + scanner->crystalSize_z / 2)));
+	CHECK(((maxZ2 >= p2Init.z - scanner->crystalSize_z / 2) &&
+	       (maxZ2 <= p2Init.z + scanner->crystalSize_z / 2)));
+
+	// Check extent
+	CHECK(((minX1 < p1Init.x) && (maxX1 > p1Init.x)));
+	CHECK(((minY1 < p1Init.y) && (maxY1 > p1Init.y)));
+	CHECK(((minZ1 < p1Init.z) && (maxZ1 > p1Init.z)));
+	CHECK(((minX2 < p2Init.x) && (maxX2 > p2Init.x)));
+	CHECK(((minY2 < p2Init.y) && (maxY2 > p2Init.y)));
+	CHECK(((minZ2 < p2Init.z) && (maxZ2 > p2Init.z)));
 }

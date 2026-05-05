@@ -30,9 +30,9 @@ void py_setup_singlescattersimulator(py::module& m)
 	auto c = py::class_<scatter::SingleScatterSimulator>(
 	    m, "SingleScatterSimulator");
 	c.def(py::init<const Scanner&, const Image&, const Image&,
-	               scatter::CrystalMaterial, int>(),
+	               scatter::CrystalMaterial, int, float>(),
 	      "scanner"_a, "attenuation_image"_a, "source_image"_a,
-	      "crystal_material"_a, "seed"_a);
+	      "crystal_material"_a, "seed"_a, "num_samp_frac"_a);
 	c.def("runSSS", &scatter::SingleScatterSimulator::runSSS);
 	c.def("computeSingleScatterInLOR",
 	      &scatter::SingleScatterSimulator::computeSingleScatterInLOR, "lor"_a,
@@ -52,7 +52,7 @@ namespace yrt::scatter
 
 SingleScatterSimulator::SingleScatterSimulator(
     const Scanner& pr_scanner, const Image& pr_mu, const Image& pr_lambda,
-    CrystalMaterial p_crystalMaterial, int seedi)
+    CrystalMaterial p_crystalMaterial, int seedi, float numSampFrac)
     : mr_scanner(pr_scanner),
       mr_mu(pr_mu),
       mr_lambda(pr_lambda),
@@ -91,15 +91,15 @@ SingleScatterSimulator::SingleScatterSimulator(
 
 	// Generate scatter points:
 	// YP coarser cubic grid of scatter points
-	int nxsamp = static_cast<int>(mu_params.nx / 1.5);
+	int nxsamp = static_cast<int>(numSampFrac * mu_params.nx);
 	if (nxsamp < 5)
 		nxsamp = 5;  // YP number of scatter points in x direction
 	float nxsamp_f = static_cast<float>(nxsamp);
-	int nysamp = static_cast<int>(mu_params.ny / 1.5);
+	int nysamp = static_cast<int>(numSampFrac * mu_params.ny);
 	if (nysamp < 5)
 		nysamp = 5;
 	float nysamp_f = static_cast<float>(nysamp);
-	int nzsamp = static_cast<int>(mu_params.nz / 1.5);
+	int nzsamp = static_cast<int>(numSampFrac * mu_params.nz);
 	if (nzsamp < 5)
 		nzsamp = 5;
 	float nzsamp_f = static_cast<float>(nzsamp);
@@ -283,12 +283,11 @@ float SingleScatterSimulator::computeSingleScatterInLOR(const Line3D& lor,
 
 		// compute I1 and I2:
 		att_s_1_511 =
-		    ProjectorSiddon::singleForwardProjection(&mr_mu, lor_1_s) /
-		    10.0;
+		    ProjectorSiddon::singleForwardProjection(&mr_mu, lor_1_s) / 10.0;
 
 		att_s_1 = att_s_1_511 * mu_scaling_factor;
-		lamb_s_1 = ProjectorSiddon::singleForwardProjection(&mr_lambda,
-		                                                            lor_1_s);
+		lamb_s_1 =
+		    ProjectorSiddon::singleForwardProjection(&mr_lambda, lor_1_s);
 		delta_1 = getIntersectionLengthLORCrystal(lor_1_s);
 		if (delta_1 > 10 * m_crystalDepth)
 		{
@@ -299,12 +298,11 @@ float SingleScatterSimulator::computeSingleScatterInLOR(const Line3D& lor,
 		}
 
 		att_s_2_511 =
-		    ProjectorSiddon::singleForwardProjection(&mr_mu, lor_2_s) /
-		    10.0;
+		    ProjectorSiddon::singleForwardProjection(&mr_mu, lor_2_s) / 10.0;
 
 		att_s_2 = att_s_2_511 * mu_scaling_factor;
-		lamb_s_2 = ProjectorSiddon::singleForwardProjection(&mr_lambda,
-		                                                            lor_2_s);
+		lamb_s_2 =
+		    ProjectorSiddon::singleForwardProjection(&mr_lambda, lor_2_s);
 		delta_2 = getIntersectionLengthLORCrystal(lor_2_s);
 
 		// Check that the distance between the two cylinders is not too big

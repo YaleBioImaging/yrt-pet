@@ -79,6 +79,12 @@ int main(int argc, char** argv)
 		    "n_angles", "Number of angles to consider for SSS", false,
 		    io::TypeOfArgument::INT,
 		    static_cast<int>(ScatterSpace::RecommendedNumAngles), sssGroup);
+		registry.registerArgument(
+		    "num_samp_frac",
+		    "Fraction of pixels in each dimension to define samples", false,
+		    io::TypeOfArgument::FLOAT,
+		    scatter::ScatterEstimator::DefaultNumSampFrac, sssGroup);
+
 
 		registry.registerArgument(
 		    "crystal_mat", "Crystal material name (default: LYSO)", false,
@@ -167,6 +173,7 @@ int main(int argc, char** argv)
 		    config.getValue<std::string>("save_intermediary");
 		int numThreads = config.getValue<int>("num_threads");
 		int maskWidth = config.getValue<int>("mask_width");
+		float numSampFrac = config.getValue<float>("num_samp_frac");
 		int seed = config.getValue<int>("seed");
 
 		if (useGPU)
@@ -237,7 +244,7 @@ int main(int argc, char** argv)
 		scatter::ScatterEstimator scatterEstimator(
 		    *scanner, *sourceImage, *attImage, *prompts, numTOFBins, numPlanes,
 		    numAngles, randomsHis, sensitivityHis, crystalMaterial, seed,
-		    maskWidth, attThreshold, saveIntermediary_dir);
+		    maskWidth, attThreshold, numSampFrac, saveIntermediary_dir);
 
 		scatterEstimator.allocate();
 

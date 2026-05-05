@@ -22,6 +22,7 @@ class ScatterEstimator
 {
 public:
 	static constexpr float DefaultAttThreshold = 0.9523809f;  // 1/1.05
+	static constexpr float DefaultNumSampFrac = 2.f / 3.f;
 	static constexpr int DefaultSeed = 13;
 	static constexpr auto DefaultCrystal = CrystalMaterial::LYSO;
 	static constexpr size_t DefaultScatterTailsMaskWidth = 2ull;
@@ -35,6 +36,7 @@ public:
 	    int seedi = DefaultSeed,
 	    size_t scatterTailsMaskWidth = DefaultScatterTailsMaskWidth,
 	    float attThreshold = DefaultAttThreshold,
+	    float p_numSampFrac = 2.f / 3.f,
 	    const std::string& saveIntermediary_dir = "");
 
 	void allocate();

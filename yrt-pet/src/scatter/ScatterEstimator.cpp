@@ -160,6 +160,13 @@ void ScatterEstimator::computeTailFittedScatterEstimate()
 	}
 
 	computePromptsAndRandomsInScatterSpace();
+	if (saveIntermediate)
+	{
+		mp_prompts_scs->writeToFile(m_saveIntermediary_dir /
+		                            "intermediary_prompts.scs");
+		mp_randoms_scs->writeToFile(m_saveIntermediary_dir /
+		                            "intermediary_randoms.scs");
+	}
 
 	const float fac = computeTailFittingFactor();
 

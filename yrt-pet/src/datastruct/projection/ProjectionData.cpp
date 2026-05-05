@@ -368,7 +368,7 @@ void ProjectionData::divideMeasurements(const ProjectionData* measurements,
 		    const bin_t bin = binIter->get(binIdx);
 		    const float projValue = getProjectionValue(bin);
 		    // to prevent numerical instability
-		    if (projValue > EPS_FLT)
+		    if (projValue != 0.f)
 		    {
 			    setProjectionValue(bin, measurements->getProjectionValue(bin) /
 			                                projValue);

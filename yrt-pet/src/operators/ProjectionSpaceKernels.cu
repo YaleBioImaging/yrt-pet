@@ -17,7 +17,7 @@ __global__ void divideMeasurements_kernel(const float* pd_dataIn,
 	const long eventId = blockIdx.x * blockDim.x + threadIdx.x;
 	if (eventId < maxNumberOfEvents)
 	{
-		if (pd_dataOut[eventId] > EPS_FLT)
+		if (pd_dataOut[eventId] != 0.f)
 		{
 			pd_dataOut[eventId] = pd_dataIn[eventId] / pd_dataOut[eventId];
 		}

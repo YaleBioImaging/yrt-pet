@@ -75,9 +75,8 @@ void LREM_CPU::prepareBuffersForRecon()
 		          << std::endl;
 		lr->setHBasis(projectorParams.HBasis);
 		lr->setHBasisWrite(*mp_HNumerator);  // write into mp_HWrite
-		// TODO NOW: Make sure this makes sense even with PSF
-		lr->setCurrentImgBuffer(flagImagePSF ? mp_imageTmpPsf.get() :
-		                                       outImage.get());
+
+		lr->setCurrentImgBuffer(outImage.get());
 	}
 }
 

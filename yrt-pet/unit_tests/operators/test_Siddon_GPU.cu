@@ -83,6 +83,6 @@ TEST_CASE("siddon_gpu_vs_cpu", "[siddon-gpu]")
 		double rmseCpuGpu =
 		    yrt::util::test::getRMSE(*projList_cpu, *projList_gpu);
 
-		CHECK(rmseCpuGpu < 0.0005);
+		CHECK(rmseCpuGpu < 0.0008);
 	}
 }

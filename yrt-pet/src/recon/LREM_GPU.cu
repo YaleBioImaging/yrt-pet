@@ -42,9 +42,7 @@ void LREM_GPU::prepareBuffersForRecon()
 	ProjectorUpdaterDeviceWrapper* lr = &m_updaterContainer;
 
 	// YN: Check with YD
-	// TODO NOW: Have a check to make sure UpdaterDevice is
-	//  ProjectorUpdaterDeviceLR ?
-	// TODO NOW: HBasis should already be set at creation of
+	// TODO: HBasis should already be set at creation of
 	//  OperatorProjectorDevice (in the updater wrapper, in
 	//  initUpdater). We can do it again here just in case (if code
 	//  changes in wrapper or updater), or trust we will remember to do

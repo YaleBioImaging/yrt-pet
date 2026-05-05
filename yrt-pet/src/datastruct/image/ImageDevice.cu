@@ -124,8 +124,7 @@ void py_setup_imagedevice(py::module& m)
 	    "Create ImageDevice using filename (will allocate)", "filename"_a);
 	c_owned.def(
 	    py::init(
-	        [](const ImageParams& imgParams, const std::string& filename)
-	        {
+	        [](const ImageParams& imgParams, const std::string& filename) {
 		        return std::make_unique<ImageDeviceOwned>(imgParams, filename,
 		                                                  nullptr);
 	        }),
@@ -180,7 +179,8 @@ ImageDevice::ImageDevice(const ImageParams& imgParams,
 void ImageDevice::setDeviceParams(const ImageParams& params)
 {
 	m_launchParams = util::initiateDeviceParameters(params);
-	m_imgSize = params.nt * params.nx * params.ny * params.nz;
+	m_imgSize =
+	    static_cast<size_t>(params.nt) * params.nx * params.ny * params.nz;
 }
 
 const cudaStream_t* ImageDevice::getStream() const
@@ -230,7 +230,8 @@ void ImageDevice::transferToDeviceMemory(const Image* ph_img_ptr,
 		float* d_base = getDevicePointer();  // raw device pointer
 		ASSERT_MSG(d_base != nullptr, "Device Image not allocated yet");
 
-		const size_t spatialSize = dstParams.nx * dstParams.ny * dstParams.nz;
+		const size_t spatialSize =
+		    static_cast<size_t>(dstParams.nx) * dstParams.ny * dstParams.nz;
 		ASSERT_MSG(
 		    getImageSize() == spatialSize * static_cast<size_t>(dstT),
 		    "ImageDevice::transferToDeviceMemory: inconsistent device size");

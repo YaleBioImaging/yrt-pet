@@ -247,7 +247,8 @@ float Image::voxelSum() const
 {
 	// Use double to avoid precision loss
 	const ImageParams& params = getParams();
-	const size_t numVoxels = getNumFrames() * params.nx * params.ny * params.nz;
+	const size_t numVoxels =
+	    static_cast<size_t>(getNumFrames()) * params.nx * params.ny * params.nz;
 	const float* rawPtr = mp_array->getRawPointer();
 	std::function<double(double, double)> func_sum = [](double a, double b)
 	{ return a + b; };
@@ -262,16 +263,18 @@ void Image::multWithScalar(float scalar)
 }
 
 // return the value of the voxel the nearest to "point":
-float Image::nearestNeighbor(const Vector3D& pt, int frame) const
+float Image::nearestNeighbor(const Vector3D& pt, frame_t frame) const
 {
 	int ix, iy, iz;
 
 	if (getNearestNeighborIdx(pt, &ix, &iy, &iz, frame))
 	{
 		const size_t num_x = getParams().nx;
-		const size_t num_xy = getParams().nx * getParams().ny;
-		const size_t num_xyz = getParams().nz * getParams().nx * getParams().ny;
-		return mp_array->getFlat(frame * num_xyz + iz * num_xy + iy * num_x +
+		const size_t num_xy =
+		    static_cast<size_t>(getParams().nx) * getParams().ny;
+		const size_t num_xyz = static_cast<size_t>(getParams().nz) *
+		                       getParams().nx * getParams().ny;
+		return mp_array->getFlat(num_xyz * frame + num_xy * iz + num_x * iy +
 		                         ix);
 	}
 	return 0;
@@ -284,10 +287,12 @@ float Image::nearestNeighbor(const Vector3D& pt, int* pi, int* pj, int* pk,
 	if (getNearestNeighborIdx(pt, pi, pj, pk, frame))
 	{
 		const size_t num_x = getParams().nx;
-		const size_t num_xy = getParams().nx * getParams().ny;
-		const size_t num_xyz = getParams().nx * getParams().ny * getParams().nz;
-		return mp_array->getFlat(frame * num_xyz + *pk * num_xy + *pj * num_x +
-		                         *pi);
+		const size_t num_xy =
+		    static_cast<size_t>(getParams().nx) * getParams().ny;
+		const size_t num_xyz = static_cast<size_t>(getParams().nz) *
+		                       getParams().nx * getParams().ny;
+		return mp_array->getFlat(num_xyz * frame + num_xy * (*pk) +
+		                         num_x * (*pj) + *pi);
 	}
 	return 0.0;
 }
@@ -303,9 +308,11 @@ void Image::updateImageNearestNeighbor(const Vector3D& pt, float value,
 		// update multiplicatively or additively:
 		float* ptr = mp_array->getRawPointer();
 		const size_t num_x = getParams().nx;
-		const size_t num_xy = getParams().nx * getParams().ny;
-		const size_t num_xyz = getParams().nx * getParams().ny * getParams().nz;
-		const size_t idx = frame * num_xyz + iz * num_xy + iy * num_x + ix;
+		const size_t num_xy =
+		    static_cast<size_t>(getParams().nx) * getParams().ny;
+		const size_t num_xyz = static_cast<size_t>(getParams().nz) *
+		                       getParams().nx * getParams().ny;
+		const size_t idx = num_xyz * frame + num_xy * iz + num_x * iy + ix;
 		if constexpr (MULT_FLAG)
 		{
 			ptr[idx] *= value;
@@ -327,9 +334,11 @@ void Image::assignImageNearestNeighbor(const Vector3D& pt, float value,
 		// update multiplicatively or additively:
 		float* ptr = mp_array->getRawPointer();
 		const size_t num_x = getParams().nx;
-		const size_t num_xy = getParams().nx * getParams().ny;
-		const size_t num_xyz = getParams().nx * getParams().ny * getParams().nz;
-		ptr[frame * num_xyz + iz * num_xy + iy * num_x + ix] = value;
+		const size_t num_xy =
+		    static_cast<size_t>(getParams().nx) * getParams().ny;
+		const size_t num_xyz = static_cast<size_t>(getParams().nz) *
+		                       getParams().nx * getParams().ny;
+		ptr[num_xyz * frame + num_xy * iz + num_x * iy + ix] = value;
 	}
 }
 
@@ -483,7 +492,8 @@ void Image::operationOnEachVoxel(const std::function<float(size_t)>& func)
 {
 	const ImageParams& params = getParams();
 	float* flatPtr = mp_array->getRawPointer();
-	const size_t numVoxels = getNumFrames() * params.nx * params.ny * params.nz;
+	const size_t numVoxels =
+	    static_cast<size_t>(getNumFrames()) * params.nx * params.ny * params.nz;
 	for (size_t i = 0; i < numVoxels; i++)
 	{
 		flatPtr[i] = func(i);
@@ -495,7 +505,8 @@ void Image::operationOnEachVoxelParallel(
 {
 	const ImageParams& params = getParams();
 	float* flatPtr = mp_array->getRawPointer();
-	const size_t numVoxels = params.nt * params.nx * params.ny * params.nz;
+	const size_t numVoxels =
+	    static_cast<size_t>(params.nt) * params.nx * params.ny * params.nz;
 
 	util::parallelForChunked(numVoxels, globals::getNumThreads(),
 	                         [flatPtr, func](size_t i, size_t /*tid*/)
@@ -699,7 +710,8 @@ void Image::updateEMThresholdDynamicWith4DSens(Image* updateImg,
 
 	// Number of voxels per rank slab (nz*ny*nx)
 	const ImageParams& params = getParams();
-	const size_t numVoxels = params.nx * params.ny * params.nz * params.nt;
+	const size_t numVoxels =
+	    static_cast<size_t>(params.nt) * params.nx * params.ny * params.nz;
 
 	util::parallelForChunked(
 	    numVoxels, globals::getNumThreads(),
@@ -1119,73 +1131,74 @@ void ImageOwned::readNIfTIData(int datatype, void* data, float slope,
 	const ImageParams& params = getParams();
 
 	float* imgData = getRawPointer();
-	const int numVoxels = getNumFrames() * params.nx * params.ny * params.nz;
+	const size_t numVoxels =
+	    static_cast<size_t>(getNumFrames()) * params.nx * params.ny * params.nz;
 
 	if (datatype == NIFTI_TYPE_FLOAT32)
 	{
-		for (int i = 0; i < numVoxels; i++)
+		for (size_t i = 0; i < numVoxels; i++)
 			imgData[i] =
 			    (*(reinterpret_cast<float*>(data) + i) * slope) + intercept;
 	}
 	else if (datatype == NIFTI_TYPE_FLOAT64)
 	{
-		for (int i = 0; i < numVoxels; i++)
+		for (size_t i = 0; i < numVoxels; i++)
 			imgData[i] =
 			    (util::reinterpretAndCast<double, float>(data, i) * slope) +
 			    intercept;
 	}
 	else if (datatype == NIFTI_TYPE_INT8)
 	{
-		for (int i = 0; i < numVoxels; i++)
+		for (size_t i = 0; i < numVoxels; i++)
 			imgData[i] =
 			    (util::reinterpretAndCast<int8_t, float>(data, i) * slope) +
 			    intercept;
 	}
 	else if (datatype == NIFTI_TYPE_INT16)
 	{
-		for (int i = 0; i < numVoxels; i++)
+		for (size_t i = 0; i < numVoxels; i++)
 			imgData[i] =
 			    (util::reinterpretAndCast<int16_t, float>(data, i) * slope) +
 			    intercept;
 	}
 	else if (datatype == NIFTI_TYPE_INT32)
 	{
-		for (int i = 0; i < numVoxels; i++)
+		for (size_t i = 0; i < numVoxels; i++)
 			imgData[i] =
 			    (util::reinterpretAndCast<int32_t, float>(data, i) * slope) +
 			    intercept;
 	}
 	else if (datatype == NIFTI_TYPE_INT64)
 	{
-		for (int i = 0; i < numVoxels; i++)
+		for (size_t i = 0; i < numVoxels; i++)
 			imgData[i] =
 			    (util::reinterpretAndCast<int64_t, float>(data, i) * slope) +
 			    intercept;
 	}
 	else if (datatype == NIFTI_TYPE_UINT8)
 	{
-		for (int i = 0; i < numVoxels; i++)
+		for (size_t i = 0; i < numVoxels; i++)
 			imgData[i] =
 			    (util::reinterpretAndCast<uint8_t, float>(data, i) * slope) +
 			    intercept;
 	}
 	else if (datatype == NIFTI_TYPE_UINT16)
 	{
-		for (int i = 0; i < numVoxels; i++)
+		for (size_t i = 0; i < numVoxels; i++)
 			imgData[i] =
 			    (util::reinterpretAndCast<uint16_t, float>(data, i) * slope) +
 			    intercept;
 	}
 	else if (datatype == NIFTI_TYPE_UINT32)
 	{
-		for (int i = 0; i < numVoxels; i++)
+		for (size_t i = 0; i < numVoxels; i++)
 			imgData[i] =
 			    (util::reinterpretAndCast<uint32_t, float>(data, i) * slope) +
 			    intercept;
 	}
 	else if (datatype == NIFTI_TYPE_UINT64)
 	{
-		for (int i = 0; i < numVoxels; i++)
+		for (size_t i = 0; i < numVoxels; i++)
 			imgData[i] =
 			    (util::reinterpretAndCast<uint64_t, float>(data, i) * slope) +
 			    intercept;

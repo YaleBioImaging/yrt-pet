@@ -39,7 +39,6 @@ YRT-PET documentation
    :maxdepth: 2
    :caption: Python
 
-   python/simulation_and_recon_demo
    python/array
    python/line3d-vector3d
    python/projector

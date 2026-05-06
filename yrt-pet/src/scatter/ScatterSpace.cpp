@@ -48,7 +48,7 @@ void py_setup_scatterspace(py::module& m)
 
 	// ScatterSpace class
 	auto c = py::class_<ScatterSpace, std::shared_ptr<ScatterSpace>>(
-	    m, "ScatterSpace");
+	    m, "ScatterSpace", py::buffer_protocol());
 	c.def(py::init<const Scanner&, const std::string&>());
 	c.def(py::init<const Scanner&, size_t, size_t, size_t>());
 

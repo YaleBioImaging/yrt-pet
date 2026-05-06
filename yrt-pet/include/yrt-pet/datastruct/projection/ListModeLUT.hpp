@@ -22,7 +22,7 @@ class ListModeLUT : public ListMode
 {
 public:
 	static constexpr timestamp_t DefaultStopTime =
-	std::numeric_limits<timestamp_t>::max();
+	    std::numeric_limits<timestamp_t>::max();
 
 	// Methods
 	~ListModeLUT() override = default;
@@ -106,9 +106,9 @@ public:
 	                 const std::string& listMode_fname, bool p_flagTOF = false,
 	                 bool p_flagRandoms = false);
 	ListModeLUTOwned(const Scanner& pr_scanner,
-					 const std::string& listMode_fname, timestamp_t timeStart,
-					 timestamp_t timeStop, bool p_flagTOF = false,
-					 bool p_flagRandoms = false);
+	                 const std::string& listMode_fname, timestamp_t timeStart,
+	                 timestamp_t timeStop, bool p_flagTOF = false,
+	                 bool p_flagRandoms = false);
 	~ListModeLUTOwned() override = default;
 
 	void readFromFile(const std::string& listMode_fname);

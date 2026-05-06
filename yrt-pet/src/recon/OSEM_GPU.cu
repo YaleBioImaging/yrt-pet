@@ -6,7 +6,6 @@
 #include "yrt-pet/recon/OSEM_GPU.cuh"
 
 #include "yrt-pet/datastruct/image/ImageDevice.cuh"
-#include "yrt-pet/datastruct/projection/ProjectionListDevice.cuh"
 #include "yrt-pet/operators/DDKernels.cuh"
 #include "yrt-pet/operators/DeviceSynchronized.cuh"
 #include "yrt-pet/operators/OperatorPsfDevice.cuh"

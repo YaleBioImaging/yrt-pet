@@ -8,7 +8,6 @@
 #include "yrt-pet/datastruct/image/Image.hpp"
 #include "yrt-pet/datastruct/image/ImageDevice.cuh"
 #include "yrt-pet/datastruct/projection/ProjectionData.hpp"
-#include "yrt-pet/datastruct/projection/ProjectionListDevice.cuh"
 #include "yrt-pet/operators/ProjectionPsfManagerDevice.cuh"
 #include "yrt-pet/operators/Projector.hpp"
 #include "yrt-pet/operators/ProjectorUpdaterDevice.cuh"

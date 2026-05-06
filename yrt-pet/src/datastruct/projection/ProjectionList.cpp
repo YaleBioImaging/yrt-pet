@@ -70,8 +70,12 @@ void py_setup_projectionlist(pybind11::module& m)
 
 namespace yrt
 {
+
 ProjectionList::ProjectionList(const ProjectionData* r)
-    : ProjectionData(r->getScanner()), mp_reference(r)
+    : ProjectionData(r->getScanner()),
+      mp_reference(r),
+      m_forceNoDynamicFraming(false),
+      m_forceNoMotion(false)
 {
 	ASSERT(mp_reference != nullptr);
 }

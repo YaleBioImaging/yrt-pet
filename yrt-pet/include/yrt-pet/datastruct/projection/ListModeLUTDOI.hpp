@@ -22,6 +22,7 @@ class Scanner;
 class ListModeLUTDOI : public ListModeLUT
 {
 public:
+	static constexpr int DefaultNumLayers = 256;
 	~ListModeLUTDOI() override = default;
 
 	bool hasArbitraryLORs() const override;
@@ -29,7 +30,8 @@ public:
 	void writeToFile(const std::string& listMode_fname) const override;
 
 protected:
-	explicit ListModeLUTDOI(const Scanner& pr_scanner, int numLayers = 256);
+	explicit ListModeLUTDOI(const Scanner& pr_scanner,
+	                        int numLayers = DefaultNumLayers);
 	std::unique_ptr<Array1DBase<unsigned char>> mp_doi1;
 	std::unique_ptr<Array1DBase<unsigned char>> mp_doi2;
 
@@ -42,7 +44,7 @@ public:
 	explicit ListModeLUTDOIAlias(const Scanner& pr_scanner,
 	                             bool p_flagTOF = false,
 	                             bool p_flagRandoms = false,
-	                             int numLayers = 256);
+	                             int numLayers = DefaultNumLayers);
 	~ListModeLUTDOIAlias() override = default;
 	void bind(const Array1DBase<timestamp_t>* pp_timestamps,
 	          const Array1DBase<det_id_t>* pp_detector_ids1,
@@ -67,7 +69,6 @@ public:
 class ListModeLUTDOIOwned : public ListModeLUTDOI
 {
 public:
-	static constexpr int DefaultNumLayers = 256;
 	explicit ListModeLUTDOIOwned(const Scanner& pr_scanner,
 	                             bool p_flagTOF = false,
 	                             bool p_flagRandoms = false,

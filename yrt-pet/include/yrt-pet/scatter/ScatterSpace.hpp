@@ -101,6 +101,8 @@ public:
 	Line3D getLORFromIndex(const ScatterSpaceIndex& idx) const;  // Ignore TOF
 	ScatterSpacePosition
 	    histogramBinToScatterSpacePosition(const histo_bin_t& histoBinId) const;
+	Array5DBase<float>& getData() { return *mp_values; }
+	const Array5DBase<float>& getData() const { return *mp_values; }
 
 	// Get the continuous position from the logical index
 	float getTOF_ps(size_t TOFBin) const;             // in picoseconds

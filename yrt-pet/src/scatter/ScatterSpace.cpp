@@ -122,6 +122,14 @@ void py_setup_scatterspace(py::module& m)
 		    return py::make_tuple(planePos1, angle1, planePos2, angle2);
 	    },
 	    "Compute cylindrical coordinates from two 3D points");
+	c.def_buffer(
+	    [](ScatterSpace& self) -> py::buffer_info
+	    {
+		    auto& d = self.getData();
+		    return py::buffer_info(d.getRawPointer(), sizeof(float),
+		                           py::format_descriptor<float>::format(), 5,
+		                           d.getDims(), d.getStrides());
+	    });
 }
 }  // namespace yrt
 #endif

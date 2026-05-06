@@ -167,6 +167,7 @@ void py_setup_listmodelut(py::module& m)
 
 namespace yrt
 {
+
 ListModeLUT::ListModeLUT(const Scanner& pr_scanner) : ListMode(pr_scanner) {}
 
 ListModeLUTOwned::ListModeLUTOwned(const Scanner& pr_scanner, bool p_flagTOF,
@@ -390,7 +391,7 @@ void ListModeLUTOwned::readFromFileBound(const std::string& listMode_fname,
 		                  static_cast<double>(timeDuration);
 		reservedSize = static_cast<size_t>(totalNumEvents * fraction);
 	}
-	reservedSize = std::max(reservedSize, static_cast<size_t>(1024));
+	reservedSize = std::max(reservedSize, static_cast<size_t>(1 << 24));
 
 	std::vector<uint32_t> timestamps;
 	std::vector<uint32_t> detector1;

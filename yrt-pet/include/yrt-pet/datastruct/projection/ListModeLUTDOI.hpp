@@ -67,17 +67,25 @@ public:
 class ListModeLUTDOIOwned : public ListModeLUTDOI
 {
 public:
+	static constexpr int DefaultNumLayers = 256;
 	explicit ListModeLUTDOIOwned(const Scanner& pr_scanner,
 	                             bool p_flagTOF = false,
 	                             bool p_flagRandoms = false,
-	                             int numLayers = 256);
+	                             int numLayers = DefaultNumLayers);
 	ListModeLUTDOIOwned(const Scanner& pr_scanner,
 	                    const std::string& listMode_fname,
 	                    bool p_flagTOF = false, bool p_flagRandoms = false,
-	                    int numLayers = 256);
+	                    int numLayers = DefaultNumLayers);
+	ListModeLUTDOIOwned(const Scanner& pr_scanner,
+	                    const std::string& listMode_fname,
+	                    timestamp_t timeStart, timestamp_t timeStop,
+	                    bool p_flagTOF = false, bool p_flagRandoms = false,
+	                    int numLayers = DefaultNumLayers);
 	~ListModeLUTDOIOwned() override = default;
 
 	void readFromFile(const std::string& listMode_fname);
+	void readFromFileBound(const std::string& listMode_fname,
+	                       timestamp_t timeStart, timestamp_t timeStop);
 	void allocate(size_t num_events);
 
 	// For registering the plugin

@@ -51,11 +51,29 @@ public:
 	struct ScatterSpaceIndex
 	{
 		size_t tofBin, planeIndex1, angleIndex1, planeIndex2, angleIndex2;
+		ScatterSpaceIndex() {}
+		ScatterSpaceIndex(size_t t, size_t p1, size_t a1, size_t p2, size_t a2)
+		    : tofBin(t),
+		      planeIndex1(p1),
+		      angleIndex1(a1),
+		      planeIndex2(p2),
+		      angleIndex2(a2)
+		{
+		}
 	};
 
 	struct ScatterSpacePosition
 	{
 		float tof_ps, planePosition1, angle1, planePosition2, angle2;
+		ScatterSpacePosition() {}
+		ScatterSpacePosition(float t, float p1, float a1, float p2, float a2)
+		    : tof_ps(t),
+		      planePosition1(p1),
+		      angle1(a1),
+		      planePosition2(p2),
+		      angle2(a2)
+		{
+		}
 	};
 
 	static constexpr size_t MinNumAngles = 4ull;

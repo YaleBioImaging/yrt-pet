@@ -25,6 +25,7 @@ void py_setup_scatterspace(py::module& m)
 	// ScatterSpaceIndex struct
 	py::class_<ScatterSpace::ScatterSpaceIndex>(m, "ScatterSpaceIndex")
 	    .def(py::init<>())
+	    .def(py::init<size_t, size_t, size_t, size_t, size_t>())
 	    .def_readwrite("tofBin", &ScatterSpace::ScatterSpaceIndex::tofBin)
 	    .def_readwrite("planeIndex1",
 	                   &ScatterSpace::ScatterSpaceIndex::planeIndex1)
@@ -38,6 +39,7 @@ void py_setup_scatterspace(py::module& m)
 	// ScatterSpacePosition struct
 	py::class_<ScatterSpace::ScatterSpacePosition>(m, "ScatterSpacePosition")
 	    .def(py::init<>())
+	    .def(py::init<float, float, float, float, float>())
 	    .def_readwrite("tof_ps", &ScatterSpace::ScatterSpacePosition::tof_ps)
 	    .def_readwrite("planePosition1",
 	                   &ScatterSpace::ScatterSpacePosition::planePosition1)

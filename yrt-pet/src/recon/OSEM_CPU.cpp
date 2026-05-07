@@ -353,7 +353,7 @@ void OSEM_CPU::computeEMUpdateImage()
 		    }
 
 		    // to prevent numerical instability
-		    if (std::abs(update) > SMALL_FLT)
+		    if (std::abs(update) > SMALL_FLT * globalScaleFactor)
 		    {
 			    const float measurement = measurements->getProjectionValue(bin);
 			    update = measurement / update;

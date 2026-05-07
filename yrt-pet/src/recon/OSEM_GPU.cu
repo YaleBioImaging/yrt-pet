@@ -1306,7 +1306,8 @@ __global__ void computeEMUpdateImage_kernel(
 				    ProjectionPropertyType::ATTENUATION_PRECORRECTION);
 			}
 
-			if (fabsf(update) > SMALL_FLT)  // to prevent numerical instability
+			// to prevent numerical instability
+			if (fabsf(update) > SMALL_FLT * globalScaleFactor)
 			{
 				// Divide measurements
 				update = measurement / update;

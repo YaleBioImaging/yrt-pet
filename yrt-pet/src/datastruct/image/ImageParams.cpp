@@ -347,7 +347,7 @@ void ImageParams::readFromJSON(json& j)
 	    &j, &version, {"VERSION", "GCIMAGEPARAMS_FILE_VERSION"}, -1.0, true,
 	    "Error in ImageParams file version : Version unspecified");
 
-	if (version > IMAGEPARAMS_FILE_VERSION + SMALL_FLT)
+	if (version > IMAGEPARAMS_FILE_VERSION + EPS_FLT)
 	{
 		throw std::logic_error("Error in ImageParams file version : Wrong "
 		                       "version. Current version: " +

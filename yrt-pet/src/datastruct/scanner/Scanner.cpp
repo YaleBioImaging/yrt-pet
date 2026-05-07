@@ -279,7 +279,7 @@ void Scanner::readFromString(const std::string& fileContents)
 	                       {"dets_per_block", "detsPerBlock"}, 1, false);
 
 	// Check for errors
-	if (scannerFileVersion > SCANNER_FILE_VERSION + SMALL_FLT)
+	if (scannerFileVersion > SCANNER_FILE_VERSION + EPS_FLT)
 	{
 		throw std::invalid_argument("Scanner JSON version too recent, the "
 		                            "current version is " +

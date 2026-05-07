@@ -6,6 +6,8 @@
 #include "yrt-pet/geometry/Line3D.hpp"
 #include "yrt-pet/geometry/Constants.hpp"
 
+#include <limits>
+
 #if BUILD_PYBIND11
 #include <pybind11/operators.h>
 #include <pybind11/pybind11.h>
@@ -132,13 +134,13 @@ bool Line3DBase<TFloat>::isEqual(Line3DBase<TFloat>& line) const
 {
 	const Vector3DBase point1Diff = point1 - line.point1;
 	const TFloat distPointSquared1 = point1Diff.getNormSquared();
-	if (distPointSquared1 > SMALL)
+	if (distPointSquared1 > std::numeric_limits<TFloat>::epsilon())
 	{
 		return false;
 	}
 	const Vector3DBase point2Diff = point2 - line.point2;
 	const TFloat distPointSquared2 = point2Diff.getNormSquared();
-	if (distPointSquared2 > SMALL)
+	if (distPointSquared2 > std::numeric_limits<TFloat>::epsilon())
 	{
 		return false;
 	}
@@ -170,7 +172,7 @@ bool Line3DBase<TFloat>::isParallel(Line3DBase<TFloat>& line) const
 	                                     tmp1.z * tmp2.x - tmp1.x * tmp2.z,
 	                                     tmp1.x * tmp2.y - tmp1.y * tmp2.x};
 	const TFloat norm = crossProd.getNorm();
-	return norm <= SMALL;
+	return norm <= std::numeric_limits<TFloat>::epsilon();
 }
 
 template class Line3DBase<double>;

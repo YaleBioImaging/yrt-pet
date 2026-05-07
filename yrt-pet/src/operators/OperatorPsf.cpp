@@ -172,7 +172,7 @@ std::vector<float> OperatorPsf::createGaussianKernel1D(float sigma,
 		size = 1;
 		while (std::exp(-0.5f *
 		                std::pow(static_cast<float>(size / 2) * voxSize / sigma,
-		                         2.f)) > SMALL_FLT &&
+		                         2.f)) > EPS_FLT &&
 		       size <= KERNEL_MAX_SIZE)
 		{
 			size += 2;

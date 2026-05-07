@@ -282,7 +282,7 @@ bool Matrix::operator==(Matrix matrix) const
 	                 (m_a21 - matrix.m_a21) * (m_a21 - matrix.m_a21) +
 	                 (m_a22 - matrix.m_a22) * (m_a22 - matrix.m_a22);
 
-	return sqrt(sqr_norm) < SMALL_FLT;
+	return sqrt(sqr_norm) < EPS_FLT;
 }
 
 std::ostream& operator<<(std::ostream& oss, const Matrix& v)

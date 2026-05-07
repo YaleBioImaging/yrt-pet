@@ -389,7 +389,7 @@ void OSEM_GPU::prepareBuffersForRecon()
 
 	// Allocate for projection space
 
-	// YN: Opportunity for optimisation: if the bin loader is already
+	// YN: Opportunity for optimization: if the bin loader is already
 	//  initialized and allocated, and the properties held are the same as
 	//  what comes out of "getNeededProperties(true)", and the allocated size is
 	//  larger or equal than what is needed for the reconstruction, then there
@@ -1306,7 +1306,7 @@ __global__ void computeEMUpdateImage_kernel(
 				    ProjectionPropertyType::ATTENUATION_PRECORRECTION);
 			}
 
-			if (fabsf(update) != 0.f)  // to prevent numerical instability
+			if (fabsf(update) > SMALL_FLT)  // to prevent numerical instability
 			{
 				// Divide measurements
 				update = measurement / update;

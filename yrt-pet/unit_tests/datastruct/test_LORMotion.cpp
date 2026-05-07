@@ -68,11 +68,11 @@ TEST_CASE("lor-motion", "[motion]")
 		const yrt::LORMotion::Record originalRecord = originalRecords[frame_i];
 		CHECK(compareTransforms(originalRecord.transform,
 		                        lorMot2->getTransform(frame_i),
-		                        yrt::SMALL_FLT));
+		                        yrt::EPS_FLT));
 		CHECK(originalRecord.timestamp ==
 		      lorMot2->getStartingTimestamp(frame_i));
 		CHECK(std::fabs(originalRecord.error - lorMot2->getError(frame_i) <
-		                yrt::SMALL_FLT));
+		                yrt::EPS_FLT));
 	}
 
 	// Clean up

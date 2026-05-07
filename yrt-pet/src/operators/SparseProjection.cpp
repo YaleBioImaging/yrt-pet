@@ -54,7 +54,7 @@ void forwProjectToSparseHistogram(const Image& sourceImage,
 		const float projValue = projector.forwardProjection(
 		    sourceImage_ptr, projPropManager, projectionPropertiesPtr, 0);
 
-		if (std::abs(projValue) > SMALL)
+		if (std::abs(projValue) > EPS_FLT)
 		{
 			const auto detPair = projPropManager.getDataValue<det_pair_t>(
 			    projectionPropertiesPtr, 0, ProjectionPropertyType::DET_ID);

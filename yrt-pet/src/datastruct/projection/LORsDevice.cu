@@ -142,6 +142,19 @@ void LORsDevice::loadPrecomputedLORsToDevice(GPULaunchConfig launchConfig)
 	}
 }
 
+void LORsDevice::releaseDeviceLORs(GPULaunchConfig launchConfig)
+{
+	mp_lorDet1Pos->Deallocate(launchConfig);
+	mp_lorDet2Pos->Deallocate(launchConfig);
+	mp_lorDet1Orient->Deallocate(launchConfig);
+	mp_lorDet2Orient->Deallocate(launchConfig);
+	mp_lorTOFValue->Deallocate(launchConfig);
+
+	m_loadedBatchSize = 0ull;
+	m_loadedBatchId = -1;
+	m_loadedSubsetId = -1;
+}
+
 size_t LORsDevice::getPrecomputedBatchSize() const
 {
 	return m_precomputedBatchSize;

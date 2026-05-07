@@ -52,6 +52,11 @@ void ListMode::setProjectionValue(bin_t id, float val)
 	throw std::logic_error("setProjectionValue unimplemented");
 }
 
+bool ListMode::isUniform() const
+{
+	return true;
+}
+
 timestamp_t ListMode::getScanDuration() const
 {
 	// By default, return timestamp of the last event - timestamp of first event

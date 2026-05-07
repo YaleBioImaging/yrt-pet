@@ -16,6 +16,66 @@ Corrector_GPU::Corrector_GPU(const Scanner& pr_scanner)
 {
 }
 
+Corrector_GPU::Corrector_GPU(const Corrector_GPU& other)
+    : Corrector{other.mr_scanner}, mph_lastCopiedHostImage{nullptr}
+{
+	mp_randoms = other.mp_randoms;
+	mp_scatter = other.mp_scatter;
+	mp_acf = other.mp_acf;
+	mp_attenuationImage = other.mp_attenuationImage;
+	mp_inVivoAcf = other.mp_inVivoAcf;
+	mp_inVivoAttenuationImage = other.mp_inVivoAttenuationImage;
+	mp_hardwareAcf = other.mp_hardwareAcf;
+	mp_hardwareAttenuationImage = other.mp_hardwareAttenuationImage;
+	mp_sensitivity = other.mp_sensitivity;
+	m_invertSensitivity = other.m_invertSensitivity;
+	m_globalScalingFactor = other.m_globalScalingFactor;
+	m_attenuationSetupComplete = other.m_attenuationSetupComplete;
+
+	if (other.mp_tofHelper != nullptr)
+	{
+		mp_tofHelper = std::make_unique<TimeOfFlightHelper>(
+		    *other.mp_tofHelper);
+	}
+	if (other.mp_uniformHistogram != nullptr)
+	{
+		mp_uniformHistogram = std::make_unique<UniformHistogram>(mr_scanner);
+	}
+	if (other.mp_impliedTotalAttenuationImage != nullptr)
+	{
+		mp_impliedTotalAttenuationImage = std::make_unique<ImageOwned>(
+		    other.mp_impliedTotalAttenuationImage->getParams());
+		mp_impliedTotalAttenuationImage->allocate();
+		mp_impliedTotalAttenuationImage->copyFromImage(
+		    other.mp_impliedTotalAttenuationImage.get());
+
+		if (other.mp_attenuationImage ==
+		    other.mp_impliedTotalAttenuationImage.get())
+		{
+			mp_attenuationImage = mp_impliedTotalAttenuationImage.get();
+		}
+	}
+
+	if (other.mph_additiveCorrections != nullptr &&
+	    other.mph_additiveCorrections->isMemoryValid())
+	{
+		auto additiveAlias = std::make_unique<ProjectionListAlias>(
+		    other.mph_additiveCorrections->getReference());
+		additiveAlias->bind(
+		    other.mph_additiveCorrections->getProjectionsArrayRef());
+		mph_additiveCorrections = std::move(additiveAlias);
+	}
+	if (other.mph_inVivoAttenuationFactors != nullptr &&
+	    other.mph_inVivoAttenuationFactors->isMemoryValid())
+	{
+		auto inVivoAlias = std::make_unique<ProjectionListAlias>(
+		    other.mph_inVivoAttenuationFactors->getReference());
+		inVivoAlias->bind(
+		    other.mph_inVivoAttenuationFactors->getProjectionsArrayRef());
+		mph_inVivoAttenuationFactors = std::move(inVivoAlias);
+	}
+}
+
 
 void Corrector_GPU::precomputeAdditiveCorrectionFactors(
     const ProjectionData& measurements)

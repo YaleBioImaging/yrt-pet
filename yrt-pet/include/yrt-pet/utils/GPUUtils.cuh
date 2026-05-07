@@ -8,6 +8,8 @@
 #if BUILD_CUDA
 
 #include <iostream>
+#include <string>
+#include <vector>
 
 #include <cuda_runtime.h>
 
@@ -18,6 +20,11 @@ namespace yrt
 __host__ bool cudaCheckError();
 
 __host__ size_t getDeviceInfo(bool verbose = false);
+__host__ size_t getCurrentDeviceInfo(bool verbose = false);
+__host__ int selectDeviceWithMostFreeMemory(bool verbose = false);
+__host__ void setCUDADevice(int deviceId);
+std::vector<int> parseGPUDeviceIds(const std::string& deviceList);
+std::vector<int> getDefaultGPUDeviceIds();
 void gpuAssert(cudaError_t code, const char* file, int line, bool abort = true);
 
 void gpuErrchk(cudaError_t code);

@@ -11,6 +11,7 @@
 #include "yrt-pet/operators/OperatorProjectorSiddon_GPU.cuh"
 #include "yrt-pet/operators/OperatorPsfDevice.cuh"
 #include "yrt-pet/utils/Assert.hpp"
+#include "yrt-pet/utils/GPUUtils.cuh"
 
 namespace yrt
 {
@@ -23,8 +24,11 @@ OSEM_GPU::OSEM_GPU(const Scanner& pr_scanner)
       mpd_tempSensDataInput(nullptr),
       mpd_dat(nullptr),
       mpd_datTmp(nullptr),
-      m_current_OSEM_subset(-1)
+      m_current_OSEM_subset(-1),
+      mp_mainStream(nullptr),
+      mp_auxStream(nullptr)
 {
+	setDeviceIds(getDefaultGPUDeviceIds());
 	mp_corrector = std::make_unique<Corrector_GPU>(pr_scanner);
 
 	std::cout << "Creating an instance of OSEM GPU..." << std::endl;
@@ -52,8 +56,43 @@ Corrector_GPU& OSEM_GPU::getCorrector_GPU()
 	return *mp_corrector;
 }
 
+std::unique_ptr<OperatorProjectorDevice> OSEM_GPU::createDeviceProjector(
+    const BinIterator* binIter, bool forRecon, const cudaStream_t* mainStream,
+    const cudaStream_t* auxStream) const
+{
+	OperatorProjectorParams projParams(
+	    binIter, scanner, forRecon && flagProjTOF ? tofWidth_ps : 0.f,
+	    forRecon && flagProjTOF ? tofNumStd : 0,
+	    flagProjPSF ? projPsf_fname : "", numRays);
+
+	if (projectorType == OperatorProjector::DD)
+	{
+		return std::make_unique<OperatorProjectorDD_GPU>(projParams,
+		                                                 mainStream, auxStream);
+	}
+	if (projectorType == OperatorProjector::SIDDON)
+	{
+		return std::make_unique<OperatorProjectorSiddon_GPU>(
+		    projParams, mainStream, auxStream);
+	}
+	throw std::runtime_error("Unknown error");
+}
+
+const BinIterator* OSEM_GPU::getCurrentBinIterator() const
+{
+	ASSERT(m_current_OSEM_subset >= 0);
+	return getBinIterators().at(m_current_OSEM_subset).get();
+}
+
+const BinIterator* OSEM_GPU::getBinIterator(int subsetId) const
+{
+	ASSERT(subsetId >= 0);
+	return getBinIterators().at(subsetId).get();
+}
+
 void OSEM_GPU::setupOperatorsForSensImgGen()
 {
+	setCUDADevice(getPrimaryDeviceId());
 	getBinIterators().clear();
 	getBinIterators().reserve(num_OSEM_subsets);
 
@@ -64,31 +103,15 @@ void OSEM_GPU::setupOperatorsForSensImgGen()
 		    mp_corrector->getSensImgGenProjData()->getBinIter(num_OSEM_subsets,
 		                                                      subsetId));
 	}
-	// Create ProjectorParams object
-	OperatorProjectorParams projParams(
-	    nullptr /* Will be set later at each subset loading */, scanner, 0.f, 0,
-	    flagProjPSF ? projPsf_fname : "", numRays);
-
-	if (projectorType == OperatorProjector::DD)
-	{
-		mp_projector = std::make_unique<OperatorProjectorDD_GPU>(
-		    projParams, getMainStream(), getAuxStream());
-	}
-	else if (projectorType == OperatorProjector::SIDDON)
-	{
-		mp_projector = std::make_unique<OperatorProjectorSiddon_GPU>(
-		    projParams, getMainStream(), getAuxStream());
-	}
-	else
-	{
-		throw std::runtime_error("Unknown error");
-	}
+	mp_projector =
+	    createDeviceProjector(nullptr, false, getMainStream(), getAuxStream());
 
 	mp_updater = std::make_unique<OSEMUpdater_GPU>(this);
 }
 
 void OSEM_GPU::allocateForSensImgGen()
 {
+	setCUDADevice(getPrimaryDeviceId());
 	// Allocate for image space
 	mpd_sensImageBuffer =
 	    std::make_unique<ImageDeviceOwned>(getImageParams(), getMainStream());
@@ -127,6 +150,7 @@ void OSEM_GPU::allocateForSensImgGen()
 
 std::unique_ptr<Image> OSEM_GPU::getLatestSensitivityImage(bool isLastSubset)
 {
+	setCUDADevice(getPrimaryDeviceId());
 	(void)isLastSubset;  // Copy flag is obsolete since the data is not yet on
 	// Host-side
 	auto img = std::make_unique<ImageOwned>(getImageParams());
@@ -137,12 +161,14 @@ std::unique_ptr<Image> OSEM_GPU::getLatestSensitivityImage(bool isLastSubset)
 
 void OSEM_GPU::computeSensitivityImage(ImageBase& destImage)
 {
+	setCUDADevice(getPrimaryDeviceId());
 	auto& destImageDevice = dynamic_cast<ImageDevice&>(destImage);
 	mp_updater->computeSensitivityImage(destImageDevice);
 }
 
 void OSEM_GPU::endSensImgGen()
 {
+	setCUDADevice(getPrimaryDeviceId());
 	// Clear temporary buffers
 	mpd_sensImageBuffer = nullptr;
 	mp_corrector->clearTemporaryDeviceBuffer();
@@ -151,6 +177,7 @@ void OSEM_GPU::endSensImgGen()
 
 void OSEM_GPU::setupOperatorsForRecon()
 {
+	setCUDADevice(getPrimaryDeviceId());
 	getBinIterators().clear();
 	getBinIterators().reserve(num_OSEM_subsets);
 
@@ -160,32 +187,15 @@ void OSEM_GPU::setupOperatorsForRecon()
 		    getDataInput()->getBinIter(num_OSEM_subsets, subsetId));
 	}
 
-	// Create ProjectorParams object
-	OperatorProjectorParams projParams(
-	    nullptr /* Will be set later at each subset loading */, scanner,
-	    flagProjTOF ? tofWidth_ps : 0.f, flagProjTOF ? tofNumStd : 0,
-	    flagProjPSF ? projPsf_fname : "", numRays);
-
-	if (projectorType == OperatorProjector::DD)
-	{
-		mp_projector = std::make_unique<OperatorProjectorDD_GPU>(
-		    projParams, getMainStream(), getAuxStream());
-	}
-	else if (projectorType == OperatorProjector::SIDDON)
-	{
-		mp_projector = std::make_unique<OperatorProjectorSiddon_GPU>(
-		    projParams, getMainStream(), getAuxStream());
-	}
-	else
-	{
-		throw std::runtime_error("Unknown error");
-	}
+	mp_projector =
+	    createDeviceProjector(nullptr, true, getMainStream(), getAuxStream());
 
 	mp_updater = std::make_unique<OSEMUpdater_GPU>(this);
 }
 
 void OSEM_GPU::allocateForRecon()
 {
+	setCUDADevice(getPrimaryDeviceId());
 	// Allocate image-space buffers
 	mpd_mlemImage =
 	    std::make_unique<ImageDeviceOwned>(getImageParams(), getMainStream());
@@ -276,10 +286,13 @@ void OSEM_GPU::allocateForRecon()
 	{
 		mp_corrector->precomputeInVivoAttenuationFactors(*dataInput);
 	}
+	mp_updater->preloadMultiGPULORCacheIfRequested();
+	setCUDADevice(getPrimaryDeviceId());
 }
 
 void OSEM_GPU::endRecon()
 {
+	setCUDADevice(getPrimaryDeviceId());
 	ASSERT(outImage != nullptr);
 
 	// Transfer MLEM image Device to host
@@ -387,6 +400,7 @@ const ProjectionDataDeviceOwned* OSEM_GPU::getMLEMDataDeviceBuffer() const
 
 void OSEM_GPU::loadSubset(int subsetId, bool forRecon)
 {
+	setCUDADevice(getPrimaryDeviceId());
 	m_current_OSEM_subset = subsetId;
 
 	if (forRecon && !usingListModeInput)
@@ -400,6 +414,7 @@ void OSEM_GPU::loadSubset(int subsetId, bool forRecon)
 void OSEM_GPU::addImagePSF(const std::string& p_imagePsf_fname,
                            ImagePSFMode p_imagePSFMode)
 {
+	setCUDADevice(getPrimaryDeviceId());
 	ASSERT_MSG(!p_imagePsf_fname.empty(), "Empty filename for Image-space PSF");
 	if (p_imagePSFMode == UNIFORM)
 	{
@@ -419,6 +434,7 @@ void OSEM_GPU::completeMLEMIteration() {}
 void OSEM_GPU::computeEMUpdateImage(const ImageBase& inputImage,
                                     ImageBase& destImage)
 {
+	setCUDADevice(getPrimaryDeviceId());
 	auto& inputImageHost = dynamic_cast<const ImageDevice&>(inputImage);
 	auto& destImageHost = dynamic_cast<ImageDevice&>(destImage);
 	mp_updater->computeEMUpdateImage(inputImageHost, destImageHost);
@@ -426,11 +442,56 @@ void OSEM_GPU::computeEMUpdateImage(const ImageBase& inputImage,
 
 const cudaStream_t* OSEM_GPU::getAuxStream() const
 {
-	return &m_auxStream.getStream();
+	return &mp_auxStream->getStream();
 }
 
 const cudaStream_t* OSEM_GPU::getMainStream() const
 {
-	return &m_mainStream.getStream();
+	return &mp_mainStream->getStream();
+}
+
+void OSEM_GPU::setDeviceIds(std::vector<int> deviceIds)
+{
+	ASSERT_MSG(!deviceIds.empty(), "At least one CUDA device id is required");
+
+	if (!m_deviceIds.empty())
+	{
+		setCUDADevice(getPrimaryDeviceId());
+		mp_mainStream = nullptr;
+		mp_auxStream = nullptr;
+	}
+
+	for (int deviceId : deviceIds)
+	{
+		setCUDADevice(deviceId);
+	}
+
+	m_deviceIds = std::move(deviceIds);
+	setCUDADevice(getPrimaryDeviceId());
+	mp_mainStream = std::make_unique<GPUStream>();
+	mp_auxStream = std::make_unique<GPUStream>();
+
+	std::cout << "YRT-PET GPU device list:";
+	for (int deviceId : m_deviceIds)
+	{
+		std::cout << " " << deviceId;
+	}
+	std::cout << std::endl;
+}
+
+const std::vector<int>& OSEM_GPU::getDeviceIds() const
+{
+	return m_deviceIds;
+}
+
+int OSEM_GPU::getPrimaryDeviceId() const
+{
+	ASSERT_MSG(!m_deviceIds.empty(), "No CUDA device has been selected");
+	return m_deviceIds.front();
+}
+
+bool OSEM_GPU::isMultiGPUEnabled() const
+{
+	return m_deviceIds.size() > 1;
 }
 }  // namespace yrt

@@ -182,7 +182,7 @@ void ProjectionDataDevice::createBinIterators(int num_OSEM_subsets)
 
 void ProjectionDataDevice::createBatchSetups(float shareOfMemoryToUse)
 {
-	size_t memAvailable = getDeviceInfo(true);
+	size_t memAvailable = getCurrentDeviceInfo(true);
 
 	// Shrink memory according to the portion we want to use
 	memAvailable = static_cast<size_t>(static_cast<float>(memAvailable) *
@@ -239,6 +239,11 @@ void ProjectionDataDevice::loadPrecomputedLORsToDevice(
 	mp_LORs->loadPrecomputedLORsToDevice(launchConfig);
 }
 
+void ProjectionDataDevice::releaseDeviceLORs(GPULaunchConfig launchConfig)
+{
+	mp_LORs->releaseDeviceLORs(launchConfig);
+}
+
 void ProjectionDataDevice::loadProjValuesFromReference(
     GPULaunchConfig launchConfig)
 {
@@ -286,7 +291,7 @@ void ProjectionDataDevice::loadProjValuesFromHostInternal(
     const ProjectionData* src, const Histogram* histo,
     GPULaunchConfig launchConfig)
 {
-	if (src->isUniform() && histo == nullptr)
+	if (!GatherRandoms && src->isUniform() && histo == nullptr)
 	{
 		// No need to "getProjectionValue" everywhere, just fill the buffer with
 		// the same value

@@ -14,6 +14,7 @@
 #include "yrt-pet/recon/OSEMUpdater_GPU.cuh"
 #include "yrt-pet/utils/GPUStream.cuh"
 
+#include <vector>
 
 namespace yrt
 {
@@ -29,8 +30,18 @@ public:
 	const Corrector_GPU& getCorrector_GPU() const;
 	Corrector_GPU& getCorrector_GPU();
 	OperatorProjectorDevice* getProjector() const;
+	std::unique_ptr<OperatorProjectorDevice>
+	    createDeviceProjector(const BinIterator* binIter, bool forRecon,
+	                          const cudaStream_t* mainStream,
+	                          const cudaStream_t* auxStream) const;
+	const BinIterator* getCurrentBinIterator() const;
+	const BinIterator* getBinIterator(int subsetId) const;
 	const cudaStream_t* getAuxStream() const;
 	const cudaStream_t* getMainStream() const;
+	void setDeviceIds(std::vector<int> deviceIds);
+	const std::vector<int>& getDeviceIds() const;
+	int getPrimaryDeviceId() const;
+	bool isMultiGPUEnabled() const;
 
 	// Sens Image generator driver
 	void setupOperatorsForSensImgGen() override;
@@ -84,8 +95,9 @@ private:
 	std::unique_ptr<OSEMUpdater_GPU> mp_updater;
 
 	int m_current_OSEM_subset;
+	std::vector<int> m_deviceIds;
 
-	GPUStream m_mainStream;
-	GPUStream m_auxStream;
+	std::unique_ptr<GPUStream> mp_mainStream;
+	std::unique_ptr<GPUStream> mp_auxStream;
 };
 }  // namespace yrt

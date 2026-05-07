@@ -14,6 +14,11 @@
 #include "yrt-pet/utils/ReconstructionUtils.hpp"
 #include "yrt-pet/utils/Timer.hpp"
 
+#if BUILD_CUDA
+#include "yrt-pet/recon/OSEM_GPU.cuh"
+#include "yrt-pet/utils/GPUUtils.cuh"
+#endif
+
 #include <ctime>
 #include <cxxopts.hpp>
 #include <iostream>
@@ -82,6 +87,11 @@ int main(int argc, char** argv)
 #if BUILD_CUDA
 		registry.registerArgument("gpu", "Use GPU acceleration", false,
 		                          io::TypeOfArgument::BOOL, false, coreGroup);
+		registry.registerArgument(
+		    "gpu_ids",
+		    "Comma-separated CUDA device ids to use for GPU reconstruction. "
+		    "Multiple ids enable data-parallel multi-GPU reconstruction.",
+		    false, io::TypeOfArgument::STRING, "", coreGroup);
 #endif
 		registry.registerArgument("num_threads", "Number of threads to use",
 		                          false, io::TypeOfArgument::INT, -1,
@@ -302,6 +312,19 @@ int main(int argc, char** argv)
 		    io::getProjector(config.getValue<std::string>("projector"));
 		std::unique_ptr<OSEM> osem =
 		    util::createOSEM(*scanner, config.getValue<bool>("gpu"));
+
+#if BUILD_CUDA
+		if (config.getValue<bool>("gpu"))
+		{
+			const std::string gpuIds = config.getValue<std::string>("gpu_ids");
+			if (!gpuIds.empty())
+			{
+				auto* osemGPU = dynamic_cast<OSEM_GPU*>(osem.get());
+				ASSERT(osemGPU != nullptr);
+				osemGPU->setDeviceIds(parseGPUDeviceIds(gpuIds));
+			}
+		}
+#endif
 
 		osem->num_MLEM_iterations = config.getValue<int>("num_iterations");
 		osem->num_OSEM_subsets = config.getValue<int>("num_subsets");

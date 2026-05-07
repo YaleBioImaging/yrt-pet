@@ -27,6 +27,7 @@ public:
 	                         const GPUBatchSetup& batchSetup, int subsetId,
 	                         int batchId, const ProjectionData& reference);
 	void loadPrecomputedLORsToDevice(GPULaunchConfig launchConfig);
+	void releaseDeviceLORs(GPULaunchConfig launchConfig);
 
 	// Gets the size of the last precomputed batch
 	size_t getPrecomputedBatchSize() const;

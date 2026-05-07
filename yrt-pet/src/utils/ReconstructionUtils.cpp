@@ -464,6 +464,7 @@ static void project(Image* img, ProjectionData* projData,
 	if (useGPU)
 	{
 #ifdef BUILD_CUDA
+		selectDeviceWithMostFreeMemory(true);
 		mainStream = std::make_unique<GPUStream>();
 		auxStream = std::make_unique<GPUStream>();
 #else

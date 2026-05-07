@@ -385,7 +385,7 @@ void ScatterEstimator::computePromptsAndRandomsInScatterSpace()
 		    }
 		    else if (mr_prompts.hasRandomsEstimates())
 		    {
-			    randomsEstimate = mr_prompts.hasRandomsEstimates();
+			    randomsEstimate = mr_prompts.getRandomsEstimate(binId);
 		    }
 
 		    // Normalize prompts and randoms estimate

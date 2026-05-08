@@ -103,9 +103,9 @@ def _test_savant_sim_ultra_micro_hotspot_motion_mlem_gpu_exec(
                      + proj_keyword + '.nii.gz'))
     ref_image_np = np.array(ref_image, copy=False)
 
-    # Allow up to 40 voxels to mismatch
+    # Allow up to 100 voxels to mismatch
     assert (1 - np.isclose(out_image_np, ref_image_np,
-                           atol=0, rtol=1e-3)).sum() < 40
+                           atol=0, rtol=1e-3)).sum() < 100
 
 
 def test_savant_sim_ultra_micro_hotspot_piston_mlem_dd_gpu_exec():

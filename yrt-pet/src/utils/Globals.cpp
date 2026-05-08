@@ -7,6 +7,7 @@
 
 #if BUILD_PYBIND11
 #include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
 
 namespace yrt
 {
@@ -17,6 +18,13 @@ void py_setup_globals(pybind11::module& m)
 
 	m.def("isPinnedMemoryEnabled", &globals::isPinnedMemoryEnabled);
 	m.def("setPinnedMemoryEnabled", &globals::setPinnedMemoryEnabled);
+	m.def("setCudaDeviceIds",
+	      [](const std::vector<int>& deviceIds)
+	      { globals::setCudaDeviceIds(deviceIds); });
+	m.def("getCudaDeviceIds",
+	      []() { return globals::getCudaDeviceIds(); });
+	m.def("clearCudaDeviceIds", &globals::clearCudaDeviceIds);
+	m.def("getPrimaryCudaDeviceId", &globals::getPrimaryCudaDeviceId);
 }
 }  // namespace yrt
 

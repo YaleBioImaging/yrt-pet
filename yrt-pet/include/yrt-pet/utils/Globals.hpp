@@ -10,6 +10,8 @@
 
 #include <cstddef>
 #include <iostream>
+#include <stdexcept>
+#include <vector>
 
 namespace yrt
 {
@@ -81,6 +83,47 @@ inline void setPinnedMemoryEnabled(bool enabled)
 inline bool isPinnedMemoryEnabled()
 {
 	return usePinnedMemory();
+}
+
+inline std::vector<int>& cudaDeviceIds()
+{
+	static std::vector<int> s_cudaDeviceIds;
+	return s_cudaDeviceIds;
+}
+
+inline const std::vector<int>& getCudaDeviceIds()
+{
+	return cudaDeviceIds();
+}
+
+inline void setCudaDeviceIds(const std::vector<int>& deviceIds)
+{
+	if (deviceIds.empty())
+	{
+		throw std::runtime_error("At least one CUDA device id is required");
+	}
+	cudaDeviceIds() = deviceIds;
+
+	std::cout << "YRT-PET global CUDA device list:";
+	for (int deviceId : cudaDeviceIds())
+	{
+		std::cout << " " << deviceId;
+	}
+	std::cout << std::endl;
+}
+
+inline void clearCudaDeviceIds()
+{
+	cudaDeviceIds().clear();
+}
+
+inline int getPrimaryCudaDeviceId()
+{
+	if (cudaDeviceIds().empty())
+	{
+		throw std::runtime_error("No CUDA device id has been selected");
+	}
+	return cudaDeviceIds().front();
 }
 
 // TODO: Add an option to set the max VRAM

@@ -12,6 +12,7 @@
 #include "yrt-pet/operators/OperatorPsfDevice.cuh"
 #include "yrt-pet/utils/Assert.hpp"
 #include "yrt-pet/utils/GPUUtils.cuh"
+#include "yrt-pet/utils/Globals.hpp"
 
 namespace yrt
 {
@@ -465,6 +466,9 @@ void OSEM_GPU::setDeviceIds(std::vector<int> deviceIds)
 	{
 		setCUDADevice(deviceId);
 	}
+
+	globals::setCudaDeviceIds(deviceIds);
+	enablePeerAccessForDeviceIds(deviceIds);
 
 	m_deviceIds = std::move(deviceIds);
 	setCUDADevice(getPrimaryDeviceId());

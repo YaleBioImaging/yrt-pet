@@ -228,50 +228,52 @@ void printMultiGPUSetup(const char* operationName,
 	          << std::endl;
 }
 
-void copyDeviceImageAcrossGPUs(const ImageDevice& sourceImage,
-                               int sourceDeviceId, ImageDevice& destImage,
-                               int destDeviceId, const char* imageDescription)
+void copyDeviceImageAcrossGPUsAsync(const ImageDevice& sourceImage,
+                                    int sourceDeviceId, ImageDevice& destImage,
+                                    int destDeviceId, int streamDeviceId,
+                                    const cudaStream_t& stream,
+                                    cudaEvent_t completionEvent,
+                                    const char* imageDescription)
 {
 	ASSERT_MSG(destImage.getParams().isSameDimensionsAs(sourceImage.getParams()),
 	           "Image dimensions mismatch");
+	ASSERT_MSG(streamDeviceId == sourceDeviceId ||
+	               streamDeviceId == destDeviceId,
+	           "Peer-copy stream must belong to source or destination device");
 
-	if (sourceDeviceId == destDeviceId)
+	const size_t byteCount = sourceImage.getImageSize() * sizeof(float);
 	{
-		ScopedCUDADevice guard(destDeviceId);
-		destImage.copyFromDeviceImage(&sourceImage, true);
-		return;
-	}
-
-	int canAccessPeer = 0;
-	cudaDeviceCanAccessPeer(&canAccessPeer, destDeviceId, sourceDeviceId);
-	ASSERT(cudaCheckError());
-
-	if (canAccessPeer != 0)
-	{
-		ScopedCUDADevice guard(destDeviceId);
-		const cudaError_t peerStatus =
-		    cudaDeviceEnablePeerAccess(sourceDeviceId, 0);
-		if (peerStatus == cudaErrorPeerAccessAlreadyEnabled)
+		ScopedCUDADevice guard(streamDeviceId);
+		if (sourceDeviceId == destDeviceId)
 		{
-			cudaGetLastError();
-		}
-		else if (peerStatus != cudaSuccess)
-		{
-			throw std::runtime_error(
-			    "Failed to enable CUDA peer access from device " +
-			    std::to_string(destDeviceId) + " to device " +
-			    std::to_string(sourceDeviceId) + ": " +
-			    cudaGetErrorString(peerStatus));
+			cudaMemcpyAsync(destImage.getDevicePointer(),
+			                sourceImage.getDevicePointer(), byteCount,
+			                cudaMemcpyDeviceToDevice, stream);
+			ASSERT(cudaCheckError());
+			if (completionEvent != nullptr)
+			{
+				cudaEventRecord(completionEvent, stream);
+				ASSERT(cudaCheckError());
+			}
+			return;
 		}
 
-		const size_t byteCount = sourceImage.getImageSize() * sizeof(float);
-		cudaMemcpyPeer(destImage.getDevicePointer(), destDeviceId,
-		               sourceImage.getDevicePointer(), sourceDeviceId,
-		               byteCount);
+		if (ensurePeerAccess(destDeviceId, sourceDeviceId))
+		{
+			cudaMemcpyPeerAsync(destImage.getDevicePointer(), destDeviceId,
+			                    sourceImage.getDevicePointer(), sourceDeviceId,
+			                    byteCount, stream);
+			ASSERT(cudaCheckError());
+			if (completionEvent != nullptr)
+			{
+				cudaEventRecord(completionEvent, stream);
+				ASSERT(cudaCheckError());
+			}
+			return;
+		}
+
+		cudaStreamSynchronize(stream);
 		ASSERT(cudaCheckError());
-		cudaDeviceSynchronize();
-		ASSERT(cudaCheckError());
-		return;
 	}
 
 	std::cout << "CUDA peer access is unavailable from visible device "
@@ -287,19 +289,108 @@ void copyDeviceImageAcrossGPUs(const ImageDevice& sourceImage,
 		ScopedCUDADevice destGuard(destDeviceId);
 		destImage.copyFromHostImage(hostImage.get(), true);
 	}
+	if (completionEvent != nullptr)
+	{
+		ScopedCUDADevice guard(streamDeviceId);
+		cudaEventRecord(completionEvent, stream);
+		ASSERT(cudaCheckError());
+	}
+}
+
+void destroyCudaEvents(std::vector<cudaEvent_t>& events,
+                       const std::vector<int>& deviceIds)
+{
+	for (size_t eventId = 0; eventId < events.size(); eventId++)
+	{
+		if (events.at(eventId) != nullptr)
+		{
+			ScopedCUDADevice guard(deviceIds.at(eventId));
+			cudaEventDestroy(events.at(eventId));
+			events.at(eventId) = nullptr;
+		}
+	}
 }
 
 void sumPrimaryPartialImagesToDevice(
-    const std::vector<std::unique_ptr<ImageDeviceOwned>>& partialImages,
-    ImageDevice& destImage, int primaryDeviceId)
+    const std::vector<std::unique_ptr<ImageDeviceOwned>>& primaryPartialImages,
+    const std::vector<std::unique_ptr<ImageDeviceOwned>>& workerPartialImages,
+    const std::vector<size_t>& activeWorkerIds,
+    const std::vector<cudaEvent_t>& partialReadyEvents,
+    const std::vector<int>& deviceIds, ImageDevice& destImage,
+    int primaryDeviceId, const cudaStream_t* primaryStream)
 {
 	ScopedCUDADevice guard(primaryDeviceId);
-	destImage.setValueDevice(0.0f, true);
-	for (const auto& partialImage : partialImages)
+	for (size_t workerId : activeWorkerIds)
 	{
-		if (partialImage != nullptr)
+		if (partialReadyEvents.at(workerId) != nullptr)
 		{
-			partialImage->addFirstImageToSecondDevice(&destImage, true);
+			if (primaryStream != nullptr)
+			{
+				cudaStreamWaitEvent(*primaryStream,
+				                    partialReadyEvents.at(workerId), 0);
+			}
+			else
+			{
+				cudaEventSynchronize(partialReadyEvents.at(workerId));
+			}
+			ASSERT(cudaCheckError());
+		}
+	}
+
+	if (activeWorkerIds.empty())
+	{
+		destImage.setValueDevice(0.0f, true);
+		return;
+	}
+
+	destImage.setValueDevice(0.0f, true);
+	for (size_t workerId : activeWorkerIds)
+	{
+		const auto& image =
+		    deviceIds.at(workerId) == primaryDeviceId ?
+		        workerPartialImages.at(workerId) :
+		        primaryPartialImages.at(workerId);
+		ASSERT(image != nullptr);
+		image->addFirstImageToSecondDevice(&destImage, true);
+	}
+	ASSERT(cudaCheckError());
+}
+
+void sumPrimaryPartialImagesToDevice(
+    const std::vector<std::unique_ptr<ImageDeviceOwned>>& primaryPartialImages,
+    const std::vector<std::unique_ptr<ImageDeviceOwned>>& workerPartialImages,
+    const std::vector<size_t>& activeWorkerIds,
+    std::vector<cudaEvent_t>& partialReadyEvents,
+    const std::vector<int>& deviceIds, ImageDevice& destImage,
+    int primaryDeviceId, const cudaStream_t* primaryStream)
+{
+	try
+	{
+		const std::vector<cudaEvent_t>& readOnlyEvents = partialReadyEvents;
+		sumPrimaryPartialImagesToDevice(
+		    primaryPartialImages, workerPartialImages, activeWorkerIds,
+		    readOnlyEvents, deviceIds, destImage, primaryDeviceId,
+		    primaryStream);
+	}
+	catch (...)
+	{
+		destroyCudaEvents(partialReadyEvents, deviceIds);
+		throw;
+	}
+	destroyCudaEvents(partialReadyEvents, deviceIds);
+}
+
+void rethrowMultiGPUWorkerErrors(
+    const std::vector<std::exception_ptr>& errors,
+    std::vector<cudaEvent_t>& partialReadyEvents,
+    const std::vector<int>& deviceIds)
+{
+	for (const auto& error : errors)
+	{
+		if (error != nullptr)
+		{
+			destroyCudaEvents(partialReadyEvents, deviceIds);
+			std::rethrow_exception(error);
 		}
 	}
 }
@@ -618,10 +709,14 @@ void OSEMUpdater_GPU::ensureMultiGPUImageBuffers(
 	const int primaryDeviceId = mp_osem->getPrimaryDeviceId();
 	{
 		ScopedCUDADevice guard(primaryDeviceId);
-		for (auto& image : buffers.primaryPartialImages)
+		for (size_t workerId = 0; workerId < deviceIds.size(); workerId++)
 		{
-			image = std::make_unique<ImageDeviceOwned>(params);
-			image->allocate(true);
+			if (deviceIds.at(workerId) != primaryDeviceId)
+			{
+				buffers.primaryPartialImages.at(workerId) =
+				    std::make_unique<ImageDeviceOwned>(params);
+				buffers.primaryPartialImages.at(workerId)->allocate(true);
+			}
 		}
 	}
 
@@ -634,9 +729,12 @@ void OSEMUpdater_GPU::ensureMultiGPUImageBuffers(
 
 		if (allocateInputImages)
 		{
-			buffers.workerInputImages.at(workerId) =
-			    std::make_unique<ImageDeviceOwned>(params);
-			buffers.workerInputImages.at(workerId)->allocate(true);
+			if (deviceIds.at(workerId) != primaryDeviceId)
+			{
+				buffers.workerInputImages.at(workerId) =
+				    std::make_unique<ImageDeviceOwned>(params);
+				buffers.workerInputImages.at(workerId)->allocate(true);
+			}
 		}
 	}
 
@@ -855,6 +953,9 @@ void OSEMUpdater_GPU::computeSensitivityImageMultiGPU(
 	                           false);
 
 	std::vector<std::exception_ptr> errors(deviceIds.size());
+	std::vector<cudaEvent_t> partialReadyEvents(deviceIds.size(), nullptr);
+	std::vector<size_t> activeWorkerIds;
+	activeWorkerIds.reserve(deviceIds.size());
 	std::vector<std::thread> workers;
 	workers.reserve(deviceIds.size());
 
@@ -866,10 +967,12 @@ void OSEMUpdater_GPU::computeSensitivityImageMultiGPU(
 		{
 			continue;
 		}
+		activeWorkerIds.push_back(workerId);
 
 		workers.emplace_back(
 		    [&, workerId, start, count]()
 		    {
+			    cudaEvent_t copyDoneEvent = nullptr;
 			    try
 			    {
 				    const int deviceId = deviceIds.at(workerId);
@@ -965,13 +1068,34 @@ void OSEMUpdater_GPU::computeSensitivityImageMultiGPU(
 				    }
 
 				    cudaStreamSynchronize(mainStream.getStream());
-				    copyDeviceImageAcrossGPUs(
-				        *partialImageDevice, deviceId,
-				        *m_sensitivityBuffers.primaryPartialImages.at(workerId),
-				        primaryDeviceId, "one sensitivity partial image");
+				    ASSERT(cudaCheckError());
+				    cudaEventCreateWithFlags(&copyDoneEvent,
+				                             cudaEventDisableTiming);
+				    ASSERT(cudaCheckError());
+				    if (deviceId == primaryDeviceId)
+				    {
+					    cudaEventRecord(copyDoneEvent, mainStream.getStream());
+					    ASSERT(cudaCheckError());
+				    }
+				    else
+				    {
+					    copyDeviceImageAcrossGPUsAsync(
+					        *partialImageDevice, deviceId,
+					        *m_sensitivityBuffers.primaryPartialImages.at(
+					            workerId),
+					        primaryDeviceId, deviceId, mainStream.getStream(),
+					        copyDoneEvent, "one sensitivity partial image");
+				    }
+				    partialReadyEvents.at(workerId) = copyDoneEvent;
+				    copyDoneEvent = nullptr;
 			    }
 			    catch (...)
 			    {
+				    if (copyDoneEvent != nullptr)
+				    {
+					    ScopedCUDADevice guard(deviceIds.at(workerId));
+					    cudaEventDestroy(copyDoneEvent);
+				    }
 				    errors.at(workerId) = std::current_exception();
 			    }
 		    });
@@ -981,16 +1105,13 @@ void OSEMUpdater_GPU::computeSensitivityImageMultiGPU(
 	{
 		worker.join();
 	}
-	for (const auto& error : errors)
-	{
-		if (error != nullptr)
-		{
-			std::rethrow_exception(error);
-		}
-	}
+	rethrowMultiGPUWorkerErrors(errors, partialReadyEvents, deviceIds);
 
 	sumPrimaryPartialImagesToDevice(m_sensitivityBuffers.primaryPartialImages,
-	                                destImage, primaryDeviceId);
+	                                m_sensitivityBuffers.workerPartialImages,
+	                                activeWorkerIds, partialReadyEvents,
+	                                deviceIds, destImage, primaryDeviceId,
+	                                mp_osem->getMainStream());
 }
 
 void OSEMUpdater_GPU::computeEMUpdateImageMultiGPU(
@@ -1019,6 +1140,9 @@ void OSEMUpdater_GPU::computeEMUpdateImageMultiGPU(
 	}
 
 	std::vector<std::exception_ptr> errors(deviceIds.size());
+	std::vector<cudaEvent_t> partialReadyEvents(deviceIds.size(), nullptr);
+	std::vector<size_t> activeWorkerIds;
+	activeWorkerIds.reserve(deviceIds.size());
 	std::vector<std::thread> workers;
 	workers.reserve(deviceIds.size());
 
@@ -1030,10 +1154,12 @@ void OSEMUpdater_GPU::computeEMUpdateImageMultiGPU(
 		{
 			continue;
 		}
+		activeWorkerIds.push_back(workerId);
 
 		workers.emplace_back(
 		    [&, workerId, start, count]()
 		    {
+			    cudaEvent_t copyDoneEvent = nullptr;
 			    try
 			    {
 				    const int deviceId = deviceIds.at(workerId);
@@ -1107,11 +1233,18 @@ void OSEMUpdater_GPU::computeEMUpdateImageMultiGPU(
 				    }
 				    GPUStream& mainStream = *mainStreamPtr;
 
-				    ImageDeviceOwned* inputImageDevice =
-				        m_emBuffers.workerInputImages.at(workerId).get();
-				    copyDeviceImageAcrossGPUs(inputImage, primaryDeviceId,
-				                              *inputImageDevice, deviceId,
-				                              "the EM input image");
+				    const ImageDevice* inputImageForWorker = &inputImage;
+				    if (deviceId != primaryDeviceId)
+				    {
+					    ImageDeviceOwned* inputImageDevice =
+					        m_emBuffers.workerInputImages.at(workerId).get();
+					    ASSERT(inputImageDevice != nullptr);
+					    copyDeviceImageAcrossGPUsAsync(
+					        inputImage, primaryDeviceId, *inputImageDevice,
+					        deviceId, deviceId, mainStream.getStream(), nullptr,
+					        "the EM input image");
+					    inputImageForWorker = inputImageDevice;
+				    }
 
 				    ImageDeviceOwned* partialImageDevice =
 				        m_emBuffers.workerPartialImages.at(workerId).get();
@@ -1139,7 +1272,7 @@ void OSEMUpdater_GPU::computeEMUpdateImageMultiGPU(
 
 					    tmpBufferDevice->allocateForProjValues(
 					        {&mainStream.getStream(), false});
-					    projector->applyA(inputImageDevice, tmpBufferDevice,
+					    projector->applyA(inputImageForWorker, tmpBufferDevice,
 					                      false);
 
 					    if (corrector->hasAdditiveCorrection(
@@ -1182,18 +1315,38 @@ void OSEMUpdater_GPU::computeEMUpdateImageMultiGPU(
 				    }
 
 				    cudaStreamSynchronize(mainStream.getStream());
+				    ASSERT(cudaCheckError());
 				    if (lorCacheMode == MultiGPULORCacheMode::Host)
 				    {
 					    measurementsDevice->releaseDeviceLORs(
 					        {&mainStream.getStream(), true});
 				    }
-				    copyDeviceImageAcrossGPUs(
-				        *partialImageDevice, deviceId,
-				        *m_emBuffers.primaryPartialImages.at(workerId),
-				        primaryDeviceId, "one EM partial image");
+				    cudaEventCreateWithFlags(&copyDoneEvent,
+				                             cudaEventDisableTiming);
+				    ASSERT(cudaCheckError());
+				    if (deviceId == primaryDeviceId)
+				    {
+					    cudaEventRecord(copyDoneEvent, mainStream.getStream());
+					    ASSERT(cudaCheckError());
+				    }
+				    else
+				    {
+					    copyDeviceImageAcrossGPUsAsync(
+					        *partialImageDevice, deviceId,
+					        *m_emBuffers.primaryPartialImages.at(workerId),
+					        primaryDeviceId, deviceId, mainStream.getStream(),
+					        copyDoneEvent, "one EM partial image");
+				    }
+				    partialReadyEvents.at(workerId) = copyDoneEvent;
+				    copyDoneEvent = nullptr;
 			    }
 			    catch (...)
 			    {
+				    if (copyDoneEvent != nullptr)
+				    {
+					    ScopedCUDADevice guard(deviceIds.at(workerId));
+					    cudaEventDestroy(copyDoneEvent);
+				    }
 				    errors.at(workerId) = std::current_exception();
 			    }
 		    });
@@ -1203,15 +1356,12 @@ void OSEMUpdater_GPU::computeEMUpdateImageMultiGPU(
 	{
 		worker.join();
 	}
-	for (const auto& error : errors)
-	{
-		if (error != nullptr)
-		{
-			std::rethrow_exception(error);
-		}
-	}
+	rethrowMultiGPUWorkerErrors(errors, partialReadyEvents, deviceIds);
 
-	sumPrimaryPartialImagesToDevice(m_emBuffers.primaryPartialImages, destImage,
-	                                primaryDeviceId);
+	sumPrimaryPartialImagesToDevice(m_emBuffers.primaryPartialImages,
+	                                m_emBuffers.workerPartialImages,
+	                                activeWorkerIds, partialReadyEvents,
+	                                deviceIds, destImage, primaryDeviceId,
+	                                mp_osem->getMainStream());
 }
 }  // namespace yrt

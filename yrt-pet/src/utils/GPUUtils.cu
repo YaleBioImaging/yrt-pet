@@ -6,13 +6,31 @@
 #include "yrt-pet/utils/GPUUtils.cuh"
 
 #include "yrt-pet/utils/Assert.hpp"
+#include "yrt-pet/utils/Globals.hpp"
 
 #include <cstdlib>
+#include <map>
+#include <mutex>
 #include <sstream>
 #include <stdexcept>
+#include <utility>
 
 namespace yrt
 {
+namespace
+{
+std::mutex& peerAccessMutex()
+{
+	static std::mutex s_mutex;
+	return s_mutex;
+}
+
+std::map<std::pair<int, int>, bool>& peerAccessCache()
+{
+	static std::map<std::pair<int, int>, bool> s_cache;
+	return s_cache;
+}
+}  // namespace
 
 bool cudaCheckError()
 {
@@ -160,12 +178,86 @@ std::vector<int> parseGPUDeviceIds(const std::string& deviceList)
 
 std::vector<int> getDefaultGPUDeviceIds()
 {
+	if (!globals::getCudaDeviceIds().empty())
+	{
+		return globals::getCudaDeviceIds();
+	}
+
 	const char* envDeviceIds = std::getenv("YRT_CUDA_DEVICES");
 	if (envDeviceIds != nullptr && envDeviceIds[0] != '\0')
 	{
-		return parseGPUDeviceIds(envDeviceIds);
+		auto deviceIds = parseGPUDeviceIds(envDeviceIds);
+		globals::setCudaDeviceIds(deviceIds);
+		return deviceIds;
 	}
-	return {selectDeviceWithMostFreeMemory(true)};
+
+	std::vector<int> deviceIds{selectDeviceWithMostFreeMemory(true)};
+	globals::setCudaDeviceIds(deviceIds);
+	return deviceIds;
+}
+
+bool ensurePeerAccess(int destDeviceId, int sourceDeviceId)
+{
+	if (destDeviceId == sourceDeviceId)
+	{
+		return true;
+	}
+
+	std::lock_guard<std::mutex> lock(peerAccessMutex());
+	const auto key = std::make_pair(destDeviceId, sourceDeviceId);
+	const auto cached = peerAccessCache().find(key);
+	if (cached != peerAccessCache().end())
+	{
+		return cached->second;
+	}
+
+	int previousDevice = 0;
+	cudaGetDevice(&previousDevice);
+	ASSERT(cudaCheckError());
+
+	int canAccessPeer = 0;
+	cudaDeviceCanAccessPeer(&canAccessPeer, destDeviceId, sourceDeviceId);
+	ASSERT(cudaCheckError());
+	if (canAccessPeer == 0)
+	{
+		peerAccessCache()[key] = false;
+		return false;
+	}
+
+	setCUDADevice(destDeviceId);
+	const cudaError_t peerStatus = cudaDeviceEnablePeerAccess(sourceDeviceId, 0);
+	if (peerStatus == cudaErrorPeerAccessAlreadyEnabled)
+	{
+		cudaGetLastError();
+	}
+	else if (peerStatus != cudaSuccess)
+	{
+		cudaSetDevice(previousDevice);
+		throw std::runtime_error(
+		    "Failed to enable CUDA peer access from device " +
+		    std::to_string(destDeviceId) + " to device " +
+		    std::to_string(sourceDeviceId) + ": " +
+		    cudaGetErrorString(peerStatus));
+	}
+	cudaSetDevice(previousDevice);
+	ASSERT(cudaCheckError());
+
+	peerAccessCache()[key] = true;
+	return true;
+}
+
+void enablePeerAccessForDeviceIds(const std::vector<int>& deviceIds)
+{
+	for (int destDeviceId : deviceIds)
+	{
+		for (int sourceDeviceId : deviceIds)
+		{
+			if (destDeviceId != sourceDeviceId)
+			{
+				ensurePeerAccess(destDeviceId, sourceDeviceId);
+			}
+		}
+	}
 }
 
 void gpuAssert(cudaError_t code, const char* file, int line, bool abort)

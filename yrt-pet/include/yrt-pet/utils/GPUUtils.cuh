@@ -25,6 +25,8 @@ __host__ int selectDeviceWithMostFreeMemory(bool verbose = false);
 __host__ void setCUDADevice(int deviceId);
 std::vector<int> parseGPUDeviceIds(const std::string& deviceList);
 std::vector<int> getDefaultGPUDeviceIds();
+bool ensurePeerAccess(int destDeviceId, int sourceDeviceId);
+void enablePeerAccessForDeviceIds(const std::vector<int>& deviceIds);
 void gpuAssert(cudaError_t code, const char* file, int line, bool abort = true);
 
 void gpuErrchk(cudaError_t code);

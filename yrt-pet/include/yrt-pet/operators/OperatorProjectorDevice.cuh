@@ -14,6 +14,8 @@
 #include "yrt-pet/utils/DeviceObject.cuh"
 #include "yrt-pet/utils/GPUTypes.cuh"
 
+#include <memory>
+
 namespace yrt
 {
 class OperatorProjectorDevice : public OperatorProjectorBase,
@@ -21,6 +23,7 @@ class OperatorProjectorDevice : public OperatorProjectorBase,
 {
 public:
 	OperatorProjectorDevice() = delete;
+	~OperatorProjectorDevice() override;
 
 	size_t getBatchSize() const;
 	void setupProjPsfManager(const std::string& psfFilename);
@@ -59,8 +62,26 @@ protected:
 	std::unique_ptr<ProjectionPsfManagerDevice> mp_projPsfManager;
 
 private:
+	struct MultiGPUAliasProjectorCache;
+
+	bool tryApplyAMultiGPUAlias(ImageDevice* imgIn,
+	                            ProjectionDataDevice* datOut,
+	                            bool synchronize);
+	bool tryApplyAHMultiGPUAlias(ProjectionDataDevice* datIn,
+	                             ImageDevice* imgOut,
+	                             bool synchronize);
+	void ensureMultiGPUAliasProjectorCache(const ProjectionDataDevice& dat,
+	                                       const ImageParams& imageParams,
+	                                       const std::vector<int>& deviceIds);
+	std::unique_ptr<OperatorProjectorDevice>
+	    createWorkerProjector(const BinIterator* workerBinIter,
+	                          const cudaStream_t* mainStream,
+	                          const cudaStream_t* auxStream) const;
+
 	size_t m_batchSize;
 	GPULaunchParams m_launchParams{};
+	OperatorProjectorParams m_projectorParams;
+	std::unique_ptr<MultiGPUAliasProjectorCache> mp_multiGPUAliasCache;
 
 	// Time of flight
 	std::unique_ptr<DeviceObject<TimeOfFlightHelper>> mp_tofHelper;

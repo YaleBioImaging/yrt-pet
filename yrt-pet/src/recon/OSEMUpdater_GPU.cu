@@ -138,6 +138,237 @@ int getOpenMPThreadsPerGPUWorker(size_t numWorkers)
 	return std::max(1, maxThreads / static_cast<int>(numWorkers));
 }
 
+bool isMultiGPUProfileEnabled()
+{
+	const char* envValue = std::getenv("YRT_MULTI_GPU_PROFILE");
+	return envValue != nullptr && envValue[0] != '\0' &&
+	       envValue[0] != '0';
+}
+
+bool isMultiGPUCUDAProfileEnabled()
+{
+	const char* envValue = std::getenv("YRT_MULTI_GPU_CUDA_PROFILE");
+	return envValue != nullptr && envValue[0] != '\0' &&
+	       envValue[0] != '0';
+}
+
+double secondsSince(std::chrono::steady_clock::time_point start)
+{
+	const std::chrono::duration<double> elapsed =
+	    std::chrono::steady_clock::now() - start;
+	return elapsed.count();
+}
+
+class ScopedProfileTimer
+{
+public:
+	ScopedProfileTimer(bool enabled, double& destination)
+	    : m_enabled(enabled),
+	      mr_destination(destination),
+	      m_start(enabled ? std::chrono::steady_clock::now() :
+	                         std::chrono::steady_clock::time_point{})
+	{
+	}
+
+	~ScopedProfileTimer()
+	{
+		if (m_enabled)
+		{
+			mr_destination += secondsSince(m_start);
+		}
+	}
+
+private:
+	bool m_enabled = false;
+	double& mr_destination;
+	std::chrono::steady_clock::time_point m_start;
+};
+
+class CUDAEventProfileTimer
+{
+public:
+	CUDAEventProfileTimer(bool enabled, cudaStream_t stream)
+	    : m_enabled(enabled), m_stream(stream)
+	{
+		if (!m_enabled)
+		{
+			return;
+		}
+		ASSERT(cudaEventCreate(&m_start) == cudaSuccess);
+		ASSERT(cudaEventCreate(&m_stop) == cudaSuccess);
+		ASSERT(cudaEventRecord(m_start, m_stream) == cudaSuccess);
+	}
+
+	CUDAEventProfileTimer(const CUDAEventProfileTimer&) = delete;
+	CUDAEventProfileTimer& operator=(const CUDAEventProfileTimer&) = delete;
+
+	CUDAEventProfileTimer(CUDAEventProfileTimer&& other) noexcept
+	    : m_enabled(other.m_enabled),
+	      m_stream(other.m_stream),
+	      m_start(other.m_start),
+	      m_stop(other.m_stop),
+	      m_stopped(other.m_stopped)
+	{
+		other.m_enabled = false;
+		other.m_start = nullptr;
+		other.m_stop = nullptr;
+		other.m_stopped = false;
+	}
+
+	~CUDAEventProfileTimer()
+	{
+		destroyEvents();
+	}
+
+	void stop()
+	{
+		if (!m_enabled || m_stopped)
+		{
+			return;
+		}
+		ASSERT(cudaEventRecord(m_stop, m_stream) == cudaSuccess);
+		m_stopped = true;
+	}
+
+	void addElapsedTimeAfterSync(double& destination)
+	{
+		if (!m_enabled)
+		{
+			return;
+		}
+		stop();
+		float milliseconds = 0.0f;
+		ASSERT(cudaEventElapsedTime(&milliseconds, m_start, m_stop) ==
+		       cudaSuccess);
+		destination += static_cast<double>(milliseconds) / 1000.0;
+		destroyEvents();
+	}
+
+private:
+	void destroyEvents() noexcept
+	{
+		if (m_start != nullptr)
+		{
+			cudaEventDestroy(m_start);
+			m_start = nullptr;
+		}
+		if (m_stop != nullptr)
+		{
+			cudaEventDestroy(m_stop);
+			m_stop = nullptr;
+		}
+		m_enabled = false;
+		m_stopped = false;
+	}
+
+	bool m_enabled = false;
+	cudaStream_t m_stream = nullptr;
+	cudaEvent_t m_start = nullptr;
+	cudaEvent_t m_stop = nullptr;
+	bool m_stopped = false;
+};
+
+struct MultiGPUStageProfile
+{
+	double total = 0.0;
+	double copyInputImage = 0.0;
+	double clearPartialImage = 0.0;
+	double precomputeLORs = 0.0;
+	double allocateProjectionValues = 0.0;
+	double loadLORs = 0.0;
+	double loadProjectionValues = 0.0;
+	double forwardProjectEnqueue = 0.0;
+	double correctionsEnqueue = 0.0;
+	double ratioEnqueue = 0.0;
+	double preBackprojectSync = 0.0;
+	double backprojectEnqueue = 0.0;
+	double finalSync = 0.0;
+	double releaseLORs = 0.0;
+	double copyPartialImage = 0.0;
+	double cudaLoadLORs = 0.0;
+	double cudaForwardProject = 0.0;
+	double cudaCorrections = 0.0;
+	double cudaRatio = 0.0;
+	double cudaBackproject = 0.0;
+};
+
+void emitMultiGPUProfileMetric(const std::string& name, double seconds)
+{
+	if (!isMultiGPUProfileEnabled())
+	{
+		return;
+	}
+	std::cout << "YRT_MULTI_GPU_PROFILE " << name << " " << seconds
+	          << std::endl;
+}
+
+void emitMultiGPUProfileAggregate(
+    const std::string& prefix,
+    const std::vector<MultiGPUStageProfile>& workerProfiles)
+{
+	if (!isMultiGPUProfileEnabled())
+	{
+		return;
+	}
+
+	struct Field
+	{
+		const char* name;
+		double MultiGPUStageProfile::*value;
+	};
+	const Field fields[] = {
+	    {"worker_total", &MultiGPUStageProfile::total},
+	    {"copy_input_image", &MultiGPUStageProfile::copyInputImage},
+	    {"clear_partial_image", &MultiGPUStageProfile::clearPartialImage},
+	    {"precompute_lors", &MultiGPUStageProfile::precomputeLORs},
+	    {"allocate_projection_values",
+	     &MultiGPUStageProfile::allocateProjectionValues},
+	    {"load_lors", &MultiGPUStageProfile::loadLORs},
+	    {"load_projection_values",
+	     &MultiGPUStageProfile::loadProjectionValues},
+	    {"forward_project_enqueue",
+	     &MultiGPUStageProfile::forwardProjectEnqueue},
+	    {"corrections_enqueue", &MultiGPUStageProfile::correctionsEnqueue},
+	    {"ratio_enqueue", &MultiGPUStageProfile::ratioEnqueue},
+	    {"pre_backproject_sync",
+	     &MultiGPUStageProfile::preBackprojectSync},
+	    {"backproject_enqueue", &MultiGPUStageProfile::backprojectEnqueue},
+	    {"final_sync", &MultiGPUStageProfile::finalSync},
+	    {"release_lors", &MultiGPUStageProfile::releaseLORs},
+	    {"copy_partial_image", &MultiGPUStageProfile::copyPartialImage},
+	    {"cuda_load_lors", &MultiGPUStageProfile::cudaLoadLORs},
+	    {"cuda_forward_project", &MultiGPUStageProfile::cudaForwardProject},
+	    {"cuda_corrections", &MultiGPUStageProfile::cudaCorrections},
+	    {"cuda_ratio", &MultiGPUStageProfile::cudaRatio},
+	    {"cuda_backproject", &MultiGPUStageProfile::cudaBackproject},
+	};
+
+	for (const auto& field : fields)
+	{
+		double sum = 0.0;
+		double maxValue = 0.0;
+		size_t count = 0;
+		for (const auto& profile : workerProfiles)
+		{
+			const double value = profile.*(field.value);
+			if (value <= 0.0)
+			{
+				continue;
+			}
+			sum += value;
+			maxValue = std::max(maxValue, value);
+			count++;
+		}
+		if (count == 0)
+		{
+			continue;
+		}
+		emitMultiGPUProfileMetric(prefix + "_" + field.name + "_sum", sum);
+		emitMultiGPUProfileMetric(prefix + "_" + field.name + "_max",
+		                          maxValue);
+	}
+}
+
 bool isMultiGPUSensitivityEnabled()
 {
 	const char* envValue = std::getenv("YRT_MULTI_GPU_SENSITIVITY");
@@ -477,34 +708,55 @@ void OSEMUpdater_GPU::preloadMultiGPULORCacheIfRequested() const
 	          << getMultiGPULORCacheModeName(lorCacheMode) << ")..."
 	          << std::endl;
 
+	const bool profileEnabled = isMultiGPUProfileEnabled();
 	const auto startTime = std::chrono::steady_clock::now();
+	double ensureReconCacheSeconds = 0.0;
+	double workersWallSeconds = 0.0;
+	std::vector<MultiGPUStageProfile> workerProfiles(deviceIds.size());
 
+	std::vector<std::vector<std::pair<size_t, size_t>>> rangesBySubset;
+	rangesBySubset.reserve(mp_osem->num_OSEM_subsets);
 	for (int subsetId = 0; subsetId < mp_osem->num_OSEM_subsets; subsetId++)
 	{
 		const BinIterator& subsetIterator = *mp_osem->getBinIterator(subsetId);
-		const auto ranges = splitWork(subsetIterator.size(), deviceIds.size());
-		ensureMultiGPUReconCache(subsetId, subsetIterator, ranges);
-
-		std::vector<std::exception_ptr> errors(deviceIds.size());
-		std::vector<std::thread> workers;
-		workers.reserve(deviceIds.size());
-
-		for (size_t workerId = 0; workerId < deviceIds.size(); workerId++)
+		rangesBySubset.push_back(
+		    splitWork(subsetIterator.size(), deviceIds.size()));
 		{
-			if (ranges.at(workerId).second == 0)
-			{
-				continue;
-			}
+			ScopedProfileTimer profileTimer(profileEnabled,
+			                                ensureReconCacheSeconds);
+			ensureMultiGPUReconCache(subsetId, subsetIterator,
+			                         rangesBySubset.back());
+		}
+	}
 
-			workers.emplace_back(
-			    [&, workerId]()
+	std::vector<std::exception_ptr> errors(deviceIds.size());
+	std::vector<std::thread> workers;
+	workers.reserve(deviceIds.size());
+	const auto workersStartTime = std::chrono::steady_clock::now();
+
+	for (size_t workerId = 0; workerId < deviceIds.size(); workerId++)
+	{
+		workers.emplace_back(
+		    [&, workerId]()
+		    {
+			    try
 			    {
-				    try
+				    auto& workerProfile = workerProfiles.at(workerId);
+				    ScopedProfileTimer totalProfileTimer(profileEnabled,
+				                                         workerProfile.total);
+				    const int deviceId = deviceIds.at(workerId);
+				    ScopedOpenMPThreads ompGuard(
+				        getOpenMPThreadsPerGPUWorker(deviceIds.size()));
+				    ScopedCUDADevice guard(deviceId);
+
+				    for (int subsetId = 0;
+				         subsetId < mp_osem->num_OSEM_subsets; subsetId++)
 				    {
-					    const int deviceId = deviceIds.at(workerId);
-					    ScopedOpenMPThreads ompGuard(
-					        getOpenMPThreadsPerGPUWorker(deviceIds.size()));
-					    ScopedCUDADevice guard(deviceId);
+					    const auto& ranges = rangesBySubset.at(subsetId);
+					    if (ranges.at(workerId).second == 0)
+					    {
+						    continue;
+					    }
 
 					    auto* context = mp_reconCache->contexts
 					                        .at(subsetId)
@@ -526,38 +778,50 @@ void OSEMUpdater_GPU::preloadMultiGPULORCacheIfRequested() const
 						        << " batches. Lazy per-batch caching will be "
 						           "used instead."
 						        << std::endl;
-						    return;
+						    continue;
 					    }
 
-					    measurementsDevice->precomputeBatchLORs(0, 0);
+					    {
+						    ScopedProfileTimer profileTimer(
+						        profileEnabled, workerProfile.precomputeLORs);
+						    measurementsDevice->precomputeBatchLORs(0, 0);
+					    }
 					    if (lorCacheMode == MultiGPULORCacheMode::Device)
 					    {
+						    ScopedProfileTimer profileTimer(
+						        profileEnabled, workerProfile.loadLORs);
 						    measurementsDevice->loadPrecomputedLORsToDevice(
 						        {&mainStream.getStream(), true});
 					    }
 					    else if (lorCacheMode == MultiGPULORCacheMode::Host)
 					    {
+						    ScopedProfileTimer profileTimer(
+						        profileEnabled, workerProfile.releaseLORs);
 						    measurementsDevice->releaseDeviceLORs(
 						        {&mainStream.getStream(), true});
 					    }
 				    }
-				    catch (...)
-				    {
-					    errors.at(workerId) = std::current_exception();
-				    }
-			    });
-		}
+			    }
+			    catch (...)
+			    {
+				    errors.at(workerId) = std::current_exception();
+			    }
+		    });
+	}
 
-		for (auto& worker : workers)
+	for (auto& worker : workers)
+	{
+		worker.join();
+	}
+	if (profileEnabled)
+	{
+		workersWallSeconds = secondsSince(workersStartTime);
+	}
+	for (const auto& error : errors)
+	{
+		if (error != nullptr)
 		{
-			worker.join();
-		}
-		for (const auto& error : errors)
-		{
-			if (error != nullptr)
-			{
-				std::rethrow_exception(error);
-			}
+			std::rethrow_exception(error);
 		}
 	}
 
@@ -565,6 +829,11 @@ void OSEMUpdater_GPU::preloadMultiGPULORCacheIfRequested() const
 	const std::chrono::duration<double> elapsed = endTime - startTime;
 	std::cout << "Preloaded multi-GPU LOR cache in " << elapsed.count()
 	          << " seconds." << std::endl;
+	emitMultiGPUProfileMetric("preload_total", elapsed.count());
+	emitMultiGPUProfileMetric("preload_ensure_recon_cache",
+	                          ensureReconCacheSeconds);
+	emitMultiGPUProfileMetric("preload_workers_wall", workersWallSeconds);
+	emitMultiGPUProfileAggregate("preload", workerProfiles);
 }
 
 void OSEMUpdater_GPU::ensureMultiGPUReconCache(
@@ -948,9 +1217,19 @@ void OSEMUpdater_GPU::computeSensitivityImageMultiGPU(
 	const auto ranges = splitWork(subsetIterator.size(), deviceIds.size());
 	const int primaryDeviceId = mp_osem->getPrimaryDeviceId();
 
+	const bool profileEnabled = isMultiGPUProfileEnabled();
+	const auto totalStartTime = std::chrono::steady_clock::now();
+	double ensureImageBuffersSeconds = 0.0;
+	double workersWallSeconds = 0.0;
+	double reducePartialImagesSeconds = 0.0;
+
 	printMultiGPUSetup("sensitivity image", deviceIds);
-	ensureMultiGPUImageBuffers(m_sensitivityBuffers, destImage.getParams(),
-	                           false);
+	{
+		ScopedProfileTimer profileTimer(profileEnabled,
+		                                ensureImageBuffersSeconds);
+		ensureMultiGPUImageBuffers(m_sensitivityBuffers, destImage.getParams(),
+		                           false);
+	}
 
 	std::vector<std::exception_ptr> errors(deviceIds.size());
 	std::vector<cudaEvent_t> partialReadyEvents(deviceIds.size(), nullptr);
@@ -958,6 +1237,8 @@ void OSEMUpdater_GPU::computeSensitivityImageMultiGPU(
 	activeWorkerIds.reserve(deviceIds.size());
 	std::vector<std::thread> workers;
 	workers.reserve(deviceIds.size());
+	std::vector<MultiGPUStageProfile> workerProfiles(deviceIds.size());
+	const auto workersStartTime = std::chrono::steady_clock::now();
 
 	for (size_t workerId = 0; workerId < deviceIds.size(); workerId++)
 	{
@@ -971,13 +1252,16 @@ void OSEMUpdater_GPU::computeSensitivityImageMultiGPU(
 
 		workers.emplace_back(
 		    [&, workerId, start, count]()
-		    {
-			    cudaEvent_t copyDoneEvent = nullptr;
-			    try
 			    {
-				    const int deviceId = deviceIds.at(workerId);
-				    ScopedOpenMPThreads ompGuard(
-				        getOpenMPThreadsPerGPUWorker(deviceIds.size()));
+				    cudaEvent_t copyDoneEvent = nullptr;
+				    try
+				    {
+					    auto& workerProfile = workerProfiles.at(workerId);
+					    ScopedProfileTimer totalProfileTimer(
+					        profileEnabled, workerProfile.total);
+					    const int deviceId = deviceIds.at(workerId);
+					    ScopedOpenMPThreads ompGuard(
+					        getOpenMPThreadsPerGPUWorker(deviceIds.size()));
 				    ScopedCUDADevice guard(deviceId);
 				    GPUStream mainStream;
 				    GPUStream auxStream;
@@ -999,11 +1283,16 @@ void OSEMUpdater_GPU::computeSensitivityImageMultiGPU(
 				        &sliceIterator, false, &mainStream.getStream(),
 				        &auxStream.getStream());
 
-				    ImageDeviceOwned* partialImageDevice =
-				        m_sensitivityBuffers.workerPartialImages.at(
-				            workerId)
-				            .get();
-				    partialImageDevice->setValueDevice(0.0f, true);
+					    ImageDeviceOwned* partialImageDevice =
+					        m_sensitivityBuffers.workerPartialImages.at(
+					            workerId)
+					            .get();
+					    {
+						    ScopedProfileTimer profileTimer(
+						        profileEnabled,
+						        workerProfile.clearPartialImage);
+						    partialImageDevice->setValueDevice(0.0f, true);
+					    }
 
 				    const int numBatches = sensDataBuffer->getNumBatches(0);
 				    std::cout << "Multi-GPU sensitivity worker " << workerId
@@ -1014,78 +1303,125 @@ void OSEMUpdater_GPU::computeSensitivityImageMultiGPU(
 				    bool loadGlobalScalingFactor =
 				        !corrector.hasMultiplicativeCorrection();
 
-				    for (int batch = 0; batch < numBatches; batch++)
-				    {
-					    sensDataBuffer->precomputeBatchLORs(0, batch);
-					    const bool hasReallocated =
-					        sensDataBuffer->allocateForProjValues(
-					            {&mainStream.getStream(), false});
-					    sensDataBuffer->loadPrecomputedLORsToDevice(
-					        {&mainStream.getStream(), false});
-					    sensDataBuffer->loadProjValuesFromReference(
-					        {&mainStream.getStream(), false});
-
-					    if (corrector.hasSensitivityHistogram())
+					    for (int batch = 0; batch < numBatches; batch++)
 					    {
-						    if (corrector.hasGlobalScalingFactor())
+						    bool hasReallocated = false;
 						    {
-							    sensDataBuffer->multiplyProjValues(
-							        corrector.getGlobalScalingFactor(),
+							    ScopedProfileTimer profileTimer(
+							        profileEnabled,
+							        workerProfile.precomputeLORs);
+							    sensDataBuffer->precomputeBatchLORs(0, batch);
+						    }
+						    {
+							    ScopedProfileTimer profileTimer(
+							        profileEnabled,
+							        workerProfile.allocateProjectionValues);
+							    hasReallocated =
+							        sensDataBuffer->allocateForProjValues(
+							            {&mainStream.getStream(), false});
+						    }
+						    {
+							    ScopedProfileTimer profileTimer(
+							        profileEnabled, workerProfile.loadLORs);
+							    sensDataBuffer->loadPrecomputedLORsToDevice(
 							        {&mainStream.getStream(), false});
 						    }
-						    if (corrector.mustInvertSensitivity())
 						    {
-							    sensDataBuffer->invertProjValuesDevice(
+							    ScopedProfileTimer profileTimer(
+							        profileEnabled,
+							        workerProfile.loadProjectionValues);
+							    sensDataBuffer->loadProjValuesFromReference(
 							        {&mainStream.getStream(), false});
 						    }
-					    }
-					    if (corrector.hasHardwareAttenuationImage())
-					    {
-						    corrector
-						        .applyHardwareAttenuationToGivenDeviceBufferFromAttenuationImage(
-						            sensDataBuffer.get(), projector.get(),
-						            {&mainStream.getStream(), false});
-					    }
-					    else if (corrector.doesHardwareACFComeFromHistogram())
-					    {
-						    corrector
-						        .applyHardwareAttenuationToGivenDeviceBufferFromACFHistogram(
-						            sensDataBuffer.get(),
-						            {&mainStream.getStream(), false});
+
+						    {
+							    ScopedProfileTimer profileTimer(
+							        profileEnabled,
+							        workerProfile.correctionsEnqueue);
+							    if (corrector.hasSensitivityHistogram())
+							    {
+								    if (corrector.hasGlobalScalingFactor())
+								    {
+									    sensDataBuffer->multiplyProjValues(
+									        corrector.getGlobalScalingFactor(),
+									        {&mainStream.getStream(), false});
+								    }
+								    if (corrector.mustInvertSensitivity())
+								    {
+									    sensDataBuffer->invertProjValuesDevice(
+									        {&mainStream.getStream(), false});
+								    }
+							    }
+							    if (corrector.hasHardwareAttenuationImage())
+							    {
+								    corrector
+								        .applyHardwareAttenuationToGivenDeviceBufferFromAttenuationImage(
+								            sensDataBuffer.get(),
+								            projector.get(),
+								            {&mainStream.getStream(), false});
+							    }
+							    else if (
+							        corrector
+							            .doesHardwareACFComeFromHistogram())
+							    {
+								    corrector
+								        .applyHardwareAttenuationToGivenDeviceBufferFromACFHistogram(
+								            sensDataBuffer.get(),
+								            {&mainStream.getStream(), false});
+							    }
+
+							    if (!corrector.hasMultiplicativeCorrection() &&
+							        (loadGlobalScalingFactor ||
+							         hasReallocated))
+							    {
+								    sensDataBuffer->clearProjections(
+								        corrector.getGlobalScalingFactor());
+								    loadGlobalScalingFactor = false;
+							    }
+						    }
+
+						    {
+							    ScopedProfileTimer profileTimer(
+							        profileEnabled,
+							        workerProfile.preBackprojectSync);
+							    cudaStreamSynchronize(mainStream.getStream());
+						    }
+						    {
+							    ScopedProfileTimer profileTimer(
+							        profileEnabled,
+							        workerProfile.backprojectEnqueue);
+							    projector->applyAH(sensDataBuffer.get(),
+							                       partialImageDevice, false);
+						    }
 					    }
 
-					    if (!corrector.hasMultiplicativeCorrection() &&
-					        (loadGlobalScalingFactor || hasReallocated))
 					    {
-						    sensDataBuffer->clearProjections(
-						        corrector.getGlobalScalingFactor());
-						    loadGlobalScalingFactor = false;
+						    ScopedProfileTimer profileTimer(
+						        profileEnabled, workerProfile.finalSync);
+						    cudaStreamSynchronize(mainStream.getStream());
 					    }
-
-					    cudaStreamSynchronize(mainStream.getStream());
-					    projector->applyAH(sensDataBuffer.get(),
-					                       partialImageDevice, false);
-				    }
-
-				    cudaStreamSynchronize(mainStream.getStream());
-				    ASSERT(cudaCheckError());
-				    cudaEventCreateWithFlags(&copyDoneEvent,
-				                             cudaEventDisableTiming);
+					    ASSERT(cudaCheckError());
+					    cudaEventCreateWithFlags(&copyDoneEvent,
+					                             cudaEventDisableTiming);
 				    ASSERT(cudaCheckError());
 				    if (deviceId == primaryDeviceId)
 				    {
 					    cudaEventRecord(copyDoneEvent, mainStream.getStream());
 					    ASSERT(cudaCheckError());
 				    }
-				    else
-				    {
-					    copyDeviceImageAcrossGPUsAsync(
-					        *partialImageDevice, deviceId,
-					        *m_sensitivityBuffers.primaryPartialImages.at(
-					            workerId),
-					        primaryDeviceId, deviceId, mainStream.getStream(),
-					        copyDoneEvent, "one sensitivity partial image");
-				    }
+					    else
+					    {
+						    ScopedProfileTimer profileTimer(
+						        profileEnabled,
+						        workerProfile.copyPartialImage);
+						    copyDeviceImageAcrossGPUsAsync(
+						        *partialImageDevice, deviceId,
+						        *m_sensitivityBuffers.primaryPartialImages.at(
+						            workerId),
+						        primaryDeviceId, deviceId,
+						        mainStream.getStream(), copyDoneEvent,
+						        "one sensitivity partial image");
+					    }
 				    partialReadyEvents.at(workerId) = copyDoneEvent;
 				    copyDoneEvent = nullptr;
 			    }
@@ -1105,13 +1441,30 @@ void OSEMUpdater_GPU::computeSensitivityImageMultiGPU(
 	{
 		worker.join();
 	}
+	if (profileEnabled)
+	{
+		workersWallSeconds = secondsSince(workersStartTime);
+	}
 	rethrowMultiGPUWorkerErrors(errors, partialReadyEvents, deviceIds);
 
-	sumPrimaryPartialImagesToDevice(m_sensitivityBuffers.primaryPartialImages,
-	                                m_sensitivityBuffers.workerPartialImages,
-	                                activeWorkerIds, partialReadyEvents,
-	                                deviceIds, destImage, primaryDeviceId,
-	                                mp_osem->getMainStream());
+	{
+		ScopedProfileTimer profileTimer(profileEnabled,
+		                                reducePartialImagesSeconds);
+		sumPrimaryPartialImagesToDevice(
+		    m_sensitivityBuffers.primaryPartialImages,
+		    m_sensitivityBuffers.workerPartialImages, activeWorkerIds,
+		    partialReadyEvents, deviceIds, destImage, primaryDeviceId,
+		    mp_osem->getMainStream());
+	}
+	emitMultiGPUProfileMetric("sensitivity_total",
+	                          secondsSince(totalStartTime));
+	emitMultiGPUProfileMetric("sensitivity_ensure_image_buffers",
+	                          ensureImageBuffersSeconds);
+	emitMultiGPUProfileMetric("sensitivity_workers_wall",
+	                          workersWallSeconds);
+	emitMultiGPUProfileMetric("sensitivity_reduce_partials",
+	                          reducePartialImagesSeconds);
+	emitMultiGPUProfileAggregate("sensitivity", workerProfiles);
 }
 
 void OSEMUpdater_GPU::computeEMUpdateImageMultiGPU(
@@ -1127,15 +1480,32 @@ void OSEMUpdater_GPU::computeEMUpdateImageMultiGPU(
 	const bool useLORCache = lorCacheMode != MultiGPULORCacheMode::Off;
 	const bool measurementsAreUniform = mp_osem->getDataInput()->isUniform();
 
+	const bool profileEnabled = isMultiGPUProfileEnabled();
+	const bool cudaProfileEnabled =
+	    profileEnabled && isMultiGPUCUDAProfileEnabled();
+	const auto totalStartTime = std::chrono::steady_clock::now();
+	double syncPrimarySeconds = 0.0;
+	double ensureImageBuffersSeconds = 0.0;
+	double ensureReconCacheSeconds = 0.0;
+	double workersWallSeconds = 0.0;
+	double reducePartialImagesSeconds = 0.0;
+
 	printMultiGPUSetup("EM update image", deviceIds);
 	{
+		ScopedProfileTimer profileTimer(profileEnabled, syncPrimarySeconds);
 		ScopedCUDADevice primaryGuard(primaryDeviceId);
 		cudaDeviceSynchronize();
 		ASSERT(cudaCheckError());
 	}
-	ensureMultiGPUImageBuffers(m_emBuffers, destImage.getParams(), true);
+	{
+		ScopedProfileTimer profileTimer(profileEnabled,
+		                                ensureImageBuffersSeconds);
+		ensureMultiGPUImageBuffers(m_emBuffers, destImage.getParams(), true);
+	}
 	if (useLORCache)
 	{
+		ScopedProfileTimer profileTimer(profileEnabled,
+		                                ensureReconCacheSeconds);
 		ensureMultiGPUReconCache(currentSubset, subsetIterator, ranges);
 	}
 
@@ -1145,6 +1515,8 @@ void OSEMUpdater_GPU::computeEMUpdateImageMultiGPU(
 	activeWorkerIds.reserve(deviceIds.size());
 	std::vector<std::thread> workers;
 	workers.reserve(deviceIds.size());
+	std::vector<MultiGPUStageProfile> workerProfiles(deviceIds.size());
+	const auto workersStartTime = std::chrono::steady_clock::now();
 
 	for (size_t workerId = 0; workerId < deviceIds.size(); workerId++)
 	{
@@ -1158,13 +1530,16 @@ void OSEMUpdater_GPU::computeEMUpdateImageMultiGPU(
 
 		workers.emplace_back(
 		    [&, workerId, start, count]()
-		    {
-			    cudaEvent_t copyDoneEvent = nullptr;
-			    try
 			    {
-				    const int deviceId = deviceIds.at(workerId);
-				    ScopedOpenMPThreads ompGuard(
-				        getOpenMPThreadsPerGPUWorker(deviceIds.size()));
+				    cudaEvent_t copyDoneEvent = nullptr;
+				    try
+				    {
+					    auto& workerProfile = workerProfiles.at(workerId);
+					    ScopedProfileTimer totalProfileTimer(
+					        profileEnabled, workerProfile.total);
+					    const int deviceId = deviceIds.at(workerId);
+					    ScopedOpenMPThreads ompGuard(
+					        getOpenMPThreadsPerGPUWorker(deviceIds.size()));
 				    ScopedCUDADevice guard(deviceId);
 
 				    std::unique_ptr<GPUStream> localMainStream;
@@ -1236,91 +1611,192 @@ void OSEMUpdater_GPU::computeEMUpdateImageMultiGPU(
 				    const ImageDevice* inputImageForWorker = &inputImage;
 				    if (deviceId != primaryDeviceId)
 				    {
-					    ImageDeviceOwned* inputImageDevice =
-					        m_emBuffers.workerInputImages.at(workerId).get();
-					    ASSERT(inputImageDevice != nullptr);
-					    copyDeviceImageAcrossGPUsAsync(
-					        inputImage, primaryDeviceId, *inputImageDevice,
-					        deviceId, deviceId, mainStream.getStream(), nullptr,
-					        "the EM input image");
-					    inputImageForWorker = inputImageDevice;
-				    }
+						    ImageDeviceOwned* inputImageDevice =
+						        m_emBuffers.workerInputImages.at(workerId).get();
+						    ASSERT(inputImageDevice != nullptr);
+						    ScopedProfileTimer profileTimer(
+						        profileEnabled, workerProfile.copyInputImage);
+						    copyDeviceImageAcrossGPUsAsync(
+						        inputImage, primaryDeviceId, *inputImageDevice,
+						        deviceId, deviceId, mainStream.getStream(),
+						        nullptr, "the EM input image");
+						    inputImageForWorker = inputImageDevice;
+					    }
 
-				    ImageDeviceOwned* partialImageDevice =
-				        m_emBuffers.workerPartialImages.at(workerId).get();
-				    partialImageDevice->setValueDevice(0.0f, true);
+					    ImageDeviceOwned* partialImageDevice =
+					        m_emBuffers.workerPartialImages.at(workerId).get();
+					    {
+						    ScopedProfileTimer profileTimer(
+						        profileEnabled,
+						        workerProfile.clearPartialImage);
+						    partialImageDevice->setValueDevice(0.0f, true);
+					    }
 
 				    const int numBatches =
 				        measurementsDevice->getNumBatches(0);
-				    std::cout << "Multi-GPU EM worker " << workerId
-				              << " using visible CUDA device " << deviceId
-				              << " for " << count << " LORs in "
-				              << numBatches << " batches." << std::endl;
+					    std::cout << "Multi-GPU EM worker " << workerId
+					              << " using visible CUDA device " << deviceId
+					              << " for " << count << " LORs in "
+					              << numBatches << " batches." << std::endl;
 
-				    for (int batch = 0; batch < numBatches; batch++)
-				    {
-					    measurementsDevice->precomputeBatchLORs(0, batch);
-					    measurementsDevice->loadPrecomputedLORsToDevice(
-					        {&mainStream.getStream(), false});
-					    if (!measurementsAreUniform)
+						    std::vector<CUDAEventProfileTimer>
+						        backprojectCudaTimers;
+						    backprojectCudaTimers.reserve(numBatches);
+						    for (int batch = 0; batch < numBatches; batch++)
+						    {
+							    {
+								    ScopedProfileTimer profileTimer(
+								        profileEnabled,
+							        workerProfile.precomputeLORs);
+								    measurementsDevice->precomputeBatchLORs(
+								        0, batch);
+							    }
+							    CUDAEventProfileTimer loadLORsCudaTimer(
+							        cudaProfileEnabled, mainStream.getStream());
+							    {
+								    ScopedProfileTimer profileTimer(
+								        profileEnabled, workerProfile.loadLORs);
+								    measurementsDevice
+								        ->loadPrecomputedLORsToDevice(
+								            {&mainStream.getStream(), false});
+							    }
+							    loadLORsCudaTimer.stop();
+							    if (!measurementsAreUniform)
+							    {
+								    {
+									    ScopedProfileTimer profileTimer(
+								        profileEnabled,
+								        workerProfile
+								            .allocateProjectionValues);
+								    measurementsDevice->allocateForProjValues(
+								        {&mainStream.getStream(), false});
+							    }
+							    {
+								    ScopedProfileTimer profileTimer(
+								        profileEnabled,
+								        workerProfile.loadProjectionValues);
+								    measurementsDevice
+								        ->loadProjValuesFromReference(
+								            {&mainStream.getStream(), false});
+							    }
+						    }
+
+						    {
+							    ScopedProfileTimer profileTimer(
+							        profileEnabled,
+							        workerProfile.allocateProjectionValues);
+								    tmpBufferDevice->allocateForProjValues(
+								        {&mainStream.getStream(), false});
+							    }
+							    CUDAEventProfileTimer forwardProjectCudaTimer(
+							        cudaProfileEnabled, mainStream.getStream());
+							    {
+								    ScopedProfileTimer profileTimer(
+								        profileEnabled,
+								        workerProfile.forwardProjectEnqueue);
+								    projector->applyA(inputImageForWorker,
+								                      tmpBufferDevice, false);
+							    }
+							    forwardProjectCudaTimer.stop();
+
+							    CUDAEventProfileTimer correctionsCudaTimer(
+							        cudaProfileEnabled, mainStream.getStream());
+							    {
+								    ScopedProfileTimer profileTimer(
+								        profileEnabled,
+								        workerProfile.correctionsEnqueue);
+							    if (corrector->hasAdditiveCorrection(
+							            *measurementsDevice))
+							    {
+								    corrector
+								        ->loadAdditiveCorrectionFactorsToTemporaryDeviceBuffer(
+								            {&mainStream.getStream(), false});
+								    const bool synchronize =
+								        corrector->hasInVivoAttenuation();
+								    tmpBufferDevice->addProjValues(
+								        correctorTempBuffer,
+								        {&mainStream.getStream(),
+								         synchronize});
+							    }
+							    if (corrector->hasInVivoAttenuation())
+							    {
+								    corrector
+								        ->loadInVivoAttenuationFactorsToTemporaryDeviceBuffer(
+								            {&mainStream.getStream(), false});
+								    tmpBufferDevice->multiplyProjValues(
+								        correctorTempBuffer,
+									        {&mainStream.getStream(), false});
+								    }
+							    }
+							    correctionsCudaTimer.stop();
+
+							    CUDAEventProfileTimer ratioCudaTimer(
+							        cudaProfileEnabled, mainStream.getStream());
+							    {
+								    ScopedProfileTimer profileTimer(
+								        profileEnabled,
+								        workerProfile.ratioEnqueue);
+							    if (measurementsAreUniform)
+							    {
+								    tmpBufferDevice->invertProjValuesDevice(
+								        {&mainStream.getStream(), false});
+							    }
+							    else
+							    {
+								    tmpBufferDevice->divideMeasurementsDevice(
+								        measurementsDevice,
+									        {&mainStream.getStream(), false});
+								    }
+							    }
+							    ratioCudaTimer.stop();
+
+							    {
+								    ScopedProfileTimer profileTimer(
+								        profileEnabled,
+								        workerProfile.preBackprojectSync);
+								    cudaStreamSynchronize(mainStream.getStream());
+							    }
+							    loadLORsCudaTimer.addElapsedTimeAfterSync(
+							        workerProfile.cudaLoadLORs);
+							    forwardProjectCudaTimer.addElapsedTimeAfterSync(
+							        workerProfile.cudaForwardProject);
+							    correctionsCudaTimer.addElapsedTimeAfterSync(
+							        workerProfile.cudaCorrections);
+							    ratioCudaTimer.addElapsedTimeAfterSync(
+							        workerProfile.cudaRatio);
+							    const size_t backprojectTimerIndex =
+							        backprojectCudaTimers.size();
+							    backprojectCudaTimers.emplace_back(
+							        cudaProfileEnabled, mainStream.getStream());
+							    {
+								    ScopedProfileTimer profileTimer(
+								        profileEnabled,
+								        workerProfile.backprojectEnqueue);
+								    projector->applyAH(tmpBufferDevice,
+								                       partialImageDevice, false);
+							    }
+							    backprojectCudaTimers.at(backprojectTimerIndex)
+							        .stop();
+						    }
+
+						    {
+							    ScopedProfileTimer profileTimer(
+							        profileEnabled, workerProfile.finalSync);
+							    cudaStreamSynchronize(mainStream.getStream());
+						    }
+						    for (auto& timer : backprojectCudaTimers)
+						    {
+							    timer.addElapsedTimeAfterSync(
+							        workerProfile.cudaBackproject);
+						    }
+					    ASSERT(cudaCheckError());
+					    if (lorCacheMode == MultiGPULORCacheMode::Host)
 					    {
-						    measurementsDevice->allocateForProjValues(
-						        {&mainStream.getStream(), false});
-						    measurementsDevice->loadProjValuesFromReference(
-						        {&mainStream.getStream(), false});
+						    ScopedProfileTimer profileTimer(
+						        profileEnabled, workerProfile.releaseLORs);
+						    measurementsDevice->releaseDeviceLORs(
+						        {&mainStream.getStream(), true});
 					    }
-
-					    tmpBufferDevice->allocateForProjValues(
-					        {&mainStream.getStream(), false});
-					    projector->applyA(inputImageForWorker, tmpBufferDevice,
-					                      false);
-
-					    if (corrector->hasAdditiveCorrection(
-					            *measurementsDevice))
-					    {
-						    corrector
-						        ->loadAdditiveCorrectionFactorsToTemporaryDeviceBuffer(
-						            {&mainStream.getStream(), false});
-						    const bool synchronize =
-						        corrector->hasInVivoAttenuation();
-						    tmpBufferDevice->addProjValues(
-						        correctorTempBuffer,
-						        {&mainStream.getStream(), synchronize});
-					    }
-					    if (corrector->hasInVivoAttenuation())
-					    {
-						    corrector
-						        ->loadInVivoAttenuationFactorsToTemporaryDeviceBuffer(
-						            {&mainStream.getStream(), false});
-						    tmpBufferDevice->multiplyProjValues(
-						        correctorTempBuffer,
-						        {&mainStream.getStream(), false});
-					    }
-
-					    if (measurementsAreUniform)
-					    {
-						    tmpBufferDevice->invertProjValuesDevice(
-						        {&mainStream.getStream(), false});
-					    }
-					    else
-					    {
-						    tmpBufferDevice->divideMeasurementsDevice(
-						        measurementsDevice,
-						        {&mainStream.getStream(), false});
-					    }
-
-					    cudaStreamSynchronize(mainStream.getStream());
-					    projector->applyAH(tmpBufferDevice, partialImageDevice,
-					                       false);
-				    }
-
-				    cudaStreamSynchronize(mainStream.getStream());
-				    ASSERT(cudaCheckError());
-				    if (lorCacheMode == MultiGPULORCacheMode::Host)
-				    {
-					    measurementsDevice->releaseDeviceLORs(
-					        {&mainStream.getStream(), true});
-				    }
 				    cudaEventCreateWithFlags(&copyDoneEvent,
 				                             cudaEventDisableTiming);
 				    ASSERT(cudaCheckError());
@@ -1329,14 +1805,18 @@ void OSEMUpdater_GPU::computeEMUpdateImageMultiGPU(
 					    cudaEventRecord(copyDoneEvent, mainStream.getStream());
 					    ASSERT(cudaCheckError());
 				    }
-				    else
-				    {
-					    copyDeviceImageAcrossGPUsAsync(
-					        *partialImageDevice, deviceId,
-					        *m_emBuffers.primaryPartialImages.at(workerId),
-					        primaryDeviceId, deviceId, mainStream.getStream(),
-					        copyDoneEvent, "one EM partial image");
-				    }
+					    else
+					    {
+						    ScopedProfileTimer profileTimer(
+						        profileEnabled,
+						        workerProfile.copyPartialImage);
+						    copyDeviceImageAcrossGPUsAsync(
+						        *partialImageDevice, deviceId,
+						        *m_emBuffers.primaryPartialImages.at(workerId),
+						        primaryDeviceId, deviceId,
+						        mainStream.getStream(), copyDoneEvent,
+						        "one EM partial image");
+					    }
 				    partialReadyEvents.at(workerId) = copyDoneEvent;
 				    copyDoneEvent = nullptr;
 			    }
@@ -1356,12 +1836,29 @@ void OSEMUpdater_GPU::computeEMUpdateImageMultiGPU(
 	{
 		worker.join();
 	}
+	if (profileEnabled)
+	{
+		workersWallSeconds = secondsSince(workersStartTime);
+	}
 	rethrowMultiGPUWorkerErrors(errors, partialReadyEvents, deviceIds);
 
-	sumPrimaryPartialImagesToDevice(m_emBuffers.primaryPartialImages,
-	                                m_emBuffers.workerPartialImages,
-	                                activeWorkerIds, partialReadyEvents,
-	                                deviceIds, destImage, primaryDeviceId,
-	                                mp_osem->getMainStream());
+	{
+		ScopedProfileTimer profileTimer(profileEnabled,
+		                                reducePartialImagesSeconds);
+		sumPrimaryPartialImagesToDevice(
+		    m_emBuffers.primaryPartialImages, m_emBuffers.workerPartialImages,
+		    activeWorkerIds, partialReadyEvents, deviceIds, destImage,
+		    primaryDeviceId, mp_osem->getMainStream());
+	}
+	emitMultiGPUProfileMetric("em_total", secondsSince(totalStartTime));
+	emitMultiGPUProfileMetric("em_sync_primary", syncPrimarySeconds);
+	emitMultiGPUProfileMetric("em_ensure_image_buffers",
+	                          ensureImageBuffersSeconds);
+	emitMultiGPUProfileMetric("em_ensure_recon_cache",
+	                          ensureReconCacheSeconds);
+	emitMultiGPUProfileMetric("em_workers_wall", workersWallSeconds);
+	emitMultiGPUProfileMetric("em_reduce_partials",
+	                          reducePartialImagesSeconds);
+	emitMultiGPUProfileAggregate("em", workerProfiles);
 }
 }  // namespace yrt

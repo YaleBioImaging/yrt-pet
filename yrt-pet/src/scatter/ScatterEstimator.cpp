@@ -383,10 +383,6 @@ void ScatterEstimator::computePromptsAndRandomsInScatterSpace()
 			    randomsEstimate =
 			        mp_randomsHis->getProjectionValueFromHistogramBin(histoBin);
 		    }
-		    else if (mr_prompts.hasRandomsEstimates())
-		    {
-			    randomsEstimate = mr_prompts.getRandomsEstimate(binId);
-		    }
 
 		    // Normalize prompts and randoms estimate
 		    if (applySensitivity)

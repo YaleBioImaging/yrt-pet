@@ -7,6 +7,8 @@
 #include "../PluginOptionsHelper.hpp"
 #include "yrt-pet/datastruct/IO.hpp"
 #include "yrt-pet/datastruct/projection/Histogram3D.hpp"
+#include "yrt-pet/datastruct/projection/ListMode.hpp"
+#include "yrt-pet/datastruct/projection/RandomsHistogram.hpp"
 #include "yrt-pet/datastruct/scanner/Scanner.hpp"
 #include "yrt-pet/geometry/Constants.hpp"
 #include "yrt-pet/scatter/ScatterEstimator.hpp"
@@ -220,6 +222,18 @@ int main(int argc, char** argv)
 			    io::openProjectionData(randomsHis_fname, randomsHis_format,
 			                           *scanner, config.getAllArguments());
 
+			randomsHis = dynamic_cast<Histogram*>(randomsHisProjData.get());
+			ASSERT(randomsHis != nullptr);
+		}
+		else if (prompts->hasRandomsEstimates())
+		{
+			auto listMode = dynamic_cast<ListMode*>(prompts.get());
+			ASSERT(listMode != nullptr);
+			randomsHisProjData = std::make_unique<RandomsHistogram>(
+			    *scanner.get(), listMode->getRandomsTimeWindow());
+			auto randomsHis_ptr =
+			    dynamic_cast<RandomsHistogram*>(randomsHisProjData.get());
+			randomsHis_ptr->populateFromListMode(*listMode);
 			randomsHis = dynamic_cast<Histogram*>(randomsHisProjData.get());
 			ASSERT(randomsHis != nullptr);
 		}

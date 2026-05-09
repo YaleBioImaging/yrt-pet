@@ -15,6 +15,7 @@ set(SOURCES
     datastruct/projection/BinLoader.cpp
     datastruct/projection/Constraints.cpp
     datastruct/projection/ProjectionList.cpp
+    datastruct/projection/RandomsHistogram.cpp
     datastruct/projection/SparseHistogram.cpp
     datastruct/projection/UniformHistogram.cpp
     datastruct/projection/ProjectionProperties.cpp

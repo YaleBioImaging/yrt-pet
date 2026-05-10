@@ -45,7 +45,7 @@ public:
 
 	bool hasTOF() const override;
 	float getRandomsTimeWindow() const override;
-	virtual float getSinglesRate(det_id_t det) const;
+	virtual float getSinglesRate(det_id_t /*det*/) const;
 
 	// Getters for motion framing and dynamic framing
 	const LORMotion* getLORMotion() const;

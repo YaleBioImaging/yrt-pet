@@ -6,6 +6,7 @@
 #include "yrt-pet/scatter/ScatterEstimator.hpp"
 
 #include "yrt-pet/datastruct/image/Image.hpp"
+#include "yrt-pet/datastruct/projection/Histogram3D.hpp"
 #include "yrt-pet/datastruct/scanner/Scanner.hpp"
 #include "yrt-pet/geometry/Constants.hpp"
 #include "yrt-pet/operators/ProjectorSiddon.hpp"
@@ -13,6 +14,7 @@
 #include "yrt-pet/utils/Assert.hpp"
 #include "yrt-pet/utils/ProgressDisplayMultiThread.hpp"
 #include "yrt-pet/utils/ReconstructionUtils.hpp"
+#include "yrt-pet/utils/Types.hpp"
 
 #if BUILD_PYBIND11
 #include <pybind11/pybind11.h>
@@ -361,60 +363,98 @@ void ScatterEstimator::computePromptsAndRandomsInScatterSpace()
 
 	// Only used for printing purposes
 	const int numThreads = globals::getNumThreads();
-	const size_t progressMax = count;
-	util::ProgressDisplayMultiThread progressBar(numThreads, progressMax, 5);
 
-	util::parallelForChunked(
-	    count, numThreads,
-	    [&progressBar, applySensitivity, this](size_t binId, size_t threadId)
-	    {
-		    progressBar.incrementProgress(threadId);
-
-		    // Gather prompts
-		    float promptsValue = mr_prompts.getProjectionValue(binId);
-
-		    // Histogram bin
-		    const histo_bin_t histoBin = mr_prompts.getHistogramBin(binId);
-
-		    // Gather randoms estimate if needed
-		    float randomsEstimate = 0.0f;
-		    if (mp_randomsHis != nullptr)
+	// Prompts
+	{
+		util::ProgressDisplayMultiThread progressBar(numThreads, count, 5);
+		util::parallelForChunked(
+		    count, numThreads,
+		    [&progressBar, applySensitivity, this](size_t binId,
+		                                           size_t threadId)
 		    {
-			    randomsEstimate =
-			        mp_randomsHis->getProjectionValueFromHistogramBin(histoBin);
-		    }
+			    progressBar.incrementProgress(threadId);
 
-		    // Normalize prompts and randoms estimate
-		    if (applySensitivity)
-		    {
-			    const float sensitivity =
-			        mp_sensitivityHis->getProjectionValueFromHistogramBin(
+			    // Gather prompts
+			    float promptsValue = mr_prompts.getProjectionValue(binId);
+
+			    // Histogram bin
+			    const histo_bin_t histoBin = mr_prompts.getHistogramBin(binId);
+
+			    // Normalize prompts and randoms estimate
+			    if (applySensitivity)
+			    {
+				    const float sensitivity =
+				        mp_sensitivityHis->getProjectionValueFromHistogramBin(
+				            histoBin);
+				    if (sensitivity > EPS_FLT)
+				    {
+					    promptsValue /= sensitivity;
+				    }
+				    else
+				    {
+					    promptsValue = 0.0f;
+				    }
+			    }
+
+			    // Gather scatter-space index
+			    const ScatterSpace::ScatterSpacePosition scsPos =
+			        mp_prompts_scs->histogramBinToScatterSpacePosition(
 			            histoBin);
-			    if (sensitivity > EPS_FLT)
-			    {
-				    promptsValue /= sensitivity;
-				    randomsEstimate /= sensitivity;
-			    }
-			    else
-			    {
-				    promptsValue = 0.0f;
-				    randomsEstimate = 0.0f;
-			    }
-		    }
+			    const ScatterSpace::ScatterSpaceIndex scsIdx =
+			        mp_prompts_scs->getNearestNeighborIndex(scsPos);
 
-		    // Gather scatter-space index
-		    const ScatterSpace::ScatterSpacePosition scsPos =
-		        mp_prompts_scs->histogramBinToScatterSpacePosition(histoBin);
-		    const ScatterSpace::ScatterSpaceIndex scsIdx =
-		        mp_prompts_scs->getNearestNeighborIndex(scsPos);
+			    // Increment scatter-space arrays (Atomic)
+			    mp_prompts_scs->incrementValueAtomic(scsIdx, promptsValue);
+		    });
+	}
 
-		    // Increment scatter-space arrays (Atomic)
-		    mp_prompts_scs->incrementValueAtomic(scsIdx, promptsValue);
-		    if (randomsEstimate > 0.0f)
+	// Randoms
+	if (useRandoms)
+	{
+		auto histo = Histogram3DAlias(mr_scanner);
+		auto binIter = histo.getBinIter(1, 0);
+		auto binIter_ptr = binIter.get();
+		util::ProgressDisplayMultiThread progressBar(numThreads,
+		                                             binIter->size(), 5);
+		util::parallelForChunked(
+		    binIter->size(), numThreads,
+		    [&progressBar, applySensitivity, binIter_ptr, this](size_t binId,
+		                                                        size_t threadId)
 		    {
-			    mp_randoms_scs->incrementValueAtomic(scsIdx, randomsEstimate);
-		    }
-	    });
+			    progressBar.incrementProgress(threadId);
+			    histo_bin_t histoBin = binIter_ptr->get(binId);
+
+			    // Gather prompts
+			    float randomsValue =
+			        mp_randomsHis->getProjectionValueFromHistogramBin(histoBin);
+
+			    // Normalize prompts and randoms estimate
+			    if (applySensitivity)
+			    {
+				    const float sensitivity =
+				        mp_sensitivityHis->getProjectionValueFromHistogramBin(
+				            histoBin);
+				    if (sensitivity > EPS_FLT)
+				    {
+					    randomsValue /= sensitivity;
+				    }
+				    else
+				    {
+					    randomsValue = 0.0f;
+				    }
+			    }
+
+			    // Gather scatter-space index
+			    const ScatterSpace::ScatterSpacePosition scsPos =
+			        mp_randoms_scs->histogramBinToScatterSpacePosition(
+			            histoBin);
+			    const ScatterSpace::ScatterSpaceIndex scsIdx =
+			        mp_randoms_scs->getNearestNeighborIndex(scsPos);
+
+			    // Increment scatter-space arrays (Atomic)
+			    mp_randoms_scs->incrementValueAtomic(scsIdx, randomsValue);
+		    });
+	}
 }
 
 float ScatterEstimator::computeTailFittingFactor() const

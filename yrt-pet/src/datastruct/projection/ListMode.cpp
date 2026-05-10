@@ -260,7 +260,7 @@ float ListMode::getRandomsTimeWindow() const
 	return m_timeWindow;
 }
 
-float ListMode::getSinglesRate(det_id_t det) const
+float ListMode::getSinglesRate(det_id_t /*det*/) const
 {
 	return 0.f;
 }

@@ -412,19 +412,18 @@ void ScatterEstimator::computePromptsAndRandomsInScatterSpace()
 	if (useRandoms)
 	{
 		auto histo = Histogram3DAlias(mr_scanner);
-		auto histo_ptr = histo.get();
 		auto binIter = histo.getBinIter(1, 0);
 		auto binIter_ptr = binIter.get();
 		util::ProgressDisplayMultiThread progressBar(numThreads,
 		                                             binIter->size(), 5);
 		util::parallelForChunked(
 		    binIter->size(), numThreads,
-		    [&progressBar, applySensitivity, histo_ptr, binIter_ptr,
+		    [&progressBar, applySensitivity, &histo, binIter_ptr,
 		     this](size_t binIdx, size_t threadId)
 		    {
 			    progressBar.incrementProgress(threadId);
 			    bin_t binId = binIter_ptr->get(binIdx);
-			    det_pair_t histoBin = histo_ptr->getDetPairFromBinId(binId);
+			    det_pair_t histoBin = histo.getDetPairFromBinId(binId);
 
 			    // Gather prompts
 			    float randomsValue =

@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include "yrt-pet/datastruct/PluginFramework.hpp"
 #include "yrt-pet/datastruct/projection/Histogram.hpp"
 
 namespace yrt
@@ -200,6 +201,11 @@ public:
 	std::unique_ptr<BinIterator> getBinIter(int numSubsets,
 	                                        int idxSubset) const override;
 
+	// For registering the plugin
+	static std::unique_ptr<ProjectionData>
+	    create(const Scanner& scanner, const std::string& filename,
+	           const io::OptionsResult& options);
+	static plugin::OptionsListPerPlugin getOptions();
 
 private:
 	void initStepSizes();

@@ -812,4 +812,21 @@ void ScatterSpace::initStepSizes()
 	m_planeStep = getAxialFOV() / static_cast<float>(m_numPlanes);
 }
 
+std::unique_ptr<ProjectionData>
+    ScatterSpace::create(const Scanner& scanner, const std::string& filename,
+                         const io::OptionsResult& options)
+{
+	(void)options;  // No use for extra options
+	return std::make_unique<ScatterSpace>(scanner, filename);
+}
+
+plugin::OptionsListPerPlugin ScatterSpace::getOptions()
+{
+	// No extra options
+	return {};
+}
+
+REGISTER_PROJDATA_PLUGIN("SCS", ScatterSpace, ScatterSpace::create,
+                         ScatterSpace::getOptions)
+
 }  // namespace yrt

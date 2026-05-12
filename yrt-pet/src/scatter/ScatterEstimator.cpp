@@ -455,6 +455,7 @@ void ScatterEstimator::computePromptsAndRandomsInScatterSpace()
 			    // Increment scatter-space arrays (Atomic)
 			    mp_randoms_scs->incrementValueAtomic(scsIdx, randomsValue);
 		    });
+		mp_randoms_scs->symmetrizeIfNeeded();
 	}
 }
 

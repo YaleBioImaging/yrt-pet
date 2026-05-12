@@ -88,7 +88,7 @@ void py_setup_scatterspace(py::module& m)
 	          &ScatterSpace::setValue));
 
 	// Utility functions
-	c.def("symmetrize", &ScatterSpace::symmetrizeIfNeeded);
+	c.def("symmetrizeIfNeeded", &ScatterSpace::symmetrizeIfNeeded);
 	c.def("clampTOF", &ScatterSpace::clampTOF);
 	c.def("clampPlanePosition", &ScatterSpace::clampPlanePosition);
 	c.def_static("wrapAngle", &ScatterSpace::wrapAngle);

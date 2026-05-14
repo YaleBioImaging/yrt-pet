@@ -610,6 +610,7 @@ const ProjectionData* OSEM::getDataInput() const
 
 void OSEM::setDataInput(const ProjectionData* pp_dataInput)
 {
+	ASSERT_MSG(pp_dataInput->count() > 0, "The input data given has no counts");
 	mp_dataInput = pp_dataInput;
 	if (dynamic_cast<const ListMode*>(mp_dataInput))
 	{

@@ -158,6 +158,7 @@ void py_setup_osem(pybind11::module& m)
 	c.def_readwrite("num_MLEM_iterations", &OSEM::num_MLEM_iterations);
 	c.def_readwrite("num_OSEM_subsets", &OSEM::num_OSEM_subsets);
 	c.def_readwrite("hardThreshold", &OSEM::hardThreshold);
+	c.def_readwrite("denomThreshold", &OSEM::denomThreshold);
 }
 }  // namespace yrt
 #endif
@@ -169,6 +170,7 @@ OSEM::OSEM(const Scanner& pr_scanner)
     : num_MLEM_iterations(DEFAULT_NUM_ITERATIONS),
       num_OSEM_subsets(1),
       hardThreshold(DEFAULT_HARD_THRESHOLD),
+      denomThreshold(DEFAULT_DENOM_THRESHOLD),
       projectorParams(pr_scanner),
       scanner(pr_scanner),
       flagImagePSF(false),

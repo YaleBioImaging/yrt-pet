@@ -321,9 +321,9 @@ void OSEM_CPU::computeEMUpdateImage()
 	    [&projector, &corrector, &measurements, hasRandomsEstimates,
 	     hasScatterEstimates, hasInVivoAttenuation, hasAttenuation,
 	     hasSensitivity, globalScaleFactor, &destImageForBackproj,
-	     &inputImageForForwardProj](
-	        const ProjectionPropertyManager& propManager, PropertyUnit* props,
-	        size_t pos, bin_t bin)
+	     &inputImageForForwardProj,
+	     this](const ProjectionPropertyManager& propManager,
+	           PropertyUnit* props, size_t pos, bin_t bin)
 	    {
 		    float update = projector->forwardProjection(
 		        inputImageForForwardProj, propManager, props, pos);
@@ -353,7 +353,7 @@ void OSEM_CPU::computeEMUpdateImage()
 		    }
 
 		    // to prevent numerical instability
-		    if (std::abs(update) > SMALL_FLT * globalScaleFactor)
+		    if (std::abs(update) > denomThreshold)
 		    {
 			    const float measurement = measurements->getProjectionValue(bin);
 			    update = measurement / update;

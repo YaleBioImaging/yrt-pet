@@ -32,6 +32,7 @@ public:
 	// Constants
 	static constexpr int DEFAULT_NUM_ITERATIONS = 10;
 	static constexpr float DEFAULT_HARD_THRESHOLD = 1.0f;
+	static constexpr float DEFAULT_DENOM_THRESHOLD = 1e-35f;
 	static constexpr float INITIAL_VALUE_MLEM = 0.125f;
 	// Constructors/Destructors
 	explicit OSEM(const Scanner& pr_scanner);
@@ -115,6 +116,7 @@ public:
 	int num_MLEM_iterations;
 	int num_OSEM_subsets;
 	float hardThreshold;
+	float denomThreshold;
 
 protected:
 	// Sens Image generator driver

@@ -205,8 +205,14 @@ int main(int argc, char** argv)
 		    "varpsf", "Image-space Variant PSF look-up table file", false,
 		    io::TypeOfArgument::STRING, "", reconstructionGroup);
 		registry.registerArgument("hard_threshold", "Hard Threshold", false,
-		                          io::TypeOfArgument::FLOAT, 1.0f,
+		                          io::TypeOfArgument::FLOAT,
+		                          OSEM::DEFAULT_HARD_THRESHOLD,
 		                          reconstructionGroup);
+		registry.registerArgument(
+		    "denom_threshold",
+		    "Denominator threshold for the EM ratio calculation", false,
+		    io::TypeOfArgument::FLOAT, OSEM::DEFAULT_DENOM_THRESHOLD,
+		    reconstructionGroup);
 		registry.registerArgument(
 		    "save_iter_step",
 		    "Increment into which to save MLEM iteration images", false,
@@ -351,11 +357,13 @@ int main(int argc, char** argv)
 		std::unique_ptr<OSEM> osem = util::createOSEM(*scanner, useGPU);
 
 		float hardThreshold = config.getValue<float>("hard_threshold");
+		float denomThreshold = config.getValue<float>("denom_threshold");
 		float globalScale = config.getValue<float>("global_scale");
 
 		osem->num_MLEM_iterations = config.getValue<int>("num_iterations");
 		osem->num_OSEM_subsets = config.getValue<int>("num_subsets");
 		osem->hardThreshold = hardThreshold;
+		osem->denomThreshold = denomThreshold;
 		osem->setProjector(projectorType);
 		osem->setNumRays(config.getValue<int>("num_rays"));
 

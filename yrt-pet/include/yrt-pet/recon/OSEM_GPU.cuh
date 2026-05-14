@@ -131,8 +131,8 @@ __global__ void computeEMUpdateImage_kernel(
     const PropertyUnit* pd_projectionProperties, UpdaterPointer pd_updater,
     const TimeOfFlightHelper* pd_tofHelper,
     ProjectionPsfKernelStruct projPsfKernelStruct,
-    CUScannerParams scannerParams, int numRays, ProjectorType projectorType,
-    size_t batchSize);
+    CUScannerParams scannerParams, int numRays, float denomThreshold,
+    ProjectorType projectorType, size_t batchSize);
 
 __global__ void generateSensImage_kernel(
     CUImage sensImage, CUImage attImage,

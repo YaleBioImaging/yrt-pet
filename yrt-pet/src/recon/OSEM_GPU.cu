@@ -937,7 +937,7 @@ void OSEM_GPU::computeEMUpdateImageForLoadedBatch(int subsetId, int batchId,
 			        globalScaleFactor, measurementUniformValue,
 			        pd_projPropManager, pd_projectionProperties, pd_updater,
 			        pd_tofHelper, projPsfKernelStruct, scannerParams, numRays,
-			        projectorParams.projectorType, batchSize);
+			        denomThreshold, projectorParams.projectorType, batchSize);
 		}
 		else
 		{
@@ -948,8 +948,8 @@ void OSEM_GPU::computeEMUpdateImageForLoadedBatch(int subsetId, int batchId,
 			        globalScaleFactor, measurementUniformValue,
 			        pd_projPropManager, pd_projectionProperties,
 			        nullptr /*No updater*/, pd_tofHelper, projPsfKernelStruct,
-			        scannerParams, numRays, projectorParams.projectorType,
-			        batchSize);
+			        scannerParams, numRays, denomThreshold,
+			        projectorParams.projectorType, batchSize);
 		}
 	}
 	else
@@ -962,7 +962,7 @@ void OSEM_GPU::computeEMUpdateImageForLoadedBatch(int subsetId, int batchId,
 			        globalScaleFactor, measurementUniformValue,
 			        pd_projPropManager, pd_projectionProperties, pd_updater,
 			        pd_tofHelper, projPsfKernelStruct, scannerParams, numRays,
-			        projectorParams.projectorType, batchSize);
+			        denomThreshold, projectorParams.projectorType, batchSize);
 		}
 		else
 		{
@@ -972,8 +972,8 @@ void OSEM_GPU::computeEMUpdateImageForLoadedBatch(int subsetId, int batchId,
 			        globalScaleFactor, measurementUniformValue,
 			        pd_projPropManager, pd_projectionProperties,
 			        nullptr /*No updater*/, pd_tofHelper, projPsfKernelStruct,
-			        scannerParams, numRays, projectorParams.projectorType,
-			        batchSize);
+			        scannerParams, numRays, denomThreshold,
+			        projectorParams.projectorType, batchSize);
 		}
 	}
 
@@ -1163,8 +1163,8 @@ __global__ void computeEMUpdateImage_kernel(
     const PropertyUnit* pd_projectionProperties, UpdaterPointer pd_updater,
     const TimeOfFlightHelper* pd_tofHelper,
     ProjectionPsfKernelStruct projPsfKernelStruct,
-    CUScannerParams scannerParams, int numRays, ProjectorType projectorType,
-    size_t batchSize)
+    CUScannerParams scannerParams, int numRays, float denomThreshold,
+    ProjectorType projectorType, size_t batchSize)
 {
 	const long eventId = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -1307,7 +1307,7 @@ __global__ void computeEMUpdateImage_kernel(
 			}
 
 			// to prevent numerical instability
-			if (fabsf(update) > SMALL_FLT * globalScaleFactor)
+			if (fabsf(update) > denomThreshold)
 			{
 				// Divide measurements
 				update = measurement / update;

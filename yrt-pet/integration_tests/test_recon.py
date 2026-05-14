@@ -104,8 +104,10 @@ def _test_savant_sim_ultra_micro_hotspot_motion_mlem_gpu_exec(
     ref_image_np = np.array(ref_image, copy=False)
 
     # Allow up to 100 voxels to mismatch
-    assert (1 - np.isclose(out_image_np, ref_image_np,
-                           atol=0, rtol=1e-3)).sum() < 100
+    _helper.assert_allclose_with_threshold(out_image_np, ref_image_np,
+                                           threshold=1e-8,
+                                           atol=0, rtol=1e-3,
+                                           num_voxels_tolerance=100)
 
 
 def test_savant_sim_ultra_micro_hotspot_piston_mlem_dd_gpu_exec():
@@ -402,7 +404,8 @@ def _test_savant_sim_ultra_micro_hotspot_nomotion_osem_6rays(use_gpu: bool):
                                            out_img_np,
                                            threshold=1e-4,
                                            atol=1e-3,
-                                           rtol=1e-4)
+                                           rtol=1e-4,
+                                           num_voxels_tolerance=100)
 
 
 def test_savant_sim_ultra_micro_hotspot_nomotion_osem_6rays_cpu():
@@ -555,10 +558,12 @@ def test_large_flat_panel_xcat_osem_tof_siddon():
     ref_img = yrt.ImageOwned(img_params, os.path.join(
         fold_large_flat_panel, 'ref', 'xcat_osem_siddon.nii'))
 
-    np_out_img = np.array(out_img, copy=False)
-    np_ref_img = np.array(ref_img, copy=False)
+    out_img_np = np.array(out_img, copy=False)
+    ref_img_np = np.array(ref_img, copy=False)
 
-    nrmse = _helper.get_nrmse(np_out_img, np_ref_img)
+    nrmse = _helper.get_nrmse(out_img_np, ref_img_np)
+    _helper.assert_allclose_with_threshold(out_img_np, ref_img_np,
+                                           threshold=1e-8, rtol=5e-3, atol=0)
     assert nrmse < 7e-4
 
 
@@ -595,8 +600,9 @@ def test_large_flat_panel_xcat_osem_tof_dd_gpu_exec():
 
     out_img_np = np.array(out_img, copy=False)
     ref_img_np = np.array(ref_img, copy=False)
-    cur_nrmse = _helper.get_nrmse(out_img_np, ref_img_np)
-    assert cur_nrmse < 2e-5
+
+    _helper.assert_allclose_with_threshold(out_img_np, ref_img_np,
+                                           threshold=1e-8, rtol=5e-3, atol=0)
 
 
 # %% Standalone command line

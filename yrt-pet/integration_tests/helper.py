@@ -154,8 +154,8 @@ def assert_allclose_with_threshold(img1, img2, threshold, rtol=1e-3, atol=0,
         np.testing.assert_allclose(img1[mask], img2[mask],
                                    rtol=rtol, atol=atol)
     else:
-        assert ((1 - np.isclose(img1, img2, rtol=rtol, atol=atol)).sum() <
-                    num_voxels_tolerance)
+        num_voxels_failing = (1 - np.isclose(img1, img2, rtol=rtol, atol=atol)).sum()
+        assert num_voxels_failing < num_voxels_tolerance
 
 # %% Datasets
 

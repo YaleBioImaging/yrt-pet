@@ -89,6 +89,7 @@ def _test_savant_sim_ultra_micro_hotspot_motion_mlem_gpu_exec(
                                                 keyword + '.vc')
     exec_str += ' -o ' + out_path
     exec_str += ' --projector ' + proj_name_upper + ' --gpu'
+    exec_str += ' --denom_threshold 1e-8'
     print('Running: ' + exec_str)
     ret = os.system(exec_str)
     assert ret == 0
@@ -549,6 +550,7 @@ def test_large_flat_panel_xcat_osem_tof_siddon():
     osem.num_OSEM_subsets = 12
     osem.setDataInput(dataset)
     osem.addTOF(70, 5)
+    osem.denomThreshold = 1e-8
     osem.setSensitivityImage(sens_img)
     out_img = osem.reconstruct()
 
@@ -585,7 +587,7 @@ def test_large_flat_panel_xcat_osem_tof_dd_gpu_exec():
     exec_str += ' --format LM-DOI --projector DD --gpu'
     exec_str += ' --sens ' + os.path.join(fold_xcat, 'sens_image_dd.nii')
     exec_str += ' --flag_tof --tof_width_ps 70 --tof_n_std 5'
-    exec_str += ' --num_iterations 5 --num_subsets 12'
+    exec_str += ' --num_iterations 5 --num_subsets 12 --denom_threshold 1e-8'
     exec_str += ' --out ' + out_path
     print('Running: ' + exec_str)
     ret = os.system(exec_str)

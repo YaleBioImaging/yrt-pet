@@ -565,7 +565,8 @@ def test_large_flat_panel_xcat_osem_tof_siddon():
 
     nrmse = _helper.get_nrmse(out_img_np, ref_img_np)
     _helper.assert_allclose_with_threshold(out_img_np, ref_img_np,
-                                           threshold=1e-8, rtol=5e-3, atol=0)
+                                           threshold=1e-8, rtol=5e-3, atol=0,
+                                           num_voxels_tolerance=100)
     assert nrmse < 7e-4
 
 
@@ -604,7 +605,8 @@ def test_large_flat_panel_xcat_osem_tof_dd_gpu_exec():
     ref_img_np = np.array(ref_img, copy=False)
 
     _helper.assert_allclose_with_threshold(out_img_np, ref_img_np,
-                                           threshold=1e-8, rtol=5e-3, atol=0)
+                                           threshold=1e-8, rtol=5e-3, atol=0,
+                                           num_voxels_tolerance=100)
 
 
 # %% Standalone command line

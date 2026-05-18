@@ -183,12 +183,15 @@ void OperatorPsfDevice::allocateTemporaryDeviceImageIfNeeded(
     const ImageParams& params, GPULaunchConfig config) const
 {
 	const auto* stream = config.stream;
+
+	// This assumes that "isSameDimensionsAs" ignores the fourth dimension
 	if (mpd_intermediaryImage == nullptr ||
-	    !mpd_intermediaryImage->getParams().isSameDimensionsAs(params) ||
-	    !mpd_intermediaryImage->getParams().isSameNumFramesAs(params))
+	    !mpd_intermediaryImage->getParams().isSameDimensionsAs(params))
 	{
+		ImageParams paramsOneFrame = ImageParams(params);
+		paramsOneFrame.nt = 1;
 		mpd_intermediaryImage =
-		    std::make_unique<ImageDeviceOwned>(params, stream);
+		    std::make_unique<ImageDeviceOwned>(paramsOneFrame, stream);
 	}
 
 	if (!mpd_intermediaryImage->isMemoryValid())
@@ -422,6 +425,9 @@ void OperatorPsfDevice::convolveDevice(const ImageDevice& inputImage,
 	allocateTemporaryDeviceImageIfNeeded(params, {stream, true});
 	float* pd_intermediaryImage = mpd_intermediaryImage->getDevicePointer();
 
+	const size_t numVoxelsPerFrame =
+	    static_cast<size_t>(params.nx) * params.ny * params.nz;
+
 	const float* pd_kernelX = kernelX.getDevicePointer();
 	const float* pd_kernelY = kernelY.getDevicePointer();
 	const float* pd_kernelZ = kernelZ.getDevicePointer();
@@ -446,8 +452,6 @@ void OperatorPsfDevice::convolveDevice(const ImageDevice& inputImage,
 	{
 		const float* pd_inputImageWithOffset =
 		    pd_inputImage + frame * params.nx * params.ny * params.nz;
-		float* pd_intermediaryImageWithOffset =
-		    pd_intermediaryImage + frame * params.nx * params.ny * params.nz;
 		float* pd_outputImageWithOffset =
 		    pd_outputImage + frame * params.nx * params.ny * params.nz;
 
@@ -456,44 +460,45 @@ void OperatorPsfDevice::convolveDevice(const ImageDevice& inputImage,
 			// Convolve along X-axis
 			convolve3DSeparable_kernel<0>
 			    <<<launchParams.gridSize, launchParams.blockSize, 0, *stream>>>(
-			        pd_inputImageWithOffset, pd_intermediaryImageWithOffset,
-			        pd_kernelX, kerSize[0], params.nx, params.ny, params.nz);
+			        pd_inputImageWithOffset, pd_intermediaryImage, pd_kernelX,
+			        kerSize[0], params.nx, params.ny, params.nz);
 
 			// Convolve along Y-axis
 			convolve3DSeparable_kernel<1>
 			    <<<launchParams.gridSize, launchParams.blockSize, 0, *stream>>>(
-			        pd_intermediaryImageWithOffset, pd_outputImageWithOffset,
-			        pd_kernelY, kerSize[1], params.nx, params.ny, params.nz);
+			        pd_intermediaryImage, pd_outputImageWithOffset, pd_kernelY,
+			        kerSize[1], params.nx, params.ny, params.nz);
 
 			// Convolve along Z-axis
 			convolve3DSeparable_kernel<2>
 			    <<<launchParams.gridSize, launchParams.blockSize, 0, *stream>>>(
-			        pd_outputImageWithOffset, pd_intermediaryImageWithOffset,
-			        pd_kernelZ, kerSize[2], params.nx, params.ny, params.nz);
+			        pd_outputImageWithOffset, pd_intermediaryImage, pd_kernelZ,
+			        kerSize[2], params.nx, params.ny, params.nz);
 		}
 		else
 		{
 			// Convolve along X-axis
 			convolve3DSeparable_kernel<0>
 			    <<<launchParams.gridSize, launchParams.blockSize, 0>>>(
-			        pd_inputImageWithOffset, pd_intermediaryImageWithOffset,
-			        pd_kernelX, kerSize[0], params.nx, params.ny, params.nz);
+			        pd_inputImageWithOffset, pd_intermediaryImage, pd_kernelX,
+			        kerSize[0], params.nx, params.ny, params.nz);
 
 			// Convolve along Y-axis
 			convolve3DSeparable_kernel<1>
 			    <<<launchParams.gridSize, launchParams.blockSize, 0>>>(
-			        pd_intermediaryImageWithOffset, pd_outputImageWithOffset,
-			        pd_kernelY, kerSize[1], params.nx, params.ny, params.nz);
+			        pd_intermediaryImage, pd_outputImageWithOffset, pd_kernelY,
+			        kerSize[1], params.nx, params.ny, params.nz);
 
 			// Convolve along Z-axis
 			convolve3DSeparable_kernel<2>
 			    <<<launchParams.gridSize, launchParams.blockSize, 0>>>(
-			        pd_outputImageWithOffset, pd_intermediaryImageWithOffset,
-			        pd_kernelZ, kerSize[2], params.nx, params.ny, params.nz);
+			        pd_outputImageWithOffset, pd_intermediaryImage, pd_kernelZ,
+			        kerSize[2], params.nx, params.ny, params.nz);
 		}
-	}
 
-	outputImage.copyFromDeviceImage(mpd_intermediaryImage.get(), false);
+		util::copyDeviceToDevice(pd_outputImageWithOffset, pd_intermediaryImage,
+		                         numVoxelsPerFrame, {stream, false});
+	}
 
 	synchronizeIfNeeded({stream, synchronize});
 	ASSERT(cudaCheckError());

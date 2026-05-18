@@ -193,6 +193,7 @@ std::unique_ptr<ImageOwned>
 	bool mustTryAgain = false;
 
 	int prismBeginX, prismBeginY, prismBeginZ, prismEndX, prismEndY, prismEndZ;
+	frame_t nt = static_cast<frame_t>(params.nt);
 
 	do
 	{
@@ -230,7 +231,7 @@ std::unique_ptr<ImageOwned>
 		{
 			for (int i_z = prismBeginZ; i_z < prismEndZ; i_z++)
 			{
-				for (frame_t t = 0; t < params.nt; t++)
+				for (frame_t t = 0; t < nt; t++)
 				{
 					const float value = prismValueDistribution(*usedEngine);
 					const size_t flatIdx = image->unravel(i_z, i_y, i_x, t);

@@ -161,9 +161,9 @@ TEST_CASE("PSF", "[psf]")
 	{
 		bool isGPU = (mode == 2);
 		std::string modeName = isGPU ? "GPU" : "CPU";
-		ImageParams imgParams{isGPU ? 50 : 30,
-		                      isGPU ? 50 : 30,
-		                      isGPU ? 25 : 15,
+		ImageParams imgParams{isGPU ? 50ull : 30ull,
+		                      isGPU ? 50ull : 30ull,
+		                      isGPU ? 25ull : 15ull,
 		                      isGPU ? 60.0f : 30.0f,
 		                      isGPU ? 59.0f : 31.0f,
 		                      isGPU ? 23.0f : 15.0f,
@@ -202,7 +202,9 @@ TEST_CASE("PSF", "[psf]")
 		auto img_out = std::make_unique<ImageOwned>(imgParams);
 		img_out->allocate();
 
-		std::vector<int64_t> dims = {imgParams.nx, imgParams.ny, imgParams.nz};
+		std::vector<int64_t> dims = {static_cast<int64_t>(imgParams.nx),
+		                             static_cast<int64_t>(imgParams.ny),
+		                             static_cast<int64_t>(imgParams.nz)};
 		std::vector<float> voxels = {imgParams.vx, imgParams.vy, imgParams.vz};
 		std::vector<float> sigmas = {sigmaX, sigmaY, sigmaZ};
 
@@ -391,7 +393,9 @@ TEST_CASE("VarPSF", "[varpsf]")
 
 		auto img_out = std::make_unique<ImageOwned>(imgParams);
 		img_out->allocate();
-		std::vector<int64_t> dims = {imgParams.nx, imgParams.ny, imgParams.nz};
+		std::vector<int64_t> dims = {static_cast<int64_t>(imgParams.nx),
+		                             static_cast<int64_t>(imgParams.ny),
+		                             static_cast<int64_t>(imgParams.nz)};
 		std::vector<float> voxels = {imgParams.vx, imgParams.vy, imgParams.vz};
 
 		std::vector<float> sigmas1 = {sigmaX1, sigmaY1, sigmaZ1};
@@ -580,7 +584,9 @@ TEST_CASE("VarPSF_GPU", "[varpsf_gpu]")
 		auto img_out = std::make_unique<ImageOwned>(imgParams);
 		img_out->allocate();
 
-		std::vector<int64_t> dims = {imgParams.nx, imgParams.ny, imgParams.nz};
+		std::vector<int64_t> dims = {static_cast<int64_t>(imgParams.nx),
+		                             static_cast<int64_t>(imgParams.ny),
+		                             static_cast<int64_t>(imgParams.nz)};
 		std::vector<float> voxels = {imgParams.vx, imgParams.vy, imgParams.vz};
 
 		std::vector<float> sigmas1 = {sigmaX1, sigmaY1, sigmaZ1};

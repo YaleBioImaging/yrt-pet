@@ -575,21 +575,24 @@ void ProjectorSiddon::project_helper(Image* img, const Line3D& lor,
 	float ax_next = flat_x ? std::numeric_limits<float>::max() : ax_min;
 	if (!flat_x)
 	{
-		int kx = (int)ceil(dir_x * (a_cur * (p2.x - p1.x) - x_cur + p1.x) / dx);
+		int kx = static_cast<int>(
+		    ceil(dir_x * (a_cur * (p2.x - p1.x) - x_cur + p1.x) / dx));
 		x_cur += kx * dir_x * dx;
 		ax_next = (x_cur - p1.x) * inv_p12_x;
 	}
 	float ay_next = flat_y ? std::numeric_limits<float>::max() : ay_min;
 	if (!flat_y)
 	{
-		int ky = (int)ceil(dir_y * (a_cur * (p2.y - p1.y) - y_cur + p1.y) / dy);
+		int ky = static_cast<int>(
+		    ceil(dir_y * (a_cur * (p2.y - p1.y) - y_cur + p1.y) / dy));
 		y_cur += ky * dir_y * dy;
 		ay_next = (y_cur - p1.y) * inv_p12_y;
 	}
 	float az_next = flat_z ? std::numeric_limits<float>::max() : az_min;
 	if (!flat_z)
 	{
-		int kz = (int)ceil(dir_z * (a_cur * (p2.z - p1.z) - z_cur + p1.z) / dz);
+		int kz = static_cast<int>(
+		    ceil(dir_z * (a_cur * (p2.z - p1.z) - z_cur + p1.z) / dz));
 		z_cur += kz * dir_z * dz;
 		az_next = (z_cur - p1.z) * inv_p12_z;
 	}
@@ -611,8 +614,10 @@ void ProjectorSiddon::project_helper(Image* img, const Line3D& lor,
 	float* raw_img_ptr = img->getRawPointer();
 	// float* cur_img_ptr = nullptr;
 	size_t offset_img_ptr = 0;
-	int num_x = params.nx;
-	int num_xy = params.nx * params.ny;
+	int nx = static_cast<int>(params.nx);
+	int ny = static_cast<int>(params.ny);
+	int nz = static_cast<int>(params.nz);
+	int num_xy = nx * ny;
 
 	float ax_next_prev = ax_next;
 	float ay_next_prev = ay_next;
@@ -667,17 +672,18 @@ void ProjectorSiddon::project_helper(Image* img, const Line3D& lor,
 		}
 		if (!FLAG_INCR || flag_first)
 		{
-			vx = (int)((p1.x + a_mid * (p2.x - p1.x) + params.length_x / 2.0f) *
-			           inv_dx);
-			vy = (int)((p1.y + a_mid * (p2.y - p1.y) + params.length_y / 2.0f) *
-			           inv_dy);
-			vz = (int)((p1.z + a_mid * (p2.z - p1.z) + params.length_z / 2.0f) *
-			           inv_dz);
-			offset_img_ptr = vz * num_xy + vy * num_x;
+			vx = static_cast<int>(
+			    (p1.x + a_mid * (p2.x - p1.x) + params.length_x / 2.0f) *
+			    inv_dx);
+			vy = static_cast<int>(
+			    (p1.y + a_mid * (p2.y - p1.y) + params.length_y / 2.0f) *
+			    inv_dy);
+			vz = static_cast<int>(
+			    (p1.z + a_mid * (p2.z - p1.z) + params.length_z / 2.0f) *
+			    inv_dz);
+			offset_img_ptr = vz * num_xy + vy * nx;
 			flag_first = false;
-			if (vx < 0 || vx >= static_cast<int>(params.nx) || vy < 0 ||
-			    vy >= static_cast<int>(params.ny) || vz < 0 ||
-			    vz >= static_cast<int>(params.nz))
+			if (vx < 0 || vx >= nx || vy < 0 || vy >= ny || vz < 0 || vz >= nz)
 			{
 				flag_done = true;
 			}
@@ -687,7 +693,7 @@ void ProjectorSiddon::project_helper(Image* img, const Line3D& lor,
 			if (dir_prev & SIDDON_DIR::DIR_X)
 			{
 				vx += dir_x;
-				if (vx < 0 || vx >= params.nx)
+				if (vx < 0 || vx >= nx)
 				{
 					flag_done = true;
 				}
@@ -695,19 +701,19 @@ void ProjectorSiddon::project_helper(Image* img, const Line3D& lor,
 			if (dir_prev & SIDDON_DIR::DIR_Y)
 			{
 				vy += dir_y;
-				if (vy < 0 || vy >= params.ny)
+				if (vy < 0 || vy >= static_cast<int>(params.ny))
 				{
 					flag_done = true;
 				}
 				else
 				{
-					offset_img_ptr += dir_y * num_x;
+					offset_img_ptr += dir_y * nx;
 				}
 			}
 			if (dir_prev & SIDDON_DIR::DIR_Z)
 			{
 				vz += dir_z;
-				if (vz < 0 || vz >= params.nz)
+				if (vz < 0 || vz >= static_cast<int>(params.nz))
 				{
 					flag_done = true;
 				}

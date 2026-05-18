@@ -364,7 +364,7 @@ TEST_CASE("Siddon-random", "[siddon]")
 	img->fill(1.0);
 	// Randomize image content
 	yrt::Array4DAlias<float> img_arr = img->getArray();
-	for (int f = 0; f < img->getNumFrames(); ++f)
+	for (size_t f = 0; f < img->getNumFrames(); ++f)
 	{
 		for (size_t k = 0; k < nz; k++)
 		{
@@ -441,7 +441,7 @@ TEST_CASE("Siddon-random", "[siddon]")
 			t2 = std::min(1.0, t2);
 			if ((p2 - p1).getNorm() > 0.0 && t1 < t2)
 			{
-				for (int f = 0; f < img->getNumFrames(); ++f)
+				for (size_t f = 0; f < img->getNumFrames(); ++f)
 				{
 					for (size_t k = 0; k < nz; k++)
 					{
@@ -594,7 +594,7 @@ TEST_CASE("Siddon-bugs", "[siddon]")
 		img->allocate();
 		// Randomize image content
 		yrt::Array4DAlias<float> img_arr = img->getArray();
-		for (int f = 0; f < img->getNumFrames(); ++f)
+		for (size_t f = 0; f < img->getNumFrames(); ++f)
 		{
 			for (size_t k = 0; k < nz; k++)
 			{
@@ -680,7 +680,7 @@ TEST_CASE("Siddon-oper", "[siddon]")
 	img->allocate();
 	// Randomize image content
 	yrt::Array4DAlias<float> img_arr = img->getArray();
-	for (int f = 0; f < img->getNumFrames(); ++f)
+	for (size_t f = 0; f < img->getNumFrames(); ++f)
 	{
 		for (size_t k = 0; k < nz; k++)
 		{

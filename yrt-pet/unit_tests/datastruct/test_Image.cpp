@@ -74,7 +74,7 @@ TEST_CASE("image-readwrite", "[image]")
 	std::default_random_engine engine(
 	    static_cast<unsigned int>(std::time(nullptr)));
 
-	std::uniform_int_distribution<int> imageSizeDistribution(25, 75);
+	std::uniform_int_distribution<size_t> imageSizeDistribution(25, 75);
 	std::uniform_real_distribution<float> imageLengthDistribution(25.0f, 75.0f);
 	std::uniform_real_distribution<float> imageDataDistribution(0.0f, 1.0f);
 	std::uniform_real_distribution<float> imageOffsetDistribution(-10.0f,
@@ -84,9 +84,9 @@ TEST_CASE("image-readwrite", "[image]")
 	std::string tmpCompressedImage_fname = "tmp.nii.gz";
 	std::string tmpParams_fname = "tmp_params.json";
 
-	int nx = imageSizeDistribution(engine);
-	int ny = imageSizeDistribution(engine);
-	int nz = imageSizeDistribution(engine);
+	size_t nx = imageSizeDistribution(engine);
+	size_t ny = imageSizeDistribution(engine);
+	size_t nz = imageSizeDistribution(engine);
 	float length_x = imageLengthDistribution(engine);
 	float length_y = imageLengthDistribution(engine);
 	float length_z = imageLengthDistribution(engine);

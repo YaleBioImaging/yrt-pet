@@ -630,14 +630,15 @@ void timeAverageMoveImageDynamic(const LORMotion& lorMotion,
 	ASSERT_MSG(unmovedImage != nullptr, "Null input image given");
 	ASSERT_MSG(outImage != nullptr, "Output image given is null");
 
-	const frame_t numDynamicFrames =
-	    static_cast<frame_t>(dynamicFraming.getNumFrames());
+	const size_t numDynamicFrames = dynamicFraming.getNumFrames();
 
 	ASSERT_MSG(outImage->getNumFrames() == numDynamicFrames,
 	           "Output image does not have the same number of frames as the "
 	           "given dynamic framing.");
 
-	for (frame_t dynamicFrame = 0; dynamicFrame < numDynamicFrames;
+	const auto numDynamicFrames_signed = static_cast<frame_t>(numDynamicFrames);
+
+	for (frame_t dynamicFrame = 0; dynamicFrame < numDynamicFrames_signed;
 	     dynamicFrame++)
 	{
 		const timestamp_t dynamicFrameStart =

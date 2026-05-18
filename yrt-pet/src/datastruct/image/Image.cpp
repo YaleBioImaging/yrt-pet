@@ -158,11 +158,13 @@ void py_setup_image(py::module& m)
 			    throw std::invalid_argument(
 			        "The buffer given has to have a float32 format");
 		    }
-		    std::vector<int> dims = {self.getNumFrames(), self.getParams().nz,
-		                             self.getParams().ny, self.getParams().nx};
+		    std::vector<size_t> dims = {
+		        self.getNumFrames(), self.getParams().nz, self.getParams().ny,
+		        self.getParams().nx};
 		    for (int i = 0; i < buffer.ndim; i++)
 		    {
-			    if (buffer.shape[i] != dims[buffer.ndim == 4 ? i : i + 1])
+			    if (buffer.shape[i] !=
+			        static_cast<ssize_t>(dims[buffer.ndim == 4 ? i : i + 1]))
 			    {
 				    throw std::invalid_argument(
 				        "The buffer shape does not match with the image "
@@ -217,7 +219,7 @@ const Array4DBase<float>& Image::getData() const
 	return *mp_array;
 }
 
-int Image::getNumFrames() const
+size_t Image::getNumFrames() const
 {
 	return getParams().nt;
 }
@@ -358,8 +360,10 @@ bool Image::getNearestNeighborIdx(const Vector3D& pt, int* pi, int* pj, int* pk,
 	const int iy = static_cast<int>(dy);
 	const int iz = static_cast<int>(dz);
 
-	if (ix < 0 || ix >= params.nx || iy < 0 || iy >= params.ny || iz < 0 ||
-	    iz >= params.nz || frame < 0 || frame >= getNumFrames())
+	if (ix < 0 || ix >= static_cast<int>(params.nx) || iy < 0 ||
+	    iy >= static_cast<int>(params.ny) || iz < 0 ||
+	    iz >= static_cast<int>(params.nz) || frame < 0 ||
+	    frame >= static_cast<int>(getNumFrames()))
 	{
 		// Point outside grid
 		return false;
@@ -517,8 +521,14 @@ void Image::writeToFile(const std::string& fname) const
 	const ImageParams& params = getParams();
 	const int nt = getNumFrames();
 	const bool is4D = (nt > 1);
-	const int dims[8] = {is4D ? 4 : 3, params.nx, params.ny, params.nz,
-	                     nt,           1,         1,         1};
+	const int dims[8] = {is4D ? 4 : 3,
+	                     static_cast<int>(params.nx),
+	                     static_cast<int>(params.ny),
+	                     static_cast<int>(params.nz),
+	                     nt,
+	                     1,
+	                     1,
+	                     1};
 	nifti_image* nim = nifti_make_new_nim(dims, NIFTI_TYPE_FLOAT32, 0);
 	nim->nx = params.nx;
 	nim->ny = params.ny;
@@ -612,7 +622,7 @@ void Image::applyThresholdBroadcast(const ImageBase* maskImg, float threshold,
 	const auto params = this->getParams();
 	const size_t J = params.nx * params.ny * params.nz;
 
-	for (int frameIndex = 0; frameIndex < nt; frameIndex++)
+	for (size_t frameIndex = 0; frameIndex < nt; frameIndex++)
 	{
 		float* ptr_r = ptr + frameIndex * J;
 
@@ -1236,12 +1246,23 @@ void ImageOwned::checkImageParamsWithGivenImage(float voxelSpacing[3],
 		throw std::invalid_argument(errorString);
 	}
 
-	ASSERT_MSG(dim[1] == params.nx, "Size mismatch in X dimension");
-	ASSERT_MSG(dim[2] == params.ny, "Size mismatch in Y dimension");
-	ASSERT_MSG(dim[3] == params.nz, "Size mismatch in Z dimension");
+	ASSERT_MSG(dim[1] > 0,
+	           "Dimension in X has to be a positive non-null number");
+	ASSERT_MSG(dim[2] > 0,
+	           "Dimension in Y has to be a positive non-null number");
+	ASSERT_MSG(dim[3] > 0,
+	           "Dimension in Z has to be a positive non-null number");
+
+	ASSERT_MSG(static_cast<size_t>(dim[1]) == params.nx,
+	           "Size mismatch in X dimension");
+	ASSERT_MSG(static_cast<size_t>(dim[2]) == params.ny,
+	           "Size mismatch in Y dimension");
+	ASSERT_MSG(static_cast<size_t>(dim[3]) == params.nz,
+	           "Size mismatch in Z dimension");
 	if (dim[0] == 4)
 	{
-		ASSERT_MSG(dim[4] == params.nt, "Size mismatch in time dimension");
+		ASSERT_MSG(static_cast<size_t>(dim[4]) == params.nt,
+		           "Size mismatch in time dimension");
 	}
 
 	const float expectedOffsetX =

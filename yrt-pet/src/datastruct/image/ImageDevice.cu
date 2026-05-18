@@ -42,7 +42,7 @@ void py_setup_imagedevice(py::module& m)
 				    throw std::invalid_argument(
 				        "The buffer given has to have a float32 format");
 			    }
-			    std::vector<int> dims = {
+			    std::vector<size_t> dims = {
 			        self.getParams().nt, self.getParams().nz,
 			        self.getParams().ny, self.getParams().nx};
 			    for (int i = 0; i < buffer.ndim; i++)

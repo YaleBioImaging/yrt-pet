@@ -675,8 +675,9 @@ void ProjectorSiddon::project_helper(Image* img, const Line3D& lor,
 			           inv_dz);
 			offset_img_ptr = vz * num_xy + vy * num_x;
 			flag_first = false;
-			if (vx < 0 || vx >= params.nx || vy < 0 || vy >= params.ny ||
-			    vz < 0 || vz >= params.nz)
+			if (vx < 0 || vx >= static_cast<int>(params.nx) || vy < 0 ||
+			    vy >= static_cast<int>(params.ny) || vz < 0 ||
+			    vz >= static_cast<int>(params.nz))
 			{
 				flag_done = true;
 			}

@@ -115,9 +115,9 @@ namespace yrt
 {
 
 ImageParams::ImageParams()
-    : nx(-1),
-      ny(-1),
-      nz(-1),
+    : nx(0),
+      ny(0),
+      nz(0),
       nt(1),
       length_x(-1.0f),
       length_y(-1.0f),
@@ -132,9 +132,10 @@ ImageParams::ImageParams()
 {
 }
 
-ImageParams::ImageParams(int p_nx, int p_ny, int p_nz, float p_length_x,
-                         float p_length_y, float p_length_z, float p_offset_x,
-                         float p_offset_y, float p_offset_z, frame_t p_nt)
+ImageParams::ImageParams(size_t p_nx, size_t p_ny, size_t p_nz,
+                         float p_length_x, float p_length_y, float p_length_z,
+                         float p_offset_x, float p_offset_y, float p_offset_z,
+                         frame_t p_nt)
     : nx(p_nx),
       ny(p_ny),
       nz(p_nz),
@@ -218,7 +219,7 @@ void ImageParams::setup()
 template <int Dim>
 void ImageParams::completeDimInfo()
 {
-	const int* n = nullptr;
+	const size_t* n = nullptr;
 	float* v = nullptr;
 	float* length = nullptr;
 	float* off = nullptr;
@@ -355,19 +356,19 @@ void ImageParams::readFromJSON(json& j)
 		                       ", Given version: " + std::to_string(version));
 	}
 
-	util::getParam<int>(
+	util::getParam<size_t>(
 	    &j, &nx, "nx", 0, true,
 	    "Error in ImageParams file version : \'nx\' unspecified");
 
-	util::getParam<int>(
+	util::getParam<size_t>(
 	    &j, &ny, "ny", 0, true,
 	    "Error in ImageParams file version : \'ny\' unspecified");
 
-	util::getParam<int>(
+	util::getParam<size_t>(
 	    &j, &nz, "nz", 0, true,
 	    "Error in ImageParams file version : \'nz\' unspecified");
 
-	util::getParam<frame_t>(&j, &nt, {"nt", "num_frames"}, 1, false);
+	util::getParam<size_t>(&j, &nt, {"nt", "num_frames"}, 1, false);
 
 	util::getParam<float>(&j, &off_x, {"off_x", "offset_x"}, 0.0, false);
 

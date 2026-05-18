@@ -28,7 +28,7 @@ public:
 	float* getRawPointer();
 	const float* getRawPointer() const;
 	bool isMemoryValid() const;
-	int getNumFrames() const;
+	size_t getNumFrames() const;
 
 	void copyFromImage(const ImageBase* imSrc) override;
 	void multWithScalar(float scalar);

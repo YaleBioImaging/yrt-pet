@@ -146,8 +146,8 @@ void ProjectorDD::backProjection(Image* image,
 	if (dynamicFrame >= 0)
 	{
 		backProjection(image, lor, detOrient.d1, detOrient.d2, projValue, pos,
-					   dynamicFrame, mp_tofHelper.get(), tofValue,
-					   mp_projPsfManager.get());
+		               dynamicFrame, mp_tofHelper.get(), tofValue,
+		               mp_projPsfManager.get());
 	}
 }
 
@@ -401,7 +401,8 @@ void ProjectorDD::dd_project_ref(Image* in_image, const Line3D& lor,
 	if (flag_y)
 	{
 		xy_i_0 = std::max(0, std::min(y_i_0, y_i_1));
-		xy_i_1 = std::min(params.ny - 1, std::max(y_i_0, y_i_1));
+		xy_i_1 = std::min(static_cast<float>(params.ny) - 1.0f,
+		                  static_cast<float>(std::max(y_i_0, y_i_1)));
 		lxy = params.length_y;
 		dxy = params.vy;
 		lyx = params.length_x;
@@ -419,7 +420,8 @@ void ProjectorDD::dd_project_ref(Image* in_image, const Line3D& lor,
 	else
 	{
 		xy_i_0 = std::max(0, std::min(x_i_0, x_i_1));
-		xy_i_1 = std::min(params.nx - 1, std::max(x_i_0, x_i_1));
+		xy_i_1 = std::min(static_cast<float>(params.nx) - 1,
+		                  static_cast<float>(std::max(x_i_0, x_i_1)));
 		lxy = params.length_x;
 		dxy = params.vx;
 		lyx = params.length_y;
@@ -495,9 +497,10 @@ void ProjectorDD::dd_project_ref(Image* in_image, const Line3D& lor,
 				const int dd_z_i_0 =
 				    std::max(0, static_cast<int>(std::rintf(dd_z_r_0 * inv_dz +
 				                                            dd_z_i_offset)));
-				const int dd_z_i_1 = std::min(
-				    params.nz - 1, static_cast<int>(std::rintf(
-				                       dd_z_r_1 * inv_dz + dd_z_i_offset)));
+				const int dd_z_i_1 =
+				    std::min(static_cast<int>(params.nz) - 1,
+				             static_cast<int>(std::rintf(dd_z_r_1 * inv_dz +
+				                                         dd_z_i_offset)));
 				for (int zi = dd_z_i_0; zi <= dd_z_i_1; zi++)
 				{
 					const float pix_z =

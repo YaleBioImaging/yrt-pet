@@ -20,10 +20,10 @@ constexpr float IMAGEPARAMS_FILE_VERSION = 1.2f;
 class ImageParams
 {
 public:
-	int nx;
-	int ny;
-	int nz;
-	frame_t nt;
+	size_t nx;
+	size_t ny;
+	size_t nz;
+	size_t nt;
 	float length_x;
 	float length_y;
 	float length_z;
@@ -40,7 +40,7 @@ public:
 	static constexpr float PositioningPrecision = 1e-4f;  // 0.1 micron
 
 	ImageParams();
-	ImageParams(int p_nx, int p_ny, int p_nz, float p_length_x,
+	ImageParams(size_t p_nx, size_t p_ny, size_t p_nz, float p_length_x,
 	            float p_length_y, float p_length_z, float p_offset_x = 0.f,
 	            float p_offset_y = 0.f, float p_offset_z = 0.f,
 	            frame_t p_nt = 1);

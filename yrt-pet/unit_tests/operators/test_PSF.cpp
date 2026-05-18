@@ -630,9 +630,9 @@ TEST_CASE("VarPSF_GPU", "[varpsf_gpu]")
 		Vector3D test_pt2 = {threshold + imgParams.vx,
 		                     -threshold - imgParams.vy,
 		                     threshold + imgParams.vz};
-		Vector3D test_pt3 = {(imgParams.nx - 1) * imgParams.vx / 2,
-		                     (imgParams.ny - 1) * imgParams.vy / 2,
-		                     -(imgParams.nz - 1) * imgParams.vz / 2};
+		Vector3D test_pt3 = {(imgParams.nx - 1) * imgParams.vx * 0.5f,
+		                     (imgParams.ny - 1) * imgParams.vy * 0.5f,
+		                     -((imgParams.nz - 1) * imgParams.vz * 0.5f)};
 		int center_x, center_y, center_z;
 		int tp1_x, tp1_y, tp1_z;
 		int tp2_x, tp2_y, tp2_z;

@@ -444,11 +444,11 @@ void OperatorPsfDevice::convolveDevice(const ImageDevice& inputImage,
 
 	for (frame_t frame = 0; frame < params.nt; frame++)
 	{
-		const float* pd_inputImageOffsetted =
+		const float* pd_inputImageWithOffset =
 		    pd_inputImage + frame * params.nx * params.ny * params.nz;
-		float* pd_intermediaryImageOffsetted =
+		float* pd_intermediaryImageWithOffset =
 		    pd_intermediaryImage + frame * params.nx * params.ny * params.nz;
-		float* pd_outputImageOffsetted =
+		float* pd_outputImageWithOffset =
 		    pd_outputImage + frame * params.nx * params.ny * params.nz;
 
 		if (stream != nullptr)
@@ -456,19 +456,19 @@ void OperatorPsfDevice::convolveDevice(const ImageDevice& inputImage,
 			// Convolve along X-axis
 			convolve3DSeparable_kernel<0>
 			    <<<launchParams.gridSize, launchParams.blockSize, 0, *stream>>>(
-			        pd_inputImageOffsetted, pd_intermediaryImageOffsetted,
+			        pd_inputImageWithOffset, pd_intermediaryImageWithOffset,
 			        pd_kernelX, kerSize[0], params.nx, params.ny, params.nz);
 
 			// Convolve along Y-axis
 			convolve3DSeparable_kernel<1>
 			    <<<launchParams.gridSize, launchParams.blockSize, 0, *stream>>>(
-			        pd_intermediaryImageOffsetted, pd_outputImageOffsetted,
+			        pd_intermediaryImageWithOffset, pd_outputImageWithOffset,
 			        pd_kernelY, kerSize[1], params.nx, params.ny, params.nz);
 
 			// Convolve along Z-axis
 			convolve3DSeparable_kernel<2>
 			    <<<launchParams.gridSize, launchParams.blockSize, 0, *stream>>>(
-			        pd_outputImageOffsetted, pd_intermediaryImageOffsetted,
+			        pd_outputImageWithOffset, pd_intermediaryImageWithOffset,
 			        pd_kernelZ, kerSize[2], params.nx, params.ny, params.nz);
 		}
 		else
@@ -476,19 +476,19 @@ void OperatorPsfDevice::convolveDevice(const ImageDevice& inputImage,
 			// Convolve along X-axis
 			convolve3DSeparable_kernel<0>
 			    <<<launchParams.gridSize, launchParams.blockSize, 0>>>(
-			        pd_inputImageOffsetted, pd_intermediaryImageOffsetted,
+			        pd_inputImageWithOffset, pd_intermediaryImageWithOffset,
 			        pd_kernelX, kerSize[0], params.nx, params.ny, params.nz);
 
 			// Convolve along Y-axis
 			convolve3DSeparable_kernel<1>
 			    <<<launchParams.gridSize, launchParams.blockSize, 0>>>(
-			        pd_intermediaryImageOffsetted, pd_outputImageOffsetted,
+			        pd_intermediaryImageWithOffset, pd_outputImageWithOffset,
 			        pd_kernelY, kerSize[1], params.nx, params.ny, params.nz);
 
 			// Convolve along Z-axis
 			convolve3DSeparable_kernel<2>
 			    <<<launchParams.gridSize, launchParams.blockSize, 0>>>(
-			        pd_outputImageOffsetted, pd_intermediaryImageOffsetted,
+			        pd_outputImageWithOffset, pd_intermediaryImageWithOffset,
 			        pd_kernelZ, kerSize[2], params.nx, params.ny, params.nz);
 		}
 	}

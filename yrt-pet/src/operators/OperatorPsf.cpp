@@ -168,15 +168,8 @@ std::vector<float> OperatorPsf::createGaussianKernel1D(float sigma,
 
 	if (size == 0)
 	{
-		constexpr size_t KERNEL_MAX_SIZE = 31;
-		size = 1;
-		while (std::exp(-0.5f *
-		                std::pow(static_cast<float>(size / 2) * voxSize / sigma,
-		                         2.f)) > EPS_FLT &&
-		       size <= KERNEL_MAX_SIZE)
-		{
-			size += 2;
-		}
+		constexpr size_t DEFAULT_NUM_SIGMAS = 5;
+		size = std::rintf(DEFAULT_NUM_SIGMAS * sigma / voxSize);
 	}
 
 	std::vector<float> kernel;

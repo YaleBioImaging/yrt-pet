@@ -58,10 +58,20 @@ void py_setup_vector3dbase(py::module& m)
 	          const Vector3DBase<TFloat>&) const>(
 	          &Vector3DBase<TFloat>::operator-),
 	      py::is_operator(), "other"_a);
+	c.def("__isub__",
+	      static_cast<Vector3DBase<TFloat>& (Vector3DBase<TFloat>::*)(
+	          const Vector3DBase<TFloat>&)>(
+	          &Vector3DBase<TFloat>::operator-=),
+	      py::is_operator(), "other"_a);
 	c.def("__add__",
 	      static_cast<Vector3DBase<TFloat> (Vector3DBase<TFloat>::*)(
 	          const Vector3DBase<TFloat>&) const>(
 	          &Vector3DBase<TFloat>::operator+),
+	      py::is_operator(), "other"_a);
+	c.def("__iadd__",
+	      static_cast<Vector3DBase<TFloat>& (Vector3DBase<TFloat>::*)(
+	          const Vector3DBase<TFloat>&)>(
+	          &Vector3DBase<TFloat>::operator+=),
 	      py::is_operator(), "other"_a);
 	c.def("__mul__",
 	      static_cast<Vector3DBase<TFloat> (Vector3DBase<TFloat>::*)(
@@ -196,6 +206,26 @@ Vector3DBase<TFloat>
     Vector3DBase<TFloat>::operator+(const Vector3DBase& v) const
 {
 	return Vector3DBase{x + v.x, y + v.y, z + v.z};
+}
+
+template <typename TFloat>
+Vector3DBase<TFloat>&
+    Vector3DBase<TFloat>::operator-=(const Vector3DBase& v)
+{
+	x -= v.x;
+	y -= v.y;
+	z -= v.z;
+	return *this;
+}
+
+template <typename TFloat>
+Vector3DBase<TFloat>&
+    Vector3DBase<TFloat>::operator+=(const Vector3DBase& v)
+{
+	x += v.x;
+	y += v.y;
+	z += v.z;
+	return *this;
 }
 
 template <typename TFloat>

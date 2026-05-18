@@ -15,21 +15,27 @@ class MultiRayGenerator
 {
 public:
 	static constexpr bool USE_PARALLEL_LINES = false;
+	static constexpr bool USE_DEPTH = false;
 	MultiRayGenerator(float thickness_z_i, float thickness_trans_i,
-	                  bool isParallel_i = USE_PARALLEL_LINES);
+	                  float depth_i = 0.f,
+	                  bool isParallel_i = USE_PARALLEL_LINES,
+	                  bool hasDepth_i = USE_DEPTH);
 	Line3D getRandomLine(unsigned int& seed) const;
 	void setupGenerator(const Line3D& lor, const Vector3D& n1,
 	                    const Vector3D& n2);
 
 protected:
-	float thickness_z, thickness_trans;
+	float thickness_z, thickness_trans, depth;
 	bool isSingleRay;
 	bool isParallel;
+	bool hasDepth;
 
 private:
 	Vector3D vect_parrallel_to_z;
 	Vector3D vect_parrallel_to_trans1;
 	Vector3D vect_parrallel_to_trans2;
+	Vector3D vect_n1;
+	Vector3D vect_n2;
 	const Line3D* currentLor;
 };
 }  // namespace yrt

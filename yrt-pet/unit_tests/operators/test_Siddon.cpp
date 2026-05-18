@@ -6,6 +6,8 @@
 #include "yrt-pet/datastruct/image/Image.hpp"
 #include "yrt-pet/datastruct/projection/Histogram3D.hpp"
 #include "yrt-pet/datastruct/scanner/Scanner.hpp"
+#include "yrt-pet/geometry/Line3D.hpp"
+#include "yrt-pet/geometry/MultiRayGenerator.hpp"
 #include "yrt-pet/operators/OperatorProjector.hpp"
 #include "yrt-pet/operators/ProjectorParams.hpp"
 #include "yrt-pet/operators/ProjectorSiddon.hpp"
@@ -721,4 +723,94 @@ TEST_CASE("Siddon-oper", "[siddon]")
 		}
 		REQUIRE(dot_Ax_y == Approx(dot_x_Aty));
 	}
+}
+
+TEST_CASE("multiray", "[siddon]")
+{
+	auto scanner =
+	    yrt::Scanner("test", 25.0, 5.0, 3.0, 10.0, 300.0, 256, 5, 1, 4, 2, 8);
+	yrt::Vector3D p1Init{10, 0, 0};
+	yrt::Vector3D p2Init{-10, 0, 0};
+	yrt::Vector3D n1{-1, 0, 0};
+	yrt::Vector3D n2{1, 0, 0};
+	yrt::Line3D lor{p1Init, p2Init};
+
+	int numRays = 1000;
+	auto rayGen =
+	    yrt::MultiRayGenerator(scanner.crystalSize_z, scanner.crystalSize_trans,
+	                           scanner.crystalDepth, false, true);
+	rayGen.setupGenerator(lor, n1, n2);
+
+	auto pos1 = std::make_unique<yrt::Vector3D[]>(numRays);
+	auto pos2 = std::make_unique<yrt::Vector3D[]>(numRays);
+
+	unsigned int seed = 13;
+	for (int ri = 0; ri < numRays; ri++)
+	{
+		yrt::Line3D lorOut = rayGen.getRandomLine(seed);
+		pos1[ri] = lorOut.point1;
+		pos2[ri] = lorOut.point2;
+	}
+
+	float minX1 = std::numeric_limits<float>::infinity();
+	float maxX1 = std::numeric_limits<float>::lowest();
+	float minY1 = std::numeric_limits<float>::infinity();
+	float maxY1 = std::numeric_limits<float>::lowest();
+	float minZ1 = std::numeric_limits<float>::infinity();
+	float maxZ1 = std::numeric_limits<float>::lowest();
+	float minX2 = std::numeric_limits<float>::infinity();
+	float maxX2 = std::numeric_limits<float>::lowest();
+	float minY2 = std::numeric_limits<float>::infinity();
+	float maxY2 = std::numeric_limits<float>::lowest();
+	float minZ2 = std::numeric_limits<float>::infinity();
+	float maxZ2 = std::numeric_limits<float>::lowest();
+	for (int ri = 0; ri < numRays; ri++)
+	{
+		minX1 = std::min(pos1[ri].x, minX1);
+		maxX1 = std::max(pos1[ri].x, maxX1);
+		minY1 = std::min(pos1[ri].y, minY1);
+		maxY1 = std::max(pos1[ri].y, maxY1);
+		minZ1 = std::min(pos1[ri].z, minZ1);
+		maxZ1 = std::max(pos1[ri].z, maxZ1);
+		minX2 = std::min(pos2[ri].x, minX2);
+		maxX2 = std::max(pos2[ri].x, maxX2);
+		minY2 = std::min(pos2[ri].y, minY2);
+		maxY2 = std::max(pos2[ri].y, maxY2);
+		minZ2 = std::min(pos2[ri].z, minZ2);
+		maxZ2 = std::max(pos2[ri].z, maxZ2);
+	}
+
+	// Check bounding box
+	CHECK(((minX1 >= p1Init.x - scanner.crystalDepth / 2) &&
+	       (minX1 <= p1Init.x + scanner.crystalDepth / 2)));
+	CHECK(((maxX1 >= p1Init.x - scanner.crystalDepth / 2) &&
+	       (maxX1 <= p1Init.x + scanner.crystalDepth / 2)));
+	CHECK(((minY1 >= p1Init.y - scanner.crystalSize_trans / 2) &&
+	       (minY1 <= p1Init.y + scanner.crystalSize_trans / 2)));
+	CHECK(((maxY1 >= p1Init.y - scanner.crystalSize_trans / 2) &&
+	       (maxY1 <= p1Init.y + scanner.crystalSize_trans / 2)));
+	CHECK(((minZ1 >= p1Init.z - scanner.crystalSize_z / 2) &&
+	       (minZ1 <= p1Init.z + scanner.crystalSize_z / 2)));
+	CHECK(((maxZ1 >= p1Init.z - scanner.crystalSize_z / 2) &&
+	       (maxZ1 <= p1Init.z + scanner.crystalSize_z / 2)));
+	CHECK(((minX2 >= p2Init.x - scanner.crystalDepth / 2) &&
+	       (minX2 <= p2Init.x + scanner.crystalDepth / 2)));
+	CHECK(((maxX2 >= p2Init.x - scanner.crystalDepth / 2) &&
+	       (maxX2 <= p2Init.x + scanner.crystalDepth / 2)));
+	CHECK(((minY2 >= p2Init.y - scanner.crystalSize_trans / 2) &&
+	       (minY2 <= p2Init.y + scanner.crystalSize_trans / 2)));
+	CHECK(((maxY2 >= p2Init.y - scanner.crystalSize_trans / 2) &&
+	       (maxY2 <= p2Init.y + scanner.crystalSize_trans / 2)));
+	CHECK(((minZ2 >= p2Init.z - scanner.crystalSize_z / 2) &&
+	       (minZ2 <= p2Init.z + scanner.crystalSize_z / 2)));
+	CHECK(((maxZ2 >= p2Init.z - scanner.crystalSize_z / 2) &&
+	       (maxZ2 <= p2Init.z + scanner.crystalSize_z / 2)));
+
+	// Check extent
+	CHECK(((minX1 < p1Init.x) && (maxX1 > p1Init.x)));
+	CHECK(((minY1 < p1Init.y) && (maxY1 > p1Init.y)));
+	CHECK(((minZ1 < p1Init.z) && (maxZ1 > p1Init.z)));
+	CHECK(((minX2 < p2Init.x) && (maxX2 > p2Init.x)));
+	CHECK(((minY2 < p2Init.y) && (maxY2 > p2Init.y)));
+	CHECK(((minZ2 < p2Init.z) && (maxZ2 > p2Init.z)));
 }

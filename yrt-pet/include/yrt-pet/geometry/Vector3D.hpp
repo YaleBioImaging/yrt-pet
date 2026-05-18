@@ -23,6 +23,8 @@ public:
 	bool isNormalized() const;
 	Vector3DBase operator-(const Vector3DBase& v) const;
 	Vector3DBase operator+(const Vector3DBase& v) const;
+	Vector3DBase& operator-=(const Vector3DBase& v);
+	Vector3DBase& operator+=(const Vector3DBase& v);
 	TFloat scalProd(const Vector3DBase& vector) const;
 	Vector3DBase crossProduct(const Vector3DBase& B) const;
 	void linearTransformation(const Vector3DBase& i, const Vector3DBase& j,

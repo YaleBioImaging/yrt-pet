@@ -8,7 +8,6 @@
 #include "yrt-pet/datastruct/image/Image.hpp"
 #include "yrt-pet/datastruct/image/ImageDevice.cuh"
 #include "yrt-pet/datastruct/projection/ProjectionData.hpp"
-#include "yrt-pet/datastruct/projection/ProjectionListDevice.cuh"
 #include "yrt-pet/operators/ProjectionPsfManagerDevice.cuh"
 #include "yrt-pet/operators/Projector.hpp"
 #include "yrt-pet/operators/ProjectorUpdaterDevice.cuh"
@@ -31,18 +30,26 @@ public:
 
 	void addImagePSF(const std::string& p_imagePsf_fname,
 	                 ImagePSFMode p_imagePSFMode) override;
+	void addUniformGaussianImagePSFFromFWHM(
+	    float fwhmX, float fwhmY, float fwhmZ, const size_t* kerSizeX = nullptr,
+	    const size_t* kerSizeY = nullptr,
+	    const size_t* kerSizeZ = nullptr) override;
+	void addUniformGaussianImagePSFFromSigma(
+	    float sigmaX, float sigmaY, float sigmaZ,
+	    const size_t* kerSizeX = nullptr, const size_t* kerSizeY = nullptr,
+	    const size_t* kerSizeZ = nullptr) override;
 
 protected:
 	// Sens Image generator driver
 	void setupProjectorForSensImgGen() override;
-	void allocateForSensImgGen() override;
+	void prepareBuffersForSensImgGen() override;
 	std::unique_ptr<Image> generateSensitivityImageForCurrentSubset() override;
 	void endSensImgGen() override;
 
 	// Reconstruction driver
 	void setupForDynamicRecon() override;
 	void setupProjectorForRecon() override;
-	void allocateForRecon() override;
+	void prepareBuffersForRecon() override;
 	void loadCurrentSubset(bool forRecon) override;
 	void resetEMUpdateImage() override;
 	void computeEMUpdateImage() override;
@@ -124,8 +131,8 @@ __global__ void computeEMUpdateImage_kernel(
     const PropertyUnit* pd_projectionProperties, UpdaterPointer pd_updater,
     const TimeOfFlightHelper* pd_tofHelper,
     ProjectionPsfKernelStruct projPsfKernelStruct,
-    CUScannerParams scannerParams, int numRays, ProjectorType projectorType,
-    size_t batchSize);
+    CUScannerParams scannerParams, int numRays, float denomThreshold,
+    ProjectorType projectorType, size_t batchSize);
 
 __global__ void generateSensImage_kernel(
     CUImage sensImage, CUImage attImage,

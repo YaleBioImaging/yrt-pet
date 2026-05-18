@@ -65,6 +65,32 @@ void OSEM_CPU::addImagePSF(const std::string& p_imagePsf_fname,
 	flagImagePSF = true;
 }
 
+void OSEM_CPU::addUniformGaussianImagePSFFromFWHM(float fwhmX, float fwhmY,
+                                                  float fwhmZ,
+                                                  const size_t* kerSizeX,
+                                                  const size_t* kerSizeY,
+                                                  const size_t* kerSizeZ)
+{
+	ASSERT_MSG(imageParams.isValid(), "Image parameters not set");
+	imagePsf = OperatorPsf::createGaussianFromFWHM(
+	    fwhmX, fwhmY, fwhmZ, imageParams.vx, imageParams.vy, imageParams.vz,
+	    kerSizeX, kerSizeY, kerSizeZ);
+	m_imagePSFMode = ImagePSFMode::UNIFORM;
+}
+
+void OSEM_CPU::addUniformGaussianImagePSFFromSigma(float sigmaX, float sigmaY,
+                                                   float sigmaZ,
+                                                   const size_t* kerSizeX,
+                                                   const size_t* kerSizeY,
+                                                   const size_t* kerSizeZ)
+{
+	ASSERT_MSG(imageParams.isValid(), "Image parameters not set");
+	imagePsf = OperatorPsf::createGaussianFromSigma(
+	    sigmaX, sigmaY, sigmaZ, imageParams.vx, imageParams.vy, imageParams.vz,
+	    kerSizeX, kerSizeY, kerSizeZ);
+	m_imagePSFMode = ImagePSFMode::UNIFORM;
+}
+
 void OSEM_CPU::setupProjectorForSensImgGen()
 {
 	ASSERT(projectorParams.numRays > 0);
@@ -81,9 +107,9 @@ void OSEM_CPU::setupProjectorForSensImgGen()
 	mp_projector = Projector::create(projParams);
 }
 
-void OSEM_CPU::allocateForSensImgGen()
+void OSEM_CPU::prepareBuffersForSensImgGen()
 {
-	auto imageParamsSens = getImageParamsForSensitivityImage();
+	auto imageParamsSens = getImageParamsForSensImgGen();
 
 	auto tempSensImageBuffer = std::make_unique<ImageOwned>(imageParamsSens);
 	tempSensImageBuffer->allocate();
@@ -95,7 +121,7 @@ void OSEM_CPU::allocateForSensImgGen()
 		reinterpret_cast<ImageOwned*>(mp_imageTmpPsf.get())->allocate();
 	}
 
-	initBinLoaderIfNeeded(false);
+	initBinLoader(false);
 }
 
 std::unique_ptr<Image> OSEM_CPU::generateSensitivityImageForCurrentSubset()
@@ -152,7 +178,7 @@ std::unique_ptr<Image> OSEM_CPU::generateSensitivityImageForCurrentSubset()
 	if (getCurrentOSEMSubset() != num_OSEM_subsets - 1)
 	{
 		auto tempSensImageBuffer =
-		    std::make_unique<ImageOwned>(getImageParamsForSensitivityImage());
+		    std::make_unique<ImageOwned>(getImageParamsForSensImgGen());
 		tempSensImageBuffer->allocate();
 		mp_tempSensImageBuffer = std::move(tempSensImageBuffer);
 	}
@@ -173,8 +199,6 @@ void OSEM_CPU::setupForDynamicRecon()
 
 void OSEM_CPU::setupProjectorForRecon()
 {
-	std::vector<Constraint*> constraints = getConstraintsAsVectorOfPointers();
-
 	if (projectorParams.projectorType == ProjectorType::SIDDON)
 	{
 		mp_projector = std::make_unique<ProjectorSiddon>(projectorParams);
@@ -189,7 +213,7 @@ void OSEM_CPU::setupProjectorForRecon()
 	}
 }
 
-void OSEM_CPU::allocateForRecon()
+void OSEM_CPU::prepareBuffersForRecon()
 {
 	// Allocate for projection-space buffers
 	const ProjectionData* dataInput = getDataInput();
@@ -246,7 +270,7 @@ void OSEM_CPU::allocateForRecon()
 
 	mp_corrector->precomputeCorrectionFactors(*dataInput);
 
-	initBinLoaderIfNeeded(true);
+	initBinLoader(true);
 }
 
 void OSEM_CPU::loadCurrentSubset(bool /*forRecon*/) {}
@@ -297,9 +321,9 @@ void OSEM_CPU::computeEMUpdateImage()
 	    [&projector, &corrector, &measurements, hasRandomsEstimates,
 	     hasScatterEstimates, hasInVivoAttenuation, hasAttenuation,
 	     hasSensitivity, globalScaleFactor, &destImageForBackproj,
-	     &inputImageForForwardProj](
-	        const ProjectionPropertyManager& propManager, PropertyUnit* props,
-	        size_t pos, bin_t bin)
+	     &inputImageForForwardProj,
+	     this](const ProjectionPropertyManager& propManager,
+	           PropertyUnit* props, size_t pos, bin_t bin)
 	    {
 		    float update = projector->forwardProjection(
 		        inputImageForForwardProj, propManager, props, pos);
@@ -328,7 +352,8 @@ void OSEM_CPU::computeEMUpdateImage()
 			    update *= corrector.getPrecomputedInVivoAttenuationFactor(bin);
 		    }
 
-		    if (std::abs(update) != 0.f)  // to prevent numerical instability
+		    // to prevent numerical instability
+		    if (std::abs(update) > denomThreshold)
 		    {
 			    const float measurement = measurements->getProjectionValue(bin);
 			    update = measurement / update;
@@ -423,23 +448,15 @@ const Corrector_CPU& OSEM_CPU::getCorrector_CPU() const
 	return *mp_corrector;
 }
 
-void OSEM_CPU::initBinLoaderIfNeeded(bool forRecon)
+void OSEM_CPU::initBinLoader(bool forRecon)
 {
-	if (mp_binLoader == nullptr)
-	{
-		std::vector<Constraint*> constraints =
-		    getConstraintsAsVectorOfPointers();
-		std::set<ProjectionPropertyType> properties =
-		    getNeededProperties(forRecon);
+	std::vector<Constraint*> constraints = getConstraintsAsVectorOfPointers();
+	std::set<ProjectionPropertyType> properties = getNeededProperties(forRecon);
 
-		mp_binLoader = std::make_unique<BinLoader>(constraints, properties);
-	}
+	mp_binLoader = std::make_unique<BinLoader>(constraints, properties);
 
-	if (!mp_binLoader->isAllocated())
-	{
-		const int numThreads = globals::getNumThreads();
-		mp_binLoader->allocate(numThreads);
-	}
+	const int numThreads = globals::getNumThreads();
+	mp_binLoader->allocate(numThreads);
 }
 
 std::set<ProjectionPropertyType>

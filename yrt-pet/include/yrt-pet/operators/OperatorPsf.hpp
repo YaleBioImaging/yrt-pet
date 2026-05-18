@@ -8,6 +8,7 @@
 #include "yrt-pet/datastruct/image/Image.hpp"
 #include "yrt-pet/operators/Operator.hpp"
 
+#include <memory>
 #include <vector>
 
 namespace yrt
@@ -25,6 +26,17 @@ public:
 	            const std::vector<float>& kernelY,
 	            const std::vector<float>& kernelZ);
 	~OperatorPsf() override = default;
+
+	static std::vector<float> createGaussianKernel1D(float sigma, float voxSize,
+										   const size_t* kerSize);
+	static std::unique_ptr<OperatorPsf> createGaussianFromSigma(
+	    float sigmaX, float sigmaY, float sigmaZ, float vx, float vy, float vz,
+	    const size_t* kerSizeX = nullptr, const size_t* kerSizeY = nullptr,
+	    const size_t* kerSizeZ = nullptr);
+	static std::unique_ptr<OperatorPsf> createGaussianFromFWHM(
+	    float fwhmX, float fwhmY, float fwhmZ, float vx, float vy, float vz,
+	    const size_t* kerSizeX = nullptr, const size_t* kerSizeY = nullptr,
+	    const size_t* kerSizeZ = nullptr);
 
 	virtual void readFromFile(const std::string& imagePsf_fname);
 

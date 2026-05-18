@@ -66,8 +66,10 @@ void py_setup_imageparams(py::module& m)
 
 	c.def("setup", &ImageParams::setup);
 	c.def("writeToFile", &ImageParams::writeToFile);
+	c.def("toString", &ImageParams::toString);
 	c.def("serialize", &ImageParams::serialize);
 	c.def("deserialize", &ImageParams::deserialize);
+	c.def("readFromFile", &ImageParams::readFromFile);
 	c.def("getShape", [](const ImageParams& self)
 	      { return py::make_tuple(self.nt, self.nz, self.ny, self.nx); });
 
@@ -286,6 +288,15 @@ void ImageParams::serialize(const std::string& fname) const
 	output << geom_json << std::endl;
 }
 
+std::string ImageParams::toString() const
+{
+	json geom_json;
+	writeToJSON(geom_json);
+	std::stringstream ss;
+	ss << geom_json << std::endl;
+	return ss.str();
+}
+
 void ImageParams::writeToJSON(json& j) const
 {
 	j["VERSION"] = IMAGEPARAMS_FILE_VERSION;
@@ -299,6 +310,11 @@ void ImageParams::writeToJSON(json& j) const
 	j["off_y"] = off_y;
 	j["off_z"] = off_z;
 	j["nt"] = nt;
+}
+
+void ImageParams::readFromFile(const std::string& fname)
+{
+	deserialize(fname);
 }
 
 void ImageParams::deserialize(const std::string& fname)
@@ -331,7 +347,7 @@ void ImageParams::readFromJSON(json& j)
 	    &j, &version, {"VERSION", "GCIMAGEPARAMS_FILE_VERSION"}, -1.0, true,
 	    "Error in ImageParams file version : Version unspecified");
 
-	if (version > IMAGEPARAMS_FILE_VERSION + SMALL_FLT)
+	if (version > IMAGEPARAMS_FILE_VERSION + EPS_FLT)
 	{
 		throw std::logic_error("Error in ImageParams file version : Wrong "
 		                       "version. Current version: " +

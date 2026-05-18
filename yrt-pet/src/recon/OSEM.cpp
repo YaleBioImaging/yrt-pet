@@ -22,6 +22,7 @@
 #include "yrt-pet/utils/Assert.hpp"
 #include "yrt-pet/utils/Globals.hpp"
 #include "yrt-pet/utils/Tools.hpp"
+#include "yrt-pet/utils/Version.hpp"
 
 #if BUILD_PYBIND11
 #include <pybind11/numpy.h>
@@ -72,7 +73,7 @@ void py_setup_osem(pybind11::module& m)
 	          &OSEM::setSensitivityImages));
 
 	c.def("reconstruct", &OSEM::reconstruct, "out_fname"_a = "");
-	c.def("summary", &OSEM::summary);
+	c.def("getSummary", &OSEM::getSummary);
 
 	c.def("setSensitivityHistogram", &OSEM::setSensitivityHistogram,
 	      "sens_his"_a);
@@ -86,11 +87,35 @@ void py_setup_osem(pybind11::module& m)
 	c.def("addTOF", &OSEM::addTOF, "tof_width_ps"_a, "tof_num_std"_a);
 	c.def("setNumRays", &OSEM::setNumRays, "num_rays"_a);
 	c.def("addProjPSF", &OSEM::addProjPSF, "proj_psf_fname"_a);
+
 	c.def("addImagePSF",
 	      static_cast<void (OSEM::*)(const std::string& p_imagePsf_fname,
 	                                 ImagePSFMode p_imagePSFMode)>(
 	          &OSEM::addImagePSF),
 	      "image_psf_fname"_a, "image_psf_mode"_a = ImagePSFMode::UNIFORM);
+	c.def("addUniformGaussianImagePSFFromFWHM",
+	      &OSEM::addUniformGaussianImagePSFFromFWHM, "fwhm_x"_a, "fwhm_y"_a,
+	      "fwhm_z"_a, "kernel_size_x"_a, "kernel_size_y"_a, "kernel_size_z"_a);
+	c.def("addUniformGaussianImagePSFFromSigma",
+	      &OSEM::addUniformGaussianImagePSFFromSigma, "sigma_x"_a, "sigma_y"_a,
+	      "sigma_z"_a, "kernel_size_x"_a, "kernel_size_y"_a, "kernel_size_z"_a);
+	c.def(
+	    "addUniformGaussianImagePSFFromFWHM",
+	    [](OSEM& self, float fwhmX, float fwhmY, float fwhmZ)
+	    {
+		    self.addUniformGaussianImagePSFFromFWHM(fwhmX, fwhmY, fwhmZ,
+		                                            nullptr, nullptr, nullptr);
+	    },
+	    "fwhm_x"_a, "fwhm_y"_a, "fwhm_z"_a);
+	c.def(
+	    "addUniformGaussianImagePSFFromSigma",
+	    [](OSEM& self, float sigmaX, float sigmaY, float sigmaZ)
+	    {
+		    self.addUniformGaussianImagePSFFromSigma(sigmaX, sigmaY, sigmaZ,
+		                                             nullptr, nullptr, nullptr);
+	    },
+	    "sigma_x"_a, "sigma_y"_a, "sigma_z"_a);
+
 	c.def("setSaveIterRanges", &OSEM::setSaveIterRanges, "range_list"_a,
 	      "path"_a);
 	c.def("setListModeEnabled", &OSEM::setListModeEnabled, "enabled"_a);
@@ -106,8 +131,7 @@ void py_setup_osem(pybind11::module& m)
 	c.def("hasImagePSF", &OSEM::hasImagePSF);
 	c.def("setImageParams", &OSEM::setImageParams, "params"_a);
 	c.def("getImageParams", &OSEM::getImageParams);
-	c.def("getImageParamsForSensitivityImage",
-	      &OSEM::getImageParamsForSensitivityImage);
+	c.def("getImageParamsForSensImgGen", &OSEM::getImageParamsForSensImgGen);
 	c.def("setRandomsHistogram", &OSEM::setRandomsHistogram, "randoms_his"_a);
 	c.def("setScatterHistogram", &OSEM::setScatterHistogram, "scatter_his"_a);
 	c.def("setAttenuationImage", &OSEM::setAttenuationImage, "att_image"_a);
@@ -134,6 +158,7 @@ void py_setup_osem(pybind11::module& m)
 	c.def_readwrite("num_MLEM_iterations", &OSEM::num_MLEM_iterations);
 	c.def_readwrite("num_OSEM_subsets", &OSEM::num_OSEM_subsets);
 	c.def_readwrite("hardThreshold", &OSEM::hardThreshold);
+	c.def_readwrite("denomThreshold", &OSEM::denomThreshold);
 }
 }  // namespace yrt
 #endif
@@ -145,6 +170,7 @@ OSEM::OSEM(const Scanner& pr_scanner)
     : num_MLEM_iterations(DEFAULT_NUM_ITERATIONS),
       num_OSEM_subsets(1),
       hardThreshold(DEFAULT_HARD_THRESHOLD),
+      denomThreshold(DEFAULT_DENOM_THRESHOLD),
       projectorParams(pr_scanner),
       scanner(pr_scanner),
       flagImagePSF(false),
@@ -338,13 +364,28 @@ std::unique_ptr<Image> OSEM::reconstruct(const std::string& out_fname)
 	return std::move(outImage);
 }
 
-void OSEM::summary() const
+std::string OSEM::getSummary() const
 {
-	std::cout << "Number of iterations: " << num_MLEM_iterations << std::endl;
-	std::cout << "Number of subsets: " << num_OSEM_subsets << std::endl;
+	std::stringstream ss;
+
+	ss << "YRT-PET version: " << version::getVersionString() << std::endl;
+
+	ss << "Scanner name: " << scanner.scannerName << std::endl;
+	ss << "Number of threads used: " << globals::getNumThreads() << std::endl;
+
+	ss << "Reconstruction image parameters:\n\t";
+	if (imageParams.isValid())
+	{
+		ss << imageParams.toString();
+	}
+	else
+	{
+		ss << "Image parameters invalid.\n";
+	}
+
 	if (usingListModeInput)
 	{
-		std::cout << "Uses List-Mode data as input" << std::endl;
+		ss << "Uses List-Mode data as input.\n";
 	}
 
 	int numberOfSensImagesSet = 0;
@@ -355,51 +396,191 @@ void OSEM::summary() const
 			numberOfSensImagesSet++;
 		}
 	}
-	std::cout << "Number of sensitivity images set: " << numberOfSensImagesSet
-	          << std::endl;
+	ss << "Number of sensitivity images set: " << numberOfSensImagesSet
+	   << std::endl;
 
-	std::cout << "Hard threshold: " << hardThreshold << std::endl;
+	ss << "Hard threshold: " << hardThreshold << std::endl;
 	if (projectorParams.projectorType == ProjectorType::SIDDON)
 	{
-		std::cout << "Projector type: Siddon" << std::endl;
-		std::cout << "Number of Siddon rays: " << projectorParams.numRays
-		          << std::endl;
+		ss << "Projector type: Siddon\n";
+		ss << "Number of Siddon rays: " << projectorParams.numRays << std::endl;
 	}
 	else if (projectorParams.projectorType == ProjectorType::DD)
 	{
-		std::cout << "Projector type: Distance-Driven" << std::endl;
+		ss << "Projector type: Distance-Driven\n";
+		if (!projectorParams.projPsf_fname.empty())
+		{
+			ss << "Uses Projection-space PSF.\n";
+		}
 	}
-
-	std::cout << "Number of threads used: " << globals::getNumThreads()
-	          << std::endl;
-	std::cout << "Scanner name: " << scanner.scannerName << std::endl;
 
 	if (flagImagePSF)
 	{
-		if (dynamic_cast<OperatorVarPsf*>(imagePsf.get()) == nullptr)
+		const auto invariantPsf =
+		    dynamic_cast<const OperatorPsf*>(imagePsf.get());
+		const auto variantPsf =
+		    dynamic_cast<const OperatorVarPsf*>(imagePsf.get());
+		if (invariantPsf != nullptr)
 		{
-			std::cout << "Uses Image-space PSF" << std::endl;
+			ss << "Uses spatially-invariant image-space PSF.\n";
+			ss << "PSF properties:\n";
+
+			const auto kernelX = invariantPsf->getKernelX();
+			const auto kernelY = invariantPsf->getKernelY();
+			const auto kernelZ = invariantPsf->getKernelZ();
+			const std::vector kernels = {kernelX, kernelY, kernelZ};
+			const auto kernelDimNames = "XYZ";
+
+			for (size_t dim = 0; dim < kernels.size(); dim++)
+			{
+				ss << "\tKernel in " << kernelDimNames[dim] << " dimension: [";
+				const auto& currentKernel = kernels[dim];
+				for (size_t i = 0; i < currentKernel.size(); i++)
+				{
+					ss << currentKernel[i];
+					if (i != currentKernel.size() - 1)
+					{
+						ss << ", ";
+					}
+				}
+				ss << "]\n";
+			}
+		}
+		else if (variantPsf != nullptr)
+		{
+			ss << "Uses spatially-variant image-space PSF.\n";
 		}
 		else
 		{
-			std::cout << "Uses Image-space variant PSF" << std::endl;
+			ASSERT_MSG_WARNING(false, "Unknown PSF mode");
 		}
 	}
-	if (projectorParams.projPsf_fname.empty())
-	{
-		std::cout << "Uses Projection-space PSF" << std::endl;
-	}
+
+	ss << "Number of iterations: " << num_MLEM_iterations << std::endl;
+	ss << "Number of subsets: " << num_OSEM_subsets << std::endl;
+
 	if (projectorParams.hasTOF())
 	{
-		std::cout << "Uses Time-of-flight" << std::endl;
+		ss << "Uses Time-of-flight.\n";
+		ss << "TOF width (ps): " << projectorParams.getTOFNumStd() << std::endl;
+		ss << "TOF number of STDs to use: " << projectorParams.getTOFNumStd()
+		   << std::endl;
 	}
 
-	std::cout << "Saved iterations list: " << saveIterRanges << std::endl;
 	if (!saveIterRanges.empty())
 	{
-		std::cout << "Saved image files prefix name: " << saveIterPath
-		          << std::endl;
+		ss << "Saved iterations list: " << saveIterRanges << std::endl;
+		ss << "Saved image files prefix name: \"" << saveIterPath << "\"\n";
 	}
+
+	auto& corrector = getCorrector();
+	if (corrector.hasHardwareAttenuation())
+	{
+		if (corrector.doesHardwareACFComeFromHistogram())
+		{
+			ss << "Has hardware attenuation coming from an ACF histogram.\n";
+		}
+		else
+		{
+			ss << "Has hardware attenuation coming from an attenuation "
+			      "image.\n";
+
+			const ImageParams& hardwareAttImageParams =
+			    corrector.getHardwareAttenuationImage()->getParams();
+
+			ss << "\tHardware attenuation image's parameters:";
+			ss << hardwareAttImageParams.toString();
+		}
+	}
+
+	if (corrector.hasInVivoAttenuation())
+	{
+		if (corrector.doesInVivoACFComeFromHistogram())
+		{
+			ss << "Has precorrective attenuation coming from an ACF "
+			      "histogram.\n";
+		}
+		else
+		{
+			ss << "Has precorrective attenuation coming from an attenuation "
+			      "image.\n";
+
+			const ImageParams& invivoAttImageParams =
+			    corrector.getInVivoAttenuationImage()->getParams();
+
+			ss << "\tPrecorrective attenuation image's parameters:";
+			ss << invivoAttImageParams.toString();
+		}
+	}
+
+	if (corrector.hasSensitivityHistogram())
+	{
+		ss << "Has sensitivity correction.\n";
+	}
+
+	// Randoms, scatter, motion and dynamic framing
+	const ProjectionData* dataInput_ptr = getDataInput();
+	if (dataInput_ptr != nullptr)
+	{
+		const ProjectionData& dataInput = *dataInput_ptr;
+		if (corrector.hasRandomsEstimates(dataInput))
+		{
+			if (corrector.doesRandomsEstimateComeFromHistogram())
+			{
+				ss << "Has randoms estimates coming from a histogram.\n";
+			}
+			else
+			{
+				ss << "Has randoms estimates coming from the input data "
+				      "itself.\n";
+			}
+		}
+
+		if (corrector.hasScatterEstimates())
+		{
+			ss << "Has scatter estimates.\n";
+		}
+
+		ss << "Global scale factor: " << corrector.getGlobalScalingFactor();
+
+		const auto* listMode_ptr = dynamic_cast<const ListMode*>(dataInput_ptr);
+		if (listMode_ptr != nullptr)
+		{
+			if (listMode_ptr->hasMotion())
+			{
+				ss << "Input list-mode has motion information.\n";
+				ss << "Number of motion frames: "
+				   << listMode_ptr->getNumMotionFrames() << std::endl;
+			}
+			if (listMode_ptr->hasDynamicFraming())
+			{
+				ss << "Input list-mode embeds a dynamic framing.\n";
+				ss << "Number of dynamic frames: "
+				   << listMode_ptr->getNumDynamicFrames() << std::endl;
+
+				const auto* dynamicFraming = listMode_ptr->getDynamicFraming();
+				if (dynamicFraming != nullptr)
+				{
+					const size_t numFrames = dynamicFraming->getNumFrames();
+					ss << "\tDynamic framing: [";
+					for (size_t frame = 0; frame < numFrames; frame++)
+					{
+						ss << dynamicFraming->getStartingTimestamp(frame);
+						ss << ", ";
+					}
+					ss << dynamicFraming->getLastTimestamp() << "]";
+				}
+				else
+				{
+					// Should never happen
+					ASSERT_MSG_WARNING(false, "Unknown error");
+				}
+			}
+		}
+	}
+
+	ss << std::endl;
+	return ss.str();
 }
 
 void OSEM::setSensitivityHistogram(const Histogram* pp_sensitivityData)
@@ -429,6 +610,7 @@ const ProjectionData* OSEM::getDataInput() const
 
 void OSEM::setDataInput(const ProjectionData* pp_dataInput)
 {
+	ASSERT_MSG(pp_dataInput->count() > 0, "The input data given has no counts");
 	mp_dataInput = pp_dataInput;
 	if (dynamic_cast<const ListMode*>(mp_dataInput))
 	{
@@ -514,7 +696,7 @@ ImageParams OSEM::getImageParams() const
 	return imageParams;
 }
 
-ImageParams OSEM::getImageParamsForSensitivityImage() const
+ImageParams OSEM::getImageParamsForSensImgGen() const
 {
 	auto imageParamsSens = getImageParams();
 	imageParamsSens.nt = 1;
@@ -586,7 +768,7 @@ void OSEM::setInitialEstimate(const Image* p_initialEstimate)
 void OSEM::setMaskImage(const Image* p_maskImage)
 {
 	ASSERT(p_maskImage != nullptr);
-	const ImageParams& imgParamsForSens = getImageParamsForSensitivityImage();
+	const ImageParams& imgParamsForSens = getImageParamsForSensImgGen();
 	ASSERT_MSG(imgParamsForSens.isValid(), "Image parameters not set for OSEM");
 	ASSERT_MSG(p_maskImage->getParams().isSameAsIgnoreFrames(imgParamsForSens),
 	           "Image parameters mismatch for mask image");
@@ -714,7 +896,7 @@ void OSEM::initializeForSensImgGen()
 	setupProjectorForSensImgGen();
 
 	// Allocate buffers
-	allocateForSensImgGen();
+	prepareBuffersForSensImgGen();
 }
 
 void OSEM::initializeForRecon()
@@ -738,7 +920,7 @@ void OSEM::initializeForRecon()
 	setupProjectorForRecon();
 
 	// Allocate buffers
-	allocateForRecon();
+	prepareBuffersForRecon();
 }
 
 void OSEM::generateSensitivityImagesCore(

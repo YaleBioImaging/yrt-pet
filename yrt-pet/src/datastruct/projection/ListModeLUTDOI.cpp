@@ -56,6 +56,7 @@ void py_setup_listmodelutdoi(py::module& m)
 	            "scanner"_a, "listMode_fname"_a, "flag_tof"_a = false,
 	            "flag_randoms"_a = false, "num_layers"_a = 256);
 	c_owned.def("readFromFile", &ListModeLUTDOIOwned::readFromFile);
+	c_owned.def("readFromFileBound", &ListModeLUTDOIOwned::readFromFileBound);
 	c_owned.def("allocate", &ListModeLUTDOIOwned::allocate);
 }
 }  // namespace yrt
@@ -97,6 +98,16 @@ ListModeLUTDOIOwned::ListModeLUTDOIOwned(const Scanner& pr_scanner,
     : ListModeLUTDOIOwned(pr_scanner, p_flagTOF, p_flagRandoms, numLayers)
 {
 	readFromFile(listMode_fname);
+}
+
+ListModeLUTDOIOwned::ListModeLUTDOIOwned(const Scanner& pr_scanner,
+                                         const std::string& listMode_fname,
+                                         timestamp_t timeStart,
+                                         timestamp_t timeStop, bool p_flagTOF,
+                                         bool p_flagRandoms, int numLayers)
+    : ListModeLUTDOIOwned(pr_scanner, p_flagTOF, p_flagRandoms, numLayers)
+{
+	readFromFileBound(listMode_fname, timeStart, timeStop);
 }
 
 ListModeLUTDOIAlias::ListModeLUTDOIAlias(const Scanner& pr_scanner,
@@ -230,6 +241,203 @@ void ListModeLUTDOIOwned::readFromFile(const std::string& listMode_fname)
 	}
 }
 
+void ListModeLUTDOIOwned::readFromFileBound(const std::string& listMode_fname,
+                                            timestamp_t timeStart,
+                                            timestamp_t timeStop)
+{
+	ASSERT_MSG(timeStart < timeStop, "Start time must be before stop time");
+
+	std::ifstream fin(listMode_fname, std::ios::in | std::ios::binary);
+
+	if (!fin.good())
+	{
+		throw std::runtime_error("Error reading input file " + listMode_fname);
+	}
+
+	const det_id_t numDets = mr_scanner.getNumDets();
+	const bool hasTOF = mp_tof_ps != nullptr;
+	const bool hasRandoms = mp_randoms != nullptr;
+
+	fin.seekg(0, std::ios::end);
+	size_t end = fin.tellg();
+	fin.seekg(0, std::ios::beg);
+	size_t begin = fin.tellg();
+	size_t fileSize_bytes = end - begin;
+	int numFieldsPerEvent = 3;  // Excluding DOI
+	if (hasTOF)
+	{
+		numFieldsPerEvent++;
+	}
+	if (hasRandoms)
+	{
+		numFieldsPerEvent++;
+	}
+
+	size_t sizeOfAnEvent_bytes =
+	    numFieldsPerEvent * sizeof(float) + 2 * sizeof(unsigned char);
+	if (fileSize_bytes <= 0 || (fileSize_bytes % sizeOfAnEvent_bytes) != 0)
+	{
+		throw std::runtime_error("Error: Input file has incorrect size in "
+		                         "ListModeLUTOwned::readFromFileBound.");
+	}
+
+	size_t totalNumEvents = fileSize_bytes / sizeOfAnEvent_bytes;
+	ASSERT_MSG(totalNumEvents > 0, "The number of events seems to be zero...");
+	static_assert(sizeof(unsigned char) == 1);
+
+	// Gather last event and first event to know the scan duration
+	auto eventBuffer = std::make_unique<unsigned char[]>(sizeOfAnEvent_bytes);
+	static_assert(sizeof(timestamp_t) == sizeof(uint32_t));
+
+	fin.read(reinterpret_cast<char*>(eventBuffer.get()), sizeOfAnEvent_bytes);
+	timestamp_t firstTimestamp =
+	    reinterpret_cast<timestamp_t*>(eventBuffer.get())[0];
+
+	fin.seekg(-static_cast<std::streamoff>(sizeOfAnEvent_bytes), std::ios::end);
+	fin.read(reinterpret_cast<char*>(eventBuffer.get()), sizeOfAnEvent_bytes);
+	timestamp_t lastTimestamp =
+	    reinterpret_cast<timestamp_t*>(eventBuffer.get())[0];
+
+	// Compute ratio of "timeStop - timeStart" to scan duration in order to
+	//  gather an estimate of the number of events
+	timestamp_t timeDuration = lastTimestamp - firstTimestamp;
+	ASSERT_MSG(
+	    timeDuration > 0,
+	    "There seems to be a problem in the timestamps of the list-mode");
+	timestamp_t filterDuration = timeStop - timeStart;
+
+	size_t reservedSize = 0;
+	if (timeDuration > 0 && filterDuration > 0)
+	{
+		double fraction = static_cast<double>(filterDuration) /
+		                  static_cast<double>(timeDuration);
+		reservedSize = static_cast<size_t>(totalNumEvents * fraction);
+	}
+	reservedSize = std::max(reservedSize, static_cast<size_t>(1 << 24));
+
+	std::vector<uint32_t> timestamps;
+	std::vector<uint32_t> detector1s;
+	std::vector<unsigned char> doi1s;
+	std::vector<uint32_t> detector2s;
+	std::vector<unsigned char> doi2s;
+	std::vector<float> tofValues;
+	std::vector<float> randomsValues;
+
+	timestamps.reserve(reservedSize);
+	detector1s.reserve(reservedSize);
+	detector2s.reserve(reservedSize);
+	if (hasTOF)
+	{
+		tofValues.reserve(reservedSize);
+	}
+	if (hasRandoms)
+	{
+		randomsValues.reserve(reservedSize);
+	}
+
+	fin.seekg(0, std::ios::beg);
+
+	size_t bufferSize_bytes = 1ull << 30;
+	bufferSize_bytes = std::min(fileSize_bytes, bufferSize_bytes);
+	auto buff = std::make_unique<unsigned char[]>(bufferSize_bytes);
+	unsigned char* buffPtr = buff.get();
+
+	size_t posStart_event = 0;
+	while (posStart_event < totalNumEvents)
+	{
+		size_t readSize_bytes =
+		    std::min(bufferSize_bytes,
+		             sizeOfAnEvent_bytes * (totalNumEvents - posStart_event));
+		const size_t readSize_events = readSize_bytes / sizeOfAnEvent_bytes;
+
+		// Make sure the read size is a multiple of the size of one event
+		readSize_bytes = readSize_events * sizeOfAnEvent_bytes;
+
+		fin.read(reinterpret_cast<char*>(buffPtr), readSize_bytes);
+
+		for (size_t i = 0; i < readSize_events; i++)
+		{
+			const size_t eventPos = posStart_event + i;
+			size_t bufferPos = sizeOfAnEvent_bytes * i;
+
+			const timestamp_t timestamp =
+			    *reinterpret_cast<timestamp_t*>(&(buffPtr[bufferPos]));
+			bufferPos += sizeof(timestamp_t);
+
+			const det_id_t d1 =
+			    *(reinterpret_cast<det_id_t*>(&(buffPtr[bufferPos])));
+			bufferPos += sizeof(det_id_t);
+
+			const unsigned char doi1 = buffPtr[bufferPos];
+			bufferPos += sizeof(unsigned char);
+
+			const det_id_t d2 =
+			    *(reinterpret_cast<det_id_t*>(&(buffPtr[bufferPos])));
+			bufferPos += sizeof(det_id_t);
+
+			const unsigned char doi2 = buffPtr[bufferPos];
+			bufferPos += sizeof(unsigned char);
+
+			if (CHECK_LIKELY(d1 < numDets && d2 < numDets))
+			{
+				timestamps.push_back(timestamp);
+				detector1s.push_back(d1);
+				detector2s.push_back(d2);
+				doi1s.push_back(doi1);
+				doi2s.push_back(doi2);
+				if (hasTOF)
+				{
+					tofValues.push_back(
+					    *(reinterpret_cast<float*>(&(buffPtr[bufferPos]))));
+					bufferPos += sizeof(float);
+				}
+				if (hasRandoms)
+				{
+					randomsValues.push_back(
+					    *(reinterpret_cast<float*>(&(buffPtr[bufferPos]))));
+					// Uncomment this if we add another field:
+					// bufferPos += sizeof(float);
+				}
+			}
+			else
+			{
+				throw std::invalid_argument(
+				    "Detectors invalid in list-mode event " +
+				    std::to_string(eventPos));
+			}
+		}
+		posStart_event += readSize_bytes / sizeOfAnEvent_bytes;
+	}
+
+	size_t numEvents = timestamps.size();
+
+
+	ASSERT_MSG(numEvents > 0, "The number of events seems to be zero...");
+	allocate(numEvents);
+
+	std::memcpy(mp_timestamps->getRawPointer(), timestamps.data(),
+	            numEvents * sizeof(timestamp_t));
+	std::memcpy(mp_detectorId1->getRawPointer(), detector1s.data(),
+	            numEvents * sizeof(det_id_t));
+	std::memcpy(mp_doi1->getRawPointer(), doi1s.data(),
+	            numEvents * sizeof(unsigned char));
+	std::memcpy(mp_detectorId2->getRawPointer(), detector2s.data(),
+	            numEvents * sizeof(det_id_t));
+	std::memcpy(mp_doi2->getRawPointer(), doi2s.data(),
+	            numEvents * sizeof(unsigned char));
+
+	if (hasTOF)
+	{
+		std::memcpy(mp_tof_ps->getRawPointer(), tofValues.data(),
+		            numEvents * sizeof(float));
+	}
+	if (hasRandoms)
+	{
+		std::memcpy(mp_randoms->getRawPointer(), randomsValues.data(),
+		            numEvents * sizeof(float));
+	}
+}
+
 bool ListModeLUTDOI::hasArbitraryLORs() const
 {
 	return true;
@@ -341,17 +549,23 @@ void ListModeLUTDOIOwned::allocate(size_t num_events)
 {
 	static_cast<Array1DOwned<timestamp_t>*>(mp_timestamps.get())
 	    ->allocate(num_events);
-	static_cast<Array1DOwned<det_id_t>*>(mp_detectorId1.get())->allocate(num_events);
-	static_cast<Array1DOwned<det_id_t>*>(mp_detectorId2.get())->allocate(num_events);
-	static_cast<Array1DOwned<unsigned char>*>(mp_doi1.get())->allocate(num_events);
-	static_cast<Array1DOwned<unsigned char>*>(mp_doi2.get())->allocate(num_events);
+	static_cast<Array1DOwned<det_id_t>*>(mp_detectorId1.get())
+	    ->allocate(num_events);
+	static_cast<Array1DOwned<det_id_t>*>(mp_detectorId2.get())
+	    ->allocate(num_events);
+	static_cast<Array1DOwned<unsigned char>*>(mp_doi1.get())
+	    ->allocate(num_events);
+	static_cast<Array1DOwned<unsigned char>*>(mp_doi2.get())
+	    ->allocate(num_events);
 	if (hasTOF())
 	{
-		static_cast<Array1DOwned<float>*>(mp_tof_ps.get())->allocate(num_events);
+		static_cast<Array1DOwned<float>*>(mp_tof_ps.get())
+		    ->allocate(num_events);
 	}
 	if (hasRandomsEstimates())
 	{
-		static_cast<Array1DOwned<float>*>(mp_randoms.get())->allocate(num_events);
+		static_cast<Array1DOwned<float>*>(mp_randoms.get())
+		    ->allocate(num_events);
 	}
 }
 
@@ -527,21 +741,17 @@ std::unique_ptr<ProjectionData>
 	}
 
 	const auto numLayersVariant = options.at("num_layers");
+	int numLayers = ListModeLUTDOIOwned::DefaultNumLayers;
 
-	std::unique_ptr<ListModeLUTDOIOwned> lm;
-	if (std::holds_alternative<std::monostate>(numLayersVariant))
-	{
-		lm = std::make_unique<ListModeLUTDOIOwned>(scanner, filename, flagTOF,
-		                                           flagRandoms);
-	}
-	else
+	if (!std::holds_alternative<std::monostate>(numLayersVariant))
 	{
 		ASSERT(std::holds_alternative<int>(numLayersVariant));
-		const int numLayers = std::get<int>(numLayersVariant);
-
-		lm = std::make_unique<ListModeLUTDOIOwned>(scanner, filename, flagTOF,
-		                                           flagRandoms, numLayers);
+		numLayers = std::get<int>(numLayersVariant);
 	}
+
+	std::unique_ptr<ListModeLUTDOIOwned> lm;
+	lm = std::make_unique<ListModeLUTDOIOwned>(scanner, filename, flagTOF,
+	                                           flagRandoms, numLayers);
 
 	return lm;
 }
@@ -549,6 +759,12 @@ std::unique_ptr<ProjectionData>
 plugin::OptionsListPerPlugin ListModeLUTDOIOwned::getOptions()
 {
 	return {
+	    {"time_start",
+	     {"Start time (in ms) from which to start reading the file (inclusive)",
+	      io::TypeOfArgument::INT}},
+	    {"time_stop",
+	     {"Stop time (in ms) from which to stop reading the file (exclusive)",
+	      io::TypeOfArgument::INT}},
 	    {"flag_tof", {"Flag for reading TOF column", io::TypeOfArgument::BOOL}},
 	    {"flag_randoms",
 	     {"Flag for reading randoms estimates column",

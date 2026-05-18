@@ -46,10 +46,13 @@ TFloat erfc(TFloat x);
 
 // Periodic distance
 template <typename T>
-T periodicDiff(const T& a, const T&b, const T& period);
+T periodicDiff(const T& a, const T& b, const T& period);
 
+std::size_t findExtensionStart(const std::string& fname);
 std::string addBeforeExtension(const std::string& fname,
                                const std::string& addition);
+std::string replaceExtension(const std::string& fname,
+                             const std::string& newExt);
 bool endsWith(const std::string& str, const std::string& suffix);
 
 /**
@@ -90,7 +93,8 @@ int numberOfDigits(int n);
 std::string padZeros(int number, int numDigits);
 
 template <typename T>
-HOST_DEVICE_CALLABLE T getAttenuationCoefficientFactor(T proj, T unitFactor = 0.1)
+HOST_DEVICE_CALLABLE T getAttenuationCoefficientFactor(T proj,
+                                                       T unitFactor = 0.1)
 {
 	return exp(-proj * unitFactor);
 }

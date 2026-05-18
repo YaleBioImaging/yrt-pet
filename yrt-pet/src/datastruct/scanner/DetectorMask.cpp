@@ -36,7 +36,8 @@ void py_setup_detectormask(pybind11::module& m)
 	    });
 	c.def("getData",
 	      static_cast<const Array1DOwned<bool>& (DetectorMask::*)() const>(
-	          &DetectorMask::getData));
+	          &DetectorMask::getData),
+	      py::return_value_policy::reference_internal);
 	c.def("enableAllDetectors", &DetectorMask::enableAllDetectors);
 	c.def("disableAllDetectors", &DetectorMask::disableAllDetectors);
 	c.def("setDetectorEnabled", &DetectorMask::setDetectorEnabled, "det_id"_a,

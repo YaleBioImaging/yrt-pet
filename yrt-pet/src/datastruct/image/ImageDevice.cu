@@ -180,7 +180,7 @@ ImageDevice::ImageDevice(const ImageParams& imgParams,
 void ImageDevice::setDeviceParams(const ImageParams& params)
 {
 	m_launchParams = util::initiateDeviceParameters(params);
-	m_imgSize = params.nt * params.nx * params.ny * params.nz;
+	m_imgSize = params.nt * params.nz * params.ny * params.nx;
 }
 
 const cudaStream_t* ImageDevice::getStream() const

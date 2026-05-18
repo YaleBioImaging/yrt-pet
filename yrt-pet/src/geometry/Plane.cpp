@@ -25,7 +25,7 @@ Plane::Plane(const Vector3D& pt1, const Vector3D& pt2, const Vector3D& pt3)
 	vector_pos1.update(pt3.x - pt1.x, pt3.y - pt1.y, pt3.z - pt1.z);
 	vector_pos2.update(pt3.x - pt2.x, pt3.y - pt2.y, pt3.z - pt2.z);
 	dir = vector_pos1 * vector_pos2;
-	if (dir.getNorm() < SMALL_FLT)
+	if (dir.getNorm() < EPS_FLT)
 	{
 		std::string errorMessage =
 		    "The 3 points in input of Plane::Plane() do not define a plane.";
@@ -56,7 +56,7 @@ void Plane::update(const Vector3D& pt1, const Vector3D& pt2,
 	vector_pos2.update(pt3.x - pt2.x, pt3.y - pt2.y, pt3.z - pt2.z);
 	const Vector3D dir_tmp = vector_pos1 * vector_pos2;
 	dir.update(dir_tmp.x, dir_tmp.y, dir_tmp.z);
-	if (dir.getNorm() < SMALL_FLT)
+	if (dir.getNorm() < EPS_FLT)
 	{
 		std::string errorMessage =
 		    "The 3 points in input of Plane::Plane() do not define a plane.";
@@ -100,7 +100,7 @@ bool Plane::isCoplanar(const Vector3D& pt) const
 	bool isCop = false;
 	const Vector3D vector_pos = point3 - pt;
 	const float scalProd = dir.scalProd(vector_pos);
-	if (std::abs(scalProd) < SMALL_FLT)
+	if (std::abs(scalProd) < EPS_FLT)
 	{
 		isCop = true;
 	}

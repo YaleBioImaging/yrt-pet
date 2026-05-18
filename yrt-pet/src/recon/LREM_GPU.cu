@@ -32,9 +32,9 @@ LREM_GPU::LREM_GPU(const Scanner& pr_scanner) : OSEM_GPU(pr_scanner), LREM()
 	projectorParams.updaterType = UpdaterType::LR;
 }
 
-void LREM_GPU::setupProjectorForRecon()
+void LREM_GPU::prepareBuffersForRecon()
 {
-	OSEM_GPU::setupProjectorForRecon();
+	OSEM_GPU::prepareBuffersForRecon();
 
 	const bool dualUpdate = isDualUpdate();
 
@@ -42,9 +42,7 @@ void LREM_GPU::setupProjectorForRecon()
 	ProjectorUpdaterDeviceWrapper* lr = &m_updaterContainer;
 
 	// YN: Check with YD
-	// TODO NOW: Have a check to make sure UpdaterDevice is
-	//  ProjectorUpdaterDeviceLR ?
-	// TODO NOW: HBasis should already be set at creation of
+	// TODO: HBasis should already be set at creation of
 	//  OperatorProjectorDevice (in the updater wrapper, in
 	//  initUpdater). We can do it again here just in case (if code
 	//  changes in wrapper or updater), or trust we will remember to do
@@ -98,8 +96,6 @@ void LREM_GPU::applyImageUpdate()
 
 	if (!projectorParams.updateH || dualUpdate)
 	{
-		// TODO NOW: YN: Check with YD. Why did we pass a host-side pointer to a
-		//  device function here ?
 		mpd_mlemImage->updateEMThresholdDynamic(mpd_tmpImage1.get(),
 		                                        mpd_sensImageBuffer.get(),
 		                                        m_cWUpdate, EPS_FLT);

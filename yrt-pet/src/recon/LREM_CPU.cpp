@@ -32,9 +32,9 @@ LREM_CPU::LREM_CPU(const Scanner& pr_scanner) : OSEM_CPU(pr_scanner), LREM()
 	projectorParams.updaterType = UpdaterType::LR;
 }
 
-void LREM_CPU::setupProjectorForRecon()
+void LREM_CPU::prepareBuffersForRecon()
 {
-	OSEM_CPU::setupProjectorForRecon();
+	OSEM_CPU::prepareBuffersForRecon();
 
 	const bool dualUpdate = isDualUpdate();
 
@@ -75,9 +75,8 @@ void LREM_CPU::setupProjectorForRecon()
 		          << std::endl;
 		lr->setHBasis(projectorParams.HBasis);
 		lr->setHBasisWrite(*mp_HNumerator);  // write into mp_HWrite
-		// TODO NOW: Make sure this makes sense even with PSF
-		lr->setCurrentImgBuffer(flagImagePSF ? mp_imageTmpPsf.get() :
-		                                       outImage.get());
+
+		lr->setCurrentImgBuffer(outImage.get());
 	}
 }
 

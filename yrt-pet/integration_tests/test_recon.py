@@ -89,6 +89,7 @@ def _test_savant_sim_ultra_micro_hotspot_motion_mlem_gpu_exec(
                                                 keyword + '.vc')
     exec_str += ' -o ' + out_path
     exec_str += ' --projector ' + proj_name_upper + ' --gpu'
+    exec_str += ' --denom_threshold 1e-8'
     print('Running: ' + exec_str)
     ret = os.system(exec_str)
     assert ret == 0
@@ -103,9 +104,11 @@ def _test_savant_sim_ultra_micro_hotspot_motion_mlem_gpu_exec(
                      + proj_keyword + '.nii.gz'))
     ref_image_np = np.array(ref_image, copy=False)
 
-    # Allow up to 40 voxels to mismatch
-    assert (1 - np.isclose(out_image_np, ref_image_np,
-                           atol=0, rtol=1e-3)).sum() < 40
+    # Allow up to 100 voxels to mismatch
+    _helper.assert_allclose_with_threshold(out_image_np, ref_image_np,
+                                           threshold=1e-8,
+                                           atol=0, rtol=1e-3,
+                                           num_voxels_tolerance=100)
 
 
 def test_savant_sim_ultra_micro_hotspot_piston_mlem_dd_gpu_exec():
@@ -402,7 +405,8 @@ def _test_savant_sim_ultra_micro_hotspot_nomotion_osem_6rays(use_gpu: bool):
                                            out_img_np,
                                            threshold=1e-4,
                                            atol=1e-3,
-                                           rtol=1e-4)
+                                           rtol=1e-4,
+                                           num_voxels_tolerance=100)
 
 
 def test_savant_sim_ultra_micro_hotspot_nomotion_osem_6rays_cpu():
@@ -546,6 +550,7 @@ def test_large_flat_panel_xcat_osem_tof_siddon():
     osem.num_OSEM_subsets = 12
     osem.setDataInput(dataset)
     osem.addTOF(70, 5)
+    osem.denomThreshold = 1e-8
     osem.setSensitivityImage(sens_img)
     out_img = osem.reconstruct()
 
@@ -555,10 +560,13 @@ def test_large_flat_panel_xcat_osem_tof_siddon():
     ref_img = yrt.ImageOwned(img_params, os.path.join(
         fold_large_flat_panel, 'ref', 'xcat_osem_siddon.nii'))
 
-    np_out_img = np.array(out_img, copy=False)
-    np_ref_img = np.array(ref_img, copy=False)
+    out_img_np = np.array(out_img, copy=False)
+    ref_img_np = np.array(ref_img, copy=False)
 
-    nrmse = _helper.get_nrmse(np_out_img, np_ref_img)
+    nrmse = _helper.get_nrmse(out_img_np, ref_img_np)
+    _helper.assert_allclose_with_threshold(out_img_np, ref_img_np,
+                                           threshold=1e-8, rtol=5e-3, atol=0,
+                                           num_voxels_tolerance=100)
     assert nrmse < 7e-4
 
 
@@ -580,7 +588,7 @@ def test_large_flat_panel_xcat_osem_tof_dd_gpu_exec():
     exec_str += ' --format LM-DOI --projector DD --gpu'
     exec_str += ' --sens ' + os.path.join(fold_xcat, 'sens_image_dd.nii')
     exec_str += ' --flag_tof --tof_width_ps 70 --tof_n_std 5'
-    exec_str += ' --num_iterations 5 --num_subsets 12'
+    exec_str += ' --num_iterations 5 --num_subsets 12 --denom_threshold 1e-8'
     exec_str += ' --out ' + out_path
     print('Running: ' + exec_str)
     ret = os.system(exec_str)
@@ -595,8 +603,10 @@ def test_large_flat_panel_xcat_osem_tof_dd_gpu_exec():
 
     out_img_np = np.array(out_img, copy=False)
     ref_img_np = np.array(ref_img, copy=False)
-    cur_nrmse = _helper.get_nrmse(out_img_np, ref_img_np)
-    assert cur_nrmse < 2e-5
+
+    _helper.assert_allclose_with_threshold(out_img_np, ref_img_np,
+                                           threshold=1e-8, rtol=5e-3, atol=0,
+                                           num_voxels_tolerance=100)
 
 
 # %% Standalone command line

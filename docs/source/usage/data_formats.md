@@ -45,7 +45,7 @@ See [Documentation on the Motion information file](motion_file)
 Fully 3D Histograms are stored in YRT-PET's RAWD format
 [described earlier](rawd_file). Values are encoded in `float32`.
 The histogram's dimensions are defined by the scanner properties, which are
-defined in the `json` file [decribed earlier](scanner).
+defined in the `json` file [described earlier](scanner).
 
 See [Documentation on the histogram format](histogram3d_format)
 for more information.

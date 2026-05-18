@@ -39,8 +39,9 @@ namespace yrt
 {
 void py_setup_reconstructionutils(pybind11::module& m)
 {
-	m.def("histogram3DToListModeLUT", &util::histogram3DToListModeLUT);
-	m.def("compareListModes", &util::compareListModes);
+	m.def("histogram3DToListModeLUT", &util::histogram3DToListModeLUT,
+	      "histo"_a, "lm_out"_a, "num_events"_a = 0);
+	m.def("compareListModes", &util::compareListModes, "lm1"_a, "lm2"_a);
 
 	m.def(
 	    "convertToHistogram3D",

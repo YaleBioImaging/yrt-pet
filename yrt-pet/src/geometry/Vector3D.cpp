@@ -8,6 +8,7 @@
 #include "yrt-pet/geometry/Constants.hpp"
 
 #include <cmath>
+#include <limits>
 
 #if BUILD_PYBIND11
 #include <pybind11/operators.h>
@@ -180,7 +181,7 @@ Vector3DBase<TFloat> Vector3DBase<TFloat>::getNormalized()
 template <typename TFloat>
 bool Vector3DBase<TFloat>::isNormalized() const
 {
-	return std::abs(1.0 - getNorm()) < SMALL_FLT;
+	return std::abs(1.0 - getNorm()) < std::numeric_limits<TFloat>::epsilon();
 }
 
 template <typename TFloat>
@@ -301,7 +302,7 @@ template <typename TFloat>
 bool Vector3DBase<TFloat>::operator==(const Vector3DBase& vector) const
 {
 	const Vector3DBase tmp{x - vector.x, y - vector.y, z - vector.z};
-	if (tmp.getNorm() < SMALL_FLT)
+	if (tmp.getNorm() < std::numeric_limits<TFloat>::epsilon())
 	{
 		return true;
 	}

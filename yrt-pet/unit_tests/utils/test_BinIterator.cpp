@@ -173,7 +173,7 @@ TEST_CASE("biniterator_batched", "[iterator]")
 
 		auto original = yrt::BinIteratorRange(begin, end, stride);
 		size_t batchStart = rand() % (original.size() / 2 + 1);
-		size_t batchSize = rand() % (original.size() - batchStart + 1);
+		size_t batchSize = rand() % (original.size() - batchStart) + 1;
 
 		auto batched =
 		    yrt::BinIteratorBatched(&original, batchStart, batchSize);
@@ -197,7 +197,7 @@ TEST_CASE("biniterator_batched", "[iterator]")
 		const auto original = yrt::BinIteratorRangeHistogram3D(
 		    numZBin, numPhi, numR, numSubsets, idxSubset);
 		const size_t batchStart = rand() % (original.size() / 2 + 1);
-		const size_t batchSize = rand() % (original.size() - batchStart + 1);
+		const size_t batchSize = rand() % (original.size() - batchStart) + 1;
 
 		const auto batched =
 		    yrt::BinIteratorBatched(&original, batchStart, batchSize);
@@ -220,7 +220,7 @@ TEST_CASE("biniterator_batched", "[iterator]")
 		    numSubsets, numEvents, idxSubset);
 
 		const size_t batchStart = rand() % (original.size() / 2 + 1);
-		const size_t batchSize = rand() % (original.size() - batchStart + 1);
+		const size_t batchSize = rand() % (original.size() - batchStart) + 1;
 
 		const auto batched =
 		    yrt::BinIteratorBatched(&original, batchStart, batchSize);

@@ -5,16 +5,14 @@
 
 #include "yrt-pet/utils/Utilities.hpp"
 
+#include "yrt-pet/geometry/TransformUtils.hpp"
 #include "yrt-pet/utils/Assert.hpp"
 #include "yrt-pet/utils/Types.hpp"
 
 #include <algorithm>
 #include <chrono>
-#include <cstddef>
-#include <cstdint>
 #include <ctime>
 #include <iomanip>
-#include <iostream>
 #include <regex>
 #include <sstream>
 
@@ -87,6 +85,8 @@ void py_setup_utilities(py::module& m)
 		                                      self.r10, self.r11, self.r12,
 		                                      self.r20, self.r21, self.r22);
 	                });
+	c_transform.def("getInverse", [](const transform_t& self)
+	                { return util::invertTransform(self); });
 
 	auto c_detpair = py::class_<det_pair_t>(m, "det_pair_t");
 	c_detpair.def(py::init(

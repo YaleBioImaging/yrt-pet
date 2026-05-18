@@ -6,11 +6,15 @@
 #include "yrt-pet/operators/OperatorPsfDevice.cuh"
 
 #include "yrt-pet/datastruct/image/ImageSpaceKernels.cuh"
+#include "yrt-pet/geometry/Constants.hpp"
 
 #if BUILD_PYBIND11
+#include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 namespace py = pybind11;
+
+using namespace py::literals;
 
 namespace yrt
 {
@@ -20,6 +24,35 @@ void py_setup_operatorpsfdevice(py::module& m)
 	auto c = py::class_<OperatorPsfDevice, OperatorPsf>(m, "OperatorPsfDevice");
 	c.def(py::init<>());
 	c.def(py::init<const std::string&>());
+	c.def_static("createGaussianFromFWHM",
+	             &OperatorPsfDevice::createGaussianFromFWHM, "fwhm_x"_a,
+	             "fwhm_y"_a, "fwhm_z"_a, "vx"_a, "vy"_a, "vz"_a,
+	             "kernel_size_x"_a = nullptr, "kernel_size_y"_a = nullptr,
+	             "kernel_size_z"_a = nullptr);
+	c.def_static("createGaussianFromSigma",
+	             &OperatorPsfDevice::createGaussianFromSigma, "sigma_x"_a,
+	             "sigma_y"_a, "sigma_z"_a, "vx"_a, "vy"_a, "vz"_a,
+	             "kernel_size_x"_a = nullptr, "kernel_size_y"_a = nullptr,
+	             "kernel_size_z"_a = nullptr);
+
+	c.def_static(
+	    "createGaussianFromFWHM",
+	    [](float fwhmX, float fwhmY, float fwhmZ, float vx, float vy, float vz)
+	    {
+		    return OperatorPsfDevice::createGaussianFromFWHM(
+		        fwhmX, fwhmY, fwhmZ, vx, vy, vz, nullptr, nullptr, nullptr);
+	    },
+	    "fwhm_x"_a, "fwhm_y"_a, "fwhm_z"_a, "vx"_a, "vy"_a, "vz"_a);
+	c.def_static(
+	    "createGaussianFromSigma",
+	    [](float sigmaX, float sigmaY, float sigmaZ, float vx, float vy,
+	       float vz)
+	    {
+		    return OperatorPsfDevice::createGaussianFromSigma(
+		        sigmaX, sigmaY, sigmaZ, vx, vy, vz, nullptr, nullptr, nullptr);
+	    },
+	    "sigma_x"_a, "sigma_y"_a, "sigma_z"_a, "vx"_a, "vy"_a, "vz"_a);
+
 	c.def("convolve",
 	      static_cast<void (OperatorPsfDevice::*)(
 	          const Image* in, Image* out, const std::vector<float>& kernelX,
@@ -87,6 +120,29 @@ OperatorPsfDevice::OperatorPsfDevice(const std::vector<float>& kernelX,
 	copyToDevice(true);
 }
 
+std::unique_ptr<OperatorPsfDevice> OperatorPsfDevice::createGaussianFromSigma(
+    float sigmaX, float sigmaY, float sigmaZ, float vx, float vy, float vz,
+    const size_t* kerSizeX, const size_t* kerSizeY, const size_t* kerSizeZ)
+{
+	const auto kernelX = createGaussianKernel1D(sigmaX, vx, kerSizeX);
+	const auto kernelY = createGaussianKernel1D(sigmaY, vy, kerSizeY);
+	const auto kernelZ = createGaussianKernel1D(sigmaZ, vz, kerSizeZ);
+
+	return std::make_unique<OperatorPsfDevice>(kernelX, kernelY, kernelZ);
+}
+
+std::unique_ptr<OperatorPsfDevice> OperatorPsfDevice::createGaussianFromFWHM(
+    float fwhmX, float fwhmY, float fwhmZ, float vx, float vy, float vz,
+    const size_t* kerSizeX, const size_t* kerSizeY, const size_t* kerSizeZ)
+{
+	const float sigmaX = fwhmX / static_cast<float>(SIGMA_TO_FWHM);
+	const float sigmaY = fwhmY / static_cast<float>(SIGMA_TO_FWHM);
+	const float sigmaZ = fwhmZ / static_cast<float>(SIGMA_TO_FWHM);
+
+	return OperatorPsfDevice::createGaussianFromSigma(
+	    sigmaX, sigmaY, sigmaZ, vx, vy, vz, kerSizeX, kerSizeY, kerSizeZ);
+}
+
 void OperatorPsfDevice::readFromFileInternal(
     const std::string& pr_imagePsf_fname, bool p_synchronize)
 {
@@ -128,7 +184,8 @@ void OperatorPsfDevice::allocateTemporaryDeviceImageIfNeeded(
 {
 	const auto* stream = config.stream;
 	if (mpd_intermediaryImage == nullptr ||
-	    !(mpd_intermediaryImage->getParams().isSameDimensionsAs(params)))
+	    !mpd_intermediaryImage->getParams().isSameDimensionsAs(params) ||
+	    !mpd_intermediaryImage->getParams().isSameNumFramesAs(params))
 	{
 		mpd_intermediaryImage =
 		    std::make_unique<ImageDeviceOwned>(params, stream);
@@ -348,7 +405,9 @@ void OperatorPsfDevice::convolveDevice(const ImageDevice& inputImage,
 {
 	const ImageParams& params = inputImage.getParams();
 	ASSERT_MSG(params.isSameDimensionsAs(outputImage.getParams()),
-	           "Image parameters mismatch");
+	           "Image parameters dimensions mismatch");
+	ASSERT_MSG(params.isSameNumFramesAs(outputImage.getParams()),
+	           "Image parameters number of frames mismatch");
 
 	const float* pd_inputImage = inputImage.getDevicePointer();
 	float* pd_outputImage = outputImage.getDevicePointer();
@@ -383,62 +442,61 @@ void OperatorPsfDevice::convolveDevice(const ImageDevice& inputImage,
 
 	const GPULaunchParams3D launchParams = inputImage.getLaunchParams();
 
-	if (stream != nullptr)
+	for (frame_t frame = 0; frame < params.nt; frame++)
 	{
-		// Convolve along X-axis
-		convolve3DSeparable_kernel<0>
-		    <<<launchParams.gridSize, launchParams.blockSize, 0, *stream>>>(
-		        pd_inputImage, pd_intermediaryImage, pd_kernelX, kerSize[0],
-		        params.nx, params.ny, params.nz);
+		const float* pd_inputImageWithOffset =
+		    pd_inputImage + frame * params.nx * params.ny * params.nz;
+		float* pd_intermediaryImageWithOffset =
+		    pd_intermediaryImage + frame * params.nx * params.ny * params.nz;
+		float* pd_outputImageWithOffset =
+		    pd_outputImage + frame * params.nx * params.ny * params.nz;
 
-		// Convolve along Y-axis
-		convolve3DSeparable_kernel<1>
-		    <<<launchParams.gridSize, launchParams.blockSize, 0, *stream>>>(
-		        pd_intermediaryImage, pd_outputImage, pd_kernelY, kerSize[1],
-		        params.nx, params.ny, params.nz);
-
-		// Convolve along Z-axis
-		convolve3DSeparable_kernel<2>
-		    <<<launchParams.gridSize, launchParams.blockSize, 0, *stream>>>(
-		        pd_outputImage, pd_intermediaryImage, pd_kernelZ, kerSize[2],
-		        params.nx, params.ny, params.nz);
-
-		outputImage.copyFromDeviceImage(mpd_intermediaryImage.get(), false);
-
-		if (synchronize)
+		if (stream != nullptr)
 		{
-			cudaStreamSynchronize(*stream);
+			// Convolve along X-axis
+			convolve3DSeparable_kernel<0>
+			    <<<launchParams.gridSize, launchParams.blockSize, 0, *stream>>>(
+			        pd_inputImageWithOffset, pd_intermediaryImageWithOffset,
+			        pd_kernelX, kerSize[0], params.nx, params.ny, params.nz);
+
+			// Convolve along Y-axis
+			convolve3DSeparable_kernel<1>
+			    <<<launchParams.gridSize, launchParams.blockSize, 0, *stream>>>(
+			        pd_intermediaryImageWithOffset, pd_outputImageWithOffset,
+			        pd_kernelY, kerSize[1], params.nx, params.ny, params.nz);
+
+			// Convolve along Z-axis
+			convolve3DSeparable_kernel<2>
+			    <<<launchParams.gridSize, launchParams.blockSize, 0, *stream>>>(
+			        pd_outputImageWithOffset, pd_intermediaryImageWithOffset,
+			        pd_kernelZ, kerSize[2], params.nx, params.ny, params.nz);
 		}
-	}
-	else
-	{
-		// Convolve along X-axis
-		convolve3DSeparable_kernel<0>
-		    <<<launchParams.gridSize, launchParams.blockSize, 0>>>(
-		        pd_inputImage, pd_intermediaryImage, pd_kernelX, kerSize[0],
-		        params.nx, params.ny, params.nz);
-
-		// Convolve along Y-axis
-		convolve3DSeparable_kernel<1>
-		    <<<launchParams.gridSize, launchParams.blockSize, 0>>>(
-		        pd_intermediaryImage, pd_outputImage, pd_kernelY, kerSize[1],
-		        params.nx, params.ny, params.nz);
-
-		// Convolve along Z-axis
-		convolve3DSeparable_kernel<2>
-		    <<<launchParams.gridSize, launchParams.blockSize, 0>>>(
-		        pd_outputImage, pd_intermediaryImage, pd_kernelZ, kerSize[2],
-		        params.nx, params.ny, params.nz);
-
-		outputImage.copyFromDeviceImage(mpd_intermediaryImage.get(), false);
-
-		if (synchronize)
+		else
 		{
-			cudaDeviceSynchronize();
+			// Convolve along X-axis
+			convolve3DSeparable_kernel<0>
+			    <<<launchParams.gridSize, launchParams.blockSize, 0>>>(
+			        pd_inputImageWithOffset, pd_intermediaryImageWithOffset,
+			        pd_kernelX, kerSize[0], params.nx, params.ny, params.nz);
+
+			// Convolve along Y-axis
+			convolve3DSeparable_kernel<1>
+			    <<<launchParams.gridSize, launchParams.blockSize, 0>>>(
+			        pd_intermediaryImageWithOffset, pd_outputImageWithOffset,
+			        pd_kernelY, kerSize[1], params.nx, params.ny, params.nz);
+
+			// Convolve along Z-axis
+			convolve3DSeparable_kernel<2>
+			    <<<launchParams.gridSize, launchParams.blockSize, 0>>>(
+			        pd_outputImageWithOffset, pd_intermediaryImageWithOffset,
+			        pd_kernelZ, kerSize[2], params.nx, params.ny, params.nz);
 		}
 	}
 
-	cudaCheckError();
+	outputImage.copyFromDeviceImage(mpd_intermediaryImage.get(), false);
+
+	synchronizeIfNeeded({stream, synchronize});
+	ASSERT(cudaCheckError());
 }
 
 }  // namespace yrt

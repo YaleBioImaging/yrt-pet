@@ -48,26 +48,27 @@ def osem_3d_data():
     dataset = yrt.ListModeLUTOwned(
         scanner, os.path.join(fold_uhr2d, "shepp_logan.lmDat")
     )
-    img_params = yrt.ImageParams(os.path.join(fold_uhr2d, "img_params_2d.json"))
+    img_params = yrt.ImageParams(os.path.join(fold_uhr2d,
+                                              "img_params_2d.json"))
     ref_img = yrt.ImageOwned(
         img_params,
-        os.path.join(fold_uhr2d_ref, f"shepp_logan_mlem_lm_{OSEM_3D_NUM_ITER}.nii"),
-    )
+        os.path.join(fold_uhr2d_ref,
+                     f"shepp_logan_mlem_lm_{OSEM_3D_NUM_ITER}.nii"))
     np_ref_img = np.array(ref_img, copy=False)
 
-    return {
-        "scanner": scanner,
-        "dataset": dataset,
-        "img_params": img_params,
-        "np_ref_img": np_ref_img,
-    }
+    return {"scanner": scanner,
+            "dataset": dataset,
+            "img_params": img_params,
+            "np_ref_img": np_ref_img}
 
 
 @pytest.fixture(scope="module")
 def osem_4d_data():
     scanner = yrt.Scanner(scanner_path)
-    ref_fname = f"shepp_logan_mlem_lm_it{OSEM_4D_NUM_ITER}_sub{OSEM_NUM_SUBSETS}.pik"
-    load_ref_dict = pickle.load(open(os.path.join(fold_uhr2d_ref, ref_fname), "rb"))
+    ref_fname = (f"shepp_logan_mlem_lm_it{OSEM_4D_NUM_ITER}_" +
+                 f"sub{OSEM_NUM_SUBSETS}.pik")
+    load_ref_dict = pickle.load(open(os.path.join(fold_uhr2d_ref,
+                                                  ref_fname), "rb"))
     np_ref_img = load_ref_dict["x"]
     dynamic_framing_array = load_ref_dict["dynamic_framing"]
     elapsed_cpu = load_ref_dict["elapsed_time"]
@@ -75,17 +76,16 @@ def osem_4d_data():
     dataset = yrt.ListModeLUTOwned(
         scanner, os.path.join(fold_uhr2d, "shepp_logan_dyn.lmDat")
     )
-    img_params = yrt.ImageParams(os.path.join(fold_uhr2d, "img_params_2d_dyn.json"))
+    img_params = yrt.ImageParams(os.path.join(fold_uhr2d,
+                                              "img_params_2d_dyn.json"))
     df = yrt.DynamicFraming(dynamic_framing_array)
     dataset.addDynamicFraming(df)
 
-    return {
-        "scanner": scanner,
-        "dataset": dataset,
-        "img_params": img_params,
-        "np_ref_img": np_ref_img,
-        "elapsed_cpu": elapsed_cpu,
-    }
+    return {"scanner": scanner,
+            "dataset": dataset,
+            "img_params": img_params,
+            "np_ref_img": np_ref_img,
+            "elapsed_cpu": elapsed_cpu}
 
 
 @pytest.fixture(scope="module")
@@ -95,7 +95,8 @@ def osem_lr_W_data():
         f"shepp_logan_mlem_lm_lr_it{OSEM_LR_NUM_ITER}_"
         f"sub{OSEM_NUM_SUBSETS}_r{RANK}.pik"
     )
-    load_ref_dict = pickle.load(open(os.path.join(fold_uhr2d_ref, ref_fname), "rb"))
+    load_ref_dict = pickle.load(open(os.path.join(fold_uhr2d_ref,
+                                                  ref_fname), "rb"))
     np_ref_img = load_ref_dict["x"]
     np_ref_W = load_ref_dict["W"]
     HBasis_np = load_ref_dict["H_orig"]
@@ -105,7 +106,8 @@ def osem_lr_W_data():
     dataset = yrt.ListModeLUTOwned(
         scanner, os.path.join(fold_uhr2d, "shepp_logan_dyn.lmDat")
     )
-    img_params = yrt.ImageParams(os.path.join(fold_uhr2d, "img_params_2d_dyn.json"))
+    img_params = yrt.ImageParams(os.path.join(fold_uhr2d,
+                                              "img_params_2d_dyn.json"))
     img_params.nt = RANK
     df = yrt.DynamicFraming(dynamic_framing_array)
     dataset.addDynamicFraming(df)
@@ -130,7 +132,8 @@ def osem_lr_H_data():
         f"shepp_logan_mlem_lm_lr_it{OSEM_LR_NUM_ITER}_"
         f"sub{OSEM_NUM_SUBSETS}_r{RANK_UPDATEH}"
     )
-    _lr_H_recon_fname = f"shepp_logan_mlem_lm_lr_H_it{OSEM_LR_H_NUM_ITER}_sub{OSEM_NUM_SUBSETS_H}_r{RANK_UPDATEH}"
+    _lr_H_recon_fname = (f"shepp_logan_mlem_lm_lr_H_it{OSEM_LR_H_NUM_ITER}_" +
+                         f"sub{OSEM_NUM_SUBSETS_H}_r{RANK_UPDATEH}")
 
     # Load reference W reconstruction used as the initial estimate
     load_ref_dict = pickle.load(
@@ -143,7 +146,8 @@ def osem_lr_H_data():
     dataset = yrt.ListModeLUTOwned(
         scanner, os.path.join(fold_uhr2d, "shepp_logan_dyn.lmDat")
     )
-    img_params = yrt.ImageParams(os.path.join(fold_uhr2d, "img_params_2d_dyn.json"))
+    img_params = yrt.ImageParams(os.path.join(fold_uhr2d,
+                                              "img_params_2d_dyn.json"))
     img_params.nt = RANK_UPDATEH
     df = yrt.DynamicFraming(dynamic_framing_array)
     dataset.addDynamicFraming(df)
@@ -154,12 +158,11 @@ def osem_lr_H_data():
     np_W_init = np.array(W_init, copy=True)
 
     # Load reference H after H-update reconstruction
-    load_H_ref_dict = pickle.load(
-        open(
-            os.path.join(fold_uhr2d_ref, _lr_recon_fname, _lr_H_recon_fname + ".pik"),
-            "rb",
-        )
-    )
+    with open(os.path.join(fold_uhr2d_ref, _lr_recon_fname,
+                           _lr_H_recon_fname + ".pik"),
+              "rb") as fid:
+        load_H_ref_dict = pickle.load(fid)
+
     assert np.allclose(HBasis_np_orig, load_H_ref_dict["H_orig"])
     elapsed_cpu = load_H_ref_dict["elapsed_time"]
 
@@ -193,20 +196,17 @@ def test_uhr2d_shepp_logan_osem3d(osem_3d_data):
     osem.num_OSEM_subsets = OSEM_NUM_SUBSETS
     osem.setDataInput(lm)
     [sens_img] = osem.generateSensitivityImages()
-    sens_img.writeToFile(
-        os.path.join(fold_out, "test_uhr2d_shepp_logan_osem3d_sens_image.nii.gz")
-    )
+    sens_img.writeToFile(os.path.join(
+        fold_out, "test_uhr2d_shepp_logan_osem3d_sens_image.nii.gz"))
     osem.setSensitivityImage(sens_img)
 
     out_img = osem.reconstruct()
-    out_img.writeToFile(
-        os.path.join(fold_out, "test_uhr2d_shepp_logan_osem3d_recon_image.nii.gz")
-    )
+    out_img.writeToFile(os.path.join(
+        fold_out, "test_uhr2d_shepp_logan_osem3d_recon_image.nii.gz"))
 
     np_out_img = np.array(out_img, copy=True)
     _helper.assert_allclose_with_threshold(
-        np_out_img, np_ref_img, atol=0, rtol=0.01, threshold=1e-5
-    )
+        np_out_img, np_ref_img, atol=0, rtol=0.01, threshold=1e-5)
 
 
 def test_uhr2d_shepp_logan_osem4d(osem_4d_data):
@@ -223,15 +223,13 @@ def test_uhr2d_shepp_logan_osem4d(osem_4d_data):
     osem.num_OSEM_subsets = OSEM_NUM_SUBSETS
     osem.setDataInput(lm)
     [sens_img] = osem.generateSensitivityImages()
-    sens_img.writeToFile(
-        os.path.join(fold_out, "test_uhr2d_shepp_logan_osem4d_sens_image.nii.gz")
-    )
+    sens_img.writeToFile(os.path.join(
+        fold_out, "test_uhr2d_shepp_logan_osem4d_sens_image.nii.gz"))
     osem.setSensitivityImage(sens_img)
 
     out_img = osem.reconstruct()
-    out_img.writeToFile(
-        os.path.join(fold_out, "test_uhr2d_shepp_logan_osem4d_recon_image.nii.gz")
-    )
+    out_img.writeToFile(os.path.join(
+        fold_out, "test_uhr2d_shepp_logan_osem4d_recon_image.nii.gz"))
 
     np_out_img = np.array(out_img, copy=True)
     _helper.assert_allclose_with_threshold(
@@ -258,21 +256,18 @@ def test_uhr2d_shepp_logan_lrem_updatew(osem_lr_W_data):
     osem.num_OSEM_subsets = OSEM_NUM_SUBSETS
     osem.setDataInput(lm)
     [sens_img] = osem.generateSensitivityImages()
-    sens_img.writeToFile(
-        os.path.join(fold_out, "test_uhr2d_shepp_logan_lrem_updatew_sens_image.nii.gz")
-    )
+    sens_img.writeToFile(os.path.join(
+        fold_out, "test_uhr2d_shepp_logan_lrem_updatew_sens_image.nii.gz"))
     osem.setSensitivityImage(sens_img)
 
     out_W = osem.reconstruct()
-    out_W.writeToFile(
-        os.path.join(fold_out, "test_uhr2d_shepp_logan_lrem_updatew_W_image.nii.gz")
-    )
+    out_W.writeToFile(os.path.join(
+        fold_out, "test_uhr2d_shepp_logan_lrem_updatew_W_image.nii.gz"))
 
     # Check W
     np_out_W = np.array(out_W, copy=True)
     _helper.assert_allclose_with_threshold(
-        np_out_W, np_ref_W, atol=0, rtol=2e-2, threshold=1e-6
-    )
+        np_out_W, np_ref_W, atol=0, rtol=2e-2, threshold=1e-6)
 
     # Check the resulting image
     np_out_img = np.tensordot(HBasis_np.T, np_out_W, (1, 0))
@@ -282,20 +277,19 @@ def test_uhr2d_shepp_logan_lrem_updatew(osem_lr_W_data):
     img_params_full.nt = HBasis_np.shape[1]
     out_img = yrt.ImageAlias(img_params_full)
     out_img.bind(np_out_img)
-    out_img.writeToFile(
-        os.path.join(fold_out, "test_uhr2d_shepp_logan_lrem_updatew_recon_image.nii.gz")
-    )
+    out_img.writeToFile(os.path.join(
+        fold_out, "test_uhr2d_shepp_logan_lrem_updatew_recon_image.nii.gz"))
 
     # Check allclose
     _helper.assert_allclose_with_threshold(
-        np_out_img, np_ref_img, atol=0, rtol=2e-2, threshold=1e-5
-    )
+        np_out_img, np_ref_img, atol=0, rtol=2e-2, threshold=1e-5)
 
 
 def test_uhr2d_shepp_logan_lrem_updateh(osem_lr_H_data):
     """
     LR OSEM with H-update only (W fixed).
-    Verifies that W is unchanged and that the updated H matches the CPU reference.
+    Verifies that W is unchanged and that the updated H matches the CPU
+    reference.
     """
     d = osem_lr_H_data
     scanner = d["scanner"]
@@ -334,6 +328,5 @@ def test_uhr2d_shepp_logan_lrem_updateh(osem_lr_H_data):
     img_params_full.nt = HBasis_np.shape[1]
     out_img = yrt.ImageAlias(img_params_full)
     out_img.bind(np_out_img)
-    out_img.writeToFile(
-        os.path.join(fold_out, "test_uhr2d_shepp_logan_lrem_updateh_recon_image.nii.gz")
-    )
+    out_img.writeToFile(os.path.join(
+        fold_out, "test_uhr2d_shepp_logan_lrem_updateh_recon_image.nii.gz"))

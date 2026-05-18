@@ -18,6 +18,9 @@ template <typename T>
 void readCSV(const std::string& filename, Array2DOwned<T>& output)
 {
 	std::ifstream file(filename);
+	ASSERT_MSG(file.is_open(),
+	           ("Error opening file \'" + filename + "\'").c_str());
+
 	std::string line = "";
 	size_t numLines = 0;
 	size_t numCols = 0;
@@ -85,7 +88,8 @@ void readCSV(const std::string& filename, Array2DOwned<T>& output)
 
 template void readCSV(const std::string& filename, Array2DOwned<int>& output);
 template void readCSV(const std::string& filename, Array2DOwned<float>& output);
-template void readCSV(const std::string& filename, Array2DOwned<double>& output);
+template void readCSV(const std::string& filename,
+                      Array2DOwned<double>& output);
 
 template <typename TFloat>
 TFloat erfc(TFloat x)
@@ -158,38 +162,51 @@ int circular(int M, int x)
 	return x;
 }
 
-std::string addBeforeExtension(const std::string& fname,
-                               const std::string& addition)
+// Helper: returns the index where the "main" extension begins,
+// or fname.size() if no extension is found.
+// Handles .gz specially (ignores .gz when looking for the previous dot).
+std::size_t findExtensionStart(const std::string& fname)
 {
-	int fnameSize = fname.size();
+	int fnameSize = static_cast<int>(fname.size());
 	int pos = fnameSize - 1;
 	char lastTwoChars[2] = {0, 0};
-	int extensionPosition = -1;
 
-	// Insert before extension, except when the extension is .gz, then wait
-	// for the next extension
 	while (pos >= 0)
 	{
 		const char currentChar = fname[pos];
 		if (currentChar == '.')
 		{
+			// If we see ".gz", skip it and continue looking for the previous
+			// dot.
 			if (!(lastTwoChars[0] == 'g' && lastTwoChars[1] == 'z'))
 			{
-				extensionPosition = pos;
-				break;
+				return static_cast<std::size_t>(pos);
 			}
 		}
 		lastTwoChars[1] = lastTwoChars[0];
 		lastTwoChars[0] = currentChar;
 		pos--;
 	}
-	std::string fnameInserted(fname);
+	return fname.size();  // no extension found
+}
 
-	const size_t posWhereInsert =
-	    extensionPosition >= 0 ? extensionPosition : fnameSize;
+// Inserts "addition" before the extension "fname.txt" -> "fnameaddition.txt"
+std::string addBeforeExtension(const std::string& fname,
+                               const std::string& addition)
+{
+	const std::size_t pos = findExtensionStart(fname);
+	std::string result = fname;
+	result.insert(pos, addition);
+	return result;
+}
 
-	fnameInserted = fnameInserted.insert(posWhereInsert, addition);
-	return fnameInserted;
+// Replaces the extension (excluding the dot) with newExt.
+// If no extension exists, newExt is simply appended.
+std::string replaceExtension(const std::string& fname,
+                             const std::string& newExt)
+{
+	const std::size_t pos = findExtensionStart(fname);
+	return fname.substr(0, pos) + "." + newExt;
 }
 
 bool endsWith(const std::string& str, const std::string& suffix)

@@ -5,6 +5,7 @@
 
 #include "yrt-pet/operators/OperatorPsf.hpp"
 
+#include "yrt-pet/geometry/Constants.hpp"
 #include "yrt-pet/utils/Assert.hpp"
 #include "yrt-pet/utils/Tools.hpp"
 
@@ -14,25 +15,64 @@
 #include <pybind11/stl.h>
 namespace py = pybind11;
 
+using namespace py::literals;
+
 namespace yrt
 {
 void py_setup_operatorpsf(py::module& m)
 {
 	auto c = py::class_<OperatorPsf, Operator>(m, "OperatorPsf");
 	c.def(py::init<>());
-	c.def(py::init<const std::string&>());
-	c.def("readFromFile", &OperatorPsf::readFromFile);
-	c.def("convolve", &OperatorPsf::convolve);
+	c.def(py::init<const std::string&>(), "fname"_a);
+	c.def(py::init<const std::vector<float>&, const std::vector<float>&,
+	               const std::vector<float>&>(),
+	      "kernel_x"_a, "kernel_y"_a, "kernel_z"_a);
+
+	c.def_static("createGaussianKernel1D", &OperatorPsf::createGaussianKernel1D,
+	             "sigma"_a, "voxel_size"_a, "kernel_size"_a);
+	c.def_static("createGaussianFromFWHM", &OperatorPsf::createGaussianFromFWHM,
+	             "fwhm_x"_a, "fwhm_y"_a, "fwhm_z"_a, "vx"_a, "vy"_a, "vz"_a,
+	             "kernel_size_x"_a, "kernel_size_y"_a, "kernel_size_z"_a);
+	c.def_static("createGaussianFromSigma",
+	             &OperatorPsf::createGaussianFromSigma, "sigma_x"_a,
+	             "sigma_y"_a, "sigma_z"_a, "vx"_a, "vy"_a, "vz"_a,
+	             "kernel_size_x"_a, "kernel_size_y"_a, "kernel_size_z"_a);
+
+	c.def_static(
+	    "createGaussianKernel1D",
+	    [](float sigma, float voxelSize)
+	    {
+		    return OperatorPsf::createGaussianKernel1D(sigma, voxelSize,
+		                                               nullptr);
+	    },
+	    "sigma"_a, "voxel_size"_a);
+	c.def_static(
+	    "createGaussianFromFWHM",
+	    [](float fwhmX, float fwhmY, float fwhmZ, float vx, float vy, float vz)
+	    {
+		    return OperatorPsf::createGaussianFromFWHM(
+		        fwhmX, fwhmY, fwhmZ, vx, vy, vz, nullptr, nullptr, nullptr);
+	    },
+	    "fwhm_x"_a, "fwhm_y"_a, "fwhm_z"_a, "vx"_a, "vy"_a, "vz"_a);
+	c.def_static(
+	    "createGaussianFromSigma",
+	    [](float sigmaX, float sigmaY, float sigmaZ, float vx, float vy,
+	       float vz)
+	    {
+		    return OperatorPsf::createGaussianFromSigma(
+		        sigmaX, sigmaY, sigmaZ, vx, vy, vz, nullptr, nullptr, nullptr);
+	    },
+	    "sigma_x"_a, "sigma_y"_a, "sigma_z"_a, "vx"_a, "vy"_a, "vz"_a);
+
+	c.def("readFromFile", &OperatorPsf::readFromFile, "fname"_a);
+	c.def("convolve", &OperatorPsf::convolve, "in"_a, "out"_a, "kernel_x"_a,
+	      "kernel_y"_a, "kernel_z"_a);
 	c.def(
-	    "applyA",
-	    [](OperatorPsf& self, const Image* img_in, Image* img_out)
-	    { self.applyA(img_in, img_out); },
-	    py::arg("img_in"), py::arg("img_out"));
+	    "applyA", [](OperatorPsf& self, const Image* img_in, Image* img_out)
+	    { self.applyA(img_in, img_out); }, "img_in"_a, "img_out"_a);
 	c.def(
-	    "applyAH",
-	    [](OperatorPsf& self, const Image* img_in, Image* img_out)
-	    { self.applyAH(img_in, img_out); },
-	    py::arg("img_in"), py::arg("img_out"));
+	    "applyAH", [](OperatorPsf& self, const Image* img_in, Image* img_out)
+	    { self.applyAH(img_in, img_out); }, "img_in"_a, "img_out"_a);
 
 	c.def("getKernelX",
 	      [](const OperatorPsf& self) -> py::array_t<float>
@@ -115,6 +155,61 @@ OperatorPsf::OperatorPsf(const std::vector<float>& kernelX,
 	m_kernelX_flipped = std::vector<float>(kernelX.rbegin(), kernelX.rend());
 	m_kernelY_flipped = std::vector<float>(kernelY.rbegin(), kernelY.rend());
 	m_kernelZ_flipped = std::vector<float>(kernelZ.rbegin(), kernelZ.rend());
+}
+
+std::vector<float> OperatorPsf::createGaussianKernel1D(float sigma,
+                                                       float voxSize,
+                                                       const size_t* kerSize)
+{
+	ASSERT_MSG(sigma >= 0, "Gaussian Sigma or FWHM cannot be null or negative");
+	ASSERT_MSG(voxSize >= 0, "Voxel size cannot be null or negative");
+
+	std::size_t size = kerSize ? *kerSize : 0;
+
+	if (size == 0)
+	{
+		constexpr size_t DEFAULT_NUM_SIGMAS = 5;
+		size = std::rintf(DEFAULT_NUM_SIGMAS * sigma / voxSize);
+	}
+
+	std::vector<float> kernel;
+	for (std::size_t i = 0; i < size; i++)
+	{
+		const float x = static_cast<float>(static_cast<int>(i) -
+		                                   static_cast<int>(size / 2));
+		kernel.push_back(std::exp(-0.5f * std::pow(x * voxSize / sigma, 2.f)));
+	}
+
+	const float sum = std::accumulate(kernel.begin(), kernel.end(), 0.0f);
+	for (auto& v : kernel)
+	{
+		v /= sum;
+	}
+
+	return kernel;
+}
+
+std::unique_ptr<OperatorPsf> OperatorPsf::createGaussianFromSigma(
+    float sigmaX, float sigmaY, float sigmaZ, float vx, float vy, float vz,
+    const size_t* kerSizeX, const size_t* kerSizeY, const size_t* kerSizeZ)
+{
+	const auto kernelX = createGaussianKernel1D(sigmaX, vx, kerSizeX);
+	const auto kernelY = createGaussianKernel1D(sigmaY, vy, kerSizeY);
+	const auto kernelZ = createGaussianKernel1D(sigmaZ, vz, kerSizeZ);
+
+	return std::make_unique<OperatorPsf>(kernelX, kernelY, kernelZ);
+}
+
+std::unique_ptr<OperatorPsf> OperatorPsf::createGaussianFromFWHM(
+    float fwhmX, float fwhmY, float fwhmZ, float vx, float vy, float vz,
+    const size_t* kerSizeX, const size_t* kerSizeY, const size_t* kerSizeZ)
+{
+	const float sigmaX = fwhmX / static_cast<float>(SIGMA_TO_FWHM);
+	const float sigmaY = fwhmY / static_cast<float>(SIGMA_TO_FWHM);
+	const float sigmaZ = fwhmZ / static_cast<float>(SIGMA_TO_FWHM);
+
+	return createGaussianFromSigma(sigmaX, sigmaY, sigmaZ, vx, vy, vz, kerSizeX,
+	                               kerSizeY, kerSizeZ);
 }
 
 void OperatorPsf::readFromFile(const std::string& imagePsf_fname)
@@ -201,84 +296,90 @@ void OperatorPsf::convolve(const Image* in, Image* out,
 	const int nx = params.nx;
 	const int ny = params.ny;
 	const int nz = params.nz;
+	const int nt = params.nt;
 
+	const size_t frameSize = static_cast<size_t>(nx) * ny * nz;
 	const size_t sizeBuffer = std::max(std::max(nx, ny), nz);
 	m_buffer_tmp.resize(sizeBuffer);
 
 	const std::array<int, 3> kerSize{static_cast<int>(kernelX.size()),
 	                                 static_cast<int>(kernelY.size()),
 	                                 static_cast<int>(kernelZ.size())};
-	ASSERT_MSG(kerSize[0] % 2 != 0, "Kernel size must be odd");
-	ASSERT_MSG(kerSize[1] % 2 != 0, "Kernel size must be odd");
-	ASSERT_MSG(kerSize[2] % 2 != 0, "Kernel size must be odd");
-
-	// kernel size must always be an odd number and must have same size in all 3
-	// dimensions
 	const int kerIndexCenteredX = kerSize[0] / 2;
 	const int kerIndexCenteredY = kerSize[1] / 2;
 	const int kerIndexCenteredZ = kerSize[2] / 2;
-	const float* inPtr = in->getRawPointer();
-	float* outPtr = out->getRawPointer();
 
-	for (int k = 0; k < nz; k++)
+	for (int t = 0; t < nt; t++)
 	{
-		for (int j = 0; j < ny; j++)
+		const float* inPtr = in->getRawPointer() + t * frameSize;
+		float* outPtr = out->getRawPointer() + t * frameSize;
+
+		for (int k = 0; k < nz; k++)
+		{
+			for (int j = 0; j < ny; j++)
+			{
+				for (int i = 0; i < nx; i++)
+				{
+					m_buffer_tmp[i] = inPtr[IDX3(i, j, k, nx, ny)];
+				}
+				for (int i = 0; i < nx; i++)
+				{
+					float sum = 0.0f;
+					for (int kk = -kerIndexCenteredX; kk <= kerIndexCenteredX;
+					     kk++)
+					{
+						const int r = util::circular(nx, i - kk);
+						sum +=
+						    kernelX[kk + kerIndexCenteredX] * m_buffer_tmp[r];
+					}
+					outPtr[IDX3(i, j, k, nx, ny)] = sum;
+				}
+			}
+		}
+
+		for (int k = 0; k < nz; k++)
 		{
 			for (int i = 0; i < nx; i++)
 			{
-				m_buffer_tmp[i] = inPtr[IDX3(i, j, k, nx, ny)];
-			}
-			for (int i = 0; i < nx; i++)
-			{
-				float sum = 0.0;
-				for (int kk = -kerIndexCenteredX; kk <= kerIndexCenteredX; kk++)
+				for (int j = 0; j < ny; j++)
 				{
-					const int r = util::circular(nx, i - kk);
-					sum += kernelX[kk + kerIndexCenteredX] * m_buffer_tmp[r];
+					m_buffer_tmp[j] = outPtr[IDX3(i, j, k, nx, ny)];
 				}
-				outPtr[IDX3(i, j, k, nx, ny)] = sum;
+				for (int j = 0; j < ny; j++)
+				{
+					float sum = 0.0f;
+					for (int kk = -kerIndexCenteredY; kk <= kerIndexCenteredY;
+					     kk++)
+					{
+						const int r = util::circular(ny, j - kk);
+						sum +=
+						    kernelY[kk + kerIndexCenteredY] * m_buffer_tmp[r];
+					}
+					outPtr[IDX3(i, j, k, nx, ny)] = sum;
+				}
 			}
 		}
-	}
 
-	for (int k = 0; k < nz; k++)
-	{
 		for (int i = 0; i < nx; i++)
 		{
 			for (int j = 0; j < ny; j++)
 			{
-				m_buffer_tmp[j] = outPtr[IDX3(i, j, k, nx, ny)];
-			}
-			for (int j = 0; j < ny; j++)
-			{
-				float sum = 0.0;
-				for (int kk = -kerIndexCenteredY; kk <= kerIndexCenteredY; kk++)
+				for (int k = 0; k < nz; k++)
 				{
-					const int r = util::circular(ny, j - kk);
-					sum += kernelY[kk + kerIndexCenteredY] * m_buffer_tmp[r];
+					m_buffer_tmp[k] = outPtr[IDX3(i, j, k, nx, ny)];
 				}
-				outPtr[IDX3(i, j, k, nx, ny)] = sum;
-			}
-		}
-	}
-
-	for (int i = 0; i < nx; i++)
-	{
-		for (int j = 0; j < ny; j++)
-		{
-			for (int k = 0; k < nz; k++)
-			{
-				m_buffer_tmp[k] = outPtr[IDX3(i, j, k, nx, ny)];
-			}
-			for (int k = 0; k < nz; k++)
-			{
-				float sum = 0.0;
-				for (int kk = -kerIndexCenteredZ; kk <= kerIndexCenteredZ; kk++)
+				for (int k = 0; k < nz; k++)
 				{
-					const int r = util::circular(nz, k - kk);
-					sum += kernelZ[kk + kerIndexCenteredZ] * m_buffer_tmp[r];
+					float sum = 0.0f;
+					for (int kk = -kerIndexCenteredZ; kk <= kerIndexCenteredZ;
+					     kk++)
+					{
+						const int r = util::circular(nz, k - kk);
+						sum +=
+						    kernelZ[kk + kerIndexCenteredZ] * m_buffer_tmp[r];
+					}
+					outPtr[IDX3(i, j, k, nx, ny)] = sum;
 				}
-				outPtr[IDX3(i, j, k, nx, ny)] = sum;
 			}
 		}
 	}

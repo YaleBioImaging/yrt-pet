@@ -37,8 +37,7 @@ void py_setup_scanner(pybind11::module& m)
 	      "min_ang_diff"_a, "dets_per_block"_a,
 	      "Create a scanner while using the parameters to generate a regular "
 	      "structure. The structure can still later be overridden by a LUT");
-	c.def(py::init<const std::string&>(),
-		  "fname"_a,
+	c.def(py::init<const std::string&>(), "fname"_a,
 	      "Create a scanner using a given JSON file");
 	c.def("getNumDets", &Scanner::getNumDets);
 	c.def("getExpectedNumDets", &Scanner::getExpectedNumDets);
@@ -47,6 +46,10 @@ void py_setup_scanner(pybind11::module& m)
 	c.def("isDetectorAllowed", &Scanner::isDetectorAllowed, "det_id"_a);
 	c.def("isValid", &Scanner::isValid);
 	c.def("hasMask", &Scanner::hasMask);
+	c.def("addMask", static_cast<void (Scanner::*)(const DetectorMask&)>(
+	                     &Scanner::addMask));
+	c.def("addMask", static_cast<void (Scanner::*)(const std::string&)>(
+	                     &Scanner::addMask));
 	c.def_readwrite("scannerName", &Scanner::scannerName);
 	c.def_readwrite("axialFOV", &Scanner::axialFOV);
 	c.def_readwrite("crystalSize_z", &Scanner::crystalSize_z);
@@ -276,7 +279,7 @@ void Scanner::readFromString(const std::string& fileContents)
 	                       {"dets_per_block", "detsPerBlock"}, 1, false);
 
 	// Check for errors
-	if (scannerFileVersion > SCANNER_FILE_VERSION + SMALL_FLT)
+	if (scannerFileVersion > SCANNER_FILE_VERSION + EPS_FLT)
 	{
 		throw std::invalid_argument("Scanner JSON version too recent, the "
 		                            "current version is " +

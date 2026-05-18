@@ -34,12 +34,13 @@ void py_setup_listmode(py::module& m)
 	          &ListMode::addLORMotion),
 	      "lorMotion_fname"_a);
 
-	c.def(
-	    "addDynamicFraming",
-	    py::overload_cast<const std::shared_ptr<DynamicFraming>&>(
-	        &ListMode::addDynamicFraming),
-	    py::arg("framing"));
+	c.def("addDynamicFraming",
+	      py::overload_cast<const std::shared_ptr<DynamicFraming>&>(
+	          &ListMode::addDynamicFraming),
+	      "framing"_a);
 
+	c.def("getLORMotion", &ListMode::getLORMotion);
+	c.def("getDynamicFraming", &ListMode::getDynamicFraming);
 }
 }  // namespace yrt
 #endif  // if BUILD_PYBIND11
@@ -125,9 +126,11 @@ void ListMode::addLORMotion(const std::shared_ptr<LORMotion>& pp_lorMotion)
 	}
 }
 
-void ListMode::addDynamicFraming(const std::vector<timestamp_t>& dynamicFramingVector)
+void ListMode::addDynamicFraming(
+    const std::vector<timestamp_t>& dynamicFramingVector)
 {
-	const auto dynamicFraming = std::make_shared<DynamicFraming>(dynamicFramingVector);
+	const auto dynamicFraming =
+	    std::make_shared<DynamicFraming>(dynamicFramingVector);
 	addDynamicFraming(dynamicFraming);
 }
 
@@ -141,17 +144,20 @@ void ListMode::addDynamicFraming(
 
 	const auto numFrames =
 	    static_cast<frame_t>(mp_dynamicFraming->getNumFrames());
-	if (numFrames == 0) {
+	if (numFrames == 0)
+	{
 		// no frames defined — mark all events out of range
 		throw std::invalid_argument("Number of frames cannot be zero.");
 	}
 
 	// get the frame bounds from mp_dynamicFraming
-	const timestamp_t firstTimestamp  = mp_dynamicFraming->getStartingTimestamp(0);
+	const timestamp_t firstTimestamp =
+	    mp_dynamicFraming->getStartingTimestamp(0);
 	bin_t evId = 0;
 
 	// Skip the events that are before the first frame
-	while (evId < numEvents && getTimestamp(evId) < firstTimestamp) {
+	while (evId < numEvents && getTimestamp(evId) < firstTimestamp)
+	{
 		mp_dynamicFrames->setFlat(evId, -1);
 		++evId;
 	}
@@ -236,6 +242,16 @@ float ListMode::getDurationOfMotionFrame(frame_t frame) const
 	}
 	// For the events before the beginning of the frame
 	return ProjectionData::getDurationOfMotionFrame(frame);
+}
+
+const LORMotion* ListMode::getLORMotion() const
+{
+	return mp_lorMotion.get();
+}
+
+const DynamicFraming* ListMode::getDynamicFraming() const
+{
+	return mp_dynamicFraming.get();
 }
 
 }  // namespace yrt

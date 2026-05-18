@@ -6,7 +6,6 @@
 #include "yrt-pet/recon/OSEM_GPU.cuh"
 
 #include "yrt-pet/datastruct/image/ImageDevice.cuh"
-#include "yrt-pet/datastruct/projection/ProjectionListDevice.cuh"
 #include "yrt-pet/operators/DDKernels.cuh"
 #include "yrt-pet/operators/DeviceSynchronized.cuh"
 #include "yrt-pet/operators/OperatorPsfDevice.cuh"
@@ -69,6 +68,32 @@ void OSEM_GPU::addImagePSF(const std::string& p_imagePsf_fname,
 	flagImagePSF = true;
 }
 
+void OSEM_GPU::addUniformGaussianImagePSFFromFWHM(float fwhmX, float fwhmY,
+                                                  float fwhmZ,
+                                                  const size_t* kerSizeX,
+                                                  const size_t* kerSizeY,
+                                                  const size_t* kerSizeZ)
+{
+	ASSERT_MSG(imageParams.isValid(), "Image parameters not set");
+	imagePsf = OperatorPsfDevice::createGaussianFromFWHM(
+	    fwhmX, fwhmY, fwhmZ, imageParams.vx, imageParams.vy, imageParams.vz,
+	    kerSizeX, kerSizeY, kerSizeZ);
+	m_imagePSFMode = ImagePSFMode::UNIFORM;
+}
+
+void OSEM_GPU::addUniformGaussianImagePSFFromSigma(float sigmaX, float sigmaY,
+                                                   float sigmaZ,
+                                                   const size_t* kerSizeX,
+                                                   const size_t* kerSizeY,
+                                                   const size_t* kerSizeZ)
+{
+	ASSERT_MSG(imageParams.isValid(), "Image parameters not set");
+	imagePsf = OperatorPsfDevice::createGaussianFromSigma(
+	    sigmaX, sigmaY, sigmaZ, imageParams.vx, imageParams.vy, imageParams.vz,
+	    kerSizeX, kerSizeY, kerSizeZ);
+	m_imagePSFMode = ImagePSFMode::UNIFORM;
+}
+
 void OSEM_GPU::setupProjectorForSensImgGen()
 {
 	ASSERT(projectorParams.numRays > 0);
@@ -94,9 +119,9 @@ void OSEM_GPU::setupProjectorForSensImgGen()
 	}
 }
 
-void OSEM_GPU::allocateForSensImgGen()
+void OSEM_GPU::prepareBuffersForSensImgGen()
 {
-	auto imageParamsSens = getImageParamsForSensitivityImage();
+	auto imageParamsSens = getImageParamsForSensImgGen();
 
 	// Allocate for image space
 	mpd_sensImageBuffer =
@@ -282,7 +307,7 @@ void OSEM_GPU::setupProjectorForRecon()
 	setupProjectorUpdater(projectorParams);
 }
 
-void OSEM_GPU::allocateForRecon()
+void OSEM_GPU::prepareBuffersForRecon()
 {
 	// Allocate image-space buffers
 
@@ -290,8 +315,8 @@ void OSEM_GPU::allocateForRecon()
 	    std::make_unique<ImageDeviceOwned>(getImageParams(), getMainStream());
 	mpd_tmpImage1 =
 	    std::make_unique<ImageDeviceOwned>(getImageParams(), getMainStream());
-	mpd_sensImageBuffer =
-	    std::make_unique<ImageDeviceOwned>(getImageParams(), getMainStream());
+	mpd_sensImageBuffer = std::make_unique<ImageDeviceOwned>(
+	    getSensitivityImage(0)->getParams(), getMainStream());
 
 	mpd_mlemImage->allocate(false);
 	mpd_tmpImage1->allocate(false);
@@ -302,6 +327,14 @@ void OSEM_GPU::allocateForRecon()
 		mpd_tmpImage2 = std::make_unique<ImageDeviceOwned>(getImageParams(),
 		                                                   getMainStream());
 		mpd_tmpImage2->allocate(false);
+
+		auto imagePsfOperatorPsf =
+		    dynamic_cast<OperatorPsfDevice*>(imagePsf.get());
+		if (imagePsfOperatorPsf != nullptr)
+		{
+			imagePsfOperatorPsf->allocateTemporaryDeviceImageIfNeeded(
+			    getImageParams(), {nullptr, true});
+		}
 	}
 
 	// Initialize the MLEM image values to non-zero
@@ -318,6 +351,11 @@ void OSEM_GPU::allocateForRecon()
 	// unnecessarily)
 	if (maskImage != nullptr)
 	{
+		ASSERT_MSG(
+		    maskImage->getParams().isSameDimensionsAs(getImageParams()) ||
+		        maskImage->getParams().isSameDimensionsAs(
+		            mpd_sensImageBuffer->getParams()),
+		    "Mask image given seems to have an incompatible size");
 		mpd_tmpImage1->copyFromHostImage(maskImage, true);
 	}
 	else if (num_OSEM_subsets == 1 || usingListModeInput)
@@ -351,7 +389,7 @@ void OSEM_GPU::allocateForRecon()
 
 	// Allocate for projection space
 
-	// YN: Opportunity for optimisation: if the bin loader is already
+	// YN: Opportunity for optimization: if the bin loader is already
 	//  initialized and allocated, and the properties held are the same as
 	//  what comes out of "getNeededProperties(true)", and the allocated size is
 	//  larger or equal than what is needed for the reconstruction, then there
@@ -899,7 +937,7 @@ void OSEM_GPU::computeEMUpdateImageForLoadedBatch(int subsetId, int batchId,
 			        globalScaleFactor, measurementUniformValue,
 			        pd_projPropManager, pd_projectionProperties, pd_updater,
 			        pd_tofHelper, projPsfKernelStruct, scannerParams, numRays,
-			        projectorParams.projectorType, batchSize);
+			        denomThreshold, projectorParams.projectorType, batchSize);
 		}
 		else
 		{
@@ -910,8 +948,8 @@ void OSEM_GPU::computeEMUpdateImageForLoadedBatch(int subsetId, int batchId,
 			        globalScaleFactor, measurementUniformValue,
 			        pd_projPropManager, pd_projectionProperties,
 			        nullptr /*No updater*/, pd_tofHelper, projPsfKernelStruct,
-			        scannerParams, numRays, projectorParams.projectorType,
-			        batchSize);
+			        scannerParams, numRays, denomThreshold,
+			        projectorParams.projectorType, batchSize);
 		}
 	}
 	else
@@ -924,7 +962,7 @@ void OSEM_GPU::computeEMUpdateImageForLoadedBatch(int subsetId, int batchId,
 			        globalScaleFactor, measurementUniformValue,
 			        pd_projPropManager, pd_projectionProperties, pd_updater,
 			        pd_tofHelper, projPsfKernelStruct, scannerParams, numRays,
-			        projectorParams.projectorType, batchSize);
+			        denomThreshold, projectorParams.projectorType, batchSize);
 		}
 		else
 		{
@@ -934,8 +972,8 @@ void OSEM_GPU::computeEMUpdateImageForLoadedBatch(int subsetId, int batchId,
 			        globalScaleFactor, measurementUniformValue,
 			        pd_projPropManager, pd_projectionProperties,
 			        nullptr /*No updater*/, pd_tofHelper, projPsfKernelStruct,
-			        scannerParams, numRays, projectorParams.projectorType,
-			        batchSize);
+			        scannerParams, numRays, denomThreshold,
+			        projectorParams.projectorType, batchSize);
 		}
 	}
 
@@ -1125,8 +1163,8 @@ __global__ void computeEMUpdateImage_kernel(
     const PropertyUnit* pd_projectionProperties, UpdaterPointer pd_updater,
     const TimeOfFlightHelper* pd_tofHelper,
     ProjectionPsfKernelStruct projPsfKernelStruct,
-    CUScannerParams scannerParams, int numRays, ProjectorType projectorType,
-    size_t batchSize)
+    CUScannerParams scannerParams, int numRays, float denomThreshold,
+    ProjectorType projectorType, size_t batchSize)
 {
 	const long eventId = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -1268,7 +1306,8 @@ __global__ void computeEMUpdateImage_kernel(
 				    ProjectionPropertyType::ATTENUATION_PRECORRECTION);
 			}
 
-			if (fabsf(update) != 0.f)  // to prevent numerical instability
+			// to prevent numerical instability
+			if (fabsf(update) > denomThreshold)
 			{
 				// Divide measurements
 				update = measurement / update;

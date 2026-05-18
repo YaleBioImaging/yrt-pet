@@ -17,7 +17,7 @@ public:
 	explicit LREM_GPU(const Scanner& pr_scanner);
 	~LREM_GPU() override = default;
 
-	void setupProjectorForRecon() override;
+	void prepareBuffersForRecon() override;
 	void resetEMUpdateImage() override;
 	void applyImageUpdate() override;
 	void completeSubset() override;
@@ -31,7 +31,7 @@ protected:
 
 private:
 	void generateHUpdateSensScalingInternal();
-	void sync_cWUpdateDeviceToHost();// TODO NOW: Uniformize name
+	void sync_cWUpdateDeviceToHost();  // TODO: Uniformize name
 	void sync_cWUpdateHostToDevice();
 	void syncHostToDeviceHBasis();
 	void syncDeviceToHostHBasis();
@@ -39,7 +39,6 @@ private:
 	void syncDeviceToHostHBasisWrite();
 
 	// LR sensitivity matrix factor correction
-	// TODO NOW: Some of these are not used. It must be investigated
 	DeviceArray<float> m_cWUpdateDevice;
 	DeviceArray<float> m_cHUpdateDevice;
 };

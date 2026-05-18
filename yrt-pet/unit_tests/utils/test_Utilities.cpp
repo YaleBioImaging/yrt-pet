@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "yrt-pet/utils/RangeList.hpp"
+#include "yrt-pet/utils/Tools.hpp"
 #include "yrt-pet/utils/Utilities.hpp"
 
 TEST_CASE("String", "[string]")
@@ -30,6 +31,19 @@ TEST_CASE("String", "[string]")
 		REQUIRE(yrt::util::split("ab/cd", "/") ==
 		        std::vector<std::string>{"ab", "cd"});
 		REQUIRE(yrt::util::split("ab", "/") == std::vector<std::string>{"ab"});
+	}
+	SECTION("replace_ext")
+	{
+		REQUIRE(yrt::util::replaceExtension("file.ext", "dat") == "file.dat");
+		REQUIRE(yrt::util::replaceExtension("file.nii.gz", "dat") ==
+		        "file.dat");
+	}
+	SECTION("add_before_ext")
+	{
+		REQUIRE(yrt::util::addBeforeExtension("file.ext", "_suffix") ==
+		        "file_suffix.ext");
+		REQUIRE(yrt::util::addBeforeExtension("file.nii.gz", "_test") ==
+		        "file_test.nii.gz");
 	}
 	SECTION("ranges-insert")
 	{

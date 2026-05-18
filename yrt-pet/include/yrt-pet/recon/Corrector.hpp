@@ -59,6 +59,7 @@ public:
 
 	// Getters for reconstruction exclusively
 	bool hasRandomsEstimates(const ProjectionData& measurements) const;
+	bool doesRandomsEstimateComeFromHistogram() const;
 	bool hasScatterEstimates() const;
 	bool hasAdditiveCorrection(const ProjectionData& measurements) const;
 	bool hasInVivoAttenuation() const;

@@ -30,8 +30,10 @@ public:
 
 	void addLORMotion(const std::string& lorMotion_fname);
 	virtual void addLORMotion(const std::shared_ptr<LORMotion>& pp_lorMotion);
-	virtual void addDynamicFraming(const std::vector<timestamp_t>& dynamicFramingVector);
-	virtual void addDynamicFraming(const std::shared_ptr<DynamicFraming>& pp_dynamicFraming);
+	virtual void
+	    addDynamicFraming(const std::vector<timestamp_t>& dynamicFramingVector);
+	virtual void addDynamicFraming(
+	    const std::shared_ptr<DynamicFraming>& pp_dynamicFraming);
 
 	bool hasMotion() const override;
 	frame_t getDynamicFrame(bin_t id) const override;
@@ -41,6 +43,10 @@ public:
 	transform_t getTransformOfMotionFrame(frame_t frame) const override;
 	float getDurationOfMotionFrame(frame_t frame) const override;
 
+	// Getters for motion framing and dynamic framing
+	const LORMotion* getLORMotion() const;
+	const DynamicFraming* getDynamicFraming() const;
+
 protected:
 	explicit ListMode(const Scanner& pr_scanner);
 
@@ -49,4 +55,4 @@ protected:
 	std::shared_ptr<DynamicFraming> mp_dynamicFraming;
 	std::unique_ptr<Array1DOwned<frame_t>> mp_dynamicFrames;
 };
-}
+}  // namespace yrt

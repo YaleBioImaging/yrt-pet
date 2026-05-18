@@ -32,6 +32,7 @@ public:
 	// Constants
 	static constexpr int DEFAULT_NUM_ITERATIONS = 10;
 	static constexpr float DEFAULT_HARD_THRESHOLD = 1.0f;
+	static constexpr float DEFAULT_DENOM_THRESHOLD = 1e-35f;
 	static constexpr float INITIAL_VALUE_MLEM = 0.125f;
 	// Constructors/Destructors
 	explicit OSEM(const Scanner& pr_scanner);
@@ -58,8 +59,10 @@ public:
 	// OSEM Reconstruction
 	std::unique_ptr<Image> reconstruct(const std::string& out_fname);
 
-	// Prints a summary of the parameters
-	void summary() const;
+	// Prints a summary of the parameters.
+	//  This function is meant to be run AFTER the reconstruction or
+	//  sensitivity image generation was complete.
+	std::string getSummary() const;
 
 	// Configuration of the reconstruction
 	void setSensitivityHistogram(const Histogram* pp_sensitivity);
@@ -73,6 +76,13 @@ public:
 	void addProjPSF(const std::string& pr_projPsf_fname);
 	virtual void addImagePSF(const std::string& p_imagePsf_fname,
 	                         ImagePSFMode p_imagePSFMode) = 0;
+	virtual void addUniformGaussianImagePSFFromFWHM(
+	    float fwhmX, float fwhmY, float fwhmZ, const size_t* kerSizeX = nullptr,
+	    const size_t* kerSizeY = nullptr, const size_t* kerSizeZ = nullptr) = 0;
+	virtual void addUniformGaussianImagePSFFromSigma(
+	    float sigmaX, float sigmaY, float sigmaZ,
+	    const size_t* kerSizeX = nullptr, const size_t* kerSizeY = nullptr,
+	    const size_t* kerSizeZ = nullptr) = 0;
 	void addImagePSF(const std::string& p_imagePsf_fname);
 	void setSaveIterRanges(const util::RangeList& p_saveIterList,
 	                       const std::string& p_saveIterPath);
@@ -84,7 +94,7 @@ public:
 	void enableNeedToMakeCopyOfSensImage();  // For Python
 	void setImageParams(const ImageParams& params);
 	ImageParams getImageParams() const;
-	ImageParams getImageParamsForSensitivityImage() const;
+	ImageParams getImageParamsForSensImgGen() const;
 	void setRandomsHistogram(const Histogram* pp_randoms);
 	void setScatterHistogram(const Histogram* pp_scatter);
 	void setAttenuationImage(const Image* pp_attenuationImage);
@@ -106,11 +116,12 @@ public:
 	int num_MLEM_iterations;
 	int num_OSEM_subsets;
 	float hardThreshold;
+	float denomThreshold;
 
 protected:
 	// Sens Image generator driver
 	virtual void setupProjectorForSensImgGen() = 0;
-	virtual void allocateForSensImgGen() = 0;
+	virtual void prepareBuffersForSensImgGen() = 0;
 	virtual std::unique_ptr<Image>
 	    generateSensitivityImageForCurrentSubset() = 0;
 	virtual void endSensImgGen() = 0;
@@ -120,7 +131,7 @@ protected:
 	virtual void saveForCurrentIteration();
 	virtual void setupForDynamicRecon();
 	virtual void setupProjectorForRecon() = 0;
-	virtual void allocateForRecon() = 0;
+	virtual void prepareBuffersForRecon() = 0;
 	virtual void loadCurrentSubset(bool p_forRecon) = 0;
 	virtual void resetEMUpdateImage() = 0;
 	virtual void computeEMUpdateImage() = 0;

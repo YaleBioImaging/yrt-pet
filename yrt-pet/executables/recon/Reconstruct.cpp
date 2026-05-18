@@ -14,6 +14,7 @@
 #include "yrt-pet/utils/ReconstructionUtils.hpp"
 #include "yrt-pet/utils/ReconstructionUtilsDevice.cuh"
 #include "yrt-pet/utils/Timer.hpp"
+#include "yrt-pet/utils/Tools.hpp"
 #include "yrt-pet/utils/Version.hpp"
 
 #include <cxxopts.hpp>
@@ -33,8 +34,27 @@ void printTimingStatistics(const util::Timer& ioTimer,
 	          << "s" << std::endl;
 }
 
-void addImagePSFtoReconIfNeeded(OSEM& osem, std::string psf_fname,
-                                std::string varpsf_fname)
+void saveSummaryIfNeeded(const OSEM& osem, bool saveSummaryOption,
+                         const std::string& out_fname)
+{
+	if (saveSummaryOption)
+	{
+		const std::string summary = osem.getSummary();
+
+		// Replace extension and add suffix "_summary" to filename
+		std::string summary_fname = util::replaceExtension(out_fname, "txt");
+		summary_fname = util::addBeforeExtension(summary_fname, "_summary");
+
+		// Save to file
+		std::ofstream outfile(summary_fname);
+		ASSERT_MSG(outfile.is_open(),
+		           ("Error opening file \"" + summary_fname + "\"").c_str());
+		outfile << summary << std::endl;
+	}
+}
+
+void addImagePSFtoReconIfNeeded(OSEM& osem, const std::string& psf_fname,
+                                const std::string& varpsf_fname)
 {
 	if (!osem.hasImagePSF())
 	{
@@ -97,6 +117,11 @@ int main(int argc, char** argv)
 		    "Sensitivity image output filename (if it needs to be computed). "
 		    "Leave blank to not save it",
 		    false, io::TypeOfArgument::STRING, "", coreGroup);
+		registry.registerArgument(
+		    "save_summary",
+		    "Enable this to save a summary file describing the sensitivity "
+		    "image or reconstruction that was performed.",
+		    false, io::TypeOfArgument::BOOL, false, coreGroup);
 
 		// Sensitivity parameters
 		registry.registerArgument(
@@ -120,9 +145,9 @@ int main(int argc, char** argv)
 		                          "(sensitivity -> 1/sensitivity)",
 		                          false, io::TypeOfArgument::BOOL, false,
 		                          sensitivityGroup);
-		registry.registerArgument(
-		    "global_scale", "Global scaling factor to apply on the sensitivity",
-		    false, io::TypeOfArgument::FLOAT, 1.0f, sensitivityGroup);
+		registry.registerArgument("global_scale", "Global scaling factor",
+		                          false, io::TypeOfArgument::FLOAT, 1.0f,
+		                          sensitivityGroup);
 		registry.registerArgument(
 		    "move_sens", "Move the provided sensitivity image based on motion",
 		    false, io::TypeOfArgument::BOOL, false, sensitivityGroup);
@@ -180,8 +205,14 @@ int main(int argc, char** argv)
 		    "varpsf", "Image-space Variant PSF look-up table file", false,
 		    io::TypeOfArgument::STRING, "", reconstructionGroup);
 		registry.registerArgument("hard_threshold", "Hard Threshold", false,
-		                          io::TypeOfArgument::FLOAT, 1.0f,
+		                          io::TypeOfArgument::FLOAT,
+		                          OSEM::DEFAULT_HARD_THRESHOLD,
 		                          reconstructionGroup);
+		registry.registerArgument(
+		    "denom_threshold",
+		    "Denominator threshold for the EM ratio calculation", false,
+		    io::TypeOfArgument::FLOAT, OSEM::DEFAULT_DENOM_THRESHOLD,
+		    reconstructionGroup);
 		registry.registerArgument(
 		    "save_iter_step",
 		    "Increment into which to save MLEM iteration images", false,
@@ -296,6 +327,8 @@ int main(int argc, char** argv)
 		ASSERT_MSG(dataInputFilename.empty() == dataInputFormat.empty(),
 		           "Input data must come with a specified format");
 		const auto out_fname = config.getValue<std::string>("out");
+		const auto outSens_fname = config.getValue<std::string>("out_sens");
+		const bool saveSummary = config.getValue<bool>("save_summary");
 
 		if (!sensOnly)
 		{
@@ -324,11 +357,13 @@ int main(int argc, char** argv)
 		std::unique_ptr<OSEM> osem = util::createOSEM(*scanner, useGPU);
 
 		float hardThreshold = config.getValue<float>("hard_threshold");
+		float denomThreshold = config.getValue<float>("denom_threshold");
 		float globalScale = config.getValue<float>("global_scale");
 
 		osem->num_MLEM_iterations = config.getValue<int>("num_iterations");
 		osem->num_OSEM_subsets = config.getValue<int>("num_subsets");
 		osem->hardThreshold = hardThreshold;
+		osem->denomThreshold = denomThreshold;
 		osem->setProjector(projectorType);
 		osem->setNumRays(config.getValue<int>("num_rays"));
 
@@ -451,8 +486,7 @@ int main(int argc, char** argv)
 			sensTimer.run();
 
 			std::cout << "Generating sensitivity image(s)..." << std::endl;
-			osem->generateSensitivityImages(
-			    sensImages, config.getValue<std::string>("out_sens"));
+			osem->generateSensitivityImages(sensImages, outSens_fname);
 
 			sensTimer.pause();
 			ioTimer.run();
@@ -494,6 +528,7 @@ int main(int argc, char** argv)
 		if (sensOnly && lorMotion_fname.empty())
 		{
 			printTimingStatistics(ioTimer, sensTimer, reconTimer);
+			saveSummaryIfNeeded(*osem, saveSummary, outSens_fname);
 			std::cout << "Done." << std::endl;
 			return 0;
 		}
@@ -647,6 +682,7 @@ int main(int argc, char** argv)
 		if (sensOnly)
 		{
 			printTimingStatistics(ioTimer, sensTimer, reconTimer);
+			saveSummaryIfNeeded(*osem, saveSummary, outSens_fname);
 			std::cout << "Done." << std::endl;
 			return 0;
 		}
@@ -834,7 +870,7 @@ int main(int argc, char** argv)
 		reconTimer.pause();
 
 		printTimingStatistics(ioTimer, sensTimer, reconTimer);
-
+		saveSummaryIfNeeded(*osem, saveSummary, out_fname);
 		std::cout << "Done." << std::endl;
 		return 0;
 	}

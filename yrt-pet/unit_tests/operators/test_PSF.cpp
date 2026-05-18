@@ -251,6 +251,85 @@ TEST_CASE("PSF", "[psf]")
 	}
 }
 
+TEST_CASE("PSF_4D", "[psf]")
+{
+#if BUILD_CUDA
+	int numModes = 2;
+#else
+	int numModes = 1;
+#endif
+	for (int useGPU = 0; useGPU < numModes; useGPU++)
+	{
+		ImageParams imgParams4D(30, 30, 15, 30.0f, 30.0f, 15.0f, 0.0f, 0.0f,
+		                        0.0f, 2);
+
+		ImageParams imgParams3D{imgParams4D.nx,       imgParams4D.ny,
+		                        imgParams4D.nz,       imgParams4D.length_x,
+		                        imgParams4D.length_y, imgParams4D.length_z,
+		                        imgParams4D.off_x,    imgParams4D.off_y,
+		                        imgParams4D.off_z,    1};
+		auto image3DFrame0 = makeImageWithRandomPrism(imgParams3D);
+		auto image3DFrame1 = makeImageWithRandomPrism(imgParams3D);
+		auto image4D = std::make_unique<ImageOwned>(imgParams4D);
+		image4D->allocate();
+
+		const size_t frameSize = static_cast<size_t>(imgParams4D.nx) *
+		                         imgParams4D.ny * imgParams4D.nz;
+		for (size_t i = 0; i < frameSize; i++)
+		{
+			image4D->getRawPointer()[i] = image3DFrame0->getRawPointer()[i];
+			image4D->getRawPointer()[frameSize + i] =
+			    image3DFrame1->getRawPointer()[i];
+		}
+
+		std::mt19937 gen(static_cast<unsigned int>(std::time(0)));
+		std::uniform_real_distribution<float> sigmaDist(0.5f, 2.0f);
+		float sigmaX = sigmaDist(gen);
+		float sigmaY = sigmaDist(gen);
+		float sigmaZ = sigmaDist(gen);
+		std::vector<float> kernelX =
+		    generateSymmetricGaussianKernel(5, sigmaX / imgParams4D.vx);
+		std::vector<float> kernelY =
+		    generateSymmetricGaussianKernel(5, sigmaY / imgParams4D.vy);
+		std::vector<float> kernelZ =
+		    generateSymmetricGaussianKernel(3, sigmaZ / imgParams4D.vz);
+
+		std::unique_ptr<Operator> op;
+		if (useGPU)
+		{
+#if BUILD_CUDA
+			op = std::make_unique<OperatorPsfDevice>(kernelX, kernelY, kernelZ);
+#endif
+		}
+		else
+		{
+			op = std::make_unique<OperatorPsf>(kernelX, kernelY, kernelZ);
+		}
+
+		auto img_out4D = std::make_unique<ImageOwned>(imgParams4D);
+		img_out4D->allocate();
+		auto img_out3D_frame0 = std::make_unique<ImageOwned>(imgParams3D);
+		img_out3D_frame0->allocate();
+		auto img_out3D_frame1 = std::make_unique<ImageOwned>(imgParams3D);
+		img_out3D_frame1->allocate();
+
+		op->applyA(image4D.get(), img_out4D.get());
+		op->applyA(image3DFrame0.get(), img_out3D_frame0.get());
+		op->applyA(image3DFrame1.get(), img_out3D_frame1.get());
+
+		for (size_t i = 0; i < frameSize; i++)
+		{
+			CHECK(img_out4D->getRawPointer()[i] ==
+			      Approx(img_out3D_frame0->getRawPointer()[i]).epsilon(1e-4));
+		}
+		for (size_t i = 0; i < frameSize; i++)
+		{
+			CHECK(img_out4D->getRawPointer()[frameSize + i] ==
+			      Approx(img_out3D_frame1->getRawPointer()[i]).epsilon(1e-4));
+		}
+	}
+}
+
 TEST_CASE("VarPSF", "[varpsf]")
 {
 	// Random sigma generator

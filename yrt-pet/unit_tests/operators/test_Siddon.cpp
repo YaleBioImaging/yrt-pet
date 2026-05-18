@@ -780,11 +780,6 @@ TEST_CASE("multiray", "[siddon]")
 		maxZ2 = std::max(pos2[ri].z, maxZ2);
 	}
 
-	std::cout << " minX1=" << minX1 << " maxX1=" << maxX1 << " minY1=" << minY1
-	          << " maxY1=" << maxY1 << " minZ1=" << minZ1 << " maxZ1=" << maxZ1
-	          << " minX2=" << minX2 << " maxX2=" << maxX2 << " minY2=" << minY2
-	          << " maxY2=" << maxY2 << " minZ2=" << minZ2 << " maxZ2=" << maxZ2
-	          << std::endl;
 	// Check bounding box
 	CHECK(((minX1 >= p1Init.x - scanner.crystalDepth / 2) &&
 	       (minX1 <= p1Init.x + scanner.crystalDepth / 2)));

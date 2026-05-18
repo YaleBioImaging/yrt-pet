@@ -58,10 +58,20 @@ void py_setup_vector3dbase(py::module& m)
 	          const Vector3DBase<TFloat>&) const>(
 	          &Vector3DBase<TFloat>::operator-),
 	      py::is_operator(), "other"_a);
+	c.def("__isub__",
+	      static_cast<Vector3DBase<TFloat>& (Vector3DBase<TFloat>::*)(
+	          const Vector3DBase<TFloat>&)>(
+	          &Vector3DBase<TFloat>::operator-=),
+	      py::is_operator(), "other"_a);
 	c.def("__add__",
 	      static_cast<Vector3DBase<TFloat> (Vector3DBase<TFloat>::*)(
 	          const Vector3DBase<TFloat>&) const>(
 	          &Vector3DBase<TFloat>::operator+),
+	      py::is_operator(), "other"_a);
+	c.def("__iadd__",
+	      static_cast<Vector3DBase<TFloat>& (Vector3DBase<TFloat>::*)(
+	          const Vector3DBase<TFloat>&)>(
+	          &Vector3DBase<TFloat>::operator+=),
 	      py::is_operator(), "other"_a);
 	c.def("__mul__",
 	      static_cast<Vector3DBase<TFloat> (Vector3DBase<TFloat>::*)(

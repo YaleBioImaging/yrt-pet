@@ -21,7 +21,7 @@ parser.add_argument(
     help='Location of compile_commands.json file')
 parser.add_argument(
     '--base_dir', type=os.path.expanduser,
-    help='Path to YRT-PET base folder (containing CMakeFiles.txt)')
+    help='Path to YRT-PET base folder (containing CMakeLists.txt)')
 
 args_p = parser.parse_args()
 

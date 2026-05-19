@@ -229,8 +229,11 @@ for motion_frame_i in range(num_motion_frames):
            break
         curr_dynamic_frame += 1 
 
+
+    transform_t = transform.getInverse()
     transformed_phantom_np[:] = dynamic_phantom[curr_dynamic_frame]
-    transformed_phantom = transformed_phantom.transformImage(transform)
+    transformed_phantom = transformed_phantom.transformImage(transform_t)
+
     # Re-init the NumPy array since the image was re-allocated
     transformed_phantom_np = np.array(transformed_phantom, copy=False)
 
@@ -278,7 +281,7 @@ for frame_i in tqdm.trange(num_motion_frames):
 ### Adding Poisson noise to the histograms
 
 ```python
-histo_scaling = 0.05
+histo_scaling = 0.1
 for frame_i in range(num_motion_frames):
     frame_forw_his = forw_his_list[frame_i]
     frame_forw_his_np = np.array(frame_forw_his, copy=False)

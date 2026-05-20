@@ -280,8 +280,17 @@ for frame_i in tqdm.trange(num_motion_frames):
 
 ### Adding Poisson noise to the histograms
 
+In order to make the simulation more realistic, we will add Poisson
+noise to the histograms. The noise is amplified if the histograms
+are downscaled, which simulates a lower count (or lower dose).
+In this demo, we use `0.1`.
+Since these histograms will later be converted into a list-mode, a
+higher count will require more memory.
+If you are working under low memory constraints, you can use a lower
+factor to simulate an even lower count.
+
 ```python
-histo_scaling = 0.1
+histo_scaling = 0.1  # Adjust this if working with low memory.
 for frame_i in range(num_motion_frames):
     frame_forw_his = forw_his_list[frame_i]
     frame_forw_his_np = np.array(frame_forw_his, copy=False)
@@ -412,6 +421,11 @@ recon_image = osem.reconstruct()
 You can then visualize the reconstructed image as a numpy array using:
 ```python
 recon_image_np = np.array(recon_image)
-dynamic_frame_to_show = 2 # Say you want to display the third dynamic frame
-# Then use matplotlib to display `recon_image_np[dynamic_frame_to_show, 0]`
+# Then use matplotlib to display `recon_image_np[some_frame, 0]`
+```
+
+Or you can save the image in the hard drive as a NIfTI file.
+
+```python
+recon_image.writeToFile("recon_image.nii.gz")
 ```

@@ -350,6 +350,7 @@ osem = yrt.createOSEM(scanner, use_gpu=False)
 osem.setDataInput(lm_total)
 osem.setImageParams(img_params_dyn)
 osem.setProjector("S")
+osem.setNumRays(4) # 4-rays Siddon
 
 osem.num_MLEM_iterations = 10 # iterations
 osem.num_OSEM_subsets = 1 # subsets (We keep it simple at one here)
@@ -440,6 +441,10 @@ fig.tight_layout()
 fig.savefig('demo_result.png')
 fig.show()
 ```
+
+Which gives an image like this:
+
+![Resulting image](demo_result.png)
 
 Or you can save the image in the hard drive as a NIfTI file.
 

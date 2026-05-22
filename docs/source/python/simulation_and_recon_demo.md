@@ -418,10 +418,27 @@ Then, launch the reconstruction
 recon_image = osem.reconstruct()
 ```
 
-You can then visualize the reconstructed image as a numpy array using:
+You can interpret the reconstructed image as a numpy array:
 ```python
 recon_image_np = np.array(recon_image)
-# Then use matplotlib to display `recon_image_np[some_frame, 0]`
+```
+
+Then, to visualize the result, you can do:
+
+```python
+import matplotlib.pyplot as plt
+
+fig, axes = plt.subplots(ncols=2, figsize=(6.4, 3.2))
+frame_to_show = 2
+
+axes[0].matshow(dynamic_phantom[frame_to_show, 0, 20:130, 20:130], cmap='gray')
+axes[1].matshow(recon_image_np[frame_to_show, 0, 20:130, 20:130], cmap='gray')
+for ax in axes:
+    ax.xaxis.set_visible(False)
+    ax.yaxis.set_visible(False)
+fig.tight_layout()
+fig.savefig('demo_result.png')
+fig.show()
 ```
 
 Or you can save the image in the hard drive as a NIfTI file.

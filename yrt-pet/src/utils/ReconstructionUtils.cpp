@@ -17,6 +17,7 @@
 #include "yrt-pet/recon/LREM_CPU.hpp"
 #include "yrt-pet/recon/OSEM_CPU.hpp"
 #include "yrt-pet/utils/Assert.hpp"
+#include "yrt-pet/utils/AtomicUtils.hpp"
 #include "yrt-pet/utils/Concurrency.hpp"
 #include "yrt-pet/utils/Globals.hpp"
 #include "yrt-pet/utils/ProgressDisplay.hpp"
@@ -239,10 +240,9 @@ void histogram3DToListModeLUT(const Histogram3D* histo, ListModeLUTOwned* lmOut,
 
 	// Phase 1: calculate sum of histogram values
 	double sum = 0.0;
-	std::atomic_ref<double> sumRef(sum);
 	util::parallelForChunked(histo->count(), globals::getNumThreads(),
-	                         [dataPtr, &sumRef](bin_t binId, size_t /*tid*/)
-	                         { sumRef.fetch_add(dataPtr[binId]); });
+	                         [dataPtr, &sum](bin_t binId, size_t /*tid*/)
+	                         { util::atomicAdd(sum, double(dataPtr[binId])); });
 
 	// Default target number of events (histogram sum)
 	if (numEvents == 0)
@@ -251,13 +251,14 @@ void histogram3DToListModeLUT(const Histogram3D* histo, ListModeLUTOwned* lmOut,
 	}
 	// Phase 2: calculate actual number of events
 	size_t sumInt = 0.0;
-	std::atomic_ref<size_t> sumIntRef(sumInt);
 	util::parallelForChunked(
 	    histo->count(), globals::getNumThreads(),
-	    [dataPtr, sum, numEvents, &sumIntRef](bin_t binId, size_t /*tid*/)
+	    [dataPtr, sum, numEvents, &sumInt](bin_t binId, size_t /*tid*/)
 	    {
-		    sumIntRef.fetch_add(
-		        std::lround(dataPtr[binId] / sum * (double)numEvents));
+		    util::atomicAdd(
+		        sumInt,
+		        static_cast<size_t>(
+		            std::lround(dataPtr[binId] / sum * double(numEvents))));
 	    });
 
 	// Allocate list-mode data
@@ -713,8 +714,7 @@ void convertToHistogram3DInternal(const ProjectionData& dat,
 			        histoOut_constptr->getBinIdFromDetPair(d1, d2);
 			    if constexpr (RequiresAtomicAccumulation)
 			    {
-				    std::atomic_ref<float> outRef(histoDataPointer[histoBin]);
-				    outRef += projValue;
+				    util::atomicAdd(histoDataPointer[histoBin], projValue);
 			    }
 			    else
 			    {

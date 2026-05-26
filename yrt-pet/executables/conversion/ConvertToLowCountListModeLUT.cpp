@@ -116,7 +116,7 @@ int main(int argc, char** argv)
 		auto* lm = dynamic_cast<ListMode*>(dataInput.get());
 		ASSERT_MSG(lm != nullptr, "The input file seems to not be list-mode");
 
-		const size_t nEvents = lm->count();
+		const yrt::size_t nEvents = lm->count();
 		const bool hasTOF = lm->hasTOF();
 		const bool hasRandoms = lm->hasRandomsEstimates();
 		std::cout << "  " << nEvents << " events (TOF=" << hasTOF
@@ -137,12 +137,12 @@ int main(int argc, char** argv)
 		    0, N - 1);  // uniform distribution over [0, N-1]
 
 		std::vector<uint8_t> eventToLmMap(nEvents);
-		std::vector<size_t> lmSizes(N, 0);
+		std::vector<yrt::size_t> lmSizes(N, 0);
 
 		// For each event, randomly assign it to a sub-listmode and count
 		// the number of events in each sub-listmode
 		util::ProgressDisplay assignProgress(nEvents, 5);
-		for (size_t i = 0; i < nEvents; ++i)
+		for (yrt::size_t i = 0; i < nEvents; ++i)
 		{
 			const int b = lmDist(rng);
 			eventToLmMap[i] = static_cast<uint8_t>(b);
@@ -171,11 +171,11 @@ int main(int argc, char** argv)
 		const float randomsScale = 1.0f / static_cast<float>(N);
 		std::cout << "Copying events..." << std::endl;
 		util::ProgressDisplay copyProgress(nEvents, 5);
-		std::vector<size_t> writeCursors(N, 0);
-		for (size_t i = 0; i < nEvents; ++i)
+		std::vector<yrt::size_t> writeCursors(N, 0);
+		for (yrt::size_t i = 0; i < nEvents; ++i)
 		{
 			const int b = eventToLmMap[i];
-			const size_t writeIdx = writeCursors[b]++;
+			const yrt::size_t writeIdx = writeCursors[b]++;
 			auto& out = *outputLUTs[b];
 
 			out.setTimestampOfEvent(writeIdx, lm->getTimestamp(i));

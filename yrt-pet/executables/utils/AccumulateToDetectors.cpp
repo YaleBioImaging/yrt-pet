@@ -105,14 +105,14 @@ int main(int argc, char** argv)
 		}
 
 		std::cout << "Multi-threaded accumulation..." << std::endl;
-		const size_t numBins = dataInput->count();
-		const size_t numDets = scanner->getNumDets();
+		const yrt::size_t numBins = dataInput->count();
+		const yrt::size_t numDets = scanner->getNumDets();
 		auto* mapsPtr = maps.data();
 		ProjectionData* dataInputPtr = dataInput.get();
 
 		util::parallelForChunked(
 		    numBins, numThreads,
-		    [mapsPtr, dataInputPtr, numDets](bin_t bin, size_t threadId)
+		    [mapsPtr, dataInputPtr, numDets](bin_t bin, yrt::size_t threadId)
 		    {
 			    const det_pair_t detPair = dataInputPtr->getDetectorPair(bin);
 			    const float projValue = dataInputPtr->getProjectionValue(bin);

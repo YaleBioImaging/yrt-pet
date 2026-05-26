@@ -81,13 +81,13 @@ int main(int argc, char* argv[])
 
 		// Load the LOR Motion file
 		auto lorMotion = std::make_unique<LORMotion>(lorMotion_fname);
-		size_t numFrames = lorMotion->getNumFrames();
+		yrt::size_t numFrames = lorMotion->getNumFrames();
 		float totalDuration = lorMotion->getTotalDuration();
 
 		ImageParams imageParams;
 		std::unique_ptr<ImageOwned> finalImage;
 
-		size_t numImages = images_fname.size();
+		yrt::size_t numImages = images_fname.size();
 		ASSERT_MSG(
 		    numImages == numFrames,
 		    "The number of images provided must match the number of frames "

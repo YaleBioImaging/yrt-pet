@@ -7,7 +7,9 @@
 
 #include "yrt-pet/datastruct/image/ImageBase.hpp"
 #include "yrt-pet/utils/Assert.hpp"
+#include "yrt-pet/utils/AtomicUtils.hpp"
 #include "yrt-pet/utils/Tools.hpp"
+#include <atomic>
 #include <memory>
 
 #if BUILD_PYBIND11
@@ -292,10 +294,9 @@ void OperatorVarPsf::varconvolve(const Image* in, Image* out) const
 					    }
 					    else
 					    {
-						    std::atomic_ref<float> atomic_elem(
-						        outPtr[IDX3(ii, jj, kk, nx, ny)]);
-						    atomic_elem.fetch_add(temp1 *
-						                          psf_kernel.getFlat(idx));
+						    util::atomicAdd(
+						        outPtr[IDX3(ii, jj, kk, nx, ny)],
+						        temp1 * psf_kernel.getFlat(idx));
 					    }
 				    }
 			    }

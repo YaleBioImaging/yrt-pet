@@ -11,6 +11,7 @@ YRT-PET documentation
    :caption: Compilation
 
    compilation/building
+   compilation/metal_backend
    compilation/adding_plugins
 
 .. toctree::

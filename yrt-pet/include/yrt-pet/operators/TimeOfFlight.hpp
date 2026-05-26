@@ -9,6 +9,7 @@
 
 #include "yrt-pet/geometry/Constants.hpp"
 
+#include <algorithm>
 #include <cmath>
 
 namespace yrt

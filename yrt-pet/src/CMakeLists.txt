@@ -105,10 +105,81 @@ if (USE_CUDA)
     )
 endif (USE_CUDA)
 
+if (USE_METAL)
+    set(YRTPET_METAL_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/backends/metal")
+    set(YRTPET_METAL_SMOKE_SOURCE
+        "${CMAKE_CURRENT_SOURCE_DIR}/backends/metal/SmokeKernels.metal")
+    set(YRTPET_METAL_SMOKE_AIR
+        "${YRTPET_METAL_OUTPUT_DIR}/SmokeKernels.air")
+    set(YRTPET_METAL_SMOKE_METALLIB
+        "${YRTPET_METAL_OUTPUT_DIR}/SmokeKernels.metallib")
+    set(YRTPET_METAL_MODULE_CACHE_DIR
+        "${YRTPET_METAL_OUTPUT_DIR}/ModuleCache")
+
+    add_custom_command(
+        OUTPUT "${YRTPET_METAL_SMOKE_AIR}"
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${YRTPET_METAL_OUTPUT_DIR}"
+        COMMAND ${CMAKE_COMMAND} -E make_directory
+            "${YRTPET_METAL_MODULE_CACHE_DIR}"
+        COMMAND ${CMAKE_COMMAND} -E env
+            "CLANG_MODULE_CACHE_PATH=${YRTPET_METAL_MODULE_CACHE_DIR}"
+            ${YRTPET_XCRUN_EXECUTABLE} -sdk macosx metal
+            "-fmodules-cache-path=${YRTPET_METAL_MODULE_CACHE_DIR}"
+            -c "${YRTPET_METAL_SMOKE_SOURCE}"
+            -o "${YRTPET_METAL_SMOKE_AIR}"
+        DEPENDS "${YRTPET_METAL_SMOKE_SOURCE}"
+        VERBATIM)
+    add_custom_command(
+        OUTPUT "${YRTPET_METAL_SMOKE_METALLIB}"
+        COMMAND ${YRTPET_XCRUN_EXECUTABLE} -sdk macosx metallib
+            "${YRTPET_METAL_SMOKE_AIR}"
+            -o "${YRTPET_METAL_SMOKE_METALLIB}"
+        DEPENDS "${YRTPET_METAL_SMOKE_AIR}"
+        VERBATIM)
+    add_custom_target(yrtpet_metal_kernels
+        DEPENDS "${YRTPET_METAL_SMOKE_METALLIB}")
+
+    set(YRTPET_METAL_SMOKE_METALLIB "${YRTPET_METAL_SMOKE_METALLIB}"
+        CACHE INTERNAL "Path to the Metal smoke test metallib")
+
+    list(APPEND SOURCES
+        backends/metal/ExperimentalBackend.cpp
+        backends/metal/ImageMetal.cpp
+        backends/metal/ImageOps.cpp
+        backends/metal/ImageSpaceKernels.cpp
+        backends/metal/MetalBackend.cpp
+        backends/metal/MetalContext.cpp
+        backends/metal/MetalSmoke.cpp
+        backends/metal/OperatorProjectorMetalBridge.cpp
+        backends/metal/OperatorPsfMetal.cpp
+        backends/metal/PsfFileOps.cpp
+        backends/metal/PsfOps.cpp
+        backends/metal/ProjectionBatchMetal.cpp
+        backends/metal/ProjectionGeometryKernels.cpp
+        backends/metal/ProjectionGeometryOps.cpp
+        backends/metal/ProjectionVectorMetal.cpp
+        backends/metal/ProjectionVectorOps.cpp
+        backends/metal/ProjectionVectorKernels.cpp
+        backends/metal/SiddonProjectorKernels.cpp
+        backends/metal/SiddonProjectorMetal.cpp
+        backends/metal/SiddonProjectorOps.cpp)
+    set_source_files_properties(backends/metal/MetalBackend.cpp
+        PROPERTIES COMPILE_OPTIONS "-fblocks")
+endif ()
+
 define_yrtpet_lib("${SOURCES}")
 
 if (USE_CUDA)
     set_property(TARGET ${YRTPET_LIB_NAME} PROPERTY CUDA_ARCHITECTURES ${YRTPET_CUDA_ARCHITECTURES})
+endif ()
+
+if (USE_METAL)
+    target_compile_definitions(${YRTPET_LIB_NAME} PRIVATE
+        YRTPET_METAL_SMOKE_METALLIB="${YRTPET_METAL_SMOKE_METALLIB}")
+    if (BUILD_SHARED_LIB)
+        target_compile_definitions(${YRTPET_LIB_NAME}_shared PRIVATE
+            YRTPET_METAL_SMOKE_METALLIB="${YRTPET_METAL_SMOKE_METALLIB}")
+    endif ()
 endif ()
 
 # pybind111

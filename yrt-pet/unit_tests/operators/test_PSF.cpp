@@ -150,6 +150,21 @@ std::vector<float>
 	return Img_PSF;
 }
 
+TEST_CASE("PSF kernel getters", "[psf]")
+{
+	const std::vector<float> kernelX = {1.0f, 2.0f, 3.0f};
+	const std::vector<float> kernelY = {-4.0f, 5.0f, -6.0f};
+	const std::vector<float> kernelZ = {7.0f, 8.0f, 9.0f};
+	const OperatorPsf op(kernelX, kernelY, kernelZ);
+
+	CHECK(op.getKernelX() == kernelX);
+	CHECK(op.getKernelY() == kernelY);
+	CHECK(op.getKernelZ() == kernelZ);
+	CHECK(op.getKernelXFlipped() == std::vector<float>{3.0f, 2.0f, 1.0f});
+	CHECK(op.getKernelYFlipped() == std::vector<float>{-6.0f, 5.0f, -4.0f});
+	CHECK(op.getKernelZFlipped() == std::vector<float>{9.0f, 8.0f, 7.0f});
+}
+
 TEST_CASE("PSF", "[psf]")
 {
 #if BUILD_CUDA

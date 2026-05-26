@@ -53,9 +53,10 @@ namespace util
 
 			const std::streamoff offset = (startPos - m_cacheStart);
 			char* initPos = m_cache.getRawPointer() + offset;
+			const auto availableBytes =
+			    static_cast<std::streamsize>(m_cacheSize - offset);
 			const char* lastPos = std::copy_n(
-			    initPos, std::min(m_cacheSize - offset, bytesToRead),
-			    receivingBuffer);
+			    initPos, std::min(availableBytes, bytesToRead), receivingBuffer);
 			// Return the number of bytes copied
 			return lastPos - receivingBuffer;
 		}

@@ -6,6 +6,7 @@
 #include "yrt-pet/scatter/ScatterSpace.hpp"
 
 #include "yrt-pet/geometry/Constants.hpp"
+#include "yrt-pet/utils/AtomicUtils.hpp"
 
 #define FORBID_INPUT_ERROR_MESSAGE                                          \
 	"The scatter space should not be used to gather LORs, do projections, " \
@@ -553,8 +554,7 @@ void ScatterSpace::incrementValueAtomic(const ScatterSpaceIndex& idx,
 {
 	const size_t flatIdx = getFlatIdx(idx);
 	float* raw_ptr = mp_values->getRawPointer();
-	std::atomic_ref<float> atomic_elem(raw_ptr[flatIdx]);
-	atomic_elem += value;
+	util::atomicAdd(raw_ptr[flatIdx], value);
 }
 
 void ScatterSpace::incrementValue(size_t tofBin, size_t planeIndex1,

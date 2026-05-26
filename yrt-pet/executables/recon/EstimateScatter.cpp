@@ -165,9 +165,9 @@ int main(int argc, char** argv)
 		auto attImage_fname = config.getValue<std::string>("att");
 		auto attThreshold = config.getValue<float>("att_threshold");
 		auto crystalMaterial_name = config.getValue<std::string>("crystal_mat");
-		size_t numTOFBins = config.getValue<int>("n_tof");
-		size_t numPlanes = config.getValue<int>("n_planes");
-		size_t numAngles = config.getValue<int>("n_angles");
+		yrt::size_t numTOFBins = config.getValue<int>("n_tof");
+		yrt::size_t numPlanes = config.getValue<int>("n_planes");
+		yrt::size_t numAngles = config.getValue<int>("n_angles");
 		std::string scatterOut_fname = config.getValue<std::string>("out");
 		std::string saveIntermediary_dir =
 		    config.getValue<std::string>("save_intermediary");

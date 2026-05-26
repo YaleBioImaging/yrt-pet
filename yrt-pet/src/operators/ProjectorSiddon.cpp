@@ -12,11 +12,13 @@
 #include "yrt-pet/operators/ProjectorUpdater.hpp"
 #include "yrt-pet/operators/ProjectorUtils.hpp"
 #include "yrt-pet/utils/Assert.hpp"
+#include "yrt-pet/utils/AtomicUtils.hpp"
 #include "yrt-pet/utils/Globals.hpp"
 #include "yrt-pet/utils/ReconstructionUtils.hpp"
 #include "yrt-pet/utils/Types.hpp"
 
 #include <algorithm>
+#include <atomic>
 #include <vector>
 
 #if BUILD_PYBIND11
@@ -753,10 +755,9 @@ void ProjectorSiddon::project_helper(Image* img, const Line3D& lor,
 			else
 			{
 				const float output = projValue * weight;
-				const std::atomic_ref<float> atomic_elem(
-				    raw_img_ptr[dynamicFrame * numVoxelsPerFrame +
-				                imageOffset]);
-				atomic_elem += output;
+				util::atomicAdd(
+				    raw_img_ptr[dynamicFrame * numVoxelsPerFrame + imageOffset],
+				    output);
 			}
 		}
 		a_cur = a_next;

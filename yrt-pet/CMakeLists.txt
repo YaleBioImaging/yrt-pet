@@ -85,6 +85,7 @@ include(ExternalProject)
 option(BUILD_PYBIND11 "Build python bindings using pybind11" ON)
 option(BUILD_TESTS "Determines whether to build tests." ON)
 option(USE_CUDA "Enable CUDA" ON)
+option(USE_METAL "Enable experimental Metal backend scaffold" OFF)
 option(BUILD_SHARED_LIB "Additionally build YRT-PET as a shared library " OFF)
 option(DOWNLOAD_CATCH2 "Determines whether to download the Catch2 library" ON)
 option(DOWNLOAD_CXXOPTS "Determines whether to download the CxxOpts library" ON)
@@ -117,10 +118,31 @@ if (USE_CUDA)
 
 endif (USE_CUDA)
 
+if (USE_METAL)
+    if (NOT APPLE)
+        message(FATAL_ERROR "USE_METAL requires macOS/Apple platforms")
+    endif ()
+    find_library(YRTPET_METAL_FRAMEWORK Metal REQUIRED)
+    find_library(YRTPET_FOUNDATION_FRAMEWORK Foundation REQUIRED)
+    find_library(YRTPET_QUARTZCORE_FRAMEWORK QuartzCore REQUIRED)
+    find_program(YRTPET_XCRUN_EXECUTABLE xcrun REQUIRED)
+    add_compile_definitions(BUILD_METAL)
+endif ()
+
 # Common variables
 set(YRTPET_COMPILE_FEATURES cxx_std_20)
 set(YRTPET_LINK_LIBRARIES ZLIB::ZLIB ${CMAKE_THREAD_LIBS_INIT})
+if (USE_METAL)
+    list(APPEND YRTPET_LINK_LIBRARIES
+        ${YRTPET_METAL_FRAMEWORK}
+        ${YRTPET_FOUNDATION_FRAMEWORK}
+        ${YRTPET_QUARTZCORE_FRAMEWORK})
+endif ()
 set(YRTPET_INCLUDE_DIRECTORIES)
+if (USE_METAL)
+    list(APPEND YRTPET_INCLUDE_DIRECTORIES
+        ${CMAKE_SOURCE_DIR}/third_party/metal-cpp/SingleHeader)
+endif ()
 set(YRTPET_LIB_NAME yrtpet)
 
 # Default build type
@@ -158,7 +180,9 @@ function(setup_target TARGET JSON CXXOPTS PYBIND11)
     if (${PYBIND11} AND BUILD_PYBIND11)
         target_include_directories(${TARGET}
             PUBLIC ${pybind11_INCLUDE_DIR} ${Python_INCLUDE_DIRS})
-        target_link_libraries(${TARGET} PUBLIC ${Python_LIBRARIES})
+        if (NOT APPLE)
+            target_link_libraries(${TARGET} PUBLIC ${Python_LIBRARIES})
+        endif ()
         target_compile_definitions(${TARGET} PUBLIC BUILD_PYBIND11)
     endif ()
     add_compile_definitions(HAVE_ZLIB)
@@ -206,10 +230,11 @@ function(define_target_exe TARGET)
     set(JSON OFF)
     setup_target(${TARGET} ${JSON} ${CXXOPTS} ${BUILD_PYBIND11})
 
-    target_link_options(${TARGET} PUBLIC
-        -Wl,--whole-archive $<TARGET_FILE:${YRTPET_LIB_NAME}> -Wl,--no-whole-archive
-    )
-    target_link_libraries(${TARGET} PUBLIC ${YRTPET_LIB_NAME})
+    target_link_libraries(
+        ${TARGET} PUBLIC "$<LINK_LIBRARY:WHOLE_ARCHIVE,${YRTPET_LIB_NAME}>")
+    if (BUILD_PYBIND11 AND APPLE)
+        target_link_libraries(${TARGET} PUBLIC ${Python_LIBRARIES})
+    endif ()
     install(TARGETS ${TARGET} RUNTIME DESTINATION bin)
 endfunction()
 

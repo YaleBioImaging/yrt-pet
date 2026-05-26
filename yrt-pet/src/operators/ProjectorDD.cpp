@@ -10,10 +10,12 @@
 #include "yrt-pet/datastruct/scanner/Scanner.hpp"
 #include "yrt-pet/operators/OperatorProjectorBase.hpp"
 #include "yrt-pet/operators/ProjectorUtils.hpp"
+#include "yrt-pet/utils/AtomicUtils.hpp"
 #include "yrt-pet/utils/ReconstructionUtils.hpp"
 #include "yrt-pet/utils/Types.hpp"
 
 #include <algorithm>
+#include <atomic>
 
 #if BUILD_PYBIND11
 #include <pybind11/pybind11.h>
@@ -562,11 +564,10 @@ void ProjectorDD::dd_project_ref(Image* in_image, const Line3D& lor,
 							else
 							{
 								const float output = projValue * weight;
-								const std::atomic_ref<float> atomic_elem(
-								    raw_img_ptr[dynamicFrame *
-								                    numVoxelsPerFrame +
-								                imageOffset]);
-								atomic_elem += output;
+								util::atomicAdd(raw_img_ptr[dynamicFrame *
+								                                numVoxelsPerFrame +
+								                            imageOffset],
+								                output);
 							}
 						}
 					}

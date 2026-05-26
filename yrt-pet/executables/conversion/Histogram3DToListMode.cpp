@@ -23,7 +23,7 @@ int main(int argc, char** argv)
 		std::string scanner_fname;
 		std::string input_fname;
 		std::string out_fname;
-		size_t numEvents = 0;
+		yrt::size_t numEvents = 0;
 		int numThreads = -1;
 
 		// Parse command line arguments
@@ -37,7 +37,7 @@ int main(int argc, char** argv)
 		("s,scanner", "Scanner parameters file", cxxopts::value<std::string>(scanner_fname))
 		("i,input", "Input histogram file", cxxopts::value<std::string>(input_fname))
 		("o,out", "Output list-mode filename", cxxopts::value<std::string>(out_fname))
-		("n,num", "Number of list-mode events", cxxopts::value<size_t>(numEvents))
+		("n,num", "Number of list-mode events", cxxopts::value<yrt::size_t>(numEvents))
 		("num_threads", "Number of threads to use", cxxopts::value<int>(numThreads))
 		("version", "Print version information")
 		("h,help", "Print help");

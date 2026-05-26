@@ -12,7 +12,8 @@ namespace util
 
 class Timer
 {
-	using walltime_t = std::chrono::time_point<std::chrono::system_clock>;
+	using clock_t = std::chrono::high_resolution_clock;
+	using walltime_t = std::chrono::time_point<clock_t>;
 
 	using duration_t =
 	    std::chrono::duration<signed long int, std::ratio<1, 1000000000>>;

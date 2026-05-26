@@ -7,8 +7,10 @@
 #include "yrt-pet/datastruct/image/Image.hpp"
 
 #include "yrt-pet/datastruct/image/ImageDevice.cuh"
+#include "yrt-pet/utils/AtomicUtils.hpp"
 #include "yrt-pet/utils/Types.hpp"
 
+#include <atomic>
 
 #if BUILD_PYBIND11
 #include <pybind11/numpy.h>
@@ -91,9 +93,8 @@ void ProjectorUpdaterDefault4D::backUpdate(float value, float weight,
                                            int /*tid*/)
 {
 	const float output = value * weight;
-	const std::atomic_ref<float> atomic_elem(
-	    cur_img_ptr[dynamicFrame * numVoxelsPerFrame + offset]);
-	atomic_elem += output;
+	util::atomicAdd(cur_img_ptr[dynamicFrame * numVoxelsPerFrame + offset],
+	                output);
 }
 
 
@@ -258,9 +259,7 @@ void ProjectorUpdaterLR::backUpdate(float value, float weight,
 			    *(H_ptr + l * m_numDynamicFrames + dynamicFrame);
 			const size_t offset_rank = l * numVoxelsPerFrame;
 			const float output = Ay * cur_H_ptr;
-			const std::atomic_ref<float> atomic_elem(
-			    cur_img_ptr[offset + offset_rank]);
-			atomic_elem += output;
+			util::atomicAdd(cur_img_ptr[offset + offset_rank], output);
 		}
 	}
 	else
@@ -301,9 +300,7 @@ void ProjectorUpdaterLRDualUpdate::backUpdate(float value, float weight,
 		const float outputWUpdate = Ay * cur_H_ptr;
 		const float outputHUpdate = Ay * W_ptr_read[offset + offset_rank];
 		H_ptr_write[l * m_numDynamicFrames + dynamicFrame] += outputHUpdate;
-		const std::atomic_ref<float> atomic_elemW(
-		    cur_img_ptr[offset + offset_rank]);
-		atomic_elemW += outputWUpdate;
+		util::atomicAdd(cur_img_ptr[offset + offset_rank], outputWUpdate);
 	}
 }
 

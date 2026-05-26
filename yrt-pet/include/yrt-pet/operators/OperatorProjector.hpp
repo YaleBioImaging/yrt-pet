@@ -40,6 +40,9 @@ public:
 	void applyA(const Variable* in, Variable* out) override;
 	void applyAH(const Variable* in, Variable* out) override;
 
+	void setExperimentalMetalProjectorEnabled(bool enabled);
+	bool isExperimentalMetalProjectorEnabled() const;
+
 	void addTOF(float tofWidth_ps, int tofNumStd = -1);
 	void addProjPSF(const std::string& projPsf_fname);
 	void setUpdater(std::unique_ptr<ProjectorUpdater> pp_updater);
@@ -64,5 +67,7 @@ protected:
 
 	// To hold temporary projection-space data (one row per thread)
 	std::unique_ptr<BinLoader> mp_binLoader;
+
+	bool m_experimentalMetalProjectorEnabled = false;
 };
 }  // namespace yrt

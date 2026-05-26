@@ -18,6 +18,10 @@
 #include "yrt-pet/utils/ReconstructionUtils.hpp"
 #include "yrt-pet/utils/Tools.hpp"
 
+#if BUILD_METAL
+#include "yrt-pet/backends/metal/MetalContext.hpp"
+#include "yrt-pet/backends/metal/OperatorProjectorMetalBridge.hpp"
+#endif
 
 #if BUILD_PYBIND11
 #include <pybind11/numpy.h>
@@ -272,6 +276,19 @@ void OperatorProjector::applyA(const Variable* in, Variable* out)
 		    "not match the image's fourth dimension");
 	}
 
+	if (m_experimentalMetalProjectorEnabled)
+	{
+#if BUILD_METAL
+		const backend::metal::Context context;
+		const backend::metal::OperatorProjectorMetalBridge bridge(context);
+		if (bridge.canRunSiddon(*this).supported &&
+		    bridge.applyA(*this, *img, *dat, *binIter, *mp_binLoader))
+		{
+			return;
+		}
+#endif
+	}
+
 	mp_binLoader->parallelDoOnBins(
 	    *dat, *binIter,
 	    [&img, &dat, this](const ProjectionPropertyManager& propManager,
@@ -300,6 +317,19 @@ void OperatorProjector::applyAH(const Variable* in, Variable* out)
 		    "not match the image's fourth dimension");
 	}
 
+	if (m_experimentalMetalProjectorEnabled)
+	{
+#if BUILD_METAL
+		const backend::metal::Context context;
+		const backend::metal::OperatorProjectorMetalBridge bridge(context);
+		if (bridge.canRunSiddon(*this).supported &&
+		    bridge.applyAH(*this, *dat, *img, *binIter, *mp_binLoader))
+		{
+			return;
+		}
+#endif
+	}
+
 	mp_binLoader->parallelDoOnBins(
 	    *dat, *binIter,
 	    [&img, &dat, this](const ProjectionPropertyManager& propManager,
@@ -313,6 +343,16 @@ void OperatorProjector::applyAH(const Variable* in, Variable* out)
 		    mp_projector->backProjection(img, propManager, propStruct, pos,
 		                                 projValue);
 	    });
+}
+
+void OperatorProjector::setExperimentalMetalProjectorEnabled(bool enabled)
+{
+	m_experimentalMetalProjectorEnabled = enabled;
+}
+
+bool OperatorProjector::isExperimentalMetalProjectorEnabled() const
+{
+	return m_experimentalMetalProjectorEnabled;
 }
 
 void OperatorProjector::addTOF(float tofWidth_ps, int tofNumStd)

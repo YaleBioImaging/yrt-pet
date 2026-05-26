@@ -392,7 +392,7 @@ const std::vector<float>& OperatorPsf::getKernelX() const
 
 const std::vector<float>& OperatorPsf::getKernelY() const
 {
-	return m_kernelX;
+	return m_kernelY;
 }
 
 const std::vector<float>& OperatorPsf::getKernelZ() const

@@ -6,6 +6,7 @@
 #include "yrt-pet/recon/OSEM_CPU.hpp"
 
 #include "yrt-pet/operators/OperatorProjectorBase.hpp"
+#include "yrt-pet/operators/OperatorProjector.hpp"
 #include "yrt-pet/operators/OperatorPsf.hpp"
 #include "yrt-pet/operators/OperatorVarPsf.hpp"
 #include "yrt-pet/operators/ProjectorDD.hpp"
@@ -14,7 +15,16 @@
 #include "yrt-pet/utils/Assert.hpp"
 #include "yrt-pet/utils/ProgressDisplayMultiThread.hpp"
 
+#include <cmath>
+#include <memory>
+#include <set>
 #include <utility>
+#include <vector>
+
+#if BUILD_METAL
+#include "yrt-pet/backends/metal/MetalContext.hpp"
+#include "yrt-pet/backends/metal/OperatorProjectorMetalBridge.hpp"
+#endif
 
 #if BUILD_PYBIND11
 #include <pybind11/pybind11.h>
@@ -27,12 +37,176 @@ namespace yrt
 void py_setup_osem_cpu(pybind11::module& m)
 {
 	auto c = py::class_<OSEM_CPU, OSEM>(m, "OSEM_CPU");
+	c.def("setExperimentalMetalProjectorEnabled",
+	      &OSEM_CPU::setExperimentalMetalProjectorEnabled, "enabled"_a);
+	c.def("isExperimentalMetalProjectorEnabled",
+	      &OSEM_CPU::isExperimentalMetalProjectorEnabled);
+	c.def("didLastExperimentalMetalProjectorRun",
+	      &OSEM_CPU::didLastExperimentalMetalProjectorRun);
 }
 }  // namespace yrt
 #endif
 
 namespace yrt
 {
+namespace
+{
+
+class ProjectionDataValuesOverlay final : public ProjectionData
+{
+public:
+	ProjectionDataValuesOverlay(const ProjectionData& source, float value)
+	    : ProjectionData(source.getScanner()),
+	      m_source{source},
+	      m_values(source.count(), value)
+	{
+	}
+
+	size_t count() const override
+	{
+		return m_source.count();
+	}
+
+	float getProjectionValue(bin_t id) const override
+	{
+		return m_values[static_cast<size_t>(id)];
+	}
+
+	void setProjectionValue(bin_t id, float val) override
+	{
+		m_values[static_cast<size_t>(id)] = val;
+	}
+
+	det_id_t getDetector1(bin_t id) const override
+	{
+		return m_source.getDetector1(id);
+	}
+
+	det_id_t getDetector2(bin_t id) const override
+	{
+		return m_source.getDetector2(id);
+	}
+
+	det_pair_t getDetectorPair(bin_t id) const override
+	{
+		return m_source.getDetectorPair(id);
+	}
+
+	histo_bin_t getHistogramBin(bin_t bin) const override
+	{
+		return m_source.getHistogramBin(bin);
+	}
+
+	std::unique_ptr<BinIterator> getBinIter(int numSubsets,
+	                                        int idxSubset) const override
+	{
+		return m_source.getBinIter(numSubsets, idxSubset);
+	}
+
+	timestamp_t getTimestamp(bin_t id) const override
+	{
+		return m_source.getTimestamp(id);
+	}
+
+	frame_t getDynamicFrame(bin_t id) const override
+	{
+		return m_source.getDynamicFrame(id);
+	}
+
+	frame_t getMotionFrame(bin_t id) const override
+	{
+		return m_source.getMotionFrame(id);
+	}
+
+	bool isUniform() const override
+	{
+		return m_source.isUniform();
+	}
+
+	bool hasRandomsEstimates() const override
+	{
+		return m_source.hasRandomsEstimates();
+	}
+
+	float getRandomsEstimate(bin_t id) const override
+	{
+		return m_source.getRandomsEstimate(id);
+	}
+
+	bool hasTOF() const override
+	{
+		return m_source.hasTOF();
+	}
+
+	float getTOFValue(bin_t id) const override
+	{
+		return m_source.getTOFValue(id);
+	}
+
+	bool hasMotion() const override
+	{
+		return m_source.hasMotion();
+	}
+
+	bool hasDynamicFraming() const override
+	{
+		return m_source.hasDynamicFraming();
+	}
+
+	size_t getNumDynamicFrames() const override
+	{
+		return m_source.getNumDynamicFrames();
+	}
+
+	size_t getNumMotionFrames() const override
+	{
+		return m_source.getNumMotionFrames();
+	}
+
+	transform_t getTransformOfMotionFrame(frame_t frame) const override
+	{
+		return m_source.getTransformOfMotionFrame(frame);
+	}
+
+	float getDurationOfMotionFrame(frame_t frame) const override
+	{
+		return m_source.getDurationOfMotionFrame(frame);
+	}
+
+	timestamp_t getScanDuration() const override
+	{
+		return m_source.getScanDuration();
+	}
+
+	bool hasArbitraryLORs() const override
+	{
+		return m_source.hasArbitraryLORs();
+	}
+
+	Line3D getArbitraryLOR(bin_t id) const override
+	{
+		return m_source.getArbitraryLOR(id);
+	}
+
+	std::set<ProjectionPropertyType> getProjectionPropertyTypes() const override
+	{
+		return m_source.getProjectionPropertyTypes();
+	}
+
+	void collectProjectionProperties(const ProjectionPropertyManager& propManager,
+	                                 PropertyUnit* props, size_t pos,
+	                                 bin_t bin) const override
+	{
+		m_source.collectProjectionProperties(propManager, props, pos, bin);
+	}
+
+private:
+	const ProjectionData& m_source;
+	std::vector<float> m_values;
+};
+
+}  // namespace
+
 
 OSEM_CPU::OSEM_CPU(const Scanner& pr_scanner)
     : OSEM(pr_scanner),
@@ -89,6 +263,21 @@ void OSEM_CPU::addUniformGaussianImagePSFFromSigma(float sigmaX, float sigmaY,
 	    sigmaX, sigmaY, sigmaZ, imageParams.vx, imageParams.vy, imageParams.vz,
 	    kerSizeX, kerSizeY, kerSizeZ);
 	m_imagePSFMode = ImagePSFMode::UNIFORM;
+}
+
+void OSEM_CPU::setExperimentalMetalProjectorEnabled(bool enabled)
+{
+	m_experimentalMetalProjectorEnabled = enabled;
+}
+
+bool OSEM_CPU::isExperimentalMetalProjectorEnabled() const
+{
+	return m_experimentalMetalProjectorEnabled;
+}
+
+bool OSEM_CPU::didLastExperimentalMetalProjectorRun() const
+{
+	return m_experimentalMetalProjectorRanLastCompute;
 }
 
 void OSEM_CPU::setupProjectorForSensImgGen()
@@ -282,6 +471,8 @@ void OSEM_CPU::resetEMUpdateImage()
 
 void OSEM_CPU::computeEMUpdateImage()
 {
+	m_experimentalMetalProjectorRanLastCompute = false;
+
 	if (flagImagePSF)
 	{
 		mp_imageTmpPsf->fill(0.0);
@@ -316,17 +507,150 @@ void OSEM_CPU::computeEMUpdateImage()
 
 	corrector.assertMeasurementsMatchCache(measurements);
 
+	bool computedWithExperimentalMetalProjector = false;
+	if (m_experimentalMetalProjectorEnabled && !flagImagePSF)
+	{
+		computedWithExperimentalMetalProjector =
+		    computeEMUpdateImageWithExperimentalMetalProjector(
+		        *inputImageForForwardProj, *destImageForBackproj,
+		        *measurements, *binIter, corrector, globalScaleFactor,
+		        hasSensitivity, hasAttenuation, hasScatterEstimates,
+		        hasRandomsEstimates, hasInVivoAttenuation);
+		m_experimentalMetalProjectorRanLastCompute =
+		    computedWithExperimentalMetalProjector;
+	}
+
+	if (!computedWithExperimentalMetalProjector)
+	{
+		mp_binLoader->parallelDoOnBins<false>(
+		    *measurements, *binIter,
+		    [&projector, &corrector, &measurements, hasRandomsEstimates,
+		     hasScatterEstimates, hasInVivoAttenuation, hasAttenuation,
+		     hasSensitivity, globalScaleFactor, &destImageForBackproj,
+		     &inputImageForForwardProj,
+		     this](const ProjectionPropertyManager& propManager,
+		           PropertyUnit* props, size_t pos, bin_t bin)
+		    {
+			    float update = projector->forwardProjection(
+			        inputImageForForwardProj, propManager, props, pos);
+
+			    if (hasSensitivity)
+			    {
+				    update *= corrector.getPrecomputedSensitivityFactor(bin);
+			    }
+			    if (hasAttenuation)
+			    {
+				    update *= corrector.getPrecomputedAttenuationFactor(bin);
+			    }
+			    update *= globalScaleFactor;
+
+			    if (hasRandomsEstimates)
+			    {
+				    update += corrector.getPrecomputedRandomsEstimate(bin);
+			    }
+			    if (hasScatterEstimates)
+			    {
+				    update += corrector.getPrecomputedScatterEstimate(bin);
+			    }
+
+			    if (hasInVivoAttenuation)
+			    {
+				    update *=
+				        corrector.getPrecomputedInVivoAttenuationFactor(bin);
+			    }
+
+			    // to prevent numerical instability
+			    if (std::abs(update) > denomThreshold)
+			    {
+				    const float measurement =
+				        measurements->getProjectionValue(bin);
+				    update = measurement / update;
+
+				    if (hasSensitivity)
+				    {
+					    update *= corrector.getPrecomputedSensitivityFactor(bin);
+				    }
+				    if (hasAttenuation)
+				    {
+					    update *= corrector.getPrecomputedAttenuationFactor(bin);
+				    }
+				    update *= globalScaleFactor;
+
+				    projector->backProjection(destImageForBackproj,
+				                              propManager, props, pos, update);
+			    }
+		    });
+	}
+
+	// Backward PSF
+	if (flagImagePSF)
+	{
+		// We swap again here so that outImage gets back to storing the original
+		//  MLEM image. This way, we can use the imageTmpPsf buffer to compute
+		//  the PSF
+		mp_imageTmpPsf.swap(outImage);
+
+		// YN: Is this initialization necessary ?
+		mp_imageTmpPsf->fill(0.0);
+		imagePsf->applyAH(mp_mlemImageTmpEMRatio.get(), mp_imageTmpPsf.get());
+
+		// We swap these two buffers so that we can use mlemImageTmpEMRatio to
+		//  apply the image update
+		mp_mlemImageTmpEMRatio.swap(mp_imageTmpPsf);
+	}
+}
+
+bool OSEM_CPU::computeEMUpdateImageWithExperimentalMetalProjector(
+    const Image& inputImageForForwardProj, Image& destImageForBackproj,
+    const ProjectionData& measurements, const BinIterator& binIter,
+    const Corrector_CPU& corrector, float globalScaleFactor,
+    bool hasSensitivity, bool hasAttenuation, bool hasScatterEstimates,
+    bool hasRandomsEstimates, bool hasInVivoAttenuation)
+{
+#if BUILD_METAL
+	if (flagImagePSF || mp_binLoader == nullptr)
+	{
+		return false;
+	}
+
+	const backend::metal::Context context;
+	if (!context.isValid())
+	{
+		return false;
+	}
+
+	std::vector<Constraint*> constraints = getConstraintsAsVectorOfPointers();
+	OperatorProjector projector(projectorParams, &binIter, constraints);
+	const BinLoader* bridgeBinLoader = projector.getBinLoader();
+	if (bridgeBinLoader == nullptr)
+	{
+		return false;
+	}
+
+	const backend::metal::OperatorProjectorMetalBridge bridge(context);
+	if (!bridge.canRunSiddon(projector).supported)
+	{
+		return false;
+	}
+
+	ProjectionDataValuesOverlay estimatedProjections(measurements, 0.0f);
+	if (!bridge.applyA(projector, inputImageForForwardProj,
+	        estimatedProjections, binIter, *bridgeBinLoader))
+	{
+		return false;
+	}
+
+	ProjectionDataValuesOverlay ratioProjections(measurements, 0.0f);
 	mp_binLoader->parallelDoOnBins<false>(
-	    *measurements, *binIter,
-	    [&projector, &corrector, &measurements, hasRandomsEstimates,
-	     hasScatterEstimates, hasInVivoAttenuation, hasAttenuation,
-	     hasSensitivity, globalScaleFactor, &destImageForBackproj,
-	     &inputImageForForwardProj,
-	     this](const ProjectionPropertyManager& propManager,
-	           PropertyUnit* props, size_t pos, bin_t bin)
+	    measurements, binIter,
+	    [&estimatedProjections, &ratioProjections, &corrector, &measurements,
+	     hasRandomsEstimates, hasScatterEstimates, hasInVivoAttenuation,
+	     hasAttenuation, hasSensitivity,
+	     globalScaleFactor,
+	     this](const ProjectionPropertyManager& /*propManager*/,
+	           PropertyUnit* /*props*/, size_t /*pos*/, bin_t bin)
 	    {
-		    float update = projector->forwardProjection(
-		        inputImageForForwardProj, propManager, props, pos);
+		    float update = estimatedProjections.getProjectionValue(bin);
 
 		    if (hasSensitivity)
 		    {
@@ -352,11 +676,9 @@ void OSEM_CPU::computeEMUpdateImage()
 			    update *= corrector.getPrecomputedInVivoAttenuationFactor(bin);
 		    }
 
-		    // to prevent numerical instability
 		    if (std::abs(update) > denomThreshold)
 		    {
-			    const float measurement = measurements->getProjectionValue(bin);
-			    update = measurement / update;
+			    update = measurements.getProjectionValue(bin) / update;
 
 			    if (hasSensitivity)
 			    {
@@ -368,27 +690,26 @@ void OSEM_CPU::computeEMUpdateImage()
 			    }
 			    update *= globalScaleFactor;
 
-			    projector->backProjection(destImageForBackproj, propManager,
-			                              props, pos, update);
+			    ratioProjections.setProjectionValue(bin, update);
 		    }
 	    });
 
-	// Backward PSF
-	if (flagImagePSF)
-	{
-		// We swap again here so that outImage gets back to storing the original
-		//  MLEM image. This way, we can use the imageTmpPsf buffer to compute
-		//  the PSF
-		mp_imageTmpPsf.swap(outImage);
-
-		// YN: Is this initialization necessary ?
-		mp_imageTmpPsf->fill(0.0);
-		imagePsf->applyAH(mp_mlemImageTmpEMRatio.get(), mp_imageTmpPsf.get());
-
-		// We swap these two buffers so that we can use mlemImageTmpEMRatio to
-		//  apply the image update
-		mp_mlemImageTmpEMRatio.swap(mp_imageTmpPsf);
-	}
+	return bridge.applyAH(projector, ratioProjections, destImageForBackproj,
+	                      binIter, *bridgeBinLoader);
+#else
+	(void)inputImageForForwardProj;
+	(void)destImageForBackproj;
+	(void)measurements;
+	(void)binIter;
+	(void)corrector;
+	(void)globalScaleFactor;
+	(void)hasSensitivity;
+	(void)hasAttenuation;
+	(void)hasScatterEstimates;
+	(void)hasRandomsEstimates;
+	(void)hasInVivoAttenuation;
+	return false;
+#endif
 }
 
 void OSEM_CPU::applyImageUpdate()

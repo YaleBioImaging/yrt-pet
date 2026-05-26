@@ -29,6 +29,10 @@ public:
 	    const size_t* kerSizeX = nullptr, const size_t* kerSizeY = nullptr,
 	    const size_t* kerSizeZ = nullptr) override;
 
+	void setExperimentalMetalProjectorEnabled(bool enabled);
+	bool isExperimentalMetalProjectorEnabled() const;
+	bool didLastExperimentalMetalProjectorRun() const;
+
 protected:
 	// Sens Image generator driver
 	void setupProjectorForSensImgGen() override;
@@ -65,9 +69,17 @@ protected:
 	std::unique_ptr<Image> mp_imageTmpPsf;
 	// Corrector
 	std::unique_ptr<Corrector_CPU> mp_corrector;
+	bool m_experimentalMetalProjectorEnabled = false;
+	bool m_experimentalMetalProjectorRanLastCompute = false;
 
 private:
 	void initBinLoader(bool forRecon);
 	std::set<ProjectionPropertyType> getNeededProperties(bool forRecon) const;
+	bool computeEMUpdateImageWithExperimentalMetalProjector(
+	    const Image& inputImageForForwardProj, Image& destImageForBackproj,
+	    const ProjectionData& measurements, const BinIterator& binIter,
+	    const Corrector_CPU& corrector, float globalScaleFactor,
+	    bool hasSensitivity, bool hasAttenuation, bool hasScatterEstimates,
+	    bool hasRandomsEstimates, bool hasInVivoAttenuation);
 };
 }  // namespace yrt

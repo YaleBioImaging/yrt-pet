@@ -6,7 +6,10 @@
 #include "yrt-pet/datastruct/projection/LORMotion.hpp"
 #include "yrt-pet/utils/Assert.hpp"
 
+#include <cerrno>
 #include <charconv>
+#include <cstdlib>
+#include <cctype>
 #include <iomanip>
 #include <iostream>
 
@@ -47,6 +50,27 @@ void py_setup_lormotion(py::module& m)
 
 namespace yrt
 {
+namespace
+{
+std::errc parseFloat(const char* first, const char* last, float& value,
+                     const char*& next)
+{
+	errno = 0;
+	char* parsedEnd = nullptr;
+	value = std::strtof(first, &parsedEnd);
+	next = parsedEnd;
+	if (parsedEnd == first || parsedEnd > last)
+	{
+		return std::errc::invalid_argument;
+	}
+	if (errno == ERANGE)
+	{
+		return std::errc::result_out_of_range;
+	}
+	return std::errc();
+}
+}  // namespace
+
 LORMotion::LORMotion(const std::string& filename)
 {
 	readFromFile(filename);
@@ -155,7 +179,8 @@ void LORMotion::readFromFile(const std::string& filename)
 			}
 
 			float val;
-			auto [np, ecf] = std::from_chars(ptr, end, val);
+			const char* np = nullptr;
+			const std::errc ecf = parseFloat(ptr, end, val, np);
 			if (ecf != std::errc())
 			{
 				std::cerr << "Line " << lineNumber << ": invalid float\n";
@@ -179,7 +204,8 @@ void LORMotion::readFromFile(const std::string& filename)
 			std::cerr << "Line " << lineNumber << ": missing error value\n";
 			continue;
 		}
-		auto [p3, ec3] = std::from_chars(ptr, end, rec.error);
+		const char* p3 = nullptr;
+		const std::errc ec3 = parseFloat(ptr, end, rec.error, p3);
 		if (ec3 != std::errc())
 		{
 			std::cerr << "Line " << lineNumber << ": invalid error value\n";

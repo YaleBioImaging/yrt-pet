@@ -70,6 +70,15 @@ target_include_directories(test_runner_datastruct PUBLIC ${PROJECT_SOURCE_DIR})
 target_link_libraries(test_runner_misc PUBLIC Catch)
 add_test(test_runner_misc test_runner_misc)
 
+if (USE_METAL)
+    define_target_exe(yrtpet_metal_tests metal/MetalTests.cpp)
+    add_dependencies(yrtpet_metal_tests yrtpet_metal_kernels)
+    add_test(NAME yrtpet_metal_tests COMMAND yrtpet_metal_tests)
+    set_tests_properties(yrtpet_metal_tests PROPERTIES
+        LABELS "metal"
+        SKIP_RETURN_CODE 77)
+endif ()
+
 if (${BUILD_PYBIND11})
     set(SOURCE_PYTEST
         test_datastruct.py)

@@ -254,7 +254,8 @@ namespace
 
 bool isValidExperimentalMetalProjectorKernelName(const std::string& kernel)
 {
-	return kernel == "siddon" || kernel == "joseph";
+	return kernel == "siddon" || kernel == "joseph" ||
+	       kernel == "joseph_texture_forward";
 }
 
 #if BUILD_METAL
@@ -264,6 +265,11 @@ backend::metal::OperatorProjectorMetalKernel
 	if (kernel == "joseph")
 	{
 		return backend::metal::OperatorProjectorMetalKernel::Joseph;
+	}
+	if (kernel == "joseph_texture_forward")
+	{
+		return backend::metal::OperatorProjectorMetalKernel::
+		    JosephTextureForward;
 	}
 	return backend::metal::OperatorProjectorMetalKernel::Siddon;
 }
@@ -417,7 +423,7 @@ void OperatorProjector::setExperimentalMetalProjectorKernel(
 	{
 		throw std::invalid_argument(
 		    "Experimental Metal projector kernel must be 'siddon' or "
-		    "'joseph'");
+		    "'joseph' or 'joseph_texture_forward'");
 	}
 	m_experimentalMetalProjectorKernel = kernel;
 }

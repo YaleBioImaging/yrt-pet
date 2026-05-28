@@ -37,7 +37,8 @@ struct OperatorProjectorMetalSupport
 enum class OperatorProjectorMetalKernel
 {
 	Siddon,
-	Joseph
+	Joseph,
+	JosephTextureForward
 };
 
 struct OperatorProjectorMetalOsemConfig

@@ -1716,6 +1716,48 @@ inline float joseph_bilinear_forward(device const float* image, uint axis,
 	           joseph_image_value(image, x0 + 1, y0 + 1, majorIndex, params);
 }
 
+inline float joseph_texture_coord(float gridCoord, uint size)
+{
+	return (gridCoord + 0.5f) / float(size);
+}
+
+inline float joseph_texture_forward(
+    texture3d<float, access::sample> imageTexture, sampler imageSampler,
+    uint axis, int majorIndex, float alpha, ProjectionLineEndpoints line,
+    SiddonForwardImageParams params)
+{
+	const float x = line.p1x + alpha * (line.p2x - line.p1x);
+	const float y = line.p1y + alpha * (line.p2y - line.p1y);
+	const float z = line.p1z + alpha * (line.p2z - line.p1z);
+
+	float gx = 0.0f;
+	float gy = 0.0f;
+	float gz = 0.0f;
+	if (axis == 0u)
+	{
+		gx = float(majorIndex);
+		gy = joseph_grid_coord(y, params.halfLengthY, params.invVoxelY);
+		gz = joseph_grid_coord(z, params.halfLengthZ, params.invVoxelZ);
+	}
+	else if (axis == 1u)
+	{
+		gx = joseph_grid_coord(x, params.halfLengthX, params.invVoxelX);
+		gy = float(majorIndex);
+		gz = joseph_grid_coord(z, params.halfLengthZ, params.invVoxelZ);
+	}
+	else
+	{
+		gx = joseph_grid_coord(x, params.halfLengthX, params.invVoxelX);
+		gy = joseph_grid_coord(y, params.halfLengthY, params.invVoxelY);
+		gz = float(majorIndex);
+	}
+
+	return imageTexture.sample(imageSampler,
+	    float3(joseph_texture_coord(gx, params.nx),
+	           joseph_texture_coord(gy, params.ny),
+	           joseph_texture_coord(gz, params.nz))).r;
+}
+
 template <typename AtomicImagePointer>
 inline void joseph_add_voxel(AtomicImagePointer image, int vx, int vy, int vz,
                              float update,
@@ -1841,6 +1883,45 @@ inline float joseph_forward_single_ray_value(
 	return projection;
 }
 
+inline float joseph_forward_single_ray_texture_value(
+    texture3d<float, access::sample> imageTexture, sampler imageSampler,
+    ProjectionLineEndpoints line, SiddonForwardImageParams params)
+{
+	float alphaMin;
+	float alphaMax;
+	if (!joseph_alpha_range(line, params, alphaMin, alphaMax))
+	{
+		return 0.0f;
+	}
+	const uint axis = joseph_major_axis(line, params);
+	int first;
+	int last;
+	if (!joseph_sample_bounds(line, params, axis, alphaMin, alphaMax, first,
+	        last))
+	{
+		return 0.0f;
+	}
+
+	float projection = 0.0f;
+	for (int majorIndex = first; majorIndex <= last; ++majorIndex)
+	{
+		const float weight =
+		    joseph_sample_weight(line, params, axis, majorIndex, alphaMin,
+		                         alphaMax);
+		if (weight == 0.0f)
+		{
+			continue;
+		}
+		const float alpha =
+		    joseph_sample_alpha(line, params, axis, majorIndex);
+		projection += weight *
+		              joseph_texture_forward(
+		                  imageTexture, imageSampler, axis, majorIndex,
+		                  alpha, line, params);
+	}
+	return projection;
+}
+
 template <typename AtomicImagePointer>
 inline void joseph_backproject_single_ray_atomic_value(
     AtomicImagePointer image, ProjectionLineEndpoints line,
@@ -1924,6 +2005,18 @@ kernel void joseph_forward_single_ray(
 {
 	projectionValues[id] =
 	    joseph_forward_single_ray_value(image, lines[id], params);
+}
+
+kernel void joseph_forward_single_ray_texture(
+    device const ProjectionLineEndpoints* lines [[buffer(0)]],
+    device float* projectionValues [[buffer(1)]],
+    constant SiddonForwardImageParams& params [[buffer(2)]],
+    texture3d<float, access::sample> imageTexture [[texture(0)]],
+    sampler imageSampler [[sampler(0)]],
+    uint id [[thread_position_in_grid]])
+{
+	projectionValues[id] = joseph_forward_single_ray_texture_value(
+	    imageTexture, imageSampler, lines[id], params);
 }
 
 kernel void joseph_backproject_single_ray(

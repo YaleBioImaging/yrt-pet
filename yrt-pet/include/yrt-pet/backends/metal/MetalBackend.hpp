@@ -17,6 +17,8 @@ class Device;
 class Library;
 class CommandQueue;
 class Buffer;
+class Texture3D;
+class Sampler;
 
 struct BufferBinding
 {
@@ -31,10 +33,28 @@ struct BytesBinding
 	std::size_t index;
 };
 
+struct TextureBinding
+{
+	const Texture3D* texture;
+	std::size_t index;
+};
+
+struct SamplerBinding
+{
+	const Sampler* sampler;
+	std::size_t index;
+};
+
 bool launchKernel1D(const Device& device, const Library& library,
     const CommandQueue& commandQueue, const std::string& functionName,
     const std::vector<BufferBinding>& buffers,
     const std::vector<BytesBinding>& bytes, std::size_t valueCount);
+bool launchKernel1D(const Device& device, const Library& library,
+    const CommandQueue& commandQueue, const std::string& functionName,
+    const std::vector<BufferBinding>& buffers,
+    const std::vector<BytesBinding>& bytes,
+    const std::vector<TextureBinding>& textures,
+    const std::vector<SamplerBinding>& samplers, std::size_t valueCount);
 
 class Device
 {
@@ -55,10 +75,18 @@ private:
 	friend class Library;
 	friend class CommandQueue;
 	friend class Buffer;
+	friend class Texture3D;
+	friend class Sampler;
 	friend bool launchKernel1D(const Device& device, const Library& library,
 	    const CommandQueue& commandQueue, const std::string& functionName,
 	    const std::vector<BufferBinding>& buffers,
 	    const std::vector<BytesBinding>& bytes, std::size_t valueCount);
+	friend bool launchKernel1D(const Device& device, const Library& library,
+	    const CommandQueue& commandQueue, const std::string& functionName,
+	    const std::vector<BufferBinding>& buffers,
+	    const std::vector<BytesBinding>& bytes,
+	    const std::vector<TextureBinding>& textures,
+	    const std::vector<SamplerBinding>& samplers, std::size_t valueCount);
 	friend bool launchSmokeAddOne(const Device& device, const Library& library,
 	    const CommandQueue& commandQueue, const Buffer& input, Buffer& output,
 	    std::size_t valueCount);
@@ -84,6 +112,12 @@ private:
 	    const CommandQueue& commandQueue, const std::string& functionName,
 	    const std::vector<BufferBinding>& buffers,
 	    const std::vector<BytesBinding>& bytes, std::size_t valueCount);
+	friend bool launchKernel1D(const Device& device, const Library& library,
+	    const CommandQueue& commandQueue, const std::string& functionName,
+	    const std::vector<BufferBinding>& buffers,
+	    const std::vector<BytesBinding>& bytes,
+	    const std::vector<TextureBinding>& textures,
+	    const std::vector<SamplerBinding>& samplers, std::size_t valueCount);
 	friend bool launchSmokeAddOne(const Device& device, const Library& library,
 	    const CommandQueue& commandQueue, const Buffer& input, Buffer& output,
 	    std::size_t valueCount);
@@ -109,6 +143,12 @@ private:
 	    const CommandQueue& commandQueue, const std::string& functionName,
 	    const std::vector<BufferBinding>& buffers,
 	    const std::vector<BytesBinding>& bytes, std::size_t valueCount);
+	friend bool launchKernel1D(const Device& device, const Library& library,
+	    const CommandQueue& commandQueue, const std::string& functionName,
+	    const std::vector<BufferBinding>& buffers,
+	    const std::vector<BytesBinding>& bytes,
+	    const std::vector<TextureBinding>& textures,
+	    const std::vector<SamplerBinding>& samplers, std::size_t valueCount);
 	friend bool launchSmokeAddOne(const Device& device, const Library& library,
 	    const CommandQueue& commandQueue, const Buffer& input, Buffer& output,
 	    std::size_t valueCount);
@@ -144,9 +184,69 @@ private:
 	    const CommandQueue& commandQueue, const std::string& functionName,
 	    const std::vector<BufferBinding>& buffers,
 	    const std::vector<BytesBinding>& bytes, std::size_t valueCount);
+	friend bool launchKernel1D(const Device& device, const Library& library,
+	    const CommandQueue& commandQueue, const std::string& functionName,
+	    const std::vector<BufferBinding>& buffers,
+	    const std::vector<BytesBinding>& bytes,
+	    const std::vector<TextureBinding>& textures,
+	    const std::vector<SamplerBinding>& samplers, std::size_t valueCount);
 	friend bool launchSmokeAddOne(const Device& device, const Library& library,
 	    const CommandQueue& commandQueue, const Buffer& input, Buffer& output,
 	    std::size_t valueCount);
+};
+
+class Texture3D
+{
+public:
+	Texture3D();
+
+	static Texture3D allocateR32Float(const Device& device, std::size_t width,
+	                                  std::size_t height, std::size_t depth);
+
+	bool isValid() const;
+	std::size_t width() const;
+	std::size_t height() const;
+	std::size_t depth() const;
+	bool copyFromHost(const void* source, std::size_t bytesPerRow,
+	                  std::size_t bytesPerImage);
+
+private:
+	struct Impl;
+
+	explicit Texture3D(std::shared_ptr<Impl> pp_impl);
+
+	std::shared_ptr<Impl> mp_impl;
+
+	friend bool launchKernel1D(const Device& device, const Library& library,
+	    const CommandQueue& commandQueue, const std::string& functionName,
+	    const std::vector<BufferBinding>& buffers,
+	    const std::vector<BytesBinding>& bytes,
+	    const std::vector<TextureBinding>& textures,
+	    const std::vector<SamplerBinding>& samplers, std::size_t valueCount);
+};
+
+class Sampler
+{
+public:
+	Sampler();
+
+	static Sampler createLinearClampToZero(const Device& device);
+
+	bool isValid() const;
+
+private:
+	struct Impl;
+
+	explicit Sampler(std::shared_ptr<Impl> pp_impl);
+
+	std::shared_ptr<Impl> mp_impl;
+
+	friend bool launchKernel1D(const Device& device, const Library& library,
+	    const CommandQueue& commandQueue, const std::string& functionName,
+	    const std::vector<BufferBinding>& buffers,
+	    const std::vector<BytesBinding>& bytes,
+	    const std::vector<TextureBinding>& textures,
+	    const std::vector<SamplerBinding>& samplers, std::size_t valueCount);
 };
 
 bool isDeviceAvailable();

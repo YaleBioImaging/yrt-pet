@@ -571,6 +571,36 @@ def update_actual_metal_cache_usage(row, profile):
     row["metal_cache_used_gib"] = bytes_to_gib(cache_used_bytes)
 
 
+def env_flag(name):
+    return os.environ.get(name, "") not in ("", "0")
+
+
+def print_metal_projector_notes(args):
+    if not (args.compare_metal or args.metal_only):
+        return
+    if args.metal_projector != "joseph":
+        return
+
+    if not env_flag("YRTPET_METAL_USE_NATIVE_FLOAT_ATOMICS"):
+        print(
+            "NOTE: For Joseph benchmarks on Apple Silicon, current GE "
+            "full-data profiling favors "
+            "YRTPET_METAL_USE_NATIVE_FLOAT_ATOMICS=1."
+        )
+    if args.metal_joseph_forward_texture:
+        print(
+            "NOTE: --metal-joseph-forward-texture is retained only for A/B "
+            "testing; the current GE full-data checkpoint was slower than the "
+            "buffer-backed Joseph forward path."
+        )
+    if env_flag("YRTPET_METAL_USE_PRIVATE_UPDATE_BUFFER"):
+        print(
+            "NOTE: YRTPET_METAL_USE_PRIVATE_UPDATE_BUFFER=1 was neutral to "
+            "slightly slower for Joseph in the current GE checkpoint; prefer "
+            "native atomics alone unless re-benchmarking."
+        )
+
+
 METAL_PROFILE_FLOAT_FIELDS = [
     "total_s",
     "setup_s",
@@ -1024,6 +1054,7 @@ def print_sweep_summary(rows):
         "metal_batch_events",
         "metal_fused_ratio",
         "metal_projector",
+        "metal_joseph_forward_texture",
         "metal_sensitivity_projector",
         "metal_native_float_atomics",
         "metal_private_update_buffer",
@@ -1136,6 +1167,7 @@ def write_summary_csv(path, rows):
         "metal_batch_events",
         "metal_fused_ratio",
         "metal_projector",
+        "metal_joseph_forward_texture",
         "metal_sensitivity_projector",
         "metal_native_float_atomics",
         "metal_private_update_buffer",
@@ -1478,13 +1510,18 @@ def run_osem(
         if not hasattr(recon, "setExperimentalMetalProjectorEnabled"):
             raise RuntimeError("This pyyrtpet build does not expose the Metal OSEM opt-in")
         recon.setExperimentalMetalProjectorEnabled(True)
-        if args.metal_projector != "siddon":
+        metal_projector_kernel = (
+            "joseph_texture_forward"
+            if args.metal_joseph_forward_texture
+            else args.metal_projector
+        )
+        if metal_projector_kernel != "siddon":
             if not hasattr(recon, "setExperimentalMetalProjectorKernel"):
                 raise RuntimeError(
                     "This pyyrtpet build does not expose Metal projector "
                     "kernel selection"
                 )
-            recon.setExperimentalMetalProjectorKernel(args.metal_projector)
+            recon.setExperimentalMetalProjectorKernel(metal_projector_kernel)
         if args.metal_fused_ratio:
             if not hasattr(recon, "setExperimentalMetalProjectorFusedRatioEnabled"):
                 raise RuntimeError(
@@ -1658,7 +1695,20 @@ def parse_args():
         help=(
             "Experimental Metal projector kernel for the OSEM opt-in path. "
             "siddon preserves the validated CPU-vs-Metal comparison path; "
-            "joseph is Metal-only unless a separate reference is provided."
+            "joseph is Metal-only unless a separate reference is provided. "
+            "For Joseph full-data benchmarks, current profiling favors "
+            "YRTPET_METAL_USE_NATIVE_FLOAT_ATOMICS=1."
+        ),
+    )
+    parser.add_argument(
+        "--metal-joseph-forward-texture",
+        action="store_true",
+        help=(
+            "Use a texture-backed experimental Joseph forward projection while "
+            "leaving Joseph adjoint/backprojection on the existing buffer path. "
+            "Requires --metal-projector joseph and "
+            "--metal-sensitivity-projector joseph. Retained for A/B tests; "
+            "not recommended by the current GE full-data checkpoint."
         ),
     )
     parser.add_argument(
@@ -1907,6 +1957,10 @@ def validate_metric_args(args):
         raise SystemExit("--metal-only and --compare-metal are mutually exclusive")
     if args.metal_only and args.validate_metrics:
         raise SystemExit("--metal-only cannot validate CPU-vs-Metal metrics")
+    if args.metal_joseph_forward_texture and args.metal_projector != "joseph":
+        raise SystemExit(
+            "--metal-joseph-forward-texture requires --metal-projector joseph"
+        )
     if args.compare_metal and args.metal_projector != "siddon":
         raise SystemExit(
             "--compare-metal requires --metal-projector siddon because the CPU "
@@ -1925,6 +1979,14 @@ def validate_metric_args(args):
                 "--metal-projector joseph so the OSEM numerator and denominator "
                 "use the same experimental projector family"
             )
+    if (
+        args.metal_joseph_forward_texture
+        and args.metal_sensitivity_projector != "joseph"
+    ):
+        raise SystemExit(
+            "--metal-joseph-forward-texture requires "
+            "--metal-sensitivity-projector joseph"
+        )
     if args.metal_batch_events < 0:
         raise SystemExit("--metal-batch-events must be non-negative")
     if args.metal_cache_pressure_cap_mb < 0.0:
@@ -1986,9 +2048,11 @@ def run_case(args, out_dir, write_images, case_label="", emit_pass=True):
     print(f"compare_metal={args.compare_metal}")
     print(f"metal_only={args.metal_only}")
     print(f"metal_projector={args.metal_projector}")
+    print(f"metal_joseph_forward_texture={args.metal_joseph_forward_texture}")
     print(f"metal_sensitivity_projector={args.metal_sensitivity_projector}")
     cache_plan = metal_cache_plan(args, used_events)
     print_metal_cache_plan(cache_plan, args)
+    print_metal_projector_notes(args)
 
     row = {
         "case": case_label,
@@ -2001,14 +2065,13 @@ def run_case(args, out_dir, write_images, case_label="", emit_pass=True):
         "metal_batch_events": args.metal_batch_events,
         "metal_fused_ratio": args.metal_fused_ratio,
         "metal_projector": args.metal_projector,
+        "metal_joseph_forward_texture": args.metal_joseph_forward_texture,
         "metal_sensitivity_projector": args.metal_sensitivity_projector,
-        "metal_native_float_atomics": bool(
-            os.environ.get("YRTPET_METAL_USE_NATIVE_FLOAT_ATOMICS", "")
-            not in ("", "0")
+        "metal_native_float_atomics": env_flag(
+            "YRTPET_METAL_USE_NATIVE_FLOAT_ATOMICS"
         ),
-        "metal_private_update_buffer": bool(
-            os.environ.get("YRTPET_METAL_USE_PRIVATE_UPDATE_BUFFER", "")
-            not in ("", "0")
+        "metal_private_update_buffer": env_flag(
+            "YRTPET_METAL_USE_PRIVATE_UPDATE_BUFFER"
         ),
         "metal_only": args.metal_only,
     }

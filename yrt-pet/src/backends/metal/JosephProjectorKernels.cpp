@@ -68,6 +68,24 @@ bool launchJosephForwardSingleRay(const Device& device, const Library& library,
 	           {{&params, sizeof(params), 3}}, lineCount);
 }
 
+bool launchJosephForwardSingleRayTexture(const Device& device,
+    const Library& library, const CommandQueue& commandQueue,
+    const Texture3D& image, const Sampler& sampler, const Buffer& lines,
+    Buffer& projectionValues, const SiddonForwardImageParams& params,
+    std::size_t lineCount)
+{
+	return areParamsValid(params) && image.isValid() &&
+	       image.width() == params.nx && image.height() == params.ny &&
+	       image.depth() == params.nz && sampler.isValid() &&
+	       coversLineCount(lines, lineCount) &&
+	       coversFloatCount(projectionValues, lineCount) &&
+	       launchKernel1D(device, library, commandQueue,
+	           "joseph_forward_single_ray_texture",
+	           {{&lines, 0}, {&projectionValues, 1}},
+	           {{&params, sizeof(params), 2}}, {{&image, 0}},
+	           {{&sampler, 0}}, lineCount);
+}
+
 bool launchJosephBackProjectSingleRay(const Device& device,
     const Library& library, const CommandQueue& commandQueue, Buffer& image,
     const Buffer& lines, const Buffer& projectionValues,

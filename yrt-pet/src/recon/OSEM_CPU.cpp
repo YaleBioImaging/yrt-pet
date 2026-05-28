@@ -813,10 +813,12 @@ bool OSEM_CPU::isExperimentalMetalProjectorFusedRatioEnabled() const
 
 void OSEM_CPU::setExperimentalMetalProjectorKernel(const std::string& kernel)
 {
-	if (kernel != "siddon" && kernel != "joseph")
+	if (kernel != "siddon" && kernel != "joseph" &&
+	    kernel != "joseph_texture_forward")
 	{
 		throw std::invalid_argument(
-		    "Experimental Metal projector kernel must be 'siddon' or 'joseph'");
+		    "Experimental Metal projector kernel must be 'siddon', 'joseph' "
+		    "or 'joseph_texture_forward'");
 	}
 	m_experimentalMetalProjectorKernel = kernel;
 }
@@ -1330,10 +1332,18 @@ bool OSEM_CPU::computeEMUpdateImageWithExperimentalMetalProjector(
 
 	setupSeconds = getElapsedSeconds(setupStart, Clock::now());
 
-	const auto metalProjectorKernel =
-	    m_experimentalMetalProjectorKernel == "joseph" ?
-	        backend::metal::OperatorProjectorMetalKernel::Joseph :
-	        backend::metal::OperatorProjectorMetalKernel::Siddon;
+	auto metalProjectorKernel =
+	    backend::metal::OperatorProjectorMetalKernel::Siddon;
+	if (m_experimentalMetalProjectorKernel == "joseph")
+	{
+		metalProjectorKernel =
+		    backend::metal::OperatorProjectorMetalKernel::Joseph;
+	}
+	else if (m_experimentalMetalProjectorKernel == "joseph_texture_forward")
+	{
+		metalProjectorKernel =
+		    backend::metal::OperatorProjectorMetalKernel::JosephTextureForward;
+	}
 	bool didRun = false;
 	if (m_experimentalMetalProjectorFusedRatioEnabled)
 	{

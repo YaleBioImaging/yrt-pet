@@ -159,6 +159,31 @@ struct Buffer::Impl
 	bool hostVisible;
 };
 
+struct Texture3D::Impl
+{
+	Impl(NS::SharedPtr<MTL::Texture> pp_texture, std::size_t p_width,
+	     std::size_t p_height, std::size_t p_depth)
+	    : p_texture(std::move(pp_texture)), width(p_width), height(p_height),
+	      depth(p_depth)
+	{
+	}
+
+	NS::SharedPtr<MTL::Texture> p_texture;
+	std::size_t width;
+	std::size_t height;
+	std::size_t depth;
+};
+
+struct Sampler::Impl
+{
+	explicit Impl(NS::SharedPtr<MTL::SamplerState> pp_sampler)
+	    : p_sampler(std::move(pp_sampler))
+	{
+	}
+
+	NS::SharedPtr<MTL::SamplerState> p_sampler;
+};
+
 Device::Device() = default;
 
 Device::Device(std::shared_ptr<Impl> pp_impl) : mp_impl(std::move(pp_impl)) {}
@@ -407,6 +432,132 @@ bool Buffer::copyToHost(const CommandQueue& commandQueue, void* destination,
 	return true;
 }
 
+Texture3D::Texture3D() = default;
+
+Texture3D::Texture3D(std::shared_ptr<Impl> pp_impl)
+    : mp_impl(std::move(pp_impl))
+{
+}
+
+Texture3D Texture3D::allocateR32Float(const Device& device,
+                                      std::size_t width,
+                                      std::size_t height,
+                                      std::size_t depth)
+{
+	if (!device.isValid() || width == 0 || height == 0 || depth == 0)
+	{
+		return Texture3D();
+	}
+
+	const auto pool = makeAutoreleasePool();
+	(void)pool;
+
+	auto p_descriptor =
+	    NS::TransferPtr(MTL::TextureDescriptor::alloc()->init());
+	if (!p_descriptor)
+	{
+		return Texture3D();
+	}
+	p_descriptor->setTextureType(MTL::TextureType3D);
+	p_descriptor->setPixelFormat(MTL::PixelFormatR32Float);
+	p_descriptor->setWidth(toUInteger(width));
+	p_descriptor->setHeight(toUInteger(height));
+	p_descriptor->setDepth(toUInteger(depth));
+	p_descriptor->setMipmapLevelCount(1);
+	p_descriptor->setUsage(MTL::TextureUsageShaderRead);
+	p_descriptor->setStorageMode(MTL::StorageModeShared);
+
+	auto p_texture = NS::TransferPtr(
+	    device.mp_impl->p_device->newTexture(p_descriptor.get()));
+	if (!p_texture)
+	{
+		return Texture3D();
+	}
+
+	return Texture3D(std::make_shared<Impl>(
+	    std::move(p_texture), width, height, depth));
+}
+
+bool Texture3D::isValid() const
+{
+	return mp_impl && mp_impl->p_texture;
+}
+
+std::size_t Texture3D::width() const
+{
+	return isValid() ? mp_impl->width : 0;
+}
+
+std::size_t Texture3D::height() const
+{
+	return isValid() ? mp_impl->height : 0;
+}
+
+std::size_t Texture3D::depth() const
+{
+	return isValid() ? mp_impl->depth : 0;
+}
+
+bool Texture3D::copyFromHost(const void* source, std::size_t bytesPerRow,
+                             std::size_t bytesPerImage)
+{
+	if (!isValid() || source == nullptr || bytesPerRow == 0 ||
+	    bytesPerImage == 0)
+	{
+		return false;
+	}
+
+	const auto region = MTL::Region::Make3D(0, 0, 0, toUInteger(mp_impl->width),
+	    toUInteger(mp_impl->height), toUInteger(mp_impl->depth));
+	mp_impl->p_texture->replaceRegion(region, 0, 0, source,
+	    toUInteger(bytesPerRow), toUInteger(bytesPerImage));
+	return true;
+}
+
+Sampler::Sampler() = default;
+
+Sampler::Sampler(std::shared_ptr<Impl> pp_impl) : mp_impl(std::move(pp_impl))
+{
+}
+
+Sampler Sampler::createLinearClampToZero(const Device& device)
+{
+	if (!device.isValid())
+	{
+		return Sampler();
+	}
+
+	const auto pool = makeAutoreleasePool();
+	(void)pool;
+
+	auto p_descriptor =
+	    NS::TransferPtr(MTL::SamplerDescriptor::alloc()->init());
+	if (!p_descriptor)
+	{
+		return Sampler();
+	}
+	p_descriptor->setNormalizedCoordinates(true);
+	p_descriptor->setMinFilter(MTL::SamplerMinMagFilterLinear);
+	p_descriptor->setMagFilter(MTL::SamplerMinMagFilterLinear);
+	p_descriptor->setSAddressMode(MTL::SamplerAddressModeClampToZero);
+	p_descriptor->setTAddressMode(MTL::SamplerAddressModeClampToZero);
+	p_descriptor->setRAddressMode(MTL::SamplerAddressModeClampToZero);
+
+	auto p_sampler = NS::TransferPtr(
+	    device.mp_impl->p_device->newSamplerState(p_descriptor.get()));
+	if (!p_sampler)
+	{
+		return Sampler();
+	}
+
+	return Sampler(std::make_shared<Impl>(std::move(p_sampler)));
+}
+
+bool Sampler::isValid() const
+{
+	return mp_impl && mp_impl->p_sampler;
+}
+
 bool isDeviceAvailable()
 {
 	return Device::createSystemDefault().isValid();
@@ -424,6 +575,17 @@ bool launchKernel1D(const Device& device, const Library& library,
     const CommandQueue& commandQueue, const std::string& functionName,
     const std::vector<BufferBinding>& buffers,
     const std::vector<BytesBinding>& bytes, std::size_t valueCount)
+{
+	return launchKernel1D(device, library, commandQueue, functionName, buffers,
+	    bytes, {}, {}, valueCount);
+}
+
+bool launchKernel1D(const Device& device, const Library& library,
+    const CommandQueue& commandQueue, const std::string& functionName,
+    const std::vector<BufferBinding>& buffers,
+    const std::vector<BytesBinding>& bytes,
+    const std::vector<TextureBinding>& textures,
+    const std::vector<SamplerBinding>& samplers, std::size_t valueCount)
 {
 	if (!device.isValid() || !library.isValid() || !commandQueue.isValid() ||
 	    functionName.empty())
@@ -445,6 +607,20 @@ bool launchKernel1D(const Device& device, const Library& library,
 	for (const BytesBinding& byteBinding : bytes)
 	{
 		if (byteBinding.bytes == nullptr || byteBinding.byteCount == 0)
+		{
+			return false;
+		}
+	}
+	for (const TextureBinding& texture : textures)
+	{
+		if (texture.texture == nullptr || !texture.texture->isValid())
+		{
+			return false;
+		}
+	}
+	for (const SamplerBinding& sampler : samplers)
+	{
+		if (sampler.sampler == nullptr || !sampler.sampler->isValid())
 		{
 			return false;
 		}
@@ -527,6 +703,16 @@ bool launchKernel1D(const Device& device, const Library& library,
 	{
 		p_encoder->setBytes(byteBinding.bytes, toUInteger(byteBinding.byteCount),
 		    toUInteger(byteBinding.index));
+	}
+	for (const TextureBinding& texture : textures)
+	{
+		p_encoder->setTexture(texture.texture->mp_impl->p_texture.get(),
+		    toUInteger(texture.index));
+	}
+	for (const SamplerBinding& sampler : samplers)
+	{
+		p_encoder->setSamplerState(sampler.sampler->mp_impl->p_sampler.get(),
+		    toUInteger(sampler.index));
 	}
 
 	const auto gridSize = MTL::Size::Make(toUInteger(valueCount), 1, 1);

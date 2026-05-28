@@ -19,6 +19,8 @@ namespace yrt::backend::metal
 
 class Context;
 class Buffer;
+class Sampler;
+class Texture3D;
 class ProjectionBatchMetal;
 struct SiddonProjectorKernelProfile;
 
@@ -28,6 +30,13 @@ bool forwardProjectJosephSingleRay(const Context& context, const Image& image,
 bool forwardProjectJosephSingleRay(const Context& context,
     const Buffer& imageBuffer, ProjectionBatchMetal& batch,
     const SiddonForwardImageParams& params,
+    SiddonProjectorKernelProfile* profile = nullptr);
+bool uploadJosephImageFrameTexture(const Context& context, const Image& image,
+    std::uint32_t frame, Texture3D& texture, Sampler& sampler,
+    SiddonProjectorKernelProfile* profile = nullptr);
+bool forwardProjectJosephSingleRayTexture(const Context& context,
+    const Texture3D& imageTexture, const Sampler& sampler,
+    ProjectionBatchMetal& batch, const SiddonForwardImageParams& params,
     SiddonProjectorKernelProfile* profile = nullptr);
 bool backProjectJosephSingleRay(const Context& context,
     const ProjectionBatchMetal& batch, Image& image, std::uint32_t frame = 0,

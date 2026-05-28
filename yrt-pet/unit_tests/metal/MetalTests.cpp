@@ -9,6 +9,7 @@
 #include "yrt-pet/backends/metal/ImageMetal.hpp"
 #include "yrt-pet/backends/metal/ImageOps.hpp"
 #include "yrt-pet/backends/metal/JosephProjectorMetal.hpp"
+#include "yrt-pet/backends/metal/JosephProjectorOps.hpp"
 #include "yrt-pet/backends/metal/OperatorProjectorMetalBridge.hpp"
 #include "yrt-pet/backends/metal/OperatorPsfMetal.hpp"
 #include "yrt-pet/backends/metal/PsfFileOps.hpp"
@@ -1703,6 +1704,77 @@ bool runJosephProjectorMetalAdapterGoldenTest()
 	    imageDotFrame(image, metalAdjoint, frame));
 }
 
+bool runJosephProjectorMetalTextureForwardGoldenTest()
+{
+	const yrt::backend::metal::Context context;
+	yrt::backend::metal::JosephProjectorMetal projector(context);
+	if (!projector.isValid())
+	{
+		return false;
+	}
+
+	yrt::ImageParams params(5, 4, 4, 5.0f, 4.0f, 4.0f, 0.0f, 0.0f, 0.0f,
+	                        2);
+	yrt::ImageOwned image(params);
+	image.allocate();
+	for (std::size_t i = 0; i < imageVoxelCount(params); ++i)
+	{
+		image.getRawPointer()[i] =
+		    0.125f + static_cast<float>((static_cast<int>(i) % 19) - 9) *
+		                 0.03125f +
+		    static_cast<float>(i / 11) * 0.0078125f;
+	}
+
+	const std::vector<yrt::backend::metal::ProjectionLineEndpoints> lines = {
+	    {-3.0f, -1.25f, -1.0f, 3.0f, 1.25f, 1.0f},
+	    {-2.0f, 0.25f, -1.5f, 2.0f, 0.25f, 1.5f},
+	    {0.5f, -3.0f, -1.0f, -0.5f, 3.0f, 1.0f},
+	    {-2.5f, -2.0f, 0.0f, 2.5f, 2.0f, 0.0f},
+	    {4.0f, 4.0f, 0.0f, 5.0f, 4.0f, 0.0f}};
+	const std::uint32_t frame = 1;
+
+	auto textureBatch =
+	    projector.makeBatch(lines, std::vector<float>(lines.size(), 0.0f));
+	auto bufferBatch =
+	    projector.makeBatch(lines, std::vector<float>(lines.size(), 0.0f));
+	if (!textureBatch.isValid() || !bufferBatch.isValid())
+	{
+		return false;
+	}
+
+	yrt::backend::metal::SiddonForwardImageParams imageParams{};
+	yrt::backend::metal::Texture3D texture;
+	yrt::backend::metal::Sampler sampler;
+	if (!yrt::backend::metal::makeSiddonForwardImageParams(
+	        image, frame, imageParams) ||
+	    !yrt::backend::metal::uploadJosephImageFrameTexture(
+	        context, image, frame, texture, sampler, nullptr) ||
+	    !yrt::backend::metal::forwardProjectJosephSingleRayTexture(
+	        context, texture, sampler, textureBatch, imageParams, nullptr) ||
+	    !projector.forwardProjectSingleRay(image, bufferBatch, frame))
+	{
+		return false;
+	}
+
+	std::vector<float> textureForward;
+	std::vector<float> bufferForward;
+	if (!textureBatch.copyProjectionValuesToHost(textureForward) ||
+	    !bufferBatch.copyProjectionValuesToHost(bufferForward))
+	{
+		return false;
+	}
+
+	std::vector<float> expectedForward;
+	expectedForward.reserve(lines.size());
+	for (const auto& line : lines)
+	{
+		expectedForward.push_back(josephForwardReference(image, line, frame));
+	}
+
+	return valuesMatch(textureForward, expectedForward) &&
+	       valuesMatch(textureForward, bufferForward);
+}
+
 bool runSiddonEmptyOrMissGoldenTest()
 {
 	const yrt::backend::metal::Context context;
@@ -2409,6 +2481,25 @@ bool runOperatorProjectorMetalDispatchJosephGoldenTest()
 		return false;
 	}
 
+	MetalBridgeProjectionData textureForwardData(scanner, lines,
+	                                             initialValues, frames);
+	auto textureForwardBinIterator = textureForwardData.getBinIter(1, 0);
+	yrt::OperatorProjector textureForwardProjector(
+	    projectorParams, textureForwardBinIterator.get());
+	textureForwardProjector.setExperimentalMetalProjectorEnabled(true);
+	textureForwardProjector.setExperimentalMetalProjectorKernel(
+	    "joseph_texture_forward");
+	if (textureForwardProjector.getExperimentalMetalProjectorKernel() !=
+	    "joseph_texture_forward")
+	{
+		return false;
+	}
+	textureForwardProjector.applyA(&image, &textureForwardData);
+	if (!valuesMatch(textureForwardData.values(), expectedForward))
+	{
+		return false;
+	}
+
 	yrt::ImageOwned adjointImage(imageParams);
 	yrt::ImageOwned expectedAdjoint(imageParams);
 	adjointImage.allocate();
@@ -2436,7 +2527,25 @@ bool runOperatorProjectorMetalDispatchJosephGoldenTest()
 	adjointProjector.setExperimentalMetalProjectorEnabled(true);
 	adjointProjector.setExperimentalMetalProjectorKernel("joseph");
 	adjointProjector.applyAH(&adjointData, &adjointImage);
-	return imagesMatch(adjointImage, expectedAdjoint);
+	if (!imagesMatch(adjointImage, expectedAdjoint))
+	{
+		return false;
+	}
+
+	yrt::ImageOwned textureAdjointImage(imageParams);
+	textureAdjointImage.allocate();
+	copyValuesToImage(textureAdjointImage, seed);
+	MetalBridgeProjectionData textureAdjointData(scanner, lines,
+	                                             projectionValues, frames);
+	auto textureAdjointBinIterator = textureAdjointData.getBinIter(1, 0);
+	yrt::OperatorProjector textureAdjointProjector(
+	    projectorParams, textureAdjointBinIterator.get());
+	textureAdjointProjector.setExperimentalMetalProjectorEnabled(true);
+	textureAdjointProjector.setExperimentalMetalProjectorKernel(
+	    "joseph_texture_forward");
+	textureAdjointProjector.applyAH(&textureAdjointData,
+	                                &textureAdjointImage);
+	return imagesMatch(textureAdjointImage, expectedAdjoint);
 }
 
 bool bridgeReportsUnsupported(const yrt::ProjectorParams& projectorParams)
@@ -3754,6 +3863,8 @@ int main()
 	     runSiddonProjectorMetalAdapterGoldenTest},
 	    {"joseph_projector_metal_adjointness_golden",
 	     runJosephProjectorMetalAdapterGoldenTest},
+	    {"joseph_projector_metal_texture_forward_golden",
+	     runJosephProjectorMetalTextureForwardGoldenTest},
 	    {"siddon_empty_or_miss_golden", runSiddonEmptyOrMissGoldenTest},
 	    {"siddon_projector_metal_failure_modes_golden",
 	     runSiddonProjectorMetalFailureModeGoldenTest},

@@ -80,6 +80,69 @@ bool forwardProjectJosephSingleRay(const Context& context,
 	return didRun;
 }
 
+bool uploadJosephImageFrameTexture(const Context& context, const Image& image,
+    std::uint32_t frame, Texture3D& texture, Sampler& sampler,
+    SiddonProjectorKernelProfile* profile)
+{
+	if (!context.isValid())
+	{
+		return false;
+	}
+
+	SiddonForwardImageParams params{};
+	if (!makeSiddonForwardImageParams(image, frame, params))
+	{
+		return false;
+	}
+
+	const std::size_t spatialCount = static_cast<std::size_t>(params.nx) *
+	                                 static_cast<std::size_t>(params.ny) *
+	                                 static_cast<std::size_t>(params.nz);
+	const auto uploadStart = Clock::now();
+	texture = Texture3D::allocateR32Float(context.device(), params.nx,
+	    params.ny, params.nz);
+	if (!sampler.isValid())
+	{
+		sampler = Sampler::createLinearClampToZero(context.device());
+	}
+
+	const float* framePtr = image.getRawPointer() +
+	                        static_cast<std::size_t>(frame) * spatialCount;
+	const bool didUpload =
+	    texture.isValid() && sampler.isValid() &&
+	    texture.copyFromHost(framePtr, sizeof(float) * params.nx,
+	        sizeof(float) * static_cast<std::size_t>(params.nx) * params.ny);
+	if (profile != nullptr)
+	{
+		profile->imageUploadSeconds +=
+		    getElapsedSeconds(uploadStart, Clock::now());
+	}
+	return didUpload;
+}
+
+bool forwardProjectJosephSingleRayTexture(const Context& context,
+    const Texture3D& imageTexture, const Sampler& sampler,
+    ProjectionBatchMetal& batch, const SiddonForwardImageParams& params,
+    SiddonProjectorKernelProfile* profile)
+{
+	if (!context.isValid() || !imageTexture.isValid() || !sampler.isValid() ||
+	    !batch.isValid() || !fitsUint32Size(batch.size()))
+	{
+		return false;
+	}
+
+	const auto kernelStart = Clock::now();
+	const bool didRun = launchJosephForwardSingleRayTexture(
+	    context.device(), context.library(), context.commandQueue(),
+	    imageTexture, sampler, batch.lorBuffer(),
+	    batch.projectionValuesBuffer(), params, batch.size());
+	if (profile != nullptr)
+	{
+		profile->kernelSeconds += getElapsedSeconds(kernelStart, Clock::now());
+	}
+	return didRun;
+}
+
 bool backProjectJosephSingleRay(const Context& context,
     const ProjectionBatchMetal& batch, Image& image, std::uint32_t frame,
     SiddonProjectorKernelProfile* profile)

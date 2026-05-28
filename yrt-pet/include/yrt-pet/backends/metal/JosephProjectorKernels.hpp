@@ -17,6 +17,11 @@ bool launchJosephForwardSingleRay(const Device& device,
     const Library& library, const CommandQueue& commandQueue,
     const Buffer& image, const Buffer& lines, Buffer& projectionValues,
     const SiddonForwardImageParams& params, std::size_t lineCount);
+bool launchJosephForwardSingleRayTexture(const Device& device,
+    const Library& library, const CommandQueue& commandQueue,
+    const Texture3D& image, const Sampler& sampler, const Buffer& lines,
+    Buffer& projectionValues, const SiddonForwardImageParams& params,
+    std::size_t lineCount);
 bool launchJosephBackProjectSingleRay(const Device& device,
     const Library& library, const CommandQueue& commandQueue, Buffer& image,
     const Buffer& lines, const Buffer& projectionValues,

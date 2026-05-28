@@ -89,6 +89,19 @@ struct OsemRatioBuffers
 	Buffer inVivoAttenuation;
 };
 
+struct ForwardImageResources
+{
+	ForwardImageResources(const Image& pp_image, const Buffer& pp_imageBuffer)
+	    : image(pp_image), imageBuffer(pp_imageBuffer)
+	{
+	}
+
+	const Image& image;
+	const Buffer& imageBuffer;
+	Sampler sampler;
+	std::map<frame_t, Texture3D> josephTexturesByFrame;
+};
+
 double getElapsedSeconds(Clock::time_point start, Clock::time_point end)
 {
 	return std::chrono::duration<double>(end - start).count();
@@ -114,12 +127,42 @@ bool forwardProjectSingleRay(OperatorProjectorMetalKernel kernel,
 	                                     profile);
 }
 
+bool forwardProjectSingleRay(OperatorProjectorMetalKernel kernel,
+    const Context& context, ForwardImageResources& imageResources,
+    ProjectionBatchMetal& batch, const SiddonForwardImageParams& params,
+    SiddonProjectorKernelProfile* profile)
+{
+	if (kernel != OperatorProjectorMetalKernel::JosephTextureForward)
+	{
+		return forwardProjectSingleRay(kernel, context,
+		    imageResources.imageBuffer, batch, params, profile);
+	}
+
+	auto textureIt = imageResources.josephTexturesByFrame.find(params.frame);
+	if (textureIt == imageResources.josephTexturesByFrame.end())
+	{
+		Texture3D texture;
+		if (!uploadJosephImageFrameTexture(context, imageResources.image,
+		        params.frame, texture, imageResources.sampler, profile))
+		{
+			return false;
+		}
+		textureIt =
+		    imageResources.josephTexturesByFrame.emplace(params.frame,
+		        std::move(texture)).first;
+	}
+
+	return forwardProjectJosephSingleRayTexture(context, textureIt->second,
+	    imageResources.sampler, batch, params, profile);
+}
+
 bool backProjectSingleRay(OperatorProjectorMetalKernel kernel,
     const Context& context, const ProjectionBatchMetal& batch,
     Buffer& imageBuffer, const SiddonForwardImageParams& params,
     SiddonProjectorKernelProfile* profile)
 {
-	if (kernel == OperatorProjectorMetalKernel::Joseph)
+	if (kernel == OperatorProjectorMetalKernel::Joseph ||
+	    kernel == OperatorProjectorMetalKernel::JosephTextureForward)
 	{
 		return backProjectJosephSingleRay(context, batch, imageBuffer, params,
 		                                  profile);
@@ -933,7 +976,7 @@ bool computeHostOsemRatioValues(
 
 bool forwardProjectEventsWithImageBuffer(
     const Context& context, OperatorProjectorMetalProfile* profile,
-    const Image& image, const Buffer& imageBuffer,
+    const Image& image, ForwardImageResources& imageResources,
     ProjectionData& projectionData, const std::vector<BridgeEvent>& events,
     OperatorProjectorMetalKernel projectorKernel)
 {
@@ -974,7 +1017,7 @@ bool forwardProjectEventsWithImageBuffer(
 		    makeSiddonForwardImageParams(
 		        image, static_cast<std::uint32_t>(frame), imageParams) &&
 		    forwardProjectSingleRay(
-		        projectorKernel, context, imageBuffer, batch, imageParams,
+		        projectorKernel, context, imageResources, batch, imageParams,
 		        profile != nullptr ? &kernelProfile : nullptr);
 		addForwardKernelProfile(profile, kernelProfile);
 
@@ -1088,7 +1131,7 @@ bool backProjectEventsWithImageBuffer(
 
 bool applyOsemEventsWithImageBuffers(
     const Context& context, OperatorProjectorMetalProfile* profile,
-    const Image& inputImage, const Buffer& inputImageBuffer,
+    const Image& inputImage, ForwardImageResources& inputImageResources,
     Image& workingImage, Buffer& updateImageBuffer,
     const ProjectionData& measurements, const Corrector_CPU& corrector,
     const OperatorProjectorMetalOsemConfig& config,
@@ -1132,7 +1175,7 @@ bool applyOsemEventsWithImageBuffers(
 		    makeSiddonForwardImageParams(
 		        inputImage, static_cast<std::uint32_t>(frame), imageParams) &&
 		    forwardProjectSingleRay(
-		        config.projectorKernel, context, inputImageBuffer, batch,
+		        config.projectorKernel, context, inputImageResources, batch,
 		        imageParams,
 		        profile != nullptr ? &kernelProfile : nullptr);
 		addForwardKernelProfile(profile, kernelProfile);
@@ -1236,7 +1279,7 @@ bool buildCachedSegment(const Context& context,
 
 bool forwardProjectCachedSegmentWithImageBuffer(
     const Context& context, OperatorProjectorMetalProfile* profile,
-    const Image& image, const Buffer& imageBuffer,
+    const Image& image, ForwardImageResources& imageResources,
     ProjectionData& projectionData, CachedIteratorSegment& segment,
     OperatorProjectorMetalKernel projectorKernel)
 {
@@ -1270,7 +1313,7 @@ bool forwardProjectCachedSegmentWithImageBuffer(
 		        image, static_cast<std::uint32_t>(frameBatch.frame),
 		        imageParams) &&
 		    forwardProjectSingleRay(
-		        projectorKernel, context, imageBuffer, frameBatch.batch,
+		        projectorKernel, context, imageResources, frameBatch.batch,
 		        imageParams,
 		        profile != nullptr ? &kernelProfile : nullptr);
 		if (profile != nullptr)
@@ -1389,7 +1432,7 @@ bool backProjectCachedSegmentWithImageBuffer(
 
 bool applyOsemCachedSegmentWithImageBuffers(
     const Context& context, OperatorProjectorMetalProfile* profile,
-    const Image& inputImage, const Buffer& inputImageBuffer,
+    const Image& inputImage, ForwardImageResources& inputImageResources,
     Image& workingImage, Buffer& updateImageBuffer,
     const ProjectionData& measurements, const Corrector_CPU& corrector,
     const OperatorProjectorMetalOsemConfig& config,
@@ -1410,7 +1453,7 @@ bool applyOsemCachedSegmentWithImageBuffers(
 		        inputImage, static_cast<std::uint32_t>(frameBatch.frame),
 		        imageParams) &&
 		    forwardProjectSingleRay(
-		        config.projectorKernel, context, inputImageBuffer,
+		        config.projectorKernel, context, inputImageResources,
 		        frameBatch.batch, imageParams,
 		        profile != nullptr ? &kernelProfile : nullptr);
 		if (profile != nullptr)
@@ -1457,7 +1500,7 @@ bool applyOsemCachedSegmentWithImageBuffers(
 
 bool applyOsemHostRatioEventsWithImageBuffers(
     const Context& context, OperatorProjectorMetalProfile* profile,
-    const Image& inputImage, const Buffer& inputImageBuffer,
+    const Image& inputImage, ForwardImageResources& inputImageResources,
     Image& workingImage, Buffer& updateImageBuffer,
     const ProjectionData& measurements, const Corrector_CPU& corrector,
     const OperatorProjectorMetalOsemConfig& config,
@@ -1501,7 +1544,7 @@ bool applyOsemHostRatioEventsWithImageBuffers(
 		    makeSiddonForwardImageParams(
 		        inputImage, static_cast<std::uint32_t>(frame), imageParams) &&
 		    forwardProjectSingleRay(
-		        config.projectorKernel, context, inputImageBuffer, batch,
+		        config.projectorKernel, context, inputImageResources, batch,
 		        imageParams,
 		        profile != nullptr ? &kernelProfile : nullptr);
 		if (profile != nullptr)
@@ -1578,7 +1621,7 @@ bool applyOsemHostRatioEventsWithImageBuffers(
 
 bool applyOsemHostRatioCachedSegmentWithImageBuffers(
     const Context& context, OperatorProjectorMetalProfile* profile,
-    const Image& inputImage, const Buffer& inputImageBuffer,
+    const Image& inputImage, ForwardImageResources& inputImageResources,
     Image& workingImage, Buffer& updateImageBuffer,
     const ProjectionData& measurements, const Corrector_CPU& corrector,
     const OperatorProjectorMetalOsemConfig& config,
@@ -1599,7 +1642,7 @@ bool applyOsemHostRatioCachedSegmentWithImageBuffers(
 		        inputImage, static_cast<std::uint32_t>(frameBatch.frame),
 		        imageParams) &&
 		    forwardProjectSingleRay(
-		        config.projectorKernel, context, inputImageBuffer,
+		        config.projectorKernel, context, inputImageResources,
 		        frameBatch.batch, imageParams,
 		        profile != nullptr ? &kernelProfile : nullptr);
 		if (profile != nullptr)
@@ -1833,12 +1876,13 @@ bool forwardProjectCachedEntry(const Context& context,
 		    transferProfile.imageUploadSeconds;
 	}
 
+	ForwardImageResources imageResources{image, imageBuffer};
 	for (CachedIteratorSegment& segment : entry.segments)
 	{
 		if (segment.cached)
 		{
 			if (!forwardProjectCachedSegmentWithImageBuffer(
-			        context, profile, image, imageBuffer, projectionData,
+			        context, profile, image, imageResources, projectionData,
 			        segment, projectorKernel))
 			{
 				return false;
@@ -1862,7 +1906,7 @@ bool forwardProjectCachedEntry(const Context& context,
 			profile->uncachedBatches += 1;
 		}
 		if (!forwardProjectEventsWithImageBuffer(
-		        context, profile, image, imageBuffer, projectionData, events,
+		        context, profile, image, imageResources, projectionData, events,
 		        projectorKernel))
 		{
 			return false;
@@ -1969,12 +2013,13 @@ bool applyOsemCachedEntry(const Context& context,
 		return true;
 	}
 
+	ForwardImageResources inputImageResources{inputImage, inputImageBuffer};
 	for (CachedIteratorSegment& segment : entry.segments)
 	{
 		if (segment.cached)
 		{
 			if (!applyOsemCachedSegmentWithImageBuffers(context, profile,
-			        inputImage, inputImageBuffer, workingImage,
+			        inputImage, inputImageResources, workingImage,
 			        updateImageBuffer, measurements, corrector, config,
 			        segment))
 			{
@@ -1999,7 +2044,7 @@ bool applyOsemCachedEntry(const Context& context,
 			profile->uncachedBatches += 1;
 		}
 		if (!applyOsemEventsWithImageBuffers(context, profile, inputImage,
-		        inputImageBuffer, workingImage, updateImageBuffer,
+		        inputImageResources, workingImage, updateImageBuffer,
 		        measurements, corrector, config, events))
 		{
 			return false;
@@ -2023,12 +2068,13 @@ bool applyOsemHostRatioCachedEntry(
 		return true;
 	}
 
+	ForwardImageResources inputImageResources{inputImage, inputImageBuffer};
 	for (CachedIteratorSegment& segment : entry.segments)
 	{
 		if (segment.cached)
 		{
 			if (!applyOsemHostRatioCachedSegmentWithImageBuffers(
-			        context, profile, inputImage, inputImageBuffer,
+			        context, profile, inputImage, inputImageResources,
 			        workingImage, updateImageBuffer, measurements,
 			        corrector, config, segment))
 			{
@@ -2053,7 +2099,7 @@ bool applyOsemHostRatioCachedEntry(
 			profile->uncachedBatches += 1;
 		}
 		if (!applyOsemHostRatioEventsWithImageBuffers(context, profile,
-		        inputImage, inputImageBuffer, workingImage,
+		        inputImage, inputImageResources, workingImage,
 		        updateImageBuffer, measurements, corrector, config, events))
 		{
 			return false;
@@ -2232,6 +2278,7 @@ bool OperatorProjectorMetalBridge::applyA(
 		                                      1, std::min(batchLimit,
 		                                                  totalEvents));
 
+		ForwardImageResources imageResources{image, imageBuffer};
 		for (std::size_t offset = 0; offset < totalEvents;
 		     offset += batchSize)
 		{
@@ -2255,7 +2302,7 @@ bool OperatorProjectorMetalBridge::applyA(
 			}
 
 			if (!forwardProjectEventsWithImageBuffer(
-			        m_context, mp_profile, image, imageBuffer,
+			        m_context, mp_profile, image, imageResources,
 			        projectionData, events, projectorKernel))
 			{
 				return false;
@@ -2601,6 +2648,8 @@ bool OperatorProjectorMetalBridge::applyOsemEMUpdateHostRatio(
 		                                      1, std::min(batchLimit,
 		                                                  totalEvents));
 
+		ForwardImageResources inputImageResources{inputImage,
+		                                          inputImageBuffer};
 		for (std::size_t offset = 0; offset < totalEvents;
 		     offset += batchSize)
 		{
@@ -2624,7 +2673,7 @@ bool OperatorProjectorMetalBridge::applyOsemEMUpdateHostRatio(
 			}
 
 			if (!applyOsemHostRatioEventsWithImageBuffers(
-			        m_context, mp_profile, inputImage, inputImageBuffer,
+			        m_context, mp_profile, inputImage, inputImageResources,
 			        workingImage, updateImageBuffer, measurements,
 			        corrector, config, events))
 			{
@@ -2802,6 +2851,8 @@ bool OperatorProjectorMetalBridge::applyOsemEMUpdate(
 		                                      1, std::min(batchLimit,
 		                                                  totalEvents));
 
+		ForwardImageResources inputImageResources{inputImage,
+		                                          inputImageBuffer};
 		for (std::size_t offset = 0; offset < totalEvents;
 		     offset += batchSize)
 		{
@@ -2825,7 +2876,7 @@ bool OperatorProjectorMetalBridge::applyOsemEMUpdate(
 			}
 
 			if (!applyOsemEventsWithImageBuffers(m_context, mp_profile,
-			        inputImage, inputImageBuffer, workingImage,
+			        inputImage, inputImageResources, workingImage,
 			        updateImageBuffer, measurements, corrector, config,
 			        events))
 			{

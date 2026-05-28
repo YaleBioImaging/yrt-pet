@@ -124,6 +124,22 @@ PYTHONPATH=build_metal \
     --metal-sensitivity-projector joseph ...
 ```
 
+For Joseph-only forward-projection A/B timing, a further opt-in flag uses a
+3D Metal texture and linear sampler for the Joseph forward path while leaving
+Joseph adjoint/backprojection on the existing buffer/atomic path:
+
+```sh
+PYTHONPATH=build_metal \
+  python yrt-pet/python/examples/metal_ge_osem_smoke.py \
+    --metal-only \
+    --metal-projector joseph \
+    --metal-sensitivity-projector joseph \
+    --metal-joseph-forward-texture ...
+```
+
+This is a benchmark switch only. It does not change the Siddon default, CPU
+comparison mode, or the Joseph adjoint kernel.
+
 CPU-vs-Metal comparison mode intentionally requires `--metal-projector siddon`
 and `--metal-sensitivity-projector siddon`, because there is no public CPU
 Joseph projector or Joseph sensitivity generator in this codebase.
@@ -258,12 +274,14 @@ enabled in a `USE_METAL=ON` build, the `OSEM_CPU::computeEMUpdateImage()`
 projector step can split the existing fused CPU loop into: Metal projector
 forward projection, CPU correction/ratio calculation using the existing
 `Corrector_CPU` caches, and Metal projector adjoint backprojection into the EM
-update image. The default selector is Siddon; the Joseph selector is
-experimental and opt-in. The default path falls back to the existing CPU loop
-when Metal is unavailable, image PSF is enabled, or the projector configuration
-is outside the current bridge subset. The supported Metal projector subset is
-the same as `OperatorProjectorMetalBridge`: one-ray Siddon geometry, no TOF,
-no projection-space PSF, and `DEFAULT4D`.
+update image. The default selector is Siddon; the Joseph selectors are
+experimental and opt-in. `"joseph"` uses buffer-backed forward and adjoint
+kernels, while `"joseph_texture_forward"` uses the texture-backed Joseph
+forward kernel and the existing Joseph adjoint. The default path falls back to
+the existing CPU loop when Metal is unavailable, image PSF is enabled, or the
+projector configuration is outside the current bridge subset. The supported
+Metal projector subset is the same as `OperatorProjectorMetalBridge`: one-ray
+Siddon geometry, no TOF, no projection-space PSF, and `DEFAULT4D`.
 
 This hook still does not make Metal a default reconstruction backend and does
 not wire Metal into `OSEM_GPU`, `LREM`, `ImageDevice`, `ProjectionListDevice`,
@@ -381,6 +399,53 @@ At this checkpoint the dominant remaining bucket is the Metal adjoint kernel:
 atomic accumulation and Siddon traversal before revisiting broader cache
 admission or memory-retention strategies.
 
+The first full-count Joseph/Joseph-sensitivity validation checkpoint used
+`metal_ge_joseph_sens_full_3it_17subsets.csv` with 1,268,506,058 events,
+three iterations, seventeen subsets, `--metal-projector joseph`, and
+`--metal-sensitivity-projector joseph`. It reported
+`metal_recon_s=396.71`, `metal_profile_total_s=347.48`,
+`metal_profile_forward_kernel_s=63.57`,
+`metal_profile_adjoint_kernel_s=209.60`, and yellow memory pressure. The image
+looked plausible, but the Joseph path was slower than the best Siddon
+checkpoint and remained an experimental benchmark path.
+
+The current recommended Joseph full-data benchmark mode adds native Metal
+float atomics and keeps the buffer-backed Joseph forward path:
+
+```sh
+YRTPET_METAL_USE_NATIVE_FLOAT_ATOMICS=1 \
+  PYTHONPATH=build_metal \
+  python yrt-pet/python/examples/metal_ge_osem_smoke.py \
+    --base /Users/yanischemli/Desktop/mini_hot_spot \
+    --metal-only \
+    --metal-projector joseph \
+    --metal-sensitivity-projector joseph \
+    --no-psf \
+    --pct 100 \
+    --iterations 3 \
+    --subsets 17 \
+    --allow-unsafe-metal \
+    --profile-metal \
+    --metal-cache-budget-mb 8192 \
+    --metal-batch-events 1000000 \
+    --no-move-sensitivity \
+    --no-write-images
+```
+
+`metal_ge_joseph_native_atomic_full_3it.csv` reported
+`metal_recon_s=279.62`, `metal_profile_total_s=232.81`,
+`metal_profile_forward_kernel_s=60.56`,
+`metal_profile_adjoint_kernel_s=113.43`, and yellow memory pressure. This is
+about `117` seconds faster than the earlier Joseph full-count checkpoint and
+reduced Joseph adjoint kernel time by about `46%`, but it is still slower than
+the best Siddon checkpoint (`metal_recon_s=200.77`).
+
+Two A/B paths are currently not recommended for Joseph full-data benchmarks:
+`--metal-joseph-forward-texture` made the Joseph forward kernel slower in
+`metal_ge_joseph_texture_full_3it.csv`, and
+`YRTPET_METAL_USE_PRIVATE_UPDATE_BUFFER=1` was neutral to slightly slower in
+`metal_ge_joseph_native_private_full_1it.csv`.
+
 The profiling output now also breaks the gather/packing path into smaller
 diagnostic buckets. The original aggregate columns remain unchanged, while
 `metal_profile_forward_gather_cache_build_s`,
@@ -409,7 +474,7 @@ YRTPET_METAL_THREADS_PER_THREADGROUP=512 \
 Invalid or zero override values are ignored. This affects only the experimental
 Metal launch helper and does not change CPU or CUDA behavior.
 
-The adjoint/backprojection kernel defaults to the conservative CAS-loop float
+The adjoint/backprojection kernels default to the conservative CAS-loop float
 atomic path used by the initial Metal Siddon implementation. For profiling on
 SDKs that support native Metal float atomics, an experimental replacement can
 be enabled without rebuilding:
@@ -420,10 +485,11 @@ YRTPET_METAL_USE_NATIVE_FLOAT_ATOMICS=1 \
   python yrt-pet/python/examples/metal_ge_osem_smoke.py ...
 ```
 
-This changes only the experimental Metal Siddon adjoint kernel name selected by
-the Metal launch wrapper. CPU, CUDA, and the default Metal path are unchanged.
-Use it only as an A/B benchmark until it has been validated on the target
-hardware and workload.
+This changes only the experimental Metal Siddon/Joseph adjoint kernel name
+selected by the Metal launch wrapper. CPU, CUDA, and the default Metal path are
+unchanged. It is the current recommended setting for Joseph full-data
+benchmarks on the tested Apple Silicon workload, but it remains opt-in until
+broader validation is complete.
 
 The OSEM Metal bridge can also A/B-test private storage for the zero-initialized
 adjoint update image:
@@ -438,7 +504,9 @@ This keeps host-visible shared buffers as the default. When enabled, only the
 experimental OSEM Metal bridge update image allocated through the zero-clear
 path uses private Metal storage; the final image is copied back through a blit
 staging buffer. This is intended to test whether the adjoint atomic write path
-is limited by shared-buffer policy on the host GPU.
+is limited by shared-buffer policy on the host GPU. In the current Joseph
+full-data benchmark this was neutral to slightly slower than native atomics
+alone, so it is not recommended outside targeted A/B runs.
 
 The explicit `OSEM_CPU` Metal projector opt-in also avoids one repeated host
 upload in the EM update path: because `OSEM_CPU::resetEMUpdateImage()` clears
@@ -529,11 +597,14 @@ ray, no TOF, no projection PSF, and `DEFAULT4D` host
 `Image`/`ProjectionData` inputs. The bridge gathers LOR and dynamic-frame
 properties through the same `BinLoader`/`BinIterator` surface used by CPU
 `OperatorProjector`, then delegates to `SiddonProjectorMetal` by default or
-experimental `JosephProjectorMetal` when `"joseph"` is explicitly selected.
+experimental `JosephProjectorMetal` when `"joseph"` or
+`"joseph_texture_forward"` is explicitly selected. The texture selector affects
+forward projection only; adjoint/backprojection still uses the buffer-backed
+Joseph kernel.
 If the flag is disabled, Metal is unavailable, or the projector configuration
 is unsupported, the default `"siddon"` selector falls back to the existing CPU
 path. A non-default selector such as `"joseph"` fails rather than silently
-running CPU Siddon. The opt-in flag and selector are exposed through Python
+running CPU Siddon. The opt-in flag and selectors are exposed through Python
 for developer smoke scripts.
 The Metal test suite covers CPU fallback equality when the opt-in flag is
 enabled for unsupported TOF, DD, DD with projection-space PSF, multi-ray
@@ -750,8 +821,10 @@ The current `.metal` file contains:
   float atomic path and has an opt-in native `atomic_float` variant for
   profiling
 - Joseph projector: experimental single-ray dominant-axis forward projection
-  and matching per-LOR atomic adjoint with no TOF and no updater; exposed
-  through isolated backend APIs and an opt-in Metal-only OSEM selector
+  and matching per-LOR atomic adjoint with no TOF and no updater; the adjoint
+  defaults to the CAS-loop float atomic path and has an opt-in native
+  `atomic_float` variant for profiling; exposed through isolated backend APIs
+  and an opt-in Metal-only OSEM selector
 - image scalar/update ops: fill, multiply by scalar, add 3D image to 3D image,
   add 3D image to 4D image, `applyThreshold`, `applyThresholdBroadcast`,
   static EM update, dynamic EM update, and dynamic EM update with sensitivity

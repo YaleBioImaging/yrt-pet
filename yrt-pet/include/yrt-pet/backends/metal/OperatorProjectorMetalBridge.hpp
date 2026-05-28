@@ -6,16 +6,23 @@
 #pragma once
 
 #include "yrt-pet/backends/metal/MetalContext.hpp"
+#include "yrt-pet/backends/metal/ProjectorProfile.hpp"
+#include "yrt-pet/geometry/Vector3D.hpp"
 
+#include <cstddef>
+#include <memory>
 #include <string>
+#include <vector>
 
 namespace yrt
 {
 class BinIterator;
 class BinLoader;
+class Corrector_CPU;
 class Image;
 class OperatorProjector;
 class ProjectionData;
+class Scanner;
 }
 
 namespace yrt::backend::metal
@@ -27,24 +34,91 @@ struct OperatorProjectorMetalSupport
 	std::string reason;
 };
 
+enum class OperatorProjectorMetalKernel
+{
+	Siddon,
+	Joseph
+};
+
+struct OperatorProjectorMetalOsemConfig
+{
+	float globalScaleFactor = 1.0f;
+	float denomThreshold = 0.0f;
+	bool hasSensitivity = false;
+	bool hasAttenuation = false;
+	bool hasScatterEstimates = false;
+	bool hasRandomsEstimates = false;
+	bool hasInVivoAttenuation = false;
+	bool zeroInitializeUpdateImage = false;
+	OperatorProjectorMetalKernel projectorKernel =
+	    OperatorProjectorMetalKernel::Siddon;
+};
+
+class OperatorProjectorMetalCache
+{
+public:
+	OperatorProjectorMetalCache();
+	~OperatorProjectorMetalCache();
+
+	void clear();
+	void setMaxBytes(std::size_t maxBytes);
+	std::size_t maxBytes() const;
+	std::size_t usedBytes() const;
+	void setMaxBatchEvents(std::size_t maxBatchEvents);
+	std::size_t maxBatchEvents() const;
+	void setMaxChunkEvents(std::size_t maxChunkEvents);
+	std::size_t maxChunkEvents() const;
+	const std::vector<Vector3D>& detectorPositions(const Scanner& scanner);
+
+private:
+	struct Impl;
+
+	std::unique_ptr<Impl> mp_impl;
+
+	friend class OperatorProjectorMetalBridge;
+};
+
 class OperatorProjectorMetalBridge
 {
 public:
-	explicit OperatorProjectorMetalBridge(const Context& context);
+	explicit OperatorProjectorMetalBridge(
+	    const Context& context,
+	    OperatorProjectorMetalProfile* profile = nullptr,
+	    OperatorProjectorMetalCache* cache = nullptr);
 
 	OperatorProjectorMetalSupport
 	    canRunSiddon(const OperatorProjector& projector) const;
 
 	bool applyA(const OperatorProjector& projector, const Image& image,
 	            ProjectionData& projectionData, const BinIterator& binIterator,
-	            const BinLoader& binLoader) const;
+	            const BinLoader& binLoader,
+	            OperatorProjectorMetalKernel projectorKernel =
+	                OperatorProjectorMetalKernel::Siddon) const;
 	bool applyAH(const OperatorProjector& projector,
 	             const ProjectionData& projectionData, Image& image,
 	             const BinIterator& binIterator,
-	             const BinLoader& binLoader) const;
+	             const BinLoader& binLoader,
+	             OperatorProjectorMetalKernel projectorKernel =
+	                 OperatorProjectorMetalKernel::Siddon) const;
+	bool applyOsemEMUpdate(const OperatorProjector& projector,
+	                       const Image& inputImage, Image& updateImage,
+	                       const ProjectionData& measurements,
+	                       const BinIterator& binIterator,
+	                       const BinLoader& binLoader,
+	                       const Corrector_CPU& corrector,
+	                       const OperatorProjectorMetalOsemConfig& config)
+	    const;
+	bool applyOsemEMUpdateHostRatio(
+	    const OperatorProjector& projector, const Image& inputImage,
+	    Image& updateImage, const ProjectionData& measurements,
+	    const BinIterator& binIterator, const BinLoader& binLoader,
+	    const Corrector_CPU& corrector,
+	    const OperatorProjectorMetalOsemConfig& config) const;
 
 private:
 	Context m_context;
+	OperatorProjectorMetalProfile* mp_profile = nullptr;
+	OperatorProjectorMetalCache* mp_cache = nullptr;
 };
 
 }  // namespace yrt::backend::metal

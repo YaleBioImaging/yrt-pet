@@ -11,6 +11,7 @@
 #include "yrt-pet/datastruct/scanner/Scanner.hpp"
 #include "yrt-pet/operators/OperatorProjector.hpp"
 #include "yrt-pet/operators/ProjectorParams.hpp"
+#include "yrt-pet/operators/ProjectorSiddon.hpp"
 #include "yrt-pet/utils/Assert.hpp"
 #include "yrt-pet/utils/Version.hpp"
 
@@ -22,6 +23,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <map>
 #include <memory>
 #include <set>
 #include <sstream>
@@ -38,6 +40,30 @@ struct CompareStats
 	float maxAbsDiff = 0.0f;
 	float maxRelDiff = 0.0f;
 	std::size_t mismatchCount = 0;
+};
+
+struct DiffRecord
+{
+	std::size_t index = 0;
+	float expected = 0.0f;
+	float actual = 0.0f;
+	float diff = 0.0f;
+	float absDiff = 0.0f;
+	float relDiff = 0.0f;
+};
+
+struct RayDiffRecord
+{
+	std::size_t index = 0;
+	CompareStats stats;
+};
+
+struct TraceEntry
+{
+	std::size_t offset = 0;
+	yrt::frame_t frame = 0;
+	float weight = 0.0f;
+	float value = 0.0f;
 };
 
 struct LorCsvData
@@ -158,18 +184,13 @@ void validateDynamicFrames(const LorCsvData& lors,
 		return;
 	}
 
-	yrt::frame_t maxFrame = 0;
 	for (const yrt::frame_t frame : lors.frames)
 	{
-		if (frame >= 0)
+		if (frame >= params.nt)
 		{
-			maxFrame = std::max(maxFrame, frame);
+			throw std::runtime_error(
+			    "A LOR CSV dynamic frame is outside the image nt range");
 		}
-	}
-	if (static_cast<int>(maxFrame + 1) != params.nt)
-	{
-		throw std::runtime_error(
-		    "The LOR CSV dynamic-frame range does not match the image nt");
 	}
 }
 
@@ -277,6 +298,35 @@ private:
 	std::vector<yrt::frame_t> m_frames;
 };
 
+class TraceProjectorUpdater final : public yrt::ProjectorUpdater
+{
+public:
+	float forwardUpdate(float weight, float* curImgPtr, yrt::size_t offset,
+	                    yrt::frame_t dynamicFrame,
+	                    yrt::size_t numVoxelsPerFrame) const override
+	{
+		return weight *
+		       curImgPtr[static_cast<std::size_t>(dynamicFrame) *
+		                     numVoxelsPerFrame +
+		                 offset];
+	}
+
+	void backUpdate(float value, float weight, float* curImgPtr,
+	                yrt::size_t offset, yrt::frame_t dynamicFrame,
+	                yrt::size_t numVoxelsPerFrame,
+	                int /*tid*/) override
+	{
+		const std::size_t flatOffset =
+		    static_cast<std::size_t>(dynamicFrame) * numVoxelsPerFrame +
+		    offset;
+		const float update = value * weight;
+		curImgPtr[flatOffset] += update;
+		entries.push_back({offset, dynamicFrame, weight, update});
+	}
+
+	std::vector<TraceEntry> entries;
+};
+
 CompareStats compareValues(const std::vector<float>& expected,
                            const std::vector<float>& actual,
                            std::vector<float>& diff, float absTolerance,
@@ -331,6 +381,434 @@ CompareStats compareImages(const yrt::Image& expected, const yrt::Image& actual,
 	return stats;
 }
 
+void considerTopDiff(std::vector<DiffRecord>& records,
+                     const DiffRecord& candidate, std::size_t topK)
+{
+	if (topK == 0 || candidate.absDiff == 0.0f)
+	{
+		return;
+	}
+	if (records.size() < topK)
+	{
+		records.push_back(candidate);
+		return;
+	}
+
+	auto minIt = std::min_element(records.begin(), records.end(),
+	    [](const DiffRecord& lhs, const DiffRecord& rhs)
+	    { return lhs.absDiff < rhs.absDiff; });
+	if (minIt != records.end() && candidate.absDiff > minIt->absDiff)
+	{
+		*minIt = candidate;
+	}
+}
+
+void sortTopDiffs(std::vector<DiffRecord>& records)
+{
+	std::sort(records.begin(), records.end(),
+	    [](const DiffRecord& lhs, const DiffRecord& rhs)
+	    { return lhs.absDiff > rhs.absDiff; });
+}
+
+std::vector<DiffRecord> collectTopValueDiffs(
+    const std::vector<float>& expected, const std::vector<float>& actual,
+    std::size_t topK)
+{
+	std::vector<DiffRecord> records;
+	if (expected.size() != actual.size())
+	{
+		return records;
+	}
+
+	for (std::size_t i = 0; i < expected.size(); ++i)
+	{
+		const float diff = actual[i] - expected[i];
+		const float absDiff = std::fabs(diff);
+		const float scale = std::max(1.0f, std::fabs(expected[i]));
+		considerTopDiff(records,
+		    {i, expected[i], actual[i], diff, absDiff, absDiff / scale},
+		    topK);
+	}
+	sortTopDiffs(records);
+	return records;
+}
+
+std::vector<DiffRecord> collectTopImageDiffs(const yrt::Image& expected,
+                                             const yrt::Image& actual,
+                                             std::size_t topK)
+{
+	std::vector<DiffRecord> records;
+	const std::size_t count = imageVoxelCount(expected.getParams());
+	const float* expectedPtr = expected.getRawPointer();
+	const float* actualPtr = actual.getRawPointer();
+	for (std::size_t i = 0; i < count; ++i)
+	{
+		const float diff = actualPtr[i] - expectedPtr[i];
+		const float absDiff = std::fabs(diff);
+		const float scale = std::max(1.0f, std::fabs(expectedPtr[i]));
+		considerTopDiff(records,
+		    {i, expectedPtr[i], actualPtr[i], diff, absDiff, absDiff / scale},
+		    topK);
+	}
+	sortTopDiffs(records);
+	return records;
+}
+
+std::string imageIndexLabel(std::size_t flatIndex,
+                            const yrt::ImageParams& params)
+{
+	const std::size_t nx = static_cast<std::size_t>(params.nx);
+	const std::size_t ny = static_cast<std::size_t>(params.ny);
+	const std::size_t nz = static_cast<std::size_t>(params.nz);
+	const std::size_t spatialCount = nx * ny * nz;
+	const std::size_t frame = spatialCount > 0 ? flatIndex / spatialCount : 0;
+	std::size_t spatialIndex =
+	    spatialCount > 0 ? flatIndex % spatialCount : flatIndex;
+	const std::size_t z = nx * ny > 0 ? spatialIndex / (nx * ny) : 0;
+	spatialIndex = nx * ny > 0 ? spatialIndex % (nx * ny) : spatialIndex;
+	const std::size_t y = nx > 0 ? spatialIndex / nx : 0;
+	const std::size_t x = nx > 0 ? spatialIndex % nx : spatialIndex;
+	return std::to_string(frame) + "x" + std::to_string(z) + "x" +
+	       std::to_string(y) + "x" + std::to_string(x);
+}
+
+void printTopProjectionDiffs(const std::vector<DiffRecord>& records,
+                             const LorCsvData& lorData)
+{
+	if (records.empty())
+	{
+		return;
+	}
+
+	std::cout << "top_projection_diff_rank,bin,cpu,metal,diff,abs_diff,"
+	             "rel_diff,input_value,dynamic_frame,x1,y1,z1,x2,y2,z2\n";
+	for (std::size_t rank = 0; rank < records.size(); ++rank)
+	{
+		const DiffRecord& record = records[rank];
+		const yrt::Line3D& line = lorData.lines[record.index];
+		const yrt::frame_t frame =
+		    lorData.frames.empty() ? 0 : lorData.frames[record.index];
+		std::cout << (rank + 1) << ',' << record.index << ','
+		          << record.expected << ',' << record.actual << ','
+		          << record.diff << ',' << record.absDiff << ','
+		          << record.relDiff << ',' << lorData.values[record.index]
+		          << ',' << frame << ',' << line.point1.x << ','
+		          << line.point1.y << ',' << line.point1.z << ','
+		          << line.point2.x << ',' << line.point2.y << ','
+		          << line.point2.z << '\n';
+	}
+}
+
+void printTopImageDiffs(const std::vector<DiffRecord>& records,
+                        const yrt::ImageParams& params)
+{
+	if (records.empty())
+	{
+		return;
+	}
+
+	std::cout << "top_image_diff_rank,index,flat_index,cpu,metal,diff,"
+	             "abs_diff,rel_diff\n";
+	for (std::size_t rank = 0; rank < records.size(); ++rank)
+	{
+		const DiffRecord& record = records[rank];
+		std::cout << (rank + 1) << ','
+		          << imageIndexLabel(record.index, params) << ','
+		          << record.index << ',' << record.expected << ','
+		          << record.actual << ',' << record.diff << ','
+		          << record.absDiff << ',' << record.relDiff << '\n';
+	}
+}
+
+void considerTopRayDiff(std::vector<RayDiffRecord>& records,
+                        const RayDiffRecord& candidate, std::size_t topK)
+{
+	if (topK == 0 || candidate.stats.maxAbsDiff == 0.0f)
+	{
+		return;
+	}
+	if (records.size() < topK)
+	{
+		records.push_back(candidate);
+		return;
+	}
+
+	auto minIt = std::min_element(records.begin(), records.end(),
+	    [](const RayDiffRecord& lhs, const RayDiffRecord& rhs)
+	    { return lhs.stats.maxAbsDiff < rhs.stats.maxAbsDiff; });
+	if (minIt != records.end() &&
+	    candidate.stats.maxAbsDiff > minIt->stats.maxAbsDiff)
+	{
+		*minIt = candidate;
+	}
+}
+
+void sortTopRayDiffs(std::vector<RayDiffRecord>& records)
+{
+	std::sort(records.begin(), records.end(),
+	    [](const RayDiffRecord& lhs, const RayDiffRecord& rhs)
+	    { return lhs.stats.maxAbsDiff > rhs.stats.maxAbsDiff; });
+}
+
+LorCsvData makeSingleLorData(const LorCsvData& lorData, std::size_t index)
+{
+	LorCsvData single;
+	single.lines.push_back(lorData.lines[index]);
+	single.values.push_back(lorData.values[index]);
+	if (!lorData.frames.empty())
+	{
+		single.frames.push_back(lorData.frames[index]);
+	}
+	return single;
+}
+
+CompareStats compareSingleAdjointRay(const yrt::Scanner& scanner,
+                                     const yrt::ProjectorParams& params,
+                                     const yrt::Image& inputImage,
+                                     const LorCsvData& lorData,
+                                     std::size_t index,
+                                     const yrt::backend::metal::
+                                         OperatorProjectorMetalBridge& bridge)
+{
+	const LorCsvData singleLorData = makeSingleLorData(lorData, index);
+
+	yrt::ImageOwned cpuOutput(inputImage.getParams());
+	yrt::ImageOwned metalOutput(inputImage.getParams());
+	yrt::ImageOwned diffImage(inputImage.getParams());
+	cpuOutput.allocate();
+	metalOutput.allocate();
+	diffImage.allocate();
+	cpuOutput.copyFromImage(&inputImage);
+	metalOutput.copyFromImage(&inputImage);
+
+	CsvProjectionData cpuData(scanner, singleLorData);
+	auto cpuBinIterator = cpuData.getBinIter(1, 0);
+	yrt::OperatorProjector cpuProjector(params, cpuBinIterator.get());
+	cpuProjector.applyAH(&cpuData, &cpuOutput);
+
+	CsvProjectionData metalData(scanner, singleLorData);
+	auto metalBinIterator = metalData.getBinIter(1, 0);
+	yrt::OperatorProjector metalProjector(params, metalBinIterator.get());
+	if (!bridge.applyAH(metalProjector, metalData, metalOutput,
+	        *metalBinIterator, *metalProjector.getBinLoader()))
+	{
+		throw std::runtime_error("direct Metal bridge adjoint failed for LOR " +
+		                         std::to_string(index));
+	}
+
+	return compareImages(cpuOutput, metalOutput, diffImage, 0.0f, 0.0f);
+}
+
+std::vector<RayDiffRecord> collectTopAdjointRayDiffs(
+    const yrt::Scanner& scanner, const yrt::ProjectorParams& params,
+    const yrt::Image& inputImage, const LorCsvData& lorData,
+    const yrt::backend::metal::OperatorProjectorMetalBridge& bridge,
+    std::size_t topK)
+{
+	std::vector<RayDiffRecord> records;
+	for (std::size_t i = 0; i < lorData.lines.size(); ++i)
+	{
+		const CompareStats stats = compareSingleAdjointRay(
+		    scanner, params, inputImage, lorData, i, bridge);
+		considerTopRayDiff(records, {i, stats}, topK);
+	}
+	sortTopRayDiffs(records);
+	return records;
+}
+
+void printTopAdjointRayDiffs(const std::vector<RayDiffRecord>& records,
+                             const LorCsvData& lorData)
+{
+	if (records.empty())
+	{
+		return;
+	}
+
+	std::cout << "top_adjoint_ray_diff_rank,bin,max_abs_diff,max_rel_diff,"
+	             "mismatches,input_value,dynamic_frame,x1,y1,z1,x2,y2,z2\n";
+	for (std::size_t rank = 0; rank < records.size(); ++rank)
+	{
+		const RayDiffRecord& record = records[rank];
+		const yrt::Line3D& line = lorData.lines[record.index];
+		const yrt::frame_t frame =
+		    lorData.frames.empty() ? 0 : lorData.frames[record.index];
+		std::cout << (rank + 1) << ',' << record.index << ','
+		          << record.stats.maxAbsDiff << ','
+		          << record.stats.maxRelDiff << ','
+		          << record.stats.mismatchCount << ','
+		          << lorData.values[record.index] << ',' << frame << ','
+		          << line.point1.x << ',' << line.point1.y << ','
+		          << line.point1.z << ',' << line.point2.x << ','
+		          << line.point2.y << ',' << line.point2.z << '\n';
+	}
+}
+
+yrt::Line3D makeCenteredLineForImage(const yrt::Line3D& line,
+                                     const yrt::ImageParams& params)
+{
+	yrt::Line3D centered = line;
+	const yrt::Vector3D offsetVec{params.off_x, params.off_y, params.off_z};
+	centered.point1 = centered.point1 - offsetVec;
+	centered.point2 = centered.point2 - offsetVec;
+	return centered;
+}
+
+std::unique_ptr<yrt::ImageOwned> makeZeroImage(const yrt::ImageParams& params)
+{
+	auto image = std::make_unique<yrt::ImageOwned>(params);
+	image->allocate();
+	std::fill(image->getRawPointer(),
+	          image->getRawPointer() + imageVoxelCount(params), 0.0f);
+	return image;
+}
+
+void traceSelectedAdjointLor(
+    const yrt::Scanner& scanner, const yrt::ProjectorParams& params,
+    const yrt::Image& inputImage, const LorCsvData& lorData,
+    const yrt::backend::metal::OperatorProjectorMetalBridge& bridge,
+    std::size_t topK)
+{
+	if (lorData.lines.size() != 1)
+	{
+		throw std::runtime_error("--trace-selected-lor requires --select-lor");
+	}
+
+	const yrt::ImageParams& imageParams = inputImage.getParams();
+	const std::size_t spatialCount = static_cast<std::size_t>(imageParams.nx) *
+	                                 static_cast<std::size_t>(imageParams.ny) *
+	                                 static_cast<std::size_t>(imageParams.nz);
+	const yrt::frame_t frame = lorData.frames.empty() ? 0 : lorData.frames[0];
+	const float projectionValue = lorData.values[0];
+
+	auto cpuTraceImage = makeZeroImage(imageParams);
+	TraceProjectorUpdater updater;
+	float cpuProjectionValue = projectionValue;
+	yrt::Line3D centeredLine =
+	    makeCenteredLineForImage(lorData.lines[0], imageParams);
+	yrt::ProjectorSiddon::project_helper<false, true, false, true>(
+	    cpuTraceImage.get(), centeredLine, cpuProjectionValue, &updater, frame, 0,
+	    nullptr, 0.0f);
+
+	auto metalTraceImage = makeZeroImage(imageParams);
+	CsvProjectionData metalData(scanner, lorData);
+	auto metalBinIterator = metalData.getBinIter(1, 0);
+	yrt::OperatorProjector metalProjector(params, metalBinIterator.get());
+	if (!bridge.applyAH(metalProjector, metalData, *metalTraceImage,
+	        *metalBinIterator, *metalProjector.getBinLoader()))
+	{
+		throw std::runtime_error("direct Metal bridge adjoint trace failed");
+	}
+
+	yrt::ImageOwned diffImage(imageParams);
+	diffImage.allocate();
+	const CompareStats traceStats = compareImages(
+	    *cpuTraceImage, *metalTraceImage, diffImage, 0.0f, 0.0f);
+	std::vector<DiffRecord> topDiffs =
+	    collectTopImageDiffs(*cpuTraceImage, *metalTraceImage, topK);
+
+	std::cout << "trace_selected_lor_segments=" << updater.entries.size()
+	          << " trace_max_abs_diff=" << traceStats.maxAbsDiff
+	          << " trace_max_rel_diff=" << traceStats.maxRelDiff
+	          << " trace_mismatches=" << traceStats.mismatchCount << '\n';
+	printTopImageDiffs(topDiffs, imageParams);
+
+	std::map<std::size_t, float> cpuWeights;
+	for (const TraceEntry& entry : updater.entries)
+	{
+		const std::size_t flatOffset =
+		    static_cast<std::size_t>(entry.frame) * spatialCount +
+		    entry.offset;
+		cpuWeights[flatOffset] += entry.value;
+	}
+
+	std::map<std::size_t, float> metalWeights;
+	const float* metalPtr = metalTraceImage->getRawPointer();
+	const std::size_t voxelCount = imageVoxelCount(imageParams);
+	for (std::size_t i = 0; i < voxelCount; ++i)
+	{
+		if (metalPtr[i] != 0.0f)
+		{
+			metalWeights[i] = metalPtr[i];
+		}
+	}
+
+	std::vector<DiffRecord> records;
+	std::map<std::size_t, float> allOffsets = cpuWeights;
+	for (const auto& [offset, value] : metalWeights)
+	{
+		allOffsets.try_emplace(offset, 0.0f);
+		(void)value;
+	}
+
+	std::size_t sharedCount = 0;
+	std::size_t cpuOnlyCount = 0;
+	std::size_t metalOnlyCount = 0;
+	double cpuSum = 0.0;
+	double metalSum = 0.0;
+	for (const auto& [offset, value] : cpuWeights)
+	{
+		(void)offset;
+		cpuSum += static_cast<double>(value);
+	}
+	for (const auto& [offset, value] : metalWeights)
+	{
+		(void)offset;
+		metalSum += static_cast<double>(value);
+	}
+	for (const auto& [offset, unused] : allOffsets)
+	{
+		(void)unused;
+		const bool hasCpu = cpuWeights.count(offset) != 0;
+		const bool hasMetal = metalWeights.count(offset) != 0;
+		if (hasCpu && hasMetal)
+		{
+			++sharedCount;
+		}
+		else if (hasCpu)
+		{
+			++cpuOnlyCount;
+		}
+		else if (hasMetal)
+		{
+			++metalOnlyCount;
+		}
+	}
+	std::cout << "trace_weight_sets,cpu_voxels,metal_voxels,shared_voxels,"
+	             "cpu_only_voxels,metal_only_voxels,cpu_sum,metal_sum,sum_diff\n"
+	          << cpuWeights.size() << ',' << metalWeights.size() << ','
+	          << sharedCount << ',' << cpuOnlyCount << ',' << metalOnlyCount
+	          << ',' << cpuSum << ',' << metalSum << ','
+	          << (metalSum - cpuSum) << '\n';
+
+	for (const auto& [offset, unused] : allOffsets)
+	{
+		(void)unused;
+		const float cpuValue =
+		    cpuWeights.count(offset) != 0 ? cpuWeights[offset] : 0.0f;
+		const float metalValue =
+		    metalWeights.count(offset) != 0 ? metalWeights[offset] : 0.0f;
+		const float diff = metalValue - cpuValue;
+		const float absDiff = std::fabs(diff);
+		const float scale = std::max(1.0f, std::fabs(cpuValue));
+		considerTopDiff(records,
+		    {offset, cpuValue, metalValue, diff, absDiff, absDiff / scale},
+		    topK);
+	}
+	sortTopDiffs(records);
+
+	std::cout << "top_trace_weight_diff_rank,index,flat_index,cpu_weight,"
+	             "metal_weight,diff,abs_diff,rel_diff\n";
+	for (std::size_t rank = 0; rank < records.size(); ++rank)
+	{
+		const DiffRecord& record = records[rank];
+		std::cout << (rank + 1) << ','
+		          << imageIndexLabel(record.index, imageParams) << ','
+		          << record.index << ',' << record.expected << ','
+		          << record.actual << ',' << record.diff << ','
+		          << record.absDiff << ',' << record.relDiff << '\n';
+	}
+}
+
 void writeProjectionValuesIfRequested(const std::vector<float>& values,
                                       const std::string& filename)
 {
@@ -381,6 +859,10 @@ int main(int argc, char** argv)
 		float absTolerance = 1.0e-4f;
 		float relTolerance = 1.0e-4f;
 		bool applyAdjoint = false;
+		bool diagnoseAdjointRays = false;
+		bool traceSelectedLor = false;
+		int topK = 0;
+		int selectLor = -1;
 
 		cxxopts::Options options(
 		    argv[0],
@@ -407,6 +889,14 @@ int main(int argc, char** argv)
 		 cxxopts::value<float>(relTolerance)->default_value("1e-4"))
 		("adjoint", "Compare adjoint projector (AH) instead of forward projector (A)",
 		 cxxopts::value<bool>(applyAdjoint)->default_value("false"))
+		("diagnose-adjoint-rays", "In adjoint mode, run one LOR at a time and print the top ray-level differences",
+		 cxxopts::value<bool>(diagnoseAdjointRays)->default_value("false"))
+		("trace-selected-lor", "In adjoint mode with --select-lor, print CPU-vs-Metal per-voxel path weights for that one LOR",
+		 cxxopts::value<bool>(traceSelectedLor)->default_value("false"))
+		("select-lor", "Use only this zero-based row from the LOR CSV for focused diagnostics",
+		 cxxopts::value<int>(selectLor)->default_value("-1"))
+		("top-k", "Print the N largest projection or image differences",
+		 cxxopts::value<int>(topK)->default_value("0"))
 		("version", "Print version information")
 		("h,help", "Print help");
 		/* clang-format on */
@@ -438,6 +928,17 @@ int main(int argc, char** argv)
 			std::cerr << options.help() << std::endl;
 			return -1;
 		}
+		if (topK < 0)
+		{
+			std::cerr << "--top-k must be non-negative\n";
+			return -1;
+		}
+		if (selectLor < -1)
+		{
+			std::cerr << "--select-lor must be -1 or a non-negative row index\n";
+			return -1;
+		}
+		const std::size_t topKCount = static_cast<std::size_t>(topK);
 
 		const yrt::backend::metal::Context context;
 		if (!context.isValid())
@@ -451,7 +952,28 @@ int main(int argc, char** argv)
 		    scannerFilename.empty() ? makeDefaultScanner()
 		                            : yrt::Scanner(scannerFilename);
 		yrt::ImageOwned inputImage(inputFilename);
-		const LorCsvData lorData = readLorCsv(lorFilename);
+		LorCsvData lorData = readLorCsv(lorFilename);
+		if (selectLor >= 0)
+		{
+			const std::size_t selectedIndex = static_cast<std::size_t>(selectLor);
+			if (selectedIndex >= lorData.lines.size())
+			{
+				std::cerr << "--select-lor is outside the LOR CSV row range\n";
+				return -1;
+			}
+			const yrt::Line3D selectedLine = lorData.lines[selectedIndex];
+			const float selectedValue = lorData.values[selectedIndex];
+			const yrt::frame_t selectedFrame =
+			    lorData.frames.empty() ? 0 : lorData.frames[selectedIndex];
+			lorData = makeSingleLorData(lorData, selectedIndex);
+			std::cout << "selected_lor_source_row=" << selectedIndex
+			          << " input_value=" << selectedValue
+			          << " dynamic_frame=" << selectedFrame << " x1="
+			          << selectedLine.point1.x << " y1=" << selectedLine.point1.y
+			          << " z1=" << selectedLine.point1.z << " x2="
+			          << selectedLine.point2.x << " y2=" << selectedLine.point2.y
+			          << " z2=" << selectedLine.point2.z << '\n';
+		}
 		validateDynamicFrames(lorData, inputImage.getParams());
 
 		yrt::ProjectorParams projectorParams(scanner);
@@ -518,6 +1040,8 @@ int main(int argc, char** argv)
 			const CompareStats optInStats =
 			    compareImages(cpuOutput, optInMetalOutput, optInDiff,
 			                  absTolerance, relTolerance);
+			const std::vector<DiffRecord> optInTopDiffs =
+			    collectTopImageDiffs(cpuOutput, optInMetalOutput, topKCount);
 			writeImageIfRequested(cpuOutput, cpuOutFilename);
 			writeImageIfRequested(optInMetalOutput, metalOutFilename);
 			writeImageIfRequested(optInDiff, diffOutFilename);
@@ -530,6 +1054,21 @@ int main(int argc, char** argv)
 			          << " opt_in_max_rel_diff=" << optInStats.maxRelDiff
 			          << " opt_in_mismatches=" << optInStats.mismatchCount
 			          << '\n';
+			printTopImageDiffs(optInTopDiffs, inputImage.getParams());
+			if (diagnoseAdjointRays)
+			{
+				const std::size_t rayTopK = topKCount == 0 ? 10 : topKCount;
+				const std::vector<RayDiffRecord> topRayDiffs =
+				    collectTopAdjointRayDiffs(scanner, projectorParams,
+				        inputImage, lorData, bridge, rayTopK);
+				printTopAdjointRayDiffs(topRayDiffs, lorData);
+			}
+			if (traceSelectedLor)
+			{
+				const std::size_t traceTopK = topKCount == 0 ? 20 : topKCount;
+				traceSelectedAdjointLor(scanner, projectorParams, inputImage,
+				                        lorData, bridge, traceTopK);
+			}
 			if (!statsPass(directStats) || !statsPass(optInStats))
 			{
 				std::cerr << "Metal projector compare: FAIL\n";
@@ -571,6 +1110,9 @@ int main(int argc, char** argv)
 			const CompareStats optInStats =
 			    compareValues(cpuData.values(), optInData.values(), optInDiff,
 			                  absTolerance, relTolerance);
+			const std::vector<DiffRecord> optInTopDiffs =
+			    collectTopValueDiffs(cpuData.values(), optInData.values(),
+			                         topKCount);
 			writeProjectionValuesIfRequested(cpuData.values(), cpuOutFilename);
 			writeProjectionValuesIfRequested(optInData.values(),
 			                                 metalOutFilename);
@@ -584,6 +1126,7 @@ int main(int argc, char** argv)
 			          << " opt_in_max_rel_diff=" << optInStats.maxRelDiff
 			          << " opt_in_mismatches=" << optInStats.mismatchCount
 			          << '\n';
+			printTopProjectionDiffs(optInTopDiffs, lorData);
 			if (!statsPass(directStats) || !statsPass(optInStats))
 			{
 				std::cerr << "Metal projector compare: FAIL\n";

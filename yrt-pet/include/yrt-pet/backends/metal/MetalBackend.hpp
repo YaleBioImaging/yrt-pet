@@ -112,6 +112,7 @@ private:
 	friend bool launchSmokeAddOne(const Device& device, const Library& library,
 	    const CommandQueue& commandQueue, const Buffer& input, Buffer& output,
 	    std::size_t valueCount);
+	friend class Buffer;
 };
 
 class Buffer
@@ -120,13 +121,17 @@ public:
 	Buffer();
 
 	static Buffer allocate(const Device& device, std::size_t byteCount);
+	static Buffer allocatePrivate(const Device& device, std::size_t byteCount);
 	static Buffer copyFromHost(const Device& device, const void* source,
 	    std::size_t byteCount);
 
 	bool isValid() const;
+	bool isHostVisible() const;
 	std::size_t byteCount() const;
 	bool copyFromHost(const void* source, std::size_t byteCount);
 	bool copyToHost(void* destination, std::size_t byteCount) const;
+	bool copyToHost(const CommandQueue& commandQueue, void* destination,
+	                std::size_t byteCount) const;
 
 private:
 	struct Impl;

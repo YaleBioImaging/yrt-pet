@@ -8,9 +8,21 @@
 #include "yrt-pet/backends/metal/MetalBackend.hpp"
 
 #include <cstddef>
+#include <cstdint>
 
 namespace yrt::backend::metal
 {
+
+struct ProjectionOsemRatioParams
+{
+	float globalScaleFactor;
+	float denomThreshold;
+	std::uint32_t hasSensitivity;
+	std::uint32_t hasAttenuation;
+	std::uint32_t hasRandoms;
+	std::uint32_t hasScatter;
+	std::uint32_t hasInVivoAttenuation;
+};
 
 bool launchProjectionClear(const Device& device, const Library& library,
     const CommandQueue& commandQueue, Buffer& values, float value,
@@ -33,5 +45,11 @@ bool launchProjectionInvert(const Device& device, const Library& library,
 bool launchProjectionConvertToACF(const Device& device, const Library& library,
     const CommandQueue& commandQueue, const Buffer& input, Buffer& output,
     float unitFactor, std::size_t valueCount);
+bool launchProjectionOsemRatio(const Device& device, const Library& library,
+    const CommandQueue& commandQueue, Buffer& estimatesAndOutput,
+    const Buffer& measurements, const Buffer& sensitivity,
+    const Buffer& attenuation, const Buffer& randoms, const Buffer& scatter,
+    const Buffer& inVivoAttenuation,
+    const ProjectionOsemRatioParams& params, std::size_t valueCount);
 
 }  // namespace yrt::backend::metal

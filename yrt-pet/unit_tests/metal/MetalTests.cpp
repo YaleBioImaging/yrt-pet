@@ -8,11 +8,13 @@
 #include "yrt-pet/backends/metal/MetalContext.hpp"
 #include "yrt-pet/backends/metal/ImageMetal.hpp"
 #include "yrt-pet/backends/metal/ImageOps.hpp"
+#include "yrt-pet/backends/metal/JosephProjectorMetal.hpp"
 #include "yrt-pet/backends/metal/OperatorProjectorMetalBridge.hpp"
 #include "yrt-pet/backends/metal/OperatorPsfMetal.hpp"
 #include "yrt-pet/backends/metal/PsfFileOps.hpp"
 #include "yrt-pet/backends/metal/PsfOps.hpp"
 #include "yrt-pet/backends/metal/ProjectionBatchMetal.hpp"
+#include "yrt-pet/backends/metal/ProjectionVectorKernels.hpp"
 #include "yrt-pet/backends/metal/ProjectionGeometryOps.hpp"
 #include "yrt-pet/backends/metal/ProjectionVectorMetal.hpp"
 #include "yrt-pet/backends/metal/ProjectionVectorOps.hpp"
@@ -30,6 +32,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <functional>
@@ -39,6 +42,7 @@
 #include <set>
 #include <string>
 #include <system_error>
+#include <utility>
 #include <vector>
 
 namespace
@@ -48,6 +52,38 @@ struct TestCase
 {
 	std::string name;
 	bool (*run)();
+};
+
+class ScopedEnvVar
+{
+public:
+	ScopedEnvVar(std::string name, const char* value) : m_name(std::move(name))
+	{
+		const char* previous = std::getenv(m_name.c_str());
+		if (previous != nullptr)
+		{
+			m_hadPreviousValue = true;
+			m_previousValue = previous;
+		}
+		setenv(m_name.c_str(), value, 1);
+	}
+
+	~ScopedEnvVar()
+	{
+		if (m_hadPreviousValue)
+		{
+			setenv(m_name.c_str(), m_previousValue.c_str(), 1);
+		}
+		else
+		{
+			unsetenv(m_name.c_str());
+		}
+	}
+
+private:
+	std::string m_name;
+	std::string m_previousValue;
+	bool m_hadPreviousValue = false;
 };
 
 bool almostEqual(float actual, float expected)
@@ -275,6 +311,424 @@ std::size_t imageVoxelCount(const yrt::ImageParams& params)
 void copyValuesToImage(yrt::Image& image, const std::vector<float>& values)
 {
 	std::copy(values.begin(), values.end(), image.getRawPointer());
+}
+
+bool josephReferenceAlphaRange(
+    const yrt::backend::metal::ProjectionLineEndpoints& line,
+    const yrt::ImageParams& params, float& alphaMin, float& alphaMax)
+{
+	const yrt::backend::metal::ProjectionImageBounds bounds{
+	    params.length_x, params.length_y, params.length_z, params.fovRadius};
+	const auto range = cpuSiddonEntryRange(line, bounds);
+	alphaMin = range.alphaMin;
+	alphaMax = range.alphaMax;
+	return range.valid != 0u;
+}
+
+float josephGridCoord(float coord, float halfLength, float invVoxel)
+{
+	return (coord + halfLength) * invVoxel - 0.5f;
+}
+
+float josephAxisCoord(
+    const yrt::backend::metal::ProjectionLineEndpoints& line, int axis,
+    float alpha)
+{
+	if (axis == 0)
+	{
+		return line.p1x + alpha * (line.p2x - line.p1x);
+	}
+	if (axis == 1)
+	{
+		return line.p1y + alpha * (line.p2y - line.p1y);
+	}
+	return line.p1z + alpha * (line.p2z - line.p1z);
+}
+
+float josephAxisDelta(
+    const yrt::backend::metal::ProjectionLineEndpoints& line, int axis)
+{
+	if (axis == 0)
+	{
+		return line.p2x - line.p1x;
+	}
+	if (axis == 1)
+	{
+		return line.p2y - line.p1y;
+	}
+	return line.p2z - line.p1z;
+}
+
+float josephAxisStart(
+    const yrt::backend::metal::ProjectionLineEndpoints& line, int axis)
+{
+	if (axis == 0)
+	{
+		return line.p1x;
+	}
+	if (axis == 1)
+	{
+		return line.p1y;
+	}
+	return line.p1z;
+}
+
+int josephMajorAxis(
+    const yrt::backend::metal::ProjectionLineEndpoints& line,
+    const yrt::ImageParams& params)
+{
+	const float sx = std::fabs(line.p2x - line.p1x) / params.vx;
+	const float sy = std::fabs(line.p2y - line.p1y) / params.vy;
+	const float sz = std::fabs(line.p2z - line.p1z) / params.vz;
+	if (sx >= sy && sx >= sz)
+	{
+		return 0;
+	}
+	return sy >= sz ? 1 : 2;
+}
+
+float josephHalfLength(const yrt::ImageParams& params, int axis)
+{
+	if (axis == 0)
+	{
+		return 0.5f * params.length_x;
+	}
+	if (axis == 1)
+	{
+		return 0.5f * params.length_y;
+	}
+	return 0.5f * params.length_z;
+}
+
+float josephVoxelSize(const yrt::ImageParams& params, int axis)
+{
+	if (axis == 0)
+	{
+		return params.vx;
+	}
+	if (axis == 1)
+	{
+		return params.vy;
+	}
+	return params.vz;
+}
+
+float josephInvVoxelSize(const yrt::ImageParams& params, int axis)
+{
+	return 1.0f / josephVoxelSize(params, axis);
+}
+
+int josephAxisSize(const yrt::ImageParams& params, int axis)
+{
+	if (axis == 0)
+	{
+		return static_cast<int>(params.nx);
+	}
+	if (axis == 1)
+	{
+		return static_cast<int>(params.ny);
+	}
+	return static_cast<int>(params.nz);
+}
+
+bool josephSampleBounds(
+    const yrt::backend::metal::ProjectionLineEndpoints& line,
+    const yrt::ImageParams& params, int axis, float alphaMin, float alphaMax,
+    int& first, int& last)
+{
+	const float grid0 = josephGridCoord(
+	    josephAxisCoord(line, axis, alphaMin), josephHalfLength(params, axis),
+	    josephInvVoxelSize(params, axis));
+	const float grid1 = josephGridCoord(
+	    josephAxisCoord(line, axis, alphaMax), josephHalfLength(params, axis),
+	    josephInvVoxelSize(params, axis));
+	first = static_cast<int>(std::ceil(std::min(grid0, grid1)));
+	last = static_cast<int>(std::floor(std::max(grid0, grid1)));
+	first = std::max(first, 0);
+	last = std::min(last, josephAxisSize(params, axis) - 1);
+	return first <= last;
+}
+
+float josephSampleAlpha(
+    const yrt::backend::metal::ProjectionLineEndpoints& line,
+    const yrt::ImageParams& params, int axis, int majorIndex)
+{
+	const float dAxis = josephAxisDelta(line, axis);
+	if (dAxis == 0.0f)
+	{
+		return 0.0f;
+	}
+	const float centerCoord = -josephHalfLength(params, axis) +
+	                          (static_cast<float>(majorIndex) + 0.5f) *
+	                              josephVoxelSize(params, axis);
+	return (centerCoord - josephAxisStart(line, axis)) / dAxis;
+}
+
+float josephSampleWeight(
+    const yrt::backend::metal::ProjectionLineEndpoints& line,
+    const yrt::ImageParams& params, int axis, int majorIndex, float alphaMin,
+    float alphaMax)
+{
+	const float dAxis = josephAxisDelta(line, axis);
+	if (dAxis == 0.0f)
+	{
+		return 0.0f;
+	}
+	const float centerAlpha =
+	    josephSampleAlpha(line, params, axis, majorIndex);
+	const float halfAlphaStep =
+	    0.5f * josephVoxelSize(params, axis) / std::fabs(dAxis);
+	const float segmentStart = std::max(alphaMin, centerAlpha - halfAlphaStep);
+	const float segmentEnd = std::min(alphaMax, centerAlpha + halfAlphaStep);
+	if (segmentStart >= segmentEnd)
+	{
+		return 0.0f;
+	}
+	const float dx = line.p2x - line.p1x;
+	const float dy = line.p2y - line.p1y;
+	const float dz = line.p2z - line.p1z;
+	return std::sqrt(dx * dx + dy * dy + dz * dz) *
+	       (segmentEnd - segmentStart);
+}
+
+std::size_t imageOffset(const yrt::ImageParams& params, int x, int y, int z,
+                        std::uint32_t frame)
+{
+	return static_cast<std::size_t>(frame) *
+	           static_cast<std::size_t>(params.nx) *
+	           static_cast<std::size_t>(params.ny) *
+	           static_cast<std::size_t>(params.nz) +
+	       static_cast<std::size_t>(x) +
+	       static_cast<std::size_t>(params.nx) *
+	           (static_cast<std::size_t>(y) +
+	            static_cast<std::size_t>(params.ny) *
+	                static_cast<std::size_t>(z));
+}
+
+float imageValue(const yrt::Image& image, int x, int y, int z,
+                 std::uint32_t frame)
+{
+	const yrt::ImageParams& params = image.getParams();
+	if (x < 0 || y < 0 || z < 0 || x >= params.nx || y >= params.ny ||
+	    z >= params.nz)
+	{
+		return 0.0f;
+	}
+	return image.getRawPointer()[imageOffset(params, x, y, z, frame)];
+}
+
+float josephBilinearForward(const yrt::Image& image, int axis, int majorIndex,
+                            float alpha,
+                            const yrt::backend::metal::ProjectionLineEndpoints&
+                                line,
+                            std::uint32_t frame)
+{
+	const yrt::ImageParams& params = image.getParams();
+	const float x = line.p1x + alpha * (line.p2x - line.p1x);
+	const float y = line.p1y + alpha * (line.p2y - line.p1y);
+	const float z = line.p1z + alpha * (line.p2z - line.p1z);
+	if (axis == 0)
+	{
+		const float gy = josephGridCoord(
+		    y, 0.5f * params.length_y, 1.0f / params.vy);
+		const float gz = josephGridCoord(
+		    z, 0.5f * params.length_z, 1.0f / params.vz);
+		const int y0 = static_cast<int>(std::floor(gy));
+		const int z0 = static_cast<int>(std::floor(gz));
+		const float fy = gy - static_cast<float>(y0);
+		const float fz = gz - static_cast<float>(z0);
+		return (1.0f - fy) * (1.0f - fz) *
+		           imageValue(image, majorIndex, y0, z0, frame) +
+		       fy * (1.0f - fz) *
+		           imageValue(image, majorIndex, y0 + 1, z0, frame) +
+		       (1.0f - fy) * fz *
+		           imageValue(image, majorIndex, y0, z0 + 1, frame) +
+		       fy * fz *
+		           imageValue(image, majorIndex, y0 + 1, z0 + 1, frame);
+	}
+	if (axis == 1)
+	{
+		const float gx = josephGridCoord(
+		    x, 0.5f * params.length_x, 1.0f / params.vx);
+		const float gz = josephGridCoord(
+		    z, 0.5f * params.length_z, 1.0f / params.vz);
+		const int x0 = static_cast<int>(std::floor(gx));
+		const int z0 = static_cast<int>(std::floor(gz));
+		const float fx = gx - static_cast<float>(x0);
+		const float fz = gz - static_cast<float>(z0);
+		return (1.0f - fx) * (1.0f - fz) *
+		           imageValue(image, x0, majorIndex, z0, frame) +
+		       fx * (1.0f - fz) *
+		           imageValue(image, x0 + 1, majorIndex, z0, frame) +
+		       (1.0f - fx) * fz *
+		           imageValue(image, x0, majorIndex, z0 + 1, frame) +
+		       fx * fz *
+		           imageValue(image, x0 + 1, majorIndex, z0 + 1, frame);
+	}
+	const float gx = josephGridCoord(
+	    x, 0.5f * params.length_x, 1.0f / params.vx);
+	const float gy = josephGridCoord(
+	    y, 0.5f * params.length_y, 1.0f / params.vy);
+	const int x0 = static_cast<int>(std::floor(gx));
+	const int y0 = static_cast<int>(std::floor(gy));
+	const float fx = gx - static_cast<float>(x0);
+	const float fy = gy - static_cast<float>(y0);
+	return (1.0f - fx) * (1.0f - fy) *
+	           imageValue(image, x0, y0, majorIndex, frame) +
+	       fx * (1.0f - fy) *
+	           imageValue(image, x0 + 1, y0, majorIndex, frame) +
+	       (1.0f - fx) * fy *
+	           imageValue(image, x0, y0 + 1, majorIndex, frame) +
+	       fx * fy *
+	           imageValue(image, x0 + 1, y0 + 1, majorIndex, frame);
+}
+
+float josephForwardReference(
+    const yrt::Image& image,
+    const yrt::backend::metal::ProjectionLineEndpoints& line,
+    std::uint32_t frame)
+{
+	const yrt::ImageParams& params = image.getParams();
+	float alphaMin = 0.0f;
+	float alphaMax = 0.0f;
+	if (!josephReferenceAlphaRange(line, params, alphaMin, alphaMax))
+	{
+		return 0.0f;
+	}
+	const int axis = josephMajorAxis(line, params);
+	int first = 0;
+	int last = -1;
+	if (!josephSampleBounds(line, params, axis, alphaMin, alphaMax, first,
+	        last))
+	{
+		return 0.0f;
+	}
+	float projection = 0.0f;
+	for (int majorIndex = first; majorIndex <= last; ++majorIndex)
+	{
+		const float weight =
+		    josephSampleWeight(line, params, axis, majorIndex, alphaMin,
+		                       alphaMax);
+		const float alpha =
+		    josephSampleAlpha(line, params, axis, majorIndex);
+		projection += weight *
+		              josephBilinearForward(image, axis, majorIndex, alpha,
+		                                    line, frame);
+	}
+	return projection;
+}
+
+void addImageValue(yrt::Image& image, int x, int y, int z, std::uint32_t frame,
+                   float value)
+{
+	yrt::ImageParams params = image.getParams();
+	if (value == 0.0f || x < 0 || y < 0 || z < 0 || x >= params.nx ||
+	    y >= params.ny || z >= params.nz)
+	{
+		return;
+	}
+	image.getRawPointer()[imageOffset(params, x, y, z, frame)] += value;
+}
+
+void josephBilinearBackProject(yrt::Image& image, int axis, int majorIndex,
+                               float alpha, float update,
+                               const yrt::backend::metal::
+                                   ProjectionLineEndpoints& line,
+                               std::uint32_t frame)
+{
+	const yrt::ImageParams& params = image.getParams();
+	const float x = line.p1x + alpha * (line.p2x - line.p1x);
+	const float y = line.p1y + alpha * (line.p2y - line.p1y);
+	const float z = line.p1z + alpha * (line.p2z - line.p1z);
+	if (axis == 0)
+	{
+		const float gy = josephGridCoord(
+		    y, 0.5f * params.length_y, 1.0f / params.vy);
+		const float gz = josephGridCoord(
+		    z, 0.5f * params.length_z, 1.0f / params.vz);
+		const int y0 = static_cast<int>(std::floor(gy));
+		const int z0 = static_cast<int>(std::floor(gz));
+		const float fy = gy - static_cast<float>(y0);
+		const float fz = gz - static_cast<float>(z0);
+		addImageValue(image, majorIndex, y0, z0, frame,
+		              update * (1.0f - fy) * (1.0f - fz));
+		addImageValue(image, majorIndex, y0 + 1, z0, frame,
+		              update * fy * (1.0f - fz));
+		addImageValue(image, majorIndex, y0, z0 + 1, frame,
+		              update * (1.0f - fy) * fz);
+		addImageValue(image, majorIndex, y0 + 1, z0 + 1, frame,
+		              update * fy * fz);
+		return;
+	}
+	if (axis == 1)
+	{
+		const float gx = josephGridCoord(
+		    x, 0.5f * params.length_x, 1.0f / params.vx);
+		const float gz = josephGridCoord(
+		    z, 0.5f * params.length_z, 1.0f / params.vz);
+		const int x0 = static_cast<int>(std::floor(gx));
+		const int z0 = static_cast<int>(std::floor(gz));
+		const float fx = gx - static_cast<float>(x0);
+		const float fz = gz - static_cast<float>(z0);
+		addImageValue(image, x0, majorIndex, z0, frame,
+		              update * (1.0f - fx) * (1.0f - fz));
+		addImageValue(image, x0 + 1, majorIndex, z0, frame,
+		              update * fx * (1.0f - fz));
+		addImageValue(image, x0, majorIndex, z0 + 1, frame,
+		              update * (1.0f - fx) * fz);
+		addImageValue(image, x0 + 1, majorIndex, z0 + 1, frame,
+		              update * fx * fz);
+		return;
+	}
+	const float gx = josephGridCoord(
+	    x, 0.5f * params.length_x, 1.0f / params.vx);
+	const float gy = josephGridCoord(
+	    y, 0.5f * params.length_y, 1.0f / params.vy);
+	const int x0 = static_cast<int>(std::floor(gx));
+	const int y0 = static_cast<int>(std::floor(gy));
+	const float fx = gx - static_cast<float>(x0);
+	const float fy = gy - static_cast<float>(y0);
+	addImageValue(image, x0, y0, majorIndex, frame,
+	              update * (1.0f - fx) * (1.0f - fy));
+	addImageValue(image, x0 + 1, y0, majorIndex, frame,
+	              update * fx * (1.0f - fy));
+	addImageValue(image, x0, y0 + 1, majorIndex, frame,
+	              update * (1.0f - fx) * fy);
+	addImageValue(image, x0 + 1, y0 + 1, majorIndex, frame,
+	              update * fx * fy);
+}
+
+void josephBackProjectReference(
+    yrt::Image& image,
+    const yrt::backend::metal::ProjectionLineEndpoints& line,
+    float projectionValue, std::uint32_t frame)
+{
+	const yrt::ImageParams& params = image.getParams();
+	float alphaMin = 0.0f;
+	float alphaMax = 0.0f;
+	if (projectionValue == 0.0f ||
+	    !josephReferenceAlphaRange(line, params, alphaMin, alphaMax))
+	{
+		return;
+	}
+	const int axis = josephMajorAxis(line, params);
+	int first = 0;
+	int last = -1;
+	if (!josephSampleBounds(line, params, axis, alphaMin, alphaMax, first,
+	        last))
+	{
+		return;
+	}
+	for (int majorIndex = first; majorIndex <= last; ++majorIndex)
+	{
+		const float weight =
+		    josephSampleWeight(line, params, axis, majorIndex, alphaMin,
+		                       alphaMax);
+		const float alpha =
+		    josephSampleAlpha(line, params, axis, majorIndex);
+		josephBilinearBackProject(image, axis, majorIndex, alpha,
+		                          projectionValue * weight, line, frame);
+	}
 }
 
 yrt::Line3D makeBridgeLine(float p1x, float p1y, float p1z, float p2x,
@@ -506,7 +960,25 @@ bool expectThrows(const std::function<void()>& action)
 bool runBackendContextTest()
 {
 	const yrt::backend::metal::Context context;
-	return context.isValid() && context.errorMessage().empty();
+	if (!context.isValid() || !context.errorMessage().empty())
+	{
+		return false;
+	}
+
+	const std::size_t count = 8;
+	yrt::backend::metal::Buffer privateBuffer =
+	    yrt::backend::metal::Buffer::allocatePrivate(
+	        context.device(), sizeof(float) * count);
+	std::vector<float> actual(count, 0.0f);
+	std::vector<float> expected(count, 3.5f);
+	return privateBuffer.isValid() && !privateBuffer.isHostVisible() &&
+	       yrt::backend::metal::launchProjectionClear(context.device(),
+	           context.library(), context.commandQueue(), privateBuffer,
+	           expected.front(), count) &&
+	       !privateBuffer.copyToHost(actual.data(), sizeof(float) * count) &&
+	       privateBuffer.copyToHost(context.commandQueue(), actual.data(),
+	           sizeof(float) * count) &&
+	       valuesMatch(actual, expected);
 }
 
 bool runProjectionVectorOpsHostApiGoldenTest()
@@ -952,7 +1424,7 @@ bool runSiddonSingleRayForwardGoldenTest()
 	       valuesMatch(afterInvalidFrame, beforeInvalidFrame);
 }
 
-bool runSiddonSingleRayAdjointGoldenTest()
+bool runSiddonSingleRayAdjointGoldenTestImpl()
 {
 	const yrt::backend::metal::Context context;
 	if (!context.isValid())
@@ -1009,6 +1481,38 @@ bool runSiddonSingleRayAdjointGoldenTest()
 		}
 	}
 
+	yrt::ImageOwned diagCpuImage(params);
+	yrt::ImageOwned diagMetalImage(params);
+	diagCpuImage.allocate();
+	diagMetalImage.allocate();
+	copyValuesToImage(diagCpuImage, seed);
+	copyValuesToImage(diagMetalImage, seed);
+	for (std::size_t i = 0; i < lines.size(); ++i)
+	{
+		yrt::ProjectorSiddon::singleBackProjection(&diagCpuImage,
+		    makeLine(lines[i]), projectionValues[i], 0);
+	}
+	yrt::backend::metal::SiddonProjectorKernelProfile profile;
+	profile.diagnoseAdjointUpdateCounts = true;
+	profile.diagnoseAdjointVoxelHits = true;
+	if (!yrt::backend::metal::backProjectSiddonSingleRay(
+	        context, batch, diagMetalImage, 0, &profile) ||
+	    !imagesMatch(diagMetalImage, diagCpuImage) ||
+	    profile.adjointUpdateCountSeconds <= 0.0 ||
+	    profile.adjointVoxelHitCountSeconds <= 0.0 ||
+	    profile.adjointVoxelUpdates == 0 ||
+	    profile.adjointRaysWithUpdates == 0 ||
+	    profile.adjointMaxUpdatesPerRay == 0 ||
+	    profile.adjointVoxelHitMaps == 0 ||
+	    profile.adjointBatchHitVoxels == 0 ||
+	    profile.adjointVoxelHitTotalUpdates != profile.adjointVoxelUpdates ||
+	    profile.adjointMaxVoxelHits == 0 ||
+	    profile.adjointMaxBatchP95VoxelHits == 0 ||
+	    profile.adjointMaxBatchP99VoxelHits == 0)
+	{
+		return false;
+	}
+
 	yrt::ImageOwned invalidFrameImage(params);
 	yrt::ImageOwned expectedInvalidFrame(params);
 	invalidFrameImage.allocate();
@@ -1018,6 +1522,18 @@ bool runSiddonSingleRayAdjointGoldenTest()
 	return !yrt::backend::metal::backProjectSiddonSingleRay(
 	           context, batch, invalidFrameImage, 2) &&
 	       imagesMatch(invalidFrameImage, expectedInvalidFrame);
+}
+
+bool runSiddonSingleRayAdjointGoldenTest()
+{
+	return runSiddonSingleRayAdjointGoldenTestImpl();
+}
+
+bool runSiddonSingleRayNativeAtomicFloatAdjointGoldenTest()
+{
+	const ScopedEnvVar nativeFloatAtomics(
+	    "YRTPET_METAL_USE_NATIVE_FLOAT_ATOMICS", "1");
+	return runSiddonSingleRayAdjointGoldenTestImpl();
 }
 
 bool runSiddonProjectorMetalAdapterGoldenTest()
@@ -1105,6 +1621,86 @@ bool runSiddonProjectorMetalAdapterGoldenTest()
 	const double projectionDot = dotValues(actualForward, projectionWeights);
 	const double imageDot = imageDotFrame(image, metalAdjoint, frame);
 	return dotAlmostEqual(projectionDot, imageDot);
+}
+
+bool runJosephProjectorMetalAdapterGoldenTest()
+{
+	const yrt::backend::metal::Context context;
+	yrt::backend::metal::JosephProjectorMetal projector(context);
+	if (!projector.isValid() || !projector.context().isValid())
+	{
+		return false;
+	}
+
+	yrt::ImageParams params(5, 4, 4, 5.0f, 4.0f, 4.0f, 0.0f, 0.0f, 0.0f,
+	                        2);
+	yrt::ImageOwned image(params);
+	image.allocate();
+	for (std::size_t i = 0; i < imageVoxelCount(params); ++i)
+	{
+		image.getRawPointer()[i] =
+		    static_cast<float>((static_cast<int>(i) % 17) - 8) * 0.0625f +
+		    static_cast<float>(i / 7) * 0.015625f;
+	}
+
+	const std::vector<yrt::backend::metal::ProjectionLineEndpoints> lines = {
+	    {-3.0f, -1.25f, -1.0f, 3.0f, 1.25f, 1.0f},
+	    {-2.0f, 0.25f, -1.5f, 2.0f, 0.25f, 1.5f},
+	    {0.5f, -3.0f, -1.0f, -0.5f, 3.0f, 1.0f},
+	    {-2.5f, -2.0f, 0.0f, 2.5f, 2.0f, 0.0f},
+	    {4.0f, 4.0f, 0.0f, 5.0f, 4.0f, 0.0f}};
+	const std::vector<float> projectionWeights = {1.25f, -0.5f, 0.75f,
+	                                              2.0f, 3.0f};
+	const std::uint32_t frame = 1;
+
+	auto forwardBatch =
+	    projector.makeBatch(lines, std::vector<float>(lines.size(), 0.0f));
+	if (!forwardBatch.isValid() ||
+	    !projector.forwardProjectSingleRay(image, forwardBatch, frame))
+	{
+		return false;
+	}
+
+	std::vector<float> actualForward;
+	if (!forwardBatch.copyProjectionValuesToHost(actualForward))
+	{
+		return false;
+	}
+	std::vector<float> expectedForward;
+	expectedForward.reserve(lines.size());
+	for (const auto& line : lines)
+	{
+		expectedForward.push_back(josephForwardReference(image, line, frame));
+	}
+	if (!valuesMatch(actualForward, expectedForward))
+	{
+		return false;
+	}
+
+	yrt::ImageOwned metalAdjoint(params);
+	yrt::ImageOwned expectedAdjoint(params);
+	metalAdjoint.allocate();
+	expectedAdjoint.allocate();
+	metalAdjoint.fill(0.0f);
+	expectedAdjoint.fill(0.0f);
+	auto adjointBatch = projector.makeBatch(lines, projectionWeights);
+	if (!adjointBatch.isValid() ||
+	    !projector.backProjectSingleRay(adjointBatch, metalAdjoint, frame))
+	{
+		return false;
+	}
+	for (std::size_t i = 0; i < lines.size(); ++i)
+	{
+		josephBackProjectReference(expectedAdjoint, lines[i],
+		                           projectionWeights[i], frame);
+	}
+	if (!imagesMatch(metalAdjoint, expectedAdjoint))
+	{
+		return false;
+	}
+
+	return dotAlmostEqual(dotValues(expectedForward, projectionWeights),
+	    imageDotFrame(image, metalAdjoint, frame));
 }
 
 bool runSiddonEmptyOrMissGoldenTest()
@@ -1405,6 +2001,122 @@ bool runOperatorProjectorMetalBridgeAdjointGoldenTest()
 	       imagesMatch(metalImage, cpuImage);
 }
 
+bool runOperatorProjectorMetalBridgePartialCacheGoldenTest()
+{
+	const yrt::backend::metal::Context context;
+	if (!context.isValid())
+	{
+		return false;
+	}
+
+	const yrt::Scanner scanner = makeBridgeScanner();
+	yrt::ProjectorParams projectorParams(scanner);
+	projectorParams.projectorType = yrt::ProjectorType::SIDDON;
+	projectorParams.numRays = 1;
+
+	yrt::ImageParams imageParams(3, 3, 3, 3.0f, 3.0f, 3.0f, 0.0f, 0.0f,
+	                             0.0f, 2);
+	yrt::ImageOwned image(imageParams);
+	image.allocate();
+	for (std::size_t i = 0; i < imageVoxelCount(imageParams); ++i)
+	{
+		image.getRawPointer()[i] =
+		    static_cast<float>((static_cast<int>(i) % 13) - 6) * 0.075f +
+		    static_cast<float>(i / 6) * 0.035f;
+	}
+
+	const std::vector<yrt::Line3D> lines = {
+	    makeBridgeLine(-2.0f, 0.0f, 0.0f, 2.0f, 0.0f, 0.0f),
+	    makeBridgeLine(0.0f, -2.0f, 0.0f, 0.0f, 2.0f, 0.0f),
+	    makeBridgeLine(0.0f, 0.0f, -2.0f, 0.0f, 0.0f, 2.0f),
+	    makeBridgeLine(-2.0f, -2.0f, 0.0f, 2.0f, 2.0f, 0.0f),
+	    makeBridgeLine(2.0f, 2.0f, 0.0f, 3.0f, 2.0f, 0.0f),
+	    makeBridgeLine(0.0f, 0.0f, 0.0f, 2.0f, 0.0f, 0.0f)};
+	const std::vector<yrt::frame_t> frames = {0, 1, -1, 0, 1, 1};
+	const std::vector<float> projectionValues = {1.0f, -0.25f, 2.0f, 0.0f,
+	                                             4.0f, 0.5f};
+
+	MetalBridgeProjectionData cpuForwardData(scanner, lines,
+	                                         std::vector<float>(lines.size(),
+	                                                            -13.0f),
+	                                         frames);
+	auto cpuForwardBinIterator = cpuForwardData.getBinIter(1, 0);
+	yrt::OperatorProjector cpuForwardProjector(
+	    projectorParams, cpuForwardBinIterator.get());
+	cpuForwardProjector.applyA(&image, &cpuForwardData);
+
+	MetalBridgeProjectionData metalForwardData(scanner, lines,
+	                                           std::vector<float>(lines.size(),
+	                                                              -13.0f),
+	                                           frames);
+	auto metalForwardBinIterator = metalForwardData.getBinIter(1, 0);
+	yrt::OperatorProjector metalForwardProjector(
+	    projectorParams, metalForwardBinIterator.get());
+	yrt::backend::metal::OperatorProjectorMetalProfile forwardProfile;
+	yrt::backend::metal::OperatorProjectorMetalCache forwardCache;
+	forwardCache.setMaxBytes(150);
+	forwardCache.setMaxBatchEvents(2);
+	const yrt::backend::metal::OperatorProjectorMetalBridge forwardBridge(
+	    context, &forwardProfile, &forwardCache);
+	if (!forwardBridge.applyA(metalForwardProjector, image, metalForwardData,
+	        *metalForwardBinIterator,
+	        *metalForwardProjector.getBinLoader()) ||
+	    !valuesMatch(metalForwardData.values(), cpuForwardData.values()) ||
+	    forwardProfile.cacheBuilds == 0 ||
+	    forwardProfile.cacheSkipsOverBudget == 0 ||
+	    forwardProfile.uncachedBatches == 0 || forwardCache.usedBytes() == 0)
+	{
+		return false;
+	}
+
+	if (!forwardBridge.applyA(metalForwardProjector, image, metalForwardData,
+	        *metalForwardBinIterator,
+	        *metalForwardProjector.getBinLoader()) ||
+	    !valuesMatch(metalForwardData.values(), cpuForwardData.values()) ||
+	    forwardProfile.cacheHits == 0)
+	{
+		return false;
+	}
+
+	yrt::ImageOwned cpuAdjointImage(imageParams);
+	yrt::ImageOwned metalAdjointImage(imageParams);
+	cpuAdjointImage.allocate();
+	metalAdjointImage.allocate();
+	std::vector<float> seed(imageVoxelCount(imageParams), 0.0f);
+	for (std::size_t i = 0; i < seed.size(); ++i)
+	{
+		seed[i] = static_cast<float>((static_cast<int>(i) % 9) - 4) * 0.025f;
+	}
+	copyValuesToImage(cpuAdjointImage, seed);
+	copyValuesToImage(metalAdjointImage, seed);
+
+	MetalBridgeProjectionData cpuAdjointData(scanner, lines, projectionValues,
+	                                        frames);
+	auto cpuAdjointBinIterator = cpuAdjointData.getBinIter(1, 0);
+	yrt::OperatorProjector cpuAdjointProjector(
+	    projectorParams, cpuAdjointBinIterator.get());
+	cpuAdjointProjector.applyAH(&cpuAdjointData, &cpuAdjointImage);
+
+	MetalBridgeProjectionData metalAdjointData(scanner, lines,
+	                                          projectionValues, frames);
+	auto metalAdjointBinIterator = metalAdjointData.getBinIter(1, 0);
+	yrt::OperatorProjector metalAdjointProjector(
+	    projectorParams, metalAdjointBinIterator.get());
+	yrt::backend::metal::OperatorProjectorMetalProfile adjointProfile;
+	yrt::backend::metal::OperatorProjectorMetalCache adjointCache;
+	adjointCache.setMaxBytes(150);
+	adjointCache.setMaxBatchEvents(2);
+	const yrt::backend::metal::OperatorProjectorMetalBridge adjointBridge(
+	    context, &adjointProfile, &adjointCache);
+	return adjointBridge.applyAH(metalAdjointProjector, metalAdjointData,
+	           metalAdjointImage, *metalAdjointBinIterator,
+	           *metalAdjointProjector.getBinLoader()) &&
+	       imagesMatch(metalAdjointImage, cpuAdjointImage) &&
+	       adjointProfile.cacheBuilds > 0 &&
+	       adjointProfile.cacheSkipsOverBudget > 0 &&
+	       adjointProfile.uncachedBatches > 0 && adjointCache.usedBytes() > 0;
+}
+
 bool runOperatorProjectorMetalBridgeUnsupportedGoldenTest()
 {
 	const yrt::backend::metal::Context context;
@@ -1628,6 +2340,103 @@ bool runOperatorProjectorMetalDispatchEnabledAdjointGoldenTest()
 	metalProjector.setExperimentalMetalProjectorEnabled(true);
 	metalProjector.applyAH(&metalData, &metalImage);
 	return imagesMatch(metalImage, cpuImage);
+}
+
+bool runOperatorProjectorMetalDispatchJosephGoldenTest()
+{
+	const yrt::backend::metal::Context context;
+	if (!context.isValid())
+	{
+		return false;
+	}
+
+	const yrt::Scanner scanner = makeBridgeScanner();
+	yrt::ProjectorParams projectorParams(scanner);
+	projectorParams.projectorType = yrt::ProjectorType::SIDDON;
+	projectorParams.numRays = 1;
+
+	yrt::ImageParams imageParams(4, 4, 4, 4.0f, 4.0f, 4.0f, 0.0f, 0.0f,
+	                             0.0f, 2);
+	yrt::ImageOwned image(imageParams);
+	image.allocate();
+	for (std::size_t i = 0; i < imageVoxelCount(imageParams); ++i)
+	{
+		image.getRawPointer()[i] =
+		    0.25f + static_cast<float>((static_cast<int>(i) % 13) - 6) *
+		                0.03125f;
+	}
+
+	const std::vector<yrt::Line3D> lines = {
+	    makeBridgeLine(-2.5f, -0.4f, -0.2f, 2.3f, 0.8f, 0.4f),
+	    makeBridgeLine(-0.3f, -2.4f, 0.5f, 0.4f, 2.2f, -0.7f),
+	    makeBridgeLine(-0.8f, 0.1f, -2.4f, 0.9f, -0.2f, 2.1f),
+	    makeBridgeLine(3.5f, 3.5f, 3.5f, 4.5f, 3.5f, 3.5f)};
+	const std::vector<yrt::frame_t> frames = {0, 1, 0, -1};
+	const std::vector<float> initialValues(lines.size(), -17.0f);
+
+	auto toEndpoints = [](const yrt::Line3D& line)
+	{
+		return yrt::backend::metal::ProjectionLineEndpoints{
+		    line.point1.x, line.point1.y, line.point1.z,
+		    line.point2.x, line.point2.y, line.point2.z};
+	};
+
+	std::vector<float> expectedForward = initialValues;
+	for (std::size_t i = 0; i < lines.size(); ++i)
+	{
+		if (frames[i] >= 0)
+		{
+			expectedForward[i] =
+			    josephForwardReference(image, toEndpoints(lines[i]),
+			                           static_cast<std::uint32_t>(frames[i]));
+		}
+	}
+
+	MetalBridgeProjectionData forwardData(scanner, lines, initialValues,
+	                                      frames);
+	auto forwardBinIterator = forwardData.getBinIter(1, 0);
+	yrt::OperatorProjector forwardProjector(projectorParams,
+	                                        forwardBinIterator.get());
+	forwardProjector.setExperimentalMetalProjectorEnabled(true);
+	forwardProjector.setExperimentalMetalProjectorKernel("joseph");
+	if (forwardProjector.getExperimentalMetalProjectorKernel() != "joseph")
+	{
+		return false;
+	}
+	forwardProjector.applyA(&image, &forwardData);
+	if (!valuesMatch(forwardData.values(), expectedForward))
+	{
+		return false;
+	}
+
+	yrt::ImageOwned adjointImage(imageParams);
+	yrt::ImageOwned expectedAdjoint(imageParams);
+	adjointImage.allocate();
+	expectedAdjoint.allocate();
+	std::vector<float> seed(imageVoxelCount(imageParams), 0.0f);
+	copyValuesToImage(adjointImage, seed);
+	copyValuesToImage(expectedAdjoint, seed);
+
+	const std::vector<float> projectionValues = {1.0f, -0.5f, 0.75f, 2.0f};
+	for (std::size_t i = 0; i < lines.size(); ++i)
+	{
+		if (frames[i] >= 0)
+		{
+			josephBackProjectReference(
+			    expectedAdjoint, toEndpoints(lines[i]), projectionValues[i],
+			    static_cast<std::uint32_t>(frames[i]));
+		}
+	}
+
+	MetalBridgeProjectionData adjointData(scanner, lines, projectionValues,
+	                                      frames);
+	auto adjointBinIterator = adjointData.getBinIter(1, 0);
+	yrt::OperatorProjector adjointProjector(projectorParams,
+	                                        adjointBinIterator.get());
+	adjointProjector.setExperimentalMetalProjectorEnabled(true);
+	adjointProjector.setExperimentalMetalProjectorKernel("joseph");
+	adjointProjector.applyAH(&adjointData, &adjointImage);
+	return imagesMatch(adjointImage, expectedAdjoint);
 }
 
 bool bridgeReportsUnsupported(const yrt::ProjectorParams& projectorParams)
@@ -2939,8 +3748,12 @@ int main()
 	     runSiddonSingleRayForwardGoldenTest},
 	    {"siddon_single_ray_adjoint_golden",
 	     runSiddonSingleRayAdjointGoldenTest},
+	    {"siddon_single_ray_native_atomic_float_adjoint_golden",
+	     runSiddonSingleRayNativeAtomicFloatAdjointGoldenTest},
 	    {"siddon_projector_metal_adjointness_golden",
 	     runSiddonProjectorMetalAdapterGoldenTest},
+	    {"joseph_projector_metal_adjointness_golden",
+	     runJosephProjectorMetalAdapterGoldenTest},
 	    {"siddon_empty_or_miss_golden", runSiddonEmptyOrMissGoldenTest},
 	    {"siddon_projector_metal_failure_modes_golden",
 	     runSiddonProjectorMetalFailureModeGoldenTest},
@@ -2950,6 +3763,8 @@ int main()
 	     runOperatorProjectorMetalBridgeForwardGoldenTest},
 	    {"operator_projector_metal_bridge_adjoint_golden",
 	     runOperatorProjectorMetalBridgeAdjointGoldenTest},
+	    {"operator_projector_metal_bridge_partial_cache_golden",
+	     runOperatorProjectorMetalBridgePartialCacheGoldenTest},
 	    {"operator_projector_metal_bridge_unsupported_golden",
 	     runOperatorProjectorMetalBridgeUnsupportedGoldenTest},
 	    {"operator_projector_metal_dispatch_default_golden",
@@ -2958,6 +3773,8 @@ int main()
 	     runOperatorProjectorMetalDispatchEnabledForwardGoldenTest},
 	    {"operator_projector_metal_dispatch_adjoint_golden",
 	     runOperatorProjectorMetalDispatchEnabledAdjointGoldenTest},
+	    {"operator_projector_metal_dispatch_joseph_golden",
+	     runOperatorProjectorMetalDispatchJosephGoldenTest},
 	    {"operator_projector_metal_dispatch_fallback_golden",
 	     runOperatorProjectorMetalDispatchUnsupportedFallbackGoldenTest},
 	    {"operator_projector_metal_dispatch_dd_fallback_golden",

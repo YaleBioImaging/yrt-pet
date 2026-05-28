@@ -12,9 +12,10 @@ not a replacement for the CUDA device path.
 - `-DUSE_CUDA=ON/OFF` remains independent. Enabling Metal does not make Metal
   the default GPU backend and does not change CUDA behavior.
 - `-DBUILD_TESTS=ON` builds the Metal test executable when `USE_METAL=ON`.
-- `-DBUILD_PYBIND11=ON/OFF` controls Python bindings as usual. Only the
-  explicit experimental `OSEM_CPU` Metal projector opt-in/status methods are
-  exposed to Python; the lower-level Metal adapters are not Python APIs.
+- `-DBUILD_PYBIND11=ON/OFF` controls Python bindings as usual. The explicit
+  experimental `OSEM_CPU` and `OperatorProjector` Metal projector opt-in/status
+  methods are exposed to Python; the lower-level Metal adapters are not Python
+  APIs.
 
 ## Supported platforms
 
@@ -109,6 +110,24 @@ differences. It currently supports the same guarded subset as the OSEM hook:
 one-ray Siddon, no TOF, no projection-space PSF, no image PSF, and host
 projection data.
 
+The real-data Python smoke keeps Siddon as the default Metal projector. A
+separate experimental Joseph projector can be selected for Metal-only OSEM
+profiling. Joseph sensitivity generation is also opt-in; when enabled, the
+script backprojects the same correction histogram used by the Siddon
+sensitivity path, but with the experimental Metal Joseph adjoint:
+
+```sh
+PYTHONPATH=build_metal \
+  python yrt-pet/python/examples/metal_ge_osem_smoke.py \
+    --metal-only \
+    --metal-projector joseph \
+    --metal-sensitivity-projector joseph ...
+```
+
+CPU-vs-Metal comparison mode intentionally requires `--metal-projector siddon`
+and `--metal-sensitivity-projector siddon`, because there is no public CPU
+Joseph projector or Joseph sensitivity generator in this codebase.
+
 Run the Metal golden tests:
 
 ```sh
@@ -139,7 +158,7 @@ The current opt-in adapter surface is intentionally small and host-owned:
 | `ProjectionBatchMetal` | LOR and projection-value Metal buffers plus host LOR metadata | `ProjectionGeometryKernels` | `ProjectionListDevice`, projectors, or reconstruction |
 | `ImageMetal` | allocated `ImageOwned` and `Context` | `ImageOps` | `ImageDevice`, reconstruction, or projectors |
 | `OperatorPsfMetal` | PSF kernels, flipped AH kernels, and `Context` | `PsfOps` | `OperatorPsf`, `OperatorPsfDevice`, or reconstruction |
-| `OperatorProjectorMetalBridge` | `Context` and temporary Metal projection batches | `SiddonProjectorMetal` | `OperatorProjector`, `OperatorProjectorDevice`, or reconstruction dispatch |
+| `OperatorProjectorMetalBridge` | `Context` and temporary Metal projection batches | `SiddonProjectorMetal` and experimental `JosephProjectorMetal` | `OperatorProjectorDevice` or default reconstruction dispatch |
 
 Each adapter is a developer-facing convenience wrapper around the corresponding
 host API. They are only compiled when `USE_METAL=ON`, require explicit
@@ -206,6 +225,12 @@ experimental subset: one-ray Siddon, no TOF, no projection-space PSF, and
 `DEFAULT4D`. It does not change default projector, reconstruction, CUDA, or
 Python behavior.
 
+The same explicit `OperatorProjector` opt-in also has a Joseph kernel selector
+for developer experiments. The real-data smoke uses that only when
+`--metal-sensitivity-projector joseph` is provided, so the Joseph OSEM path can
+use `Joseph_adjoint(corrections)` for the denominator instead of mixing a
+Joseph update with a Siddon sensitivity image. Siddon remains the default.
+
 The Metal test executable also includes a file-backed PSF golden test that
 writes a small NIfTI image and uniform PSF CSV fixture, reloads the image from
 disk, and compares the public opt-in Metal PSF file helpers against CPU
@@ -230,18 +255,20 @@ osemCpu.didLastExperimentalMetalProjectorRun();
 The flag is disabled by default and is exposed to Python only as this explicit
 experimental API; it is not wired into command-line reconstruction tools. When
 enabled in a `USE_METAL=ON` build, the `OSEM_CPU::computeEMUpdateImage()`
-projector step can split the existing fused CPU loop into: Metal Siddon forward
-projection, CPU correction/ratio
-calculation using the existing `Corrector_CPU` caches, and Metal Siddon adjoint
-backprojection into the EM update image. It falls back to the existing CPU loop
+projector step can split the existing fused CPU loop into: Metal projector
+forward projection, CPU correction/ratio calculation using the existing
+`Corrector_CPU` caches, and Metal projector adjoint backprojection into the EM
+update image. The default selector is Siddon; the Joseph selector is
+experimental and opt-in. The default path falls back to the existing CPU loop
 when Metal is unavailable, image PSF is enabled, or the projector configuration
 is outside the current bridge subset. The supported Metal projector subset is
-the same as `OperatorProjectorMetalBridge`: one-ray Siddon, no TOF, no
-projection-space PSF, and `DEFAULT4D`.
+the same as `OperatorProjectorMetalBridge`: one-ray Siddon geometry, no TOF,
+no projection-space PSF, and `DEFAULT4D`.
 
 This hook still does not make Metal a default reconstruction backend and does
 not wire Metal into `OSEM_GPU`, `LREM`, `ImageDevice`, `ProjectionListDevice`,
-`OperatorProjectorDevice`, Siddon/DD production dispatch, or Python bindings.
+`OperatorProjectorDevice`, Siddon/DD production dispatch, or default Python
+reconstruction behavior.
 The Metal test suite covers `osem_cpu_experimental_metal_projector_golden` for
 a one-iteration CPU-vs-Metal OSEM CPU reconstruction and
 `osem_cpu_experimental_metal_projector_dd_fallback_golden` for DD fallback
@@ -265,6 +292,7 @@ Then construct the data path normally, and enable the flag on the returned CPU
 OSEM object:
 
 ```python
+# ... construct scanner, sens_img, and proj_data through the normal CPU setup
 osem = yrt.createOSEM(scanner, False)
 osem.num_MLEM_iterations = 1
 osem.num_OSEM_subsets = 1
@@ -323,6 +351,167 @@ diagnostics.
 The Metal OSEM hook itself does not depend on the GE plugin, but the plugin is
 needed for the GE `ProjectionData` classes used by this real-data smoke.
 
+### GE mini-hot-spot profiling checkpoint
+
+As of the May 27, 2026 memory-pressure checkpoint, the best full mini-hot-spot
+Metal OSEM profile in this workspace is
+`metal_ge_full_3it_pressure_v2_cache8gb.csv`. It uses the experimental combined
+host-ratio bridge path, parallel CPU ratio evaluation inside the bridge,
+`--metal-cache-budget-mb 8192`, `--metal-batch-events 1000000`, and
+`--no-move-sensitivity`.
+
+The checkpoint run reported `metal_recon_s=200.77`,
+`metal_profile_total_s=158.09`, `metal_profile_forward_s=61.26`,
+`metal_profile_ratio_s=4.89`, and `metal_profile_adjoint_s=72.31`. The previous
+best same-size run before the pressure-aware 8 GB cache setting was
+`metal_ge_parallel_host_ratio_3it.csv` at `metal_recon_s=224.08`. The 8 GB cache
+configuration is therefore about `23` seconds faster on this three-iteration
+validation run while avoiding the heavier memory pressure seen with larger
+retained caches.
+
+For full-data benchmark sweeps, prefer `--isolated-sweep`. The in-process sweep
+mode is convenient for small development cases, but long Metal runs can suffer
+from cumulative Python/Metal resource pressure that makes later rows slower
+than an equivalent single-case run. `--isolated-sweep` runs each case in a fresh
+Python process and then merges the per-case summary rows.
+
+At this checkpoint the dominant remaining bucket is the Metal adjoint kernel:
+`metal_profile_adjoint_kernel_s=71.96` out of
+`metal_profile_total_s=158.09`. Future performance work should target adjoint
+atomic accumulation and Siddon traversal before revisiting broader cache
+admission or memory-retention strategies.
+
+The profiling output now also breaks the gather/packing path into smaller
+diagnostic buckets. The original aggregate columns remain unchanged, while
+`metal_profile_forward_gather_cache_build_s`,
+`metal_profile_forward_gather_uncached_s`,
+`metal_profile_forward_gather_direct_s`,
+`metal_profile_forward_gather_constrained_s`,
+`metal_profile_forward_pack_cache_build_s`,
+`metal_profile_forward_pack_uncached_s`,
+`metal_profile_forward_batch_upload_cache_build_s`, and
+`metal_profile_forward_batch_upload_uncached_s` separate cache-admission work
+from repeated uncached batch work. These fields are diagnostics only; they do
+not change CPU, CUDA, or Metal reconstruction behavior.
+
+The shared Metal 1D launcher uses a fuller default compute threadgroup size
+than the hardware execution width alone: it targets 256 threads per threadgroup,
+rounded to the pipeline execution width and capped by
+`maxTotalThreadsPerThreadgroup` and the number of launched elements. For
+benchmark sweeps, the size can be overridden without rebuilding:
+
+```sh
+YRTPET_METAL_THREADS_PER_THREADGROUP=512 \
+  PYTHONPATH=build_metal \
+  python yrt-pet/python/examples/metal_ge_osem_smoke.py ...
+```
+
+Invalid or zero override values are ignored. This affects only the experimental
+Metal launch helper and does not change CPU or CUDA behavior.
+
+The adjoint/backprojection kernel defaults to the conservative CAS-loop float
+atomic path used by the initial Metal Siddon implementation. For profiling on
+SDKs that support native Metal float atomics, an experimental replacement can
+be enabled without rebuilding:
+
+```sh
+YRTPET_METAL_USE_NATIVE_FLOAT_ATOMICS=1 \
+  PYTHONPATH=build_metal \
+  python yrt-pet/python/examples/metal_ge_osem_smoke.py ...
+```
+
+This changes only the experimental Metal Siddon adjoint kernel name selected by
+the Metal launch wrapper. CPU, CUDA, and the default Metal path are unchanged.
+Use it only as an A/B benchmark until it has been validated on the target
+hardware and workload.
+
+The OSEM Metal bridge can also A/B-test private storage for the zero-initialized
+adjoint update image:
+
+```sh
+YRTPET_METAL_USE_PRIVATE_UPDATE_BUFFER=1 \
+  PYTHONPATH=build_metal \
+  python yrt-pet/python/examples/metal_ge_osem_smoke.py ...
+```
+
+This keeps host-visible shared buffers as the default. When enabled, only the
+experimental OSEM Metal bridge update image allocated through the zero-clear
+path uses private Metal storage; the final image is copied back through a blit
+staging buffer. This is intended to test whether the adjoint atomic write path
+is limited by shared-buffer policy on the host GPU.
+
+The explicit `OSEM_CPU` Metal projector opt-in also avoids one repeated host
+upload in the EM update path: because `OSEM_CPU::resetEMUpdateImage()` clears
+the update image before each subset, the opt-in bridge can allocate the adjoint
+update buffer on Metal and clear it with the existing projection clear kernel
+instead of copying a zero-filled CPU image to the GPU. The conservative bridge
+default remains unchanged for direct callers. In this OSEM path,
+`metal_profile_adjoint_image_upload_s` includes the Metal buffer allocation and
+clear time for that update image initialization.
+
+With `--profile-metal`, the GE smoke script also prints a `metal_subset_profile`
+table and can write per-subset telemetry to CSV with
+`--metal-subset-profile-csv`. If only `--summary-csv` is provided, the script
+writes a `_subsets.csv` sidecar when per-subset Metal records are available.
+Each row records the iteration/subset, event count, wall/forward/ratio/adjoint
+buckets, cache hits/misses/skips, uncached batch count, and macOS before/after
+memory-pressure hints. The memory hints are sampled from macOS VM statistics
+when available and are meant for benchmark diagnosis, not for backend
+dispatch decisions. The pressure label is intentionally conservative: low free
+memory or high compressed memory can mark a subset as yellow even when
+reclaimable inactive pages keep the available-memory estimate above the
+nominal threshold. Pageout, compression, and swapout deltas are also included
+to help identify timing runs contaminated by memory pressure.
+
+An additional adjoint diagnostic pass is available for targeted bottleneck
+analysis:
+
+```sh
+PYTHONPATH=build_metal \
+  python yrt-pet/python/examples/metal_ge_osem_smoke.py \
+  --base /Users/yanischemli/Desktop/mini_hot_spot \
+  --metal-only \
+  --no-psf \
+  --max-events 4096 \
+  --iterations 1 \
+  --subsets 1 \
+  --allow-unsafe-metal \
+  --profile-metal \
+  --profile-metal-adjoint-diagnostics \
+  --profile-metal-adjoint-hit-diagnostics \
+  --no-move-sensitivity \
+  --no-write-images
+```
+
+`--profile-metal-adjoint-diagnostics` runs an extra Metal count kernel after
+each adjoint batch. It reports `metal_profile_adjoint_update_count_s`,
+`metal_profile_adjoint_voxel_updates`,
+`metal_profile_adjoint_rays_with_updates`, and
+`metal_profile_adjoint_max_updates_per_ray`. Because this adds extra work, it
+is meant for diagnosing atomic/update-count behavior and should not be used for
+baseline timing comparisons.
+
+`--profile-metal-adjoint-hit-diagnostics` runs an additional heavier Metal pass
+that builds a temporary uint voxel-hit image for each adjoint batch. It reports
+`metal_profile_adjoint_voxel_hit_count_s`,
+`metal_profile_adjoint_voxel_hit_maps`,
+`metal_profile_adjoint_batch_hit_voxels`,
+`metal_profile_adjoint_voxel_hit_total_updates`,
+`metal_profile_adjoint_max_voxel_hits`,
+`metal_profile_adjoint_max_batch_p95_voxel_hits`, and
+`metal_profile_adjoint_max_batch_p99_voxel_hits`. The hit-voxel count is a
+per-batch aggregate, not a globally unique voxel count across the full
+reconstruction. Use this only on small diagnostic runs when deciding whether
+the next optimization should target atomic contention or Siddon traversal.
+
+After that split identified repeated uncached list-mode LOR gathering as the
+largest variable cost, the bridge gained a narrow fast path for unconstrained
+`ListModeLUT` forward gather. It reads raw detector-id arrays, reuses a
+cached detector-position LUT, applies the same motion transform math as
+`ProjectionData::getLOR`, and still falls back to the generic gather path for
+constrained bins, projection-value gather, non-LUT data, or unsupported
+layouts.
+
 The first production-facing projector bridge is implemented and can be reached
 through an explicit `OperatorProjector` opt-in flag. The flag is disabled by
 default:
@@ -330,6 +519,7 @@ default:
 ```cpp
 operatorProjector.setExperimentalMetalProjectorEnabled(true);
 operatorProjector.isExperimentalMetalProjectorEnabled();
+operatorProjector.setExperimentalMetalProjectorKernel("siddon");
 ```
 
 When enabled in a `USE_METAL=ON` build, `OperatorProjector::applyA` and
@@ -338,9 +528,13 @@ the configuration is supported. The current supported subset is Siddon, one
 ray, no TOF, no projection PSF, and `DEFAULT4D` host
 `Image`/`ProjectionData` inputs. The bridge gathers LOR and dynamic-frame
 properties through the same `BinLoader`/`BinIterator` surface used by CPU
-`OperatorProjector`, then delegates to `SiddonProjectorMetal`. If the flag is
-disabled, Metal is unavailable, or the projector configuration is unsupported,
-the existing CPU path is used. The opt-in flag is not exposed through Python.
+`OperatorProjector`, then delegates to `SiddonProjectorMetal` by default or
+experimental `JosephProjectorMetal` when `"joseph"` is explicitly selected.
+If the flag is disabled, Metal is unavailable, or the projector configuration
+is unsupported, the default `"siddon"` selector falls back to the existing CPU
+path. A non-default selector such as `"joseph"` fails rather than silently
+running CPU Siddon. The opt-in flag and selector are exposed through Python
+for developer smoke scripts.
 The Metal test suite covers CPU fallback equality when the opt-in flag is
 enabled for unsupported TOF, DD, DD with projection-space PSF, multi-ray
 Siddon, LR, and LR dual-update configurations.
@@ -437,6 +631,14 @@ kernel. This is still a CPU-vs-Metal validation surface only; it does not alter
 `ProjectorSiddon`, `OperatorProjector`, `ProjectionListDevice`, or
 reconstruction dispatch. The adapter owns only a `Context` and creates
 `ProjectionBatchMetal` inputs for the existing isolated single-ray kernels.
+
+The experimental Joseph projector API mirrors that shape in
+`yrt-pet/backends/metal/JosephProjectorOps.hpp` and
+`yrt-pet/backends/metal/JosephProjectorMetal.hpp`. It uses a ray-driven
+dominant-axis sampler with bilinear interpolation on the two transverse axes,
+and a matching adjoint scatter. It is validated against a test-local reference
+implementation and an adjointness check, not against a production CPU Joseph
+projector.
 
 The experimental host-facing image API is available through
 `yrt-pet/backends/metal/ImageOps.hpp`:
@@ -544,7 +746,12 @@ The current `.metal` file contains:
 - projector-adjacent geometry: Siddon-style FOV/volume entry alpha range for
   image-centered LOR endpoints
 - Siddon projector: single-ray forward projection and per-LOR atomic adjoint
-  projection with no TOF and no updater
+  projection with no TOF and no updater; the adjoint defaults to a CAS-loop
+  float atomic path and has an opt-in native `atomic_float` variant for
+  profiling
+- Joseph projector: experimental single-ray dominant-axis forward projection
+  and matching per-LOR atomic adjoint with no TOF and no updater; exposed
+  through isolated backend APIs and an opt-in Metal-only OSEM selector
 - image scalar/update ops: fill, multiply by scalar, add 3D image to 3D image,
   add 3D image to 4D image, `applyThreshold`, `applyThresholdBroadcast`,
   static EM update, dynamic EM update, and dynamic EM update with sensitivity
@@ -552,15 +759,16 @@ The current `.metal` file contains:
 - image PSF ops: separable 3D convolution over X, Y, and Z with circular
   boundary wrapping
 
-## Known limitations before reconstruction wiring
+## Known limitations before broader reconstruction wiring
 
-The current Metal backend is intentionally host-copy based. Each host API or
-adapter call copies data from CPU memory into Metal buffers, launches one or
-more kernels, and copies results back to CPU memory. This is useful for
-CPU-vs-Metal validation, but it is not yet a performance-oriented
-reconstruction data path.
+Most of the Metal backend is still intentionally host-copy based. Each host API
+or adapter call copies data from CPU memory into Metal buffers, launches one or
+more kernels, and copies results back to CPU memory. The experimental
+`OSEM_CPU` opt-in projector path now keeps a conservative projector cache and
+uses a host-ratio fast path, but it is still guarded, explicit, and
+performance-oriented only for the validated GE/Siddon subset.
 
-Before any reconstruction wiring, the project still needs:
+Before broader reconstruction wiring, the project still needs:
 
 - a clear ownership model for where image and projection data live during an
   iteration
@@ -574,19 +782,21 @@ Before any reconstruction wiring, the project still needs:
   results
 
 Until those are settled, Metal should remain limited to explicit
-`yrt::backend::metal` calls, smoke/sample executables, and golden tests.
+`yrt::backend::metal` calls, smoke/sample executables, golden tests, and the
+explicit experimental `OSEM_CPU` projector flag.
 
 ## Not wired into production
 
-Metal is not currently wired into:
+Metal is not currently wired into these default paths:
 
 - `ImageDevice`
 - `ProjectionListDevice` or other projection device data paths
 - `OperatorPsfDevice` or the default `OperatorPsf` dispatch path
-- reconstruction code
-- projectors, Siddon, DD, OSEM, or LREM
-- Python bindings
+- default command-line reconstruction
+- `OSEM_GPU`, `LREM`, DD, or production projector selection
+- automatic Python backend selection
 
 The existing CPU and CUDA behavior remains the default behavior unless a caller
 explicitly builds with `USE_METAL=ON` and directly calls the experimental
-`yrt::backend::metal` API or Metal smoke/test executables.
+`yrt::backend::metal` API, Metal smoke/test executables, or the experimental
+`OSEM_CPU` Metal projector opt-in.

@@ -125,6 +125,9 @@ if (USE_METAL)
             "CLANG_MODULE_CACHE_PATH=${YRTPET_METAL_MODULE_CACHE_DIR}"
             ${YRTPET_XCRUN_EXECUTABLE} -sdk macosx metal
             "-fmodules-cache-path=${YRTPET_METAL_MODULE_CACHE_DIR}"
+            -fmetal-math-mode=safe
+            -fmetal-math-fp32-functions=precise
+            -ffp-contract=off
             -c "${YRTPET_METAL_SMOKE_SOURCE}"
             -o "${YRTPET_METAL_SMOKE_AIR}"
         DEPENDS "${YRTPET_METAL_SMOKE_SOURCE}"
@@ -147,6 +150,9 @@ if (USE_METAL)
         backends/metal/ImageMetal.cpp
         backends/metal/ImageOps.cpp
         backends/metal/ImageSpaceKernels.cpp
+        backends/metal/JosephProjectorKernels.cpp
+        backends/metal/JosephProjectorMetal.cpp
+        backends/metal/JosephProjectorOps.cpp
         backends/metal/MetalBackend.cpp
         backends/metal/MetalContext.cpp
         backends/metal/MetalSmoke.cpp

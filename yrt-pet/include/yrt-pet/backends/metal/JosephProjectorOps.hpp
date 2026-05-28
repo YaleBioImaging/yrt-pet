@@ -22,28 +22,17 @@ class Buffer;
 class ProjectionBatchMetal;
 struct SiddonProjectorKernelProfile;
 
-bool makeSiddonForwardImageParams(const Image& image, std::uint32_t frame,
-                                  SiddonForwardImageParams& params);
-bool uploadSiddonImageBuffer(const Context& context, const Image& image,
-                             Buffer& imageBuffer,
-                             SiddonProjectorKernelProfile* profile = nullptr);
-bool downloadSiddonImageBuffer(const Buffer& imageBuffer, Image& image,
-                               SiddonProjectorKernelProfile* profile = nullptr);
-bool downloadSiddonImageBuffer(const Context& context,
-                               const Buffer& imageBuffer, Image& image,
-                               SiddonProjectorKernelProfile* profile = nullptr);
-
-bool forwardProjectSiddonSingleRay(const Context& context, const Image& image,
+bool forwardProjectJosephSingleRay(const Context& context, const Image& image,
     ProjectionBatchMetal& batch, std::uint32_t frame = 0,
     SiddonProjectorKernelProfile* profile = nullptr);
-bool forwardProjectSiddonSingleRay(const Context& context,
+bool forwardProjectJosephSingleRay(const Context& context,
     const Buffer& imageBuffer, ProjectionBatchMetal& batch,
     const SiddonForwardImageParams& params,
     SiddonProjectorKernelProfile* profile = nullptr);
-bool backProjectSiddonSingleRay(const Context& context,
+bool backProjectJosephSingleRay(const Context& context,
     const ProjectionBatchMetal& batch, Image& image, std::uint32_t frame = 0,
     SiddonProjectorKernelProfile* profile = nullptr);
-bool backProjectSiddonSingleRay(const Context& context,
+bool backProjectJosephSingleRay(const Context& context,
     const ProjectionBatchMetal& batch, Buffer& imageBuffer,
     const SiddonForwardImageParams& params,
     SiddonProjectorKernelProfile* profile = nullptr);

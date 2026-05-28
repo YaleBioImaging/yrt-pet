@@ -42,6 +42,8 @@ public:
 
 	void setExperimentalMetalProjectorEnabled(bool enabled);
 	bool isExperimentalMetalProjectorEnabled() const;
+	void setExperimentalMetalProjectorKernel(const std::string& kernel);
+	std::string getExperimentalMetalProjectorKernel() const;
 
 	void addTOF(float tofWidth_ps, int tofNumStd = -1);
 	void addProjPSF(const std::string& projPsf_fname);
@@ -69,5 +71,6 @@ protected:
 	std::unique_ptr<BinLoader> mp_binLoader;
 
 	bool m_experimentalMetalProjectorEnabled = false;
+	std::string m_experimentalMetalProjectorKernel = "siddon";
 };
 }  // namespace yrt

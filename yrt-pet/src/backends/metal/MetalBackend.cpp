@@ -20,7 +20,11 @@
 #include "yrt-pet/backends/metal/MetalBackend.hpp"
 
 #include <algorithm>
+#include <cerrno>
+#include <cstdlib>
 #include <cstring>
+#include <map>
+#include <mutex>
 #include <utility>
 
 namespace yrt::backend::metal
@@ -40,9 +44,70 @@ MTL::ResourceOptions sharedResourceOptions()
 	return static_cast<MTL::ResourceOptions>(MTL::ResourceStorageModeShared);
 }
 
+MTL::ResourceOptions privateResourceOptions()
+{
+	return static_cast<MTL::ResourceOptions>(MTL::ResourceStorageModePrivate);
+}
+
 NS::UInteger toUInteger(std::size_t value)
 {
 	return static_cast<NS::UInteger>(value);
+}
+
+NS::UInteger parseThreadgroupOverride()
+{
+	const char* value =
+	    std::getenv("YRTPET_METAL_THREADS_PER_THREADGROUP");
+	if (value == nullptr || value[0] == '\0')
+	{
+		return 0;
+	}
+
+	char* end = nullptr;
+	errno = 0;
+	const auto parsed = std::strtoull(value, &end, 10);
+	if (errno != 0 || end == value || *end != '\0' || parsed == 0)
+	{
+		return 0;
+	}
+	return static_cast<NS::UInteger>(parsed);
+}
+
+NS::UInteger chooseThreadsPerThreadgroup(
+    const MTL::ComputePipelineState* pipeline, std::size_t valueCount)
+{
+	if (pipeline == nullptr)
+	{
+		return 1;
+	}
+
+	constexpr NS::UInteger kDefaultTargetThreads = 256;
+	const auto valueCountU = toUInteger(valueCount);
+	const auto upperBound = std::max<NS::UInteger>(
+	    1, std::min<NS::UInteger>(
+	           pipeline->maxTotalThreadsPerThreadgroup(), valueCountU));
+
+	const auto overrideThreads = parseThreadgroupOverride();
+	if (overrideThreads != 0)
+	{
+		return std::max<NS::UInteger>(
+		    1, std::min<NS::UInteger>(overrideThreads, upperBound));
+	}
+
+	const auto executionWidth =
+	    std::max<NS::UInteger>(1, pipeline->threadExecutionWidth());
+	const auto target = std::min<NS::UInteger>(
+	    upperBound, std::max<NS::UInteger>(executionWidth,
+	                    kDefaultTargetThreads));
+	if (target < executionWidth)
+	{
+		return target;
+	}
+
+	const auto rounded = (target / executionWidth) * executionWidth;
+	return std::max<NS::UInteger>(
+	    1, std::min<NS::UInteger>(rounded == 0 ? target : rounded,
+	           upperBound));
 }
 
 }  // namespace
@@ -65,6 +130,9 @@ struct Library::Impl
 	}
 
 	NS::SharedPtr<MTL::Library> p_library;
+	std::map<std::string, NS::SharedPtr<MTL::ComputePipelineState>>
+	    computePipelines;
+	std::mutex computePipelineMutex;
 };
 
 struct CommandQueue::Impl
@@ -79,13 +147,16 @@ struct CommandQueue::Impl
 
 struct Buffer::Impl
 {
-	Impl(NS::SharedPtr<MTL::Buffer> pp_buffer, std::size_t p_byteCount)
-	    : p_buffer(std::move(pp_buffer)), byteCount(p_byteCount)
+	Impl(NS::SharedPtr<MTL::Buffer> pp_buffer, std::size_t p_byteCount,
+	     bool p_hostVisible)
+	    : p_buffer(std::move(pp_buffer)), byteCount(p_byteCount),
+	      hostVisible(p_hostVisible)
 	{
 	}
 
 	NS::SharedPtr<MTL::Buffer> p_buffer;
 	std::size_t byteCount;
+	bool hostVisible;
 };
 
 Device::Device() = default;
@@ -196,7 +267,27 @@ Buffer Buffer::allocate(const Device& device, std::size_t byteCount)
 		return Buffer();
 	}
 
-	return Buffer(std::make_shared<Impl>(std::move(p_buffer), byteCount));
+	return Buffer(std::make_shared<Impl>(std::move(p_buffer), byteCount,
+	    true));
+}
+
+Buffer Buffer::allocatePrivate(const Device& device, std::size_t byteCount)
+{
+	if (!device.isValid() || byteCount == 0)
+	{
+		return Buffer();
+	}
+
+	auto p_buffer = NS::TransferPtr(
+	    device.mp_impl->p_device->newBuffer(toUInteger(byteCount),
+	        privateResourceOptions()));
+	if (!p_buffer)
+	{
+		return Buffer();
+	}
+
+	return Buffer(std::make_shared<Impl>(std::move(p_buffer), byteCount,
+	    false));
 }
 
 Buffer Buffer::copyFromHost(const Device& device, const void* source,
@@ -215,12 +306,18 @@ Buffer Buffer::copyFromHost(const Device& device, const void* source,
 		return Buffer();
 	}
 
-	return Buffer(std::make_shared<Impl>(std::move(p_buffer), byteCount));
+	return Buffer(std::make_shared<Impl>(std::move(p_buffer), byteCount,
+	    true));
 }
 
 bool Buffer::isValid() const
 {
 	return mp_impl && mp_impl->p_buffer;
+}
+
+bool Buffer::isHostVisible() const
+{
+	return isValid() && mp_impl->hostVisible;
 }
 
 std::size_t Buffer::byteCount() const
@@ -230,7 +327,8 @@ std::size_t Buffer::byteCount() const
 
 bool Buffer::copyFromHost(const void* source, std::size_t p_byteCount)
 {
-	if (!isValid() || source == nullptr || p_byteCount > mp_impl->byteCount)
+	if (!isHostVisible() || source == nullptr ||
+	    p_byteCount > mp_impl->byteCount)
 	{
 		return false;
 	}
@@ -241,12 +339,71 @@ bool Buffer::copyFromHost(const void* source, std::size_t p_byteCount)
 
 bool Buffer::copyToHost(void* destination, std::size_t p_byteCount) const
 {
-	if (!isValid() || destination == nullptr || p_byteCount > mp_impl->byteCount)
+	if (!isHostVisible() || destination == nullptr ||
+	    p_byteCount > mp_impl->byteCount)
 	{
 		return false;
 	}
 
 	std::memcpy(destination, mp_impl->p_buffer->contents(), p_byteCount);
+	return true;
+}
+
+bool Buffer::copyToHost(const CommandQueue& commandQueue, void* destination,
+                        std::size_t p_byteCount) const
+{
+	if (!isValid() || !commandQueue.isValid() || destination == nullptr ||
+	    p_byteCount > mp_impl->byteCount)
+	{
+		return false;
+	}
+	if (isHostVisible())
+	{
+		return copyToHost(destination, p_byteCount);
+	}
+
+	const auto pool = makeAutoreleasePool();
+	(void)pool;
+
+	MTL::Device* p_device = mp_impl->p_buffer->device();
+	if (p_device == nullptr)
+	{
+		return false;
+	}
+	auto p_staging = NS::TransferPtr(
+	    p_device->newBuffer(toUInteger(p_byteCount), sharedResourceOptions()));
+	if (!p_staging)
+	{
+		return false;
+	}
+
+	MTL::CommandBuffer* p_rawCommandBuffer =
+	    commandQueue.mp_impl->p_commandQueue->commandBuffer();
+	if (p_rawCommandBuffer == nullptr)
+	{
+		return false;
+	}
+	auto p_commandBuffer = NS::RetainPtr(p_rawCommandBuffer);
+
+	MTL::BlitCommandEncoder* p_rawEncoder =
+	    p_commandBuffer->blitCommandEncoder();
+	if (p_rawEncoder == nullptr)
+	{
+		return false;
+	}
+	auto p_encoder = NS::RetainPtr(p_rawEncoder);
+	p_encoder->copyFromBuffer(mp_impl->p_buffer.get(), 0, p_staging.get(), 0,
+	    toUInteger(p_byteCount));
+	p_encoder->endEncoding();
+
+	p_commandBuffer->commit();
+	p_commandBuffer->waitUntilCompleted();
+	if (p_commandBuffer->status() != MTL::CommandBufferStatusCompleted)
+	{
+		return false;
+	}
+
+	std::memcpy(destination, p_staging->contents(), p_byteCount);
 	return true;
 }
 
@@ -296,24 +453,49 @@ bool launchKernel1D(const Device& device, const Library& library,
 	const auto pool = makeAutoreleasePool();
 	(void)pool;
 
-	auto p_functionName = NS::TransferPtr(
-	    NS::String::alloc()->init(functionName.c_str(), NS::UTF8StringEncoding));
-	if (!p_functionName)
+	NS::SharedPtr<MTL::ComputePipelineState> p_pipeline;
 	{
-		return false;
-	}
+		std::lock_guard<std::mutex> lock(
+		    library.mp_impl->computePipelineMutex);
+		auto pipelineIt =
+		    library.mp_impl->computePipelines.find(functionName);
+		if (pipelineIt != library.mp_impl->computePipelines.end())
+		{
+			p_pipeline = pipelineIt->second;
+		}
+		else
+		{
+			auto p_functionName = NS::TransferPtr(
+			    NS::String::alloc()->init(functionName.c_str(),
+			        NS::UTF8StringEncoding));
+			if (!p_functionName)
+			{
+				return false;
+			}
 
-	auto p_function =
-	    NS::TransferPtr(library.mp_impl->p_library->newFunction(p_functionName.get()));
-	if (!p_function)
-	{
-		return false;
-	}
+			auto p_function = NS::TransferPtr(
+			    library.mp_impl->p_library->newFunction(p_functionName.get()));
+			if (!p_function)
+			{
+				return false;
+			}
 
-	NS::Error* p_error = nullptr;
-	auto p_pipeline = NS::TransferPtr(
-	    device.mp_impl->p_device->newComputePipelineState(p_function.get(),
-	        &p_error));
+			NS::Error* p_error = nullptr;
+			p_pipeline = NS::TransferPtr(
+			    device.mp_impl->p_device->newComputePipelineState(
+			        p_function.get(), &p_error));
+			if (!p_pipeline)
+			{
+				return false;
+			}
+
+			auto [insertedIt, didInsert] =
+			    library.mp_impl->computePipelines.emplace(functionName,
+			        p_pipeline);
+			(void)didInsert;
+			p_pipeline = insertedIt->second;
+		}
+	}
 	if (!p_pipeline)
 	{
 		return false;
@@ -348,10 +530,8 @@ bool launchKernel1D(const Device& device, const Library& library,
 	}
 
 	const auto gridSize = MTL::Size::Make(toUInteger(valueCount), 1, 1);
-	const auto threadExecutionWidth = p_pipeline->threadExecutionWidth();
 	const auto threadsPerGroup =
-	    std::max<NS::UInteger>(1,
-	        std::min<NS::UInteger>(threadExecutionWidth, toUInteger(valueCount)));
+	    chooseThreadsPerThreadgroup(p_pipeline.get(), valueCount);
 	const auto threadgroupSize = MTL::Size::Make(threadsPerGroup, 1, 1);
 
 	p_encoder->dispatchThreads(gridSize, threadgroupSize);

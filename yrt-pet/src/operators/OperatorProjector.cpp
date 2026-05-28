@@ -18,6 +18,8 @@
 #include "yrt-pet/utils/ReconstructionUtils.hpp"
 #include "yrt-pet/utils/Tools.hpp"
 
+#include <stdexcept>
+
 #if BUILD_METAL
 #include "yrt-pet/backends/metal/MetalContext.hpp"
 #include "yrt-pet/backends/metal/OperatorProjectorMetalBridge.hpp"
@@ -68,6 +70,16 @@ void py_setup_operatorprojector(py::module& m)
 	      &OperatorProjector::getProjectionPropertyTypes);
 	c.def("getBinLoader", &OperatorProjector::getBinLoader);
 	c.def("getElementSize", &OperatorProjector::getElementSize);
+	c.def("setExperimentalMetalProjectorEnabled",
+	      &OperatorProjector::setExperimentalMetalProjectorEnabled,
+	      "enabled"_a);
+	c.def("isExperimentalMetalProjectorEnabled",
+	      &OperatorProjector::isExperimentalMetalProjectorEnabled);
+	c.def("setExperimentalMetalProjectorKernel",
+	      &OperatorProjector::setExperimentalMetalProjectorKernel,
+	      "kernel"_a);
+	c.def("getExperimentalMetalProjectorKernel",
+	      &OperatorProjector::getExperimentalMetalProjectorKernel);
 
 	c.def("setUpdaterLRUpdateH",
 	      [](OperatorProjector& self, bool updateH)
@@ -237,6 +249,27 @@ void py_setup_operatorprojector(py::module& m)
 
 namespace yrt
 {
+namespace
+{
+
+bool isValidExperimentalMetalProjectorKernelName(const std::string& kernel)
+{
+	return kernel == "siddon" || kernel == "joseph";
+}
+
+#if BUILD_METAL
+backend::metal::OperatorProjectorMetalKernel
+    parseExperimentalMetalProjectorKernel(const std::string& kernel)
+{
+	if (kernel == "joseph")
+	{
+		return backend::metal::OperatorProjectorMetalKernel::Joseph;
+	}
+	return backend::metal::OperatorProjectorMetalKernel::Siddon;
+}
+#endif
+
+}  // namespace
 
 OperatorProjector::OperatorProjector(
     const ProjectorParams& pr_projParams, const BinIterator* pp_binIter,
@@ -281,12 +314,23 @@ void OperatorProjector::applyA(const Variable* in, Variable* out)
 #if BUILD_METAL
 		const backend::metal::Context context;
 		const backend::metal::OperatorProjectorMetalBridge bridge(context);
+		const auto projectorKernel =
+		    parseExperimentalMetalProjectorKernel(
+		        m_experimentalMetalProjectorKernel);
 		if (bridge.canRunSiddon(*this).supported &&
-		    bridge.applyA(*this, *img, *dat, *binIter, *mp_binLoader))
+		    bridge.applyA(*this, *img, *dat, *binIter, *mp_binLoader,
+		        projectorKernel))
 		{
 			return;
 		}
 #endif
+		if (m_experimentalMetalProjectorKernel != "siddon")
+		{
+			throw std::runtime_error(
+			    "Experimental Metal projector kernel '" +
+			    m_experimentalMetalProjectorKernel +
+			    "' was requested but could not run");
+		}
 	}
 
 	mp_binLoader->parallelDoOnBins(
@@ -322,12 +366,23 @@ void OperatorProjector::applyAH(const Variable* in, Variable* out)
 #if BUILD_METAL
 		const backend::metal::Context context;
 		const backend::metal::OperatorProjectorMetalBridge bridge(context);
+		const auto projectorKernel =
+		    parseExperimentalMetalProjectorKernel(
+		        m_experimentalMetalProjectorKernel);
 		if (bridge.canRunSiddon(*this).supported &&
-		    bridge.applyAH(*this, *dat, *img, *binIter, *mp_binLoader))
+		    bridge.applyAH(*this, *dat, *img, *binIter, *mp_binLoader,
+		        projectorKernel))
 		{
 			return;
 		}
 #endif
+		if (m_experimentalMetalProjectorKernel != "siddon")
+		{
+			throw std::runtime_error(
+			    "Experimental Metal projector kernel '" +
+			    m_experimentalMetalProjectorKernel +
+			    "' was requested but could not run");
+		}
 	}
 
 	mp_binLoader->parallelDoOnBins(
@@ -353,6 +408,23 @@ void OperatorProjector::setExperimentalMetalProjectorEnabled(bool enabled)
 bool OperatorProjector::isExperimentalMetalProjectorEnabled() const
 {
 	return m_experimentalMetalProjectorEnabled;
+}
+
+void OperatorProjector::setExperimentalMetalProjectorKernel(
+    const std::string& kernel)
+{
+	if (!isValidExperimentalMetalProjectorKernelName(kernel))
+	{
+		throw std::invalid_argument(
+		    "Experimental Metal projector kernel must be 'siddon' or "
+		    "'joseph'");
+	}
+	m_experimentalMetalProjectorKernel = kernel;
+}
+
+std::string OperatorProjector::getExperimentalMetalProjectorKernel() const
+{
+	return m_experimentalMetalProjectorKernel;
 }
 
 void OperatorProjector::addTOF(float tofWidth_ps, int tofNumStd)

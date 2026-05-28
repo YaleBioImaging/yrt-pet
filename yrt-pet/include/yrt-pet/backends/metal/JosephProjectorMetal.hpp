@@ -23,11 +23,11 @@ namespace yrt::backend::metal
 class ProjectionBatchMetal;
 struct SiddonProjectorKernelProfile;
 
-class SiddonProjectorMetal
+class JosephProjectorMetal
 {
 public:
-	SiddonProjectorMetal();
-	explicit SiddonProjectorMetal(const Context& context);
+	JosephProjectorMetal();
+	explicit JosephProjectorMetal(const Context& context);
 
 	bool isValid() const;
 	const std::string& errorMessage() const;
@@ -35,9 +35,8 @@ public:
 
 	ProjectionBatchMetal makeBatch(
 	    std::vector<ProjectionLineEndpoints> lines) const;
-	ProjectionBatchMetal makeBatch(
-	    std::vector<ProjectionLineEndpoints> lines,
-	    std::vector<float> projectionValues) const;
+	ProjectionBatchMetal makeBatch(std::vector<ProjectionLineEndpoints> lines,
+	                               std::vector<float> projectionValues) const;
 
 	bool forwardProjectSingleRay(const Image& image, ProjectionBatchMetal& batch,
 	                             std::uint32_t frame = 0,

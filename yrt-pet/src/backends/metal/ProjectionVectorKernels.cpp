@@ -68,4 +68,23 @@ bool launchProjectionConvertToACF(const Device& device, const Library& library,
 	    valueCount);
 }
 
+bool launchProjectionOsemRatio(const Device& device, const Library& library,
+    const CommandQueue& commandQueue, Buffer& estimatesAndOutput,
+    const Buffer& measurements, const Buffer& sensitivity,
+    const Buffer& attenuation, const Buffer& randoms, const Buffer& scatter,
+    const Buffer& inVivoAttenuation,
+    const ProjectionOsemRatioParams& params, std::size_t valueCount)
+{
+	return launchKernel1D(device, library, commandQueue,
+	    "projection_osem_ratio",
+	    {{&estimatesAndOutput, 0},
+	        {&measurements, 1},
+	        {&sensitivity, 2},
+	        {&attenuation, 3},
+	        {&randoms, 4},
+	        {&scatter, 5},
+	        {&inVivoAttenuation, 6}},
+	    {{&params, sizeof(params), 7}}, valueCount);
+}
+
 }  // namespace yrt::backend::metal

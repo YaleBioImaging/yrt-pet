@@ -65,6 +65,72 @@ kernel void projection_to_acf(device const float* input [[buffer(0)]],
 	output[id] = exp(-input[id] * unitFactor);
 }
 
+struct ProjectionOsemRatioParams
+{
+	float globalScaleFactor;
+	float denomThreshold;
+	uint hasSensitivity;
+	uint hasAttenuation;
+	uint hasRandoms;
+	uint hasScatter;
+	uint hasInVivoAttenuation;
+};
+
+kernel void
+projection_osem_ratio(device float* estimatesAndOutput [[buffer(0)]],
+                      device const float* measurements [[buffer(1)]],
+                      device const float* sensitivity [[buffer(2)]],
+                      device const float* attenuation [[buffer(3)]],
+                      device const float* randoms [[buffer(4)]],
+                      device const float* scatter [[buffer(5)]],
+                      device const float* inVivoAttenuation [[buffer(6)]],
+                      constant ProjectionOsemRatioParams& params [[buffer(7)]],
+                      uint id [[thread_position_in_grid]])
+{
+	float update = estimatesAndOutput[id];
+	if (params.hasSensitivity != 0u)
+	{
+		update *= sensitivity[id];
+	}
+	if (params.hasAttenuation != 0u)
+	{
+		update *= attenuation[id];
+	}
+	update *= params.globalScaleFactor;
+
+	if (params.hasRandoms != 0u)
+	{
+		update += randoms[id];
+	}
+	if (params.hasScatter != 0u)
+	{
+		update += scatter[id];
+	}
+	if (params.hasInVivoAttenuation != 0u)
+	{
+		update *= inVivoAttenuation[id];
+	}
+
+	if (abs(update) > params.denomThreshold)
+	{
+		update = measurements[id] / update;
+		if (params.hasSensitivity != 0u)
+		{
+			update *= sensitivity[id];
+		}
+		if (params.hasAttenuation != 0u)
+		{
+			update *= attenuation[id];
+		}
+		update *= params.globalScaleFactor;
+	}
+	else
+	{
+		update = 0.0f;
+	}
+	estimatesAndOutput[id] = update;
+}
+
 struct ProjectionLineEndpoints
 {
 	float p1x;
@@ -192,6 +258,12 @@ struct SiddonForwardImageParams
 	float voxelX;
 	float voxelY;
 	float voxelZ;
+	float invVoxelX;
+	float invVoxelY;
+	float invVoxelZ;
+	float halfLengthX;
+	float halfLengthY;
+	float halfLengthZ;
 	float fovRadius;
 };
 
@@ -216,6 +288,11 @@ inline void atomic_add_float(device atomic_uint* valueBits, float value)
 		}
 		oldBits = expectedBits;
 	}
+}
+
+inline void atomic_add_float(device atomic_float* value, float update)
+{
+	atomic_fetch_add_explicit(value, update, memory_order_relaxed);
 }
 
 inline float siddon_forward_single_ray_value(
@@ -254,12 +331,12 @@ inline float siddon_forward_single_ray_value(
 	const int dirY = invY >= 0.0f ? 1 : -1;
 	const int dirZ = invZ >= 0.0f ? 1 : -1;
 
-	const float x0 = -0.5f * params.lengthX;
-	const float x1 = 0.5f * params.lengthX;
-	const float y0 = -0.5f * params.lengthY;
-	const float y1 = 0.5f * params.lengthY;
-	const float z0 = -0.5f * params.lengthZ;
-	const float z1 = 0.5f * params.lengthZ;
+	const float x0 = -params.halfLengthX;
+	const float x1 = params.halfLengthX;
+	const float y0 = -params.halfLengthY;
+	const float y1 = params.halfLengthY;
+	const float z0 = -params.halfLengthZ;
+	const float z1 = params.halfLengthZ;
 	float axMin;
 	float axMax;
 	float ayMin;
@@ -298,8 +375,8 @@ inline float siddon_forward_single_ray_value(
 	if (!flatX)
 	{
 		const int kx = int(ceil(float(dirX) *
-		                       (alphaCur * px - xCur + line.p1x) /
-		                       params.voxelX));
+		                       (alphaCur * px - xCur + line.p1x) *
+		                       params.invVoxelX));
 		xCur += float(kx * dirX) * params.voxelX;
 		axNext = (xCur - line.p1x) * invX;
 	}
@@ -307,8 +384,8 @@ inline float siddon_forward_single_ray_value(
 	if (!flatY)
 	{
 		const int ky = int(ceil(float(dirY) *
-		                       (alphaCur * py - yCur + line.p1y) /
-		                       params.voxelY));
+		                       (alphaCur * py - yCur + line.p1y) *
+		                       params.invVoxelY));
 		yCur += float(ky * dirY) * params.voxelY;
 		ayNext = (yCur - line.p1y) * invY;
 	}
@@ -316,8 +393,8 @@ inline float siddon_forward_single_ray_value(
 	if (!flatZ)
 	{
 		const int kz = int(ceil(float(dirZ) *
-		                       (alphaCur * pz - zCur + line.p1z) /
-		                       params.voxelZ));
+		                       (alphaCur * pz - zCur + line.p1z) *
+		                       params.invVoxelZ));
 		zCur += float(kz * dirZ) * params.voxelZ;
 		azNext = (zCur - line.p1z) * invZ;
 	}
@@ -378,12 +455,12 @@ inline float siddon_forward_single_ray_value(
 		const float alphaMid = 0.5f * (alphaCur + alphaNext);
 		if (first)
 		{
-			vx = int((line.p1x + alphaMid * px + 0.5f * params.lengthX) /
-			         params.voxelX);
-			vy = int((line.p1y + alphaMid * py + 0.5f * params.lengthY) /
-			         params.voxelY);
-			vz = int((line.p1z + alphaMid * pz + 0.5f * params.lengthZ) /
-			         params.voxelZ);
+			vx = int((line.p1x + alphaMid * px + params.halfLengthX) *
+			         params.invVoxelX);
+			vy = int((line.p1y + alphaMid * py + params.halfLengthY) *
+			         params.invVoxelY);
+			vz = int((line.p1z + alphaMid * pz + params.halfLengthZ) *
+			         params.invVoxelZ);
 			first = false;
 			if (vx < 0 || vx >= int(params.nx) || vy < 0 ||
 			    vy >= int(params.ny) || vz < 0 || vz >= int(params.nz))
@@ -438,8 +515,9 @@ inline float siddon_forward_single_ray_value(
 	return projection;
 }
 
+template <typename AtomicImagePointer>
 inline void siddon_backproject_single_ray_atomic_value(
-    device atomic_uint* image, ProjectionLineEndpoints line,
+    AtomicImagePointer image, ProjectionLineEndpoints line,
     float projectionValue, SiddonForwardImageParams params)
 {
 	if (projectionValue == 0.0f)
@@ -479,12 +557,12 @@ inline void siddon_backproject_single_ray_atomic_value(
 	const int dirY = invY >= 0.0f ? 1 : -1;
 	const int dirZ = invZ >= 0.0f ? 1 : -1;
 
-	const float x0 = -0.5f * params.lengthX;
-	const float x1 = 0.5f * params.lengthX;
-	const float y0 = -0.5f * params.lengthY;
-	const float y1 = 0.5f * params.lengthY;
-	const float z0 = -0.5f * params.lengthZ;
-	const float z1 = 0.5f * params.lengthZ;
+	const float x0 = -params.halfLengthX;
+	const float x1 = params.halfLengthX;
+	const float y0 = -params.halfLengthY;
+	const float y1 = params.halfLengthY;
+	const float z0 = -params.halfLengthZ;
+	const float z1 = params.halfLengthZ;
 	float axMin;
 	float axMax;
 	float ayMin;
@@ -523,8 +601,8 @@ inline void siddon_backproject_single_ray_atomic_value(
 	if (!flatX)
 	{
 		const int kx = int(ceil(float(dirX) *
-		                       (alphaCur * px - xCur + line.p1x) /
-		                       params.voxelX));
+		                       (alphaCur * px - xCur + line.p1x) *
+		                       params.invVoxelX));
 		xCur += float(kx * dirX) * params.voxelX;
 		axNext = (xCur - line.p1x) * invX;
 	}
@@ -532,8 +610,8 @@ inline void siddon_backproject_single_ray_atomic_value(
 	if (!flatY)
 	{
 		const int ky = int(ceil(float(dirY) *
-		                       (alphaCur * py - yCur + line.p1y) /
-		                       params.voxelY));
+		                       (alphaCur * py - yCur + line.p1y) *
+		                       params.invVoxelY));
 		yCur += float(ky * dirY) * params.voxelY;
 		ayNext = (yCur - line.p1y) * invY;
 	}
@@ -541,8 +619,8 @@ inline void siddon_backproject_single_ray_atomic_value(
 	if (!flatZ)
 	{
 		const int kz = int(ceil(float(dirZ) *
-		                       (alphaCur * pz - zCur + line.p1z) /
-		                       params.voxelZ));
+		                       (alphaCur * pz - zCur + line.p1z) *
+		                       params.invVoxelZ));
 		zCur += float(kz * dirZ) * params.voxelZ;
 		azNext = (zCur - line.p1z) * invZ;
 	}
@@ -602,12 +680,12 @@ inline void siddon_backproject_single_ray_atomic_value(
 		const float alphaMid = 0.5f * (alphaCur + alphaNext);
 		if (first)
 		{
-			vx = int((line.p1x + alphaMid * px + 0.5f * params.lengthX) /
-			         params.voxelX);
-			vy = int((line.p1y + alphaMid * py + 0.5f * params.lengthY) /
-			         params.voxelY);
-			vz = int((line.p1z + alphaMid * pz + 0.5f * params.lengthZ) /
-			         params.voxelZ);
+			vx = int((line.p1x + alphaMid * px + params.halfLengthX) *
+			         params.invVoxelX);
+			vy = int((line.p1y + alphaMid * py + params.halfLengthY) *
+			         params.invVoxelY);
+			vz = int((line.p1z + alphaMid * pz + params.halfLengthZ) *
+			         params.invVoxelZ);
 			first = false;
 			if (vx < 0 || vx >= int(params.nx) || vy < 0 ||
 			    vy >= int(params.ny) || vz < 0 || vz >= int(params.nz))
@@ -660,6 +738,445 @@ inline void siddon_backproject_single_ray_atomic_value(
 	}
 }
 
+inline uint siddon_backproject_single_ray_update_count_value(
+    ProjectionLineEndpoints line, float projectionValue,
+    SiddonForwardImageParams params)
+{
+	if (projectionValue == 0.0f)
+	{
+		return 0;
+	}
+
+	const float px = line.p2x - line.p1x;
+	const float py = line.p2y - line.p1y;
+	const float pz = line.p2z - line.p1z;
+	const float a = px * px + py * py;
+	const float b = 2.0f * (px * line.p1x + py * line.p1y);
+	const float c = line.p1x * line.p1x + line.p1y * line.p1y -
+	                params.fovRadius * params.fovRadius;
+	const float delta = b * b - 4.0f * a * c;
+	float t0 = 0.0f;
+	float t1 = 1.0f;
+	if (a != 0.0f)
+	{
+		if (delta <= 0.0f)
+		{
+			return 0;
+		}
+		const float sqrtDelta = sqrt(delta);
+		t0 = (-b - sqrtDelta) / (2.0f * a);
+		t1 = (-b + sqrtDelta) / (2.0f * a);
+	}
+
+	const bool flatX = line.p1x == line.p2x;
+	const bool flatY = line.p1y == line.p2y;
+	const bool flatZ = line.p1z == line.p2z;
+	const float invX = flatX ? 0.0f : 1.0f / px;
+	const float invY = flatY ? 0.0f : 1.0f / py;
+	const float invZ = flatZ ? 0.0f : 1.0f / pz;
+	const int dirX = invX >= 0.0f ? 1 : -1;
+	const int dirY = invY >= 0.0f ? 1 : -1;
+	const int dirZ = invZ >= 0.0f ? 1 : -1;
+
+	const float x0 = -params.halfLengthX;
+	const float x1 = params.halfLengthX;
+	const float y0 = -params.halfLengthY;
+	const float y1 = params.halfLengthY;
+	const float z0 = -params.halfLengthZ;
+	const float z1 = params.halfLengthZ;
+	float axMin;
+	float axMax;
+	float ayMin;
+	float ayMax;
+	float azMin;
+	float azMax;
+	projection_get_alpha(x0, x1, line.p1x, line.p2x, invX, axMin, axMax);
+	projection_get_alpha(y0, y1, line.p1y, line.p2y, invY, ayMin, ayMax);
+	projection_get_alpha(z0, z1, line.p1z, line.p2z, invZ, azMin, azMax);
+
+	const float alphaMin =
+	    max(max(max(max(0.0f, t0), axMin), ayMin), azMin);
+	const float alphaMax =
+	    min(min(min(min(1.0f, t1), axMax), ayMax), azMax);
+	float alphaCur = alphaMin;
+	if (alphaCur >= alphaMax)
+	{
+		return 0;
+	}
+
+	float xCur = invX > 0.0f ? x0 : x1;
+	float yCur = invY > 0.0f ? y0 : y1;
+	float zCur = invZ > 0.0f ? z0 : z1;
+	if ((invX >= 0.0f && line.p1x > x1) ||
+	    (invX < 0.0f && line.p1x < x0) ||
+	    (invY >= 0.0f && line.p1y > y1) ||
+	    (invY < 0.0f && line.p1y < y0) ||
+	    (invZ >= 0.0f && line.p1z > z1) ||
+	    (invZ < 0.0f && line.p1z < z0))
+	{
+		return 0;
+	}
+
+	const float maxFloat = 3.402823466e+38f;
+	float axNext = flatX ? maxFloat : axMin;
+	if (!flatX)
+	{
+		const int kx = int(ceil(float(dirX) *
+		                       (alphaCur * px - xCur + line.p1x) *
+		                       params.invVoxelX));
+		xCur += float(kx * dirX) * params.voxelX;
+		axNext = (xCur - line.p1x) * invX;
+	}
+	float ayNext = flatY ? maxFloat : ayMin;
+	if (!flatY)
+	{
+		const int ky = int(ceil(float(dirY) *
+		                       (alphaCur * py - yCur + line.p1y) *
+		                       params.invVoxelY));
+		yCur += float(ky * dirY) * params.voxelY;
+		ayNext = (yCur - line.p1y) * invY;
+	}
+	float azNext = flatZ ? maxFloat : azMin;
+	if (!flatZ)
+	{
+		const int kz = int(ceil(float(dirZ) *
+		                       (alphaCur * pz - zCur + line.p1z) *
+		                       params.invVoxelZ));
+		zCur += float(kz * dirZ) * params.voxelZ;
+		azNext = (zCur - line.p1z) * invZ;
+	}
+
+	bool first = true;
+	int vx = -1;
+	int vy = -1;
+	int vz = -1;
+	int dirPrevious = -1;
+	float axNextPrevious = axNext;
+	float ayNextPrevious = ayNext;
+	float azNextPrevious = azNext;
+	uint updateCount = 0;
+
+	while (alphaCur < alphaMax)
+	{
+		int dirNext = 0;
+		float alphaNext = -1.0f;
+		if (axNextPrevious <= ayNextPrevious &&
+		    axNextPrevious <= azNextPrevious)
+		{
+			alphaNext = axNext;
+			xCur += float(dirX) * params.voxelX;
+			axNext = (xCur - line.p1x) * invX;
+			dirNext |= 1;
+		}
+		if (ayNextPrevious <= axNextPrevious &&
+		    ayNextPrevious <= azNextPrevious)
+		{
+			alphaNext = ayNext;
+			yCur += float(dirY) * params.voxelY;
+			ayNext = (yCur - line.p1y) * invY;
+			dirNext |= 2;
+		}
+		if (azNextPrevious <= axNextPrevious &&
+		    azNextPrevious <= ayNextPrevious)
+		{
+			alphaNext = azNext;
+			zCur += float(dirZ) * params.voxelZ;
+			azNext = (zCur - line.p1z) * invZ;
+			dirNext |= 4;
+		}
+		if (alphaNext > alphaMax)
+		{
+			alphaNext = alphaMax;
+		}
+		if (alphaCur >= alphaNext)
+		{
+			axNextPrevious = axNext;
+			ayNextPrevious = ayNext;
+			azNextPrevious = azNext;
+			continue;
+		}
+
+		bool done = false;
+		const float alphaMid = 0.5f * (alphaCur + alphaNext);
+		if (first)
+		{
+			vx = int((line.p1x + alphaMid * px + params.halfLengthX) *
+			         params.invVoxelX);
+			vy = int((line.p1y + alphaMid * py + params.halfLengthY) *
+			         params.invVoxelY);
+			vz = int((line.p1z + alphaMid * pz + params.halfLengthZ) *
+			         params.invVoxelZ);
+			first = false;
+			if (vx < 0 || vx >= int(params.nx) || vy < 0 ||
+			    vy >= int(params.ny) || vz < 0 || vz >= int(params.nz))
+			{
+				done = true;
+			}
+		}
+		else
+		{
+			if ((dirPrevious & 1) != 0)
+			{
+				vx += dirX;
+				if (vx < 0 || vx >= int(params.nx))
+				{
+					done = true;
+				}
+			}
+			if ((dirPrevious & 2) != 0)
+			{
+				vy += dirY;
+				if (vy < 0 || vy >= int(params.ny))
+				{
+					done = true;
+				}
+			}
+			if ((dirPrevious & 4) != 0)
+			{
+				vz += dirZ;
+				if (vz < 0 || vz >= int(params.nz))
+				{
+					done = true;
+				}
+			}
+		}
+		if (done)
+		{
+			break;
+		}
+
+		dirPrevious = dirNext;
+		updateCount += 1;
+		alphaCur = alphaNext;
+		axNextPrevious = axNext;
+		ayNextPrevious = ayNext;
+		azNextPrevious = azNext;
+	}
+
+	return updateCount;
+}
+
+inline void siddon_backproject_single_ray_voxel_hit_count_value(
+    device atomic_uint* hitCounts, ProjectionLineEndpoints line,
+    float projectionValue, SiddonForwardImageParams params)
+{
+	if (projectionValue == 0.0f)
+	{
+		return;
+	}
+
+	const float px = line.p2x - line.p1x;
+	const float py = line.p2y - line.p1y;
+	const float pz = line.p2z - line.p1z;
+	const float a = px * px + py * py;
+	const float b = 2.0f * (px * line.p1x + py * line.p1y);
+	const float c = line.p1x * line.p1x + line.p1y * line.p1y -
+	                params.fovRadius * params.fovRadius;
+	const float delta = b * b - 4.0f * a * c;
+	float t0 = 0.0f;
+	float t1 = 1.0f;
+	if (a != 0.0f)
+	{
+		if (delta <= 0.0f)
+		{
+			return;
+		}
+		const float sqrtDelta = sqrt(delta);
+		t0 = (-b - sqrtDelta) / (2.0f * a);
+		t1 = (-b + sqrtDelta) / (2.0f * a);
+	}
+
+	const bool flatX = line.p1x == line.p2x;
+	const bool flatY = line.p1y == line.p2y;
+	const bool flatZ = line.p1z == line.p2z;
+	const float invX = flatX ? 0.0f : 1.0f / px;
+	const float invY = flatY ? 0.0f : 1.0f / py;
+	const float invZ = flatZ ? 0.0f : 1.0f / pz;
+	const int dirX = invX >= 0.0f ? 1 : -1;
+	const int dirY = invY >= 0.0f ? 1 : -1;
+	const int dirZ = invZ >= 0.0f ? 1 : -1;
+
+	const float x0 = -params.halfLengthX;
+	const float x1 = params.halfLengthX;
+	const float y0 = -params.halfLengthY;
+	const float y1 = params.halfLengthY;
+	const float z0 = -params.halfLengthZ;
+	const float z1 = params.halfLengthZ;
+	float axMin;
+	float axMax;
+	float ayMin;
+	float ayMax;
+	float azMin;
+	float azMax;
+	projection_get_alpha(x0, x1, line.p1x, line.p2x, invX, axMin, axMax);
+	projection_get_alpha(y0, y1, line.p1y, line.p2y, invY, ayMin, ayMax);
+	projection_get_alpha(z0, z1, line.p1z, line.p2z, invZ, azMin, azMax);
+
+	const float alphaMin =
+	    max(max(max(max(0.0f, t0), axMin), ayMin), azMin);
+	const float alphaMax =
+	    min(min(min(min(1.0f, t1), axMax), ayMax), azMax);
+	float alphaCur = alphaMin;
+	if (alphaCur >= alphaMax)
+	{
+		return;
+	}
+
+	float xCur = invX > 0.0f ? x0 : x1;
+	float yCur = invY > 0.0f ? y0 : y1;
+	float zCur = invZ > 0.0f ? z0 : z1;
+	if ((invX >= 0.0f && line.p1x > x1) ||
+	    (invX < 0.0f && line.p1x < x0) ||
+	    (invY >= 0.0f && line.p1y > y1) ||
+	    (invY < 0.0f && line.p1y < y0) ||
+	    (invZ >= 0.0f && line.p1z > z1) ||
+	    (invZ < 0.0f && line.p1z < z0))
+	{
+		return;
+	}
+
+	const float maxFloat = 3.402823466e+38f;
+	float axNext = flatX ? maxFloat : axMin;
+	if (!flatX)
+	{
+		const int kx = int(ceil(float(dirX) *
+		                       (alphaCur * px - xCur + line.p1x) *
+		                       params.invVoxelX));
+		xCur += float(kx * dirX) * params.voxelX;
+		axNext = (xCur - line.p1x) * invX;
+	}
+	float ayNext = flatY ? maxFloat : ayMin;
+	if (!flatY)
+	{
+		const int ky = int(ceil(float(dirY) *
+		                       (alphaCur * py - yCur + line.p1y) *
+		                       params.invVoxelY));
+		yCur += float(ky * dirY) * params.voxelY;
+		ayNext = (yCur - line.p1y) * invY;
+	}
+	float azNext = flatZ ? maxFloat : azMin;
+	if (!flatZ)
+	{
+		const int kz = int(ceil(float(dirZ) *
+		                       (alphaCur * pz - zCur + line.p1z) *
+		                       params.invVoxelZ));
+		zCur += float(kz * dirZ) * params.voxelZ;
+		azNext = (zCur - line.p1z) * invZ;
+	}
+
+	bool first = true;
+	int vx = -1;
+	int vy = -1;
+	int vz = -1;
+	int dirPrevious = -1;
+	float axNextPrevious = axNext;
+	float ayNextPrevious = ayNext;
+	float azNextPrevious = azNext;
+	const uint spatialCount = params.nx * params.ny * params.nz;
+	const uint frameBase = params.frame * spatialCount;
+
+	while (alphaCur < alphaMax)
+	{
+		int dirNext = 0;
+		float alphaNext = -1.0f;
+		if (axNextPrevious <= ayNextPrevious &&
+		    axNextPrevious <= azNextPrevious)
+		{
+			alphaNext = axNext;
+			xCur += float(dirX) * params.voxelX;
+			axNext = (xCur - line.p1x) * invX;
+			dirNext |= 1;
+		}
+		if (ayNextPrevious <= axNextPrevious &&
+		    ayNextPrevious <= azNextPrevious)
+		{
+			alphaNext = ayNext;
+			yCur += float(dirY) * params.voxelY;
+			ayNext = (yCur - line.p1y) * invY;
+			dirNext |= 2;
+		}
+		if (azNextPrevious <= axNextPrevious &&
+		    azNextPrevious <= ayNextPrevious)
+		{
+			alphaNext = azNext;
+			zCur += float(dirZ) * params.voxelZ;
+			azNext = (zCur - line.p1z) * invZ;
+			dirNext |= 4;
+		}
+		if (alphaNext > alphaMax)
+		{
+			alphaNext = alphaMax;
+		}
+		if (alphaCur >= alphaNext)
+		{
+			axNextPrevious = axNext;
+			ayNextPrevious = ayNext;
+			azNextPrevious = azNext;
+			continue;
+		}
+
+		bool done = false;
+		const float alphaMid = 0.5f * (alphaCur + alphaNext);
+		if (first)
+		{
+			vx = int((line.p1x + alphaMid * px + params.halfLengthX) *
+			         params.invVoxelX);
+			vy = int((line.p1y + alphaMid * py + params.halfLengthY) *
+			         params.invVoxelY);
+			vz = int((line.p1z + alphaMid * pz + params.halfLengthZ) *
+			         params.invVoxelZ);
+			first = false;
+			if (vx < 0 || vx >= int(params.nx) || vy < 0 ||
+			    vy >= int(params.ny) || vz < 0 || vz >= int(params.nz))
+			{
+				done = true;
+			}
+		}
+		else
+		{
+			if ((dirPrevious & 1) != 0)
+			{
+				vx += dirX;
+				if (vx < 0 || vx >= int(params.nx))
+				{
+					done = true;
+				}
+			}
+			if ((dirPrevious & 2) != 0)
+			{
+				vy += dirY;
+				if (vy < 0 || vy >= int(params.ny))
+				{
+					done = true;
+				}
+			}
+			if ((dirPrevious & 4) != 0)
+			{
+				vz += dirZ;
+				if (vz < 0 || vz >= int(params.nz))
+				{
+					done = true;
+				}
+			}
+		}
+		if (done)
+		{
+			break;
+		}
+
+		dirPrevious = dirNext;
+		const uint imageOffset =
+		    frameBase +
+		    siddon_image_offset(uint(vx), uint(vy), uint(vz), params);
+		atomic_fetch_add_explicit(&hitCounts[imageOffset], 1u,
+		                          memory_order_relaxed);
+		alphaCur = alphaNext;
+		axNextPrevious = axNext;
+		ayNextPrevious = ayNext;
+		azNextPrevious = azNext;
+	}
+}
+
 inline float siddon_single_ray_weight_for_voxel(
     ProjectionLineEndpoints line, uint targetVx, uint targetVy, uint targetVz,
     SiddonForwardImageParams params)
@@ -696,12 +1213,12 @@ inline float siddon_single_ray_weight_for_voxel(
 	const int dirY = invY >= 0.0f ? 1 : -1;
 	const int dirZ = invZ >= 0.0f ? 1 : -1;
 
-	const float x0 = -0.5f * params.lengthX;
-	const float x1 = 0.5f * params.lengthX;
-	const float y0 = -0.5f * params.lengthY;
-	const float y1 = 0.5f * params.lengthY;
-	const float z0 = -0.5f * params.lengthZ;
-	const float z1 = 0.5f * params.lengthZ;
+	const float x0 = -params.halfLengthX;
+	const float x1 = params.halfLengthX;
+	const float y0 = -params.halfLengthY;
+	const float y1 = params.halfLengthY;
+	const float z0 = -params.halfLengthZ;
+	const float z1 = params.halfLengthZ;
 	float axMin;
 	float axMax;
 	float ayMin;
@@ -740,8 +1257,8 @@ inline float siddon_single_ray_weight_for_voxel(
 	if (!flatX)
 	{
 		const int kx = int(ceil(float(dirX) *
-		                       (alphaCur * px - xCur + line.p1x) /
-		                       params.voxelX));
+		                       (alphaCur * px - xCur + line.p1x) *
+		                       params.invVoxelX));
 		xCur += float(kx * dirX) * params.voxelX;
 		axNext = (xCur - line.p1x) * invX;
 	}
@@ -749,8 +1266,8 @@ inline float siddon_single_ray_weight_for_voxel(
 	if (!flatY)
 	{
 		const int ky = int(ceil(float(dirY) *
-		                       (alphaCur * py - yCur + line.p1y) /
-		                       params.voxelY));
+		                       (alphaCur * py - yCur + line.p1y) *
+		                       params.invVoxelY));
 		yCur += float(ky * dirY) * params.voxelY;
 		ayNext = (yCur - line.p1y) * invY;
 	}
@@ -758,8 +1275,8 @@ inline float siddon_single_ray_weight_for_voxel(
 	if (!flatZ)
 	{
 		const int kz = int(ceil(float(dirZ) *
-		                       (alphaCur * pz - zCur + line.p1z) /
-		                       params.voxelZ));
+		                       (alphaCur * pz - zCur + line.p1z) *
+		                       params.invVoxelZ));
 		zCur += float(kz * dirZ) * params.voxelZ;
 		azNext = (zCur - line.p1z) * invZ;
 	}
@@ -818,12 +1335,12 @@ inline float siddon_single_ray_weight_for_voxel(
 		const float alphaMid = 0.5f * (alphaCur + alphaNext);
 		if (first)
 		{
-			vx = int((line.p1x + alphaMid * px + 0.5f * params.lengthX) /
-			         params.voxelX);
-			vy = int((line.p1y + alphaMid * py + 0.5f * params.lengthY) /
-			         params.voxelY);
-			vz = int((line.p1z + alphaMid * pz + 0.5f * params.lengthZ) /
-			         params.voxelZ);
+			vx = int((line.p1x + alphaMid * px + params.halfLengthX) *
+			         params.invVoxelX);
+			vy = int((line.p1y + alphaMid * py + params.halfLengthY) *
+			         params.invVoxelY);
+			vz = int((line.p1z + alphaMid * pz + params.halfLengthZ) *
+			         params.invVoxelZ);
 			first = false;
 			if (vx < 0 || vx >= int(params.nx) || vy < 0 ||
 			    vy >= int(params.ny) || vz < 0 || vz >= int(params.nz))
@@ -878,6 +1395,493 @@ inline float siddon_single_ray_weight_for_voxel(
 	return totalWeight;
 }
 
+inline bool joseph_alpha_range(ProjectionLineEndpoints line,
+                               SiddonForwardImageParams params,
+                               thread float& alphaMin,
+                               thread float& alphaMax)
+{
+	const float dx = line.p2x - line.p1x;
+	const float dy = line.p2y - line.p1y;
+	const float dz = line.p2z - line.p1z;
+	if (dx == 0.0f && dy == 0.0f && dz == 0.0f)
+	{
+		alphaMin = 1.0f;
+		alphaMax = 0.0f;
+		return false;
+	}
+
+	float fovMin = 0.0f;
+	float fovMax = 1.0f;
+	const float a = dx * dx + dy * dy;
+	const float b = 2.0f * (dx * line.p1x + dy * line.p1y);
+	const float c = line.p1x * line.p1x + line.p1y * line.p1y -
+	                params.fovRadius * params.fovRadius;
+	const float delta = b * b - 4.0f * a * c;
+	if (a != 0.0f)
+	{
+		if (delta <= 0.0f)
+		{
+			alphaMin = 1.0f;
+			alphaMax = 0.0f;
+			return false;
+		}
+		const float sqrtDelta = sqrt(delta);
+		fovMin = (-b - sqrtDelta) / (2.0f * a);
+		fovMax = (-b + sqrtDelta) / (2.0f * a);
+	}
+
+	const float invX = dx == 0.0f ? 0.0f : 1.0f / dx;
+	const float invY = dy == 0.0f ? 0.0f : 1.0f / dy;
+	const float invZ = dz == 0.0f ? 0.0f : 1.0f / dz;
+	float axMin;
+	float axMax;
+	float ayMin;
+	float ayMax;
+	float azMin;
+	float azMax;
+	projection_get_alpha(-params.halfLengthX, params.halfLengthX,
+	    line.p1x, line.p2x, invX, axMin, axMax);
+	projection_get_alpha(-params.halfLengthY, params.halfLengthY,
+	    line.p1y, line.p2y, invY, ayMin, ayMax);
+	projection_get_alpha(-params.halfLengthZ, params.halfLengthZ,
+	    line.p1z, line.p2z, invZ, azMin, azMax);
+
+	alphaMin = max(max(max(max(0.0f, fovMin), axMin), ayMin), azMin);
+	alphaMax = min(min(min(min(1.0f, fovMax), axMax), ayMax), azMax);
+	return alphaMin < alphaMax;
+}
+
+inline uint joseph_major_axis(ProjectionLineEndpoints line,
+                              SiddonForwardImageParams params)
+{
+	const float sx = abs(line.p2x - line.p1x) * params.invVoxelX;
+	const float sy = abs(line.p2y - line.p1y) * params.invVoxelY;
+	const float sz = abs(line.p2z - line.p1z) * params.invVoxelZ;
+	if (sx >= sy && sx >= sz)
+	{
+		return 0u;
+	}
+	return sy >= sz ? 1u : 2u;
+}
+
+inline float joseph_axis_coord(ProjectionLineEndpoints line, uint axis,
+                               float alpha)
+{
+	if (axis == 0u)
+	{
+		return line.p1x + alpha * (line.p2x - line.p1x);
+	}
+	if (axis == 1u)
+	{
+		return line.p1y + alpha * (line.p2y - line.p1y);
+	}
+	return line.p1z + alpha * (line.p2z - line.p1z);
+}
+
+inline float joseph_axis_delta(ProjectionLineEndpoints line, uint axis)
+{
+	if (axis == 0u)
+	{
+		return line.p2x - line.p1x;
+	}
+	if (axis == 1u)
+	{
+		return line.p2y - line.p1y;
+	}
+	return line.p2z - line.p1z;
+}
+
+inline float joseph_axis_start(ProjectionLineEndpoints line, uint axis)
+{
+	if (axis == 0u)
+	{
+		return line.p1x;
+	}
+	if (axis == 1u)
+	{
+		return line.p1y;
+	}
+	return line.p1z;
+}
+
+inline float joseph_axis_half_length(SiddonForwardImageParams params,
+                                     uint axis)
+{
+	if (axis == 0u)
+	{
+		return params.halfLengthX;
+	}
+	if (axis == 1u)
+	{
+		return params.halfLengthY;
+	}
+	return params.halfLengthZ;
+}
+
+inline float joseph_axis_voxel(SiddonForwardImageParams params, uint axis)
+{
+	if (axis == 0u)
+	{
+		return params.voxelX;
+	}
+	if (axis == 1u)
+	{
+		return params.voxelY;
+	}
+	return params.voxelZ;
+}
+
+inline float joseph_axis_inv_voxel(SiddonForwardImageParams params,
+                                   uint axis)
+{
+	if (axis == 0u)
+	{
+		return params.invVoxelX;
+	}
+	if (axis == 1u)
+	{
+		return params.invVoxelY;
+	}
+	return params.invVoxelZ;
+}
+
+inline uint joseph_axis_size(SiddonForwardImageParams params, uint axis)
+{
+	if (axis == 0u)
+	{
+		return params.nx;
+	}
+	if (axis == 1u)
+	{
+		return params.ny;
+	}
+	return params.nz;
+}
+
+inline float joseph_grid_coord(float coord, float halfLength,
+                               float invVoxel)
+{
+	return (coord + halfLength) * invVoxel - 0.5f;
+}
+
+inline bool joseph_sample_bounds(ProjectionLineEndpoints line,
+                                 SiddonForwardImageParams params, uint axis,
+                                 float alphaMin, float alphaMax,
+                                 thread int& first,
+                                 thread int& last)
+{
+	const float grid0 = joseph_grid_coord(
+	    joseph_axis_coord(line, axis, alphaMin),
+	    joseph_axis_half_length(params, axis),
+	    joseph_axis_inv_voxel(params, axis));
+	const float grid1 = joseph_grid_coord(
+	    joseph_axis_coord(line, axis, alphaMax),
+	    joseph_axis_half_length(params, axis),
+	    joseph_axis_inv_voxel(params, axis));
+	first = int(ceil(min(grid0, grid1)));
+	last = int(floor(max(grid0, grid1)));
+	if (first < 0)
+	{
+		first = 0;
+	}
+	const int maxIndex = int(joseph_axis_size(params, axis)) - 1;
+	if (last > maxIndex)
+	{
+		last = maxIndex;
+	}
+	return first <= last;
+}
+
+inline float joseph_sample_weight(ProjectionLineEndpoints line,
+                                  SiddonForwardImageParams params, uint axis,
+                                  int majorIndex, float alphaMin,
+                                  float alphaMax)
+{
+	const float dAxis = joseph_axis_delta(line, axis);
+	if (dAxis == 0.0f)
+	{
+		return 0.0f;
+	}
+	const float voxel = joseph_axis_voxel(params, axis);
+	const float centerCoord = -joseph_axis_half_length(params, axis) +
+	                          (float(majorIndex) + 0.5f) * voxel;
+	const float centerAlpha =
+	    (centerCoord - joseph_axis_start(line, axis)) / dAxis;
+	const float halfAlphaStep = 0.5f * voxel / abs(dAxis);
+	const float segmentStart = max(alphaMin, centerAlpha - halfAlphaStep);
+	const float segmentEnd = min(alphaMax, centerAlpha + halfAlphaStep);
+	if (segmentStart >= segmentEnd)
+	{
+		return 0.0f;
+	}
+	const float dx = line.p2x - line.p1x;
+	const float dy = line.p2y - line.p1y;
+	const float dz = line.p2z - line.p1z;
+	return sqrt(dx * dx + dy * dy + dz * dz) *
+	       (segmentEnd - segmentStart);
+}
+
+inline float joseph_sample_alpha(ProjectionLineEndpoints line,
+                                 SiddonForwardImageParams params, uint axis,
+                                 int majorIndex)
+{
+	const float dAxis = joseph_axis_delta(line, axis);
+	if (dAxis == 0.0f)
+	{
+		return 0.0f;
+	}
+	const float centerCoord = -joseph_axis_half_length(params, axis) +
+	                          (float(majorIndex) + 0.5f) *
+	                              joseph_axis_voxel(params, axis);
+	return (centerCoord - joseph_axis_start(line, axis)) / dAxis;
+}
+
+inline float joseph_image_value(device const float* image, int vx, int vy,
+                                int vz, SiddonForwardImageParams params)
+{
+	if (vx < 0 || vy < 0 || vz < 0 || vx >= int(params.nx) ||
+	    vy >= int(params.ny) || vz >= int(params.nz))
+	{
+		return 0.0f;
+	}
+	const uint spatialCount = params.nx * params.ny * params.nz;
+	const uint frameBase = params.frame * spatialCount;
+	return image[frameBase +
+	             siddon_image_offset(uint(vx), uint(vy), uint(vz), params)];
+}
+
+inline float joseph_bilinear_forward(device const float* image, uint axis,
+                                     int majorIndex, float alpha,
+                                     ProjectionLineEndpoints line,
+                                     SiddonForwardImageParams params)
+{
+	const float x = line.p1x + alpha * (line.p2x - line.p1x);
+	const float y = line.p1y + alpha * (line.p2y - line.p1y);
+	const float z = line.p1z + alpha * (line.p2z - line.p1z);
+	if (axis == 0u)
+	{
+		const float gy = joseph_grid_coord(y, params.halfLengthY,
+		                                   params.invVoxelY);
+		const float gz = joseph_grid_coord(z, params.halfLengthZ,
+		                                   params.invVoxelZ);
+		const int y0 = int(floor(gy));
+		const int z0 = int(floor(gz));
+		const float fy = gy - float(y0);
+		const float fz = gz - float(z0);
+		return (1.0f - fy) * (1.0f - fz) *
+		           joseph_image_value(image, majorIndex, y0, z0, params) +
+		       fy * (1.0f - fz) *
+		           joseph_image_value(image, majorIndex, y0 + 1, z0, params) +
+		       (1.0f - fy) * fz *
+		           joseph_image_value(image, majorIndex, y0, z0 + 1, params) +
+		       fy * fz *
+		           joseph_image_value(image, majorIndex, y0 + 1, z0 + 1,
+		                              params);
+	}
+	if (axis == 1u)
+	{
+		const float gx = joseph_grid_coord(x, params.halfLengthX,
+		                                   params.invVoxelX);
+		const float gz = joseph_grid_coord(z, params.halfLengthZ,
+		                                   params.invVoxelZ);
+		const int x0 = int(floor(gx));
+		const int z0 = int(floor(gz));
+		const float fx = gx - float(x0);
+		const float fz = gz - float(z0);
+		return (1.0f - fx) * (1.0f - fz) *
+		           joseph_image_value(image, x0, majorIndex, z0, params) +
+		       fx * (1.0f - fz) *
+		           joseph_image_value(image, x0 + 1, majorIndex, z0, params) +
+		       (1.0f - fx) * fz *
+		           joseph_image_value(image, x0, majorIndex, z0 + 1, params) +
+		       fx * fz *
+		           joseph_image_value(image, x0 + 1, majorIndex, z0 + 1,
+		                              params);
+	}
+	const float gx = joseph_grid_coord(x, params.halfLengthX,
+	                                   params.invVoxelX);
+	const float gy = joseph_grid_coord(y, params.halfLengthY,
+	                                   params.invVoxelY);
+	const int x0 = int(floor(gx));
+	const int y0 = int(floor(gy));
+	const float fx = gx - float(x0);
+	const float fy = gy - float(y0);
+	return (1.0f - fx) * (1.0f - fy) *
+	           joseph_image_value(image, x0, y0, majorIndex, params) +
+	       fx * (1.0f - fy) *
+	           joseph_image_value(image, x0 + 1, y0, majorIndex, params) +
+	       (1.0f - fx) * fy *
+	           joseph_image_value(image, x0, y0 + 1, majorIndex, params) +
+	       fx * fy *
+	           joseph_image_value(image, x0 + 1, y0 + 1, majorIndex, params);
+}
+
+template <typename AtomicImagePointer>
+inline void joseph_add_voxel(AtomicImagePointer image, int vx, int vy, int vz,
+                             float update,
+                             SiddonForwardImageParams params)
+{
+	if (update == 0.0f || vx < 0 || vy < 0 || vz < 0 ||
+	    vx >= int(params.nx) || vy >= int(params.ny) ||
+	    vz >= int(params.nz))
+	{
+		return;
+	}
+	const uint spatialCount = params.nx * params.ny * params.nz;
+	const uint frameBase = params.frame * spatialCount;
+	const uint imageOffset =
+	    frameBase + siddon_image_offset(uint(vx), uint(vy), uint(vz),
+	                                    params);
+	atomic_add_float(&image[imageOffset], update);
+}
+
+template <typename AtomicImagePointer>
+inline void joseph_bilinear_backproject(AtomicImagePointer image, uint axis,
+                                        int majorIndex, float alpha,
+                                        float update,
+                                        ProjectionLineEndpoints line,
+                                        SiddonForwardImageParams params)
+{
+	const float x = line.p1x + alpha * (line.p2x - line.p1x);
+	const float y = line.p1y + alpha * (line.p2y - line.p1y);
+	const float z = line.p1z + alpha * (line.p2z - line.p1z);
+	if (axis == 0u)
+	{
+		const float gy = joseph_grid_coord(y, params.halfLengthY,
+		                                   params.invVoxelY);
+		const float gz = joseph_grid_coord(z, params.halfLengthZ,
+		                                   params.invVoxelZ);
+		const int y0 = int(floor(gy));
+		const int z0 = int(floor(gz));
+		const float fy = gy - float(y0);
+		const float fz = gz - float(z0);
+		joseph_add_voxel(image, majorIndex, y0, z0,
+		    update * (1.0f - fy) * (1.0f - fz), params);
+		joseph_add_voxel(image, majorIndex, y0 + 1, z0,
+		    update * fy * (1.0f - fz), params);
+		joseph_add_voxel(image, majorIndex, y0, z0 + 1,
+		    update * (1.0f - fy) * fz, params);
+		joseph_add_voxel(image, majorIndex, y0 + 1, z0 + 1,
+		    update * fy * fz, params);
+		return;
+	}
+	if (axis == 1u)
+	{
+		const float gx = joseph_grid_coord(x, params.halfLengthX,
+		                                   params.invVoxelX);
+		const float gz = joseph_grid_coord(z, params.halfLengthZ,
+		                                   params.invVoxelZ);
+		const int x0 = int(floor(gx));
+		const int z0 = int(floor(gz));
+		const float fx = gx - float(x0);
+		const float fz = gz - float(z0);
+		joseph_add_voxel(image, x0, majorIndex, z0,
+		    update * (1.0f - fx) * (1.0f - fz), params);
+		joseph_add_voxel(image, x0 + 1, majorIndex, z0,
+		    update * fx * (1.0f - fz), params);
+		joseph_add_voxel(image, x0, majorIndex, z0 + 1,
+		    update * (1.0f - fx) * fz, params);
+		joseph_add_voxel(image, x0 + 1, majorIndex, z0 + 1,
+		    update * fx * fz, params);
+		return;
+	}
+	const float gx = joseph_grid_coord(x, params.halfLengthX,
+	                                   params.invVoxelX);
+	const float gy = joseph_grid_coord(y, params.halfLengthY,
+	                                   params.invVoxelY);
+	const int x0 = int(floor(gx));
+	const int y0 = int(floor(gy));
+	const float fx = gx - float(x0);
+	const float fy = gy - float(y0);
+	joseph_add_voxel(image, x0, y0, majorIndex,
+	    update * (1.0f - fx) * (1.0f - fy), params);
+	joseph_add_voxel(image, x0 + 1, y0, majorIndex,
+	    update * fx * (1.0f - fy), params);
+	joseph_add_voxel(image, x0, y0 + 1, majorIndex,
+	    update * (1.0f - fx) * fy, params);
+	joseph_add_voxel(image, x0 + 1, y0 + 1, majorIndex,
+	    update * fx * fy, params);
+}
+
+inline float joseph_forward_single_ray_value(
+    device const float* image, ProjectionLineEndpoints line,
+    SiddonForwardImageParams params)
+{
+	float alphaMin;
+	float alphaMax;
+	if (!joseph_alpha_range(line, params, alphaMin, alphaMax))
+	{
+		return 0.0f;
+	}
+	const uint axis = joseph_major_axis(line, params);
+	int first;
+	int last;
+	if (!joseph_sample_bounds(line, params, axis, alphaMin, alphaMax, first,
+	        last))
+	{
+		return 0.0f;
+	}
+
+	float projection = 0.0f;
+	for (int majorIndex = first; majorIndex <= last; ++majorIndex)
+	{
+		const float weight =
+		    joseph_sample_weight(line, params, axis, majorIndex, alphaMin,
+		                         alphaMax);
+		if (weight == 0.0f)
+		{
+			continue;
+		}
+		const float alpha =
+		    joseph_sample_alpha(line, params, axis, majorIndex);
+		projection += weight * joseph_bilinear_forward(
+		                            image, axis, majorIndex, alpha, line,
+		                            params);
+	}
+	return projection;
+}
+
+template <typename AtomicImagePointer>
+inline void joseph_backproject_single_ray_atomic_value(
+    AtomicImagePointer image, ProjectionLineEndpoints line,
+    float projectionValue, SiddonForwardImageParams params)
+{
+	if (projectionValue == 0.0f)
+	{
+		return;
+	}
+	float alphaMin;
+	float alphaMax;
+	if (!joseph_alpha_range(line, params, alphaMin, alphaMax))
+	{
+		return;
+	}
+	const uint axis = joseph_major_axis(line, params);
+	int first;
+	int last;
+	if (!joseph_sample_bounds(line, params, axis, alphaMin, alphaMax, first,
+	        last))
+	{
+		return;
+	}
+
+	for (int majorIndex = first; majorIndex <= last; ++majorIndex)
+	{
+		const float weight =
+		    joseph_sample_weight(line, params, axis, majorIndex, alphaMin,
+		                         alphaMax);
+		if (weight == 0.0f)
+		{
+			continue;
+		}
+		const float alpha =
+		    joseph_sample_alpha(line, params, axis, majorIndex);
+		joseph_bilinear_backproject(
+		    image, axis, majorIndex, alpha, projectionValue * weight, line,
+		    params);
+	}
+}
+
 kernel void siddon_forward_single_ray(
     device const float* image [[buffer(0)]],
     device const ProjectionLineEndpoints* lines [[buffer(1)]],
@@ -898,6 +1902,72 @@ kernel void siddon_backproject_single_ray(
 {
 	siddon_backproject_single_ray_atomic_value(
 	    image, lines[id], projectionValues[id], params);
+}
+
+kernel void siddon_backproject_single_ray_native_atomic_float(
+    device atomic_float* image [[buffer(0)]],
+    device const ProjectionLineEndpoints* lines [[buffer(1)]],
+    device const float* projectionValues [[buffer(2)]],
+    constant SiddonForwardImageParams& params [[buffer(3)]],
+    uint id [[thread_position_in_grid]])
+{
+	siddon_backproject_single_ray_atomic_value(
+	    image, lines[id], projectionValues[id], params);
+}
+
+kernel void joseph_forward_single_ray(
+    device const float* image [[buffer(0)]],
+    device const ProjectionLineEndpoints* lines [[buffer(1)]],
+    device float* projectionValues [[buffer(2)]],
+    constant SiddonForwardImageParams& params [[buffer(3)]],
+    uint id [[thread_position_in_grid]])
+{
+	projectionValues[id] =
+	    joseph_forward_single_ray_value(image, lines[id], params);
+}
+
+kernel void joseph_backproject_single_ray(
+    device atomic_uint* image [[buffer(0)]],
+    device const ProjectionLineEndpoints* lines [[buffer(1)]],
+    device const float* projectionValues [[buffer(2)]],
+    constant SiddonForwardImageParams& params [[buffer(3)]],
+    uint id [[thread_position_in_grid]])
+{
+	joseph_backproject_single_ray_atomic_value(
+	    image, lines[id], projectionValues[id], params);
+}
+
+kernel void joseph_backproject_single_ray_native_atomic_float(
+    device atomic_float* image [[buffer(0)]],
+    device const ProjectionLineEndpoints* lines [[buffer(1)]],
+    device const float* projectionValues [[buffer(2)]],
+    constant SiddonForwardImageParams& params [[buffer(3)]],
+    uint id [[thread_position_in_grid]])
+{
+	joseph_backproject_single_ray_atomic_value(
+	    image, lines[id], projectionValues[id], params);
+}
+
+kernel void siddon_backproject_single_ray_update_count(
+    device const ProjectionLineEndpoints* lines [[buffer(0)]],
+    device const float* projectionValues [[buffer(1)]],
+    device uint* updateCounts [[buffer(2)]],
+    constant SiddonForwardImageParams& params [[buffer(3)]],
+    uint id [[thread_position_in_grid]])
+{
+	updateCounts[id] = siddon_backproject_single_ray_update_count_value(
+	    lines[id], projectionValues[id], params);
+}
+
+kernel void siddon_backproject_single_ray_voxel_hit_count(
+    device const ProjectionLineEndpoints* lines [[buffer(0)]],
+    device const float* projectionValues [[buffer(1)]],
+    device atomic_uint* hitCounts [[buffer(2)]],
+    constant SiddonForwardImageParams& params [[buffer(3)]],
+    uint id [[thread_position_in_grid]])
+{
+	siddon_backproject_single_ray_voxel_hit_count_value(
+	    hitCounts, lines[id], projectionValues[id], params);
 }
 
 struct ImageShape

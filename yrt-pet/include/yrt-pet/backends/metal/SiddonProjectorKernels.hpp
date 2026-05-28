@@ -26,6 +26,12 @@ struct SiddonForwardImageParams
 	float voxelX;
 	float voxelY;
 	float voxelZ;
+	float invVoxelX;
+	float invVoxelY;
+	float invVoxelZ;
+	float halfLengthX;
+	float halfLengthY;
+	float halfLengthZ;
 	float fovRadius;
 };
 
@@ -37,5 +43,14 @@ bool launchSiddonBackProjectSingleRay(const Device& device,
     const Library& library, const CommandQueue& commandQueue,
     Buffer& image, const Buffer& lines, const Buffer& projectionValues,
     const SiddonForwardImageParams& params, std::size_t lineCount);
+bool launchSiddonBackProjectSingleRayUpdateCount(const Device& device,
+    const Library& library, const CommandQueue& commandQueue,
+    const Buffer& lines, const Buffer& projectionValues, Buffer& updateCounts,
+    const SiddonForwardImageParams& params, std::size_t lineCount);
+bool launchSiddonBackProjectSingleRayVoxelHitCount(const Device& device,
+    const Library& library, const CommandQueue& commandQueue,
+    const Buffer& lines, const Buffer& projectionValues,
+    Buffer& voxelHitCounts, const SiddonForwardImageParams& params,
+    std::size_t lineCount);
 
 }  // namespace yrt::backend::metal

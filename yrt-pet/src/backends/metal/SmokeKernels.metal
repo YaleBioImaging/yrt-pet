@@ -1644,6 +1644,23 @@ inline float joseph_cached_sample_weight(JosephAxisCache cache,
 	return cache.rayLength * (segmentEnd - segmentStart);
 }
 
+inline float joseph_cached_sample_weight_stride(JosephAxisCache cache,
+                                                float centerAlpha,
+                                                float alphaMin,
+                                                float alphaMax,
+                                                uint sampleStride)
+{
+	const float strideScale = float(sampleStride <= 1u ? 1u : sampleStride);
+	const float halfAlphaStep = cache.halfAlphaStep * strideScale;
+	const float segmentStart = max(alphaMin, centerAlpha - halfAlphaStep);
+	const float segmentEnd = min(alphaMax, centerAlpha + halfAlphaStep);
+	if (segmentStart >= segmentEnd)
+	{
+		return 0.0f;
+	}
+	return cache.rayLength * (segmentEnd - segmentStart);
+}
+
 inline float joseph_sample_weight(ProjectionLineEndpoints line,
                                   SiddonForwardImageParams params, uint axis,
                                   int majorIndex, float alphaMin,
@@ -2275,6 +2292,220 @@ inline void joseph_backproject_single_ray_voxel_hit_count_value(
 	}
 }
 
+inline float joseph_forward_single_ray_sample_stride_value(
+    device const float* image, ProjectionLineEndpoints line,
+    SiddonForwardImageParams params, uint sampleStride)
+{
+	float alphaMin;
+	float alphaMax;
+	if (!joseph_alpha_range(line, params, alphaMin, alphaMax))
+	{
+		return 0.0f;
+	}
+	const uint axis = joseph_major_axis(line, params);
+	int first;
+	int last;
+	if (!joseph_sample_bounds(line, params, axis, alphaMin, alphaMax, first,
+	        last))
+	{
+		return 0.0f;
+	}
+
+	float projection = 0.0f;
+	const int step = sampleStride <= 1u ? 1 : int(sampleStride);
+	const JosephAxisCache axisCache =
+	    joseph_make_axis_cache(line, params, axis);
+	for (int majorIndex = first; majorIndex <= last; majorIndex += step)
+	{
+		const float alpha =
+		    joseph_cached_sample_alpha(axisCache, majorIndex);
+		const float weight =
+		    joseph_cached_sample_weight_stride(
+		        axisCache, alpha, alphaMin, alphaMax, sampleStride);
+		if (weight == 0.0f)
+		{
+			continue;
+		}
+		projection += weight * joseph_bilinear_forward(
+		                            image, axis, majorIndex, alpha, line,
+		                            params);
+	}
+	return projection;
+}
+
+inline float joseph_forward_single_ray_texture_sample_stride_value(
+    texture3d<float, access::sample> imageTexture, sampler imageSampler,
+    ProjectionLineEndpoints line, SiddonForwardImageParams params,
+    uint sampleStride)
+{
+	float alphaMin;
+	float alphaMax;
+	if (!joseph_alpha_range(line, params, alphaMin, alphaMax))
+	{
+		return 0.0f;
+	}
+	const uint axis = joseph_major_axis(line, params);
+	int first;
+	int last;
+	if (!joseph_sample_bounds(line, params, axis, alphaMin, alphaMax, first,
+	        last))
+	{
+		return 0.0f;
+	}
+
+	float projection = 0.0f;
+	const int step = sampleStride <= 1u ? 1 : int(sampleStride);
+	const JosephAxisCache axisCache =
+	    joseph_make_axis_cache(line, params, axis);
+	for (int majorIndex = first; majorIndex <= last; majorIndex += step)
+	{
+		const float alpha =
+		    joseph_cached_sample_alpha(axisCache, majorIndex);
+		const float weight =
+		    joseph_cached_sample_weight_stride(
+		        axisCache, alpha, alphaMin, alphaMax, sampleStride);
+		if (weight == 0.0f)
+		{
+			continue;
+		}
+		projection += weight *
+		              joseph_texture_forward(
+		                  imageTexture, imageSampler, axis, majorIndex,
+		                  alpha, line, params);
+	}
+	return projection;
+}
+
+template <typename AtomicImagePointer>
+inline void joseph_backproject_single_ray_atomic_sample_stride_value(
+    AtomicImagePointer image, ProjectionLineEndpoints line,
+    float projectionValue, SiddonForwardImageParams params, uint sampleStride)
+{
+	if (projectionValue == 0.0f)
+	{
+		return;
+	}
+	float alphaMin;
+	float alphaMax;
+	if (!joseph_alpha_range(line, params, alphaMin, alphaMax))
+	{
+		return;
+	}
+	const uint axis = joseph_major_axis(line, params);
+	int first;
+	int last;
+	if (!joseph_sample_bounds(line, params, axis, alphaMin, alphaMax, first,
+	        last))
+	{
+		return;
+	}
+
+	const int step = sampleStride <= 1u ? 1 : int(sampleStride);
+	const JosephAxisCache axisCache =
+	    joseph_make_axis_cache(line, params, axis);
+	for (int majorIndex = first; majorIndex <= last; majorIndex += step)
+	{
+		const float alpha =
+		    joseph_cached_sample_alpha(axisCache, majorIndex);
+		const float weight =
+		    joseph_cached_sample_weight_stride(
+		        axisCache, alpha, alphaMin, alphaMax, sampleStride);
+		if (weight == 0.0f)
+		{
+			continue;
+		}
+		joseph_bilinear_backproject(
+		    image, axis, majorIndex, alpha, projectionValue * weight, line,
+		    params);
+	}
+}
+
+inline uint joseph_backproject_single_ray_update_count_sample_stride_value(
+    ProjectionLineEndpoints line, float projectionValue,
+    SiddonForwardImageParams params, uint sampleStride)
+{
+	if (projectionValue == 0.0f)
+	{
+		return 0u;
+	}
+	float alphaMin;
+	float alphaMax;
+	if (!joseph_alpha_range(line, params, alphaMin, alphaMax))
+	{
+		return 0u;
+	}
+	const uint axis = joseph_major_axis(line, params);
+	int first;
+	int last;
+	if (!joseph_sample_bounds(line, params, axis, alphaMin, alphaMax, first,
+	        last))
+	{
+		return 0u;
+	}
+
+	uint updateCount = 0u;
+	const int step = sampleStride <= 1u ? 1 : int(sampleStride);
+	const JosephAxisCache axisCache =
+	    joseph_make_axis_cache(line, params, axis);
+	for (int majorIndex = first; majorIndex <= last; majorIndex += step)
+	{
+		const float alpha =
+		    joseph_cached_sample_alpha(axisCache, majorIndex);
+		const float weight =
+		    joseph_cached_sample_weight_stride(
+		        axisCache, alpha, alphaMin, alphaMax, sampleStride);
+		if (weight == 0.0f)
+		{
+			continue;
+		}
+		updateCount += joseph_bilinear_update_count(
+		    axis, majorIndex, alpha, projectionValue * weight, line, params);
+	}
+	return updateCount;
+}
+
+inline void joseph_backproject_single_ray_voxel_hit_count_sample_stride_value(
+    device atomic_uint* hitCounts, ProjectionLineEndpoints line,
+    float projectionValue, SiddonForwardImageParams params, uint sampleStride)
+{
+	if (projectionValue == 0.0f)
+	{
+		return;
+	}
+	float alphaMin;
+	float alphaMax;
+	if (!joseph_alpha_range(line, params, alphaMin, alphaMax))
+	{
+		return;
+	}
+	const uint axis = joseph_major_axis(line, params);
+	int first;
+	int last;
+	if (!joseph_sample_bounds(line, params, axis, alphaMin, alphaMax, first,
+	        last))
+	{
+		return;
+	}
+
+	const int step = sampleStride <= 1u ? 1 : int(sampleStride);
+	const JosephAxisCache axisCache =
+	    joseph_make_axis_cache(line, params, axis);
+	for (int majorIndex = first; majorIndex <= last; majorIndex += step)
+	{
+		const float alpha =
+		    joseph_cached_sample_alpha(axisCache, majorIndex);
+		const float weight =
+		    joseph_cached_sample_weight_stride(
+		        axisCache, alpha, alphaMin, alphaMax, sampleStride);
+		if (weight == 0.0f)
+		{
+			continue;
+		}
+		joseph_bilinear_voxel_hit_count(hitCounts, axis, majorIndex, alpha,
+		    projectionValue * weight, line, params);
+	}
+}
+
 kernel void siddon_forward_single_ray(
     device const float* image [[buffer(0)]],
     device const ProjectionLineEndpoints* lines [[buffer(1)]],
@@ -2319,6 +2550,18 @@ kernel void joseph_forward_single_ray(
 	    joseph_forward_single_ray_value(image, lines[id], params);
 }
 
+kernel void joseph_forward_single_ray_sample_stride(
+    device const float* image [[buffer(0)]],
+    device const ProjectionLineEndpoints* lines [[buffer(1)]],
+    device float* projectionValues [[buffer(2)]],
+    constant SiddonForwardImageParams& params [[buffer(3)]],
+    constant uint& sampleStride [[buffer(4)]],
+    uint id [[thread_position_in_grid]])
+{
+	projectionValues[id] = joseph_forward_single_ray_sample_stride_value(
+	    image, lines[id], params, sampleStride);
+}
+
 kernel void joseph_forward_single_ray_texture(
     device const ProjectionLineEndpoints* lines [[buffer(0)]],
     device float* projectionValues [[buffer(1)]],
@@ -2329,6 +2572,20 @@ kernel void joseph_forward_single_ray_texture(
 {
 	projectionValues[id] = joseph_forward_single_ray_texture_value(
 	    imageTexture, imageSampler, lines[id], params);
+}
+
+kernel void joseph_forward_single_ray_texture_sample_stride(
+    device const ProjectionLineEndpoints* lines [[buffer(0)]],
+    device float* projectionValues [[buffer(1)]],
+    constant SiddonForwardImageParams& params [[buffer(2)]],
+    constant uint& sampleStride [[buffer(3)]],
+    texture3d<float, access::sample> imageTexture [[texture(0)]],
+    sampler imageSampler [[sampler(0)]],
+    uint id [[thread_position_in_grid]])
+{
+	projectionValues[id] =
+	    joseph_forward_single_ray_texture_sample_stride_value(
+	        imageTexture, imageSampler, lines[id], params, sampleStride);
 }
 
 kernel void joseph_backproject_single_ray(
@@ -2342,6 +2599,18 @@ kernel void joseph_backproject_single_ray(
 	    image, lines[id], projectionValues[id], params);
 }
 
+kernel void joseph_backproject_single_ray_sample_stride(
+    device atomic_uint* image [[buffer(0)]],
+    device const ProjectionLineEndpoints* lines [[buffer(1)]],
+    device const float* projectionValues [[buffer(2)]],
+    constant SiddonForwardImageParams& params [[buffer(3)]],
+    constant uint& sampleStride [[buffer(4)]],
+    uint id [[thread_position_in_grid]])
+{
+	joseph_backproject_single_ray_atomic_sample_stride_value(
+	    image, lines[id], projectionValues[id], params, sampleStride);
+}
+
 kernel void joseph_backproject_single_ray_native_atomic_float(
     device atomic_float* image [[buffer(0)]],
     device const ProjectionLineEndpoints* lines [[buffer(1)]],
@@ -2351,6 +2620,18 @@ kernel void joseph_backproject_single_ray_native_atomic_float(
 {
 	joseph_backproject_single_ray_atomic_value(
 	    image, lines[id], projectionValues[id], params);
+}
+
+kernel void joseph_backproject_single_ray_sample_stride_native_atomic_float(
+    device atomic_float* image [[buffer(0)]],
+    device const ProjectionLineEndpoints* lines [[buffer(1)]],
+    device const float* projectionValues [[buffer(2)]],
+    constant SiddonForwardImageParams& params [[buffer(3)]],
+    constant uint& sampleStride [[buffer(4)]],
+    uint id [[thread_position_in_grid]])
+{
+	joseph_backproject_single_ray_atomic_sample_stride_value(
+	    image, lines[id], projectionValues[id], params, sampleStride);
 }
 
 kernel void joseph_backproject_single_ray_update_count(
@@ -2364,6 +2645,19 @@ kernel void joseph_backproject_single_ray_update_count(
 	    lines[id], projectionValues[id], params);
 }
 
+kernel void joseph_backproject_single_ray_update_count_sample_stride(
+    device const ProjectionLineEndpoints* lines [[buffer(0)]],
+    device const float* projectionValues [[buffer(1)]],
+    device uint* updateCounts [[buffer(2)]],
+    constant SiddonForwardImageParams& params [[buffer(3)]],
+    constant uint& sampleStride [[buffer(4)]],
+    uint id [[thread_position_in_grid]])
+{
+	updateCounts[id] =
+	    joseph_backproject_single_ray_update_count_sample_stride_value(
+	        lines[id], projectionValues[id], params, sampleStride);
+}
+
 kernel void joseph_backproject_single_ray_voxel_hit_count(
     device const ProjectionLineEndpoints* lines [[buffer(0)]],
     device const float* projectionValues [[buffer(1)]],
@@ -2373,6 +2667,18 @@ kernel void joseph_backproject_single_ray_voxel_hit_count(
 {
 	joseph_backproject_single_ray_voxel_hit_count_value(
 	    hitCounts, lines[id], projectionValues[id], params);
+}
+
+kernel void joseph_backproject_single_ray_voxel_hit_count_sample_stride(
+    device const ProjectionLineEndpoints* lines [[buffer(0)]],
+    device const float* projectionValues [[buffer(1)]],
+    device atomic_uint* hitCounts [[buffer(2)]],
+    constant SiddonForwardImageParams& params [[buffer(3)]],
+    constant uint& sampleStride [[buffer(4)]],
+    uint id [[thread_position_in_grid]])
+{
+	joseph_backproject_single_ray_voxel_hit_count_sample_stride_value(
+	    hitCounts, lines[id], projectionValues[id], params, sampleStride);
 }
 
 kernel void siddon_backproject_single_ray_update_count(

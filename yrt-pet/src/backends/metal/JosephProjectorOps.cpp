@@ -25,6 +25,7 @@ namespace
 {
 
 using Clock = std::chrono::steady_clock;
+constexpr std::uint32_t kVoxelHitTileSize = 8;
 
 double getElapsedSeconds(Clock::time_point start, Clock::time_point end)
 {
@@ -51,7 +52,8 @@ std::size_t updateCountByteCount(std::size_t count)
 	return sizeof(std::uint32_t) * count;
 }
 
-std::size_t percentileCount(const std::vector<std::uint32_t>& sortedCounts,
+template <typename T>
+std::size_t percentileCount(const std::vector<T>& sortedCounts,
                             double percentile)
 {
 	if (sortedCounts.empty())
@@ -63,6 +65,72 @@ std::size_t percentileCount(const std::vector<std::uint32_t>& sortedCounts,
 	const std::size_t index =
 	    std::min(sortedCounts.size() - 1, rank == 0 ? 0 : rank - 1);
 	return sortedCounts[index];
+}
+
+template <typename T>
+double topCountFraction(const std::vector<T>& sortedCounts,
+                        double topFraction, std::size_t totalCount)
+{
+	if (sortedCounts.empty() || totalCount == 0)
+	{
+		return 0.0;
+	}
+	const std::size_t count =
+	    std::max<std::size_t>(1,
+	        static_cast<std::size_t>(
+	            std::ceil(topFraction *
+	                      static_cast<double>(sortedCounts.size()))));
+	const std::size_t clampedCount = std::min(count, sortedCounts.size());
+	std::size_t topTotal = 0;
+	for (auto it = sortedCounts.rbegin();
+	     it != sortedCounts.rend() &&
+	     static_cast<std::size_t>(it - sortedCounts.rbegin()) < clampedCount;
+	     ++it)
+	{
+		topTotal += static_cast<std::size_t>(*it);
+	}
+	return static_cast<double>(topTotal) /
+	       static_cast<double>(totalCount);
+}
+
+std::vector<std::size_t> collectTileCounts(
+    const std::vector<std::uint32_t>& counts,
+    const SiddonForwardImageParams& params, std::uint32_t tileSize)
+{
+	const std::size_t nx = params.nx;
+	const std::size_t ny = params.ny;
+	const std::size_t nz = params.nz;
+	const std::size_t nt = params.nt;
+	const std::size_t spatialCount = nx * ny * nz;
+	const std::size_t tileNx = (nx + tileSize - 1) / tileSize;
+	const std::size_t tileNy = (ny + tileSize - 1) / tileSize;
+	const std::size_t tileNz = (nz + tileSize - 1) / tileSize;
+	const std::size_t tileSpatialCount = tileNx * tileNy * tileNz;
+	std::vector<std::size_t> tileCounts(tileSpatialCount * nt, 0);
+
+	for (std::size_t index = 0; index < counts.size(); ++index)
+	{
+		const std::uint32_t count = counts[index];
+		if (count == 0 || spatialCount == 0)
+		{
+			continue;
+		}
+
+		const std::size_t frame = index / spatialCount;
+		const std::size_t spatialIndex = index % spatialCount;
+		const std::size_t z = spatialIndex / (nx * ny);
+		const std::size_t xy = spatialIndex - z * nx * ny;
+		const std::size_t y = xy / nx;
+		const std::size_t x = xy - y * nx;
+		const std::size_t tileX = x / tileSize;
+		const std::size_t tileY = y / tileSize;
+		const std::size_t tileZ = z / tileSize;
+		const std::size_t tileIndex =
+		    frame * tileSpatialCount +
+		    tileX + tileNx * (tileY + tileNy * tileZ);
+		tileCounts[tileIndex] += count;
+	}
+	return tileCounts;
 }
 
 bool collectBackProjectUpdateCounts(const Context& context,
@@ -150,12 +218,71 @@ bool collectBackProjectVoxelHitCounts(const Context& context,
 		profile.adjointMaxVoxelHits =
 		    std::max<std::size_t>(profile.adjointMaxVoxelHits,
 		                          hitCounts.back());
+		profile.adjointMaxBatchP50VoxelHits =
+		    std::max(profile.adjointMaxBatchP50VoxelHits,
+		             percentileCount(hitCounts, 0.50));
+		profile.adjointMaxBatchP90VoxelHits =
+		    std::max(profile.adjointMaxBatchP90VoxelHits,
+		             percentileCount(hitCounts, 0.90));
 		profile.adjointMaxBatchP95VoxelHits =
 		    std::max(profile.adjointMaxBatchP95VoxelHits,
 		             percentileCount(hitCounts, 0.95));
 		profile.adjointMaxBatchP99VoxelHits =
 		    std::max(profile.adjointMaxBatchP99VoxelHits,
 		             percentileCount(hitCounts, 0.99));
+		profile.adjointMaxBatchP999VoxelHits =
+		    std::max(profile.adjointMaxBatchP999VoxelHits,
+		             percentileCount(hitCounts, 0.999));
+		profile.adjointMaxBatchMeanVoxelHits =
+		    std::max(profile.adjointMaxBatchMeanVoxelHits,
+		             static_cast<double>(totalHits) /
+		                 static_cast<double>(hitCounts.size()));
+		profile.adjointMaxBatchTop1PctVoxelHitFraction =
+		    std::max(profile.adjointMaxBatchTop1PctVoxelHitFraction,
+		             topCountFraction(hitCounts, 0.01, totalHits));
+		profile.adjointMaxBatchTop01PctVoxelHitFraction =
+		    std::max(profile.adjointMaxBatchTop01PctVoxelHitFraction,
+		             topCountFraction(hitCounts, 0.001, totalHits));
+	}
+
+	std::vector<std::size_t> tileCounts =
+	    collectTileCounts(counts, params, kVoxelHitTileSize);
+	std::vector<std::size_t> hitTileCounts;
+	hitTileCounts.reserve(tileCounts.size());
+	std::size_t totalTileHits = 0;
+	for (const std::size_t count : tileCounts)
+	{
+		totalTileHits += count;
+		if (count != 0)
+		{
+			hitTileCounts.push_back(count);
+		}
+	}
+	std::sort(hitTileCounts.begin(), hitTileCounts.end());
+
+	profile.adjointTileSize = kVoxelHitTileSize;
+	profile.adjointVoxelHitTiles += hitTileCounts.size();
+	profile.adjointVoxelHitTileTotalUpdates += totalTileHits;
+	if (!hitTileCounts.empty())
+	{
+		profile.adjointMaxTileHits =
+		    std::max(profile.adjointMaxTileHits, hitTileCounts.back());
+		profile.adjointMaxBatchP95TileHits =
+		    std::max(profile.adjointMaxBatchP95TileHits,
+		             percentileCount(hitTileCounts, 0.95));
+		profile.adjointMaxBatchP99TileHits =
+		    std::max(profile.adjointMaxBatchP99TileHits,
+		             percentileCount(hitTileCounts, 0.99));
+		profile.adjointMaxBatchMeanTileHits =
+		    std::max(profile.adjointMaxBatchMeanTileHits,
+		             static_cast<double>(totalTileHits) /
+		                 static_cast<double>(hitTileCounts.size()));
+		profile.adjointMaxBatchTop1PctTileHitFraction =
+		    std::max(profile.adjointMaxBatchTop1PctTileHitFraction,
+		             topCountFraction(hitTileCounts, 0.01, totalTileHits));
+		profile.adjointMaxBatchTop01PctTileHitFraction =
+		    std::max(profile.adjointMaxBatchTop01PctTileHitFraction,
+		             topCountFraction(hitTileCounts, 0.001, totalTileHits));
 	}
 	return true;
 }

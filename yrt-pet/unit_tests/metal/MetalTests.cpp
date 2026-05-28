@@ -1728,6 +1728,65 @@ bool runJosephProjectorMetalAdapterGoldenTest()
 	    imageDotFrame(image, metalAdjoint, frame));
 }
 
+bool runJosephProjectorMetalSampleStrideAdjointnessTest()
+{
+	const ScopedEnvVar sampleStride(
+	    "YRTPET_METAL_JOSEPH_SAMPLE_STRIDE", "2");
+	const yrt::backend::metal::Context context;
+	yrt::backend::metal::JosephProjectorMetal projector(context);
+	if (!projector.isValid() || !projector.context().isValid())
+	{
+		return false;
+	}
+
+	yrt::ImageParams params(6, 5, 4, 6.0f, 5.0f, 4.0f, 0.0f, 0.0f, 0.0f,
+	                        1);
+	yrt::ImageOwned image(params);
+	image.allocate();
+	for (std::size_t i = 0; i < imageVoxelCount(params); ++i)
+	{
+		image.getRawPointer()[i] =
+		    static_cast<float>((static_cast<int>(i) % 23) - 11) * 0.03125f +
+		    static_cast<float>(i / 5) * 0.00390625f;
+	}
+
+	const std::vector<yrt::backend::metal::ProjectionLineEndpoints> lines = {
+	    {-3.5f, -1.5f, -1.5f, 3.5f, 1.5f, 1.5f},
+	    {-2.5f, 2.0f, -1.0f, 2.5f, -2.0f, 1.0f},
+	    {-1.0f, -3.0f, -1.5f, 1.0f, 3.0f, 1.5f},
+	    {-3.0f, 0.5f, 1.5f, 3.0f, -0.5f, -1.5f}};
+	const std::vector<float> projectionWeights = {0.25f, -1.5f, 2.25f,
+	                                              0.75f};
+	const std::uint32_t frame = 0;
+
+	auto forwardBatch =
+	    projector.makeBatch(lines, std::vector<float>(lines.size(), 0.0f));
+	if (!forwardBatch.isValid() ||
+	    !projector.forwardProjectSingleRay(image, forwardBatch, frame))
+	{
+		return false;
+	}
+
+	std::vector<float> forwardValues;
+	if (!forwardBatch.copyProjectionValuesToHost(forwardValues))
+	{
+		return false;
+	}
+
+	yrt::ImageOwned metalAdjoint(params);
+	metalAdjoint.allocate();
+	metalAdjoint.fill(0.0f);
+	auto adjointBatch = projector.makeBatch(lines, projectionWeights);
+	if (!adjointBatch.isValid() ||
+	    !projector.backProjectSingleRay(adjointBatch, metalAdjoint, frame))
+	{
+		return false;
+	}
+
+	return dotAlmostEqual(dotValues(forwardValues, projectionWeights),
+	    imageDotFrame(image, metalAdjoint, frame));
+}
+
 bool runJosephProjectorMetalTextureForwardGoldenTest()
 {
 	const yrt::backend::metal::Context context;
@@ -3887,6 +3946,8 @@ int main()
 	     runSiddonProjectorMetalAdapterGoldenTest},
 	    {"joseph_projector_metal_adjointness_golden",
 	     runJosephProjectorMetalAdapterGoldenTest},
+	    {"joseph_projector_metal_sample_stride_adjointness",
+	     runJosephProjectorMetalSampleStrideAdjointnessTest},
 	    {"joseph_projector_metal_texture_forward_golden",
 	     runJosephProjectorMetalTextureForwardGoldenTest},
 	    {"siddon_empty_or_miss_golden", runSiddonEmptyOrMissGoldenTest},

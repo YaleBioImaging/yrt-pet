@@ -26,8 +26,23 @@ struct SiddonProjectorKernelProfile
 	std::size_t adjointBatchHitVoxels = 0;
 	std::size_t adjointVoxelHitTotalUpdates = 0;
 	std::size_t adjointMaxVoxelHits = 0;
+	std::size_t adjointMaxBatchP50VoxelHits = 0;
+	std::size_t adjointMaxBatchP90VoxelHits = 0;
 	std::size_t adjointMaxBatchP95VoxelHits = 0;
 	std::size_t adjointMaxBatchP99VoxelHits = 0;
+	std::size_t adjointMaxBatchP999VoxelHits = 0;
+	double adjointMaxBatchMeanVoxelHits = 0.0;
+	double adjointMaxBatchTop1PctVoxelHitFraction = 0.0;
+	double adjointMaxBatchTop01PctVoxelHitFraction = 0.0;
+	std::size_t adjointTileSize = 0;
+	std::size_t adjointVoxelHitTiles = 0;
+	std::size_t adjointVoxelHitTileTotalUpdates = 0;
+	std::size_t adjointMaxTileHits = 0;
+	std::size_t adjointMaxBatchP95TileHits = 0;
+	std::size_t adjointMaxBatchP99TileHits = 0;
+	double adjointMaxBatchMeanTileHits = 0.0;
+	double adjointMaxBatchTop1PctTileHitFraction = 0.0;
+	double adjointMaxBatchTop01PctTileHitFraction = 0.0;
 };
 
 struct OperatorProjectorMetalProfile
@@ -84,8 +99,23 @@ struct OperatorProjectorMetalProfile
 	std::size_t adjointBatchHitVoxels = 0;
 	std::size_t adjointVoxelHitTotalUpdates = 0;
 	std::size_t adjointMaxVoxelHits = 0;
+	std::size_t adjointMaxBatchP50VoxelHits = 0;
+	std::size_t adjointMaxBatchP90VoxelHits = 0;
 	std::size_t adjointMaxBatchP95VoxelHits = 0;
 	std::size_t adjointMaxBatchP99VoxelHits = 0;
+	std::size_t adjointMaxBatchP999VoxelHits = 0;
+	double adjointMaxBatchMeanVoxelHits = 0.0;
+	double adjointMaxBatchTop1PctVoxelHitFraction = 0.0;
+	double adjointMaxBatchTop01PctVoxelHitFraction = 0.0;
+	std::size_t adjointTileSize = 0;
+	std::size_t adjointVoxelHitTiles = 0;
+	std::size_t adjointVoxelHitTileTotalUpdates = 0;
+	std::size_t adjointMaxTileHits = 0;
+	std::size_t adjointMaxBatchP95TileHits = 0;
+	std::size_t adjointMaxBatchP99TileHits = 0;
+	double adjointMaxBatchMeanTileHits = 0.0;
+	double adjointMaxBatchTop1PctTileHitFraction = 0.0;
+	double adjointMaxBatchTop01PctTileHitFraction = 0.0;
 	std::size_t cacheLookups = 0;
 	std::size_t cacheHits = 0;
 	std::size_t cacheMisses = 0;

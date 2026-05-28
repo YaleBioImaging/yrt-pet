@@ -172,10 +172,38 @@ void py_setup_osem_cpu(pybind11::module& m)
 		          timings.adjointVoxelHitTotalUpdates;
 		      result["adjoint_max_voxel_hits"] =
 		          timings.adjointMaxVoxelHits;
+		      result["adjoint_max_batch_p50_voxel_hits"] =
+		          timings.adjointMaxBatchP50VoxelHits;
+		      result["adjoint_max_batch_p90_voxel_hits"] =
+		          timings.adjointMaxBatchP90VoxelHits;
 		      result["adjoint_max_batch_p95_voxel_hits"] =
 		          timings.adjointMaxBatchP95VoxelHits;
 		      result["adjoint_max_batch_p99_voxel_hits"] =
 		          timings.adjointMaxBatchP99VoxelHits;
+		      result["adjoint_max_batch_p999_voxel_hits"] =
+		          timings.adjointMaxBatchP999VoxelHits;
+		      result["adjoint_max_batch_mean_voxel_hits"] =
+		          timings.adjointMaxBatchMeanVoxelHits;
+		      result["adjoint_max_batch_top_1pct_voxel_hit_fraction"] =
+		          timings.adjointMaxBatchTop1PctVoxelHitFraction;
+		      result["adjoint_max_batch_top_0_1pct_voxel_hit_fraction"] =
+		          timings.adjointMaxBatchTop01PctVoxelHitFraction;
+		      result["adjoint_tile_size"] = timings.adjointTileSize;
+		      result["adjoint_voxel_hit_tiles"] =
+		          timings.adjointVoxelHitTiles;
+		      result["adjoint_voxel_hit_tile_total_updates"] =
+		          timings.adjointVoxelHitTileTotalUpdates;
+		      result["adjoint_max_tile_hits"] = timings.adjointMaxTileHits;
+		      result["adjoint_max_batch_p95_tile_hits"] =
+		          timings.adjointMaxBatchP95TileHits;
+		      result["adjoint_max_batch_p99_tile_hits"] =
+		          timings.adjointMaxBatchP99TileHits;
+		      result["adjoint_max_batch_mean_tile_hits"] =
+		          timings.adjointMaxBatchMeanTileHits;
+		      result["adjoint_max_batch_top_1pct_tile_hit_fraction"] =
+		          timings.adjointMaxBatchTop1PctTileHitFraction;
+		      result["adjoint_max_batch_top_0_1pct_tile_hit_fraction"] =
+		          timings.adjointMaxBatchTop01PctTileHitFraction;
 		      result["cache_lookups"] = timings.cacheLookups;
 		      result["cache_hits"] = timings.cacheHits;
 		      result["cache_misses"] = timings.cacheMisses;
@@ -284,10 +312,39 @@ void py_setup_osem_cpu(pybind11::module& m)
 			          timing.adjointVoxelHitTotalUpdates;
 			      row["adjoint_max_voxel_hits"] =
 			          timing.adjointMaxVoxelHits;
+			      row["adjoint_max_batch_p50_voxel_hits"] =
+			          timing.adjointMaxBatchP50VoxelHits;
+			      row["adjoint_max_batch_p90_voxel_hits"] =
+			          timing.adjointMaxBatchP90VoxelHits;
 			      row["adjoint_max_batch_p95_voxel_hits"] =
 			          timing.adjointMaxBatchP95VoxelHits;
 			      row["adjoint_max_batch_p99_voxel_hits"] =
 			          timing.adjointMaxBatchP99VoxelHits;
+			      row["adjoint_max_batch_p999_voxel_hits"] =
+			          timing.adjointMaxBatchP999VoxelHits;
+			      row["adjoint_max_batch_mean_voxel_hits"] =
+			          timing.adjointMaxBatchMeanVoxelHits;
+			      row["adjoint_max_batch_top_1pct_voxel_hit_fraction"] =
+			          timing.adjointMaxBatchTop1PctVoxelHitFraction;
+			      row["adjoint_max_batch_top_0_1pct_voxel_hit_fraction"] =
+			          timing.adjointMaxBatchTop01PctVoxelHitFraction;
+			      row["adjoint_tile_size"] = timing.adjointTileSize;
+			      row["adjoint_voxel_hit_tiles"] =
+			          timing.adjointVoxelHitTiles;
+			      row["adjoint_voxel_hit_tile_total_updates"] =
+			          timing.adjointVoxelHitTileTotalUpdates;
+			      row["adjoint_max_tile_hits"] =
+			          timing.adjointMaxTileHits;
+			      row["adjoint_max_batch_p95_tile_hits"] =
+			          timing.adjointMaxBatchP95TileHits;
+			      row["adjoint_max_batch_p99_tile_hits"] =
+			          timing.adjointMaxBatchP99TileHits;
+			      row["adjoint_max_batch_mean_tile_hits"] =
+			          timing.adjointMaxBatchMeanTileHits;
+			      row["adjoint_max_batch_top_1pct_tile_hit_fraction"] =
+			          timing.adjointMaxBatchTop1PctTileHitFraction;
+			      row["adjoint_max_batch_top_0_1pct_tile_hit_fraction"] =
+			          timing.adjointMaxBatchTop01PctTileHitFraction;
 			      row["cache_lookups"] = timing.cacheLookups;
 			      row["cache_hits"] = timing.cacheHits;
 			      row["cache_misses"] = timing.cacheMisses;
@@ -514,6 +571,14 @@ void addBridgeProfileToTimings(
 	timings.adjointMaxVoxelHits =
 	    std::max(timings.adjointMaxVoxelHits,
 	             static_cast<size_t>(bridgeProfile.adjointMaxVoxelHits));
+	timings.adjointMaxBatchP50VoxelHits =
+	    std::max(timings.adjointMaxBatchP50VoxelHits,
+	             static_cast<size_t>(
+	                 bridgeProfile.adjointMaxBatchP50VoxelHits));
+	timings.adjointMaxBatchP90VoxelHits =
+	    std::max(timings.adjointMaxBatchP90VoxelHits,
+	             static_cast<size_t>(
+	                 bridgeProfile.adjointMaxBatchP90VoxelHits));
 	timings.adjointMaxBatchP95VoxelHits =
 	    std::max(timings.adjointMaxBatchP95VoxelHits,
 	             static_cast<size_t>(
@@ -522,6 +587,45 @@ void addBridgeProfileToTimings(
 	    std::max(timings.adjointMaxBatchP99VoxelHits,
 	             static_cast<size_t>(
 	                 bridgeProfile.adjointMaxBatchP99VoxelHits));
+	timings.adjointMaxBatchP999VoxelHits =
+	    std::max(timings.adjointMaxBatchP999VoxelHits,
+	             static_cast<size_t>(
+	                 bridgeProfile.adjointMaxBatchP999VoxelHits));
+	timings.adjointMaxBatchMeanVoxelHits =
+	    std::max(timings.adjointMaxBatchMeanVoxelHits,
+	             bridgeProfile.adjointMaxBatchMeanVoxelHits);
+	timings.adjointMaxBatchTop1PctVoxelHitFraction =
+	    std::max(timings.adjointMaxBatchTop1PctVoxelHitFraction,
+	             bridgeProfile.adjointMaxBatchTop1PctVoxelHitFraction);
+	timings.adjointMaxBatchTop01PctVoxelHitFraction =
+	    std::max(timings.adjointMaxBatchTop01PctVoxelHitFraction,
+	             bridgeProfile.adjointMaxBatchTop01PctVoxelHitFraction);
+	timings.adjointTileSize =
+	    std::max(timings.adjointTileSize,
+	             static_cast<size_t>(bridgeProfile.adjointTileSize));
+	timings.adjointVoxelHitTiles += bridgeProfile.adjointVoxelHitTiles;
+	timings.adjointVoxelHitTileTotalUpdates +=
+	    bridgeProfile.adjointVoxelHitTileTotalUpdates;
+	timings.adjointMaxTileHits =
+	    std::max(timings.adjointMaxTileHits,
+	             static_cast<size_t>(bridgeProfile.adjointMaxTileHits));
+	timings.adjointMaxBatchP95TileHits =
+	    std::max(timings.adjointMaxBatchP95TileHits,
+	             static_cast<size_t>(
+	                 bridgeProfile.adjointMaxBatchP95TileHits));
+	timings.adjointMaxBatchP99TileHits =
+	    std::max(timings.adjointMaxBatchP99TileHits,
+	             static_cast<size_t>(
+	                 bridgeProfile.adjointMaxBatchP99TileHits));
+	timings.adjointMaxBatchMeanTileHits =
+	    std::max(timings.adjointMaxBatchMeanTileHits,
+	             bridgeProfile.adjointMaxBatchMeanTileHits);
+	timings.adjointMaxBatchTop1PctTileHitFraction =
+	    std::max(timings.adjointMaxBatchTop1PctTileHitFraction,
+	             bridgeProfile.adjointMaxBatchTop1PctTileHitFraction);
+	timings.adjointMaxBatchTop01PctTileHitFraction =
+	    std::max(timings.adjointMaxBatchTop01PctTileHitFraction,
+	             bridgeProfile.adjointMaxBatchTop01PctTileHitFraction);
 	timings.cacheLookups += bridgeProfile.cacheLookups;
 	timings.cacheHits += bridgeProfile.cacheHits;
 	timings.cacheMisses += bridgeProfile.cacheMisses;

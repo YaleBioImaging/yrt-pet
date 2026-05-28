@@ -478,6 +478,110 @@ voxel updates per event versus about 191 for the earlier Siddon diagnostic.
 Further Joseph speedups are therefore expected to require reduced-update or
 tiled/hybrid adjoint work rather than more scalar math hoisting alone.
 
+The exact Joseph contention diagnostic is enabled with
+`--profile-metal-adjoint-contention` or the older
+`--profile-metal-adjoint-hit-diagnostics` flag. It keeps full Joseph sampling
+and runs an extra hit-count pass after each adjoint batch. The CSV reports
+per-voxel hot-spot metrics such as
+`metal_profile_adjoint_max_batch_mean_voxel_hits`,
+`metal_profile_adjoint_max_batch_top_1pct_voxel_hit_fraction`, and
+`metal_profile_adjoint_max_batch_p999_voxel_hits`, plus 8x8x8 tile metrics such
+as `metal_profile_adjoint_max_batch_mean_tile_hits`,
+`metal_profile_adjoint_max_batch_top_1pct_tile_hit_fraction`, and
+`metal_profile_adjoint_max_tile_hits`. These fields are intended to decide
+whether an exact tile-local/grouped Joseph adjoint is likely to reduce atomic
+pressure. They are diagnostics only and perturb timing:
+
+```sh
+YRTPET_METAL_USE_NATIVE_FLOAT_ATOMICS=1 \
+  PYTHONPATH=build_metal \
+  python yrt-pet/python/examples/metal_ge_osem_smoke.py \
+    --base /Users/yanischemli/Desktop/mini_hot_spot \
+    --metal-only \
+    --metal-projector joseph \
+    --metal-sensitivity-projector joseph \
+    --no-psf \
+    --max-events 1000000 \
+    --iterations 1 \
+    --subsets 17 \
+    --allow-unsafe-metal \
+    --profile-metal \
+    --profile-metal-adjoint-contention \
+    --metal-cache-budget-mb 8192 \
+    --metal-batch-events 1000000 \
+    --no-move-sensitivity \
+    --no-write-images
+```
+
+The script can also sweep Metal compute threadgroup size without changing
+Joseph math. `--metal-threads-per-threadgroup 0` keeps the backend auto choice;
+positive values set the existing `YRTPET_METAL_THREADS_PER_THREADGROUP`
+override for that run. Comma-separated values create a sweep and add
+`metal_threads_per_threadgroup` to the summary CSV:
+
+```sh
+YRTPET_METAL_USE_NATIVE_FLOAT_ATOMICS=1 \
+  PYTHONPATH=build_metal \
+  python yrt-pet/python/examples/metal_ge_osem_smoke.py \
+    --base /Users/yanischemli/Desktop/mini_hot_spot \
+    --metal-only \
+    --metal-projector joseph \
+    --metal-sensitivity-projector joseph \
+    --no-psf \
+    --max-events 1000000 \
+    --iterations 1 \
+    --subsets 17 \
+    --allow-unsafe-metal \
+    --profile-metal \
+    --metal-cache-budget-mb 8192 \
+    --metal-batch-events 1000000 \
+    --metal-threads-per-threadgroup 0,128,256,512,1024 \
+    --no-move-sensitivity \
+    --no-write-images \
+    --summary-csv ./metal_ge_joseph_threadgroup_1m_1it.csv
+```
+
+The current mini-hot-spot Joseph benchmark recommendation is
+`--metal-threads-per-threadgroup 512`. In the 1M-event sweep,
+`metal_ge_joseph_threadgroup_1m_1it.csv`, this reduced `metal_recon_s` from
+`0.2606` to `0.2383` seconds versus auto. On the full one-iteration run,
+`metal_ge_joseph_tpg512_full_1it.csv` reported `metal_recon_s=120.36`,
+`metal_profile_forward_kernel_s=18.45`, and
+`metal_profile_adjoint_kernel_s=35.06`. This remains a benchmark option rather
+than a backend default.
+
+For that reduced-update experiment, `--metal-joseph-sample-stride N` selects
+an explicitly opt-in Joseph approximation. The default `N=1` keeps the
+validated Joseph sampling. Values greater than one sample every Nth
+dominant-axis plane and widen the sample weight accordingly, reducing forward
+samples and adjoint voxel updates at the cost of image-quality risk:
+
+```sh
+YRTPET_METAL_USE_NATIVE_FLOAT_ATOMICS=1 \
+  PYTHONPATH=build_metal \
+  python yrt-pet/python/examples/metal_ge_osem_smoke.py \
+    --base /Users/yanischemli/Desktop/mini_hot_spot \
+    --metal-only \
+    --metal-projector joseph \
+    --metal-sensitivity-projector joseph \
+    --metal-joseph-sample-stride 2 \
+    --no-psf \
+    --max-events 1000000 \
+    --iterations 1 \
+    --subsets 17 \
+    --allow-unsafe-metal \
+    --profile-metal \
+    --profile-metal-adjoint-diagnostics \
+    --metal-cache-budget-mb 8192 \
+    --metal-batch-events 1000000 \
+    --no-move-sensitivity \
+    --no-write-images
+```
+
+This option affects only the experimental Metal Joseph kernels and is intended
+for A/B timing plus image inspection. It does not change CPU, CUDA, Siddon, or
+default Joseph behavior.
+
 The profiling output now also breaks the gather/packing path into smaller
 diagnostic buckets. The original aggregate columns remain unchanged, while
 `metal_profile_forward_gather_cache_build_s`,

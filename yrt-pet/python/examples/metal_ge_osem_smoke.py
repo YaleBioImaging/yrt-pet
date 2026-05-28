@@ -575,6 +575,19 @@ def env_flag(name):
     return os.environ.get(name, "") not in ("", "0")
 
 
+def apply_metal_environment(args):
+    os.environ["YRTPET_METAL_JOSEPH_SAMPLE_STRIDE"] = str(
+        max(1, int(args.metal_joseph_sample_stride))
+    )
+    threads_per_threadgroup = int(args.metal_threads_per_threadgroup)
+    if threads_per_threadgroup > 0:
+        os.environ["YRTPET_METAL_THREADS_PER_THREADGROUP"] = str(
+            threads_per_threadgroup
+        )
+    else:
+        os.environ.pop("YRTPET_METAL_THREADS_PER_THREADGROUP", None)
+
+
 def print_metal_projector_notes(args):
     if not (args.compare_metal or args.metal_only):
         return
@@ -587,11 +600,23 @@ def print_metal_projector_notes(args):
             "full-data profiling favors "
             "YRTPET_METAL_USE_NATIVE_FLOAT_ATOMICS=1."
         )
+    if args.metal_threads_per_threadgroup == 0:
+        print(
+            "NOTE: Current GE full-data Joseph profiling favors "
+            "--metal-threads-per-threadgroup 512 for benchmark runs. "
+            "The default auto setting is preserved for A/B comparisons."
+        )
     if args.metal_joseph_forward_texture:
         print(
             "NOTE: --metal-joseph-forward-texture is retained only for A/B "
             "testing; the current GE full-data checkpoint was slower than the "
             "buffer-backed Joseph forward path."
+        )
+    if args.metal_joseph_sample_stride > 1:
+        print(
+            "NOTE: --metal-joseph-sample-stride is an experimental "
+            "reduced-update Joseph approximation. Use it for A/B timing and "
+            "image-quality checks only."
         )
     if env_flag("YRTPET_METAL_USE_PRIVATE_UPDATE_BUFFER"):
         print(
@@ -642,6 +667,12 @@ METAL_PROFILE_FLOAT_FIELDS = [
     "adjoint_host_image_copy_s",
     "adjoint_update_count_s",
     "adjoint_voxel_hit_count_s",
+    "adjoint_max_batch_mean_voxel_hits",
+    "adjoint_max_batch_top_1pct_voxel_hit_fraction",
+    "adjoint_max_batch_top_0_1pct_voxel_hit_fraction",
+    "adjoint_max_batch_mean_tile_hits",
+    "adjoint_max_batch_top_1pct_tile_hit_fraction",
+    "adjoint_max_batch_top_0_1pct_tile_hit_fraction",
 ]
 
 METAL_PROFILE_COUNT_FIELDS = [
@@ -658,8 +689,17 @@ METAL_PROFILE_COUNT_FIELDS = [
     "adjoint_batch_hit_voxels",
     "adjoint_voxel_hit_total_updates",
     "adjoint_max_voxel_hits",
+    "adjoint_max_batch_p50_voxel_hits",
+    "adjoint_max_batch_p90_voxel_hits",
     "adjoint_max_batch_p95_voxel_hits",
     "adjoint_max_batch_p99_voxel_hits",
+    "adjoint_max_batch_p999_voxel_hits",
+    "adjoint_tile_size",
+    "adjoint_voxel_hit_tiles",
+    "adjoint_voxel_hit_tile_total_updates",
+    "adjoint_max_tile_hits",
+    "adjoint_max_batch_p95_tile_hits",
+    "adjoint_max_batch_p99_tile_hits",
     "cache_lookups",
     "cache_hits",
     "cache_misses",
@@ -724,8 +764,23 @@ METAL_PROFILE_PRINT_FIELDS = [
     "metal_profile_adjoint_batch_hit_voxels",
     "metal_profile_adjoint_voxel_hit_total_updates",
     "metal_profile_adjoint_max_voxel_hits",
+    "metal_profile_adjoint_max_batch_p50_voxel_hits",
+    "metal_profile_adjoint_max_batch_p90_voxel_hits",
     "metal_profile_adjoint_max_batch_p95_voxel_hits",
     "metal_profile_adjoint_max_batch_p99_voxel_hits",
+    "metal_profile_adjoint_max_batch_p999_voxel_hits",
+    "metal_profile_adjoint_max_batch_mean_voxel_hits",
+    "metal_profile_adjoint_max_batch_top_1pct_voxel_hit_fraction",
+    "metal_profile_adjoint_max_batch_top_0_1pct_voxel_hit_fraction",
+    "metal_profile_adjoint_tile_size",
+    "metal_profile_adjoint_voxel_hit_tiles",
+    "metal_profile_adjoint_voxel_hit_tile_total_updates",
+    "metal_profile_adjoint_max_tile_hits",
+    "metal_profile_adjoint_max_batch_p95_tile_hits",
+    "metal_profile_adjoint_max_batch_p99_tile_hits",
+    "metal_profile_adjoint_max_batch_mean_tile_hits",
+    "metal_profile_adjoint_max_batch_top_1pct_tile_hit_fraction",
+    "metal_profile_adjoint_max_batch_top_0_1pct_tile_hit_fraction",
     "metal_profile_cache_lookups",
     "metal_profile_cache_hits",
     "metal_profile_cache_misses",
@@ -783,8 +838,23 @@ METAL_SUBSET_PROFILE_FIELDS = [
     "adjoint_batch_hit_voxels",
     "adjoint_voxel_hit_total_updates",
     "adjoint_max_voxel_hits",
+    "adjoint_max_batch_p50_voxel_hits",
+    "adjoint_max_batch_p90_voxel_hits",
     "adjoint_max_batch_p95_voxel_hits",
     "adjoint_max_batch_p99_voxel_hits",
+    "adjoint_max_batch_p999_voxel_hits",
+    "adjoint_max_batch_mean_voxel_hits",
+    "adjoint_max_batch_top_1pct_voxel_hit_fraction",
+    "adjoint_max_batch_top_0_1pct_voxel_hit_fraction",
+    "adjoint_tile_size",
+    "adjoint_voxel_hit_tiles",
+    "adjoint_voxel_hit_tile_total_updates",
+    "adjoint_max_tile_hits",
+    "adjoint_max_batch_p95_tile_hits",
+    "adjoint_max_batch_p99_tile_hits",
+    "adjoint_max_batch_mean_tile_hits",
+    "adjoint_max_batch_top_1pct_tile_hit_fraction",
+    "adjoint_max_batch_top_0_1pct_tile_hit_fraction",
     "cache_lookups",
     "cache_hits",
     "cache_misses",
@@ -930,6 +1000,12 @@ def normalized_metal_subset_profiles(raw_profiles, case_label=""):
             "adjoint_host_image_copy_s",
             "adjoint_update_count_s",
             "adjoint_voxel_hit_count_s",
+            "adjoint_max_batch_mean_voxel_hits",
+            "adjoint_max_batch_top_1pct_voxel_hit_fraction",
+            "adjoint_max_batch_top_0_1pct_voxel_hit_fraction",
+            "adjoint_max_batch_mean_tile_hits",
+            "adjoint_max_batch_top_1pct_tile_hit_fraction",
+            "adjoint_max_batch_top_0_1pct_tile_hit_fraction",
         ):
             row[field] = float(raw.get(field, 0.0))
         for field in (
@@ -945,8 +1021,17 @@ def normalized_metal_subset_profiles(raw_profiles, case_label=""):
             "adjoint_batch_hit_voxels",
             "adjoint_voxel_hit_total_updates",
             "adjoint_max_voxel_hits",
+            "adjoint_max_batch_p50_voxel_hits",
+            "adjoint_max_batch_p90_voxel_hits",
             "adjoint_max_batch_p95_voxel_hits",
             "adjoint_max_batch_p99_voxel_hits",
+            "adjoint_max_batch_p999_voxel_hits",
+            "adjoint_tile_size",
+            "adjoint_voxel_hit_tiles",
+            "adjoint_voxel_hit_tile_total_updates",
+            "adjoint_max_tile_hits",
+            "adjoint_max_batch_p95_tile_hits",
+            "adjoint_max_batch_p99_tile_hits",
             "cache_lookups",
             "cache_hits",
             "cache_misses",
@@ -1049,12 +1134,69 @@ def summarize_metal_subset_profiles(row, subset_profiles):
     row["metal_subset_adjoint_max_voxel_hits"] = max(
         item.get("adjoint_max_voxel_hits", 0) for item in subset_profiles
     )
+    row["metal_subset_adjoint_max_batch_p50_voxel_hits"] = max(
+        item.get("adjoint_max_batch_p50_voxel_hits", 0)
+        for item in subset_profiles
+    )
+    row["metal_subset_adjoint_max_batch_p90_voxel_hits"] = max(
+        item.get("adjoint_max_batch_p90_voxel_hits", 0)
+        for item in subset_profiles
+    )
     row["metal_subset_adjoint_max_batch_p95_voxel_hits"] = max(
         item.get("adjoint_max_batch_p95_voxel_hits", 0)
         for item in subset_profiles
     )
     row["metal_subset_adjoint_max_batch_p99_voxel_hits"] = max(
         item.get("adjoint_max_batch_p99_voxel_hits", 0)
+        for item in subset_profiles
+    )
+    row["metal_subset_adjoint_max_batch_p999_voxel_hits"] = max(
+        item.get("adjoint_max_batch_p999_voxel_hits", 0)
+        for item in subset_profiles
+    )
+    row["metal_subset_adjoint_max_batch_mean_voxel_hits"] = max(
+        item.get("adjoint_max_batch_mean_voxel_hits", 0.0)
+        for item in subset_profiles
+    )
+    row["metal_subset_adjoint_max_batch_top_1pct_voxel_hit_fraction"] = max(
+        item.get("adjoint_max_batch_top_1pct_voxel_hit_fraction", 0.0)
+        for item in subset_profiles
+    )
+    row["metal_subset_adjoint_max_batch_top_0_1pct_voxel_hit_fraction"] = max(
+        item.get("adjoint_max_batch_top_0_1pct_voxel_hit_fraction", 0.0)
+        for item in subset_profiles
+    )
+    row["metal_subset_adjoint_tile_size"] = max(
+        item.get("adjoint_tile_size", 0) for item in subset_profiles
+    )
+    row["metal_subset_adjoint_voxel_hit_tiles"] = sum(
+        item.get("adjoint_voxel_hit_tiles", 0) for item in subset_profiles
+    )
+    row["metal_subset_adjoint_voxel_hit_tile_total_updates"] = sum(
+        item.get("adjoint_voxel_hit_tile_total_updates", 0)
+        for item in subset_profiles
+    )
+    row["metal_subset_adjoint_max_tile_hits"] = max(
+        item.get("adjoint_max_tile_hits", 0) for item in subset_profiles
+    )
+    row["metal_subset_adjoint_max_batch_p95_tile_hits"] = max(
+        item.get("adjoint_max_batch_p95_tile_hits", 0)
+        for item in subset_profiles
+    )
+    row["metal_subset_adjoint_max_batch_p99_tile_hits"] = max(
+        item.get("adjoint_max_batch_p99_tile_hits", 0)
+        for item in subset_profiles
+    )
+    row["metal_subset_adjoint_max_batch_mean_tile_hits"] = max(
+        item.get("adjoint_max_batch_mean_tile_hits", 0.0)
+        for item in subset_profiles
+    )
+    row["metal_subset_adjoint_max_batch_top_1pct_tile_hit_fraction"] = max(
+        item.get("adjoint_max_batch_top_1pct_tile_hit_fraction", 0.0)
+        for item in subset_profiles
+    )
+    row["metal_subset_adjoint_max_batch_top_0_1pct_tile_hit_fraction"] = max(
+        item.get("adjoint_max_batch_top_0_1pct_tile_hit_fraction", 0.0)
         for item in subset_profiles
     )
     row["metal_subset_worst_memory_pressure"] = worst_pressure
@@ -1139,11 +1281,14 @@ def print_sweep_summary(rows):
         "move_sensitivity",
         "metal_cache_budget_mb",
         "metal_batch_events",
+        "metal_threads_per_threadgroup",
         "metal_fused_ratio",
         "metal_profile_adjoint_diagnostics",
         "metal_profile_adjoint_hit_diagnostics",
+        "metal_profile_adjoint_contention",
         "metal_projector",
         "metal_joseph_forward_texture",
+        "metal_joseph_sample_stride",
         "metal_sensitivity_projector",
         "metal_native_float_atomics",
         "metal_private_update_buffer",
@@ -1208,8 +1353,23 @@ def print_sweep_summary(rows):
         "metal_profile_adjoint_batch_hit_voxels",
         "metal_profile_adjoint_voxel_hit_total_updates",
         "metal_profile_adjoint_max_voxel_hits",
+        "metal_profile_adjoint_max_batch_p50_voxel_hits",
+        "metal_profile_adjoint_max_batch_p90_voxel_hits",
         "metal_profile_adjoint_max_batch_p95_voxel_hits",
         "metal_profile_adjoint_max_batch_p99_voxel_hits",
+        "metal_profile_adjoint_max_batch_p999_voxel_hits",
+        "metal_profile_adjoint_max_batch_mean_voxel_hits",
+        "metal_profile_adjoint_max_batch_top_1pct_voxel_hit_fraction",
+        "metal_profile_adjoint_max_batch_top_0_1pct_voxel_hit_fraction",
+        "metal_profile_adjoint_tile_size",
+        "metal_profile_adjoint_voxel_hit_tiles",
+        "metal_profile_adjoint_voxel_hit_tile_total_updates",
+        "metal_profile_adjoint_max_tile_hits",
+        "metal_profile_adjoint_max_batch_p95_tile_hits",
+        "metal_profile_adjoint_max_batch_p99_tile_hits",
+        "metal_profile_adjoint_max_batch_mean_tile_hits",
+        "metal_profile_adjoint_max_batch_top_1pct_tile_hit_fraction",
+        "metal_profile_adjoint_max_batch_top_0_1pct_tile_hit_fraction",
         "metal_profile_forward_batches",
         "metal_profile_adjoint_batches",
         "metal_profile_cache_hits",
@@ -1235,8 +1395,23 @@ def print_sweep_summary(rows):
         "metal_subset_adjoint_batch_hit_voxels",
         "metal_subset_adjoint_voxel_hit_total_updates",
         "metal_subset_adjoint_max_voxel_hits",
+        "metal_subset_adjoint_max_batch_p50_voxel_hits",
+        "metal_subset_adjoint_max_batch_p90_voxel_hits",
         "metal_subset_adjoint_max_batch_p95_voxel_hits",
         "metal_subset_adjoint_max_batch_p99_voxel_hits",
+        "metal_subset_adjoint_max_batch_p999_voxel_hits",
+        "metal_subset_adjoint_max_batch_mean_voxel_hits",
+        "metal_subset_adjoint_max_batch_top_1pct_voxel_hit_fraction",
+        "metal_subset_adjoint_max_batch_top_0_1pct_voxel_hit_fraction",
+        "metal_subset_adjoint_tile_size",
+        "metal_subset_adjoint_voxel_hit_tiles",
+        "metal_subset_adjoint_voxel_hit_tile_total_updates",
+        "metal_subset_adjoint_max_tile_hits",
+        "metal_subset_adjoint_max_batch_p95_tile_hits",
+        "metal_subset_adjoint_max_batch_p99_tile_hits",
+        "metal_subset_adjoint_max_batch_mean_tile_hits",
+        "metal_subset_adjoint_max_batch_top_1pct_tile_hit_fraction",
+        "metal_subset_adjoint_max_batch_top_0_1pct_tile_hit_fraction",
         "metal_subset_worst_memory_pressure",
         "metal_subset_min_memory_available_ratio",
         "metal_subset_min_memory_available_gib",
@@ -1265,11 +1440,14 @@ def write_summary_csv(path, rows):
         "move_sensitivity",
         "metal_cache_budget_mb",
         "metal_batch_events",
+        "metal_threads_per_threadgroup",
         "metal_fused_ratio",
         "metal_profile_adjoint_diagnostics",
         "metal_profile_adjoint_hit_diagnostics",
+        "metal_profile_adjoint_contention",
         "metal_projector",
         "metal_joseph_forward_texture",
+        "metal_joseph_sample_stride",
         "metal_sensitivity_projector",
         "metal_native_float_atomics",
         "metal_private_update_buffer",
@@ -1335,8 +1513,23 @@ def write_summary_csv(path, rows):
         "metal_subset_adjoint_batch_hit_voxels",
         "metal_subset_adjoint_voxel_hit_total_updates",
         "metal_subset_adjoint_max_voxel_hits",
+        "metal_subset_adjoint_max_batch_p50_voxel_hits",
+        "metal_subset_adjoint_max_batch_p90_voxel_hits",
         "metal_subset_adjoint_max_batch_p95_voxel_hits",
         "metal_subset_adjoint_max_batch_p99_voxel_hits",
+        "metal_subset_adjoint_max_batch_p999_voxel_hits",
+        "metal_subset_adjoint_max_batch_mean_voxel_hits",
+        "metal_subset_adjoint_max_batch_top_1pct_voxel_hit_fraction",
+        "metal_subset_adjoint_max_batch_top_0_1pct_voxel_hit_fraction",
+        "metal_subset_adjoint_tile_size",
+        "metal_subset_adjoint_voxel_hit_tiles",
+        "metal_subset_adjoint_voxel_hit_tile_total_updates",
+        "metal_subset_adjoint_max_tile_hits",
+        "metal_subset_adjoint_max_batch_p95_tile_hits",
+        "metal_subset_adjoint_max_batch_p99_tile_hits",
+        "metal_subset_adjoint_max_batch_mean_tile_hits",
+        "metal_subset_adjoint_max_batch_top_1pct_tile_hit_fraction",
+        "metal_subset_adjoint_max_batch_top_0_1pct_tile_hit_fraction",
         "metal_subset_worst_memory_pressure",
         "metal_subset_min_memory_available_ratio",
         "metal_subset_min_memory_available_gib",
@@ -1430,6 +1623,7 @@ def isolated_sweep_base_argv():
         "--metal-batch-events",
         "--metal-chunk-events",
         "--metal-cache-budget-mb",
+        "--metal-threads-per-threadgroup",
         "--summary-csv",
         "--metal-subset-profile-csv",
         "--out-dir",
@@ -1446,6 +1640,7 @@ def run_isolated_sweep(
     subset_values,
     batch_event_values,
     cache_budget_values,
+    threadgroup_values,
     base_out_dir,
 ):
     rows = []
@@ -1456,45 +1651,51 @@ def run_isolated_sweep(
             for subsets in subset_values:
                 for batch_events in batch_event_values:
                     for cache_budget_mb in cache_budget_values:
-                        case_label = (
-                            f"events_{max_events}_iters_{iterations}"
-                            f"_subsets_{subsets}_batch_{batch_events}"
-                            f"_cachemb_"
-                            f"{format_cache_budget_label(cache_budget_mb)}"
-                        )
-                        case_out_dir = os.path.join(base_out_dir, case_label)
-                        case_summary_csv = os.path.join(case_out_dir, "summary.csv")
-                        command = [
-                            sys.executable,
-                            script_path,
-                            *base_argv,
-                            "--max-events",
-                            str(max_events),
-                            "--iterations",
-                            str(iterations),
-                            "--subsets",
-                            str(subsets),
-                            "--metal-batch-events",
-                            str(batch_events),
-                            "--metal-cache-budget-mb",
-                            f"{cache_budget_mb:g}",
-                            "--out-dir",
-                            case_out_dir,
-                            "--summary-csv",
-                            case_summary_csv,
-                        ]
-                        print(f"isolated_case={case_label}", flush=True)
-                        print(
-                            "isolated_command="
-                            + " ".join(shlex.quote(part) for part in command),
-                            flush=True,
-                        )
-                        completed = subprocess.run(command)
-                        if completed.returncode != 0:
-                            raise SystemExit(completed.returncode)
-                        row = read_single_summary_row(case_summary_csv)
-                        row["case"] = case_label
-                        rows.append(row)
+                        for threads_per_threadgroup in threadgroup_values:
+                            case_label = (
+                                f"events_{max_events}_iters_{iterations}"
+                                f"_subsets_{subsets}_batch_{batch_events}"
+                                f"_cachemb_"
+                                f"{format_cache_budget_label(cache_budget_mb)}"
+                                f"_tpg_{threads_per_threadgroup}"
+                            )
+                            case_out_dir = os.path.join(base_out_dir, case_label)
+                            case_summary_csv = os.path.join(
+                                case_out_dir, "summary.csv"
+                            )
+                            command = [
+                                sys.executable,
+                                script_path,
+                                *base_argv,
+                                "--max-events",
+                                str(max_events),
+                                "--iterations",
+                                str(iterations),
+                                "--subsets",
+                                str(subsets),
+                                "--metal-batch-events",
+                                str(batch_events),
+                                "--metal-cache-budget-mb",
+                                f"{cache_budget_mb:g}",
+                                "--metal-threads-per-threadgroup",
+                                str(threads_per_threadgroup),
+                                "--out-dir",
+                                case_out_dir,
+                                "--summary-csv",
+                                case_summary_csv,
+                            ]
+                            print(f"isolated_case={case_label}", flush=True)
+                            print(
+                                "isolated_command="
+                                + " ".join(shlex.quote(part) for part in command),
+                                flush=True,
+                            )
+                            completed = subprocess.run(command)
+                            if completed.returncode != 0:
+                                raise SystemExit(completed.returncode)
+                            row = read_single_summary_row(case_summary_csv)
+                            row["case"] = case_label
+                            rows.append(row)
     return rows
 
 
@@ -1792,9 +1993,17 @@ def parse_args():
         help=(
             "With --profile-metal, run an extra diagnostic Metal pass that "
             "builds a per-batch voxel-hit count image for the Siddon/Joseph "
-            "adjoint. Reports max and p95/p99 per-batch voxel hit counts. "
+            "adjoint. Reports per-voxel and 8x8x8 tile contention metrics. "
             "This is heavier than normal profiling and should not be used for "
             "baseline timing."
+        ),
+    )
+    parser.add_argument(
+        "--profile-metal-adjoint-contention",
+        action="store_true",
+        help=(
+            "Alias for --profile-metal-adjoint-hit-diagnostics with the "
+            "full-precision Joseph contention metrics emphasized in the CSV."
         ),
     )
     parser.add_argument(
@@ -1827,6 +2036,17 @@ def parse_args():
             "Requires --metal-projector joseph and "
             "--metal-sensitivity-projector joseph. Retained for A/B tests; "
             "not recommended by the current GE full-data checkpoint."
+        ),
+    )
+    parser.add_argument(
+        "--metal-joseph-sample-stride",
+        type=int,
+        default=1,
+        help=(
+            "Experimental Joseph-only reduced-update approximation. 1 keeps "
+            "the validated Joseph sampling; values greater than 1 sample every "
+            "Nth dominant-axis plane and widen the sample weight accordingly. "
+            "Use only for A/B timing and image-quality checks."
         ),
     )
     parser.add_argument(
@@ -1871,6 +2091,15 @@ def parse_args():
             "Maximum event count per uncached Metal projector batch. Accepts "
             "one value or a comma-separated sweep list; 0 means process a "
             "full subset at once."
+        ),
+    )
+    parser.add_argument(
+        "--metal-threads-per-threadgroup",
+        default=os.environ.get("YRTPET_METAL_THREADS_PER_THREADGROUP", "0"),
+        help=(
+            "Override Metal compute threads per threadgroup for experimental "
+            "projector benchmarks. Accepts one non-negative value or a "
+            "comma-separated sweep list; 0 keeps the backend auto choice."
         ),
     )
     parser.add_argument(
@@ -2080,6 +2309,10 @@ def apply_validation_profile(args):
 
 
 def validate_metric_args(args):
+    if args.profile_metal_adjoint_contention and not args.profile_metal:
+        raise SystemExit("--profile-metal-adjoint-contention requires --profile-metal")
+    if args.profile_metal_adjoint_contention:
+        args.profile_metal_adjoint_hit_diagnostics = True
     if args.profile_metal and not (args.compare_metal or args.metal_only):
         raise SystemExit("--profile-metal requires --compare-metal or --metal-only")
     if args.profile_metal_adjoint_diagnostics and not args.profile_metal:
@@ -2099,6 +2332,13 @@ def validate_metric_args(args):
     if args.metal_joseph_forward_texture and args.metal_projector != "joseph":
         raise SystemExit(
             "--metal-joseph-forward-texture requires --metal-projector joseph"
+        )
+    if args.metal_joseph_sample_stride < 1:
+        raise SystemExit("--metal-joseph-sample-stride must be positive")
+    if args.metal_joseph_sample_stride > 1 and args.metal_projector != "joseph":
+        raise SystemExit(
+            "--metal-joseph-sample-stride greater than 1 requires "
+            "--metal-projector joseph"
         )
     if args.compare_metal and args.metal_projector != "siddon":
         raise SystemExit(
@@ -2150,6 +2390,7 @@ def default_output_dir(args):
 
 
 def run_case(args, out_dir, write_images, case_label="", emit_pass=True):
+    apply_metal_environment(args)
     config_dir = os.path.join(args.base, "GE_config")
     image_params_path = (
         args.image_params
@@ -2188,6 +2429,8 @@ def run_case(args, out_dir, write_images, case_label="", emit_pass=True):
     print(f"metal_only={args.metal_only}")
     print(f"metal_projector={args.metal_projector}")
     print(f"metal_joseph_forward_texture={args.metal_joseph_forward_texture}")
+    print(f"metal_joseph_sample_stride={args.metal_joseph_sample_stride}")
+    print(f"metal_threads_per_threadgroup={args.metal_threads_per_threadgroup}")
     print(f"metal_sensitivity_projector={args.metal_sensitivity_projector}")
     cache_plan = metal_cache_plan(args, used_events)
     print_metal_cache_plan(cache_plan, args)
@@ -2202,6 +2445,7 @@ def run_case(args, out_dir, write_images, case_label="", emit_pass=True):
         "move_sensitivity": args.motion and args.move_sensitivity,
         "metal_cache_budget_mb": args.metal_cache_budget_mb,
         "metal_batch_events": args.metal_batch_events,
+        "metal_threads_per_threadgroup": args.metal_threads_per_threadgroup,
         "metal_fused_ratio": args.metal_fused_ratio,
         "metal_profile_adjoint_diagnostics": (
             args.profile_metal_adjoint_diagnostics
@@ -2209,8 +2453,12 @@ def run_case(args, out_dir, write_images, case_label="", emit_pass=True):
         "metal_profile_adjoint_hit_diagnostics": (
             args.profile_metal_adjoint_hit_diagnostics
         ),
+        "metal_profile_adjoint_contention": (
+            args.profile_metal_adjoint_contention
+        ),
         "metal_projector": args.metal_projector,
         "metal_joseph_forward_texture": args.metal_joseph_forward_texture,
+        "metal_joseph_sample_stride": args.metal_joseph_sample_stride,
         "metal_sensitivity_projector": args.metal_sensitivity_projector,
         "metal_native_float_atomics": env_flag(
             "YRTPET_METAL_USE_NATIVE_FLOAT_ATOMICS"
@@ -2490,7 +2738,13 @@ def main():
     )
     args.metal_batch_events = batch_event_values[0]
     args.metal_batch_event_values = batch_event_values
+    threadgroup_values = parse_nonnegative_int_list(
+        args.metal_threads_per_threadgroup, "--metal-threads-per-threadgroup"
+    )
+    args.metal_threads_per_threadgroup = threadgroup_values[0]
+    args.metal_threads_per_threadgroup_values = threadgroup_values
     validate_metric_args(args)
+    apply_metal_environment(args)
     if args.threads > 0:
         yrt.setNumThreads(args.threads)
 
@@ -2505,6 +2759,7 @@ def main():
         or sweep_subsets
         or len(batch_event_values) > 1
         or len(cache_budget_values) > 1
+        or len(threadgroup_values) > 1
     )
     event_values = sweep_events or [args.max_events]
     iteration_values = sweep_iterations or [args.iterations]
@@ -2521,7 +2776,9 @@ def main():
             "metal_batch_events:"
             f"{','.join(str(value) for value in batch_event_values)};"
             "metal_cache_budget_mb:"
-            f"{','.join(f'{value:g}' for value in cache_budget_values)}",
+            f"{','.join(f'{value:g}' for value in cache_budget_values)};"
+            "metal_threads_per_threadgroup:"
+            f"{','.join(str(value) for value in threadgroup_values)}",
             flush=True,
         )
         if args.isolated_sweep:
@@ -2532,6 +2789,7 @@ def main():
                 subset_values,
                 batch_event_values,
                 cache_budget_values,
+                threadgroup_values,
                 base_out_dir,
             )
         else:
@@ -2540,28 +2798,35 @@ def main():
                     for subsets in subset_values:
                         for batch_events in batch_event_values:
                             for cache_budget_mb in cache_budget_values:
-                                case_args = copy.copy(args)
-                                case_args.max_events = max_events
-                                case_args.iterations = iterations
-                                case_args.subsets = subsets
-                                case_args.metal_batch_events = batch_events
-                                case_args.metal_cache_budget_mb = cache_budget_mb
-                                case_label = (
-                                    f"events_{max_events}_iters_{iterations}"
-                                    f"_subsets_{subsets}_batch_{batch_events}"
-                                    f"_cachemb_"
-                                    f"{format_cache_budget_label(cache_budget_mb)}"
-                                )
-                                case_out_dir = os.path.join(base_out_dir, case_label)
-                                rows.append(
-                                    run_case(
-                                        case_args,
-                                        case_out_dir,
-                                        write_images=not args.no_write_images,
-                                        case_label=case_label,
-                                        emit_pass=False,
+                                for threads_per_threadgroup in threadgroup_values:
+                                    case_args = copy.copy(args)
+                                    case_args.max_events = max_events
+                                    case_args.iterations = iterations
+                                    case_args.subsets = subsets
+                                    case_args.metal_batch_events = batch_events
+                                    case_args.metal_cache_budget_mb = cache_budget_mb
+                                    case_args.metal_threads_per_threadgroup = (
+                                        threads_per_threadgroup
                                     )
-                                )
+                                    case_label = (
+                                        f"events_{max_events}_iters_{iterations}"
+                                        f"_subsets_{subsets}_batch_{batch_events}"
+                                        f"_cachemb_"
+                                        f"{format_cache_budget_label(cache_budget_mb)}"
+                                        f"_tpg_{threads_per_threadgroup}"
+                                    )
+                                    case_out_dir = os.path.join(
+                                        base_out_dir, case_label
+                                    )
+                                    rows.append(
+                                        run_case(
+                                            case_args,
+                                            case_out_dir,
+                                            write_images=not args.no_write_images,
+                                            case_label=case_label,
+                                            emit_pass=False,
+                                        )
+                                    )
         print_sweep_summary(rows)
         if args.summary_csv:
             write_summary_csv(args.summary_csv, rows)

@@ -422,12 +422,53 @@ void addAdjointKernelProfile(OperatorProjectorMetalProfile* profile,
 	profile->adjointMaxVoxelHits =
 	    std::max(profile->adjointMaxVoxelHits,
 	             kernelProfile.adjointMaxVoxelHits);
+	profile->adjointMaxBatchP50VoxelHits =
+	    std::max(profile->adjointMaxBatchP50VoxelHits,
+	             kernelProfile.adjointMaxBatchP50VoxelHits);
+	profile->adjointMaxBatchP90VoxelHits =
+	    std::max(profile->adjointMaxBatchP90VoxelHits,
+	             kernelProfile.adjointMaxBatchP90VoxelHits);
 	profile->adjointMaxBatchP95VoxelHits =
 	    std::max(profile->adjointMaxBatchP95VoxelHits,
 	             kernelProfile.adjointMaxBatchP95VoxelHits);
 	profile->adjointMaxBatchP99VoxelHits =
 	    std::max(profile->adjointMaxBatchP99VoxelHits,
 	             kernelProfile.adjointMaxBatchP99VoxelHits);
+	profile->adjointMaxBatchP999VoxelHits =
+	    std::max(profile->adjointMaxBatchP999VoxelHits,
+	             kernelProfile.adjointMaxBatchP999VoxelHits);
+	profile->adjointMaxBatchMeanVoxelHits =
+	    std::max(profile->adjointMaxBatchMeanVoxelHits,
+	             kernelProfile.adjointMaxBatchMeanVoxelHits);
+	profile->adjointMaxBatchTop1PctVoxelHitFraction =
+	    std::max(profile->adjointMaxBatchTop1PctVoxelHitFraction,
+	             kernelProfile.adjointMaxBatchTop1PctVoxelHitFraction);
+	profile->adjointMaxBatchTop01PctVoxelHitFraction =
+	    std::max(profile->adjointMaxBatchTop01PctVoxelHitFraction,
+	             kernelProfile.adjointMaxBatchTop01PctVoxelHitFraction);
+	profile->adjointTileSize =
+	    std::max(profile->adjointTileSize, kernelProfile.adjointTileSize);
+	profile->adjointVoxelHitTiles += kernelProfile.adjointVoxelHitTiles;
+	profile->adjointVoxelHitTileTotalUpdates +=
+	    kernelProfile.adjointVoxelHitTileTotalUpdates;
+	profile->adjointMaxTileHits =
+	    std::max(profile->adjointMaxTileHits,
+	             kernelProfile.adjointMaxTileHits);
+	profile->adjointMaxBatchP95TileHits =
+	    std::max(profile->adjointMaxBatchP95TileHits,
+	             kernelProfile.adjointMaxBatchP95TileHits);
+	profile->adjointMaxBatchP99TileHits =
+	    std::max(profile->adjointMaxBatchP99TileHits,
+	             kernelProfile.adjointMaxBatchP99TileHits);
+	profile->adjointMaxBatchMeanTileHits =
+	    std::max(profile->adjointMaxBatchMeanTileHits,
+	             kernelProfile.adjointMaxBatchMeanTileHits);
+	profile->adjointMaxBatchTop1PctTileHitFraction =
+	    std::max(profile->adjointMaxBatchTop1PctTileHitFraction,
+	             kernelProfile.adjointMaxBatchTop1PctTileHitFraction);
+	profile->adjointMaxBatchTop01PctTileHitFraction =
+	    std::max(profile->adjointMaxBatchTop01PctTileHitFraction,
+	             kernelProfile.adjointMaxBatchTop01PctTileHitFraction);
 }
 
 ProjectionLineEndpoints makeCenteredLine(const Line3D& line,

@@ -769,10 +769,22 @@ METAL_SUBSET_PROFILE_FIELDS = [
     "adjoint_kernel_s",
     "adjoint_image_download_s",
     "adjoint_host_image_copy_s",
+    "adjoint_update_count_s",
+    "adjoint_voxel_hit_count_s",
     "forward_events",
     "forward_batches",
     "adjoint_events",
+    "adjoint_nonzero_events",
     "adjoint_batches",
+    "adjoint_voxel_updates",
+    "adjoint_rays_with_updates",
+    "adjoint_max_updates_per_ray",
+    "adjoint_voxel_hit_maps",
+    "adjoint_batch_hit_voxels",
+    "adjoint_voxel_hit_total_updates",
+    "adjoint_max_voxel_hits",
+    "adjoint_max_batch_p95_voxel_hits",
+    "adjoint_max_batch_p99_voxel_hits",
     "cache_lookups",
     "cache_hits",
     "cache_misses",
@@ -916,13 +928,25 @@ def normalized_metal_subset_profiles(raw_profiles, case_label=""):
             "adjoint_kernel_s",
             "adjoint_image_download_s",
             "adjoint_host_image_copy_s",
+            "adjoint_update_count_s",
+            "adjoint_voxel_hit_count_s",
         ):
             row[field] = float(raw.get(field, 0.0))
         for field in (
             "forward_events",
             "forward_batches",
             "adjoint_events",
+            "adjoint_nonzero_events",
             "adjoint_batches",
+            "adjoint_voxel_updates",
+            "adjoint_rays_with_updates",
+            "adjoint_max_updates_per_ray",
+            "adjoint_voxel_hit_maps",
+            "adjoint_batch_hit_voxels",
+            "adjoint_voxel_hit_total_updates",
+            "adjoint_max_voxel_hits",
+            "adjoint_max_batch_p95_voxel_hits",
+            "adjoint_max_batch_p99_voxel_hits",
             "cache_lookups",
             "cache_hits",
             "cache_misses",
@@ -998,6 +1022,41 @@ def summarize_metal_subset_profiles(row, subset_profiles):
     row["metal_subset_max_adjoint_s"] = max(
         item.get("adjoint_s", 0.0) for item in subset_profiles
     )
+    row["metal_subset_adjoint_update_count_s"] = sum(
+        item.get("adjoint_update_count_s", 0.0) for item in subset_profiles
+    )
+    row["metal_subset_adjoint_voxel_hit_count_s"] = sum(
+        item.get("adjoint_voxel_hit_count_s", 0.0) for item in subset_profiles
+    )
+    row["metal_subset_adjoint_voxel_updates"] = sum(
+        item.get("adjoint_voxel_updates", 0) for item in subset_profiles
+    )
+    row["metal_subset_adjoint_rays_with_updates"] = sum(
+        item.get("adjoint_rays_with_updates", 0) for item in subset_profiles
+    )
+    row["metal_subset_adjoint_max_updates_per_ray"] = max(
+        item.get("adjoint_max_updates_per_ray", 0) for item in subset_profiles
+    )
+    row["metal_subset_adjoint_voxel_hit_maps"] = sum(
+        item.get("adjoint_voxel_hit_maps", 0) for item in subset_profiles
+    )
+    row["metal_subset_adjoint_batch_hit_voxels"] = sum(
+        item.get("adjoint_batch_hit_voxels", 0) for item in subset_profiles
+    )
+    row["metal_subset_adjoint_voxel_hit_total_updates"] = sum(
+        item.get("adjoint_voxel_hit_total_updates", 0) for item in subset_profiles
+    )
+    row["metal_subset_adjoint_max_voxel_hits"] = max(
+        item.get("adjoint_max_voxel_hits", 0) for item in subset_profiles
+    )
+    row["metal_subset_adjoint_max_batch_p95_voxel_hits"] = max(
+        item.get("adjoint_max_batch_p95_voxel_hits", 0)
+        for item in subset_profiles
+    )
+    row["metal_subset_adjoint_max_batch_p99_voxel_hits"] = max(
+        item.get("adjoint_max_batch_p99_voxel_hits", 0)
+        for item in subset_profiles
+    )
     row["metal_subset_worst_memory_pressure"] = worst_pressure
     if available_ratios:
         row["metal_subset_min_memory_available_ratio"] = min(available_ratios)
@@ -1044,6 +1103,34 @@ def print_metal_subset_profile(subset_profiles):
         )
 
 
+def warn_if_requested_adjoint_diagnostics_missing(args, profile):
+    if not profile:
+        return
+    if args.profile_metal_adjoint_diagnostics:
+        if (
+            profile.get("metal_profile_adjoint_events", 0) > 0
+            and profile.get("metal_profile_adjoint_update_count_s", 0.0) == 0.0
+            and profile.get("metal_profile_adjoint_voxel_updates", 0) == 0
+        ):
+            print(
+                "WARNING: requested Metal adjoint update diagnostics, but no "
+                "update-count counters were reported. Rebuild pyyrtpet and "
+                "rerun; otherwise this benchmark cannot diagnose adjoint "
+                "atomic/update pressure."
+            )
+    if args.profile_metal_adjoint_hit_diagnostics:
+        if (
+            profile.get("metal_profile_adjoint_events", 0) > 0
+            and profile.get("metal_profile_adjoint_voxel_hit_count_s", 0.0) == 0.0
+            and profile.get("metal_profile_adjoint_voxel_hit_total_updates", 0) == 0
+        ):
+            print(
+                "WARNING: requested Metal adjoint voxel-hit diagnostics, but "
+                "no voxel-hit counters were reported. Rebuild pyyrtpet and "
+                "rerun before using this CSV for tiled/hybrid adjoint planning."
+            )
+
+
 def print_sweep_summary(rows):
     fields = [
         "used_events",
@@ -1053,6 +1140,8 @@ def print_sweep_summary(rows):
         "metal_cache_budget_mb",
         "metal_batch_events",
         "metal_fused_ratio",
+        "metal_profile_adjoint_diagnostics",
+        "metal_profile_adjoint_hit_diagnostics",
         "metal_projector",
         "metal_joseph_forward_texture",
         "metal_sensitivity_projector",
@@ -1137,6 +1226,17 @@ def print_sweep_summary(rows):
         "metal_subset_max_forward_gather_s",
         "metal_subset_max_ratio_s",
         "metal_subset_max_adjoint_s",
+        "metal_subset_adjoint_update_count_s",
+        "metal_subset_adjoint_voxel_hit_count_s",
+        "metal_subset_adjoint_voxel_updates",
+        "metal_subset_adjoint_rays_with_updates",
+        "metal_subset_adjoint_max_updates_per_ray",
+        "metal_subset_adjoint_voxel_hit_maps",
+        "metal_subset_adjoint_batch_hit_voxels",
+        "metal_subset_adjoint_voxel_hit_total_updates",
+        "metal_subset_adjoint_max_voxel_hits",
+        "metal_subset_adjoint_max_batch_p95_voxel_hits",
+        "metal_subset_adjoint_max_batch_p99_voxel_hits",
         "metal_subset_worst_memory_pressure",
         "metal_subset_min_memory_available_ratio",
         "metal_subset_min_memory_available_gib",
@@ -1166,6 +1266,8 @@ def write_summary_csv(path, rows):
         "metal_cache_budget_mb",
         "metal_batch_events",
         "metal_fused_ratio",
+        "metal_profile_adjoint_diagnostics",
+        "metal_profile_adjoint_hit_diagnostics",
         "metal_projector",
         "metal_joseph_forward_texture",
         "metal_sensitivity_projector",
@@ -1224,6 +1326,17 @@ def write_summary_csv(path, rows):
         "metal_subset_max_forward_gather_s",
         "metal_subset_max_ratio_s",
         "metal_subset_max_adjoint_s",
+        "metal_subset_adjoint_update_count_s",
+        "metal_subset_adjoint_voxel_hit_count_s",
+        "metal_subset_adjoint_voxel_updates",
+        "metal_subset_adjoint_rays_with_updates",
+        "metal_subset_adjoint_max_updates_per_ray",
+        "metal_subset_adjoint_voxel_hit_maps",
+        "metal_subset_adjoint_batch_hit_voxels",
+        "metal_subset_adjoint_voxel_hit_total_updates",
+        "metal_subset_adjoint_max_voxel_hits",
+        "metal_subset_adjoint_max_batch_p95_voxel_hits",
+        "metal_subset_adjoint_max_batch_p99_voxel_hits",
         "metal_subset_worst_memory_pressure",
         "metal_subset_min_memory_available_ratio",
         "metal_subset_min_memory_available_gib",
@@ -1605,7 +1718,11 @@ def parse_args():
     parser.add_argument("--image-params", default="img_param_0.8mm.json")
     parser.add_argument(
         "--validation-profile",
-        choices=["", "ge-mini-hotspot-1m-10it"],
+        choices=[
+            "",
+            "ge-mini-hotspot-siddon-4k-smoke",
+            "ge-mini-hotspot-1m-10it",
+        ],
         default="",
         help="Apply a named explicit validation profile.",
     )
@@ -1664,8 +1781,9 @@ def parse_args():
         action="store_true",
         help=(
             "With --profile-metal, run an extra diagnostic Metal pass that "
-            "counts Siddon adjoint voxel updates per ray. This perturbs timing "
-            "and should be used for bottleneck diagnosis, not baseline timing."
+            "counts Siddon/Joseph adjoint voxel updates per ray. This perturbs "
+            "timing and should be used for bottleneck diagnosis, not baseline "
+            "timing."
         ),
     )
     parser.add_argument(
@@ -1673,10 +1791,10 @@ def parse_args():
         action="store_true",
         help=(
             "With --profile-metal, run an extra diagnostic Metal pass that "
-            "builds a per-batch voxel-hit count image for the Siddon adjoint. "
-            "Reports max and p95/p99 per-batch voxel hit counts. This is "
-            "heavier than normal profiling and should not be used for baseline "
-            "timing."
+            "builds a per-batch voxel-hit count image for the Siddon/Joseph "
+            "adjoint. Reports max and p95/p99 per-batch voxel hit counts. "
+            "This is heavier than normal profiling and should not be used for "
+            "baseline timing."
         ),
     )
     parser.add_argument(
@@ -1923,6 +2041,27 @@ def enforce_metal_safety(args, used_events):
 def apply_validation_profile(args):
     if args.validation_profile == "":
         return
+    if args.validation_profile == "ge-mini-hotspot-siddon-4k-smoke":
+        args.compare_metal = True
+        args.metal_only = False
+        args.psf = False
+        args.metal_projector = "siddon"
+        args.metal_sensitivity_projector = "siddon"
+        args.max_events = 4096
+        args.iterations = 1
+        args.subsets = 1
+        args.move_sensitivity = False
+        args.validate_metrics = True
+        args.fail_on_mismatch = False
+        if args.max_rel_l2 is None:
+            args.max_rel_l2 = 5.0e-4
+        if args.max_nrmse is None:
+            args.max_nrmse = 5.0e-4
+        if args.max_sum_rel_diff is None:
+            args.max_sum_rel_diff = 1.0e-5
+        if args.max_mismatch_fraction is None:
+            args.max_mismatch_fraction = 1.0e-5
+        return
     if args.validation_profile != "ge-mini-hotspot-1m-10it":
         raise SystemExit(f"Unknown validation profile: {args.validation_profile}")
 
@@ -2064,6 +2203,12 @@ def run_case(args, out_dir, write_images, case_label="", emit_pass=True):
         "metal_cache_budget_mb": args.metal_cache_budget_mb,
         "metal_batch_events": args.metal_batch_events,
         "metal_fused_ratio": args.metal_fused_ratio,
+        "metal_profile_adjoint_diagnostics": (
+            args.profile_metal_adjoint_diagnostics
+        ),
+        "metal_profile_adjoint_hit_diagnostics": (
+            args.profile_metal_adjoint_hit_diagnostics
+        ),
         "metal_projector": args.metal_projector,
         "metal_joseph_forward_texture": args.metal_joseph_forward_texture,
         "metal_sensitivity_projector": args.metal_sensitivity_projector,
@@ -2179,6 +2324,7 @@ def run_case(args, out_dir, write_images, case_label="", emit_pass=True):
         )
         print_metal_profile(metal_profile)
         print_metal_subset_profile(metal_subset_profile)
+        warn_if_requested_adjoint_diagnostics_missing(args, metal_profile)
         if not metal_recon.didLastExperimentalMetalProjectorRun():
             raise SystemExit("Metal projector path did not run")
         if emit_pass:
@@ -2313,6 +2459,7 @@ def run_case(args, out_dir, write_images, case_label="", emit_pass=True):
     )
     print_metal_profile(metal_profile)
     print_metal_subset_profile(metal_subset_profile)
+    warn_if_requested_adjoint_diagnostics_missing(args, metal_profile)
     print_diff_diagnostics(diff_stats)
 
     if not metal_recon.didLastExperimentalMetalProjectorRun():

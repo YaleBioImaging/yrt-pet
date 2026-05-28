@@ -260,10 +260,34 @@ void py_setup_osem_cpu(pybind11::module& m)
 			          timing.adjointImageDownloadSeconds;
 			      row["adjoint_host_image_copy_s"] =
 			          timing.adjointHostImageCopySeconds;
+			      row["adjoint_update_count_s"] =
+			          timing.adjointUpdateCountSeconds;
+			      row["adjoint_voxel_hit_count_s"] =
+			          timing.adjointVoxelHitCountSeconds;
 			      row["forward_events"] = timing.forwardEvents;
 			      row["forward_batches"] = timing.forwardBatches;
 			      row["adjoint_events"] = timing.adjointEvents;
+			      row["adjoint_nonzero_events"] =
+			          timing.adjointNonzeroEvents;
 			      row["adjoint_batches"] = timing.adjointBatches;
+			      row["adjoint_voxel_updates"] =
+			          timing.adjointVoxelUpdates;
+			      row["adjoint_rays_with_updates"] =
+			          timing.adjointRaysWithUpdates;
+			      row["adjoint_max_updates_per_ray"] =
+			          timing.adjointMaxUpdatesPerRay;
+			      row["adjoint_voxel_hit_maps"] =
+			          timing.adjointVoxelHitMaps;
+			      row["adjoint_batch_hit_voxels"] =
+			          timing.adjointBatchHitVoxels;
+			      row["adjoint_voxel_hit_total_updates"] =
+			          timing.adjointVoxelHitTotalUpdates;
+			      row["adjoint_max_voxel_hits"] =
+			          timing.adjointMaxVoxelHits;
+			      row["adjoint_max_batch_p95_voxel_hits"] =
+			          timing.adjointMaxBatchP95VoxelHits;
+			      row["adjoint_max_batch_p99_voxel_hits"] =
+			          timing.adjointMaxBatchP99VoxelHits;
 			      row["cache_lookups"] = timing.cacheLookups;
 			      row["cache_hits"] = timing.cacheHits;
 			      row["cache_misses"] = timing.cacheMisses;

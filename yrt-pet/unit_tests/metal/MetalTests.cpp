@@ -1700,6 +1700,30 @@ bool runJosephProjectorMetalAdapterGoldenTest()
 		return false;
 	}
 
+	yrt::ImageOwned diagnosticAdjoint(params);
+	diagnosticAdjoint.allocate();
+	diagnosticAdjoint.fill(0.0f);
+	yrt::backend::metal::SiddonProjectorKernelProfile profile;
+	profile.diagnoseAdjointUpdateCounts = true;
+	profile.diagnoseAdjointVoxelHits = true;
+	if (!projector.backProjectSingleRay(
+	        adjointBatch, diagnosticAdjoint, frame, &profile) ||
+	    !imagesMatch(diagnosticAdjoint, expectedAdjoint) ||
+	    profile.adjointUpdateCountSeconds <= 0.0 ||
+	    profile.adjointVoxelHitCountSeconds <= 0.0 ||
+	    profile.adjointVoxelUpdates == 0 ||
+	    profile.adjointRaysWithUpdates == 0 ||
+	    profile.adjointMaxUpdatesPerRay == 0 ||
+	    profile.adjointVoxelHitMaps == 0 ||
+	    profile.adjointBatchHitVoxels == 0 ||
+	    profile.adjointVoxelHitTotalUpdates != profile.adjointVoxelUpdates ||
+	    profile.adjointMaxVoxelHits == 0 ||
+	    profile.adjointMaxBatchP95VoxelHits == 0 ||
+	    profile.adjointMaxBatchP99VoxelHits == 0)
+	{
+		return false;
+	}
+
 	return dotAlmostEqual(dotValues(expectedForward, projectionWeights),
 	    imageDotFrame(image, metalAdjoint, frame));
 }

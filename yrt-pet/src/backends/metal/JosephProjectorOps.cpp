@@ -12,8 +12,12 @@
 #include "yrt-pet/backends/metal/SiddonProjectorOps.hpp"
 #include "yrt-pet/datastruct/image/Image.hpp"
 
+#include <algorithm>
 #include <chrono>
+#include <cmath>
+#include <cstdint>
 #include <limits>
+#include <vector>
 
 namespace yrt::backend::metal
 {
@@ -32,6 +36,128 @@ bool fitsUint32Size(std::size_t value)
 	return value > 0 &&
 	       value <= static_cast<std::size_t>(
 	                    std::numeric_limits<std::uint32_t>::max());
+}
+
+std::size_t imageVoxelCount(const SiddonForwardImageParams& params)
+{
+	return static_cast<std::size_t>(params.nx) *
+	       static_cast<std::size_t>(params.ny) *
+	       static_cast<std::size_t>(params.nz) *
+	       static_cast<std::size_t>(params.nt);
+}
+
+std::size_t updateCountByteCount(std::size_t count)
+{
+	return sizeof(std::uint32_t) * count;
+}
+
+std::size_t percentileCount(const std::vector<std::uint32_t>& sortedCounts,
+                            double percentile)
+{
+	if (sortedCounts.empty())
+	{
+		return 0;
+	}
+	const auto rank = static_cast<std::size_t>(
+	    std::ceil(percentile * static_cast<double>(sortedCounts.size())));
+	const std::size_t index =
+	    std::min(sortedCounts.size() - 1, rank == 0 ? 0 : rank - 1);
+	return sortedCounts[index];
+}
+
+bool collectBackProjectUpdateCounts(const Context& context,
+    const ProjectionBatchMetal& batch, const SiddonForwardImageParams& params,
+    SiddonProjectorKernelProfile& profile)
+{
+	std::vector<std::uint32_t> counts(batch.size(), 0);
+	const auto countStart = Clock::now();
+	Buffer countBuffer =
+	    Buffer::allocate(context.device(), updateCountByteCount(counts.size()));
+	const bool didCount =
+	    countBuffer.isValid() &&
+	    launchJosephBackProjectSingleRayUpdateCount(
+	        context.device(), context.library(), context.commandQueue(),
+	        batch.lorBuffer(), batch.projectionValuesBuffer(), countBuffer,
+	        params, batch.size()) &&
+	    countBuffer.copyToHost(counts.data(), updateCountByteCount(counts.size()));
+	profile.adjointUpdateCountSeconds +=
+	    getElapsedSeconds(countStart, Clock::now());
+	if (!didCount)
+	{
+		return false;
+	}
+
+	std::size_t totalUpdates = 0;
+	std::size_t raysWithUpdates = 0;
+	std::uint32_t maxUpdates = 0;
+	for (const std::uint32_t count : counts)
+	{
+		totalUpdates += count;
+		if (count != 0)
+		{
+			raysWithUpdates += 1;
+			maxUpdates = std::max(maxUpdates, count);
+		}
+	}
+
+	profile.adjointVoxelUpdates += totalUpdates;
+	profile.adjointRaysWithUpdates += raysWithUpdates;
+	profile.adjointMaxUpdatesPerRay =
+	    std::max<std::size_t>(profile.adjointMaxUpdatesPerRay, maxUpdates);
+	return true;
+}
+
+bool collectBackProjectVoxelHitCounts(const Context& context,
+    const ProjectionBatchMetal& batch, const SiddonForwardImageParams& params,
+    SiddonProjectorKernelProfile& profile)
+{
+	std::vector<std::uint32_t> counts(imageVoxelCount(params), 0);
+	const auto countStart = Clock::now();
+	Buffer countBuffer = Buffer::copyFromHost(
+	    context.device(), counts.data(), updateCountByteCount(counts.size()));
+	const bool didCount =
+	    countBuffer.isValid() &&
+	    launchJosephBackProjectSingleRayVoxelHitCount(
+	        context.device(), context.library(), context.commandQueue(),
+	        batch.lorBuffer(), batch.projectionValuesBuffer(), countBuffer,
+	        params, batch.size()) &&
+	    countBuffer.copyToHost(counts.data(), updateCountByteCount(counts.size()));
+	profile.adjointVoxelHitCountSeconds +=
+	    getElapsedSeconds(countStart, Clock::now());
+	if (!didCount)
+	{
+		return false;
+	}
+
+	std::vector<std::uint32_t> hitCounts;
+	hitCounts.reserve(counts.size());
+	std::size_t totalHits = 0;
+	for (const std::uint32_t count : counts)
+	{
+		totalHits += count;
+		if (count != 0)
+		{
+			hitCounts.push_back(count);
+		}
+	}
+	std::sort(hitCounts.begin(), hitCounts.end());
+
+	profile.adjointVoxelHitMaps += 1;
+	profile.adjointBatchHitVoxels += hitCounts.size();
+	profile.adjointVoxelHitTotalUpdates += totalHits;
+	if (!hitCounts.empty())
+	{
+		profile.adjointMaxVoxelHits =
+		    std::max<std::size_t>(profile.adjointMaxVoxelHits,
+		                          hitCounts.back());
+		profile.adjointMaxBatchP95VoxelHits =
+		    std::max(profile.adjointMaxBatchP95VoxelHits,
+		             percentileCount(hitCounts, 0.95));
+		profile.adjointMaxBatchP99VoxelHits =
+		    std::max(profile.adjointMaxBatchP99VoxelHits,
+		             percentileCount(hitCounts, 0.99));
+	}
+	return true;
 }
 
 }  // namespace
@@ -77,7 +203,11 @@ bool forwardProjectJosephSingleRay(const Context& context,
 	{
 		profile->kernelSeconds += getElapsedSeconds(kernelStart, Clock::now());
 	}
-	return didRun;
+	if (!didRun)
+	{
+		return false;
+	}
+	return true;
 }
 
 bool uploadJosephImageFrameTexture(const Context& context, const Image& image,
@@ -140,7 +270,11 @@ bool forwardProjectJosephSingleRayTexture(const Context& context,
 	{
 		profile->kernelSeconds += getElapsedSeconds(kernelStart, Clock::now());
 	}
-	return didRun;
+	if (!didRun)
+	{
+		return false;
+	}
+	return true;
 }
 
 bool backProjectJosephSingleRay(const Context& context,
@@ -185,7 +319,21 @@ bool backProjectJosephSingleRay(const Context& context,
 	{
 		profile->kernelSeconds += getElapsedSeconds(kernelStart, Clock::now());
 	}
-	return didRun;
+	if (!didRun)
+	{
+		return false;
+	}
+	if (profile != nullptr && profile->diagnoseAdjointUpdateCounts &&
+	    !collectBackProjectUpdateCounts(context, batch, params, *profile))
+	{
+		return false;
+	}
+	if (profile != nullptr && profile->diagnoseAdjointVoxelHits &&
+	    !collectBackProjectVoxelHitCounts(context, batch, params, *profile))
+	{
+		return false;
+	}
+	return true;
 }
 
 }  // namespace yrt::backend::metal

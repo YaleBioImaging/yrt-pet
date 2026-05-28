@@ -20,6 +20,12 @@ bool coversFloatCount(const Buffer& buffer, std::size_t count)
 	return buffer.isValid() && buffer.byteCount() >= sizeof(float) * count;
 }
 
+bool coversUint32Count(const Buffer& buffer, std::size_t count)
+{
+	return buffer.isValid() &&
+	       buffer.byteCount() >= sizeof(std::uint32_t) * count;
+}
+
 bool coversLineCount(const Buffer& buffer, std::size_t count)
 {
 	return buffer.isValid() &&
@@ -100,6 +106,37 @@ bool launchJosephBackProjectSingleRay(const Device& device,
 	               ? "joseph_backproject_single_ray_native_atomic_float"
 	               : "joseph_backproject_single_ray",
 	           {{&image, 0}, {&lines, 1}, {&projectionValues, 2}},
+	           {{&params, sizeof(params), 3}}, lineCount);
+}
+
+bool launchJosephBackProjectSingleRayUpdateCount(const Device& device,
+    const Library& library, const CommandQueue& commandQueue,
+    const Buffer& lines, const Buffer& projectionValues, Buffer& updateCounts,
+    const SiddonForwardImageParams& params, std::size_t lineCount)
+{
+	return areParamsValid(params) && lineCount > 0 &&
+	       coversLineCount(lines, lineCount) &&
+	       coversFloatCount(projectionValues, lineCount) &&
+	       coversUint32Count(updateCounts, lineCount) &&
+	       launchKernel1D(device, library, commandQueue,
+	           "joseph_backproject_single_ray_update_count",
+	           {{&lines, 0}, {&projectionValues, 1}, {&updateCounts, 2}},
+	           {{&params, sizeof(params), 3}}, lineCount);
+}
+
+bool launchJosephBackProjectSingleRayVoxelHitCount(const Device& device,
+    const Library& library, const CommandQueue& commandQueue,
+    const Buffer& lines, const Buffer& projectionValues,
+    Buffer& voxelHitCounts, const SiddonForwardImageParams& params,
+    std::size_t lineCount)
+{
+	return areParamsValid(params) && lineCount > 0 &&
+	       coversLineCount(lines, lineCount) &&
+	       coversFloatCount(projectionValues, lineCount) &&
+	       coversUint32Count(voxelHitCounts, voxelCount(params)) &&
+	       launchKernel1D(device, library, commandQueue,
+	           "joseph_backproject_single_ray_voxel_hit_count",
+	           {{&lines, 0}, {&projectionValues, 1}, {&voxelHitCounts, 2}},
 	           {{&params, sizeof(params), 3}}, lineCount);
 }
 

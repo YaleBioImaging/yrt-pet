@@ -366,6 +366,25 @@ unlocked gradually from C++/repo-side tests first. Use `--fail-on-mismatch` to
 make tolerance mismatches fatal; otherwise mismatches are reported as
 diagnostics.
 
+For the real-data Siddon regression, prefer the metric-threshold validation
+profile instead of exact voxel matching:
+
+```sh
+env -u YRTPET_METAL_USE_NATIVE_FLOAT_ATOMICS \
+  PYTHONPATH=build_metal \
+  python yrt-pet/python/examples/metal_ge_osem_smoke.py \
+    --base /Users/yanischemli/Desktop/mini_hot_spot \
+    --validation-profile ge-mini-hotspot-siddon-4k-smoke \
+    --profile-metal \
+    --no-write-images
+```
+
+This profile fixes the smoke case to 4,096 events, one iteration, one subset,
+Siddon Metal, no PSF, and no moved sensitivity image. It validates relative L2,
+NRMSE, image-sum relative difference, and mismatch fraction. This is more
+stable than exact voxel equality for the current real-data edge case, where a
+single voxel can differ while aggregate metrics remain small.
+
 The Metal OSEM hook itself does not depend on the GE plugin, but the plugin is
 needed for the GE `ProjectionData` classes used by this real-data smoke.
 
@@ -446,6 +465,19 @@ Two A/B paths are currently not recommended for Joseph full-data benchmarks:
 `YRTPET_METAL_USE_PRIVATE_UPDATE_BUFFER=1` was neutral to slightly slower in
 `metal_ge_joseph_native_private_full_1it.csv`.
 
+The May 28, 2026 Joseph axis-cache optimization hoists invariant per-ray axis
+math out of the Joseph per-sample loop. It does not change CPU, CUDA, Siddon,
+or the Joseph algorithm. On the full mini-hot-spot one-iteration Joseph run,
+`metal_ge_joseph_axis_cache_full_1it.csv` improved `metal_recon_s` from
+`129.34` to `124.00`, `metal_profile_forward_kernel_s` from `20.08` to
+`18.55`, and `metal_profile_adjoint_kernel_s` from `37.54` to `35.08`, although
+that run also reported yellow memory pressure. The larger remaining Joseph
+bottleneck is update volume: the diagnostic run
+`metal_ge_joseph_adjoint_diag_1m_1it_v2.csv` measured about 511 Joseph adjoint
+voxel updates per event versus about 191 for the earlier Siddon diagnostic.
+Further Joseph speedups are therefore expected to require reduced-update or
+tiled/hybrid adjoint work rather than more scalar math hoisting alone.
+
 The profiling output now also breaks the gather/packing path into smaller
 diagnostic buckets. The original aggregate columns remain unchanged, while
 `metal_profile_forward_gather_cache_build_s`,
@@ -523,13 +555,16 @@ table and can write per-subset telemetry to CSV with
 writes a `_subsets.csv` sidecar when per-subset Metal records are available.
 Each row records the iteration/subset, event count, wall/forward/ratio/adjoint
 buckets, cache hits/misses/skips, uncached batch count, and macOS before/after
-memory-pressure hints. The memory hints are sampled from macOS VM statistics
-when available and are meant for benchmark diagnosis, not for backend
-dispatch decisions. The pressure label is intentionally conservative: low free
-memory or high compressed memory can mark a subset as yellow even when
-reclaimable inactive pages keep the available-memory estimate above the
-nominal threshold. Pageout, compression, and swapout deltas are also included
-to help identify timing runs contaminated by memory pressure.
+memory-pressure hints. When adjoint diagnostics are enabled, the sidecar also
+records the per-subset update-count and voxel-hit counters so slow or
+high-contention subsets can be isolated without relying only on aggregate
+totals. The memory hints are sampled from macOS VM statistics when available
+and are meant for benchmark diagnosis, not for backend dispatch decisions. The
+pressure label is intentionally conservative: low free memory or high
+compressed memory can mark a subset as yellow even when reclaimable inactive
+pages keep the available-memory estimate above the nominal threshold. Pageout,
+compression, and swapout deltas are also included to help identify timing runs
+contaminated by memory pressure.
 
 An additional adjoint diagnostic pass is available for targeted bottleneck
 analysis:
@@ -557,7 +592,8 @@ each adjoint batch. It reports `metal_profile_adjoint_update_count_s`,
 `metal_profile_adjoint_rays_with_updates`, and
 `metal_profile_adjoint_max_updates_per_ray`. Because this adds extra work, it
 is meant for diagnosing atomic/update-count behavior and should not be used for
-baseline timing comparisons.
+baseline timing comparisons. The diagnostic is available for both the Siddon
+and Joseph experimental Metal adjoint kernels.
 
 `--profile-metal-adjoint-hit-diagnostics` runs an additional heavier Metal pass
 that builds a temporary uint voxel-hit image for each adjoint batch. It reports
@@ -571,6 +607,9 @@ that builds a temporary uint voxel-hit image for each adjoint batch. It reports
 per-batch aggregate, not a globally unique voxel count across the full
 reconstruction. Use this only on small diagnostic runs when deciding whether
 the next optimization should target atomic contention or Siddon traversal.
+For Joseph, the same counters are useful for deciding whether a future
+tiled/hybrid adjoint should prioritize fewer global atomics, fewer duplicated
+ray samples per tile, or better LOR grouping.
 
 After that split identified repeated uncached list-mode LOR gathering as the
 largest variable cost, the bridge gained a narrow fast path for unconstrained

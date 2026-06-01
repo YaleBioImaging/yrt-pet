@@ -11,8 +11,9 @@ namespace yrt
 {
 
 __global__ void updateEM_kernel(const float* pd_imgIn, float* pd_imgOut,
-                                const float* pd_sensImg, int nx, int ny, int nz,
-                                int nt, const float EM_threshold)
+                                const float* pd_sensImg, ssize_t nx, ssize_t ny,
+                                ssize_t nz, ssize_t nt,
+                                const float EM_threshold)
 {
 	const long id_z = blockIdx.z * blockDim.z + threadIdx.z;
 	const long id_y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -30,9 +31,9 @@ __global__ void updateEM_kernel(const float* pd_imgIn, float* pd_imgOut,
 
 template <bool HasScaling>
 __global__ void updateEMDynamic_kernel(const float* pd_imgIn, float* pd_imgOut,
-                                       const float* pd_sensImg, int nx, int ny,
-                                       int nz, int nt, const float* c_r,
-                                       float EM_threshold)
+                                       const float* pd_sensImg, ssize_t nx,
+                                       ssize_t ny, ssize_t nz, ssize_t nt,
+                                       const float* c_r, float EM_threshold)
 {
 	const long id_z = blockIdx.z * blockDim.z + threadIdx.z;
 	const long id_y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -40,8 +41,8 @@ __global__ void updateEMDynamic_kernel(const float* pd_imgIn, float* pd_imgOut,
 
 	if (id_z < (nz * nt) && id_y < ny && id_x < nx)
 	{
-		const int t = id_z / nz;
-		const int local_z = id_z % nz;
+		const ssize_t t = id_z / nz;
+		const ssize_t local_z = id_z % nz;
 
 		const long pixelId = local_z * nx * ny + id_y * nx + id_x;
 		const long idx = id_z * nx * ny + id_y * nx + id_x;
@@ -65,20 +66,20 @@ __global__ void updateEMDynamic_kernel(const float* pd_imgIn, float* pd_imgOut,
 	}
 }
 template __global__ void updateEMDynamic_kernel<true>(const float*, float*,
-                                                      const float*, int, int,
-                                                      int, int, const float*,
-                                                      float);
+                                                      const float*, ssize_t,
+                                                      ssize_t, ssize_t, ssize_t,
+                                                      const float*, float);
 template __global__ void updateEMDynamic_kernel<false>(const float*, float*,
-                                                       const float*, int, int,
-                                                       int, int, const float*,
+                                                       const float*, ssize_t,
+                                                       ssize_t, ssize_t,
+                                                       ssize_t, const float*,
                                                        float);
 
 // TODO: Modify to work with dynamic images (add num_frames)
-__global__ void
-    applyThreshold_kernel(float* pd_imgIn, const float* pd_imgMask,
-                          const float threshold, const float val_le_scale,
-                          const float val_le_off, const float val_gt_scale,
-                          const float val_gt_off, int nx, int ny, int nz)
+__global__ void applyThreshold_kernel(
+    float* pd_imgIn, const float* pd_imgMask, const float threshold,
+    const float val_le_scale, const float val_le_off, const float val_gt_scale,
+    const float val_gt_off, ssize_t nx, ssize_t ny, ssize_t nz)
 {
 	const long id_z = blockIdx.z * blockDim.z + threadIdx.z;
 	const long id_y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -101,7 +102,7 @@ __global__ void
 __global__ void applyThresholdBroadcast_kernel(
     float* pd_imgIn, const float* pd_imgMask, const float threshold,
     const float val_le_scale, const float val_le_off, const float val_gt_scale,
-    const float val_gt_off, int nx, int ny, int nz, int nt)
+    const float val_gt_off, ssize_t nx, ssize_t ny, ssize_t nz, ssize_t nt)
 {
 	const long id_z = blockIdx.z * blockDim.z + threadIdx.z;
 	const long id_y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -109,7 +110,7 @@ __global__ void applyThresholdBroadcast_kernel(
 
 	if (id_z < (nz * nt) && id_y < ny && id_x < nx)
 	{
-		const int local_z = id_z % nz;
+		const ssize_t local_z = id_z % nz;
 
 		const long pixelId = local_z * nx * ny + id_y * nx + id_x;
 
@@ -126,8 +127,8 @@ __global__ void applyThresholdBroadcast_kernel(
 	}
 }
 
-__global__ void fill_kernel(float* pd_imgIn, const float value, int nx, int ny,
-                            int nz, int nt)
+__global__ void fill_kernel(float* pd_imgIn, const float value, ssize_t nx,
+                            ssize_t ny, ssize_t nz, ssize_t nt)
 {
 	const long id_z = blockIdx.z * blockDim.z + threadIdx.z;
 	const long id_y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -141,8 +142,9 @@ __global__ void fill_kernel(float* pd_imgIn, const float value, int nx, int ny,
 }
 
 __global__ void addFirstImage3DToSecond4D_kernel(const float* pd_imgIn,
-                                                 float* pd_imgOut, int nx,
-                                                 int ny, int nz, int nt)
+                                                 float* pd_imgOut, ssize_t nx,
+                                                 ssize_t ny, ssize_t nz,
+                                                 ssize_t nt)
 {
 	const long id_z = blockIdx.z * blockDim.z + threadIdx.z;
 	const long id_y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -150,15 +152,15 @@ __global__ void addFirstImage3DToSecond4D_kernel(const float* pd_imgIn,
 
 	if (id_z < (nz * nt) && id_y < ny && id_x < nx)
 	{
-		const int local_z = id_z % nz;
+		const ssize_t local_z = id_z % nz;
 		const long pixelId = local_z * nx * ny + id_y * nx + id_x;
 		const long idx = id_z * nx * ny + id_y * nx + id_x;
 		pd_imgOut[idx] = pd_imgOut[idx] + pd_imgIn[pixelId];
 	}
 }
 
-__global__ void multWithScalar_kernel(float* pd_img, float scalar, int nx,
-                                      int ny, int nz, int nt)
+__global__ void multWithScalar_kernel(float* pd_img, float scalar, ssize_t nx,
+                                      ssize_t ny, ssize_t nz, ssize_t nt)
 {
 	const long id_z = blockIdx.z * blockDim.z + threadIdx.z;
 	const long id_y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -172,8 +174,8 @@ __global__ void multWithScalar_kernel(float* pd_img, float scalar, int nx,
 }
 
 __global__ void addFirstImageToSecond_kernel(const float* pd_imgIn,
-                                             float* pd_imgOut, int nx, int ny,
-                                             int nz)
+                                             float* pd_imgOut, ssize_t nx,
+                                             ssize_t ny, ssize_t nz)
 {
 	const long id_z = blockIdx.z * blockDim.z + threadIdx.z;
 	const long id_y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -188,10 +190,10 @@ __global__ void addFirstImageToSecond_kernel(const float* pd_imgIn,
 
 template <bool WEIGHED_AVG>
 __global__ void timeAverageMoveImage_kernel(
-    const float* pd_imgIn, float* pd_imgOut, frame_t outDynamicFrame, int nx,
-    int ny, int nz, float length_x, float length_y, float length_z, float off_x,
-    float off_y, float off_z, const transform_t* pd_invTransforms,
-    float* frameWeights, int numTransforms)
+    const float* pd_imgIn, float* pd_imgOut, frame_t outDynamicFrame,
+    ssize_t nx, ssize_t ny, ssize_t nz, float length_x, float length_y,
+    float length_z, float off_x, float off_y, float off_z,
+    const transform_t* pd_invTransforms, float* frameWeights, int numTransforms)
 {
 	const long id_x = blockIdx.x * blockDim.x + threadIdx.x;
 	const long id_y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -221,7 +223,7 @@ __global__ void timeAverageMoveImage_kernel(
 		// If weights pointer is null, use 1.0 everywhere
 		float frameWeight = 1.0f;
 		float voxelWeights[8];
-		int voxelIndices[8];
+		ssize_t voxelIndices[8];
 
 		// Output voxel value
 		float outVoxelValue = pd_imgOut[flatId];
@@ -262,14 +264,14 @@ __global__ void timeAverageMoveImage_kernel(
 	}
 }
 template __global__ void timeAverageMoveImage_kernel<true>(
-    const float* d_imgIn, float* d_imgOut, frame_t outDynamicFrame, int nx,
-    int ny, int nz, float length_x, float length_y, float length_z, float off_x,
-    float off_y, float off_z, const transform_t* transforms,
+    const float* d_imgIn, float* d_imgOut, frame_t outDynamicFrame, ssize_t nx,
+    ssize_t ny, ssize_t nz, float length_x, float length_y, float length_z,
+    float off_x, float off_y, float off_z, const transform_t* transforms,
     float* frameWeights, int numTransforms);
 template __global__ void timeAverageMoveImage_kernel<false>(
-    const float* d_imgIn, float* d_imgOut, frame_t outDynamicFrame, int nx,
-    int ny, int nz, float length_x, float length_y, float length_z, float off_x,
-    float off_y, float off_z, const transform_t* transforms,
+    const float* d_imgIn, float* d_imgOut, frame_t outDynamicFrame, ssize_t nx,
+    ssize_t ny, ssize_t nz, float length_x, float length_y, float length_z,
+    float off_x, float off_y, float off_z, const transform_t* transforms,
     float* frameWeights, int numTransforms);
 
 __device__ constexpr int circular(int M, int x)
@@ -285,7 +287,7 @@ __device__ constexpr int circular(int M, int x)
 	return x;
 }
 
-__device__ constexpr int idx3(int x, int y, int z, int nx, int ny)
+__device__ constexpr int idx3(int x, int y, int z, ssize_t nx, ssize_t ny)
 {
 	return x + nx * (y + ny * z);
 }
@@ -293,13 +295,13 @@ __device__ constexpr int idx3(int x, int y, int z, int nx, int ny)
 template <int Axis>
 __global__ void convolve3DSeparable_kernel(const float* input, float* output,
                                            const float* kernel, int kernelSize,
-                                           int nx, int ny, int nz)
+                                           ssize_t nx, ssize_t ny, ssize_t nz)
 {
 
 	// Get the thread indices in 3D
-	const int x = blockIdx.x * blockDim.x + threadIdx.x;
-	const int y = blockIdx.y * blockDim.y + threadIdx.y;
-	const int z = blockIdx.z * blockDim.z + threadIdx.z;
+	const long x = blockIdx.x * blockDim.x + threadIdx.x;
+	const long y = blockIdx.y * blockDim.y + threadIdx.y;
+	const long z = blockIdx.z * blockDim.z + threadIdx.z;
 
 	static_assert(Axis < 3 && Axis >= 0);
 
@@ -338,21 +340,18 @@ __global__ void convolve3DSeparable_kernel(const float* input, float* output,
 		output[idx3(x, y, z, nx, ny)] = sum;
 	}
 }
-template __global__ void convolve3DSeparable_kernel<0>(const float* input,
-                                                       float* output,
-                                                       const float* kernel,
-                                                       int kernelSize, int nx,
-                                                       int ny, int nz);
-template __global__ void convolve3DSeparable_kernel<1>(const float* input,
-                                                       float* output,
-                                                       const float* kernel,
-                                                       int kernelSize, int nx,
-                                                       int ny, int nz);
-template __global__ void convolve3DSeparable_kernel<2>(const float* input,
-                                                       float* output,
-                                                       const float* kernel,
-                                                       int kernelSize, int nx,
-                                                       int ny, int nz);
+template __global__ void
+    convolve3DSeparable_kernel<0>(const float* input, float* output,
+                                  const float* kernel, int kernelSize,
+                                  ssize_t nx, ssize_t ny, ssize_t nz);
+template __global__ void
+    convolve3DSeparable_kernel<1>(const float* input, float* output,
+                                  const float* kernel, int kernelSize,
+                                  ssize_t nx, ssize_t ny, ssize_t nz);
+template __global__ void
+    convolve3DSeparable_kernel<2>(const float* input, float* output,
+                                  const float* kernel, int kernelSize,
+                                  ssize_t nx, ssize_t ny, ssize_t nz);
 
 template <bool Transposed>
 __global__ void convolve3D_kernel(
@@ -360,11 +359,11 @@ __global__ void convolve3D_kernel(
     const int* kernelOffsets, const int* kernelDims, const int* kernelHalf,
     int lut_x_dim, int lut_y_dim, int lut_z_dim, float xGap, float yGap,
     float zGap, float xCenter, float yCenter, float zCenter, float vx, float vy,
-    float vz, int nx, int ny, int nz)
+    float vz, ssize_t nx, ssize_t ny, ssize_t nz)
 {
-	const int i = blockIdx.x * blockDim.x + threadIdx.x;
-	const int j = blockIdx.y * blockDim.y + threadIdx.y;
-	const int k = blockIdx.z * blockDim.z + threadIdx.z;
+	const long i = blockIdx.x * blockDim.x + threadIdx.x;
+	const long j = blockIdx.y * blockDim.y + threadIdx.y;
+	const long k = blockIdx.z * blockDim.z + threadIdx.z;
 
 	if (i >= nx || j >= ny || k >= nz)
 		return;
@@ -435,18 +434,16 @@ __global__ void convolve3D_kernel(
 		}
 	}
 }
-template __global__ void convolve3D_kernel<false>(const float*, float*,
-                                                  const float*, const int*,
-                                                  const int*, const int*, int,
-                                                  int, int, float, float, float,
-                                                  float, float, float, float,
-                                                  float, float, int, int, int);
+template __global__ void
+    convolve3D_kernel<false>(const float*, float*, const float*, const int*,
+                             const int*, const int*, int, int, int, float,
+                             float, float, float, float, float, float, float,
+                             float, ssize_t, ssize_t, ssize_t);
 
-template __global__ void convolve3D_kernel<true>(const float*, float*,
-                                                 const float*, const int*,
-                                                 const int*, const int*, int,
-                                                 int, int, float, float, float,
-                                                 float, float, float, float,
-                                                 float, float, int, int, int);
+template __global__ void
+    convolve3D_kernel<true>(const float*, float*, const float*, const int*,
+                            const int*, const int*, int, int, int, float, float,
+                            float, float, float, float, float, float, float,
+                            ssize_t, ssize_t, ssize_t);
 
 }  // namespace yrt

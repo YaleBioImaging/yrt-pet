@@ -18,7 +18,7 @@ struct CUScannerParams
 
 struct CUImageParams
 {
-	int nx, ny, nz;
+	ssize_t nx, ny, nz;
 	float vx, vy, vz;
 	float length_x, length_y, length_z;
 	float off_x, off_y, off_z;

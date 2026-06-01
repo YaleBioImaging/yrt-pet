@@ -59,13 +59,14 @@ void py_setup_image(py::module& m)
 	c.def("getParams", &Image::getParams);
 	c.def("interpolateImage",
 	      static_cast<float (Image::*)(const Vector3D& pt, const Image& sens,
-	                                   int frame) const>(
+	                                   frame_t frame) const>(
 	          &Image::interpolateImage),
 	      py::arg("pt"), py::arg("sens"), py::arg("frame") = 0);
-	c.def("interpolateImage",
-	      static_cast<float (Image::*)(const Vector3D& pt, int frame) const>(
-	          &Image::interpolateImage),
-	      py::arg("pt"), py::arg("frame") = 0);
+	c.def(
+	    "interpolateImage",
+	    static_cast<float (Image::*)(const Vector3D& pt, frame_t frame) const>(
+	        &Image::interpolateImage),
+	    py::arg("pt"), py::arg("frame") = 0);
 	c.def(
 	    "updateImageInterpolate",
 	    [](Image& img, const Vector3D& pt, float value, frame_t frame,
@@ -88,7 +89,7 @@ void py_setup_image(py::module& m)
 	    "nearestNeighbor",
 	    [](const Image& img, const Vector3D& pt) -> py::tuple
 	    {
-		    int pi, pj, pk;
+		    ssize_t pi, pj, pk;
 		    float val = img.nearestNeighbor(pt, &pi, &pj, &pk);
 		    return py::make_tuple(val, pi, pj, pk);
 	    },
@@ -115,7 +116,7 @@ void py_setup_image(py::module& m)
 	    "getNearestNeighborIdx",
 	    [](const Image& img, const Vector3D& pt) -> py::tuple
 	    {
-		    int pi, pj, pk;
+		    ssize_t pi, pj, pk;
 		    img.getNearestNeighborIdx(pt, &pi, &pj, &pk);
 		    return py::make_tuple(pi, pj, pk);
 	    },
@@ -158,7 +159,7 @@ void py_setup_image(py::module& m)
 			    throw std::invalid_argument(
 			        "The buffer given has to have a float32 format");
 		    }
-		    std::vector<size_t> dims = {
+		    std::vector<ssize_t> dims = {
 		        self.getNumFrames(), self.getParams().nz, self.getParams().ny,
 		        self.getParams().nx};
 		    for (int i = 0; i < buffer.ndim; i++)
@@ -219,7 +220,7 @@ const Array4DBase<float>& Image::getData() const
 	return *mp_array;
 }
 
-size_t Image::getNumFrames() const
+ssize_t Image::getNumFrames() const
 {
 	return getParams().nt;
 }
@@ -254,7 +255,8 @@ float Image::voxelSum() const
 {
 	// Use double to avoid precision loss
 	const ImageParams& params = getParams();
-	const size_t numVoxels = getNumFrames() * params.nx * params.ny * params.nz;
+	const ssize_t numVoxels =
+	    getNumFrames() * params.nx * params.ny * params.nz;
 	const float* rawPtr = mp_array->getRawPointer();
 	std::function<double(double, double)> func_sum = [](double a, double b)
 	{ return a + b; };
@@ -269,15 +271,16 @@ void Image::multWithScalar(float scalar)
 }
 
 // return the value of the voxel the nearest to "point":
-float Image::nearestNeighbor(const Vector3D& pt, int frame) const
+float Image::nearestNeighbor(const Vector3D& pt, frame_t frame) const
 {
-	int ix, iy, iz;
+	ssize_t ix, iy, iz;
 
 	if (getNearestNeighborIdx(pt, &ix, &iy, &iz, frame))
 	{
-		const size_t num_x = getParams().nx;
-		const size_t num_xy = getParams().nx * getParams().ny;
-		const size_t num_xyz = getParams().nz * getParams().nx * getParams().ny;
+		const ssize_t num_x = getParams().nx;
+		const ssize_t num_xy = getParams().nx * getParams().ny;
+		const ssize_t num_xyz =
+		    getParams().nz * getParams().nx * getParams().ny;
 		return mp_array->getFlat(frame * num_xyz + iz * num_xy + iy * num_x +
 		                         ix);
 	}
@@ -285,14 +288,15 @@ float Image::nearestNeighbor(const Vector3D& pt, int frame) const
 }
 
 // return the value of the voxel the nearest to "point":
-float Image::nearestNeighbor(const Vector3D& pt, int* pi, int* pj, int* pk,
-                             int frame) const
+float Image::nearestNeighbor(const Vector3D& pt, ssize_t* pi, ssize_t* pj,
+                             ssize_t* pk, frame_t frame) const
 {
 	if (getNearestNeighborIdx(pt, pi, pj, pk, frame))
 	{
-		const size_t num_x = getParams().nx;
-		const size_t num_xy = getParams().nx * getParams().ny;
-		const size_t num_xyz = getParams().nx * getParams().ny * getParams().nz;
+		const ssize_t num_x = getParams().nx;
+		const ssize_t num_xy = getParams().nx * getParams().ny;
+		const ssize_t num_xyz =
+		    getParams().nx * getParams().ny * getParams().nz;
 		return mp_array->getFlat(frame * num_xyz + *pk * num_xy + *pj * num_x +
 		                         *pi);
 	}
@@ -302,17 +306,18 @@ float Image::nearestNeighbor(const Vector3D& pt, int* pi, int* pj, int* pk,
 // update image with "value" using nearest neighbor method:
 template <bool MULT_FLAG>
 void Image::updateImageNearestNeighbor(const Vector3D& pt, float value,
-                                       int frame)
+                                       frame_t frame)
 {
-	int ix, iy, iz;
+	ssize_t ix, iy, iz;
 	if (getNearestNeighborIdx(pt, &ix, &iy, &iz, frame))
 	{
 		// update multiplicatively or additively:
 		float* ptr = mp_array->getRawPointer();
-		const size_t num_x = getParams().nx;
-		const size_t num_xy = getParams().nx * getParams().ny;
-		const size_t num_xyz = getParams().nx * getParams().ny * getParams().nz;
-		const size_t idx = frame * num_xyz + iz * num_xy + iy * num_x + ix;
+		const ssize_t num_x = getParams().nx;
+		const ssize_t num_xy = getParams().nx * getParams().ny;
+		const ssize_t num_xyz =
+		    getParams().nx * getParams().ny * getParams().nz;
+		const ssize_t idx = frame * num_xyz + iz * num_xy + iy * num_x + ix;
 		if constexpr (MULT_FLAG)
 		{
 			ptr[idx] *= value;
@@ -326,9 +331,9 @@ void Image::updateImageNearestNeighbor(const Vector3D& pt, float value,
 
 // assign image with "value" using nearest neighbor method:
 void Image::assignImageNearestNeighbor(const Vector3D& pt, float value,
-                                       int frame)
+                                       frame_t frame)
 {
-	int ix, iy, iz;
+	ssize_t ix, iy, iz;
 	if (getNearestNeighborIdx(pt, &ix, &iy, &iz, frame))
 	{
 		// update multiplicatively or additively:
@@ -341,8 +346,8 @@ void Image::assignImageNearestNeighbor(const Vector3D& pt, float value,
 }
 
 // Returns true if the point `pt` is inside the image
-bool Image::getNearestNeighborIdx(const Vector3D& pt, int* pi, int* pj, int* pk,
-                                  int frame) const
+bool Image::getNearestNeighborIdx(const Vector3D& pt, ssize_t* pi, ssize_t* pj,
+                                  ssize_t* pk, frame_t frame) const
 {
 	const ImageParams& params = getParams();
 	const float x = pt.x - params.off_x;
@@ -356,14 +361,14 @@ bool Image::getNearestNeighborIdx(const Vector3D& pt, int* pi, int* pj, int* pk,
 	const float dz = (z + params.length_z / 2.0f) / params.length_z *
 	                 static_cast<float>(params.nz);
 
-	const int ix = static_cast<int>(dx);
-	const int iy = static_cast<int>(dy);
-	const int iz = static_cast<int>(dz);
+	const ssize_t ix = static_cast<ssize_t>(dx);
+	const ssize_t iy = static_cast<ssize_t>(dy);
+	const ssize_t iz = static_cast<ssize_t>(dz);
 
-	if (ix < 0 || ix >= static_cast<int>(params.nx) || iy < 0 ||
-	    iy >= static_cast<int>(params.ny) || iz < 0 ||
-	    iz >= static_cast<int>(params.nz) || frame < 0 ||
-	    frame >= static_cast<int>(getNumFrames()))
+	if (ix < 0 || ix >= static_cast<ssize_t>(params.nx) || iy < 0 ||
+	    iy >= static_cast<ssize_t>(params.ny) || iz < 0 ||
+	    iz >= static_cast<ssize_t>(params.nz) || frame < 0 ||
+	    frame >= static_cast<ssize_t>(getNumFrames()))
 	{
 		// Point outside grid
 		return false;
@@ -377,12 +382,12 @@ bool Image::getNearestNeighborIdx(const Vector3D& pt, int* pi, int* pj, int* pk,
 }
 
 // interpolation operation.
-float Image::interpolateImage(const Vector3D& pt, int frame) const
+float Image::interpolateImage(const Vector3D& pt, frame_t frame) const
 {
 	const ImageParams& params = getParams();
 
 	float weights[8];
-	int indices[8];
+	ssize_t indices[8];
 
 	util::trilinearInterpolate(pt.x, pt.y, pt.z, params.nx, params.ny,
 	                           params.nz, params.length_x, params.length_y,
@@ -404,12 +409,12 @@ float Image::interpolateImage(const Vector3D& pt, int frame) const
 // calculate the value of a point on the image matrix
 // using tri-linear interpolation and weighting with image "sens":
 float Image::interpolateImage(const Vector3D& pt, const Image& sens,
-                              int frame) const
+                              frame_t frame) const
 {
 	const ImageParams& params = getParams();
 
 	float weights[8];
-	int indices[8];
+	ssize_t indices[8];
 
 	util::trilinearInterpolate(pt.x, pt.y, pt.z, params.nx, params.ny,
 	                           params.nz, params.length_x, params.length_y,
@@ -434,7 +439,7 @@ float Image::interpolateImage(const Vector3D& pt, const Image& sens,
 // update image with "value" using trilinear interpolation:
 template <int OPERATION>  // 0: assign, 1: multiply, 2: add
 void Image::operationImageInterpolate(const Vector3D& pt, float value,
-                                      int frame)
+                                      frame_t frame)
 {
 	// Only allow defined operations
 	static_assert(OPERATION >= 0 && OPERATION <= 2);
@@ -442,7 +447,7 @@ void Image::operationImageInterpolate(const Vector3D& pt, float value,
 	const ImageParams& params = getParams();
 
 	float weights[8];
-	int indices[8];
+	ssize_t indices[8];
 
 	util::trilinearInterpolate(pt.x, pt.y, pt.z, params.nx, params.ny,
 	                           params.nz, params.length_x, params.length_y,
@@ -470,7 +475,8 @@ void Image::operationImageInterpolate(const Vector3D& pt, float value,
 
 // assign image with "value" using trilinear interpolation:
 template <bool MULT_FLAG>
-void Image::updateImageInterpolate(const Vector3D& pt, float value, int frame)
+void Image::updateImageInterpolate(const Vector3D& pt, float value,
+                                   frame_t frame)
 {
 	if (MULT_FLAG)
 	{
@@ -483,7 +489,8 @@ void Image::updateImageInterpolate(const Vector3D& pt, float value, int frame)
 }
 
 // assign image with "value" using trilinear interpolation:
-void Image::assignImageInterpolate(const Vector3D& pt, float value, int frame)
+void Image::assignImageInterpolate(const Vector3D& pt, float value,
+                                   frame_t frame)
 {
 	operationImageInterpolate<0>(pt, value, frame);
 }
@@ -519,7 +526,7 @@ void Image::writeToFile(const std::string& fname) const
 	    "The NIfTI image file extension should be either .nii or .nii.gz");
 
 	const ImageParams& params = getParams();
-	const int nt = getNumFrames();
+	const frame_t nt = getNumFrames();
 	const bool is4D = (nt > 1);
 	const int dims[8] = {is4D ? 4 : 3,
 	                     static_cast<int>(params.nx),
@@ -733,7 +740,7 @@ void Image::updateEMThresholdDynamicWith4DSens(Image* updateImg,
 
 	util::parallelForChunked(
 	    numVoxels, globals::getNumThreads(),
-	    [sens_ptr, up_ptr, ptr, threshold](size_t i, int /*tid*/)
+	    [sens_ptr, up_ptr, ptr, threshold](size_t i, unsigned int /*tid*/)
 	    {
 		    const float s = sens_ptr[i];
 		    if (s > threshold)
@@ -782,19 +789,19 @@ void Image::updateEMThresholdDynamicWithScaling(Image* updateImg,
 		thr_r[r] = threshold * inv_c[r];  // == threshold / c_r[r]
 	}
 
-	util::parallelForChunked(
-	    J * nt, globals::getNumThreads(),
-	    [sens_ptr, thr_r, up_ptr, inv_c, ptr, nt, J](size_t i, int /*tid*/)
-	    {
-		    const size_t j = i / nt;
-		    const int r2 = i % nt;
-		    const float s = sens_ptr[j];
-		    if (s > thr_r[r2])
-		    {
-			    const auto idx = r2 * J + j;
-			    ptr[idx] *= (up_ptr[idx] * inv_c[r2]) / s;
-		    }
-	    });
+	util::parallelForChunked(J * nt, globals::getNumThreads(),
+	                         [sens_ptr, thr_r, up_ptr, inv_c, ptr, nt,
+	                          J](size_t i, unsigned int /*tid*/)
+	                         {
+		                         const size_t j = i / nt;
+		                         const size_t r2 = i % nt;
+		                         const float s = sens_ptr[j];
+		                         if (s > thr_r[r2])
+		                         {
+			                         const auto idx = r2 * J + j;
+			                         ptr[idx] *= (up_ptr[idx] * inv_c[r2]) / s;
+		                         }
+	                         });
 }
 
 void Image::updateEMThresholdStaticInternal(Image* updateImg,
@@ -862,15 +869,15 @@ std::unique_ptr<ImageOwned>
 }
 
 void Image::transformImage(const transform_t& t, Image& dest, float weight,
-                           int destDynamicFrame) const
+                           frame_t destDynamicFrame) const
 {
 	const ImageParams params = getParams();
 	const ImageParams* paramsPtr = &params;
-	const int nx = params.nx;
-	const int ny = params.ny;
-	const int nz = params.nz;
-	const int numXY = nx * ny;
-	const int numXYZ = numXY * nz;
+	const ssize_t nx = params.nx;
+	const ssize_t ny = params.ny;
+	const ssize_t nz = params.nz;
+	const ssize_t numXY = nx * ny;
+	const ssize_t numXYZ = numXY * nz;
 	float* destRawPtr = dest.getRawPointer() + destDynamicFrame * numXYZ;
 
 	const transform_t inv = util::invertTransform(t);
@@ -882,11 +889,11 @@ void Image::transformImage(const transform_t& t, Image& dest, float weight,
 	    {
 		    const float z = paramsPtr->indexToPositionInDimension<0>(i);
 
-		    for (int j = 0; j < ny; j++)
+		    for (ssize_t j = 0; j < ny; j++)
 		    {
 			    const float y = paramsPtr->indexToPositionInDimension<1>(j);
 
-			    for (int k = 0; k < nx; k++)
+			    for (ssize_t k = 0; k < nx; k++)
 			    {
 				    const float x = paramsPtr->indexToPositionInDimension<2>(k);
 
@@ -920,10 +927,10 @@ void Image::resampleImage(const ImageParams& paramsRef, Image& dest) const
 {
 	float* destRawPtr = dest.getRawPointer();
 	const ImageParams* paramsRefPtr = &paramsRef;
-	const int nxyRef = paramsRef.nx * paramsRef.ny;
-	const int nxRef = paramsRef.nx;
-	const int nyRef = paramsRef.ny;
-	const int nzRef = paramsRef.nz;
+	const ssize_t nxyRef = paramsRef.nx * paramsRef.ny;
+	const ssize_t nxRef = paramsRef.nx;
+	const ssize_t nyRef = paramsRef.ny;
+	const ssize_t nzRef = paramsRef.nz;
 
 	util::parallelForChunked(
 	    nzRef, globals::getNumThreads(),
@@ -932,11 +939,11 @@ void Image::resampleImage(const ImageParams& paramsRef, Image& dest) const
 	    {
 		    const float z = paramsRefPtr->indexToPositionInDimension<0>(k);
 
-		    for (int j = 0; j < nyRef; j++)
+		    for (ssize_t j = 0; j < nyRef; j++)
 		    {
 			    const float y = paramsRefPtr->indexToPositionInDimension<1>(j);
 
-			    for (int i = 0; i < nxRef; i++)
+			    for (ssize_t i = 0; i < nxRef; i++)
 			    {
 				    const float x =
 				        paramsRefPtr->indexToPositionInDimension<2>(i);

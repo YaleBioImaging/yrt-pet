@@ -42,7 +42,7 @@ void py_setup_imagedevice(py::module& m)
 				    throw std::invalid_argument(
 				        "The buffer given has to have a float32 format");
 			    }
-			    std::vector<size_t> dims = {
+			    std::vector<ssize_t> dims = {
 			        self.getParams().nt, self.getParams().nz,
 			        self.getParams().ny, self.getParams().nx};
 			    for (int i = 0; i < buffer.ndim; i++)
@@ -166,7 +166,7 @@ void py_setup_imagedevice(py::module& m)
 namespace yrt
 {
 ImageDevice::ImageDevice(const cudaStream_t* stream_ptr)
-    : ImageBase{}, mp_stream(stream_ptr)
+    : ImageBase{}, mp_stream(stream_ptr), m_imgSize(0ull)
 {
 }
 

@@ -630,7 +630,7 @@ void timeAverageMoveImageDynamic(const LORMotion& lorMotion,
 	ASSERT_MSG(unmovedImage != nullptr, "Null input image given");
 	ASSERT_MSG(outImage != nullptr, "Output image given is null");
 
-	const size_t numDynamicFrames = dynamicFraming.getNumFrames();
+	const ssize_t numDynamicFrames = dynamicFraming.getNumFrames();
 
 	ASSERT_MSG(outImage->getNumFrames() == numDynamicFrames,
 	           "Output image does not have the same number of frames as the "

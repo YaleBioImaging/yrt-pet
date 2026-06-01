@@ -161,9 +161,9 @@ TEST_CASE("PSF", "[psf]")
 	{
 		bool isGPU = (mode == 2);
 		std::string modeName = isGPU ? "GPU" : "CPU";
-		ImageParams imgParams{isGPU ? 50ull : 30ull,
-		                      isGPU ? 50ull : 30ull,
-		                      isGPU ? 25ull : 15ull,
+		ImageParams imgParams{isGPU ? 50ll : 30ll,
+		                      isGPU ? 50ll : 30ll,
+		                      isGPU ? 25ll : 15ll,
 		                      isGPU ? 60.0f : 30.0f,
 		                      isGPU ? 59.0f : 31.0f,
 		                      isGPU ? 23.0f : 15.0f,
@@ -441,10 +441,10 @@ TEST_CASE("VarPSF", "[varpsf]")
 		Vector3D test_pt3 = {(imgParams.nx - 1) * imgParams.vx * 0.5f,
 		                     (imgParams.ny - 1) * imgParams.vy * 0.5f,
 		                     -((imgParams.nz - 1) * imgParams.vz * 0.5f)};
-		int center_x, center_y, center_z;
-		int tp1_x, tp1_y, tp1_z;
-		int tp2_x, tp2_y, tp2_z;
-		int tp3_x, tp3_y, tp3_z;
+		ssize_t center_x, center_y, center_z;
+		ssize_t tp1_x, tp1_y, tp1_z;
+		ssize_t tp2_x, tp2_y, tp2_z;
+		ssize_t tp3_x, tp3_y, tp3_z;
 
 		image->getNearestNeighborIdx(center_pt, &center_x, &center_y,
 		                             &center_z);
@@ -633,10 +633,10 @@ TEST_CASE("VarPSF_GPU", "[varpsf_gpu]")
 		Vector3D test_pt3 = {(imgParams.nx - 1) * imgParams.vx * 0.5f,
 		                     (imgParams.ny - 1) * imgParams.vy * 0.5f,
 		                     -((imgParams.nz - 1) * imgParams.vz * 0.5f)};
-		int center_x, center_y, center_z;
-		int tp1_x, tp1_y, tp1_z;
-		int tp2_x, tp2_y, tp2_z;
-		int tp3_x, tp3_y, tp3_z;
+		ssize_t center_x, center_y, center_z;
+		ssize_t tp1_x, tp1_y, tp1_z;
+		ssize_t tp2_x, tp2_y, tp2_z;
+		ssize_t tp3_x, tp3_y, tp3_z;
 
 		image->getNearestNeighborIdx(center_pt, &center_x, &center_y,
 		                             &center_z);

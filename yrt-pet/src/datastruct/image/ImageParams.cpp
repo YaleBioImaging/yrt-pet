@@ -25,8 +25,8 @@ void py_setup_imageparams(py::module& m)
 {
 	auto c = py::class_<ImageParams>(m, "ImageParams");
 	c.def(py::init<>());
-	c.def(py::init<int, int, int, float, float, float, float, float, float,
-	               int>(),
+	c.def(py::init<ssize_t, ssize_t, ssize_t, float, float, float, float, float,
+	               float, ssize_t>(),
 	      "nx"_a, "ny"_a, "nz"_a, "length_x"_a, "length_y"_a, "length_z"_a,
 	      "offset_x"_a = 0., "offset_y"_a = 0., "offset_z"_a = 0., "nt"_a = 1);
 	// TODO: Add a constructor that would take as input a "py::kwargs". This
@@ -34,16 +34,17 @@ void py_setup_imageparams(py::module& m)
 	//  compute the length in all dimensions.
 	c.def(py::init<std::string>());
 	c.def(py::init<const ImageParams&>());
-	c.def_static("fromParams",
-	             static_cast<ImageParams (*)(int, int, int, float, float, float,
-	                                         float, float, float, frame_t)>(
-	                 &ImageParams::fromParams),
-	             "nx"_a, "ny"_a, "nz"_a, "vx"_a, "vy"_a, "vz"_a, "origin_x"_a,
-	             "origin_y"_a, "origin_z"_a, "nt"_a = 1);
 	c.def_static(
 	    "fromParams",
-	    static_cast<ImageParams (*)(int, int, int, float, float, float,
-	                                frame_t)>(&ImageParams::fromParams),
+	    static_cast<ImageParams (*)(ssize_t, ssize_t, ssize_t, float, float,
+	                                float, float, float, float, ssize_t)>(
+	        &ImageParams::fromParams),
+	    "nx"_a, "ny"_a, "nz"_a, "vx"_a, "vy"_a, "vz"_a, "origin_x"_a,
+	    "origin_y"_a, "origin_z"_a, "nt"_a = 1);
+	c.def_static(
+	    "fromParams",
+	    static_cast<ImageParams (*)(ssize_t, ssize_t, ssize_t, float, float,
+	                                float, ssize_t)>(&ImageParams::fromParams),
 	    "nx"_a, "ny"_a, "nz"_a, "vx"_a, "vy"_a, "vz"_a, "nt"_a = 1);
 	c.def_readwrite("nx", &ImageParams::nx);
 	c.def_readwrite("ny", &ImageParams::ny);
@@ -132,10 +133,10 @@ ImageParams::ImageParams()
 {
 }
 
-ImageParams::ImageParams(size_t p_nx, size_t p_ny, size_t p_nz,
+ImageParams::ImageParams(ssize_t p_nx, ssize_t p_ny, ssize_t p_nz,
                          float p_length_x, float p_length_y, float p_length_z,
                          float p_offset_x, float p_offset_y, float p_offset_z,
-                         frame_t p_nt)
+                         ssize_t p_nt)
     : nx(p_nx),
       ny(p_ny),
       nz(p_nz),
@@ -164,17 +165,17 @@ ImageParams& ImageParams::operator=(const ImageParams& in)
 	return *this;
 }
 
-ImageParams ImageParams::fromParams(int nx, int ny, int nz, float vx, float vy,
-                                    float vz, float originx, float originy,
-                                    float originz, frame_t p_nt)
+ImageParams ImageParams::fromParams(ssize_t nx, ssize_t ny, ssize_t nz,
+                                    float vx, float vy, float vz, float originx,
+                                    float originy, float originz, ssize_t p_nt)
 {
 	return ImageParams(
 	    nx, ny, nz, nx * vx, ny * vy, nz * vz, originx + (nx - 1) / 2.0f * vx,
 	    originy + (ny - 1) / 2.0f * vy, originz + (nz - 1) / 2.0f * vz, p_nt);
 }
 
-ImageParams ImageParams::fromParams(int nx, int ny, int nz, float vx, float vy,
-                                    float vz, frame_t p_nt)
+ImageParams ImageParams::fromParams(ssize_t nx, ssize_t ny, ssize_t nz,
+                                    float vx, float vy, float vz, ssize_t p_nt)
 {
 	return ImageParams(nx, ny, nz, nx * vx, ny * vy, nz * vz, 0, 0, 0, p_nt);
 }
@@ -219,7 +220,7 @@ void ImageParams::setup()
 template <int Dim>
 void ImageParams::completeDimInfo()
 {
-	const size_t* n = nullptr;
+	const ssize_t* n = nullptr;
 	float* v = nullptr;
 	float* length = nullptr;
 	float* off = nullptr;
@@ -356,19 +357,19 @@ void ImageParams::readFromJSON(json& j)
 		                       ", Given version: " + std::to_string(version));
 	}
 
-	util::getParam<size_t>(
+	util::getParam<ssize_t>(
 	    &j, &nx, "nx", 0, true,
 	    "Error in ImageParams file version : \'nx\' unspecified");
 
-	util::getParam<size_t>(
+	util::getParam<ssize_t>(
 	    &j, &ny, "ny", 0, true,
 	    "Error in ImageParams file version : \'ny\' unspecified");
 
-	util::getParam<size_t>(
+	util::getParam<ssize_t>(
 	    &j, &nz, "nz", 0, true,
 	    "Error in ImageParams file version : \'nz\' unspecified");
 
-	util::getParam<size_t>(&j, &nt, {"nt", "num_frames"}, 1, false);
+	util::getParam<ssize_t>(&j, &nt, {"nt", "num_frames"}, 1, false);
 
 	util::getParam<float>(&j, &off_x, {"off_x", "offset_x"}, 0.0, false);
 
@@ -443,7 +444,7 @@ bool ImageParams::isSameAsIgnoreFrames(const ImageParams& other) const
 }
 
 template <int Dimension>
-float ImageParams::indexToPositionInDimension(int index) const
+float ImageParams::indexToPositionInDimension(ssize_t index) const
 {
 	static_assert(Dimension >= 0 && Dimension < 3);
 	float voxelSize, length, offset;
@@ -471,11 +472,11 @@ float ImageParams::indexToPositionInDimension(int index) const
 	}
 	return util::indexToPosition(index, voxelSize, length, offset);
 }
-template float ImageParams::indexToPositionInDimension<0>(int index) const;
-template float ImageParams::indexToPositionInDimension<1>(int index) const;
-template float ImageParams::indexToPositionInDimension<2>(int index) const;
+template float ImageParams::indexToPositionInDimension<0>(ssize_t index) const;
+template float ImageParams::indexToPositionInDimension<1>(ssize_t index) const;
+template float ImageParams::indexToPositionInDimension<2>(ssize_t index) const;
 
-Vector3D ImageParams::indexToPosition(int ix, int iy, int iz) const
+Vector3D ImageParams::indexToPosition(ssize_t ix, ssize_t iy, ssize_t iz) const
 {
 	const float posZ = indexToPositionInDimension<0>(iz);
 	const float posY = indexToPositionInDimension<1>(iy);

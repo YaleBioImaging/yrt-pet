@@ -71,13 +71,13 @@ __device__ void
 	}
 
 	// ----------------------- Compute Pixel limits
-	const int nx = imgParams.nx;
-	const int ny = imgParams.ny;
-	const int nz = imgParams.nz;
+	const ssize_t nx = imgParams.nx;
+	const ssize_t ny = imgParams.ny;
+	const ssize_t nz = imgParams.nz;
 	const float imgLength_x = imgParams.length_x;
 	const float imgLength_y = imgParams.length_y;
 	const float imgLength_z = imgParams.length_z;
-	const int num_xy = nx * ny;
+	const ssize_t num_xy = nx * ny;
 	const size_t numVoxelsPerFrame = nx * ny * nz;
 	const float dx = imgParams.vx;
 	const float dy = imgParams.vy;
@@ -117,17 +117,17 @@ __device__ void
 	const float x_1 = p1.x + amax * (p2_minus_p1.x);
 	const float y_1 = p1.y + amax * (p2_minus_p1.y);
 	const float z_1 = p1.z + amax * (p2_minus_p1.z);
-	const int x_i_0 =
+	const ssize_t x_i_0 =
 	    floor(x_0 / dx + 0.5f * static_cast<float>(nx - 1) + 0.5f);
-	const int y_i_0 =
+	const ssize_t y_i_0 =
 	    floor(y_0 / dy + 0.5f * static_cast<float>(ny - 1) + 0.5f);
-	const int z_i_0 =
+	const ssize_t z_i_0 =
 	    floor(z_0 / dz + 0.5f * static_cast<float>(nz - 1) + 0.5f);
-	const int x_i_1 =
+	const ssize_t x_i_1 =
 	    floor(x_1 / dx + 0.5f * static_cast<float>(nx - 1) + 0.5f);
-	const int y_i_1 =
+	const ssize_t y_i_1 =
 	    floor(y_1 / dy + 0.5f * static_cast<float>(ny - 1) + 0.5f);
-	const int z_i_1 =
+	const ssize_t z_i_1 =
 	    floor(z_1 / dz + 0.5f * static_cast<float>(nz - 1) + 0.5f);
 
 	float d1_i, d2_i, n1_i, n2_i;
@@ -188,15 +188,15 @@ __device__ void
 	const float d2_z_hi_i = d2_i + half_thickness_z * n2_p_i;
 	const float d2_z_hi_z = p2.z + half_thickness_z * n2_p_z;
 
-	int xy_i_0, xy_i_1;
+	ssize_t xy_i_0, xy_i_1;
 	float lxy, lyx, dxy, dyx;
-	int nyx;
+	ssize_t nyx;
 	float d1_xy_lo, d1_xy_hi, d2_xy_lo, d2_xy_hi;
 	float d1_yx_lo, d1_yx_hi, d2_yx_lo, d2_yx_hi;
 	if (flag_y)
 	{
-		xy_i_0 = max(0, min(y_i_0, y_i_1));
-		xy_i_1 = min(ny - 1, max(y_i_0, y_i_1));
+		xy_i_0 = max(0l, min(y_i_0, y_i_1));
+		xy_i_1 = min(ny - 1l, max(y_i_0, y_i_1));
 		lxy = imgLength_y;
 		dxy = dy;
 		lyx = imgLength_x;
@@ -213,8 +213,8 @@ __device__ void
 	}
 	else
 	{
-		xy_i_0 = max(0, min(x_i_0, x_i_1));
-		xy_i_1 = min(nx - 1, max(x_i_0, x_i_1));
+		xy_i_0 = max(0l, min(x_i_0, x_i_1));
+		xy_i_1 = min(nx - 1l, max(x_i_0, x_i_1));
 		lxy = imgLength_x;
 		dxy = dx;
 		lyx = imgLength_y;
@@ -240,7 +240,7 @@ __device__ void
 		dxy_cos_theta = dxy;
 	}
 
-	for (int xyi = xy_i_0; xyi <= xy_i_1; xyi++)
+	for (ssize_t xyi = xy_i_0; xyi <= xy_i_1; xyi++)
 	{
 		const float pix_xy =
 		    -0.5f * lxy + (static_cast<float>(xyi) + 0.5f) * dxy;
@@ -264,11 +264,11 @@ __device__ void
 		dd_yx_r_0 -= detFootprintExt;
 		dd_yx_r_1 += detFootprintExt;
 		const float offset_dd_yx_i = static_cast<float>(nyx - 1) * 0.5f;
-		const int dd_yx_i_0 =
-		    max(0, static_cast<int>(rintf(dd_yx_r_0 / dyx + offset_dd_yx_i)));
-		const int dd_yx_i_1 = min(
-		    nyx - 1, static_cast<int>(rintf(dd_yx_r_1 / dyx + offset_dd_yx_i)));
-		for (int yxi = dd_yx_i_0; yxi <= dd_yx_i_1; yxi++)
+		const ssize_t dd_yx_i_0 =
+		    max(0, static_cast<ssize_t>(rintf(dd_yx_r_0 / dyx + offset_dd_yx_i)));
+		const ssize_t dd_yx_i_1 = min(
+		    nyx - 1, static_cast<ssize_t>(rintf(dd_yx_r_1 / dyx + offset_dd_yx_i)));
+		for (ssize_t yxi = dd_yx_i_0; yxi <= dd_yx_i_1; yxi++)
 		{
 			const float pix_yx =
 			    -0.5f * lyx + (static_cast<float>(yxi) + 0.5f) * dyx;
@@ -300,12 +300,12 @@ __device__ void
 
 				const float weight_xy_s = weight_xy / widthFrac_yx;
 				const float offset_dd_z_i = static_cast<float>(nz - 1) * 0.5f;
-				const int dd_z_i_0 = max(
-				    0, static_cast<int>(rintf(dd_z_r_0 / dz + offset_dd_z_i)));
-				const int dd_z_i_1 =
+				const ssize_t dd_z_i_0 = max(
+				    0, static_cast<ssize_t>(rintf(dd_z_r_0 / dz + offset_dd_z_i)));
+				const ssize_t dd_z_i_1 =
 				    min(nz - 1,
-				        static_cast<int>(rintf(dd_z_r_1 / dz + offset_dd_z_i)));
-				for (int zi = dd_z_i_0; zi <= dd_z_i_1; zi++)
+				        static_cast<ssize_t>(rintf(dd_z_r_1 / dz + offset_dd_z_i)));
+				for (ssize_t zi = dd_z_i_0; zi <= dd_z_i_1; zi++)
 				{
 					const float pix_z = -0.5f * imgLength_z +
 					                    (static_cast<float>(zi) + 0.5f) * dz;

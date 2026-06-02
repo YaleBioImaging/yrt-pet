@@ -52,9 +52,9 @@ TEST_CASE("Siddon-simple", "[siddon]")
 	std::string rseed_str = "random_seed=" + std::to_string(random_seed);
 
 	// Setup image
-	int nx = 5;
-	int ny = 5;
-	int nz = 6;
+	ssize_t nx = 5;
+	ssize_t ny = 5;
+	ssize_t nz = 6;
 	float sx = 1.1;
 	float sy = 1.1;
 	float sz = 1.2;

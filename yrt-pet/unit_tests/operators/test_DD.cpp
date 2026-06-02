@@ -44,9 +44,9 @@ TEST_CASE("DD", "[dd]")
 	const size_t numDets = scanner->getNumDets();
 
 	// Setup image
-	constexpr int nx = 256;
-	constexpr int ny = 256;
-	constexpr int nz = 128;
+	constexpr ssize_t nx = 256l;
+	constexpr ssize_t ny = 256l;
+	constexpr ssize_t nz = 128l;
 	constexpr float ox = 3.0f;
 	constexpr float oy = 10.0f;
 	constexpr float oz = -15.0f;

@@ -29,10 +29,10 @@ TEST_CASE("applythreshold", "[applythreshold]")
 
 	for (int trial = 0; trial < NumTrials; trial++)
 	{
-		const int nx = numVoxelsDistribution(engine);
-		const int ny = numVoxelsDistribution(engine);
-		const int nz = numVoxelsDistribution(engine);
-		const int nt = numFramesDistribution(engine);
+		const ssize_t nx = numVoxelsDistribution(engine);
+		const ssize_t ny = numVoxelsDistribution(engine);
+		const ssize_t nz = numVoxelsDistribution(engine);
+		const ssize_t nt = numFramesDistribution(engine);
 		const float length_x = imageLengthDistribution(engine);
 		const float length_y = imageLengthDistribution(engine);
 		const float length_z = imageLengthDistribution(engine);
@@ -89,10 +89,10 @@ TEST_CASE("applythreshold-broadcast", "[applythreshold]")
 
 	for (int trial = 0; trial < NumTrials; trial++)
 	{
-		const int nx = numVoxelsDistribution(engine);
-		const int ny = numVoxelsDistribution(engine);
-		const int nz = numVoxelsDistribution(engine);
-		const int nt = numFramesDistribution(engine);
+		const ssize_t nx = numVoxelsDistribution(engine);
+		const ssize_t ny = numVoxelsDistribution(engine);
+		const ssize_t nz = numVoxelsDistribution(engine);
+		const ssize_t nt = numFramesDistribution(engine);
 		const float length_x = imageLengthDistribution(engine);
 		const float length_y = imageLengthDistribution(engine);
 		const float length_z = imageLengthDistribution(engine);

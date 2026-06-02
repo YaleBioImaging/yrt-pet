@@ -27,9 +27,9 @@ TEST_CASE("updateem-static", "[updateem]")
 
 	for (int trial = 0; trial < NumTrials; trial++)
 	{
-		const int nx = numVoxelsDistribution(engine);
-		const int ny = numVoxelsDistribution(engine);
-		const int nz = numVoxelsDistribution(engine);
+		const ssize_t nx = numVoxelsDistribution(engine);
+		const ssize_t ny = numVoxelsDistribution(engine);
+		const ssize_t nz = numVoxelsDistribution(engine);
 		const float length_x = imageLengthDistribution(engine);
 		const float length_y = imageLengthDistribution(engine);
 		const float length_z = imageLengthDistribution(engine);
@@ -83,10 +83,10 @@ TEST_CASE("updateem-dynamic-with-scaling", "[updateem]")
 
 	for (int trial = 0; trial < NumTrials; trial++)
 	{
-		const int nx = numVoxelsDistribution(engine);
-		const int ny = numVoxelsDistribution(engine);
-		const int nz = numVoxelsDistribution(engine);
-		const int nt = numFramesDistribution(engine);
+		const ssize_t nx = numVoxelsDistribution(engine);
+		const ssize_t ny = numVoxelsDistribution(engine);
+		const ssize_t nz = numVoxelsDistribution(engine);
+		const ssize_t nt = numFramesDistribution(engine);
 		const float length_x = imageLengthDistribution(engine);
 		const float length_y = imageLengthDistribution(engine);
 		const float length_z = imageLengthDistribution(engine);
@@ -160,17 +160,16 @@ TEST_CASE("updateem-dynamic-with-4d-sens", "[updateem]")
 	std::uniform_int_distribution<int> numVoxelsDistribution(10, 30);
 	std::uniform_int_distribution<int> numFramesDistribution(3, 8);
 	std::uniform_real_distribution<float> imageLengthDistribution(10.0f, 20.0f);
-	std::uniform_real_distribution<float> imageDataDistribution(0.1f, 10.0f);
 	std::uniform_real_distribution<float> thresholdDistribution(0.01f, 0.5f);
 
 	constexpr int NumTrials = 3;
 
 	for (int trial = 0; trial < NumTrials; trial++)
 	{
-		const int nx = numVoxelsDistribution(engine);
-		const int ny = numVoxelsDistribution(engine);
-		const int nz = numVoxelsDistribution(engine);
-		const int nt = numFramesDistribution(engine);
+		const ssize_t nx = numVoxelsDistribution(engine);
+		const ssize_t ny = numVoxelsDistribution(engine);
+		const ssize_t nz = numVoxelsDistribution(engine);
+		const ssize_t nt = numFramesDistribution(engine);
 		const float length_x = imageLengthDistribution(engine);
 		const float length_y = imageLengthDistribution(engine);
 		const float length_z = imageLengthDistribution(engine);

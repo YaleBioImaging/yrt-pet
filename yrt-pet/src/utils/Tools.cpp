@@ -140,7 +140,8 @@ template double periodicDiff(const double&, const double&, const double&);
 template size_t periodicDiff(const size_t&, const size_t&, const size_t&);
 template int periodicDiff(const int&, const int&, const int&);
 
-int reflect(int M, int x)
+template <typename IntType>
+IntType reflect(IntType M, IntType x)
 {
 	if (x < 0)
 	{
@@ -152,8 +153,11 @@ int reflect(int M, int x)
 	}
 	return x;
 }
+template int reflect<int>(int M, int x);
+template ssize_t reflect<ssize_t>(ssize_t M, ssize_t x);
 
-int circular(int M, int x)
+template <typename IntType>
+IntType circular(IntType M, IntType x)
 {
 	if (x < 0)
 		return x + M;
@@ -161,6 +165,8 @@ int circular(int M, int x)
 		return x - M;
 	return x;
 }
+template int circular<int>(int M, int x);
+template ssize_t circular<ssize_t>(ssize_t M, ssize_t x);
 
 // Helper: returns the index where the "main" extension begins,
 // or fname.size() if no extension is found.

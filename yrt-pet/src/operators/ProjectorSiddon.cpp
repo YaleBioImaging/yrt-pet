@@ -609,7 +609,7 @@ void ProjectorSiddon::project_helper(Image* img, const Line3D& lor,
 	// contiguous array)
 	float* raw_img_ptr = img->getRawPointer();
 	// float* cur_img_ptr = nullptr;
-	size_t offset_img_ptr = 0;
+	ssize_t offset_img_ptr = 0;
 	ssize_t nx = params.nx;
 	ssize_t ny = params.ny;
 	ssize_t nz = params.nz;
@@ -722,8 +722,8 @@ void ProjectorSiddon::project_helper(Image* img, const Line3D& lor,
 		}
 		dir_prev = dir_next;
 		float weight = (a_next - a_cur) * d_norm;
-		const size_t numVoxelsPerFrame = params.nx * params.ny * params.nz;
-		const size_t imageOffset = vx + offset_img_ptr;
+		const ssize_t numVoxelsPerFrame = params.nx * params.ny * params.nz;
+		const ssize_t imageOffset = vx + offset_img_ptr;
 		if (FLAG_TOF)
 		{
 			weight *= tof_weight;

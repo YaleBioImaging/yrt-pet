@@ -338,9 +338,10 @@ void Image::assignImageNearestNeighbor(const Vector3D& pt, float value,
 	{
 		// update multiplicatively or additively:
 		float* ptr = mp_array->getRawPointer();
-		const size_t num_x = getParams().nx;
-		const size_t num_xy = getParams().nx * getParams().ny;
-		const size_t num_xyz = getParams().nx * getParams().ny * getParams().nz;
+		const ImageParams& params = getParams();
+		const ssize_t num_x = params.nx;
+		const ssize_t num_xy = params.nx * params.ny;
+		const ssize_t num_xyz = params.nx * params.ny * params.nz;
 		ptr[frame * num_xyz + iz * num_xy + iy * num_x + ix] = value;
 	}
 }
@@ -526,7 +527,7 @@ void Image::writeToFile(const std::string& fname) const
 	    "The NIfTI image file extension should be either .nii or .nii.gz");
 
 	const ImageParams& params = getParams();
-	const frame_t nt = getNumFrames();
+	const int nt = static_cast<int>(getNumFrames());
 	const bool is4D = (nt > 1);
 	const int dims[8] = {is4D ? 4 : 3,
 	                     static_cast<int>(params.nx),
@@ -627,13 +628,13 @@ void Image::applyThresholdBroadcast(const ImageBase* maskImg, float threshold,
 	const float* mask_ptr = maskImg_Image->getRawPointer();
 	const auto nt = this->getNumFrames();
 	const auto params = this->getParams();
-	const size_t J = params.nx * params.ny * params.nz;
+	const ssize_t J = params.nx * params.ny * params.nz;
 
-	for (size_t frameIndex = 0; frameIndex < nt; frameIndex++)
+	for (ssize_t frameIndex = 0; frameIndex < nt; frameIndex++)
 	{
 		float* ptr_r = ptr + frameIndex * J;
 
-		for (size_t k = 0; k < J; k++)
+		for (ssize_t k = 0; k < J; k++)
 		{
 			if (mask_ptr[k] <= threshold)
 			{
@@ -736,7 +737,7 @@ void Image::updateEMThresholdDynamicWith4DSens(Image* updateImg,
 
 	// Number of voxels per rank slab (nz*ny*nx)
 	const ImageParams& params = getParams();
-	const size_t numVoxels = params.nx * params.ny * params.nz * params.nt;
+	const ssize_t numVoxels = params.nx * params.ny * params.nz * params.nt;
 
 	util::parallelForChunked(
 	    numVoxels, globals::getNumThreads(),
@@ -769,14 +770,14 @@ void Image::updateEMThresholdDynamicWithScaling(Image* updateImg,
 
 	// number of voxels per rank slab (nz*ny*nx)
 	const ImageParams& params = getParams();
-	const size_t nt = static_cast<size_t>(params.nt);
-	const size_t J = params.nx * params.ny * params.nz;
+	const ssize_t nt = params.nt;
+	const ssize_t J = params.nx * params.ny * params.nz;
 
 	const bool allOnes = p_sensScaling == nullptr;
 
 	// Precompute to avoid divides inside the hot loop
 	std::vector<float> inv_c(nt), thr_r(nt);
-	for (size_t r = 0; r < nt; ++r)
+	for (ssize_t r = 0; r < nt; ++r)
 	{
 		if (allOnes)
 		{
@@ -1260,15 +1261,15 @@ void ImageOwned::checkImageParamsWithGivenImage(float voxelSpacing[3],
 	ASSERT_MSG(dim[3] > 0,
 	           "Dimension in Z has to be a positive non-null number");
 
-	ASSERT_MSG(static_cast<size_t>(dim[1]) == params.nx,
+	ASSERT_MSG(static_cast<ssize_t>(dim[1]) == params.nx,
 	           "Size mismatch in X dimension");
-	ASSERT_MSG(static_cast<size_t>(dim[2]) == params.ny,
+	ASSERT_MSG(static_cast<ssize_t>(dim[2]) == params.ny,
 	           "Size mismatch in Y dimension");
-	ASSERT_MSG(static_cast<size_t>(dim[3]) == params.nz,
+	ASSERT_MSG(static_cast<ssize_t>(dim[3]) == params.nz,
 	           "Size mismatch in Z dimension");
 	if (dim[0] == 4)
 	{
-		ASSERT_MSG(static_cast<size_t>(dim[4]) == params.nt,
+		ASSERT_MSG(static_cast<ssize_t>(dim[4]) == params.nt,
 		           "Size mismatch in time dimension");
 	}
 

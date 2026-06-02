@@ -84,9 +84,9 @@ TEST_CASE("image-readwrite", "[image]")
 	std::string tmpCompressedImage_fname = "tmp.nii.gz";
 	std::string tmpParams_fname = "tmp_params.json";
 
-	size_t nx = imageSizeDistribution(engine);
-	size_t ny = imageSizeDistribution(engine);
-	size_t nz = imageSizeDistribution(engine);
+	ssize_t nx = imageSizeDistribution(engine);
+	ssize_t ny = imageSizeDistribution(engine);
+	ssize_t nz = imageSizeDistribution(engine);
 	float length_x = imageLengthDistribution(engine);
 	float length_y = imageLengthDistribution(engine);
 	float length_z = imageLengthDistribution(engine);

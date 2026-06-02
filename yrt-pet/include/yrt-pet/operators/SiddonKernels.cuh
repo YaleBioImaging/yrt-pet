@@ -186,9 +186,9 @@ __device__ void
 		int dir_z = (inv_p12_z >= 0.0) ? 1 : -1;
 
 		// 2. Intersection with volume
-		const size_t nx = imgParams.nx;
-		const size_t ny = imgParams.ny;
-		const size_t nz = imgParams.nz;
+		const ssize_t nx = imgParams.nx;
+		const ssize_t ny = imgParams.ny;
+		const ssize_t nz = imgParams.nz;
 		const float imgLength_x = imgParams.length_x;
 		const float imgLength_y = imgParams.length_y;
 		const float imgLength_z = imgParams.length_z;

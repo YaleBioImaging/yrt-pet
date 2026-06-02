@@ -193,7 +193,7 @@ std::unique_ptr<ImageOwned>
 	bool mustTryAgain = false;
 
 	int prismBeginX, prismBeginY, prismBeginZ, prismEndX, prismEndY, prismEndZ;
-	frame_t nt = static_cast<frame_t>(params.nt);
+	const ssize_t nt = params.nt;
 
 	do
 	{

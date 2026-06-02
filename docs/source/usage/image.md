@@ -75,8 +75,8 @@ When using dynamic framing:
 - Each frame is reconstructed separately (i.e., independently of other frames) but
   the iterative updates are calculated for all frames  simultaneously
 - Sensitivity images can also be 4D when performing a dynamic reconstruction
-- YRT-PET fully supports images with up to $2^63$ voxels in total
-  - However, YRT-PET does not support images that have more than $2^31$ voxels
+- YRT-PET fully supports images with up to $2^{63}$ voxels in total
+  - However, YRT-PET does not support images that have more than $2^{31}$ voxels
   in one dimension.
 
 ## For Python users and plugin developers

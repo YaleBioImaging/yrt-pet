@@ -1161,69 +1161,69 @@ void ImageOwned::readNIfTIData(int datatype, void* data, float slope,
 
 	if (datatype == NIFTI_TYPE_FLOAT32)
 	{
-		for (ssize_t i = 0; i < numVoxels; i++)
+		for (ssize_t i = 0l; i < numVoxels; i++)
 			imgData[i] =
 			    (*(reinterpret_cast<float*>(data) + i) * slope) + intercept;
 	}
 	else if (datatype == NIFTI_TYPE_FLOAT64)
 	{
-		for (ssize_t i = 0; i < numVoxels; i++)
+		for (ssize_t i = 0l; i < numVoxels; i++)
 			imgData[i] =
 			    (util::reinterpretAndCast<double, float>(data, i) * slope) +
 			    intercept;
 	}
 	else if (datatype == NIFTI_TYPE_INT8)
 	{
-		for (ssize_t i = 0; i < numVoxels; i++)
+		for (ssize_t i = 0l; i < numVoxels; i++)
 			imgData[i] =
 			    (util::reinterpretAndCast<int8_t, float>(data, i) * slope) +
 			    intercept;
 	}
 	else if (datatype == NIFTI_TYPE_INT16)
 	{
-		for (ssize_t i = 0; i < numVoxels; i++)
+		for (ssize_t i = 0l; i < numVoxels; i++)
 			imgData[i] =
 			    (util::reinterpretAndCast<int16_t, float>(data, i) * slope) +
 			    intercept;
 	}
 	else if (datatype == NIFTI_TYPE_INT32)
 	{
-		for (ssize_t i = 0; i < numVoxels; i++)
+		for (ssize_t i = 0l; i < numVoxels; i++)
 			imgData[i] =
 			    (util::reinterpretAndCast<int32_t, float>(data, i) * slope) +
 			    intercept;
 	}
 	else if (datatype == NIFTI_TYPE_INT64)
 	{
-		for (ssize_t i = 0; i < numVoxels; i++)
+		for (ssize_t i = 0l; i < numVoxels; i++)
 			imgData[i] =
 			    (util::reinterpretAndCast<int64_t, float>(data, i) * slope) +
 			    intercept;
 	}
 	else if (datatype == NIFTI_TYPE_UINT8)
 	{
-		for (ssize_t i = 0; i < numVoxels; i++)
+		for (ssize_t i = 0l; i < numVoxels; i++)
 			imgData[i] =
 			    (util::reinterpretAndCast<uint8_t, float>(data, i) * slope) +
 			    intercept;
 	}
 	else if (datatype == NIFTI_TYPE_UINT16)
 	{
-		for (ssize_t i = 0; i < numVoxels; i++)
+		for (ssize_t i = 0l; i < numVoxels; i++)
 			imgData[i] =
 			    (util::reinterpretAndCast<uint16_t, float>(data, i) * slope) +
 			    intercept;
 	}
 	else if (datatype == NIFTI_TYPE_UINT32)
 	{
-		for (ssize_t i = 0; i < numVoxels; i++)
+		for (ssize_t i = 0l; i < numVoxels; i++)
 			imgData[i] =
 			    (util::reinterpretAndCast<uint32_t, float>(data, i) * slope) +
 			    intercept;
 	}
 	else if (datatype == NIFTI_TYPE_UINT64)
 	{
-		for (ssize_t i = 0; i < numVoxels; i++)
+		for (ssize_t i = 0l; i < numVoxels; i++)
 			imgData[i] =
 			    (util::reinterpretAndCast<uint64_t, float>(data, i) * slope) +
 			    intercept;

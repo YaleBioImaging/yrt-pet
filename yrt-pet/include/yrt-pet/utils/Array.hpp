@@ -463,7 +463,7 @@ protected:
 		std::array<size_t, ndim> strides;
 		for (int dim = ndim - 1; dim >= 0; --dim)
 		{
-			float stride;
+			size_t stride;
 			if (dim == ndim - 1)
 			{
 				stride = ElemSize;

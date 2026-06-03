@@ -1,4 +1,4 @@
-# Building YRT-PET
+# Building
 
 ## Requirements
 

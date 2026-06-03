@@ -52,7 +52,7 @@ Images are stored and read in NIfTI format.
 Since NifTI files include image orientation, origin and pixel
 spacing, The following requirements are imposed:
 - Input images (e.g. attenuation map, sensitivity image) must have an identity
-  orientation matrix (no rotation)
+  orientation matrix (no rotation).
 - In the reconstruction script, the origin/pixel size information is read from
   an image parameter file (described above), unless a sensitivity image is
   provided (with `--sens`), in which case the orientation/origin/pixel size from
@@ -66,15 +66,14 @@ The `nt` field in `ImageParams` sets the number of temporal frames.
 This is used in conjunction with {doc}`dynamic-framing` to reconstruct an image
 for each time range.
 
-
-The image dimensions are `(nt, nz, ny, nx)`. Note that time is the first
-dimension.
+The image dimensions are, from least contiguous to most contiguous,
+`(nt, nz, ny, nx)`. Note that time is the first dimension (`nt`).
 
 ### Notes
 When using dynamic framing:
 - Each frame is reconstructed separately (i.e., independently of other frames) but
-  the iterative updates are calculated for all frames  simultaneously
-- Sensitivity images can also be 4D when performing a dynamic reconstruction
+  the iterative updates are calculated for all frames simultaneously.
+- Sensitivity images can also be 4D when performing a dynamic reconstruction.
 - YRT-PET fully supports images with up to $2^{63}$ voxels in total
   - However, YRT-PET does not support images that have more than $2^{31}$ voxels
   in one dimension.

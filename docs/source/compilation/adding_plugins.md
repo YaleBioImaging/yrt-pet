@@ -1,4 +1,4 @@
-# Adding plugins to YRT-PET
+# Adding plugins
 
 YRT-PET can be compiled alongside external plugins that can add several things:
 - Additional List-mode or Histogram data format support

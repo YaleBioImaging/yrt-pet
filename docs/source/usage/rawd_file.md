@@ -4,10 +4,13 @@ The RAWD file format is defined as follows:
 ```
     MAGIC NUMBER (int32): 732174000 in decimal, used to detect YRT-PET file type
     Number of dimensions D (int32)
-    Dimension 0 (int64)
+    Dimension 0 (uint64)
+    Dimension 1 (uint64)
     ...
-    Dimension D - 1 (int64)
-    Data 0
+    Dimension D - 1 (uint64)
+    Value 0
+    Value 1
+    Value 2
     ...
 ```
 

@@ -93,6 +93,7 @@ public:
 	bool hasImagePSF() const;
 	void enableNeedToMakeCopyOfSensImage();  // For Python
 	void setImageParams(const ImageParams& params);
+	bool isImageParamsSet() const;
 	ImageParams getImageParams() const;
 	ImageParams getImageParamsForSensImgGen() const;
 	void setRandomsHistogram(const Histogram* pp_randoms);

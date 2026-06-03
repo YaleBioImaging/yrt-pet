@@ -359,6 +359,9 @@ int main(int argc, char** argv)
 		float hardThreshold = config.getValue<float>("hard_threshold");
 		float denomThreshold = config.getValue<float>("denom_threshold");
 		float globalScale = config.getValue<float>("global_scale");
+		auto sensImages_fname =
+		    config.getValue<std::vector<std::string>>("sens");
+		auto imgParams_fname = config.getValue<std::string>("params");
 
 		osem->num_MLEM_iterations = config.getValue<int>("num_iterations");
 		osem->num_OSEM_subsets = config.getValue<int>("num_subsets");
@@ -435,6 +438,13 @@ int main(int argc, char** argv)
 			osem->setHardwareAttenuationImage(hardwareAttImg.get());
 		}
 
+		// Set reconstruction image parameters
+		if (!imgParams_fname.empty())
+		{
+			ImageParams imgParams{imgParams_fname};
+			osem->setImageParams(imgParams);
+		}
+
 		// Projection-space PSF
 		if (!config.getValue<std::string>("proj_psf").empty())
 		{
@@ -471,12 +481,10 @@ int main(int argc, char** argv)
 		// Sensitivity image(s)
 		std::vector<std::unique_ptr<Image>> sensImages;
 		bool needToMoveSensImage = true;
-		if (config.getValue<std::vector<std::string>>("sens").empty())
+		if (sensImages_fname.empty())
 		{
-			ASSERT_MSG(!config.getValue<std::string>("params").empty(),
+			ASSERT_MSG(osem->isImageParamsSet(),
 			           "Image parameters file unspecified");
-			ImageParams imgParams{config.getValue<std::string>("params")};
-			osem->setImageParams(imgParams);
 
 			addImagePSFtoReconIfNeeded(*osem,
 			                           config.getValue<std::string>("psf"),
@@ -492,12 +500,10 @@ int main(int argc, char** argv)
 			ioTimer.run();
 		}
 		else if (osem->getExpectedSensImagesAmount() ==
-		         static_cast<int>(
-		             config.getValue<std::vector<std::string>>("sens").size()))
+		         static_cast<int>(sensImages_fname.size()))
 		{
 			std::cout << "Reading sensitivity image(s)..." << std::endl;
-			for (auto& sensImg_fname :
-			     config.getValue<std::vector<std::string>>("sens"))
+			for (auto& sensImg_fname : sensImages_fname)
 			{
 				sensImages.push_back(
 				    std::make_unique<ImageOwned>(sensImg_fname));
@@ -506,10 +512,8 @@ int main(int argc, char** argv)
 		}
 		else
 		{
-			std::cerr
-			    << "The number of sensitivity images given is "
-			    << config.getValue<std::vector<std::string>>("sens").size()
-			    << std::endl;
+			std::cerr << "The number of sensitivity images given is "
+			          << sensImages_fname.size() << std::endl;
 			std::cerr << "The expected number of sensitivity images is "
 			          << osem->getExpectedSensImagesAmount() << std::endl;
 			throw std::invalid_argument(

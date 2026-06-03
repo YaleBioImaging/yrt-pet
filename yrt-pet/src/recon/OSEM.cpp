@@ -231,13 +231,23 @@ void OSEM::setSensitivityImages(const std::vector<Image*>& sensImages)
 
 		if (i == 0)
 		{
-			sensImageParams = sensImage->getParams();
+			if (imageParams.isValid())
+			{
+				ASSERT_MSG(
+				    sensImage->getParams().isSameAsIgnoreFrames(imageParams),
+				    "Image parameters mismatch between given image parameters "
+				    "and sensitivity image");
+			}
+			else
+			{
+				sensImageParams = sensImage->getParams();
+			}
 		}
 		else
 		{
 			ASSERT_MSG(
 			    sensImage->getParams().isSameAsIgnoreFrames(sensImageParams),
-			    "Image parameters mismatch");
+			    "Image parameters mismatch between sensitivity images");
 		}
 		m_sensitivityImages.push_back(sensImage);
 	}
@@ -689,6 +699,11 @@ void OSEM::enableNeedToMakeCopyOfSensImage()
 void OSEM::setImageParams(const ImageParams& params)
 {
 	imageParams = params;
+}
+
+bool OSEM::isImageParamsSet() const
+{
+	return imageParams.isValid();
 }
 
 ImageParams OSEM::getImageParams() const

@@ -47,10 +47,9 @@ void py_setup_listmode(py::module& m)
 
 namespace yrt
 {
-ListMode::ListMode(const Scanner& pr_scanner, bool p_flagTOF,
+ListMode::ListMode(const Scanner& pr_scanner,
                    float p_timeWindow)
     : ProjectionData{pr_scanner},
-      m_flagTOF(p_flagTOF),
       m_timeWindow(p_timeWindow)
 {
 }
@@ -248,11 +247,6 @@ float ListMode::getDurationOfMotionFrame(frame_t frame) const
 	}
 	// For the events before the beginning of the frame
 	return ProjectionData::getDurationOfMotionFrame(frame);
-}
-
-bool ListMode::hasTOF() const
-{
-	return m_flagTOF;
 }
 
 float ListMode::getRandomsTimeWindow() const

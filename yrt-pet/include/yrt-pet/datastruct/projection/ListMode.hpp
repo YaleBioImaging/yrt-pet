@@ -43,7 +43,6 @@ public:
 	transform_t getTransformOfMotionFrame(frame_t frame) const override;
 	float getDurationOfMotionFrame(frame_t frame) const override;
 
-	bool hasTOF() const override;
 	float getRandomsTimeWindow() const override;
 	virtual float getSinglesRate(det_id_t /*det*/) const;
 
@@ -52,7 +51,7 @@ public:
 	const DynamicFraming* getDynamicFraming() const;
 
 protected:
-	explicit ListMode(const Scanner& pr_scanner, bool p_flagTOF = false,
+	explicit ListMode(const Scanner& pr_scanner,
 	                  float p_timeWindow = 0.f);
 
 	std::shared_ptr<LORMotion> mp_lorMotion;
@@ -60,7 +59,6 @@ protected:
 	std::shared_ptr<DynamicFraming> mp_dynamicFraming;
 	std::unique_ptr<Array1DOwned<frame_t>> mp_dynamicFrames;
 
-	bool m_flagTOF;
 	float m_timeWindow;  // in s
 };
 }  // namespace yrt

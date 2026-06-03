@@ -17,7 +17,7 @@ YRT-PET also uses a JSON file to define the Image parameters
 (size, voxel size, offset, time dimension).
 See [Documentation on the Image parameters format](image).
 
-## YRT-PET raw data format (`Array`)
+## RAWD format (`Array`)
 
 YRT-PET stores its array structures in the RAWD format.
 See [Documentation on the RAWD file structure](rawd_file)
@@ -47,6 +47,5 @@ Fully 3D Histograms are stored in YRT-PET's RAWD format
 The histogram's dimensions are defined by the scanner properties, which are
 defined in the `json` file [described earlier](scanner).
 
-See [Documentation on the histogram format](histogram3d_format)
-for more information.
+See [Documentation on the histogram format](histogram3d_format) for more information.
 When used as input, the format name is `H`.

@@ -1,4 +1,4 @@
-# YRT-PET Configuration
+# Configuration
 
 ## Number of threads
 Since YRT-PET currently uses the `std::thread` library to parallelize work, the
@@ -23,7 +23,7 @@ host and device.
 It is possible, however, to disable this behavior by setting the
 `YRTPET_DISABLE_PINNED_MEMORY` environment variable to `yes`.
 
-## From Python
+### From Python
 Using the Python bindings, it is possible to call
 `yrt.setPinnedMemoryEnabled(...)` to define this option.  This will not alter
 any environment variable, it will only affect the current process.

@@ -111,7 +111,7 @@ We will define a set of frames of varying length.
 scan_duration_ms = 5 * 60 * 1000
 
 # Seven frames. The framing starts at 0 ms
-# Here we define how the dynamic framing looks w.r.t. the duration fo each frame
+# Here we define how the dynamic framing looks w.r.t. the duration of each frame
 num_dynamic_frames = 7
 dynamic_framing_lengths = [15  * 1000, # 15 s
                            15  * 1000, # 15 s

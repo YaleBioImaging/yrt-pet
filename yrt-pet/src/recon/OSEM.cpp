@@ -237,6 +237,7 @@ void OSEM::setSensitivityImages(const std::vector<Image*>& sensImages)
 				    sensImage->getParams().isSameAsIgnoreFrames(imageParams),
 				    "Image parameters mismatch between given image parameters "
 				    "and sensitivity image");
+				sensImageParams = imageParams;
 			}
 			else
 			{

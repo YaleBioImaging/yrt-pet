@@ -59,6 +59,6 @@ protected:
 	std::shared_ptr<DynamicFraming> mp_dynamicFraming;
 	std::unique_ptr<Array1DOwned<frame_t>> mp_dynamicFrames;
 
-	float m_timeWindow;  // in s
+	float m_timeWindow;  // in seconds
 };
 }  // namespace yrt

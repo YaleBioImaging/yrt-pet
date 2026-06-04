@@ -8,6 +8,7 @@
 #include "yrt-pet/datastruct/image/ImageBase.hpp"
 #include "yrt-pet/utils/Assert.hpp"
 #include "yrt-pet/utils/Tools.hpp"
+#include <algorithm>
 #include <memory>
 
 #if BUILD_PYBIND11
@@ -21,8 +22,11 @@ void py_setup_operatorvarpsf(py::module& m)
 {
 	auto c = py::class_<OperatorVarPsf, Operator>(m, "OperatorVarPsf");
 	c.def(py::init<const ImageParams&>());
-	c.def(py::init<const std::string&, const ImageParams&>());
+	c.def(py::init<const std::string&, const ImageParams&, bool>(),
+	      py::arg("fname"), py::arg("image_params"),
+	      py::arg("use_two_gaussian") = false);
 	c.def("readFromFile", &OperatorVarPsf::readFromFile, py::arg("fname"),
+	      py::arg("use_two_gaussian") = false,
 	      "Read the variant PSF from CSV LUT");
 	c.def(
 	    "applyA", [](OperatorVarPsf& self, const Image* img_in, Image* img_out)
@@ -136,16 +140,143 @@ void ConvolutionKernelGaussian::setSigmas(float p_sigmaX, float p_sigmaY,
 	}
 }
 
+ConvolutionKernelGaussianMixture::ConvolutionKernelGaussianMixture(
+    float p_sigmaX1, float p_sigmaY1, float p_sigmaZ1, float p_sigmaX2,
+    float p_sigmaY2, float p_sigmaZ2, float p_weight2, float p_nStdX,
+    float p_nStdY, float p_nStdZ, const ImageParams& pr_imageParams)
+    : ConvolutionKernel()
+{
+	setSigmas(p_sigmaX1, p_sigmaY1, p_sigmaZ1, p_sigmaX2, p_sigmaY2,
+	          p_sigmaZ2, p_weight2, p_nStdX, p_nStdY, p_nStdZ,
+	          pr_imageParams);
+}
+
+void ConvolutionKernelGaussianMixture::setSigmas(
+    float p_sigmaX1, float p_sigmaY1, float p_sigmaZ1, float p_sigmaX2,
+    float p_sigmaY2, float p_sigmaZ2, float p_weight2, float p_nStdX,
+    float p_nStdY, float p_nStdZ, const ImageParams& pr_imageParams)
+{
+	ASSERT_MSG(p_sigmaX1 > 0.0f && p_sigmaY1 > 0.0f && p_sigmaZ1 > 0.0f,
+	           "First Gaussian sigmas must be positive");
+	ASSERT_MSG(p_sigmaX2 > 0.0f && p_sigmaY2 > 0.0f && p_sigmaZ2 > 0.0f,
+	           "Second Gaussian sigmas must be positive");
+	ASSERT_MSG(p_weight2 >= 0.0f && p_weight2 <= 1.0f,
+	           "Second Gaussian weight must be in [0, 1]");
+
+	m_sigmaX1 = p_sigmaX1;
+	m_sigmaY1 = p_sigmaY1;
+	m_sigmaZ1 = p_sigmaZ1;
+	m_sigmaX2 = p_sigmaX2;
+	m_sigmaY2 = p_sigmaY2;
+	m_sigmaZ2 = p_sigmaZ2;
+	m_weight2 = p_weight2;
+	m_nStdX = p_nStdX;
+	m_nStdY = p_nStdY;
+	m_nStdZ = p_nStdZ;
+
+	const float sigmaXMax = std::max(m_sigmaX1, m_sigmaX2);
+	const float sigmaYMax = std::max(m_sigmaY1, m_sigmaY2);
+	const float sigmaZMax = std::max(m_sigmaZ1, m_sigmaZ2);
+
+	int kernel_size_x = std::max(
+	    1,
+	    static_cast<int>(std::floor((sigmaXMax * m_nStdX) / pr_imageParams.vx)) -
+	        1);
+	int kernel_size_y = std::max(
+	    1,
+	    static_cast<int>(std::floor((sigmaYMax * m_nStdY) / pr_imageParams.vy)) -
+	        1);
+	int kernel_size_z = std::max(
+	    1,
+	    static_cast<int>(std::floor((sigmaZMax * m_nStdZ) / pr_imageParams.vz)) -
+	        1);
+
+	const int kx_len = kernel_size_x * 2 + 1;
+	const int ky_len = kernel_size_y * 2 + 1;
+	const int kz_len = kernel_size_z * 2 + 1;
+	psfKernel.allocate(kz_len, ky_len, kx_len);
+
+	const float weight1 = 1.0f - m_weight2;
+	const float inv_2_sigmax1_2 = 1.0f / (2 * m_sigmaX1 * m_sigmaX1);
+	const float inv_2_sigmay1_2 = 1.0f / (2 * m_sigmaY1 * m_sigmaY1);
+	const float inv_2_sigmaz1_2 = 1.0f / (2 * m_sigmaZ1 * m_sigmaZ1);
+	const float inv_2_sigmax2_2 = 1.0f / (2 * m_sigmaX2 * m_sigmaX2);
+	const float inv_2_sigmay2_2 = 1.0f / (2 * m_sigmaY2 * m_sigmaY2);
+	const float inv_2_sigmaz2_2 = 1.0f / (2 * m_sigmaZ2 * m_sigmaZ2);
+	float kernel1_sum = 0.0f;
+	float kernel2_sum = 0.0f;
+	int idx = 0;
+
+	for (int z_diff = -kernel_size_z; z_diff <= kernel_size_z; ++z_diff)
+	{
+		for (int y_diff = -kernel_size_y; y_diff <= kernel_size_y; ++y_diff)
+		{
+			for (int x_diff = -kernel_size_x; x_diff <= kernel_size_x;
+			     ++x_diff, ++idx)
+			{
+				const float xoffset = x_diff * pr_imageParams.vx;
+				const float yoffset = y_diff * pr_imageParams.vy;
+				const float zoffset = z_diff * pr_imageParams.vz;
+				const float exp1 =
+				    -(xoffset * xoffset * inv_2_sigmax1_2 +
+				      yoffset * yoffset * inv_2_sigmay1_2 +
+				      zoffset * zoffset * inv_2_sigmaz1_2);
+				const float exp2 =
+				    -(xoffset * xoffset * inv_2_sigmax2_2 +
+				      yoffset * yoffset * inv_2_sigmay2_2 +
+				      zoffset * zoffset * inv_2_sigmaz2_2);
+				const float value1 = std::exp(exp1);
+				const float value2 = std::exp(exp2);
+				psfKernel.setFlat(idx, value1);
+				kernel1_sum += value1;
+				kernel2_sum += value2;
+			}
+		}
+	}
+	ASSERT_MSG(kernel1_sum > 0.0f && kernel2_sum > 0.0f,
+	           "2-Gaussian kernel sums must be positive");
+
+	idx = 0;
+	for (int z_diff = -kernel_size_z; z_diff <= kernel_size_z; ++z_diff)
+	{
+		for (int y_diff = -kernel_size_y; y_diff <= kernel_size_y; ++y_diff)
+		{
+			for (int x_diff = -kernel_size_x; x_diff <= kernel_size_x;
+			     ++x_diff, ++idx)
+			{
+				const float xoffset = x_diff * pr_imageParams.vx;
+				const float yoffset = y_diff * pr_imageParams.vy;
+				const float zoffset = z_diff * pr_imageParams.vz;
+				const float exp2 =
+				    -(xoffset * xoffset * inv_2_sigmax2_2 +
+				      yoffset * yoffset * inv_2_sigmay2_2 +
+				      zoffset * zoffset * inv_2_sigmaz2_2);
+				const float value =
+				    weight1 * psfKernel.getFlat(idx) / kernel1_sum +
+				    m_weight2 * std::exp(exp2) / kernel2_sum;
+				psfKernel.setFlat(idx, value);
+			}
+		}
+	}
+
+	for (size_t i = 0; i < psfKernel.getSizeTotal(); ++i)
+	{
+		ASSERT_MSG(psfKernel.getFlat(i) >= 0.0f,
+		           "2-Gaussian kernel value cannot be negative");
+	}
+}
+
 OperatorVarPsf::OperatorVarPsf(const ImageParams& pr_imageParams)
     : Operator{}, m_imageParams(pr_imageParams)
 {
 }
 
 OperatorVarPsf::OperatorVarPsf(const std::string& imageVarPsf_fname,
-                               const ImageParams& pr_imageParams)
+                               const ImageParams& pr_imageParams,
+                               bool p_useTwoGaussian)
     : OperatorVarPsf{pr_imageParams}
 {
-	readFromFile(imageVarPsf_fname);
+	readFromFile(imageVarPsf_fname, p_useTwoGaussian);
 }
 
 const ConvolutionKernel& OperatorVarPsf::findNearestKernel(float x, float y,
@@ -176,14 +307,24 @@ const ConvolutionKernel& OperatorVarPsf::findNearestKernel(float x, float y,
 	return *m_kernelLUT[index];
 }
 
-void OperatorVarPsf::readFromFile(const std::string& imageVarPsf_fname)
+void OperatorVarPsf::readFromFile(const std::string& imageVarPsf_fname,
+                                  bool p_useTwoGaussian)
 {
 	Array2DOwned<float> data;
 	util::readCSV<float>(imageVarPsf_fname, data);
 	const std::array<size_t, 2> dims = data.getDims();
 
 	ASSERT_MSG(dims[0] > 3, "CSV file format error: At least 4 rows expected");
-	ASSERT_MSG(dims[1] == 3, "CSV file format error: 3 columns expected");
+	if (p_useTwoGaussian)
+	{
+		ASSERT_MSG(dims[1] == 7,
+		           "CSV file format error: 7 columns expected for 2-Gaussian "
+		           "VarPSF");
+	}
+	else
+	{
+		ASSERT_MSG(dims[1] == 3, "CSV file format error: 3 columns expected");
+	}
 
 	m_xRange = data[0][0];
 	m_yRange = data[0][1];
@@ -195,11 +336,22 @@ void OperatorVarPsf::readFromFile(const std::string& imageVarPsf_fname)
 	float nStdY = data[2][1];
 	float nStdZ = data[2][2];
 
+	m_kernelLUT.clear();
 	for (size_t i = 3; i < dims[0]; ++i)
 	{
-		auto kernel = std::make_unique<ConvolutionKernelGaussian>(
-		    data[i][0], data[i][1], data[i][2], nStdX, nStdY, nStdZ,
-		    m_imageParams);
+		std::unique_ptr<ConvolutionKernel> kernel;
+		if (p_useTwoGaussian)
+		{
+			kernel = std::make_unique<ConvolutionKernelGaussianMixture>(
+			    data[i][0], data[i][1], data[i][2], data[i][3], data[i][4],
+			    data[i][5], data[i][6], nStdX, nStdY, nStdZ, m_imageParams);
+		}
+		else
+		{
+			kernel = std::make_unique<ConvolutionKernelGaussian>(
+			    data[i][0], data[i][1], data[i][2], nStdX, nStdY, nStdZ,
+			    m_imageParams);
+		}
 		m_kernelLUT.push_back(std::move(kernel));
 	}
 }

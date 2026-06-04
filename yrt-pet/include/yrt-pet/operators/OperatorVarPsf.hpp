@@ -45,6 +45,25 @@ private:
 	float m_nStdX, m_nStdY, m_nStdZ;
 };
 
+class ConvolutionKernelGaussianMixture : public ConvolutionKernel
+{
+public:
+	ConvolutionKernelGaussianMixture(
+	    float p_sigmaX1, float p_sigmaY1, float p_sigmaZ1, float p_sigmaX2,
+	    float p_sigmaY2, float p_sigmaZ2, float p_weight2, float p_nStdX,
+	    float p_nStdY, float p_nStdZ, const ImageParams& pr_imageParams);
+	void setSigmas(float p_sigmaX1, float p_sigmaY1, float p_sigmaZ1,
+	               float p_sigmaX2, float p_sigmaY2, float p_sigmaZ2,
+	               float p_weight2, float p_nStdX, float p_nStdY,
+	               float p_nStdZ, const ImageParams& pr_imageParams);
+
+private:
+	float m_sigmaX1, m_sigmaY1, m_sigmaZ1;
+	float m_sigmaX2, m_sigmaY2, m_sigmaZ2;
+	float m_weight2;
+	float m_nStdX, m_nStdY, m_nStdZ;
+};
+
 class OperatorVarPsf : public Operator
 {
 public:
@@ -53,10 +72,12 @@ public:
 
 	explicit OperatorVarPsf(const ImageParams& p_imageParams);
 	OperatorVarPsf(const std::string& imageVarPsf_fname,
-	               const ImageParams& p_imageParams);
+	               const ImageParams& p_imageParams,
+	               bool p_useTwoGaussian = false);
 	~OperatorVarPsf() override = default;
 
-	void readFromFile(const std::string& imageVarPsf_fname);
+	void readFromFile(const std::string& imageVarPsf_fname,
+	                  bool p_useTwoGaussian = false);
 
 	void applyA(const Variable* in, Variable* out) override;
 	void applyAH(const Variable* in, Variable* out) override;

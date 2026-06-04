@@ -38,6 +38,7 @@ void py_setup_osem(pybind11::module& m)
 	py::enum_<ImagePSFMode>(m, "ImagePSFMode")
 	    .value("UNIFORM", ImagePSFMode::UNIFORM)
 	    .value("VARIANT", ImagePSFMode::VARIANT)
+	    .value("VARIANT_2G", ImagePSFMode::VARIANT_2G)
 	    .export_values();
 
 	auto c = py::class_<OSEM>(m, "OSEM");

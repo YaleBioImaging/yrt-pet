@@ -55,6 +55,11 @@ int main(int argc, char** argv)
 		registry.registerArgument(
 		    "varpsf", "Image-space Variant PSF look-up table file", false,
 		    io::TypeOfArgument::STRING, "", inputGroup);
+		registry.registerArgument(
+		    "varpsf_2g",
+		    "Interpret the image-space Variant PSF LUT as a 2-Gaussian "
+		    "mixture table",
+		    false, io::TypeOfArgument::BOOL, false, inputGroup);
 		registry.registerArgument("num_subsets",
 		                          "Number of OSEM subsets (Default: 1)", false,
 		                          io::TypeOfArgument::INT, 1, inputGroup);
@@ -117,6 +122,7 @@ int main(int argc, char** argv)
 		auto inputImage_fname = config.getValue<std::string>("input");
 		auto imagePsf_fname = config.getValue<std::string>("psf");
 		auto varPsf_fname = config.getValue<std::string>("varpsf");
+		const bool useVarPsf2G = config.getValue<bool>("varpsf_2g");
 		auto projPsf_fname = config.getValue<std::string>("proj_psf");
 		auto outHis_fname = config.getValue<std::string>("out");
 		auto projector_name = config.getValue<std::string>("projector");
@@ -162,8 +168,8 @@ int main(int argc, char** argv)
 		}
 		else if (!varPsf_fname.empty())
 		{
-			const auto imagePsf =
-			    std::make_unique<OperatorVarPsf>(varPsf_fname, imgParams);
+			const auto imagePsf = std::make_unique<OperatorVarPsf>(
+			    varPsf_fname, imgParams, useVarPsf2G);
 			std::cout << "Applying variant Image-space PSF..." << std::endl;
 			auto tempBuffer = std::make_unique<ImageOwned>(imgParams);
 			tempBuffer->allocate();

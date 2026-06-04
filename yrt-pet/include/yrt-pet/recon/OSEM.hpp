@@ -23,7 +23,8 @@ namespace yrt
 enum class ImagePSFMode
 {
 	UNIFORM = 0,
-	VARIANT
+	VARIANT,
+	VARIANT_2G
 };
 
 class OSEM

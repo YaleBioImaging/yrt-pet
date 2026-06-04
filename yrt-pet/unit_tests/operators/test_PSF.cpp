@@ -14,6 +14,7 @@
 #endif
 
 #include "catch.hpp"
+#include <algorithm>
 #include <cmath>
 #include <cstring>
 #include <ctime>
@@ -123,6 +124,129 @@ std::vector<float>
 							xoffset = x_diff * voxels[0];
 							yoffset = y_diff * voxels[1];
 							zoffset = z_diff * voxels[2];
+							index1 = i + j * x_dim + k * x_dim * y_dim;
+							index2 = ii + jj * x_dim + kk * x_dim * y_dim;
+							if (T_flag == 0)
+							{
+								Img_PSF[index1] +=
+								    data[index2] *
+								    psf_kernel[x_diff + kernel_size_x]
+								              [y_diff + kernel_size_y]
+								              [z_diff + kernel_size_z];
+							}
+							else
+							{
+								Img_PSF[index1] +=
+								    data[index2] *
+								    psf_kernel[-x_diff + kernel_size_x]
+								              [-y_diff + kernel_size_y]
+								              [-z_diff + kernel_size_z];
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	return Img_PSF;
+}
+
+template <typename T>
+std::vector<float> convolveGaussianMixture(
+    const std::vector<T>& data, const std::vector<int64_t>& dims,
+    const std::vector<float>& voxels, const std::vector<float>& sigma1,
+    const std::vector<float>& sigma2, float weight2, const bool T_flag,
+    const int kernel_size_x, const int kernel_size_y, const int kernel_size_z)
+{
+	if (dims.size() != 3)
+	{
+		throw std::invalid_argument(
+		    "dims must contain exactly 3 elements representing the dimensions "
+		    "of the 3D volume.");
+	}
+	int x_dim = dims[0];
+	int y_dim = dims[1];
+	int z_dim = dims[2];
+	float xoffset, yoffset, zoffset;
+	int index1, index2;
+	std::vector<float> Img_PSF(data.size(), 0.0f);
+	float kernel1_sum = 0.0f;
+	float kernel2_sum = 0.0f;
+	const float weight1 = 1.0f - weight2;
+
+	std::vector<std::vector<std::vector<float>>> psf_kernel(
+	    kernel_size_x * 2 + 1,
+	    std::vector<std::vector<float>>(
+	        kernel_size_y * 2 + 1,
+	        std::vector<float>(kernel_size_z * 2 + 1, 0.0f)));
+	const float inv_2_sigmax1_2 = 1.0f / (2 * sigma1[0] * sigma1[0]);
+	const float inv_2_sigmay1_2 = 1.0f / (2 * sigma1[1] * sigma1[1]);
+	const float inv_2_sigmaz1_2 = 1.0f / (2 * sigma1[2] * sigma1[2]);
+	const float inv_2_sigmax2_2 = 1.0f / (2 * sigma2[0] * sigma2[0]);
+	const float inv_2_sigmay2_2 = 1.0f / (2 * sigma2[1] * sigma2[1]);
+	const float inv_2_sigmaz2_2 = 1.0f / (2 * sigma2[2] * sigma2[2]);
+	for (int x_diff = -kernel_size_x; x_diff <= kernel_size_x; x_diff++)
+		for (int y_diff = -kernel_size_y; y_diff <= kernel_size_y; y_diff++)
+			for (int z_diff = -kernel_size_z; z_diff <= kernel_size_z; z_diff++)
+			{
+				xoffset = x_diff * voxels[0];
+				yoffset = y_diff * voxels[1];
+				zoffset = z_diff * voxels[2];
+				const float exp1 =
+				    (-xoffset * xoffset * inv_2_sigmax1_2) +
+				    (-yoffset * yoffset * inv_2_sigmay1_2) +
+				    (-zoffset * zoffset * inv_2_sigmaz1_2);
+				const float exp2 =
+				    (-xoffset * xoffset * inv_2_sigmax2_2) +
+				    (-yoffset * yoffset * inv_2_sigmay2_2) +
+				    (-zoffset * zoffset * inv_2_sigmaz2_2);
+				const float value1 = exp(exp1);
+				const float value2 = exp(exp2);
+				psf_kernel[x_diff + kernel_size_x][y_diff + kernel_size_y]
+				          [z_diff + kernel_size_z] = value1;
+				kernel1_sum += value1;
+				kernel2_sum += value2;
+			}
+
+	for (int x_diff = -kernel_size_x; x_diff <= kernel_size_x; x_diff++)
+		for (int y_diff = -kernel_size_y; y_diff <= kernel_size_y; y_diff++)
+			for (int z_diff = -kernel_size_z; z_diff <= kernel_size_z; z_diff++)
+			{
+				xoffset = x_diff * voxels[0];
+				yoffset = y_diff * voxels[1];
+				zoffset = z_diff * voxels[2];
+				const float exp2 =
+				    (-xoffset * xoffset * inv_2_sigmax2_2) +
+				    (-yoffset * yoffset * inv_2_sigmay2_2) +
+				    (-zoffset * zoffset * inv_2_sigmaz2_2);
+				psf_kernel[x_diff + kernel_size_x][y_diff + kernel_size_y]
+				          [z_diff + kernel_size_z] =
+				    weight1 *
+				        psf_kernel[x_diff + kernel_size_x]
+				                  [y_diff + kernel_size_y]
+				                  [z_diff + kernel_size_z] /
+				        kernel1_sum +
+				    weight2 * exp(exp2) / kernel2_sum;
+			}
+
+	for (int i = 0; i < x_dim; i++)
+	{
+		for (int j = 0; j < y_dim; j++)
+		{
+			for (int k = 0; k < z_dim; k++)
+			{
+				for (int z_diff = -kernel_size_z; z_diff <= kernel_size_z;
+				     z_diff++)
+				{
+					for (int y_diff = -kernel_size_y; y_diff <= kernel_size_y;
+					     y_diff++)
+					{
+						for (int x_diff = -kernel_size_x;
+						     x_diff <= kernel_size_x; x_diff++)
+						{
+							int ii = (i + x_diff + x_dim) % x_dim;
+							int jj = (j + y_diff + y_dim) % y_dim;
+							int kk = (k + z_diff + z_dim) % z_dim;
 							index1 = i + j * x_dim + k * x_dim * y_dim;
 							index2 = ii + jj * x_dim + kk * x_dim * y_dim;
 							if (T_flag == 0)
@@ -518,6 +642,99 @@ TEST_CASE("VarPSF", "[varpsf]")
 	}
 }
 
+TEST_CASE("VarPSF_2G", "[varpsf_2g]")
+{
+	ImageParams imgParams{30, 28, 15, 90.0f, 84.0f, 45.0f, 0.0f, 0.0f, 0.0f};
+	auto image = makeImageWithRandomPrism(imgParams);
+	OperatorVarPsf op_var(imgParams);
+	op_var.setRangeAndGap(100, 100, 100, 100, 100, 100);
+
+	std::vector<float> sigmas1 = {0.75f, 0.85f, 0.65f};
+	std::vector<float> sigmas2 = {1.55f, 1.35f, 1.15f};
+	const float weight2 = 0.35f;
+	const float nstdx = 4.0f;
+	const float nstdy = 4.0f;
+	const float nstdz = 4.0f;
+	OperatorVarPsf::ConvolutionKernelCollection kernels;
+	for (size_t i = 0; i < 8; ++i)
+	{
+		auto kernel = std::make_unique<ConvolutionKernelGaussianMixture>(
+		    sigmas1[0], sigmas1[1], sigmas1[2], sigmas2[0], sigmas2[1],
+		    sigmas2[2], weight2, nstdx, nstdy, nstdz, imgParams);
+		kernels.push_back(std::move(kernel));
+	}
+	op_var.setKernelCollection(kernels);
+
+	auto img_out = std::make_unique<ImageOwned>(imgParams);
+	img_out->allocate();
+	img_out->fill(0.0f);
+
+	std::vector<int64_t> dims = {imgParams.nx, imgParams.ny, imgParams.nz};
+	std::vector<float> voxels = {imgParams.vx, imgParams.vy, imgParams.vz};
+	std::vector<float> inputData(image->getData().getSizeTotal());
+	std::memcpy(inputData.data(), image->getRawPointer(),
+	            image->getData().getSizeTotal() * sizeof(float));
+
+	const int kernel_size_x = std::max(
+	    1,
+	    static_cast<int>(
+	        std::floor((std::max(sigmas1[0], sigmas2[0]) * nstdx) /
+	                   imgParams.vx)) -
+	        1);
+	const int kernel_size_y = std::max(
+	    1,
+	    static_cast<int>(
+	        std::floor((std::max(sigmas1[1], sigmas2[1]) * nstdy) /
+	                   imgParams.vy)) -
+	        1);
+	const int kernel_size_z = std::max(
+	    1,
+	    static_cast<int>(
+	        std::floor((std::max(sigmas1[2], sigmas2[2]) * nstdz) /
+	                   imgParams.vz)) -
+	        1);
+
+	SECTION("forward_varpsf_2g")
+	{
+		op_var.applyA(image.get(), img_out.get());
+		std::vector<float> expected = convolveGaussianMixture(
+		    inputData, dims, voxels, sigmas1, sigmas2, weight2, false,
+		    kernel_size_x, kernel_size_y, kernel_size_z);
+
+		const std::vector<size_t> indices = {
+		    0,
+		    static_cast<size_t>(imgParams.nx / 2 +
+		                        imgParams.nx *
+		                            (imgParams.ny / 2 +
+		                             imgParams.ny * (imgParams.nz / 2))),
+		    static_cast<size_t>(imgParams.nx * imgParams.ny * imgParams.nz -
+		                        1)};
+		for (const auto idx : indices)
+		{
+			CHECK(img_out->getRawPointer()[idx] ==
+			      Approx(expected[idx]).epsilon(1e-3));
+		}
+	}
+
+	SECTION("adjoint_test_varpsf_2g")
+	{
+		auto img_out1 = std::make_unique<ImageOwned>(imgParams);
+		img_out1->allocate();
+		img_out1->fill(0.0f);
+		op_var.applyA(image.get(), img_out1.get());
+
+		auto image2 = makeImageWithRandomPrism(imgParams);
+		auto img_out2 = std::make_unique<ImageOwned>(imgParams);
+		img_out2->allocate();
+		img_out2->fill(0.0f);
+		op_var.applyAH(image2.get(), img_out2.get());
+
+		const float lhs = img_out1->dotProduct(*image2);
+		const float rhs = image->dotProduct(*img_out2);
+		CHECK(lhs == Approx(rhs).epsilon(1e-3));
+	}
+}
+
 #if BUILD_CUDA
 TEST_CASE("VarPSF_GPU", "[varpsf_gpu]")
 {
@@ -706,6 +923,100 @@ TEST_CASE("VarPSF_GPU", "[varpsf_gpu]")
 			float rhs = image->dotProduct(*img_out2);   // <x, A^T y>
 			CHECK(lhs == Approx(rhs).epsilon(1e-3));
 		}
+	}
+}
+
+TEST_CASE("VarPSF_2G_GPU", "[varpsf_2g_gpu]")
+{
+	ImageParams imgParams{30, 28, 15, 90.0f, 84.0f, 45.0f, 0.0f, 0.0f, 0.0f};
+	auto image = makeImageWithRandomPrism(imgParams);
+	OperatorVarPsfDevice op_var(imgParams);
+	op_var.setRangeAndGap(100, 100, 100, 100, 100, 100);
+
+	std::vector<float> sigmas1 = {0.75f, 0.85f, 0.65f};
+	std::vector<float> sigmas2 = {1.55f, 1.35f, 1.15f};
+	const float weight2 = 0.35f;
+	const float nstdx = 4.0f;
+	const float nstdy = 4.0f;
+	const float nstdz = 4.0f;
+	OperatorVarPsf::ConvolutionKernelCollection kernels;
+	for (size_t i = 0; i < 8; ++i)
+	{
+		auto kernel = std::make_unique<ConvolutionKernelGaussianMixture>(
+		    sigmas1[0], sigmas1[1], sigmas1[2], sigmas2[0], sigmas2[1],
+		    sigmas2[2], weight2, nstdx, nstdy, nstdz, imgParams);
+		kernels.push_back(std::move(kernel));
+	}
+	op_var.setKernelCollection(kernels);
+	op_var.copyVarPsfToDevice(true);
+
+	auto img_out = std::make_unique<ImageOwned>(imgParams);
+	img_out->allocate();
+	img_out->fill(0.0f);
+
+	std::vector<int64_t> dims = {imgParams.nx, imgParams.ny, imgParams.nz};
+	std::vector<float> voxels = {imgParams.vx, imgParams.vy, imgParams.vz};
+	std::vector<float> inputData(image->getData().getSizeTotal());
+	std::memcpy(inputData.data(), image->getRawPointer(),
+	            image->getData().getSizeTotal() * sizeof(float));
+
+	const int kernel_size_x = std::max(
+	    1,
+	    static_cast<int>(
+	        std::floor((std::max(sigmas1[0], sigmas2[0]) * nstdx) /
+	                   imgParams.vx)) -
+	        1);
+	const int kernel_size_y = std::max(
+	    1,
+	    static_cast<int>(
+	        std::floor((std::max(sigmas1[1], sigmas2[1]) * nstdy) /
+	                   imgParams.vy)) -
+	        1);
+	const int kernel_size_z = std::max(
+	    1,
+	    static_cast<int>(
+	        std::floor((std::max(sigmas1[2], sigmas2[2]) * nstdz) /
+	                   imgParams.vz)) -
+	        1);
+
+	SECTION("forward_varpsf_2g_gpu")
+	{
+		op_var.applyA(image.get(), img_out.get());
+		std::vector<float> expected = convolveGaussianMixture(
+		    inputData, dims, voxels, sigmas1, sigmas2, weight2, false,
+		    kernel_size_x, kernel_size_y, kernel_size_z);
+
+		const std::vector<size_t> indices = {
+		    0,
+		    static_cast<size_t>(imgParams.nx / 2 +
+		                        imgParams.nx *
+		                            (imgParams.ny / 2 +
+		                             imgParams.ny * (imgParams.nz / 2))),
+		    static_cast<size_t>(imgParams.nx * imgParams.ny * imgParams.nz -
+		                        1)};
+		for (const auto idx : indices)
+		{
+			CHECK(img_out->getRawPointer()[idx] ==
+			      Approx(expected[idx]).epsilon(1e-3));
+		}
+	}
+
+	SECTION("adjoint_test_varpsf_2g_gpu")
+	{
+		auto img_out1 = std::make_unique<ImageOwned>(imgParams);
+		img_out1->allocate();
+		img_out1->fill(0.0f);
+		op_var.applyA(image.get(), img_out1.get());
+
+		auto image2 = makeImageWithRandomPrism(imgParams);
+		auto img_out2 = std::make_unique<ImageOwned>(imgParams);
+		img_out2->allocate();
+		img_out2->fill(0.0f);
+		op_var.applyAH(image2.get(), img_out2.get());
+
+		const float lhs = img_out1->dotProduct(*image2);
+		const float rhs = image->dotProduct(*img_out2);
+		CHECK(lhs == Approx(rhs).epsilon(1e-3));
 	}
 }
 #endif  // BUILD_CUDA

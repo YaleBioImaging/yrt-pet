@@ -512,7 +512,7 @@ void OSEM_GPU::computeEMUpdateImage()
 void OSEM_GPU::applyImageUpdate()
 {
 	mpd_mlemImage->updateEMThresholdDynamicDevice(
-	    mpd_tmpImage1.get(), mpd_sensImageBuffer.get(), EPS_FLT, true);
+	    mpd_tmpImage1.get(), mpd_sensImageBuffer.get(), denomThreshold, true);
 }
 
 void OSEM_GPU::completeSubset() {}

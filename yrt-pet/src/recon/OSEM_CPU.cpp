@@ -399,7 +399,7 @@ void OSEM_CPU::applyImageUpdate()
 
 	// Apply the update on the outImage buffer
 	outImage->updateEMThresholdDynamic(mp_mlemImageTmpEMRatio.get(), sensImage,
-	                                   EPS_FLT);
+	                                   denomThreshold);
 }
 
 

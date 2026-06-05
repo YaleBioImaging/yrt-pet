@@ -10,7 +10,9 @@
 #include <algorithm>
 #include <cstdlib>
 #include <cstdint>
+#include <cstring>
 #include <limits>
+#include <string>
 
 namespace yrt::backend::metal
 {
@@ -80,6 +82,29 @@ std::uint32_t josephSampleStride()
 	                    std::numeric_limits<int>::max())));
 }
 
+bool useThreadgroupSampleAccumulationForAdjoint()
+{
+	const char* value =
+	    std::getenv("YRTPET_METAL_JOSEPH_ADJOINT_ACCUMULATION");
+	return value != nullptr &&
+	       (std::strcmp(value, "threadgroup-sample") == 0 ||
+	           std::strcmp(value, "tg-sample") == 0 ||
+	           std::strcmp(value, "threadgroup") == 0);
+}
+
+const char* axisSuffix(std::uint32_t axis)
+{
+	if (axis == 0)
+	{
+		return "x";
+	}
+	if (axis == 1)
+	{
+		return "y";
+	}
+	return axis == 2 ? "z" : nullptr;
+}
+
 }  // namespace
 
 bool launchJosephForwardSingleRay(const Device& device, const Library& library,
@@ -102,6 +127,33 @@ bool launchJosephForwardSingleRay(const Device& device, const Library& library,
 	                {{&params, sizeof(params), 3},
 	                    {&sampleStride, sizeof(sampleStride), 4}},
 	                lineCount));
+}
+
+bool launchJosephForwardSingleRayAxis(const Device& device,
+    const Library& library, const CommandQueue& commandQueue,
+    const Buffer& image, const Buffer& lines, Buffer& projectionValues,
+    const SiddonForwardImageParams& params, std::size_t lineCount,
+    std::uint32_t axis)
+{
+	const char* suffix = axisSuffix(axis);
+	const std::uint32_t sampleStride = josephSampleStride();
+	if (suffix == nullptr || sampleStride > 1)
+	{
+		return launchJosephForwardSingleRay(device, library, commandQueue,
+		    image, lines, projectionValues, params, lineCount);
+	}
+	if (!areParamsValid(params) || !coversFloatCount(image, voxelCount(params)) ||
+	    !coversLineCount(lines, lineCount) ||
+	    !coversFloatCount(projectionValues, lineCount))
+	{
+		return false;
+	}
+
+	const std::string kernelName =
+	    std::string("joseph_forward_single_ray_axis_") + suffix;
+	return launchKernel1D(device, library, commandQueue, kernelName.c_str(),
+	    {{&image, 0}, {&lines, 1}, {&projectionValues, 2}},
+	    {{&params, sizeof(params), 3}}, lineCount);
 }
 
 bool launchJosephForwardSingleRayTexture(const Device& device,
@@ -136,26 +188,70 @@ bool launchJosephBackProjectSingleRay(const Device& device,
     const SiddonForwardImageParams& params, std::size_t lineCount)
 {
 	const std::uint32_t sampleStride = josephSampleStride();
-	return areParamsValid(params) && lineCount > 0 &&
-	       coversFloatCount(image, voxelCount(params)) &&
-	       coversLineCount(lines, lineCount) &&
-	       coversFloatCount(projectionValues, lineCount) &&
-	       (sampleStride <= 1 ?
-	            launchKernel1D(device, library, commandQueue,
-	                useNativeFloatAtomicsForAdjoint()
-	                    ? "joseph_backproject_single_ray_native_atomic_float"
-	                    : "joseph_backproject_single_ray",
-	                {{&image, 0}, {&lines, 1}, {&projectionValues, 2}},
-	                {{&params, sizeof(params), 3}}, lineCount) :
-	            launchKernel1D(device, library, commandQueue,
-	                useNativeFloatAtomicsForAdjoint() ?
-	                    "joseph_backproject_single_ray_sample_stride_"
-	                    "native_atomic_float" :
-	                    "joseph_backproject_single_ray_sample_stride",
-	                {{&image, 0}, {&lines, 1}, {&projectionValues, 2}},
-	                {{&params, sizeof(params), 3},
-	                    {&sampleStride, sizeof(sampleStride), 4}},
-	                lineCount));
+	if (!areParamsValid(params) || lineCount == 0 ||
+	    !coversFloatCount(image, voxelCount(params)) ||
+	    !coversLineCount(lines, lineCount) ||
+	    !coversFloatCount(projectionValues, lineCount))
+	{
+		return false;
+	}
+
+	const bool useNativeFloatAtomics = useNativeFloatAtomicsForAdjoint();
+	if (sampleStride <= 1)
+	{
+		const char* kernelName =
+		    useNativeFloatAtomics &&
+		            useThreadgroupSampleAccumulationForAdjoint() ?
+		        "joseph_backproject_single_ray_threadgroup_sample_"
+		        "native_atomic_float" :
+		    useNativeFloatAtomics ?
+		        "joseph_backproject_single_ray_native_atomic_float" :
+		        "joseph_backproject_single_ray";
+		return launchKernel1D(device, library, commandQueue, kernelName,
+		    {{&image, 0}, {&lines, 1}, {&projectionValues, 2}},
+		    {{&params, sizeof(params), 3}}, lineCount);
+	}
+
+	return launchKernel1D(device, library, commandQueue,
+	    useNativeFloatAtomics ?
+	        "joseph_backproject_single_ray_sample_stride_"
+	        "native_atomic_float" :
+	        "joseph_backproject_single_ray_sample_stride",
+	    {{&image, 0}, {&lines, 1}, {&projectionValues, 2}},
+	    {{&params, sizeof(params), 3},
+	        {&sampleStride, sizeof(sampleStride), 4}},
+	    lineCount);
+}
+
+bool launchJosephBackProjectSingleRayAxis(const Device& device,
+    const Library& library, const CommandQueue& commandQueue, Buffer& image,
+    const Buffer& lines, const Buffer& projectionValues,
+    const SiddonForwardImageParams& params, std::size_t lineCount,
+    std::uint32_t axis)
+{
+	const char* suffix = axisSuffix(axis);
+	const std::uint32_t sampleStride = josephSampleStride();
+	if (suffix == nullptr || sampleStride > 1 ||
+	    useThreadgroupSampleAccumulationForAdjoint())
+	{
+		return launchJosephBackProjectSingleRay(device, library, commandQueue,
+		    image, lines, projectionValues, params, lineCount);
+	}
+	if (!areParamsValid(params) || lineCount == 0 ||
+	    !coversFloatCount(image, voxelCount(params)) ||
+	    !coversLineCount(lines, lineCount) ||
+	    !coversFloatCount(projectionValues, lineCount))
+	{
+		return false;
+	}
+
+	const bool useNativeFloatAtomics = useNativeFloatAtomicsForAdjoint();
+	const std::string kernelName =
+	    std::string("joseph_backproject_single_ray_axis_") + suffix +
+	    (useNativeFloatAtomics ? "_native_atomic_float" : "");
+	return launchKernel1D(device, library, commandQueue, kernelName.c_str(),
+	    {{&image, 0}, {&lines, 1}, {&projectionValues, 2}},
+	    {{&params, sizeof(params), 3}}, lineCount);
 }
 
 bool launchJosephBackProjectSingleRayUpdateCount(const Device& device,

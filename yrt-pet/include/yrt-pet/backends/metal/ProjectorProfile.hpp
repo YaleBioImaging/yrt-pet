@@ -47,6 +47,13 @@ struct SiddonProjectorKernelProfile
 
 struct OperatorProjectorMetalProfile
 {
+	double setupContextSeconds = 0.0;
+	double setupProjectorSeconds = 0.0;
+	double setupCacheSeconds = 0.0;
+	double setupBridgeSeconds = 0.0;
+	double setupCanRunSeconds = 0.0;
+	double metalPathOverheadSeconds = 0.0;
+
 	double forwardGatherSeconds = 0.0;
 	double forwardGatherCacheBuildSeconds = 0.0;
 	double forwardGatherUncachedSeconds = 0.0;
@@ -66,6 +73,8 @@ struct OperatorProjectorMetalProfile
 	double ratioPackSeconds = 0.0;
 	double ratioBatchUploadSeconds = 0.0;
 	double ratioKernelSeconds = 0.0;
+	double ratioCorrectionCacheBuildSeconds = 0.0;
+	double ratioNonzeroDiagnosticSeconds = 0.0;
 
 	double adjointGatherSeconds = 0.0;
 	double adjointGatherCacheBuildSeconds = 0.0;
@@ -84,6 +93,19 @@ struct OperatorProjectorMetalProfile
 	double adjointHostImageCopySeconds = 0.0;
 	double adjointUpdateCountSeconds = 0.0;
 	double adjointVoxelHitCountSeconds = 0.0;
+	double cacheLookupSeconds = 0.0;
+	double cacheAdmissionSeconds = 0.0;
+	double cacheAdmissionGatherSeconds = 0.0;
+	double cacheAdmissionPackSeconds = 0.0;
+	double cacheAdmissionBatchUploadSeconds = 0.0;
+	double cacheAdmissionCorrectionBuildSeconds = 0.0;
+	double cacheAdmissionCorrectionFillSeconds = 0.0;
+	double cacheAdmissionCorrectionUploadSeconds = 0.0;
+	double cacheAdmissionCorrectionMeasurementSeconds = 0.0;
+	double cacheAdmissionCorrectionMultiplicativeSeconds = 0.0;
+	double cacheAdmissionCorrectionAdditiveSeconds = 0.0;
+	double cacheAdmissionCorrectionInVivoSeconds = 0.0;
+	double cacheInsertSeconds = 0.0;
 
 	bool diagnoseAdjointUpdateCounts = false;
 	bool diagnoseAdjointVoxelHits = false;
@@ -123,7 +145,16 @@ struct OperatorProjectorMetalProfile
 	std::size_t cacheSkipsOverBudget = 0;
 	std::size_t cacheUsedBytes = 0;
 	std::size_t cacheMaxBytes = 0;
+	std::size_t cacheCorrectionReserveBytes = 0;
 	std::size_t uncachedBatches = 0;
+	std::size_t ratioCorrectionCacheBuilds = 0;
+	std::size_t ratioCorrectionCacheHits = 0;
+	std::size_t ratioCorrectionCacheMisses = 0;
+	std::size_t ratioCorrectionCacheBytes = 0;
+	std::size_t ratioValues = 0;
+	std::size_t ratioNonzeroValues = 0;
+	std::size_t ratioZeroValues = 0;
+	std::size_t ratioNonzeroDiagnosticBatches = 0;
 };
 
 }  // namespace yrt::backend::metal

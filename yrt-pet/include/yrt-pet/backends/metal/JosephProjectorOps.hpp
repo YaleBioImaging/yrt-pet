@@ -31,6 +31,10 @@ bool forwardProjectJosephSingleRay(const Context& context,
     const Buffer& imageBuffer, ProjectionBatchMetal& batch,
     const SiddonForwardImageParams& params,
     SiddonProjectorKernelProfile* profile = nullptr);
+bool forwardProjectJosephSingleRayAxis(const Context& context,
+    const Buffer& imageBuffer, ProjectionBatchMetal& batch,
+    const SiddonForwardImageParams& params, std::uint32_t axis,
+    SiddonProjectorKernelProfile* profile = nullptr);
 bool uploadJosephImageFrameTexture(const Context& context, const Image& image,
     std::uint32_t frame, Texture3D& texture, Sampler& sampler,
     SiddonProjectorKernelProfile* profile = nullptr);
@@ -44,6 +48,10 @@ bool backProjectJosephSingleRay(const Context& context,
 bool backProjectJosephSingleRay(const Context& context,
     const ProjectionBatchMetal& batch, Buffer& imageBuffer,
     const SiddonForwardImageParams& params,
+    SiddonProjectorKernelProfile* profile = nullptr);
+bool backProjectJosephSingleRayAxis(const Context& context,
+    const ProjectionBatchMetal& batch, Buffer& imageBuffer,
+    const SiddonForwardImageParams& params, std::uint32_t axis,
     SiddonProjectorKernelProfile* profile = nullptr);
 
 }  // namespace yrt::backend::metal

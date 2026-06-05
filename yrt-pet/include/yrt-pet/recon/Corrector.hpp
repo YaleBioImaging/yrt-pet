@@ -96,6 +96,18 @@ public:
 	float getPrecomputedRandomsEstimate(bin_t binId) const;
 	float getPrecomputedScatterEstimate(bin_t binId) const;
 	float getPrecomputedInVivoAttenuationFactor(bin_t binId) const;
+	float getSensitivityFactor(const ProjectionData& measurements,
+	                           bin_t binId) const;
+	float getAttenuationFactorForBin(const ProjectionData& measurements,
+	                                 bin_t binId) const;
+	float getRandomsEstimateForBin(const ProjectionData& measurements,
+	                               bin_t binId) const;
+	float getScatterEstimateForBin(const ProjectionData& measurements,
+	                               bin_t binId) const;
+	float getAdditiveCorrectionForBin(const ProjectionData& measurements,
+	                                  bin_t binId) const;
+	float getInVivoAttenuationFactorForBin(const ProjectionData& measurements,
+	                                       bin_t binId) const;
 
 	// To validate
 	void assertMeasurementsMatchCache(const ProjectionData* measurements) const;

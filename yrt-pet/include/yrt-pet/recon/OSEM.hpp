@@ -127,6 +127,30 @@ protected:
 	virtual void endSensImgGen() = 0;
 
 	// Reconstruction driver
+	enum class ReconstructionTimingPhase
+	{
+		InitializeForRecon,
+		SetupForDynamicRecon,
+		InitializeOutImage,
+		InitializeSensImage,
+		CorrectorSetup,
+		InitializeBinIterators,
+		CollectConstraints,
+		SetupProjector,
+		PrepareBuffers,
+		Iterate,
+		LoadSubset,
+		ResetUpdateImage,
+		ComputeUpdateImage,
+		ApplyImageUpdate,
+		CompleteSubset,
+		SaveIteration,
+		CompleteMLEMIteration,
+		EndRecon
+	};
+	virtual bool isReconstructionTimingEnabled() const;
+	virtual void recordReconstructionTiming(ReconstructionTimingPhase phase,
+	                                        double seconds);
 	virtual void iterate();
 	virtual void saveForCurrentIteration();
 	virtual void setupForDynamicRecon();

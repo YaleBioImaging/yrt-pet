@@ -24,6 +24,8 @@
 #include "yrt-pet/utils/Tools.hpp"
 #include "yrt-pet/utils/Version.hpp"
 
+#include <chrono>
+
 #if BUILD_PYBIND11
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
@@ -165,6 +167,16 @@ void py_setup_osem(pybind11::module& m)
 
 namespace yrt
 {
+namespace
+{
+using ReconClock = std::chrono::steady_clock;
+
+double elapsedReconSeconds(ReconClock::time_point start,
+                           ReconClock::time_point end)
+{
+	return std::chrono::duration<double>(end - start).count();
+}
+}  // namespace
 
 OSEM::OSEM(const Scanner& pr_scanner)
     : num_MLEM_iterations(DEFAULT_NUM_ITERATIONS),
@@ -331,7 +343,21 @@ std::unique_ptr<Image> OSEM::reconstruct(const std::string& out_fname)
 		                       std::to_string(m_sensitivityImages.size()));
 	}
 
-	initializeForRecon();
+	auto timePhase = [this](ReconstructionTimingPhase phase, auto&& fn)
+	{
+		if (!isReconstructionTimingEnabled())
+		{
+			fn();
+			return;
+		}
+		const auto start = ReconClock::now();
+		fn();
+		recordReconstructionTiming(phase,
+		                           elapsedReconSeconds(start, ReconClock::now()));
+	};
+
+	timePhase(ReconstructionTimingPhase::InitializeForRecon,
+	          [this]() { initializeForRecon(); });
 
 	// MLEM iterations
 	for (int iter = 0; iter < num_MLEM_iterations; iter++)
@@ -340,17 +366,19 @@ std::unique_ptr<Image> OSEM::reconstruct(const std::string& out_fname)
 		std::cout << "MLEM iteration " << iter + 1 << "/" << num_MLEM_iterations
 		          << "..." << std::endl;
 
-		iterate();
+		timePhase(ReconstructionTimingPhase::Iterate, [this]() { iterate(); });
 
 		if (saveIterRanges.isIn(iter + 1))
 		{
-			saveForCurrentIteration();
+			timePhase(ReconstructionTimingPhase::SaveIteration,
+			          [this]() { saveForCurrentIteration(); });
 		}
 
-		completeMLEMIteration();
+		timePhase(ReconstructionTimingPhase::CompleteMLEMIteration,
+		          [this]() { completeMLEMIteration(); });
 	}
 
-	endRecon();
+	timePhase(ReconstructionTimingPhase::EndRecon, [this]() { endRecon(); });
 
 	// Deallocate the copied sensitivity image if it was allocated
 	mp_copiedSensitivityImage = nullptr;
@@ -363,6 +391,15 @@ std::unique_ptr<Image> OSEM::reconstruct(const std::string& out_fname)
 
 	return std::move(outImage);
 }
+
+bool OSEM::isReconstructionTimingEnabled() const
+{
+	return false;
+}
+
+void OSEM::recordReconstructionTiming(ReconstructionTimingPhase /*phase*/,
+                                      double /*seconds*/)
+{}
 
 std::string OSEM::getSummary() const
 {
@@ -787,6 +824,19 @@ UpdaterType OSEM::getProjectorUpdaterType() const
 
 void OSEM::iterate()
 {
+	auto timePhase = [this](ReconstructionTimingPhase phase, auto&& fn)
+	{
+		if (!isReconstructionTimingEnabled())
+		{
+			fn();
+			return;
+		}
+		const auto start = ReconClock::now();
+		fn();
+		recordReconstructionTiming(phase,
+		                           elapsedReconSeconds(start, ReconClock::now()));
+	};
+
 	// OSEM subsets
 	for (int subsetId = 0; subsetId < num_OSEM_subsets; subsetId++)
 	{
@@ -794,19 +844,24 @@ void OSEM::iterate()
 		          << "..." << std::endl;
 
 		// Load the appropriate sensitivity image
-		loadSubsetInternal(subsetId, true);
+		timePhase(ReconstructionTimingPhase::LoadSubset,
+		          [this, subsetId]() { loadSubsetInternal(subsetId, true); });
 
 		// Reset mutiplicative image
-		resetEMUpdateImage();
+		timePhase(ReconstructionTimingPhase::ResetUpdateImage,
+		          [this]() { resetEMUpdateImage(); });
 
 		// Compute multiplicative image
-		computeEMUpdateImage();
+		timePhase(ReconstructionTimingPhase::ComputeUpdateImage,
+		          [this]() { computeEMUpdateImage(); });
 
 		// Update MLEM image using multiplicative image (and sensitivity image)
-		applyImageUpdate();
+		timePhase(ReconstructionTimingPhase::ApplyImageUpdate,
+		          [this]() { applyImageUpdate(); });
 
 		// Prepare for next subset
-		completeSubset();
+		timePhase(ReconstructionTimingPhase::CompleteSubset,
+		          [this]() { completeSubset(); });
 	}
 }
 
@@ -901,26 +956,47 @@ void OSEM::initializeForSensImgGen()
 
 void OSEM::initializeForRecon()
 {
-	// Adjustments for time series
-	setupForDynamicRecon();
+	auto timePhase = [this](ReconstructionTimingPhase phase, auto&& fn)
+	{
+		if (!isReconstructionTimingEnabled())
+		{
+			fn();
+			return;
+		}
+		const auto start = ReconClock::now();
+		fn();
+		recordReconstructionTiming(phase,
+		                           elapsedReconSeconds(start, ReconClock::now()));
+	};
 
-	initializeOutImageBuffer();
-	initializeSensImageBuffer();
+	// Adjustments for time series
+	timePhase(ReconstructionTimingPhase::SetupForDynamicRecon,
+	          [this]() { setupForDynamicRecon(); });
+
+	timePhase(ReconstructionTimingPhase::InitializeOutImage,
+	          [this]() { initializeOutImageBuffer(); });
+	timePhase(ReconstructionTimingPhase::InitializeSensImage,
+	          [this]() { initializeSensImageBuffer(); });
 
 	// Setup corrector
-	getCorrector().setup();
+	timePhase(ReconstructionTimingPhase::CorrectorSetup,
+	          [this]() { getCorrector().setup(); });
 
 	// Bin iterators
-	initializeBinIterators(getDataInput());
+	timePhase(ReconstructionTimingPhase::InitializeBinIterators,
+	          [this]() { initializeBinIterators(getDataInput()); });
 
 	// Constraints
-	collectConstraints();
+	timePhase(ReconstructionTimingPhase::CollectConstraints,
+	          [this]() { collectConstraints(); });
 
 	// Projector
-	setupProjectorForRecon();
+	timePhase(ReconstructionTimingPhase::SetupProjector,
+	          [this]() { setupProjectorForRecon(); });
 
 	// Allocate buffers
-	prepareBuffersForRecon();
+	timePhase(ReconstructionTimingPhase::PrepareBuffers,
+	          [this]() { prepareBuffersForRecon(); });
 }
 
 void OSEM::generateSensitivityImagesCore(

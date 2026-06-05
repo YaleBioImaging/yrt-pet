@@ -5,6 +5,7 @@
 
 #include "yrt-pet/recon/Corrector.hpp"
 
+#include "yrt-pet/datastruct/projection/Histogram3D.hpp"
 #include "yrt-pet/operators/ProjectorSiddon.hpp"
 #include "yrt-pet/utils/Assert.hpp"
 #include "yrt-pet/utils/Concurrency.hpp"
@@ -540,6 +541,87 @@ float Corrector::getPrecomputedInVivoAttenuationFactor(bin_t binId) const
 	ASSERT(mp_inVivoAttenuationFactors != nullptr &&
 	       mp_inVivoAttenuationFactors->isMemoryValid());
 	return mp_inVivoAttenuationFactors->getProjectionValue(binId);
+}
+
+float Corrector::getSensitivityFactor(const ProjectionData& measurements,
+                                      bin_t binId) const
+{
+	return getSensitivity(measurements.getHistogramBin(binId));
+}
+
+float Corrector::getAttenuationFactorForBin(
+    const ProjectionData& measurements, bin_t binId) const
+{
+	return getAttenuationFactor(measurements, binId);
+}
+
+float Corrector::getRandomsEstimateForBin(
+    const ProjectionData& measurements, bin_t binId) const
+{
+	return getRandomsEstimate(measurements, binId);
+}
+
+float Corrector::getScatterEstimateForBin(
+    const ProjectionData& measurements, bin_t binId) const
+{
+	return getScatterEstimate(measurements.getHistogramBin(binId));
+}
+
+float Corrector::getAdditiveCorrectionForBin(
+    const ProjectionData& measurements, bin_t binId) const
+{
+	float additiveValue = 0.0f;
+	const bool randomsFromHistogram = mp_randoms != nullptr;
+	const bool scatterFromHistogram = mp_scatter != nullptr;
+
+	if (!randomsFromHistogram && measurements.hasRandomsEstimates())
+	{
+		additiveValue += measurements.getRandomsEstimate(binId);
+	}
+
+	if (!randomsFromHistogram && !scatterFromHistogram)
+	{
+		return additiveValue;
+	}
+
+	const histo_bin_t histoBin = measurements.getHistogramBin(binId);
+	const auto* randomsHistogram3D =
+	    dynamic_cast<const Histogram3D*>(mp_randoms);
+	const auto* scatterHistogram3D =
+	    dynamic_cast<const Histogram3D*>(mp_scatter);
+	if (randomsHistogram3D != nullptr && scatterHistogram3D != nullptr &&
+	    &randomsHistogram3D->getScanner() == &scatterHistogram3D->getScanner() &&
+	    std::holds_alternative<det_pair_t>(histoBin))
+	{
+		const det_pair_t detPair = std::get<det_pair_t>(histoBin);
+		if (detPair.d1 == 0 && detPair.d2 == 0)
+		{
+			return additiveValue;
+		}
+		const bin_t histogramBin =
+		    randomsHistogram3D->getBinIdFromDetPair(detPair.d1, detPair.d2);
+		return additiveValue +
+		       randomsHistogram3D->getProjectionValue(histogramBin) +
+		       scatterHistogram3D->getProjectionValue(histogramBin);
+	}
+
+	if (randomsFromHistogram)
+	{
+		additiveValue += mp_randoms->getProjectionValueFromHistogramBin(
+		    histoBin);
+	}
+	if (scatterFromHistogram)
+	{
+		additiveValue += mp_scatter->getProjectionValueFromHistogramBin(
+		    histoBin);
+	}
+	return additiveValue;
+}
+
+float Corrector::getInVivoAttenuationFactorForBin(
+    const ProjectionData& measurements, bin_t binId) const
+{
+	return getInVivoAttenuationFactor(measurements, binId);
 }
 
 void Corrector::assertMeasurementsMatchCache(

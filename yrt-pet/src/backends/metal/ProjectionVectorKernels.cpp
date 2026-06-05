@@ -87,4 +87,21 @@ bool launchProjectionOsemRatio(const Device& device, const Library& library,
 	    {{&params, sizeof(params), 7}}, valueCount);
 }
 
+bool launchProjectionCompactOsemRatio(const Device& device,
+    const Library& library, const CommandQueue& commandQueue,
+    Buffer& estimatesAndOutput, const Buffer& measurements,
+    const Buffer& multiplicative, const Buffer& additive,
+    const Buffer& inVivoAttenuation,
+    const ProjectionCompactOsemRatioParams& params, std::size_t valueCount)
+{
+	return launchKernel1D(device, library, commandQueue,
+	    "projection_compact_osem_ratio",
+	    {{&estimatesAndOutput, 0},
+	        {&measurements, 1},
+	        {&multiplicative, 2},
+	        {&additive, 3},
+	        {&inVivoAttenuation, 4}},
+	    {{&params, sizeof(params), 5}}, valueCount);
+}
+
 }  // namespace yrt::backend::metal

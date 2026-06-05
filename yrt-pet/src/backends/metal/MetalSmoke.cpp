@@ -6,8 +6,11 @@
 #include "yrt-pet/backends/metal/MetalSmoke.hpp"
 
 #include "yrt-pet/backends/metal/ImageSpaceKernels.hpp"
+#include "yrt-pet/backends/metal/JosephProjectorKernels.hpp"
 #include "yrt-pet/backends/metal/MetalBackend.hpp"
+#include "yrt-pet/backends/metal/ProjectionGeometryKernels.hpp"
 #include "yrt-pet/backends/metal/ProjectionVectorKernels.hpp"
+#include "yrt-pet/backends/metal/SiddonProjectorKernels.hpp"
 #include "yrt-pet/datastruct/image/Image.hpp"
 #include "yrt-pet/datastruct/image/ImageParams.hpp"
 #include "yrt-pet/operators/OperatorPsf.hpp"
@@ -184,6 +187,208 @@ bool runSmokeKernel()
 	return true;
 }
 
+bool runJosephAdjointAccumulationSmoke()
+{
+	const Device device = Device::createSystemDefault();
+	if (!device.isValid())
+	{
+		return false;
+	}
+
+	const Library library =
+	    Library::loadFromFile(device, YRTPET_METAL_SMOKE_METALLIB);
+	const CommandQueue commandQueue = CommandQueue::create(device);
+	if (!library.isValid() || !commandQueue.isValid())
+	{
+		return false;
+	}
+
+	const SiddonForwardImageParams params{
+	    4,
+	    4,
+	    4,
+	    1,
+	    0,
+	    4.0f,
+	    4.0f,
+	    4.0f,
+	    1.0f,
+	    1.0f,
+	    1.0f,
+	    1.0f,
+	    1.0f,
+	    1.0f,
+	    2.0f,
+	    2.0f,
+	    2.0f,
+	    10.0f};
+	const std::vector<ProjectionLineEndpoints> lines = {
+	    {-1.5f, -0.25f, 0.25f, 1.5f, -0.25f, 0.25f},
+	    {-1.5f, 0.25f, -0.25f, 1.5f, 0.25f, -0.25f}};
+	const std::vector<float> values = {1.0f, 0.75f};
+	const std::size_t voxelCount = static_cast<std::size_t>(params.nx) *
+	                               params.ny * params.nz * params.nt;
+	const std::vector<float> zeros(voxelCount, 0.0f);
+
+	auto runKernel = [&](const char* functionName,
+	                     std::vector<float>& output) -> bool
+	{
+		Buffer imageBuffer = Buffer::copyFromHost(
+		    device, zeros.data(), sizeof(float) * zeros.size());
+		Buffer lineBuffer = Buffer::copyFromHost(
+		    device, lines.data(), sizeof(ProjectionLineEndpoints) * lines.size());
+		Buffer valueBuffer = Buffer::copyFromHost(
+		    device, values.data(), sizeof(float) * values.size());
+		if (!imageBuffer.isValid() || !lineBuffer.isValid() ||
+		    !valueBuffer.isValid())
+		{
+			return false;
+		}
+		if (!launchKernel1D(device, library, commandQueue, functionName,
+		        {{&imageBuffer, 0}, {&lineBuffer, 1}, {&valueBuffer, 2}},
+		        {{&params, sizeof(params), 3}}, lines.size()))
+		{
+			return false;
+		}
+		return imageBuffer.copyToHost(
+		    output.data(), sizeof(float) * output.size());
+	};
+
+	std::vector<float> reference(voxelCount);
+	std::vector<float> threadgroupOutput(voxelCount);
+	if (!runKernel("joseph_backproject_single_ray_native_atomic_float",
+	        reference) ||
+	    !runKernel(
+	        "joseph_backproject_single_ray_threadgroup_sample_native_atomic_float",
+	        threadgroupOutput))
+	{
+		return false;
+	}
+	return valuesMatch(threadgroupOutput, reference);
+}
+
+bool runJosephAxisSpecializedSmoke()
+{
+	const Device device = Device::createSystemDefault();
+	if (!device.isValid())
+	{
+		return false;
+	}
+
+	const Library library =
+	    Library::loadFromFile(device, YRTPET_METAL_SMOKE_METALLIB);
+	const CommandQueue commandQueue = CommandQueue::create(device);
+	if (!library.isValid() || !commandQueue.isValid())
+	{
+		return false;
+	}
+
+	const SiddonForwardImageParams params{
+	    4,
+	    4,
+	    4,
+	    1,
+	    0,
+	    4.0f,
+	    4.0f,
+	    4.0f,
+	    1.0f,
+	    1.0f,
+	    1.0f,
+	    1.0f,
+	    1.0f,
+	    1.0f,
+	    2.0f,
+	    2.0f,
+	    2.0f,
+	    10.0f};
+	const std::vector<ProjectionLineEndpoints> lines = {
+	    {-1.5f, -0.25f, 0.25f, 1.5f, -0.25f, 0.25f},
+	    {-0.25f, -1.5f, 0.25f, -0.25f, 1.5f, 0.25f},
+	    {-0.25f, 0.25f, -1.5f, -0.25f, 0.25f, 1.5f}};
+	const std::size_t voxelCount = static_cast<std::size_t>(params.nx) *
+	                               params.ny * params.nz * params.nt;
+	std::vector<float> image(voxelCount);
+	for (std::size_t i = 0; i < image.size(); ++i)
+	{
+		image[i] = static_cast<float>((i % 17) + 1) * 0.125f;
+	}
+	const std::vector<float> projectionValue = {1.25f};
+	const std::vector<float> zeros(voxelCount, 0.0f);
+
+	for (std::uint32_t axis = 0; axis < lines.size(); ++axis)
+	{
+		const ProjectionLineEndpoints line = lines[axis];
+		Buffer imageBuffer =
+		    Buffer::copyFromHost(device, image.data(),
+		        sizeof(float) * image.size());
+		Buffer axisImageBuffer =
+		    Buffer::copyFromHost(device, image.data(),
+		        sizeof(float) * image.size());
+		Buffer lineBuffer =
+		    Buffer::copyFromHost(device, &line,
+		        sizeof(ProjectionLineEndpoints));
+		Buffer genericProjection =
+		    Buffer::allocate(device, sizeof(float));
+		Buffer axisProjection =
+		    Buffer::allocate(device, sizeof(float));
+		if (!imageBuffer.isValid() || !axisImageBuffer.isValid() ||
+		    !lineBuffer.isValid() || !genericProjection.isValid() ||
+		    !axisProjection.isValid())
+		{
+			return false;
+		}
+		if (!launchJosephForwardSingleRay(device, library, commandQueue,
+		        imageBuffer, lineBuffer, genericProjection, params, 1) ||
+		    !launchJosephForwardSingleRayAxis(device, library, commandQueue,
+		        axisImageBuffer, lineBuffer, axisProjection, params, 1, axis))
+		{
+			return false;
+		}
+		std::vector<float> genericForward(1);
+		std::vector<float> axisForward(1);
+		if (!genericProjection.copyToHost(genericForward.data(),
+		        sizeof(float)) ||
+		    !axisProjection.copyToHost(axisForward.data(), sizeof(float)) ||
+		    !valuesMatch(axisForward, genericForward))
+		{
+			return false;
+		}
+
+		Buffer genericBackImage =
+		    Buffer::copyFromHost(device, zeros.data(),
+		        sizeof(float) * zeros.size());
+		Buffer axisBackImage =
+		    Buffer::copyFromHost(device, zeros.data(),
+		        sizeof(float) * zeros.size());
+		Buffer valueBuffer = Buffer::copyFromHost(
+		    device, projectionValue.data(), sizeof(float));
+		if (!genericBackImage.isValid() || !axisBackImage.isValid() ||
+		    !valueBuffer.isValid())
+		{
+			return false;
+		}
+		if (!launchJosephBackProjectSingleRay(device, library, commandQueue,
+		        genericBackImage, lineBuffer, valueBuffer, params, 1) ||
+		    !launchJosephBackProjectSingleRayAxis(device, library, commandQueue,
+		        axisBackImage, lineBuffer, valueBuffer, params, 1, axis))
+		{
+			return false;
+		}
+		std::vector<float> genericBack(voxelCount);
+		std::vector<float> axisBack(voxelCount);
+		if (!genericBackImage.copyToHost(
+		        genericBack.data(), sizeof(float) * genericBack.size()) ||
+		    !axisBackImage.copyToHost(
+		        axisBack.data(), sizeof(float) * axisBack.size()) ||
+		    !valuesMatch(axisBack, genericBack))
+		{
+			return false;
+		}
+	}
+	return true;
+}
+
 bool runProjectionVectorGoldenTests()
 {
 	const Device device = Device::createSystemDefault();
@@ -334,6 +539,56 @@ bool runProjectionVectorGoldenTests()
 		expected[i] = std::exp(-lhs[i] * unitFactor);
 	}
 	if (!readBuffer(acfOutput, actual) || !valuesMatch(actual, expected))
+	{
+		return false;
+	}
+
+	std::vector<float> estimates = {
+	    1.0f, 2.0f, 4.0f, 8.0f, 16.0f, 0.5f, -2.0f, 3.0f,
+	    6.0f, 9.0f, 12.0f, 15.0f, -4.0f, 5.0f, 7.0f, 11.0f, 13.0f};
+	const std::vector<float> measurements = {
+	    2.0f, 4.0f, 8.0f, 16.0f, 32.0f, 1.0f, 3.0f, 6.0f,
+	    9.0f, 12.0f, 15.0f, 18.0f, 21.0f, 24.0f, 27.0f, 30.0f, 33.0f};
+	const std::vector<float> multiplicative = {
+	    1.0f, 0.5f, 2.0f, 0.25f, 1.5f, 3.0f, -1.0f, 0.75f,
+	    1.25f, 2.5f, 0.125f, 4.0f, 1.0f, -0.5f, 0.8f, 1.2f, 2.0f};
+	const std::vector<float> additive = {
+	    0.0f, 1.0f, -2.0f, 0.5f, 4.0f, -1.0f, 0.0f, 2.0f,
+	    -3.0f, 1.5f, 0.25f, -4.0f, 4.0f, 2.5f, -5.0f, 6.0f, -10.0f};
+	const std::vector<float> inVivo = {
+	    1.0f, 2.0f, 0.5f, 1.5f, 0.75f, 1.25f, 2.0f, 0.25f,
+	    1.1f, 0.9f, 1.3f, 0.7f, 1.4f, 0.6f, 1.8f, 0.8f, 1.0f};
+	estimates[12] = -4.0f;
+	Buffer compactEstimate =
+	    Buffer::copyFromHost(device, estimates.data(), sizeof(float) * count);
+	Buffer compactMeasurements = Buffer::copyFromHost(
+	    device, measurements.data(), sizeof(float) * count);
+	Buffer compactMultiplicative = Buffer::copyFromHost(
+	    device, multiplicative.data(), sizeof(float) * count);
+	Buffer compactAdditive =
+	    Buffer::copyFromHost(device, additive.data(), sizeof(float) * count);
+	Buffer compactInVivo =
+	    Buffer::copyFromHost(device, inVivo.data(), sizeof(float) * count);
+	const ProjectionCompactOsemRatioParams compactParams{0.05f, 1u};
+	if (!compactEstimate.isValid() || !compactMeasurements.isValid() ||
+	    !compactMultiplicative.isValid() || !compactAdditive.isValid() ||
+	    !compactInVivo.isValid() ||
+	    !launchProjectionCompactOsemRatio(device, library, commandQueue,
+	        compactEstimate, compactMeasurements, compactMultiplicative,
+	        compactAdditive, compactInVivo, compactParams, count))
+	{
+		return false;
+	}
+	for (std::size_t i = 0; i < count; ++i)
+	{
+		float estimate = estimates[i] * multiplicative[i] + additive[i];
+		estimate *= inVivo[i];
+		expected[i] = std::fabs(estimate) > compactParams.denomThreshold ?
+		                  measurements[i] / estimate * multiplicative[i] :
+		                  0.0f;
+	}
+	if (!readBuffer(compactEstimate, actual) ||
+	    !valuesMatch(actual, expected))
 	{
 		return false;
 	}

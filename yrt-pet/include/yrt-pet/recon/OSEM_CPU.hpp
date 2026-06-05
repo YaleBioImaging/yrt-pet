@@ -25,10 +25,43 @@ public:
 	struct ExperimentalMetalProjectorTimings
 	{
 		double setupSeconds = 0.0;
+		double setupContextSeconds = 0.0;
+		double setupProjectorSeconds = 0.0;
+		double setupCacheSeconds = 0.0;
+		double setupBridgeSeconds = 0.0;
+		double setupCanRunSeconds = 0.0;
 		double forwardSeconds = 0.0;
 		double ratioSeconds = 0.0;
 		double adjointSeconds = 0.0;
 		double totalSeconds = 0.0;
+		double metalPathOverheadSeconds = 0.0;
+		double computeUpdateImageSeconds = 0.0;
+		double imageUpdateSeconds = 0.0;
+		double reconInitializeSeconds = 0.0;
+		double reconSetupDynamicSeconds = 0.0;
+		double reconInitializeOutImageSeconds = 0.0;
+		double reconInitializeSensImageSeconds = 0.0;
+		double reconCorrectorSetupSeconds = 0.0;
+		double reconInitializeBinIteratorsSeconds = 0.0;
+		double reconCollectConstraintsSeconds = 0.0;
+		double reconSetupProjectorSeconds = 0.0;
+		double reconPrepareBuffersSeconds = 0.0;
+		double reconIterateSeconds = 0.0;
+		double reconLoadSubsetSeconds = 0.0;
+		double reconResetUpdateSeconds = 0.0;
+		double reconComputeUpdatePhaseSeconds = 0.0;
+		double reconApplyUpdatePhaseSeconds = 0.0;
+		double reconCompleteSubsetSeconds = 0.0;
+		double reconSaveIterationSeconds = 0.0;
+		double reconCompleteMLEMSeconds = 0.0;
+		double reconEndSeconds = 0.0;
+		double prepareAllocateImagesSeconds = 0.0;
+		double prepareInitializeOutputSeconds = 0.0;
+		double prepareApplyMaskSeconds = 0.0;
+		double prepareClearUpdateSeconds = 0.0;
+		double preparePrecomputeCorrectionsSeconds = 0.0;
+		double prepareInitBinLoaderSeconds = 0.0;
+		double prepareClearMetalCacheSeconds = 0.0;
 		size_t calls = 0;
 		double forwardGatherSeconds = 0.0;
 		double forwardGatherCacheBuildSeconds = 0.0;
@@ -48,6 +81,8 @@ public:
 		double ratioPackSeconds = 0.0;
 		double ratioBatchUploadSeconds = 0.0;
 		double ratioKernelSeconds = 0.0;
+		double ratioCorrectionCacheBuildSeconds = 0.0;
+		double ratioNonzeroDiagnosticSeconds = 0.0;
 		double adjointGatherSeconds = 0.0;
 		double adjointGatherCacheBuildSeconds = 0.0;
 		double adjointGatherUncachedSeconds = 0.0;
@@ -65,6 +100,19 @@ public:
 		double adjointHostImageCopySeconds = 0.0;
 		double adjointUpdateCountSeconds = 0.0;
 		double adjointVoxelHitCountSeconds = 0.0;
+		double cacheLookupSeconds = 0.0;
+		double cacheAdmissionSeconds = 0.0;
+		double cacheAdmissionGatherSeconds = 0.0;
+		double cacheAdmissionPackSeconds = 0.0;
+		double cacheAdmissionBatchUploadSeconds = 0.0;
+		double cacheAdmissionCorrectionBuildSeconds = 0.0;
+		double cacheAdmissionCorrectionFillSeconds = 0.0;
+		double cacheAdmissionCorrectionUploadSeconds = 0.0;
+		double cacheAdmissionCorrectionMeasurementSeconds = 0.0;
+		double cacheAdmissionCorrectionMultiplicativeSeconds = 0.0;
+		double cacheAdmissionCorrectionAdditiveSeconds = 0.0;
+		double cacheAdmissionCorrectionInVivoSeconds = 0.0;
+		double cacheInsertSeconds = 0.0;
 		size_t forwardEvents = 0;
 		size_t forwardBatches = 0;
 		size_t adjointEvents = 0;
@@ -101,7 +149,16 @@ public:
 		size_t cacheSkipsOverBudget = 0;
 		size_t cacheUsedBytes = 0;
 		size_t cacheMaxBytes = 0;
+		size_t cacheCorrectionReserveBytes = 0;
 		size_t uncachedBatches = 0;
+		size_t ratioCorrectionCacheBuilds = 0;
+		size_t ratioCorrectionCacheHits = 0;
+		size_t ratioCorrectionCacheMisses = 0;
+		size_t ratioCorrectionCacheBytes = 0;
+		size_t ratioValues = 0;
+		size_t ratioNonzeroValues = 0;
+		size_t ratioZeroValues = 0;
+		size_t ratioNonzeroDiagnosticBatches = 0;
 	};
 
 	struct ExperimentalMetalProjectorMemorySnapshot
@@ -158,6 +215,8 @@ public:
 	bool didLastExperimentalMetalProjectorRun() const;
 	void setExperimentalMetalProjectorFusedRatioEnabled(bool enabled);
 	bool isExperimentalMetalProjectorFusedRatioEnabled() const;
+	void setExperimentalMetalProjectorResidentImagesEnabled(bool enabled);
+	bool isExperimentalMetalProjectorResidentImagesEnabled() const;
 	void setExperimentalMetalProjectorKernel(const std::string& kernel);
 	std::string getExperimentalMetalProjectorKernel() const;
 	void setExperimentalMetalProjectorProfilingEnabled(bool enabled);
@@ -176,12 +235,23 @@ public:
 	bool isExperimentalMetalProjectorCacheEnabled() const;
 	void setExperimentalMetalProjectorCacheMaxBytes(size_t maxBytes);
 	size_t getExperimentalMetalProjectorCacheMaxBytes() const;
+	void setExperimentalMetalProjectorCorrectionCacheReserveBytes(
+	    size_t reserveBytes);
+	size_t getExperimentalMetalProjectorCorrectionCacheReserveBytes() const;
 	void setExperimentalMetalProjectorMaxBatchEvents(size_t maxBatchEvents);
 	size_t getExperimentalMetalProjectorMaxBatchEvents() const;
 	void setExperimentalMetalProjectorMaxChunkEvents(size_t maxChunkEvents);
 	size_t getExperimentalMetalProjectorMaxChunkEvents() const;
+	void setExperimentalMetalProjectorLazyCorrectionsEnabled(bool enabled);
+	bool isExperimentalMetalProjectorLazyCorrectionsEnabled() const;
+	void setExperimentalMetalProjectorCachedCorrectionsEnabled(bool enabled);
+	bool isExperimentalMetalProjectorCachedCorrectionsEnabled() const;
 
 protected:
+	bool isReconstructionTimingEnabled() const override;
+	void recordReconstructionTiming(ReconstructionTimingPhase phase,
+	                                double seconds) override;
+
 	// Sens Image generator driver
 	void setupProjectorForSensImgGen() override;
 	void prepareBuffersForSensImgGen() override;
@@ -220,20 +290,43 @@ protected:
 	bool m_experimentalMetalProjectorEnabled = false;
 	bool m_experimentalMetalProjectorRanLastCompute = false;
 	bool m_experimentalMetalProjectorFusedRatioEnabled = false;
+	bool m_experimentalMetalProjectorResidentImagesEnabled = false;
 	std::string m_experimentalMetalProjectorKernel = "siddon";
 	bool m_experimentalMetalProjectorProfilingEnabled = false;
 	bool m_experimentalMetalProjectorAdjointDiagnosticsEnabled = false;
 	bool m_experimentalMetalProjectorAdjointHitDiagnosticsEnabled = false;
 	bool m_experimentalMetalProjectorCacheEnabled = true;
+	bool m_experimentalMetalProjectorLazyCorrectionsEnabled = false;
+	bool m_experimentalMetalProjectorCachedCorrectionsEnabled = false;
 	size_t m_experimentalMetalProjectorCacheMaxBytes =
 	    static_cast<size_t>(1024) * 1024 * 1024;
+	size_t m_experimentalMetalProjectorCorrectionCacheReserveBytes = 0;
 	size_t m_experimentalMetalProjectorMaxBatchEvents = 1000000;
 	ExperimentalMetalProjectorTimings m_experimentalMetalProjectorTimings;
 	std::vector<ExperimentalMetalProjectorSubsetTiming>
 	    m_experimentalMetalProjectorSubsetTimings;
 #if BUILD_METAL
+	struct ExperimentalMetalResidentOsemState
+	{
+		backend::metal::Context context;
+		backend::metal::Buffer imageBuffer;
+		backend::metal::Buffer updateBuffer;
+		backend::metal::Buffer sensitivityBuffer;
+		ImageParams imageParams;
+		ImageParams updateParams;
+		ImageParams sensitivityParams;
+		const ImageBase* sensitivityImage = nullptr;
+		bool imageUploaded = false;
+		bool updateAllocated = false;
+		bool updateReady = false;
+		bool sensitivityUploaded = false;
+		bool hostImageStale = false;
+	};
+
 	std::unique_ptr<backend::metal::OperatorProjectorMetalCache>
 	    mp_experimentalMetalProjectorCache;
+	std::unique_ptr<ExperimentalMetalResidentOsemState>
+	    mp_experimentalMetalResidentOsemState;
 #endif
 
 private:
@@ -245,5 +338,15 @@ private:
 	    const Corrector_CPU& corrector, float globalScaleFactor,
 	    bool hasSensitivity, bool hasAttenuation, bool hasScatterEstimates,
 	    bool hasRandomsEstimates, bool hasInVivoAttenuation);
+#if BUILD_METAL
+	bool isExperimentalMetalResidentImagesAllowedForCurrentState() const;
+	bool tryResetExperimentalMetalResidentUpdateImage();
+	bool downloadExperimentalMetalResidentImage();
+	bool ensureExperimentalMetalResidentProjectorBuffers(
+	    const Image& inputImage, const Image& updateImage,
+	    backend::metal::OperatorProjectorMetalProfile& bridgeProfile);
+	bool applyExperimentalMetalResidentImageUpdate(
+	    const ImageBase* sensitivityImage);
+#endif
 };
 }  // namespace yrt

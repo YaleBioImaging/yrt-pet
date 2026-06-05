@@ -20,6 +20,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstdint>
+#include <limits>
 #include <memory>
 #include <set>
 #include <stdexcept>
@@ -32,8 +33,10 @@
 #endif
 
 #if BUILD_METAL
+#include "yrt-pet/backends/metal/ImageSpaceKernels.hpp"
 #include "yrt-pet/backends/metal/MetalContext.hpp"
 #include "yrt-pet/backends/metal/OperatorProjectorMetalBridge.hpp"
+#include "yrt-pet/backends/metal/SiddonProjectorOps.hpp"
 #endif
 
 #if BUILD_PYBIND11
@@ -58,6 +61,11 @@ void py_setup_osem_cpu(pybind11::module& m)
 	      "enabled"_a);
 	c.def("isExperimentalMetalProjectorFusedRatioEnabled",
 	      &OSEM_CPU::isExperimentalMetalProjectorFusedRatioEnabled);
+	c.def("setExperimentalMetalProjectorResidentImagesEnabled",
+	      &OSEM_CPU::setExperimentalMetalProjectorResidentImagesEnabled,
+	      "enabled"_a);
+	c.def("isExperimentalMetalProjectorResidentImagesEnabled",
+	      &OSEM_CPU::isExperimentalMetalProjectorResidentImagesEnabled);
 	c.def("setExperimentalMetalProjectorKernel",
 	      &OSEM_CPU::setExperimentalMetalProjectorKernel, "kernel"_a);
 	c.def("getExperimentalMetalProjectorKernel",
@@ -86,10 +94,65 @@ void py_setup_osem_cpu(pybind11::module& m)
 		          self.getExperimentalMetalProjectorTimings();
 		      py::dict result;
 		      result["setup_s"] = timings.setupSeconds;
+		      result["setup_context_s"] = timings.setupContextSeconds;
+		      result["setup_projector_s"] = timings.setupProjectorSeconds;
+		      result["setup_cache_s"] = timings.setupCacheSeconds;
+		      result["setup_bridge_s"] = timings.setupBridgeSeconds;
+		      result["setup_can_run_s"] = timings.setupCanRunSeconds;
 		      result["forward_s"] = timings.forwardSeconds;
 		      result["ratio_s"] = timings.ratioSeconds;
 		      result["adjoint_s"] = timings.adjointSeconds;
 		      result["total_s"] = timings.totalSeconds;
+		      result["metal_path_overhead_s"] =
+		          timings.metalPathOverheadSeconds;
+		      result["compute_update_image_s"] =
+		          timings.computeUpdateImageSeconds;
+		      result["image_update_s"] = timings.imageUpdateSeconds;
+		      result["recon_initialize_s"] = timings.reconInitializeSeconds;
+		      result["recon_setup_dynamic_s"] =
+		          timings.reconSetupDynamicSeconds;
+		      result["recon_initialize_out_image_s"] =
+		          timings.reconInitializeOutImageSeconds;
+		      result["recon_initialize_sens_image_s"] =
+		          timings.reconInitializeSensImageSeconds;
+		      result["recon_corrector_setup_s"] =
+		          timings.reconCorrectorSetupSeconds;
+		      result["recon_initialize_bin_iterators_s"] =
+		          timings.reconInitializeBinIteratorsSeconds;
+		      result["recon_collect_constraints_s"] =
+		          timings.reconCollectConstraintsSeconds;
+		      result["recon_setup_projector_s"] =
+		          timings.reconSetupProjectorSeconds;
+		      result["recon_prepare_buffers_s"] =
+		          timings.reconPrepareBuffersSeconds;
+		      result["recon_iterate_s"] = timings.reconIterateSeconds;
+		      result["recon_load_subset_s"] = timings.reconLoadSubsetSeconds;
+		      result["recon_reset_update_s"] = timings.reconResetUpdateSeconds;
+		      result["recon_compute_update_phase_s"] =
+		          timings.reconComputeUpdatePhaseSeconds;
+		      result["recon_apply_update_phase_s"] =
+		          timings.reconApplyUpdatePhaseSeconds;
+		      result["recon_complete_subset_s"] =
+		          timings.reconCompleteSubsetSeconds;
+		      result["recon_save_iteration_s"] =
+		          timings.reconSaveIterationSeconds;
+		      result["recon_complete_mlem_s"] =
+		          timings.reconCompleteMLEMSeconds;
+		      result["recon_end_s"] = timings.reconEndSeconds;
+		      result["prepare_allocate_images_s"] =
+		          timings.prepareAllocateImagesSeconds;
+		      result["prepare_initialize_output_s"] =
+		          timings.prepareInitializeOutputSeconds;
+		      result["prepare_apply_mask_s"] =
+		          timings.prepareApplyMaskSeconds;
+		      result["prepare_clear_update_s"] =
+		          timings.prepareClearUpdateSeconds;
+		      result["prepare_precompute_corrections_s"] =
+		          timings.preparePrecomputeCorrectionsSeconds;
+		      result["prepare_init_bin_loader_s"] =
+		          timings.prepareInitBinLoaderSeconds;
+		      result["prepare_clear_metal_cache_s"] =
+		          timings.prepareClearMetalCacheSeconds;
 		      result["calls"] = timings.calls;
 		      result["forward_gather_s"] = timings.forwardGatherSeconds;
 		      result["forward_gather_cache_build_s"] =
@@ -121,6 +184,10 @@ void py_setup_osem_cpu(pybind11::module& m)
 		      result["ratio_batch_upload_s"] =
 		          timings.ratioBatchUploadSeconds;
 		      result["ratio_kernel_s"] = timings.ratioKernelSeconds;
+		      result["ratio_correction_cache_build_s"] =
+		          timings.ratioCorrectionCacheBuildSeconds;
+		      result["ratio_nonzero_diagnostic_s"] =
+		          timings.ratioNonzeroDiagnosticSeconds;
 		      result["adjoint_gather_s"] = timings.adjointGatherSeconds;
 		      result["adjoint_gather_cache_build_s"] =
 		          timings.adjointGatherCacheBuildSeconds;
@@ -152,6 +219,29 @@ void py_setup_osem_cpu(pybind11::module& m)
 		          timings.adjointUpdateCountSeconds;
 		      result["adjoint_voxel_hit_count_s"] =
 		          timings.adjointVoxelHitCountSeconds;
+		      result["cache_lookup_s"] = timings.cacheLookupSeconds;
+		      result["cache_admission_s"] = timings.cacheAdmissionSeconds;
+		      result["cache_admission_gather_s"] =
+		          timings.cacheAdmissionGatherSeconds;
+		      result["cache_admission_pack_s"] =
+		          timings.cacheAdmissionPackSeconds;
+		      result["cache_admission_batch_upload_s"] =
+		          timings.cacheAdmissionBatchUploadSeconds;
+		      result["cache_admission_correction_build_s"] =
+		          timings.cacheAdmissionCorrectionBuildSeconds;
+		      result["cache_admission_correction_fill_s"] =
+		          timings.cacheAdmissionCorrectionFillSeconds;
+		      result["cache_admission_correction_upload_s"] =
+		          timings.cacheAdmissionCorrectionUploadSeconds;
+		      result["cache_admission_correction_measurement_s"] =
+		          timings.cacheAdmissionCorrectionMeasurementSeconds;
+		      result["cache_admission_correction_multiplicative_s"] =
+		          timings.cacheAdmissionCorrectionMultiplicativeSeconds;
+		      result["cache_admission_correction_additive_s"] =
+		          timings.cacheAdmissionCorrectionAdditiveSeconds;
+		      result["cache_admission_correction_in_vivo_s"] =
+		          timings.cacheAdmissionCorrectionInVivoSeconds;
+		      result["cache_insert_s"] = timings.cacheInsertSeconds;
 		      result["forward_events"] = timings.forwardEvents;
 		      result["forward_batches"] = timings.forwardBatches;
 		      result["adjoint_events"] = timings.adjointEvents;
@@ -212,8 +302,23 @@ void py_setup_osem_cpu(pybind11::module& m)
 		          timings.cacheSkipsOverBudget;
 		      result["cache_used_bytes"] = timings.cacheUsedBytes;
 		      result["cache_max_bytes"] = timings.cacheMaxBytes;
+		      result["cache_correction_reserve_bytes"] =
+		          timings.cacheCorrectionReserveBytes;
 		      result["uncached_batches"] = timings.uncachedBatches;
 		      result["uncached_chunks"] = timings.uncachedBatches;
+		      result["ratio_correction_cache_builds"] =
+		          timings.ratioCorrectionCacheBuilds;
+		      result["ratio_correction_cache_hits"] =
+		          timings.ratioCorrectionCacheHits;
+		      result["ratio_correction_cache_misses"] =
+		          timings.ratioCorrectionCacheMisses;
+		      result["ratio_correction_cache_bytes"] =
+		          timings.ratioCorrectionCacheBytes;
+		      result["ratio_values"] = timings.ratioValues;
+		      result["ratio_nonzero_values"] = timings.ratioNonzeroValues;
+		      result["ratio_zero_values"] = timings.ratioZeroValues;
+		      result["ratio_nonzero_diagnostic_batches"] =
+		          timings.ratioNonzeroDiagnosticBatches;
 		      return result;
 	      });
 	c.def("getExperimentalMetalProjectorSubsetTimings",
@@ -259,10 +364,20 @@ void py_setup_osem_cpu(pybind11::module& m)
 			      row["events"] = timing.events;
 			      row["metal_ran"] = timing.metalRan;
 			      row["setup_s"] = timing.setupSeconds;
+			      row["setup_context_s"] = timing.setupContextSeconds;
+			      row["setup_projector_s"] = timing.setupProjectorSeconds;
+			      row["setup_cache_s"] = timing.setupCacheSeconds;
+			      row["setup_bridge_s"] = timing.setupBridgeSeconds;
+			      row["setup_can_run_s"] = timing.setupCanRunSeconds;
 			      row["forward_s"] = timing.forwardSeconds;
 			      row["ratio_s"] = timing.ratioSeconds;
 			      row["adjoint_s"] = timing.adjointSeconds;
 			      row["total_s"] = timing.totalSeconds;
+			      row["metal_path_overhead_s"] =
+			          timing.metalPathOverheadSeconds;
+			      row["compute_update_image_s"] =
+			          timing.computeUpdateImageSeconds;
+			      row["image_update_s"] = timing.imageUpdateSeconds;
 			      row["forward_gather_s"] = timing.forwardGatherSeconds;
 			      row["forward_gather_cache_build_s"] =
 			          timing.forwardGatherCacheBuildSeconds;
@@ -279,6 +394,10 @@ void py_setup_osem_cpu(pybind11::module& m)
 			      row["ratio_batch_upload_s"] =
 			          timing.ratioBatchUploadSeconds;
 			      row["ratio_kernel_s"] = timing.ratioKernelSeconds;
+			      row["ratio_correction_cache_build_s"] =
+			          timing.ratioCorrectionCacheBuildSeconds;
+			      row["ratio_nonzero_diagnostic_s"] =
+			          timing.ratioNonzeroDiagnosticSeconds;
 			      row["adjoint_batch_upload_s"] =
 			          timing.adjointBatchUploadSeconds;
 			      row["adjoint_image_upload_s"] =
@@ -292,6 +411,29 @@ void py_setup_osem_cpu(pybind11::module& m)
 			          timing.adjointUpdateCountSeconds;
 			      row["adjoint_voxel_hit_count_s"] =
 			          timing.adjointVoxelHitCountSeconds;
+			      row["cache_lookup_s"] = timing.cacheLookupSeconds;
+			      row["cache_admission_s"] = timing.cacheAdmissionSeconds;
+			      row["cache_admission_gather_s"] =
+			          timing.cacheAdmissionGatherSeconds;
+			      row["cache_admission_pack_s"] =
+			          timing.cacheAdmissionPackSeconds;
+			      row["cache_admission_batch_upload_s"] =
+			          timing.cacheAdmissionBatchUploadSeconds;
+			      row["cache_admission_correction_build_s"] =
+			          timing.cacheAdmissionCorrectionBuildSeconds;
+			      row["cache_admission_correction_fill_s"] =
+			          timing.cacheAdmissionCorrectionFillSeconds;
+			      row["cache_admission_correction_upload_s"] =
+			          timing.cacheAdmissionCorrectionUploadSeconds;
+			      row["cache_admission_correction_measurement_s"] =
+			          timing.cacheAdmissionCorrectionMeasurementSeconds;
+			      row["cache_admission_correction_multiplicative_s"] =
+			          timing.cacheAdmissionCorrectionMultiplicativeSeconds;
+			      row["cache_admission_correction_additive_s"] =
+			          timing.cacheAdmissionCorrectionAdditiveSeconds;
+			      row["cache_admission_correction_in_vivo_s"] =
+			          timing.cacheAdmissionCorrectionInVivoSeconds;
+			      row["cache_insert_s"] = timing.cacheInsertSeconds;
 			      row["forward_events"] = timing.forwardEvents;
 			      row["forward_batches"] = timing.forwardBatches;
 			      row["adjoint_events"] = timing.adjointEvents;
@@ -353,7 +495,23 @@ void py_setup_osem_cpu(pybind11::module& m)
 			          timing.cacheSkipsOverBudget;
 			      row["cache_used_bytes"] = timing.cacheUsedBytes;
 			      row["cache_max_bytes"] = timing.cacheMaxBytes;
+			      row["cache_correction_reserve_bytes"] =
+			          timing.cacheCorrectionReserveBytes;
 			      row["uncached_batches"] = timing.uncachedBatches;
+			      row["ratio_correction_cache_builds"] =
+			          timing.ratioCorrectionCacheBuilds;
+			      row["ratio_correction_cache_hits"] =
+			          timing.ratioCorrectionCacheHits;
+			      row["ratio_correction_cache_misses"] =
+			          timing.ratioCorrectionCacheMisses;
+			      row["ratio_correction_cache_bytes"] =
+			          timing.ratioCorrectionCacheBytes;
+			      row["ratio_values"] = timing.ratioValues;
+			      row["ratio_nonzero_values"] =
+			          timing.ratioNonzeroValues;
+			      row["ratio_zero_values"] = timing.ratioZeroValues;
+			      row["ratio_nonzero_diagnostic_batches"] =
+			          timing.ratioNonzeroDiagnosticBatches;
 			      row["memory_before"] = memoryToDict(timing.memoryBefore);
 			      row["memory_after"] = memoryToDict(timing.memoryAfter);
 			      result.append(row);
@@ -369,6 +527,11 @@ void py_setup_osem_cpu(pybind11::module& m)
 	      "max_bytes"_a);
 	c.def("getExperimentalMetalProjectorCacheMaxBytes",
 	      &OSEM_CPU::getExperimentalMetalProjectorCacheMaxBytes);
+	c.def("setExperimentalMetalProjectorCorrectionCacheReserveBytes",
+	      &OSEM_CPU::setExperimentalMetalProjectorCorrectionCacheReserveBytes,
+	      "reserve_bytes"_a);
+	c.def("getExperimentalMetalProjectorCorrectionCacheReserveBytes",
+	      &OSEM_CPU::getExperimentalMetalProjectorCorrectionCacheReserveBytes);
 	c.def("setExperimentalMetalProjectorMaxBatchEvents",
 	      &OSEM_CPU::setExperimentalMetalProjectorMaxBatchEvents,
 	      "max_batch_events"_a);
@@ -379,6 +542,16 @@ void py_setup_osem_cpu(pybind11::module& m)
 	      "max_chunk_events"_a);
 	c.def("getExperimentalMetalProjectorMaxChunkEvents",
 	      &OSEM_CPU::getExperimentalMetalProjectorMaxChunkEvents);
+	c.def("setExperimentalMetalProjectorLazyCorrectionsEnabled",
+	      &OSEM_CPU::setExperimentalMetalProjectorLazyCorrectionsEnabled,
+	      "enabled"_a);
+	c.def("isExperimentalMetalProjectorLazyCorrectionsEnabled",
+	      &OSEM_CPU::isExperimentalMetalProjectorLazyCorrectionsEnabled);
+	c.def("setExperimentalMetalProjectorCachedCorrectionsEnabled",
+	      &OSEM_CPU::setExperimentalMetalProjectorCachedCorrectionsEnabled,
+	      "enabled"_a);
+	c.def("isExperimentalMetalProjectorCachedCorrectionsEnabled",
+	      &OSEM_CPU::isExperimentalMetalProjectorCachedCorrectionsEnabled);
 }
 }  // namespace yrt
 #endif
@@ -394,6 +567,47 @@ using Clock = std::chrono::steady_clock;
 double getElapsedSeconds(Clock::time_point start, Clock::time_point end)
 {
 	return std::chrono::duration<double>(end - start).count();
+}
+
+bool fitsMetalImageDimension(int value)
+{
+	return value > 0 &&
+	       static_cast<std::uint64_t>(value) <=
+	           std::numeric_limits<std::uint32_t>::max();
+}
+
+bool fitsMetalImageFrameCount(frame_t value)
+{
+	return value > 0 &&
+	       static_cast<std::uint64_t>(value) <=
+	           std::numeric_limits<std::uint32_t>::max();
+}
+
+bool makeMetalImageShape(const Image& image,
+                         backend::metal::ImageShape& shape)
+{
+	if (!image.isMemoryValid())
+	{
+		return false;
+	}
+	const ImageParams& params = image.getParams();
+	if (!fitsMetalImageDimension(params.nx) ||
+	    !fitsMetalImageDimension(params.ny) ||
+	    !fitsMetalImageDimension(params.nz) ||
+	    !fitsMetalImageFrameCount(params.nt))
+	{
+		return false;
+	}
+	shape = {static_cast<std::uint32_t>(params.nx),
+	         static_cast<std::uint32_t>(params.ny),
+	         static_cast<std::uint32_t>(params.nz),
+	         static_cast<std::uint32_t>(params.nt)};
+	return true;
+}
+
+std::size_t metalImageByteCount(const backend::metal::ImageShape& shape)
+{
+	return sizeof(float) * shape.voxelCount();
 }
 
 OSEM_CPU::ExperimentalMetalProjectorMemorySnapshot
@@ -492,10 +706,16 @@ void addBridgeProfileToTimings(
     const backend::metal::OperatorProjectorMetalProfile& bridgeProfile)
 {
 	timings.setupSeconds += setupSeconds;
+	timings.setupContextSeconds += bridgeProfile.setupContextSeconds;
+	timings.setupProjectorSeconds += bridgeProfile.setupProjectorSeconds;
+	timings.setupCacheSeconds += bridgeProfile.setupCacheSeconds;
+	timings.setupBridgeSeconds += bridgeProfile.setupBridgeSeconds;
+	timings.setupCanRunSeconds += bridgeProfile.setupCanRunSeconds;
 	timings.forwardSeconds += forwardSeconds;
 	timings.ratioSeconds += ratioSeconds;
 	timings.adjointSeconds += adjointSeconds;
 	timings.totalSeconds += totalSeconds;
+	timings.metalPathOverheadSeconds += bridgeProfile.metalPathOverheadSeconds;
 	timings.calls += 1;
 	timings.forwardGatherSeconds += bridgeProfile.forwardGatherSeconds;
 	timings.forwardGatherCacheBuildSeconds +=
@@ -524,6 +744,10 @@ void addBridgeProfileToTimings(
 	timings.ratioPackSeconds += bridgeProfile.ratioPackSeconds;
 	timings.ratioBatchUploadSeconds += bridgeProfile.ratioBatchUploadSeconds;
 	timings.ratioKernelSeconds += bridgeProfile.ratioKernelSeconds;
+	timings.ratioCorrectionCacheBuildSeconds +=
+	    bridgeProfile.ratioCorrectionCacheBuildSeconds;
+	timings.ratioNonzeroDiagnosticSeconds +=
+	    bridgeProfile.ratioNonzeroDiagnosticSeconds;
 	timings.adjointGatherSeconds += bridgeProfile.adjointGatherSeconds;
 	timings.adjointGatherCacheBuildSeconds +=
 	    bridgeProfile.adjointGatherCacheBuildSeconds;
@@ -554,6 +778,29 @@ void addBridgeProfileToTimings(
 	    bridgeProfile.adjointUpdateCountSeconds;
 	timings.adjointVoxelHitCountSeconds +=
 	    bridgeProfile.adjointVoxelHitCountSeconds;
+	timings.cacheLookupSeconds += bridgeProfile.cacheLookupSeconds;
+	timings.cacheAdmissionSeconds += bridgeProfile.cacheAdmissionSeconds;
+	timings.cacheAdmissionGatherSeconds +=
+	    bridgeProfile.cacheAdmissionGatherSeconds;
+	timings.cacheAdmissionPackSeconds +=
+	    bridgeProfile.cacheAdmissionPackSeconds;
+	timings.cacheAdmissionBatchUploadSeconds +=
+	    bridgeProfile.cacheAdmissionBatchUploadSeconds;
+	timings.cacheAdmissionCorrectionBuildSeconds +=
+	    bridgeProfile.cacheAdmissionCorrectionBuildSeconds;
+	timings.cacheAdmissionCorrectionFillSeconds +=
+	    bridgeProfile.cacheAdmissionCorrectionFillSeconds;
+	timings.cacheAdmissionCorrectionUploadSeconds +=
+	    bridgeProfile.cacheAdmissionCorrectionUploadSeconds;
+	timings.cacheAdmissionCorrectionMeasurementSeconds +=
+	    bridgeProfile.cacheAdmissionCorrectionMeasurementSeconds;
+	timings.cacheAdmissionCorrectionMultiplicativeSeconds +=
+	    bridgeProfile.cacheAdmissionCorrectionMultiplicativeSeconds;
+	timings.cacheAdmissionCorrectionAdditiveSeconds +=
+	    bridgeProfile.cacheAdmissionCorrectionAdditiveSeconds;
+	timings.cacheAdmissionCorrectionInVivoSeconds +=
+	    bridgeProfile.cacheAdmissionCorrectionInVivoSeconds;
+	timings.cacheInsertSeconds += bridgeProfile.cacheInsertSeconds;
 	timings.forwardEvents += bridgeProfile.forwardEvents;
 	timings.forwardBatches += bridgeProfile.forwardBatches;
 	timings.adjointEvents += bridgeProfile.adjointEvents;
@@ -633,7 +880,22 @@ void addBridgeProfileToTimings(
 	timings.cacheSkipsOverBudget += bridgeProfile.cacheSkipsOverBudget;
 	timings.cacheUsedBytes = bridgeProfile.cacheUsedBytes;
 	timings.cacheMaxBytes = bridgeProfile.cacheMaxBytes;
+	timings.cacheCorrectionReserveBytes =
+	    bridgeProfile.cacheCorrectionReserveBytes;
 	timings.uncachedBatches += bridgeProfile.uncachedBatches;
+	timings.ratioCorrectionCacheBuilds +=
+	    bridgeProfile.ratioCorrectionCacheBuilds;
+	timings.ratioCorrectionCacheHits +=
+	    bridgeProfile.ratioCorrectionCacheHits;
+	timings.ratioCorrectionCacheMisses +=
+	    bridgeProfile.ratioCorrectionCacheMisses;
+	timings.ratioCorrectionCacheBytes +=
+	    bridgeProfile.ratioCorrectionCacheBytes;
+	timings.ratioValues += bridgeProfile.ratioValues;
+	timings.ratioNonzeroValues += bridgeProfile.ratioNonzeroValues;
+	timings.ratioZeroValues += bridgeProfile.ratioZeroValues;
+	timings.ratioNonzeroDiagnosticBatches +=
+	    bridgeProfile.ratioNonzeroDiagnosticBatches;
 }
 #endif
 
@@ -939,6 +1201,22 @@ bool OSEM_CPU::isExperimentalMetalProjectorFusedRatioEnabled() const
 	return m_experimentalMetalProjectorFusedRatioEnabled;
 }
 
+void OSEM_CPU::setExperimentalMetalProjectorResidentImagesEnabled(bool enabled)
+{
+	m_experimentalMetalProjectorResidentImagesEnabled = enabled;
+	if (!enabled)
+	{
+#if BUILD_METAL
+		mp_experimentalMetalResidentOsemState = nullptr;
+#endif
+	}
+}
+
+bool OSEM_CPU::isExperimentalMetalProjectorResidentImagesEnabled() const
+{
+	return m_experimentalMetalProjectorResidentImagesEnabled;
+}
+
 void OSEM_CPU::setExperimentalMetalProjectorKernel(const std::string& kernel)
 {
 	if (kernel != "siddon" && kernel != "joseph" &&
@@ -964,6 +1242,89 @@ void OSEM_CPU::setExperimentalMetalProjectorProfilingEnabled(bool enabled)
 bool OSEM_CPU::isExperimentalMetalProjectorProfilingEnabled() const
 {
 	return m_experimentalMetalProjectorProfilingEnabled;
+}
+
+bool OSEM_CPU::isReconstructionTimingEnabled() const
+{
+	return m_experimentalMetalProjectorEnabled &&
+	       m_experimentalMetalProjectorProfilingEnabled;
+}
+
+void OSEM_CPU::recordReconstructionTiming(ReconstructionTimingPhase phase,
+                                          double seconds)
+{
+	if (!isReconstructionTimingEnabled())
+	{
+		return;
+	}
+
+	switch (phase)
+	{
+	case ReconstructionTimingPhase::InitializeForRecon:
+		m_experimentalMetalProjectorTimings.reconInitializeSeconds += seconds;
+		break;
+	case ReconstructionTimingPhase::SetupForDynamicRecon:
+		m_experimentalMetalProjectorTimings.reconSetupDynamicSeconds += seconds;
+		break;
+	case ReconstructionTimingPhase::InitializeOutImage:
+		m_experimentalMetalProjectorTimings.reconInitializeOutImageSeconds +=
+		    seconds;
+		break;
+	case ReconstructionTimingPhase::InitializeSensImage:
+		m_experimentalMetalProjectorTimings.reconInitializeSensImageSeconds +=
+		    seconds;
+		break;
+	case ReconstructionTimingPhase::CorrectorSetup:
+		m_experimentalMetalProjectorTimings.reconCorrectorSetupSeconds +=
+		    seconds;
+		break;
+	case ReconstructionTimingPhase::InitializeBinIterators:
+		m_experimentalMetalProjectorTimings
+		    .reconInitializeBinIteratorsSeconds += seconds;
+		break;
+	case ReconstructionTimingPhase::CollectConstraints:
+		m_experimentalMetalProjectorTimings.reconCollectConstraintsSeconds +=
+		    seconds;
+		break;
+	case ReconstructionTimingPhase::SetupProjector:
+		m_experimentalMetalProjectorTimings.reconSetupProjectorSeconds +=
+		    seconds;
+		break;
+	case ReconstructionTimingPhase::PrepareBuffers:
+		m_experimentalMetalProjectorTimings.reconPrepareBuffersSeconds +=
+		    seconds;
+		break;
+	case ReconstructionTimingPhase::Iterate:
+		m_experimentalMetalProjectorTimings.reconIterateSeconds += seconds;
+		break;
+	case ReconstructionTimingPhase::LoadSubset:
+		m_experimentalMetalProjectorTimings.reconLoadSubsetSeconds += seconds;
+		break;
+	case ReconstructionTimingPhase::ResetUpdateImage:
+		m_experimentalMetalProjectorTimings.reconResetUpdateSeconds += seconds;
+		break;
+	case ReconstructionTimingPhase::ComputeUpdateImage:
+		m_experimentalMetalProjectorTimings.reconComputeUpdatePhaseSeconds +=
+		    seconds;
+		break;
+	case ReconstructionTimingPhase::ApplyImageUpdate:
+		m_experimentalMetalProjectorTimings.reconApplyUpdatePhaseSeconds +=
+		    seconds;
+		break;
+	case ReconstructionTimingPhase::CompleteSubset:
+		m_experimentalMetalProjectorTimings.reconCompleteSubsetSeconds +=
+		    seconds;
+		break;
+	case ReconstructionTimingPhase::SaveIteration:
+		m_experimentalMetalProjectorTimings.reconSaveIterationSeconds += seconds;
+		break;
+	case ReconstructionTimingPhase::CompleteMLEMIteration:
+		m_experimentalMetalProjectorTimings.reconCompleteMLEMSeconds += seconds;
+		break;
+	case ReconstructionTimingPhase::EndRecon:
+		m_experimentalMetalProjectorTimings.reconEndSeconds += seconds;
+		break;
+	}
 }
 
 void OSEM_CPU::setExperimentalMetalProjectorAdjointDiagnosticsEnabled(
@@ -1038,6 +1399,25 @@ size_t OSEM_CPU::getExperimentalMetalProjectorCacheMaxBytes() const
 	return m_experimentalMetalProjectorCacheMaxBytes;
 }
 
+void OSEM_CPU::setExperimentalMetalProjectorCorrectionCacheReserveBytes(
+    size_t reserveBytes)
+{
+	m_experimentalMetalProjectorCorrectionCacheReserveBytes = reserveBytes;
+#if BUILD_METAL
+	if (mp_experimentalMetalProjectorCache != nullptr)
+	{
+		mp_experimentalMetalProjectorCache
+		    ->setCorrectionCacheReserveBytes(reserveBytes);
+	}
+#endif
+}
+
+size_t OSEM_CPU::getExperimentalMetalProjectorCorrectionCacheReserveBytes()
+    const
+{
+	return m_experimentalMetalProjectorCorrectionCacheReserveBytes;
+}
+
 void OSEM_CPU::setExperimentalMetalProjectorMaxBatchEvents(
     size_t maxBatchEvents)
 {
@@ -1064,6 +1444,28 @@ void OSEM_CPU::setExperimentalMetalProjectorMaxChunkEvents(
 size_t OSEM_CPU::getExperimentalMetalProjectorMaxChunkEvents() const
 {
 	return getExperimentalMetalProjectorMaxBatchEvents();
+}
+
+void OSEM_CPU::setExperimentalMetalProjectorLazyCorrectionsEnabled(
+    bool enabled)
+{
+	m_experimentalMetalProjectorLazyCorrectionsEnabled = enabled;
+}
+
+bool OSEM_CPU::isExperimentalMetalProjectorLazyCorrectionsEnabled() const
+{
+	return m_experimentalMetalProjectorLazyCorrectionsEnabled;
+}
+
+void OSEM_CPU::setExperimentalMetalProjectorCachedCorrectionsEnabled(
+    bool enabled)
+{
+	m_experimentalMetalProjectorCachedCorrectionsEnabled = enabled;
+}
+
+bool OSEM_CPU::isExperimentalMetalProjectorCachedCorrectionsEnabled() const
+{
+	return m_experimentalMetalProjectorCachedCorrectionsEnabled;
 }
 
 void OSEM_CPU::setupProjectorForSensImgGen()
@@ -1190,27 +1592,61 @@ void OSEM_CPU::setupProjectorForRecon()
 
 void OSEM_CPU::prepareBuffersForRecon()
 {
+#if BUILD_METAL
+	auto timePreparePhase = [this](double& destination, auto&& fn)
+	{
+		if (!isReconstructionTimingEnabled())
+		{
+			fn();
+			return;
+		}
+		const auto start = Clock::now();
+		fn();
+		destination += getElapsedSeconds(start, Clock::now());
+	};
+#endif
+
 	// Allocate for projection-space buffers
 	const ProjectionData* dataInput = getDataInput();
 
 	// Allocate for image-space buffers
-	mp_mlemImageTmpEMRatio = std::make_unique<ImageOwned>(getImageParams());
-	reinterpret_cast<ImageOwned*>(mp_mlemImageTmpEMRatio.get())->allocate();
-	if (flagImagePSF)
+	auto allocateImages = [this]()
 	{
-		mp_imageTmpPsf = std::make_unique<ImageOwned>(getImageParams());
-		reinterpret_cast<ImageOwned*>(mp_imageTmpPsf.get())->allocate();
-	}
+		mp_mlemImageTmpEMRatio = std::make_unique<ImageOwned>(getImageParams());
+		reinterpret_cast<ImageOwned*>(mp_mlemImageTmpEMRatio.get())->allocate();
+		if (flagImagePSF)
+		{
+			mp_imageTmpPsf = std::make_unique<ImageOwned>(getImageParams());
+			reinterpret_cast<ImageOwned*>(mp_imageTmpPsf.get())->allocate();
+		}
+	};
+#if BUILD_METAL
+	timePreparePhase(
+	    m_experimentalMetalProjectorTimings.prepareAllocateImagesSeconds,
+	    allocateImages);
+#else
+	allocateImages();
+#endif
 
 	// Initialize output image
-	if (initialEstimate != nullptr)
+	auto initializeOutput = [this]()
 	{
-		outImage->copyFromImage(initialEstimate);
-	}
-	else
-	{
-		outImage->fill(INITIAL_VALUE_MLEM);
-	}
+		if (initialEstimate != nullptr)
+		{
+			outImage->copyFromImage(initialEstimate);
+		}
+		else
+		{
+			outImage->fill(INITIAL_VALUE_MLEM);
+		}
+	};
+#if BUILD_METAL
+	timePreparePhase(
+	    m_experimentalMetalProjectorTimings.prepareInitializeOutputSeconds,
+	    initializeOutput);
+#else
+	initializeOutput();
+#endif
 
 	// Apply mask function
 	auto applyMask = [this](const Image* maskImage) -> void
@@ -1221,50 +1657,352 @@ void OSEM_CPU::prepareBuffersForRecon()
 
 	// Apply mask image
 	std::cout << "Applying threshold..." << std::endl;
-	if (maskImage != nullptr)
+	auto applyMaskPhase = [this, &applyMask]()
 	{
-		applyMask(maskImage);
-	}
-	else if (num_OSEM_subsets == 1 || usingListModeInput)
-	{
-		// No need to sum all sensitivity images, just use the only one
-		applyMask(getSensitivityImage(0));
-	}
-	else
-	{
-		std::cout << "Summing sensitivity images to generate mask image..."
-		          << std::endl;
-		for (int i = 0; i < num_OSEM_subsets; ++i)
+		if (maskImage != nullptr)
 		{
-			getSensitivityImage(i)->addFirstImageToSecond(
-			    mp_mlemImageTmpEMRatio.get());
+			applyMask(maskImage);
 		}
-		applyMask(mp_mlemImageTmpEMRatio.get());
+		else if (num_OSEM_subsets == 1 || usingListModeInput)
+		{
+			// No need to sum all sensitivity images, just use the only one
+			applyMask(getSensitivityImage(0));
+		}
+		else
+		{
+			std::cout << "Summing sensitivity images to generate mask image..."
+			          << std::endl;
+			for (int i = 0; i < num_OSEM_subsets; ++i)
+			{
+				getSensitivityImage(i)->addFirstImageToSecond(
+				    mp_mlemImageTmpEMRatio.get());
+			}
+			applyMask(mp_mlemImageTmpEMRatio.get());
+		}
+	};
+#if BUILD_METAL
+	timePreparePhase(m_experimentalMetalProjectorTimings.prepareApplyMaskSeconds,
+	                 applyMaskPhase);
+#else
+	applyMaskPhase();
+#endif
+
+	auto clearUpdate = [this]() { mp_mlemImageTmpEMRatio->fill(0.0f); };
+#if BUILD_METAL
+	timePreparePhase(m_experimentalMetalProjectorTimings.prepareClearUpdateSeconds,
+	                 clearUpdate);
+#else
+	clearUpdate();
+#endif
+
+	auto precomputeCorrections = [this, dataInput]()
+	{ mp_corrector->precomputeCorrectionFactors(*dataInput); };
+#if BUILD_METAL
+	if (!(m_experimentalMetalProjectorEnabled &&
+	      (m_experimentalMetalProjectorLazyCorrectionsEnabled ||
+	       m_experimentalMetalProjectorCachedCorrectionsEnabled)))
+	{
+		timePreparePhase(
+		    m_experimentalMetalProjectorTimings
+		        .preparePrecomputeCorrectionsSeconds,
+		    precomputeCorrections);
 	}
-	mp_mlemImageTmpEMRatio->fill(0.0f);
+#else
+	precomputeCorrections();
+#endif
 
-	mp_corrector->precomputeCorrectionFactors(*dataInput);
-
-	initBinLoader(true);
+	auto initializeBinLoader = [this]() { initBinLoader(true); };
+#if BUILD_METAL
+	timePreparePhase(
+	    m_experimentalMetalProjectorTimings.prepareInitBinLoaderSeconds,
+	    initializeBinLoader);
+#else
+	initializeBinLoader();
+#endif
 
 #if BUILD_METAL
-	if (mp_experimentalMetalProjectorCache != nullptr)
+	auto clearMetalCache = [this]()
 	{
-		mp_experimentalMetalProjectorCache->clear();
-	}
+		if (mp_experimentalMetalProjectorCache != nullptr)
+		{
+			mp_experimentalMetalProjectorCache->clear();
+		}
+		mp_experimentalMetalResidentOsemState = nullptr;
+	};
+	timePreparePhase(
+	    m_experimentalMetalProjectorTimings.prepareClearMetalCacheSeconds,
+	    clearMetalCache);
 #endif
 }
+
+#if BUILD_METAL
+bool OSEM_CPU::isExperimentalMetalResidentImagesAllowedForCurrentState() const
+{
+	if (!m_experimentalMetalProjectorResidentImagesEnabled ||
+	    !m_experimentalMetalProjectorEnabled ||
+	    m_experimentalMetalProjectorFusedRatioEnabled || flagImagePSF ||
+	    !saveIterRanges.empty() || outImage == nullptr ||
+	    mp_mlemImageTmpEMRatio == nullptr)
+	{
+		return false;
+	}
+
+	const Image* image = dynamic_cast<const Image*>(outImage.get());
+	const Image* updateImage =
+	    dynamic_cast<const Image*>(mp_mlemImageTmpEMRatio.get());
+	if (image == nullptr || updateImage == nullptr ||
+	    !image->getParams().isSameAs(updateImage->getParams()))
+	{
+		return false;
+	}
+
+	backend::metal::ImageShape shape{};
+	backend::metal::ImageShape updateShape{};
+	return makeMetalImageShape(*image, shape) &&
+	       makeMetalImageShape(*updateImage, updateShape);
+}
+
+bool OSEM_CPU::tryResetExperimentalMetalResidentUpdateImage()
+{
+	if (!isExperimentalMetalResidentImagesAllowedForCurrentState())
+	{
+		return false;
+	}
+
+	Image* updateImage = dynamic_cast<Image*>(mp_mlemImageTmpEMRatio.get());
+	if (updateImage == nullptr)
+	{
+		return false;
+	}
+
+	if (mp_experimentalMetalResidentOsemState == nullptr)
+	{
+		mp_experimentalMetalResidentOsemState =
+		    std::make_unique<ExperimentalMetalResidentOsemState>();
+	}
+	auto& state = *mp_experimentalMetalResidentOsemState;
+	if (!state.context.isValid())
+	{
+		return false;
+	}
+
+	backend::metal::ImageShape updateShape{};
+	if (!makeMetalImageShape(*updateImage, updateShape))
+	{
+		return false;
+	}
+
+	const std::size_t byteCount = metalImageByteCount(updateShape);
+	if (!state.updateAllocated ||
+	    !state.updateParams.isSameAs(updateImage->getParams()) ||
+	    state.updateBuffer.byteCount() < byteCount)
+	{
+		state.updateBuffer =
+		    backend::metal::Buffer::allocate(state.context.device(), byteCount);
+		state.updateAllocated = state.updateBuffer.isValid();
+		state.updateParams = updateImage->getParams();
+		state.updateReady = false;
+	}
+	if (!state.updateAllocated ||
+	    !backend::metal::launchImageFill(state.context.device(),
+	        state.context.library(), state.context.commandQueue(),
+	        state.updateBuffer, updateShape, 0.0f))
+	{
+		state.updateReady = false;
+		return false;
+	}
+
+	state.updateReady = true;
+	return true;
+}
+
+bool OSEM_CPU::downloadExperimentalMetalResidentImage()
+{
+	if (mp_experimentalMetalResidentOsemState == nullptr ||
+	    !mp_experimentalMetalResidentOsemState->hostImageStale)
+	{
+		return true;
+	}
+
+	auto& state = *mp_experimentalMetalResidentOsemState;
+	Image* image = dynamic_cast<Image*>(outImage.get());
+	if (image == nullptr || !state.context.isValid() ||
+	    !state.imageBuffer.isValid())
+	{
+		return false;
+	}
+
+	backend::metal::SiddonProjectorKernelProfile transferProfile;
+	const bool didDownload = backend::metal::downloadSiddonImageBuffer(
+	    state.context, state.imageBuffer, *image,
+	    m_experimentalMetalProjectorProfilingEnabled ? &transferProfile :
+	                                                   nullptr);
+	if (!didDownload)
+	{
+		return false;
+	}
+
+	if (m_experimentalMetalProjectorProfilingEnabled)
+	{
+		m_experimentalMetalProjectorTimings.adjointImageDownloadSeconds +=
+		    transferProfile.imageDownloadSeconds;
+	}
+	state.hostImageStale = false;
+	state.imageUploaded = true;
+	state.imageParams = image->getParams();
+	return true;
+}
+
+bool OSEM_CPU::ensureExperimentalMetalResidentProjectorBuffers(
+    const Image& inputImage, const Image& updateImage,
+    backend::metal::OperatorProjectorMetalProfile& bridgeProfile)
+{
+	if (!isExperimentalMetalResidentImagesAllowedForCurrentState())
+	{
+		return false;
+	}
+	if (mp_experimentalMetalResidentOsemState == nullptr)
+	{
+		mp_experimentalMetalResidentOsemState =
+		    std::make_unique<ExperimentalMetalResidentOsemState>();
+	}
+	auto& state = *mp_experimentalMetalResidentOsemState;
+	if (!state.context.isValid())
+	{
+		return false;
+	}
+
+	backend::metal::ImageShape inputShape{};
+	if (!makeMetalImageShape(inputImage, inputShape) ||
+	    !inputImage.getParams().isSameAs(updateImage.getParams()))
+	{
+		return false;
+	}
+
+	const std::size_t inputByteCount = metalImageByteCount(inputShape);
+	const bool needsUpload =
+	    !state.imageUploaded || !state.imageBuffer.isValid() ||
+	    state.imageBuffer.byteCount() < inputByteCount ||
+	    !state.imageParams.isSameAs(inputImage.getParams());
+	if (needsUpload)
+	{
+		if (state.hostImageStale)
+		{
+			return false;
+		}
+		backend::metal::SiddonProjectorKernelProfile transferProfile;
+		if (!backend::metal::uploadSiddonImageBuffer(state.context,
+		        inputImage, state.imageBuffer,
+		        m_experimentalMetalProjectorProfilingEnabled ?
+		            &transferProfile :
+		            nullptr))
+		{
+			return false;
+		}
+		if (m_experimentalMetalProjectorProfilingEnabled)
+		{
+			bridgeProfile.forwardImageUploadSeconds +=
+			    transferProfile.imageUploadSeconds;
+		}
+		state.imageUploaded = true;
+		state.imageParams = inputImage.getParams();
+	}
+
+	if (!state.updateReady)
+	{
+		return tryResetExperimentalMetalResidentUpdateImage();
+	}
+	return state.updateBuffer.isValid();
+}
+
+bool OSEM_CPU::applyExperimentalMetalResidentImageUpdate(
+    const ImageBase* sensitivityImage)
+{
+	if (!isExperimentalMetalResidentImagesAllowedForCurrentState() ||
+	    mp_experimentalMetalResidentOsemState == nullptr ||
+	    sensitivityImage == nullptr)
+	{
+		return false;
+	}
+
+	auto& state = *mp_experimentalMetalResidentOsemState;
+	Image* image = dynamic_cast<Image*>(outImage.get());
+	const Image* sensitivity = dynamic_cast<const Image*>(sensitivityImage);
+	if (image == nullptr || sensitivity == nullptr || !state.context.isValid() ||
+	    !state.imageBuffer.isValid() || !state.updateBuffer.isValid() ||
+	    !state.updateReady)
+	{
+		return false;
+	}
+	if (image->getParams().nt > 1 && sensitivity->getParams().nt > 1)
+	{
+		return false;
+	}
+
+	backend::metal::ImageShape imageShape{};
+	if (!makeMetalImageShape(*image, imageShape))
+	{
+		return false;
+	}
+
+	const bool needsSensitivityUpload =
+	    !state.sensitivityUploaded || !state.sensitivityBuffer.isValid() ||
+	    state.sensitivityImage != sensitivityImage ||
+	    !state.sensitivityParams.isSameAs(sensitivity->getParams());
+	if (needsSensitivityUpload)
+	{
+		if (!backend::metal::uploadSiddonImageBuffer(
+		        state.context, *sensitivity, state.sensitivityBuffer, nullptr))
+		{
+			return false;
+		}
+		state.sensitivityUploaded = true;
+		state.sensitivityImage = sensitivityImage;
+		state.sensitivityParams = sensitivity->getParams();
+	}
+
+	const bool didUpdate =
+	    imageShape.nt == 1 ?
+	        backend::metal::launchImageUpdateEMStatic(
+	            state.context.device(), state.context.library(),
+	            state.context.commandQueue(), state.updateBuffer,
+	            state.imageBuffer, state.sensitivityBuffer, imageShape,
+	            EPS_FLT) :
+	        backend::metal::launchImageUpdateEMDynamic(
+	            state.context.device(), state.context.library(),
+	            state.context.commandQueue(), state.updateBuffer,
+	            state.imageBuffer, state.sensitivityBuffer, imageShape,
+	            EPS_FLT);
+	if (!didUpdate)
+	{
+		return false;
+	}
+
+	state.hostImageStale = true;
+	state.updateReady = false;
+	return true;
+}
+#endif
 
 void OSEM_CPU::loadCurrentSubset(bool /*forRecon*/) {}
 
 void OSEM_CPU::resetEMUpdateImage()
 {
+#if BUILD_METAL
+	if (tryResetExperimentalMetalResidentUpdateImage())
+	{
+		return;
+	}
+#endif
 	mp_mlemImageTmpEMRatio->fill(0.0);
 }
 
 void OSEM_CPU::computeEMUpdateImage()
 {
 	m_experimentalMetalProjectorRanLastCompute = false;
+#if BUILD_METAL
+	const auto computeUpdateStart = Clock::now();
+#endif
 
 	if (flagImagePSF)
 	{
@@ -1297,8 +2035,16 @@ void OSEM_CPU::computeEMUpdateImage()
 	const bool hasRandomsEstimates =
 	    corrector.hasRandomsEstimates(*measurements);
 	const bool hasInVivoAttenuation = corrector.hasInVivoAttenuation();
+	const bool useNonPrecomputedMetalCorrections =
+	    m_experimentalMetalProjectorEnabled &&
+	    (m_experimentalMetalProjectorLazyCorrectionsEnabled ||
+	     m_experimentalMetalProjectorCachedCorrectionsEnabled) &&
+	    !flagImagePSF;
 
-	corrector.assertMeasurementsMatchCache(measurements);
+	if (!useNonPrecomputedMetalCorrections)
+	{
+		corrector.assertMeasurementsMatchCache(measurements);
+	}
 
 	bool computedWithExperimentalMetalProjector = false;
 	if (m_experimentalMetalProjectorEnabled && !flagImagePSF)
@@ -1313,8 +2059,33 @@ void OSEM_CPU::computeEMUpdateImage()
 		    computedWithExperimentalMetalProjector;
 	}
 
+#if BUILD_METAL
+	if (!computedWithExperimentalMetalProjector &&
+	    mp_experimentalMetalResidentOsemState != nullptr &&
+	    mp_experimentalMetalResidentOsemState->hostImageStale)
+	{
+		if (!downloadExperimentalMetalResidentImage())
+		{
+			throw std::runtime_error(
+			    "Experimental Metal resident image path could not download "
+			    "the stale host image before CPU fallback");
+		}
+	}
+#endif
+
 	if (!computedWithExperimentalMetalProjector)
 	{
+#if BUILD_METAL
+		if (m_experimentalMetalProjectorResidentImagesEnabled)
+		{
+			mp_mlemImageTmpEMRatio->fill(0.0f);
+		}
+#endif
+		if (useNonPrecomputedMetalCorrections)
+		{
+			mp_corrector->precomputeCorrectionFactors(*measurements);
+			corrector.assertMeasurementsMatchCache(measurements);
+		}
 		mp_binLoader->parallelDoOnBins<false>(
 		    *measurements, *binIter,
 		    [&projector, &corrector, &measurements, hasRandomsEstimates,
@@ -1391,6 +2162,26 @@ void OSEM_CPU::computeEMUpdateImage()
 		//  apply the image update
 		mp_mlemImageTmpEMRatio.swap(mp_imageTmpPsf);
 	}
+
+#if BUILD_METAL
+	if (computedWithExperimentalMetalProjector &&
+	    m_experimentalMetalProjectorProfilingEnabled)
+	{
+		const double computeUpdateSeconds =
+		    getElapsedSeconds(computeUpdateStart, Clock::now());
+		m_experimentalMetalProjectorTimings.computeUpdateImageSeconds +=
+		    computeUpdateSeconds;
+		if (!m_experimentalMetalProjectorSubsetTimings.empty())
+		{
+			auto& subsetTiming = m_experimentalMetalProjectorSubsetTimings.back();
+			if (subsetTiming.iteration == getCurrentMLEMIteration() &&
+			    subsetTiming.subset == getCurrentOSEMSubset())
+			{
+				subsetTiming.computeUpdateImageSeconds += computeUpdateSeconds;
+			}
+		}
+	}
+#endif
 }
 
 bool OSEM_CPU::computeEMUpdateImageWithExperimentalMetalProjector(
@@ -1414,27 +2205,51 @@ bool OSEM_CPU::computeEMUpdateImageWithExperimentalMetalProjector(
 	double forwardSeconds = 0.0;
 	double ratioSeconds = 0.0;
 	double adjointSeconds = 0.0;
-
-	const auto setupStart = Clock::now();
-	const backend::metal::Context context;
-	if (!context.isValid())
-	{
-		return false;
-	}
-
-	std::vector<Constraint*> constraints = getConstraintsAsVectorOfPointers();
-	OperatorProjector projector(projectorParams, &binIter, constraints);
-	const BinLoader* bridgeBinLoader = projector.getBinLoader();
-	if (bridgeBinLoader == nullptr)
-	{
-		return false;
-	}
-
 	backend::metal::OperatorProjectorMetalProfile bridgeProfile;
 	bridgeProfile.diagnoseAdjointUpdateCounts =
 	    m_experimentalMetalProjectorAdjointDiagnosticsEnabled;
 	bridgeProfile.diagnoseAdjointVoxelHits =
 	    m_experimentalMetalProjectorAdjointHitDiagnosticsEnabled;
+
+	const auto setupStart = Clock::now();
+	const bool useResidentImages =
+	    isExperimentalMetalResidentImagesAllowedForCurrentState();
+	const auto contextStart = Clock::now();
+	std::unique_ptr<backend::metal::Context> localContext;
+	const backend::metal::Context* context = nullptr;
+	if (useResidentImages)
+	{
+		if (mp_experimentalMetalResidentOsemState == nullptr)
+		{
+			mp_experimentalMetalResidentOsemState =
+			    std::make_unique<ExperimentalMetalResidentOsemState>();
+		}
+		context = &mp_experimentalMetalResidentOsemState->context;
+	}
+	else
+	{
+		localContext = std::make_unique<backend::metal::Context>();
+		context = localContext.get();
+	}
+	bridgeProfile.setupContextSeconds =
+	    getElapsedSeconds(contextStart, Clock::now());
+	if (context == nullptr || !context->isValid())
+	{
+		return false;
+	}
+
+	const auto projectorStart = Clock::now();
+	std::vector<Constraint*> constraints = getConstraintsAsVectorOfPointers();
+	OperatorProjector projector(projectorParams, &binIter, constraints);
+	const BinLoader* bridgeBinLoader = projector.getBinLoader();
+	bridgeProfile.setupProjectorSeconds =
+	    getElapsedSeconds(projectorStart, Clock::now());
+	if (bridgeBinLoader == nullptr)
+	{
+		return false;
+	}
+
+	const auto cacheStart = Clock::now();
 	backend::metal::OperatorProjectorMetalCache* bridgeCache = nullptr;
 	if (m_experimentalMetalProjectorCacheEnabled)
 	{
@@ -1445,20 +2260,35 @@ bool OSEM_CPU::computeEMUpdateImageWithExperimentalMetalProjector(
 		}
 		mp_experimentalMetalProjectorCache->setMaxBytes(
 		    m_experimentalMetalProjectorCacheMaxBytes);
+		mp_experimentalMetalProjectorCache->setCorrectionCacheReserveBytes(
+		    m_experimentalMetalProjectorCorrectionCacheReserveBytes);
 		mp_experimentalMetalProjectorCache->setMaxBatchEvents(
 		    m_experimentalMetalProjectorMaxBatchEvents);
 		bridgeCache = mp_experimentalMetalProjectorCache.get();
 	}
+	bridgeProfile.setupCacheSeconds =
+	    getElapsedSeconds(cacheStart, Clock::now());
+	const auto bridgeStart = Clock::now();
 	const backend::metal::OperatorProjectorMetalBridge bridge(
-	    context, m_experimentalMetalProjectorProfilingEnabled ? &bridgeProfile
-	                                                          : nullptr,
+	    *context, m_experimentalMetalProjectorProfilingEnabled ? &bridgeProfile
+	                                                           : nullptr,
 	    bridgeCache);
-	if (!bridge.canRunSiddon(projector).supported)
+	bridgeProfile.setupBridgeSeconds =
+	    getElapsedSeconds(bridgeStart, Clock::now());
+	const auto canRunStart = Clock::now();
+	const auto support = bridge.canRunSiddon(projector);
+	bridgeProfile.setupCanRunSeconds =
+	    getElapsedSeconds(canRunStart, Clock::now());
+	if (!support.supported)
 	{
 		return false;
 	}
 
 	setupSeconds = getElapsedSeconds(setupStart, Clock::now());
+	const bool residentImagesActive =
+	    useResidentImages &&
+	    ensureExperimentalMetalResidentProjectorBuffers(
+	        inputImageForForwardProj, destImageForBackproj, bridgeProfile);
 
 	auto metalProjectorKernel =
 	    backend::metal::OperatorProjectorMetalKernel::Siddon;
@@ -1473,6 +2303,11 @@ bool OSEM_CPU::computeEMUpdateImageWithExperimentalMetalProjector(
 		    backend::metal::OperatorProjectorMetalKernel::JosephTextureForward;
 	}
 	bool didRun = false;
+	const bool usePrecomputedCorrections =
+	    !(m_experimentalMetalProjectorLazyCorrectionsEnabled ||
+	      m_experimentalMetalProjectorCachedCorrectionsEnabled);
+	const bool cacheCorrectionFactors =
+	    m_experimentalMetalProjectorCachedCorrectionsEnabled;
 	if (m_experimentalMetalProjectorFusedRatioEnabled)
 	{
 		const backend::metal::OperatorProjectorMetalOsemConfig metalOsemConfig{
@@ -1484,6 +2319,8 @@ bool OSEM_CPU::computeEMUpdateImageWithExperimentalMetalProjector(
 		    hasRandomsEstimates,
 		    hasInVivoAttenuation,
 		    true,
+		    usePrecomputedCorrections,
+		    cacheCorrectionFactors,
 		    metalProjectorKernel};
 		didRun = bridge.applyOsemEMUpdate(projector, inputImageForForwardProj,
 		    destImageForBackproj, measurements, binIter, *bridgeBinLoader,
@@ -1521,10 +2358,26 @@ bool OSEM_CPU::computeEMUpdateImageWithExperimentalMetalProjector(
 		    hasRandomsEstimates,
 		    hasInVivoAttenuation,
 		    true,
+		    usePrecomputedCorrections,
+		    cacheCorrectionFactors,
 		    metalProjectorKernel};
-		didRun = bridge.applyOsemEMUpdateHostRatio(projector,
-		    inputImageForForwardProj, destImageForBackproj, measurements,
-		    binIter, *bridgeBinLoader, corrector, metalOsemConfig);
+		if (residentImagesActive &&
+		    mp_experimentalMetalResidentOsemState != nullptr)
+		{
+			didRun = bridge.applyOsemEMUpdateHostRatioWithBuffers(projector,
+			    inputImageForForwardProj,
+			    mp_experimentalMetalResidentOsemState->imageBuffer,
+			    destImageForBackproj,
+			    mp_experimentalMetalResidentOsemState->updateBuffer,
+			    measurements, binIter, *bridgeBinLoader, corrector,
+			    metalOsemConfig);
+		}
+		else
+		{
+			didRun = bridge.applyOsemEMUpdateHostRatio(projector,
+			    inputImageForForwardProj, destImageForBackproj, measurements,
+			    binIter, *bridgeBinLoader, corrector, metalOsemConfig);
+		}
 
 		if (didRun && m_experimentalMetalProjectorProfilingEnabled)
 		{
@@ -1546,6 +2399,12 @@ bool OSEM_CPU::computeEMUpdateImageWithExperimentalMetalProjector(
 			                 bridgeProfile.adjointImageDownloadSeconds +
 			                 bridgeProfile.adjointHostImageCopySeconds;
 		}
+	}
+	if (!didRun && !m_experimentalMetalProjectorFusedRatioEnabled &&
+	    (m_experimentalMetalProjectorLazyCorrectionsEnabled ||
+	     m_experimentalMetalProjectorCachedCorrectionsEnabled))
+	{
+		return false;
 	}
 	if (!didRun && !m_experimentalMetalProjectorFusedRatioEnabled)
 	{
@@ -1667,6 +2526,11 @@ bool OSEM_CPU::computeEMUpdateImageWithExperimentalMetalProjector(
 	if (didRun && m_experimentalMetalProjectorProfilingEnabled)
 	{
 		const double totalSeconds = getElapsedSeconds(totalStart, Clock::now());
+		const double accountedSeconds =
+		    setupSeconds + forwardSeconds + ratioSeconds + adjointSeconds +
+		    bridgeProfile.ratioNonzeroDiagnosticSeconds;
+		bridgeProfile.metalPathOverheadSeconds =
+		    std::max(0.0, totalSeconds - accountedSeconds);
 		addBridgeProfileToTimings(m_experimentalMetalProjectorTimings,
 		    setupSeconds, forwardSeconds, ratioSeconds, adjointSeconds,
 		    totalSeconds, bridgeProfile);
@@ -1702,12 +2566,69 @@ bool OSEM_CPU::computeEMUpdateImageWithExperimentalMetalProjector(
 
 void OSEM_CPU::applyImageUpdate()
 {
+#if BUILD_METAL
+	const bool profileExperimentalMetalImageUpdate =
+	    m_experimentalMetalProjectorProfilingEnabled &&
+	    m_experimentalMetalProjectorRanLastCompute;
+	const auto imageUpdateStart = Clock::now();
+#endif
+
 	// Apply update using the correct sensitivity image
 	const ImageBase* sensImage = getSensImageBuffer();
+
+#if BUILD_METAL
+	if (m_experimentalMetalProjectorRanLastCompute &&
+	    mp_experimentalMetalResidentOsemState != nullptr &&
+	    mp_experimentalMetalResidentOsemState->updateReady)
+	{
+		if (!applyExperimentalMetalResidentImageUpdate(sensImage))
+		{
+			throw std::runtime_error(
+			    "Experimental Metal resident image update failed");
+		}
+		if (profileExperimentalMetalImageUpdate)
+		{
+			const double imageUpdateSeconds =
+			    getElapsedSeconds(imageUpdateStart, Clock::now());
+			m_experimentalMetalProjectorTimings.imageUpdateSeconds +=
+			    imageUpdateSeconds;
+			if (!m_experimentalMetalProjectorSubsetTimings.empty())
+			{
+				auto& subsetTiming =
+				    m_experimentalMetalProjectorSubsetTimings.back();
+				if (subsetTiming.iteration == getCurrentMLEMIteration() &&
+				    subsetTiming.subset == getCurrentOSEMSubset())
+				{
+					subsetTiming.imageUpdateSeconds += imageUpdateSeconds;
+				}
+			}
+		}
+		return;
+	}
+#endif
 
 	// Apply the update on the outImage buffer
 	outImage->updateEMThresholdDynamic(mp_mlemImageTmpEMRatio.get(), sensImage,
 	                                   EPS_FLT);
+
+#if BUILD_METAL
+	if (profileExperimentalMetalImageUpdate)
+	{
+		const double imageUpdateSeconds =
+		    getElapsedSeconds(imageUpdateStart, Clock::now());
+		m_experimentalMetalProjectorTimings.imageUpdateSeconds +=
+		    imageUpdateSeconds;
+		if (!m_experimentalMetalProjectorSubsetTimings.empty())
+		{
+			auto& subsetTiming = m_experimentalMetalProjectorSubsetTimings.back();
+			if (subsetTiming.iteration == getCurrentMLEMIteration() &&
+			    subsetTiming.subset == getCurrentOSEMSubset())
+			{
+				subsetTiming.imageUpdateSeconds += imageUpdateSeconds;
+			}
+		}
+	}
+#endif
 }
 
 
@@ -1717,6 +2638,15 @@ void OSEM_CPU::completeMLEMIteration() {}
 
 void OSEM_CPU::endRecon()
 {
+#if BUILD_METAL
+	if (!downloadExperimentalMetalResidentImage())
+	{
+		throw std::runtime_error(
+		    "Experimental Metal resident image path could not download the "
+		    "final image");
+	}
+	mp_experimentalMetalResidentOsemState = nullptr;
+#endif
 	// Clear temporary buffers
 	mp_mlemImageTmpEMRatio = nullptr;
 }

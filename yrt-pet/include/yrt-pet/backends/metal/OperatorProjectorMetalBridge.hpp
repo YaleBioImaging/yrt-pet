@@ -51,6 +51,8 @@ struct OperatorProjectorMetalOsemConfig
 	bool hasRandomsEstimates = false;
 	bool hasInVivoAttenuation = false;
 	bool zeroInitializeUpdateImage = false;
+	bool usePrecomputedCorrections = true;
+	bool cacheCorrectionFactors = false;
 	OperatorProjectorMetalKernel projectorKernel =
 	    OperatorProjectorMetalKernel::Siddon;
 };
@@ -65,6 +67,8 @@ public:
 	void setMaxBytes(std::size_t maxBytes);
 	std::size_t maxBytes() const;
 	std::size_t usedBytes() const;
+	void setCorrectionCacheReserveBytes(std::size_t reserveBytes);
+	std::size_t correctionCacheReserveBytes() const;
 	void setMaxBatchEvents(std::size_t maxBatchEvents);
 	std::size_t maxBatchEvents() const;
 	void setMaxChunkEvents(std::size_t maxChunkEvents);
@@ -115,8 +119,22 @@ public:
 	    const BinIterator& binIterator, const BinLoader& binLoader,
 	    const Corrector_CPU& corrector,
 	    const OperatorProjectorMetalOsemConfig& config) const;
+	bool applyOsemEMUpdateHostRatioWithBuffers(
+	    const OperatorProjector& projector, const Image& inputImage,
+	    const Buffer& inputImageBuffer, Image& updateImage,
+	    Buffer& updateImageBuffer, const ProjectionData& measurements,
+	    const BinIterator& binIterator, const BinLoader& binLoader,
+	    const Corrector_CPU& corrector,
+	    const OperatorProjectorMetalOsemConfig& config) const;
 
 private:
+	bool applyOsemHostRatioWithImageBuffers(
+	    const Image& inputImage, const Buffer& inputImageBuffer,
+	    Image& updateImage, Buffer& updateImageBuffer,
+	    const ProjectionData& measurements, const BinIterator& binIterator,
+	    const BinLoader& binLoader, const Corrector_CPU& corrector,
+	    const OperatorProjectorMetalOsemConfig& config) const;
+
 	Context m_context;
 	OperatorProjectorMetalProfile* mp_profile = nullptr;
 	OperatorProjectorMetalCache* mp_cache = nullptr;

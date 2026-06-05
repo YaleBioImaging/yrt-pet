@@ -23,6 +23,7 @@
 #include <cerrno>
 #include <cstdlib>
 #include <cstring>
+#include <cstdio>
 #include <map>
 #include <mutex>
 #include <utility>
@@ -71,6 +72,31 @@ NS::UInteger parseThreadgroupOverride()
 		return 0;
 	}
 	return static_cast<NS::UInteger>(parsed);
+}
+
+bool shouldPrintLaunchErrors()
+{
+	const char* value =
+	    std::getenv("YRTPET_METAL_DEBUG_LAUNCH_ERRORS");
+	return value != nullptr && value[0] != '\0' && value[0] != '0';
+}
+
+void printLaunchError(const std::string& functionName, const char* stage,
+    const NS::Error* p_error)
+{
+	if (!shouldPrintLaunchErrors())
+	{
+		return;
+	}
+
+	std::fprintf(stderr, "YRTPET Metal launch error in %s at %s",
+	    functionName.c_str(), stage);
+	if (p_error != nullptr && p_error->localizedDescription() != nullptr)
+	{
+		std::fprintf(stderr, ": %s",
+		    p_error->localizedDescription()->utf8String());
+	}
+	std::fprintf(stderr, "\n");
 }
 
 NS::UInteger chooseThreadsPerThreadgroup(
@@ -653,6 +679,7 @@ bool launchKernel1D(const Device& device, const Library& library,
 			    library.mp_impl->p_library->newFunction(p_functionName.get()));
 			if (!p_function)
 			{
+				printLaunchError(functionName, "newFunction", nullptr);
 				return false;
 			}
 
@@ -662,6 +689,8 @@ bool launchKernel1D(const Device& device, const Library& library,
 			        p_function.get(), &p_error));
 			if (!p_pipeline)
 			{
+				printLaunchError(functionName, "newComputePipelineState",
+				    p_error);
 				return false;
 			}
 
@@ -726,7 +755,14 @@ bool launchKernel1D(const Device& device, const Library& library,
 	p_commandBuffer->commit();
 	p_commandBuffer->waitUntilCompleted();
 
-	return p_commandBuffer->status() == MTL::CommandBufferStatusCompleted;
+	const bool completed =
+	    p_commandBuffer->status() == MTL::CommandBufferStatusCompleted;
+	if (!completed)
+	{
+		printLaunchError(functionName, "commandBuffer",
+		    p_commandBuffer->error());
+	}
+	return completed;
 }
 
 }  // namespace yrt::backend::metal

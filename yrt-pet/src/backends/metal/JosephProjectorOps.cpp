@@ -337,6 +337,29 @@ bool forwardProjectJosephSingleRay(const Context& context,
 	return true;
 }
 
+bool forwardProjectJosephSingleRayAxis(const Context& context,
+    const Buffer& imageBuffer, ProjectionBatchMetal& batch,
+    const SiddonForwardImageParams& params, std::uint32_t axis,
+    SiddonProjectorKernelProfile* profile)
+{
+	if (!context.isValid() || !imageBuffer.isValid() || !batch.isValid() ||
+	    !fitsUint32Size(batch.size()))
+	{
+		return false;
+	}
+
+	const auto kernelStart = Clock::now();
+	const bool didRun = launchJosephForwardSingleRayAxis(
+	    context.device(), context.library(), context.commandQueue(),
+	    imageBuffer, batch.lorBuffer(), batch.projectionValuesBuffer(), params,
+	    batch.size(), axis);
+	if (profile != nullptr)
+	{
+		profile->kernelSeconds += getElapsedSeconds(kernelStart, Clock::now());
+	}
+	return didRun;
+}
+
 bool uploadJosephImageFrameTexture(const Context& context, const Image& image,
     std::uint32_t frame, Texture3D& texture, Sampler& sampler,
     SiddonProjectorKernelProfile* profile)
@@ -442,6 +465,43 @@ bool backProjectJosephSingleRay(const Context& context,
 	    context.device(), context.library(), context.commandQueue(),
 	    imageBuffer, batch.lorBuffer(), batch.projectionValuesBuffer(), params,
 	    batch.size());
+	if (profile != nullptr)
+	{
+		profile->kernelSeconds += getElapsedSeconds(kernelStart, Clock::now());
+	}
+	if (!didRun)
+	{
+		return false;
+	}
+	if (profile != nullptr && profile->diagnoseAdjointUpdateCounts &&
+	    !collectBackProjectUpdateCounts(context, batch, params, *profile))
+	{
+		return false;
+	}
+	if (profile != nullptr && profile->diagnoseAdjointVoxelHits &&
+	    !collectBackProjectVoxelHitCounts(context, batch, params, *profile))
+	{
+		return false;
+	}
+	return true;
+}
+
+bool backProjectJosephSingleRayAxis(const Context& context,
+    const ProjectionBatchMetal& batch, Buffer& imageBuffer,
+    const SiddonForwardImageParams& params, std::uint32_t axis,
+    SiddonProjectorKernelProfile* profile)
+{
+	if (!context.isValid() || !imageBuffer.isValid() || !batch.isValid() ||
+	    !fitsUint32Size(batch.size()))
+	{
+		return false;
+	}
+
+	const auto kernelStart = Clock::now();
+	const bool didRun = launchJosephBackProjectSingleRayAxis(
+	    context.device(), context.library(), context.commandQueue(),
+	    imageBuffer, batch.lorBuffer(), batch.projectionValuesBuffer(), params,
+	    batch.size(), axis);
 	if (profile != nullptr)
 	{
 		profile->kernelSeconds += getElapsedSeconds(kernelStart, Clock::now());

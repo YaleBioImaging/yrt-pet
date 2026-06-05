@@ -15,6 +15,7 @@ import pyyrtpet as yrt
 
 
 METAL_CACHE_BYTES_PER_EVENT = 60.0
+METAL_COMPACT_CORRECTION_CACHE_BYTES_PER_EVENT = 3.0 * 4.0
 DEFAULT_METAL_CACHE_PRESSURE_CAP_MB = 24576.0
 LISTMODE_FIELDS_PER_EVENT = 3
 LISTMODE_FIELD_BYTES = 4
@@ -483,8 +484,19 @@ def bytes_to_gib(value):
     return float(value) / (1024.0 * 1024.0 * 1024.0)
 
 
-def estimate_metal_cache_bytes(event_count):
-    return int(round(float(event_count) * METAL_CACHE_BYTES_PER_EVENT))
+def estimate_metal_correction_cache_bytes_per_event(args):
+    if not getattr(args, "metal_cached_corrections", False):
+        return 0.0
+    return METAL_COMPACT_CORRECTION_CACHE_BYTES_PER_EVENT
+
+
+def estimate_metal_cache_bytes(event_count, args=None):
+    correction_bytes = (
+        estimate_metal_correction_cache_bytes_per_event(args)
+        if args is not None
+        else 0.0
+    )
+    return int(round(float(event_count) * (METAL_CACHE_BYTES_PER_EVENT + correction_bytes)))
 
 
 def classify_cache_pressure(planned_cache_mb, pressure_cap_mb):
@@ -502,7 +514,8 @@ def classify_cache_pressure(planned_cache_mb, pressure_cap_mb):
 
 
 def metal_cache_plan(args, used_events):
-    estimated_full_bytes = estimate_metal_cache_bytes(used_events)
+    correction_bytes_per_event = estimate_metal_correction_cache_bytes_per_event(args)
+    estimated_full_bytes = estimate_metal_cache_bytes(used_events, args)
     budget_bytes = int(max(args.metal_cache_budget_mb, 0.0) * 1024.0 * 1024.0)
     metal_requested = args.compare_metal or args.metal_only
 
@@ -529,6 +542,7 @@ def metal_cache_plan(args, used_events):
     )
     return {
         "metal_cache_estimate_bytes_per_event": METAL_CACHE_BYTES_PER_EVENT,
+        "metal_cache_estimate_correction_bytes_per_event": correction_bytes_per_event,
         "metal_cache_estimated_full_mb": bytes_to_mb(estimated_full_bytes),
         "metal_cache_estimated_full_gib": bytes_to_gib(estimated_full_bytes),
         "metal_cache_fit": fit,
@@ -571,13 +585,82 @@ def update_actual_metal_cache_usage(row, profile):
     row["metal_cache_used_gib"] = bytes_to_gib(cache_used_bytes)
 
 
+def update_metal_profile_recon_gap(row):
+    profile_total = row.get("metal_profile_total_s")
+    metal_recon = row.get("metal_recon_s")
+    if profile_total is None or metal_recon is None:
+        return
+    gap = max(0.0, float(metal_recon) - float(profile_total))
+    row["metal_recon_profile_gap_s"] = gap
+    row["metal_recon_profile_gap_fraction"] = (
+        gap / max(float(metal_recon), 1.0e-12)
+    )
+    compute_update = float(row.get("metal_profile_compute_update_image_s", 0.0))
+    image_update = float(row.get("metal_profile_image_update_s", 0.0))
+    if compute_update > 0.0:
+        compute_gap = max(0.0, compute_update - float(profile_total))
+        row["metal_compute_profile_gap_s"] = compute_gap
+        row["metal_compute_profile_gap_fraction"] = (
+            compute_gap / max(compute_update, 1.0e-12)
+        )
+    if compute_update > 0.0 or image_update > 0.0:
+        post_update_gap = max(0.0, float(metal_recon) - compute_update - image_update)
+        row["metal_recon_post_update_gap_s"] = post_update_gap
+        row["metal_recon_post_update_gap_fraction"] = (
+            post_update_gap / max(float(metal_recon), 1.0e-12)
+        )
+    lifecycle_total = sum(
+        float(row.get(field, 0.0) or 0.0)
+        for field in (
+            "metal_profile_recon_initialize_s",
+            "metal_profile_recon_iterate_s",
+            "metal_profile_recon_save_iteration_s",
+            "metal_profile_recon_complete_mlem_s",
+            "metal_profile_recon_end_s",
+        )
+    )
+    if lifecycle_total > 0.0:
+        lifecycle_gap = max(0.0, float(metal_recon) - lifecycle_total)
+        row["metal_recon_lifecycle_gap_s"] = lifecycle_gap
+        row["metal_recon_lifecycle_gap_fraction"] = (
+            lifecycle_gap / max(float(metal_recon), 1.0e-12)
+        )
+
+
 def env_flag(name):
     return os.environ.get(name, "") not in ("", "0")
+
+
+def metal_joseph_axis_specialization_mode(args):
+    explicit_mode = getattr(args, "metal_joseph_axis_specialization", "none")
+    if explicit_mode != "none":
+        return explicit_mode
+    return "both" if args.metal_joseph_axis_specialized else "none"
 
 
 def apply_metal_environment(args):
     os.environ["YRTPET_METAL_JOSEPH_SAMPLE_STRIDE"] = str(
         max(1, int(args.metal_joseph_sample_stride))
+    )
+    axis_mode = metal_joseph_axis_specialization_mode(args)
+    if axis_mode != "none":
+        os.environ["YRTPET_METAL_JOSEPH_AXIS_SPECIALIZED"] = axis_mode
+    else:
+        os.environ.pop("YRTPET_METAL_JOSEPH_AXIS_SPECIALIZED", None)
+    if args.metal_joseph_adjoint_accumulation != "none":
+        os.environ["YRTPET_METAL_JOSEPH_ADJOINT_ACCUMULATION"] = (
+            args.metal_joseph_adjoint_accumulation
+        )
+    else:
+        os.environ.pop("YRTPET_METAL_JOSEPH_ADJOINT_ACCUMULATION", None)
+    if args.metal_adjoint_event_order != "none":
+        os.environ["YRTPET_METAL_ADJOINT_EVENT_ORDER"] = (
+            args.metal_adjoint_event_order
+        )
+    else:
+        os.environ.pop("YRTPET_METAL_ADJOINT_EVENT_ORDER", None)
+    os.environ["YRTPET_METAL_ADJOINT_TILE_SIZE"] = str(
+        max(1, int(args.metal_adjoint_tile_size))
     )
     threads_per_threadgroup = int(args.metal_threads_per_threadgroup)
     if threads_per_threadgroup > 0:
@@ -586,11 +669,47 @@ def apply_metal_environment(args):
         )
     else:
         os.environ.pop("YRTPET_METAL_THREADS_PER_THREADGROUP", None)
+    if args.profile_metal_ratio_nonzero:
+        os.environ["YRTPET_METAL_PROFILE_RATIO_NONZERO"] = "1"
+    else:
+        os.environ.pop("YRTPET_METAL_PROFILE_RATIO_NONZERO", None)
 
 
 def print_metal_projector_notes(args):
     if not (args.compare_metal or args.metal_only):
         return
+    if args.metal_adjoint_event_order == "major-axis":
+        print(
+            "NOTE: --metal-adjoint-event-order major-axis uses a stable "
+            "three-bucket ordering by dominant ray axis. It is intended as "
+            "the low-overhead full-data adjoint ordering probe."
+        )
+    elif args.metal_adjoint_event_order == "line-hash":
+        print(
+            "NOTE: --metal-adjoint-event-order line-hash is diagnostic-only. "
+            "A GE full-data checkpoint was much slower because it requires "
+            "full sorting and worsened kernel timing."
+        )
+    elif args.metal_adjoint_event_order == "tile-round-robin":
+        print(
+            "NOTE: --metal-adjoint-event-order tile-round-robin is an "
+            "experimental O(n) tile-aware interleaving probe. It tries to "
+            "spread likely adjoint voxel writes across neighboring GPU lanes; "
+            "benchmark against none before using it in a recipe."
+        )
+    if args.profile_metal_ratio_nonzero:
+        print(
+            "NOTE: --profile-metal-ratio-nonzero downloads post-ratio Metal "
+            "projection values to count zeros. Use its active/zero fractions "
+            "for adjoint-compaction planning; its timing is diagnostic-only."
+        )
+    if args.metal_resident_images:
+        print(
+            "NOTE: --metal-resident-images keeps the current OSEM image and "
+            "EM update image on Metal across subsets. It is an opt-in "
+            "host-ratio path experiment; final output is downloaded at "
+            "reconstruction end."
+        )
     if args.metal_projector != "joseph":
         return
 
@@ -618,6 +737,21 @@ def print_metal_projector_notes(args):
             "reduced-update Joseph approximation. Use it for A/B timing and "
             "image-quality checks only."
         )
+    axis_mode = metal_joseph_axis_specialization_mode(args)
+    if axis_mode != "none":
+        print(
+            "NOTE: Joseph axis specialization is an opt-in full-precision "
+            f"cache-admission experiment in {axis_mode} mode. It splits "
+            "cached Joseph batches by voxel-scaled dominant axis; forward "
+            "mode leaves adjoint on the generic Joseph kernel."
+        )
+    if args.metal_joseph_adjoint_accumulation == "threadgroup-sample":
+        print(
+            "NOTE: --metal-joseph-adjoint-accumulation threadgroup-sample is "
+            "an opt-in full-precision adjoint atomic experiment. It requires "
+            "native float atomics, ignores reduced sample-stride mode, and may "
+            "be slower if threadgroup barriers dominate."
+        )
     if env_flag("YRTPET_METAL_USE_PRIVATE_UPDATE_BUFFER"):
         print(
             "NOTE: YRTPET_METAL_USE_PRIVATE_UPDATE_BUFFER=1 was neutral to "
@@ -625,13 +759,45 @@ def print_metal_projector_notes(args):
             "native atomics alone unless re-benchmarking."
         )
 
-
 METAL_PROFILE_FLOAT_FIELDS = [
     "total_s",
     "setup_s",
+    "setup_context_s",
+    "setup_projector_s",
+    "setup_cache_s",
+    "setup_bridge_s",
+    "setup_can_run_s",
     "forward_s",
     "ratio_s",
     "adjoint_s",
+    "metal_path_overhead_s",
+    "compute_update_image_s",
+    "image_update_s",
+    "recon_initialize_s",
+    "recon_setup_dynamic_s",
+    "recon_initialize_out_image_s",
+    "recon_initialize_sens_image_s",
+    "recon_corrector_setup_s",
+    "recon_initialize_bin_iterators_s",
+    "recon_collect_constraints_s",
+    "recon_setup_projector_s",
+    "recon_prepare_buffers_s",
+    "recon_iterate_s",
+    "recon_load_subset_s",
+    "recon_reset_update_s",
+    "recon_compute_update_phase_s",
+    "recon_apply_update_phase_s",
+    "recon_complete_subset_s",
+    "recon_save_iteration_s",
+    "recon_complete_mlem_s",
+    "recon_end_s",
+    "prepare_allocate_images_s",
+    "prepare_initialize_output_s",
+    "prepare_apply_mask_s",
+    "prepare_clear_update_s",
+    "prepare_precompute_corrections_s",
+    "prepare_init_bin_loader_s",
+    "prepare_clear_metal_cache_s",
     "forward_gather_s",
     "forward_gather_cache_build_s",
     "forward_gather_uncached_s",
@@ -650,6 +816,8 @@ METAL_PROFILE_FLOAT_FIELDS = [
     "ratio_pack_s",
     "ratio_batch_upload_s",
     "ratio_kernel_s",
+    "ratio_correction_cache_build_s",
+    "ratio_nonzero_diagnostic_s",
     "adjoint_gather_s",
     "adjoint_gather_cache_build_s",
     "adjoint_gather_uncached_s",
@@ -667,6 +835,19 @@ METAL_PROFILE_FLOAT_FIELDS = [
     "adjoint_host_image_copy_s",
     "adjoint_update_count_s",
     "adjoint_voxel_hit_count_s",
+    "cache_lookup_s",
+    "cache_admission_s",
+    "cache_admission_gather_s",
+    "cache_admission_pack_s",
+    "cache_admission_batch_upload_s",
+    "cache_admission_correction_build_s",
+    "cache_admission_correction_fill_s",
+    "cache_admission_correction_upload_s",
+    "cache_admission_correction_measurement_s",
+    "cache_admission_correction_multiplicative_s",
+    "cache_admission_correction_additive_s",
+    "cache_admission_correction_in_vivo_s",
+    "cache_insert_s",
     "adjoint_max_batch_mean_voxel_hits",
     "adjoint_max_batch_top_1pct_voxel_hit_fraction",
     "adjoint_max_batch_top_0_1pct_voxel_hit_fraction",
@@ -707,16 +888,59 @@ METAL_PROFILE_COUNT_FIELDS = [
     "cache_skips_over_budget",
     "cache_used_bytes",
     "cache_max_bytes",
+    "cache_correction_reserve_bytes",
     "uncached_batches",
+    "ratio_correction_cache_builds",
+    "ratio_correction_cache_hits",
+    "ratio_correction_cache_misses",
+    "ratio_correction_cache_bytes",
+    "ratio_values",
+    "ratio_nonzero_values",
+    "ratio_zero_values",
+    "ratio_nonzero_diagnostic_batches",
 ]
 
 METAL_PROFILE_PRINT_FIELDS = [
     "metal_profile_calls",
     "metal_profile_total_s",
     "metal_profile_setup_s",
+    "metal_profile_setup_context_s",
+    "metal_profile_setup_projector_s",
+    "metal_profile_setup_cache_s",
+    "metal_profile_setup_bridge_s",
+    "metal_profile_setup_can_run_s",
+    "metal_profile_setup_unprofiled_s",
     "metal_profile_forward_s",
     "metal_profile_ratio_s",
     "metal_profile_adjoint_s",
+    "metal_profile_metal_path_overhead_s",
+    "metal_profile_compute_update_image_s",
+    "metal_profile_image_update_s",
+    "metal_profile_recon_initialize_s",
+    "metal_profile_recon_setup_dynamic_s",
+    "metal_profile_recon_initialize_out_image_s",
+    "metal_profile_recon_initialize_sens_image_s",
+    "metal_profile_recon_corrector_setup_s",
+    "metal_profile_recon_initialize_bin_iterators_s",
+    "metal_profile_recon_collect_constraints_s",
+    "metal_profile_recon_setup_projector_s",
+    "metal_profile_recon_prepare_buffers_s",
+    "metal_profile_recon_iterate_s",
+    "metal_profile_recon_load_subset_s",
+    "metal_profile_recon_reset_update_s",
+    "metal_profile_recon_compute_update_phase_s",
+    "metal_profile_recon_apply_update_phase_s",
+    "metal_profile_recon_complete_subset_s",
+    "metal_profile_recon_save_iteration_s",
+    "metal_profile_recon_complete_mlem_s",
+    "metal_profile_recon_end_s",
+    "metal_profile_prepare_allocate_images_s",
+    "metal_profile_prepare_initialize_output_s",
+    "metal_profile_prepare_apply_mask_s",
+    "metal_profile_prepare_clear_update_s",
+    "metal_profile_prepare_precompute_corrections_s",
+    "metal_profile_prepare_init_bin_loader_s",
+    "metal_profile_prepare_clear_metal_cache_s",
     "metal_profile_forward_gather_s",
     "metal_profile_forward_gather_cache_build_s",
     "metal_profile_forward_gather_uncached_s",
@@ -735,6 +959,8 @@ METAL_PROFILE_PRINT_FIELDS = [
     "metal_profile_ratio_pack_s",
     "metal_profile_ratio_batch_upload_s",
     "metal_profile_ratio_kernel_s",
+    "metal_profile_ratio_correction_cache_build_s",
+    "metal_profile_ratio_nonzero_diagnostic_s",
     "metal_profile_adjoint_gather_s",
     "metal_profile_adjoint_gather_cache_build_s",
     "metal_profile_adjoint_gather_uncached_s",
@@ -752,6 +978,19 @@ METAL_PROFILE_PRINT_FIELDS = [
     "metal_profile_adjoint_host_image_copy_s",
     "metal_profile_adjoint_update_count_s",
     "metal_profile_adjoint_voxel_hit_count_s",
+    "metal_profile_cache_lookup_s",
+    "metal_profile_cache_admission_s",
+    "metal_profile_cache_admission_gather_s",
+    "metal_profile_cache_admission_pack_s",
+    "metal_profile_cache_admission_batch_upload_s",
+    "metal_profile_cache_admission_correction_build_s",
+    "metal_profile_cache_admission_correction_fill_s",
+    "metal_profile_cache_admission_correction_upload_s",
+    "metal_profile_cache_admission_correction_measurement_s",
+    "metal_profile_cache_admission_correction_multiplicative_s",
+    "metal_profile_cache_admission_correction_additive_s",
+    "metal_profile_cache_admission_correction_in_vivo_s",
+    "metal_profile_cache_insert_s",
     "metal_profile_forward_events",
     "metal_profile_forward_batches",
     "metal_profile_adjoint_events",
@@ -788,7 +1027,18 @@ METAL_PROFILE_PRINT_FIELDS = [
     "metal_profile_cache_skips_over_budget",
     "metal_profile_cache_used_bytes",
     "metal_profile_cache_max_bytes",
+    "metal_profile_cache_correction_reserve_bytes",
     "metal_profile_uncached_batches",
+    "metal_profile_ratio_correction_cache_builds",
+    "metal_profile_ratio_correction_cache_hits",
+    "metal_profile_ratio_correction_cache_misses",
+    "metal_profile_ratio_correction_cache_bytes",
+    "metal_profile_ratio_values",
+    "metal_profile_ratio_nonzero_values",
+    "metal_profile_ratio_zero_values",
+    "metal_profile_ratio_nonzero_fraction",
+    "metal_profile_ratio_zero_fraction",
+    "metal_profile_ratio_nonzero_diagnostic_batches",
     "metal_profile_total_per_call_s",
     "metal_profile_forward_per_call_s",
     "metal_profile_adjoint_per_call_s",
@@ -805,9 +1055,17 @@ METAL_SUBSET_PROFILE_FIELDS = [
     "metal_ran",
     "total_s",
     "setup_s",
+    "setup_context_s",
+    "setup_projector_s",
+    "setup_cache_s",
+    "setup_bridge_s",
+    "setup_can_run_s",
     "forward_s",
     "ratio_s",
     "adjoint_s",
+    "metal_path_overhead_s",
+    "compute_update_image_s",
+    "image_update_s",
     "forward_gather_s",
     "forward_gather_cache_build_s",
     "forward_gather_uncached_s",
@@ -819,6 +1077,7 @@ METAL_SUBSET_PROFILE_FIELDS = [
     "ratio_pack_s",
     "ratio_batch_upload_s",
     "ratio_kernel_s",
+    "ratio_nonzero_diagnostic_s",
     "adjoint_batch_upload_s",
     "adjoint_image_upload_s",
     "adjoint_kernel_s",
@@ -826,6 +1085,19 @@ METAL_SUBSET_PROFILE_FIELDS = [
     "adjoint_host_image_copy_s",
     "adjoint_update_count_s",
     "adjoint_voxel_hit_count_s",
+    "cache_lookup_s",
+    "cache_admission_s",
+    "cache_admission_gather_s",
+    "cache_admission_pack_s",
+    "cache_admission_batch_upload_s",
+    "cache_admission_correction_build_s",
+    "cache_admission_correction_fill_s",
+    "cache_admission_correction_upload_s",
+    "cache_admission_correction_measurement_s",
+    "cache_admission_correction_multiplicative_s",
+    "cache_admission_correction_additive_s",
+    "cache_admission_correction_in_vivo_s",
+    "cache_insert_s",
     "forward_events",
     "forward_batches",
     "adjoint_events",
@@ -862,7 +1134,18 @@ METAL_SUBSET_PROFILE_FIELDS = [
     "cache_skips_over_budget",
     "cache_used_bytes",
     "cache_max_bytes",
+    "cache_correction_reserve_bytes",
     "uncached_batches",
+    "ratio_correction_cache_builds",
+    "ratio_correction_cache_hits",
+    "ratio_correction_cache_misses",
+    "ratio_correction_cache_bytes",
+    "ratio_values",
+    "ratio_nonzero_values",
+    "ratio_zero_values",
+    "ratio_nonzero_fraction",
+    "ratio_zero_fraction",
+    "ratio_nonzero_diagnostic_batches",
     "memory_before_pressure",
     "memory_before_available_gib",
     "memory_before_free_gib",
@@ -905,6 +1188,30 @@ def normalized_metal_profile(raw_profile):
     )
     profile["metal_profile_adjoint_per_call_s"] = (
         profile["metal_profile_adjoint_s"] / calls
+    )
+    ratio_values = profile.get("metal_profile_ratio_values", 0)
+    if ratio_values > 0:
+        profile["metal_profile_ratio_nonzero_fraction"] = (
+            profile.get("metal_profile_ratio_nonzero_values", 0) / ratio_values
+        )
+        profile["metal_profile_ratio_zero_fraction"] = (
+            profile.get("metal_profile_ratio_zero_values", 0) / ratio_values
+        )
+    else:
+        profile["metal_profile_ratio_nonzero_fraction"] = 0.0
+        profile["metal_profile_ratio_zero_fraction"] = 0.0
+    setup_subtotal = sum(
+        profile.get(field, 0.0)
+        for field in (
+            "metal_profile_setup_context_s",
+            "metal_profile_setup_projector_s",
+            "metal_profile_setup_cache_s",
+            "metal_profile_setup_bridge_s",
+            "metal_profile_setup_can_run_s",
+        )
+    )
+    profile["metal_profile_setup_unprofiled_s"] = max(
+        0.0, profile.get("metal_profile_setup_s", 0.0) - setup_subtotal
     )
     return profile
 
@@ -978,10 +1285,18 @@ def normalized_metal_subset_profiles(raw_profiles, case_label=""):
         }
         for field in (
             "setup_s",
+            "setup_context_s",
+            "setup_projector_s",
+            "setup_cache_s",
+            "setup_bridge_s",
+            "setup_can_run_s",
             "forward_s",
             "ratio_s",
             "adjoint_s",
             "total_s",
+            "metal_path_overhead_s",
+            "compute_update_image_s",
+            "image_update_s",
             "forward_gather_s",
             "forward_gather_cache_build_s",
             "forward_gather_uncached_s",
@@ -993,6 +1308,7 @@ def normalized_metal_subset_profiles(raw_profiles, case_label=""):
             "ratio_pack_s",
             "ratio_batch_upload_s",
             "ratio_kernel_s",
+            "ratio_nonzero_diagnostic_s",
             "adjoint_batch_upload_s",
             "adjoint_image_upload_s",
             "adjoint_kernel_s",
@@ -1000,6 +1316,19 @@ def normalized_metal_subset_profiles(raw_profiles, case_label=""):
             "adjoint_host_image_copy_s",
             "adjoint_update_count_s",
             "adjoint_voxel_hit_count_s",
+            "cache_lookup_s",
+            "cache_admission_s",
+            "cache_admission_gather_s",
+            "cache_admission_pack_s",
+            "cache_admission_batch_upload_s",
+            "cache_admission_correction_build_s",
+            "cache_admission_correction_fill_s",
+            "cache_admission_correction_upload_s",
+            "cache_admission_correction_measurement_s",
+            "cache_admission_correction_multiplicative_s",
+            "cache_admission_correction_additive_s",
+            "cache_admission_correction_in_vivo_s",
+            "cache_insert_s",
             "adjoint_max_batch_mean_voxel_hits",
             "adjoint_max_batch_top_1pct_voxel_hit_fraction",
             "adjoint_max_batch_top_0_1pct_voxel_hit_fraction",
@@ -1039,9 +1368,29 @@ def normalized_metal_subset_profiles(raw_profiles, case_label=""):
             "cache_skips_over_budget",
             "cache_used_bytes",
             "cache_max_bytes",
+            "cache_correction_reserve_bytes",
             "uncached_batches",
+            "ratio_correction_cache_builds",
+            "ratio_correction_cache_hits",
+            "ratio_correction_cache_misses",
+            "ratio_correction_cache_bytes",
+            "ratio_values",
+            "ratio_nonzero_values",
+            "ratio_zero_values",
+            "ratio_nonzero_diagnostic_batches",
         ):
             row[field] = int(raw.get(field, 0))
+        ratio_values = row.get("ratio_values", 0)
+        if ratio_values > 0:
+            row["ratio_nonzero_fraction"] = (
+                row.get("ratio_nonzero_values", 0) / ratio_values
+            )
+            row["ratio_zero_fraction"] = (
+                row.get("ratio_zero_values", 0) / ratio_values
+            )
+        else:
+            row["ratio_nonzero_fraction"] = 0.0
+            row["ratio_zero_fraction"] = 0.0
         flatten_memory_snapshot(row, "memory_before", raw.get("memory_before"))
         flatten_memory_snapshot(row, "memory_after", raw.get("memory_after"))
         add_memory_counter_deltas(row)
@@ -1107,12 +1456,117 @@ def summarize_metal_subset_profiles(row, subset_profiles):
     row["metal_subset_max_adjoint_s"] = max(
         item.get("adjoint_s", 0.0) for item in subset_profiles
     )
+    row["metal_subset_setup_context_s"] = sum(
+        item.get("setup_context_s", 0.0) for item in subset_profiles
+    )
+    row["metal_subset_setup_projector_s"] = sum(
+        item.get("setup_projector_s", 0.0) for item in subset_profiles
+    )
+    row["metal_subset_setup_cache_s"] = sum(
+        item.get("setup_cache_s", 0.0) for item in subset_profiles
+    )
+    row["metal_subset_setup_bridge_s"] = sum(
+        item.get("setup_bridge_s", 0.0) for item in subset_profiles
+    )
+    row["metal_subset_setup_can_run_s"] = sum(
+        item.get("setup_can_run_s", 0.0) for item in subset_profiles
+    )
+    row["metal_subset_metal_path_overhead_s"] = sum(
+        item.get("metal_path_overhead_s", 0.0) for item in subset_profiles
+    )
+    row["metal_subset_max_metal_path_overhead_s"] = max(
+        item.get("metal_path_overhead_s", 0.0) for item in subset_profiles
+    )
+    row["metal_subset_compute_update_image_s"] = sum(
+        item.get("compute_update_image_s", 0.0) for item in subset_profiles
+    )
+    row["metal_subset_max_compute_update_image_s"] = max(
+        item.get("compute_update_image_s", 0.0) for item in subset_profiles
+    )
+    row["metal_subset_image_update_s"] = sum(
+        item.get("image_update_s", 0.0) for item in subset_profiles
+    )
+    row["metal_subset_max_image_update_s"] = max(
+        item.get("image_update_s", 0.0) for item in subset_profiles
+    )
+    row["metal_subset_cache_lookup_s"] = sum(
+        item.get("cache_lookup_s", 0.0) for item in subset_profiles
+    )
+    row["metal_subset_cache_admission_s"] = sum(
+        item.get("cache_admission_s", 0.0) for item in subset_profiles
+    )
+    row["metal_subset_cache_admission_gather_s"] = sum(
+        item.get("cache_admission_gather_s", 0.0) for item in subset_profiles
+    )
+    row["metal_subset_cache_admission_pack_s"] = sum(
+        item.get("cache_admission_pack_s", 0.0) for item in subset_profiles
+    )
+    row["metal_subset_cache_admission_batch_upload_s"] = sum(
+        item.get("cache_admission_batch_upload_s", 0.0)
+        for item in subset_profiles
+    )
+    row["metal_subset_cache_admission_correction_build_s"] = sum(
+        item.get("cache_admission_correction_build_s", 0.0)
+        for item in subset_profiles
+    )
+    row["metal_subset_cache_admission_correction_fill_s"] = sum(
+        item.get("cache_admission_correction_fill_s", 0.0)
+        for item in subset_profiles
+    )
+    row["metal_subset_cache_admission_correction_upload_s"] = sum(
+        item.get("cache_admission_correction_upload_s", 0.0)
+        for item in subset_profiles
+    )
+    row["metal_subset_cache_admission_correction_measurement_s"] = sum(
+        item.get("cache_admission_correction_measurement_s", 0.0)
+        for item in subset_profiles
+    )
+    row["metal_subset_cache_admission_correction_multiplicative_s"] = sum(
+        item.get("cache_admission_correction_multiplicative_s", 0.0)
+        for item in subset_profiles
+    )
+    row["metal_subset_cache_admission_correction_additive_s"] = sum(
+        item.get("cache_admission_correction_additive_s", 0.0)
+        for item in subset_profiles
+    )
+    row["metal_subset_cache_admission_correction_in_vivo_s"] = sum(
+        item.get("cache_admission_correction_in_vivo_s", 0.0)
+        for item in subset_profiles
+    )
+    row["metal_subset_cache_insert_s"] = sum(
+        item.get("cache_insert_s", 0.0) for item in subset_profiles
+    )
     row["metal_subset_adjoint_update_count_s"] = sum(
         item.get("adjoint_update_count_s", 0.0) for item in subset_profiles
     )
     row["metal_subset_adjoint_voxel_hit_count_s"] = sum(
         item.get("adjoint_voxel_hit_count_s", 0.0) for item in subset_profiles
     )
+    row["metal_subset_ratio_nonzero_diagnostic_s"] = sum(
+        item.get("ratio_nonzero_diagnostic_s", 0.0) for item in subset_profiles
+    )
+    row["metal_subset_ratio_values"] = sum(
+        item.get("ratio_values", 0) for item in subset_profiles
+    )
+    row["metal_subset_ratio_nonzero_values"] = sum(
+        item.get("ratio_nonzero_values", 0) for item in subset_profiles
+    )
+    row["metal_subset_ratio_zero_values"] = sum(
+        item.get("ratio_zero_values", 0) for item in subset_profiles
+    )
+    row["metal_subset_ratio_nonzero_diagnostic_batches"] = sum(
+        item.get("ratio_nonzero_diagnostic_batches", 0)
+        for item in subset_profiles
+    )
+    if row["metal_subset_ratio_values"] > 0:
+        row["metal_subset_ratio_nonzero_fraction"] = (
+            row["metal_subset_ratio_nonzero_values"]
+            / row["metal_subset_ratio_values"]
+        )
+        row["metal_subset_ratio_zero_fraction"] = (
+            row["metal_subset_ratio_zero_values"]
+            / row["metal_subset_ratio_values"]
+        )
     row["metal_subset_adjoint_voxel_updates"] = sum(
         item.get("adjoint_voxel_updates", 0) for item in subset_profiles
     )
@@ -1248,6 +1702,16 @@ def print_metal_subset_profile(subset_profiles):
 def warn_if_requested_adjoint_diagnostics_missing(args, profile):
     if not profile:
         return
+    if args.profile_metal_ratio_nonzero:
+        if (
+            profile.get("metal_profile_adjoint_events", 0) > 0
+            and profile.get("metal_profile_ratio_values", 0) == 0
+        ):
+            print(
+                "WARNING: requested Metal ratio nonzero profiling, but no "
+                "ratio values were counted. Rebuild pyyrtpet and rerun before "
+                "using this CSV for adjoint-compaction planning."
+            )
     if args.profile_metal_adjoint_diagnostics:
         if (
             profile.get("metal_profile_adjoint_events", 0) > 0
@@ -1280,16 +1744,26 @@ def print_sweep_summary(rows):
         "subsets",
         "move_sensitivity",
         "metal_cache_budget_mb",
+        "metal_correction_cache_reserve_mb",
         "metal_batch_events",
         "metal_threads_per_threadgroup",
         "metal_fused_ratio",
         "metal_profile_adjoint_diagnostics",
         "metal_profile_adjoint_hit_diagnostics",
         "metal_profile_adjoint_contention",
+        "metal_profile_ratio_nonzero",
+        "metal_adjoint_event_order",
+        "metal_adjoint_tile_size",
+        "metal_resident_images",
+        "metal_joseph_adjoint_accumulation",
         "metal_projector",
         "metal_joseph_forward_texture",
+        "metal_joseph_axis_specialized",
+        "metal_joseph_axis_specialization",
         "metal_joseph_sample_stride",
         "metal_sensitivity_projector",
+        "metal_lazy_corrections",
+        "metal_cached_corrections",
         "metal_native_float_atomics",
         "metal_private_update_buffer",
         "metal_only",
@@ -1306,6 +1780,14 @@ def print_sweep_summary(rows):
         "setup_s",
         "cpu_recon_s",
         "metal_recon_s",
+        "metal_recon_profile_gap_s",
+        "metal_recon_profile_gap_fraction",
+        "metal_compute_profile_gap_s",
+        "metal_compute_profile_gap_fraction",
+        "metal_recon_post_update_gap_s",
+        "metal_recon_post_update_gap_fraction",
+        "metal_recon_lifecycle_gap_s",
+        "metal_recon_lifecycle_gap_fraction",
         "metal_over_cpu",
         "max_abs_diff",
         "max_rel_diff",
@@ -1318,6 +1800,13 @@ def print_sweep_summary(rows):
         "metal_projector_ran",
         "metal_profile_calls",
         "metal_profile_total_s",
+        "metal_profile_setup_s",
+        "metal_profile_setup_context_s",
+        "metal_profile_setup_projector_s",
+        "metal_profile_setup_cache_s",
+        "metal_profile_setup_bridge_s",
+        "metal_profile_setup_can_run_s",
+        "metal_profile_setup_unprofiled_s",
         "metal_profile_forward_s",
         "metal_profile_forward_gather_s",
         "metal_profile_forward_gather_cache_build_s",
@@ -1337,7 +1826,18 @@ def print_sweep_summary(rows):
         "metal_profile_ratio_pack_s",
         "metal_profile_ratio_batch_upload_s",
         "metal_profile_ratio_kernel_s",
+        "metal_profile_ratio_correction_cache_build_s",
+        "metal_profile_ratio_nonzero_diagnostic_s",
+        "metal_profile_ratio_values",
+        "metal_profile_ratio_nonzero_values",
+        "metal_profile_ratio_zero_values",
+        "metal_profile_ratio_nonzero_fraction",
+        "metal_profile_ratio_zero_fraction",
+        "metal_profile_ratio_nonzero_diagnostic_batches",
         "metal_profile_adjoint_s",
+        "metal_profile_metal_path_overhead_s",
+        "metal_profile_compute_update_image_s",
+        "metal_profile_image_update_s",
         "metal_profile_adjoint_gather_s",
         "metal_profile_adjoint_batch_upload_s",
         "metal_profile_adjoint_image_upload_s",
@@ -1370,6 +1870,19 @@ def print_sweep_summary(rows):
         "metal_profile_adjoint_max_batch_mean_tile_hits",
         "metal_profile_adjoint_max_batch_top_1pct_tile_hit_fraction",
         "metal_profile_adjoint_max_batch_top_0_1pct_tile_hit_fraction",
+        "metal_profile_cache_lookup_s",
+        "metal_profile_cache_admission_s",
+        "metal_profile_cache_admission_gather_s",
+        "metal_profile_cache_admission_pack_s",
+        "metal_profile_cache_admission_batch_upload_s",
+        "metal_profile_cache_admission_correction_build_s",
+        "metal_profile_cache_admission_correction_fill_s",
+        "metal_profile_cache_admission_correction_upload_s",
+        "metal_profile_cache_admission_correction_measurement_s",
+        "metal_profile_cache_admission_correction_multiplicative_s",
+        "metal_profile_cache_admission_correction_additive_s",
+        "metal_profile_cache_admission_correction_in_vivo_s",
+        "metal_profile_cache_insert_s",
         "metal_profile_forward_batches",
         "metal_profile_adjoint_batches",
         "metal_profile_cache_hits",
@@ -1378,7 +1891,12 @@ def print_sweep_summary(rows):
         "metal_profile_cache_skips_over_budget",
         "metal_profile_cache_used_bytes",
         "metal_profile_cache_max_bytes",
+        "metal_profile_cache_correction_reserve_bytes",
         "metal_profile_uncached_batches",
+        "metal_profile_ratio_correction_cache_builds",
+        "metal_profile_ratio_correction_cache_hits",
+        "metal_profile_ratio_correction_cache_misses",
+        "metal_profile_ratio_correction_cache_bytes",
         "metal_subset_profile_calls",
         "metal_subset_slowest_s",
         "metal_subset_slowest_iteration",
@@ -1386,8 +1904,39 @@ def print_sweep_summary(rows):
         "metal_subset_max_forward_gather_s",
         "metal_subset_max_ratio_s",
         "metal_subset_max_adjoint_s",
+        "metal_subset_setup_context_s",
+        "metal_subset_setup_projector_s",
+        "metal_subset_setup_cache_s",
+        "metal_subset_setup_bridge_s",
+        "metal_subset_setup_can_run_s",
+        "metal_subset_metal_path_overhead_s",
+        "metal_subset_max_metal_path_overhead_s",
+        "metal_subset_compute_update_image_s",
+        "metal_subset_max_compute_update_image_s",
+        "metal_subset_image_update_s",
+        "metal_subset_max_image_update_s",
+        "metal_subset_cache_lookup_s",
+        "metal_subset_cache_admission_s",
+        "metal_subset_cache_admission_gather_s",
+        "metal_subset_cache_admission_pack_s",
+        "metal_subset_cache_admission_batch_upload_s",
+        "metal_subset_cache_admission_correction_build_s",
+        "metal_subset_cache_admission_correction_fill_s",
+        "metal_subset_cache_admission_correction_upload_s",
+        "metal_subset_cache_admission_correction_measurement_s",
+        "metal_subset_cache_admission_correction_multiplicative_s",
+        "metal_subset_cache_admission_correction_additive_s",
+        "metal_subset_cache_admission_correction_in_vivo_s",
+        "metal_subset_cache_insert_s",
         "metal_subset_adjoint_update_count_s",
         "metal_subset_adjoint_voxel_hit_count_s",
+        "metal_subset_ratio_nonzero_diagnostic_s",
+        "metal_subset_ratio_values",
+        "metal_subset_ratio_nonzero_values",
+        "metal_subset_ratio_zero_values",
+        "metal_subset_ratio_nonzero_fraction",
+        "metal_subset_ratio_zero_fraction",
+        "metal_subset_ratio_nonzero_diagnostic_batches",
         "metal_subset_adjoint_voxel_updates",
         "metal_subset_adjoint_rays_with_updates",
         "metal_subset_adjoint_max_updates_per_ray",
@@ -1439,20 +1988,30 @@ def write_summary_csv(path, rows):
         "subsets",
         "move_sensitivity",
         "metal_cache_budget_mb",
+        "metal_correction_cache_reserve_mb",
         "metal_batch_events",
         "metal_threads_per_threadgroup",
         "metal_fused_ratio",
         "metal_profile_adjoint_diagnostics",
         "metal_profile_adjoint_hit_diagnostics",
         "metal_profile_adjoint_contention",
+        "metal_profile_ratio_nonzero",
+        "metal_adjoint_event_order",
+        "metal_adjoint_tile_size",
+        "metal_joseph_adjoint_accumulation",
         "metal_projector",
         "metal_joseph_forward_texture",
+        "metal_joseph_axis_specialized",
+        "metal_joseph_axis_specialization",
         "metal_joseph_sample_stride",
         "metal_sensitivity_projector",
+        "metal_lazy_corrections",
+        "metal_cached_corrections",
         "metal_native_float_atomics",
         "metal_private_update_buffer",
         "metal_only",
         "metal_cache_estimate_bytes_per_event",
+        "metal_cache_estimate_correction_bytes_per_event",
         "metal_cache_estimated_full_mb",
         "metal_cache_estimated_full_gib",
         "metal_cache_fit",
@@ -1470,6 +2029,14 @@ def write_summary_csv(path, rows):
         "setup_s",
         "cpu_recon_s",
         "metal_recon_s",
+        "metal_recon_profile_gap_s",
+        "metal_recon_profile_gap_fraction",
+        "metal_compute_profile_gap_s",
+        "metal_compute_profile_gap_fraction",
+        "metal_recon_post_update_gap_s",
+        "metal_recon_post_update_gap_fraction",
+        "metal_recon_lifecycle_gap_s",
+        "metal_recon_lifecycle_gap_fraction",
         "metal_over_cpu",
         "cpu_image_sum",
         "cpu_image_max",
@@ -1504,6 +2071,30 @@ def write_summary_csv(path, rows):
         "metal_subset_max_forward_gather_s",
         "metal_subset_max_ratio_s",
         "metal_subset_max_adjoint_s",
+        "metal_subset_setup_context_s",
+        "metal_subset_setup_projector_s",
+        "metal_subset_setup_cache_s",
+        "metal_subset_setup_bridge_s",
+        "metal_subset_setup_can_run_s",
+        "metal_subset_metal_path_overhead_s",
+        "metal_subset_max_metal_path_overhead_s",
+        "metal_subset_compute_update_image_s",
+        "metal_subset_max_compute_update_image_s",
+        "metal_subset_image_update_s",
+        "metal_subset_max_image_update_s",
+        "metal_subset_cache_lookup_s",
+        "metal_subset_cache_admission_s",
+        "metal_subset_cache_admission_gather_s",
+        "metal_subset_cache_admission_pack_s",
+        "metal_subset_cache_admission_batch_upload_s",
+        "metal_subset_cache_admission_correction_build_s",
+        "metal_subset_cache_admission_correction_fill_s",
+        "metal_subset_cache_admission_correction_upload_s",
+        "metal_subset_cache_admission_correction_measurement_s",
+        "metal_subset_cache_admission_correction_multiplicative_s",
+        "metal_subset_cache_admission_correction_additive_s",
+        "metal_subset_cache_admission_correction_in_vivo_s",
+        "metal_subset_cache_insert_s",
         "metal_subset_adjoint_update_count_s",
         "metal_subset_adjoint_voxel_hit_count_s",
         "metal_subset_adjoint_voxel_updates",
@@ -1623,6 +2214,7 @@ def isolated_sweep_base_argv():
         "--metal-batch-events",
         "--metal-chunk-events",
         "--metal-cache-budget-mb",
+        "--metal-correction-cache-reserve-mb",
         "--metal-threads-per-threadgroup",
         "--summary-csv",
         "--metal-subset-profile-csv",
@@ -1640,6 +2232,7 @@ def run_isolated_sweep(
     subset_values,
     batch_event_values,
     cache_budget_values,
+    correction_reserve_values,
     threadgroup_values,
     base_out_dir,
 ):
@@ -1651,51 +2244,56 @@ def run_isolated_sweep(
             for subsets in subset_values:
                 for batch_events in batch_event_values:
                     for cache_budget_mb in cache_budget_values:
-                        for threads_per_threadgroup in threadgroup_values:
-                            case_label = (
-                                f"events_{max_events}_iters_{iterations}"
-                                f"_subsets_{subsets}_batch_{batch_events}"
-                                f"_cachemb_"
-                                f"{format_cache_budget_label(cache_budget_mb)}"
-                                f"_tpg_{threads_per_threadgroup}"
-                            )
-                            case_out_dir = os.path.join(base_out_dir, case_label)
-                            case_summary_csv = os.path.join(
-                                case_out_dir, "summary.csv"
-                            )
-                            command = [
-                                sys.executable,
-                                script_path,
-                                *base_argv,
-                                "--max-events",
-                                str(max_events),
-                                "--iterations",
-                                str(iterations),
-                                "--subsets",
-                                str(subsets),
-                                "--metal-batch-events",
-                                str(batch_events),
-                                "--metal-cache-budget-mb",
-                                f"{cache_budget_mb:g}",
-                                "--metal-threads-per-threadgroup",
-                                str(threads_per_threadgroup),
-                                "--out-dir",
-                                case_out_dir,
-                                "--summary-csv",
-                                case_summary_csv,
-                            ]
-                            print(f"isolated_case={case_label}", flush=True)
-                            print(
-                                "isolated_command="
-                                + " ".join(shlex.quote(part) for part in command),
-                                flush=True,
-                            )
-                            completed = subprocess.run(command)
-                            if completed.returncode != 0:
-                                raise SystemExit(completed.returncode)
-                            row = read_single_summary_row(case_summary_csv)
-                            row["case"] = case_label
-                            rows.append(row)
+                        for correction_reserve_mb in correction_reserve_values:
+                            for threads_per_threadgroup in threadgroup_values:
+                                case_label = (
+                                    f"events_{max_events}_iters_{iterations}"
+                                    f"_subsets_{subsets}_batch_{batch_events}"
+                                    f"_cachemb_"
+                                    f"{format_cache_budget_label(cache_budget_mb)}"
+                                    f"_corrmb_"
+                                    f"{format_cache_budget_label(correction_reserve_mb)}"
+                                    f"_tpg_{threads_per_threadgroup}"
+                                )
+                                case_out_dir = os.path.join(base_out_dir, case_label)
+                                case_summary_csv = os.path.join(
+                                    case_out_dir, "summary.csv"
+                                )
+                                command = [
+                                    sys.executable,
+                                    script_path,
+                                    *base_argv,
+                                    "--max-events",
+                                    str(max_events),
+                                    "--iterations",
+                                    str(iterations),
+                                    "--subsets",
+                                    str(subsets),
+                                    "--metal-batch-events",
+                                    str(batch_events),
+                                    "--metal-cache-budget-mb",
+                                    f"{cache_budget_mb:g}",
+                                    "--metal-correction-cache-reserve-mb",
+                                    f"{correction_reserve_mb:g}",
+                                    "--metal-threads-per-threadgroup",
+                                    str(threads_per_threadgroup),
+                                    "--out-dir",
+                                    case_out_dir,
+                                    "--summary-csv",
+                                    case_summary_csv,
+                                ]
+                                print(f"isolated_case={case_label}", flush=True)
+                                print(
+                                    "isolated_command="
+                                    + " ".join(shlex.quote(part) for part in command),
+                                    flush=True,
+                                )
+                                completed = subprocess.run(command)
+                                if completed.returncode != 0:
+                                    raise SystemExit(completed.returncode)
+                                row = read_single_summary_row(case_summary_csv)
+                                row["case"] = case_label
+                                rows.append(row)
     return rows
 
 
@@ -1842,9 +2440,20 @@ def run_osem(
                     "This pyyrtpet build does not expose Metal fused ratio controls"
                 )
             recon.setExperimentalMetalProjectorFusedRatioEnabled(True)
+        if args.metal_resident_images:
+            if not hasattr(
+                recon,
+                "setExperimentalMetalProjectorResidentImagesEnabled",
+            ):
+                raise RuntimeError(
+                    "This pyyrtpet build does not expose Metal resident image "
+                    "controls"
+                )
+            recon.setExperimentalMetalProjectorResidentImagesEnabled(True)
         cache_required = (
             "setExperimentalMetalProjectorCacheEnabled",
             "setExperimentalMetalProjectorCacheMaxBytes",
+            "setExperimentalMetalProjectorCorrectionCacheReserveBytes",
             "setExperimentalMetalProjectorMaxBatchEvents",
         )
         missing_cache = [name for name in cache_required if not hasattr(recon, name)]
@@ -1857,7 +2466,30 @@ def run_osem(
         recon.setExperimentalMetalProjectorCacheMaxBytes(
             int(args.metal_cache_budget_mb * 1024.0 * 1024.0)
         )
+        recon.setExperimentalMetalProjectorCorrectionCacheReserveBytes(
+            int(args.metal_correction_cache_reserve_mb * 1024.0 * 1024.0)
+        )
         recon.setExperimentalMetalProjectorMaxBatchEvents(args.metal_batch_events)
+        if args.metal_lazy_corrections:
+            if not hasattr(
+                recon,
+                "setExperimentalMetalProjectorLazyCorrectionsEnabled",
+            ):
+                raise RuntimeError(
+                    "This pyyrtpet build does not expose Metal lazy correction "
+                    "controls"
+                )
+            recon.setExperimentalMetalProjectorLazyCorrectionsEnabled(True)
+        if args.metal_cached_corrections:
+            if not hasattr(
+                recon,
+                "setExperimentalMetalProjectorCachedCorrectionsEnabled",
+            ):
+                raise RuntimeError(
+                    "This pyyrtpet build does not expose Metal cached "
+                    "correction controls"
+                )
+            recon.setExperimentalMetalProjectorCachedCorrectionsEnabled(True)
         if args.profile_metal:
             required = (
                 "setExperimentalMetalProjectorProfilingEnabled",
@@ -2007,12 +2639,32 @@ def parse_args():
         ),
     )
     parser.add_argument(
+        "--profile-metal-ratio-nonzero",
+        action="store_true",
+        help=(
+            "With --profile-metal, download post-ratio Metal projection "
+            "values and count active versus zero ratio entries. This perturbs "
+            "timing and is intended only for deciding whether an adjoint "
+            "compaction path is worth implementing."
+        ),
+    )
+    parser.add_argument(
         "--metal-fused-ratio",
         action="store_true",
         help=(
             "Use the experimental fused Metal forward-ratio-adjoint path. "
             "Default stays on the host-ratio Metal projector path because the "
             "fused path is not yet faster on full GE listmode data."
+        ),
+    )
+    parser.add_argument(
+        "--metal-resident-images",
+        action="store_true",
+        help=(
+            "Keep the experimental Metal OSEM image and EM update buffers "
+            "resident across subsets, then download the final image at the "
+            "end. This is opt-in, only applies to the host-ratio Metal path, "
+            "and leaves CPU/CUDA/default Metal behavior unchanged."
         ),
     )
     parser.add_argument(
@@ -2050,6 +2702,38 @@ def parse_args():
         ),
     )
     parser.add_argument(
+        "--metal-joseph-axis-specialized",
+        action="store_true",
+        help=(
+            "Backward-compatible alias for "
+            "--metal-joseph-axis-specialization both."
+        ),
+    )
+    parser.add_argument(
+        "--metal-joseph-axis-specialization",
+        choices=["none", "forward", "both"],
+        default="none",
+        help=(
+            "Experimental Joseph-only full-precision A/B path. forward splits "
+            "cached Metal OSEM batches by voxel-scaled dominant axis and uses "
+            "axis-specific Joseph shaders only for forward projection; both "
+            "also uses axis-specific Joseph adjoint/backprojection. Default "
+            "keeps the single generic Joseph shader path."
+        ),
+    )
+    parser.add_argument(
+        "--metal-joseph-adjoint-accumulation",
+        choices=["none", "threadgroup-sample"],
+        default=os.environ.get("YRTPET_METAL_JOSEPH_ADJOINT_ACCUMULATION", "none"),
+        help=(
+            "Joseph-only full-precision adjoint accumulation experiment. none "
+            "preserves the current native/global atomic path; "
+            "threadgroup-sample uses a small per-sample threadgroup hash table "
+            "before flushing to global atomics. Requires native float atomics "
+            "and is intended only for A/B projector timing."
+        ),
+    )
+    parser.add_argument(
         "--metal-sensitivity-projector",
         choices=["siddon", "joseph"],
         default="siddon",
@@ -2066,6 +2750,25 @@ def parse_args():
         help="Disable experimental Metal LOR/batch caching.",
     )
     parser.add_argument(
+        "--metal-lazy-corrections",
+        action="store_true",
+        help=(
+            "Experimental Metal-only path that skips full-listmode correction "
+            "precompute and computes randoms/scatter/sensitivity factors while "
+            "packing each ratio batch."
+        ),
+    )
+    parser.add_argument(
+        "--metal-cached-corrections",
+        action="store_true",
+        help=(
+            "Experimental Metal-only path that skips full-listmode correction "
+            "precompute, stores compact correction values with each cached "
+            "Metal batch, and reuses them across iterations. Uncached batches "
+            "fall back to the lazy correction path."
+        ),
+    )
+    parser.add_argument(
         "--metal-cache-budget-mb",
         default="1024.0",
         help=(
@@ -2073,6 +2776,16 @@ def parse_args():
             "LOR/batch data. Accepts one value or a comma-separated sweep "
             "list. Subsets larger than the budget are partly cached by batch "
             "and partly streamed."
+        ),
+    )
+    parser.add_argument(
+        "--metal-correction-cache-reserve-mb",
+        default="0.0",
+        help=(
+            "Reserve this many MB of the experimental Metal cache for compact "
+            "OSEM correction terms when --metal-cached-corrections is enabled. "
+            "Accepts one value or a comma-separated sweep list; 0 preserves "
+            "the default greedy full-batch cache admission."
         ),
     )
     parser.add_argument(
@@ -2100,6 +2813,30 @@ def parse_args():
             "Override Metal compute threads per threadgroup for experimental "
             "projector benchmarks. Accepts one non-negative value or a "
             "comma-separated sweep list; 0 keeps the backend auto choice."
+        ),
+    )
+    parser.add_argument(
+        "--metal-adjoint-event-order",
+        choices=["none", "major-axis", "line-hash", "tile-round-robin"],
+        default=os.environ.get("YRTPET_METAL_ADJOINT_EVENT_ORDER", "none"),
+        help=(
+            "Experimental Metal batch ordering probe for adjoint atomic "
+            "contention. none preserves the current order; major-axis uses a "
+            "stable three-bucket grouping by dominant ray axis and is the "
+            "intended full-data probe; line-hash pseudo-randomizes LOR order "
+            "with a full sort and should be used only for small diagnostics; "
+            "tile-round-robin interleaves coarse representative image tiles "
+            "with O(n) host work. "
+            "CPU/CUDA behavior is unchanged."
+        ),
+    )
+    parser.add_argument(
+        "--metal-adjoint-tile-size",
+        type=int,
+        default=int(os.environ.get("YRTPET_METAL_ADJOINT_TILE_SIZE", "8")),
+        help=(
+            "Voxel edge length for --metal-adjoint-event-order "
+            "tile-round-robin. Ignored by other order modes."
         ),
     )
     parser.add_argument(
@@ -2315,6 +3052,8 @@ def validate_metric_args(args):
         args.profile_metal_adjoint_hit_diagnostics = True
     if args.profile_metal and not (args.compare_metal or args.metal_only):
         raise SystemExit("--profile-metal requires --compare-metal or --metal-only")
+    if args.profile_metal_ratio_nonzero and not args.profile_metal:
+        raise SystemExit("--profile-metal-ratio-nonzero requires --profile-metal")
     if args.profile_metal_adjoint_diagnostics and not args.profile_metal:
         raise SystemExit(
             "--profile-metal-adjoint-diagnostics requires --profile-metal"
@@ -2323,6 +3062,10 @@ def validate_metric_args(args):
         raise SystemExit(
             "--profile-metal-adjoint-hit-diagnostics requires --profile-metal"
         )
+    if args.metal_resident_images and not (args.compare_metal or args.metal_only):
+        raise SystemExit("--metal-resident-images requires --compare-metal or --metal-only")
+    if args.metal_resident_images and args.metal_fused_ratio:
+        raise SystemExit("--metal-resident-images currently requires the host-ratio path")
     if args.validate_metrics and not args.compare_metal:
         raise SystemExit("--validate-metrics requires --compare-metal")
     if args.metal_only and args.compare_metal:
@@ -2340,6 +3083,47 @@ def validate_metric_args(args):
             "--metal-joseph-sample-stride greater than 1 requires "
             "--metal-projector joseph"
         )
+    axis_mode = metal_joseph_axis_specialization_mode(args)
+    if axis_mode != "none":
+        if args.metal_projector != "joseph":
+            raise SystemExit(
+                "--metal-joseph-axis-specialization requires "
+                "--metal-projector joseph"
+            )
+        if args.metal_joseph_forward_texture:
+            raise SystemExit(
+                "--metal-joseph-axis-specialization is for the buffer-backed "
+                "Joseph path; do not combine it with "
+                "--metal-joseph-forward-texture"
+            )
+        if args.metal_joseph_sample_stride != 1:
+            raise SystemExit(
+                "--metal-joseph-axis-specialization currently requires "
+                "--metal-joseph-sample-stride 1"
+            )
+        if args.metal_joseph_adjoint_accumulation != "none":
+            raise SystemExit(
+                "--metal-joseph-axis-specialization currently requires "
+                "--metal-joseph-adjoint-accumulation none"
+            )
+    if args.metal_adjoint_tile_size < 1:
+        raise SystemExit("--metal-adjoint-tile-size must be positive")
+    if args.metal_joseph_adjoint_accumulation != "none":
+        if args.metal_projector != "joseph":
+            raise SystemExit(
+                "--metal-joseph-adjoint-accumulation requires "
+                "--metal-projector joseph"
+            )
+        if args.metal_joseph_sample_stride != 1:
+            raise SystemExit(
+                "--metal-joseph-adjoint-accumulation threadgroup-sample "
+                "currently requires --metal-joseph-sample-stride 1"
+            )
+        if not env_flag("YRTPET_METAL_USE_NATIVE_FLOAT_ATOMICS"):
+            raise SystemExit(
+                "--metal-joseph-adjoint-accumulation threadgroup-sample "
+                "requires YRTPET_METAL_USE_NATIVE_FLOAT_ATOMICS=1"
+            )
     if args.compare_metal and args.metal_projector != "siddon":
         raise SystemExit(
             "--compare-metal requires --metal-projector siddon because the CPU "
@@ -2368,6 +3152,10 @@ def validate_metric_args(args):
         )
     if args.metal_batch_events < 0:
         raise SystemExit("--metal-batch-events must be non-negative")
+    if args.metal_cached_corrections and args.no_metal_cache:
+        raise SystemExit(
+            "--metal-cached-corrections requires the experimental Metal cache"
+        )
     if args.metal_cache_pressure_cap_mb < 0.0:
         raise SystemExit("--metal-cache-pressure-cap-mb must be non-negative")
     for name in (
@@ -2429,9 +3217,24 @@ def run_case(args, out_dir, write_images, case_label="", emit_pass=True):
     print(f"metal_only={args.metal_only}")
     print(f"metal_projector={args.metal_projector}")
     print(f"metal_joseph_forward_texture={args.metal_joseph_forward_texture}")
+    print(f"metal_joseph_axis_specialization={metal_joseph_axis_specialization_mode(args)}")
     print(f"metal_joseph_sample_stride={args.metal_joseph_sample_stride}")
+    print(
+        "metal_joseph_adjoint_accumulation="
+        f"{args.metal_joseph_adjoint_accumulation}"
+    )
+    print(f"metal_profile_ratio_nonzero={args.profile_metal_ratio_nonzero}")
+    print(f"metal_adjoint_event_order={args.metal_adjoint_event_order}")
+    print(f"metal_adjoint_tile_size={args.metal_adjoint_tile_size}")
     print(f"metal_threads_per_threadgroup={args.metal_threads_per_threadgroup}")
+    print(f"metal_resident_images={args.metal_resident_images}")
     print(f"metal_sensitivity_projector={args.metal_sensitivity_projector}")
+    print(f"metal_lazy_corrections={args.metal_lazy_corrections}")
+    print(f"metal_cached_corrections={args.metal_cached_corrections}")
+    print(
+        "metal_correction_cache_reserve_mb="
+        f"{args.metal_correction_cache_reserve_mb}"
+    )
     cache_plan = metal_cache_plan(args, used_events)
     print_metal_cache_plan(cache_plan, args)
     print_metal_projector_notes(args)
@@ -2444,6 +3247,9 @@ def run_case(args, out_dir, write_images, case_label="", emit_pass=True):
         "subsets": args.subsets,
         "move_sensitivity": args.motion and args.move_sensitivity,
         "metal_cache_budget_mb": args.metal_cache_budget_mb,
+        "metal_correction_cache_reserve_mb": (
+            args.metal_correction_cache_reserve_mb
+        ),
         "metal_batch_events": args.metal_batch_events,
         "metal_threads_per_threadgroup": args.metal_threads_per_threadgroup,
         "metal_fused_ratio": args.metal_fused_ratio,
@@ -2456,10 +3262,25 @@ def run_case(args, out_dir, write_images, case_label="", emit_pass=True):
         "metal_profile_adjoint_contention": (
             args.profile_metal_adjoint_contention
         ),
+        "metal_profile_ratio_nonzero": args.profile_metal_ratio_nonzero,
+        "metal_adjoint_event_order": args.metal_adjoint_event_order,
+        "metal_adjoint_tile_size": args.metal_adjoint_tile_size,
+        "metal_resident_images": args.metal_resident_images,
         "metal_projector": args.metal_projector,
         "metal_joseph_forward_texture": args.metal_joseph_forward_texture,
+        "metal_joseph_axis_specialized": (
+            metal_joseph_axis_specialization_mode(args) != "none"
+        ),
+        "metal_joseph_axis_specialization": (
+            metal_joseph_axis_specialization_mode(args)
+        ),
         "metal_joseph_sample_stride": args.metal_joseph_sample_stride,
+        "metal_joseph_adjoint_accumulation": (
+            args.metal_joseph_adjoint_accumulation
+        ),
         "metal_sensitivity_projector": args.metal_sensitivity_projector,
+        "metal_lazy_corrections": args.metal_lazy_corrections,
+        "metal_cached_corrections": args.metal_cached_corrections,
         "metal_native_float_atomics": env_flag(
             "YRTPET_METAL_USE_NATIVE_FLOAT_ATOMICS"
         ),
@@ -2560,6 +3381,7 @@ def run_case(args, out_dir, write_images, case_label="", emit_pass=True):
         if metal_subset_profile:
             row["_metal_subset_profile"] = metal_subset_profile
         update_actual_metal_cache_usage(row, metal_profile)
+        update_metal_profile_recon_gap(row)
         print(
             "mode,setup_s,recon_s,metal_projector_ran,image_sum,image_max,"
             "image_nonzero"
@@ -2685,6 +3507,7 @@ def run_case(args, out_dir, write_images, case_label="", emit_pass=True):
     if metal_subset_profile:
         row["_metal_subset_profile"] = metal_subset_profile
     update_actual_metal_cache_usage(row, metal_profile)
+    update_metal_profile_recon_gap(row)
     row.update(
         {
             key: value
@@ -2733,6 +3556,12 @@ def main():
     )
     args.metal_cache_budget_mb = cache_budget_values[0]
     args.metal_cache_budget_values = cache_budget_values
+    correction_reserve_values = parse_nonnegative_float_list(
+        args.metal_correction_cache_reserve_mb,
+        "--metal-correction-cache-reserve-mb",
+    )
+    args.metal_correction_cache_reserve_mb = correction_reserve_values[0]
+    args.metal_correction_cache_reserve_values = correction_reserve_values
     batch_event_values = parse_nonnegative_int_list(
         args.metal_batch_events, "--metal-batch-events"
     )
@@ -2759,6 +3588,7 @@ def main():
         or sweep_subsets
         or len(batch_event_values) > 1
         or len(cache_budget_values) > 1
+        or len(correction_reserve_values) > 1
         or len(threadgroup_values) > 1
     )
     event_values = sweep_events or [args.max_events]
@@ -2777,6 +3607,8 @@ def main():
             f"{','.join(str(value) for value in batch_event_values)};"
             "metal_cache_budget_mb:"
             f"{','.join(f'{value:g}' for value in cache_budget_values)};"
+            "metal_correction_cache_reserve_mb:"
+            f"{','.join(f'{value:g}' for value in correction_reserve_values)};"
             "metal_threads_per_threadgroup:"
             f"{','.join(str(value) for value in threadgroup_values)}",
             flush=True,
@@ -2789,6 +3621,7 @@ def main():
                 subset_values,
                 batch_event_values,
                 cache_budget_values,
+                correction_reserve_values,
                 threadgroup_values,
                 base_out_dir,
             )
@@ -2798,35 +3631,43 @@ def main():
                     for subsets in subset_values:
                         for batch_events in batch_event_values:
                             for cache_budget_mb in cache_budget_values:
-                                for threads_per_threadgroup in threadgroup_values:
-                                    case_args = copy.copy(args)
-                                    case_args.max_events = max_events
-                                    case_args.iterations = iterations
-                                    case_args.subsets = subsets
-                                    case_args.metal_batch_events = batch_events
-                                    case_args.metal_cache_budget_mb = cache_budget_mb
-                                    case_args.metal_threads_per_threadgroup = (
-                                        threads_per_threadgroup
-                                    )
-                                    case_label = (
-                                        f"events_{max_events}_iters_{iterations}"
-                                        f"_subsets_{subsets}_batch_{batch_events}"
-                                        f"_cachemb_"
-                                        f"{format_cache_budget_label(cache_budget_mb)}"
-                                        f"_tpg_{threads_per_threadgroup}"
-                                    )
-                                    case_out_dir = os.path.join(
-                                        base_out_dir, case_label
-                                    )
-                                    rows.append(
-                                        run_case(
-                                            case_args,
-                                            case_out_dir,
-                                            write_images=not args.no_write_images,
-                                            case_label=case_label,
-                                            emit_pass=False,
+                                for correction_reserve_mb in correction_reserve_values:
+                                    for threads_per_threadgroup in threadgroup_values:
+                                        case_args = copy.copy(args)
+                                        case_args.max_events = max_events
+                                        case_args.iterations = iterations
+                                        case_args.subsets = subsets
+                                        case_args.metal_batch_events = batch_events
+                                        case_args.metal_cache_budget_mb = (
+                                            cache_budget_mb
                                         )
-                                    )
+                                        case_args.metal_correction_cache_reserve_mb = (
+                                            correction_reserve_mb
+                                        )
+                                        case_args.metal_threads_per_threadgroup = (
+                                            threads_per_threadgroup
+                                        )
+                                        case_label = (
+                                            f"events_{max_events}_iters_{iterations}"
+                                            f"_subsets_{subsets}_batch_{batch_events}"
+                                            f"_cachemb_"
+                                            f"{format_cache_budget_label(cache_budget_mb)}"
+                                            f"_corrmb_"
+                                            f"{format_cache_budget_label(correction_reserve_mb)}"
+                                            f"_tpg_{threads_per_threadgroup}"
+                                        )
+                                        case_out_dir = os.path.join(
+                                            base_out_dir, case_label
+                                        )
+                                        rows.append(
+                                            run_case(
+                                                case_args,
+                                                case_out_dir,
+                                                write_images=not args.no_write_images,
+                                                case_label=case_label,
+                                                emit_pass=False,
+                                            )
+                                        )
         print_sweep_summary(rows)
         if args.summary_csv:
             write_summary_csv(args.summary_csv, rows)

@@ -10,6 +10,8 @@ namespace yrt::backend::metal
 
 bool isAvailable();
 bool runSmokeKernel();
+bool runJosephAdjointAccumulationSmoke();
+bool runJosephAxisSpecializedSmoke();
 bool runProjectionVectorGoldenTests();
 bool runImageScalarOpsGoldenTests();
 bool runPsfConvolutionGoldenTests();

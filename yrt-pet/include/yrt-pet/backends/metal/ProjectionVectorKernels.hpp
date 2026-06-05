@@ -24,6 +24,12 @@ struct ProjectionOsemRatioParams
 	std::uint32_t hasInVivoAttenuation;
 };
 
+struct ProjectionCompactOsemRatioParams
+{
+	float denomThreshold;
+	std::uint32_t hasInVivoAttenuation;
+};
+
 bool launchProjectionClear(const Device& device, const Library& library,
     const CommandQueue& commandQueue, Buffer& values, float value,
     std::size_t valueCount);
@@ -51,5 +57,11 @@ bool launchProjectionOsemRatio(const Device& device, const Library& library,
     const Buffer& attenuation, const Buffer& randoms, const Buffer& scatter,
     const Buffer& inVivoAttenuation,
     const ProjectionOsemRatioParams& params, std::size_t valueCount);
+bool launchProjectionCompactOsemRatio(const Device& device,
+    const Library& library, const CommandQueue& commandQueue,
+    Buffer& estimatesAndOutput, const Buffer& measurements,
+    const Buffer& multiplicative, const Buffer& additive,
+    const Buffer& inVivoAttenuation,
+    const ProjectionCompactOsemRatioParams& params, std::size_t valueCount);
 
 }  // namespace yrt::backend::metal

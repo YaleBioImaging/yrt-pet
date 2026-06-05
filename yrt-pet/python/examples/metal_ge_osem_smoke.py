@@ -468,6 +468,12 @@ def format_cache_budget_label(value):
     return f"{value:g}".replace(".", "p")
 
 
+def format_correction_cache_reserve_label(value):
+    if value is None:
+        return "auto"
+    return format_cache_budget_label(value)
+
+
 def format_field(value):
     if isinstance(value, float):
         return f"{value:.9g}"
@@ -516,6 +522,38 @@ def estimate_metal_cache_bytes(event_count, args=None):
         else 0.0
     )
     return int(round(float(event_count) * (METAL_CACHE_BYTES_PER_EVENT + correction_bytes)))
+
+
+def auto_metal_correction_cache_reserve_mb(args, cache_budget_mb=None):
+    if not getattr(args, "metal_cached_corrections", False):
+        return 0.0
+    if getattr(args, "no_metal_cache", False):
+        return 0.0
+    budget_mb = (
+        float(cache_budget_mb)
+        if cache_budget_mb is not None
+        else float(getattr(args, "metal_cache_budget_mb", 0.0))
+    )
+    return max(0.0, budget_mb)
+
+
+def parse_metal_correction_cache_reserve_list(value, option_name):
+    text = "" if value is None else str(value).strip()
+    if not text or text.lower() == "auto":
+        return [None]
+    if any(item.strip().lower() == "auto" for item in text.split(",")):
+        raise SystemExit(f"{option_name} accepts either auto or numeric values")
+    return parse_nonnegative_float_list(value, option_name)
+
+
+def resolve_metal_correction_cache_reserve_mb(args, value, cache_budget_mb):
+    if value is not None:
+        return float(value), False
+    auto_active = bool(
+        getattr(args, "metal_cached_corrections", False)
+        and not getattr(args, "no_metal_cache", False)
+    )
+    return auto_metal_correction_cache_reserve_mb(args, cache_budget_mb), auto_active
 
 
 def classify_cache_pressure(planned_cache_mb, pressure_cap_mb):
@@ -580,6 +618,7 @@ def print_metal_cache_plan(plan, args):
         f"fit:{plan['metal_cache_fit']};"
         f"estimated_full_gib:{plan['metal_cache_estimated_full_gib']:.3f};"
         f"budget_mb:{args.metal_cache_budget_mb:g};"
+        f"correction_reserve_mb:{args.metal_correction_cache_reserve_mb:g};"
         f"planned_cache_gib:{plan['metal_cache_planned_gib']:.3f};"
         f"pressure_risk:{plan['metal_cache_pressure_risk']};"
         f"pressure_cap_mb:{plan['metal_cache_pressure_cap_mb']:g}"
@@ -650,6 +689,13 @@ def env_flag(name):
     return os.environ.get(name, "") not in ("", "0")
 
 
+def metal_native_float_atomics_enabled(args):
+    override = getattr(args, "metal_native_float_atomics", None)
+    if override is not None:
+        return bool(override)
+    return env_flag("YRTPET_METAL_USE_NATIVE_FLOAT_ATOMICS")
+
+
 def metal_joseph_axis_specialization_mode(args):
     explicit_mode = getattr(args, "metal_joseph_axis_specialization", "none")
     if explicit_mode != "none":
@@ -658,6 +704,11 @@ def metal_joseph_axis_specialization_mode(args):
 
 
 def apply_metal_environment(args):
+    native_float_atomics = getattr(args, "metal_native_float_atomics", None)
+    if native_float_atomics is True:
+        os.environ["YRTPET_METAL_USE_NATIVE_FLOAT_ATOMICS"] = "1"
+    elif native_float_atomics is False:
+        os.environ.pop("YRTPET_METAL_USE_NATIVE_FLOAT_ATOMICS", None)
     os.environ["YRTPET_METAL_JOSEPH_SAMPLE_STRIDE"] = str(
         max(1, int(args.metal_joseph_sample_stride))
     )
@@ -740,11 +791,11 @@ def print_metal_projector_notes(args):
     if args.metal_projector != "joseph":
         return
 
-    if not env_flag("YRTPET_METAL_USE_NATIVE_FLOAT_ATOMICS"):
+    if not metal_native_float_atomics_enabled(args):
         print(
             "NOTE: For Joseph benchmarks on Apple Silicon, current GE "
             "full-data profiling favors "
-            "YRTPET_METAL_USE_NATIVE_FLOAT_ATOMICS=1."
+            "--metal-native-float-atomics."
         )
     if args.metal_threads_per_threadgroup == 0:
         print(
@@ -1989,6 +2040,7 @@ def print_sweep_summary(rows):
         "metal_move_sensitivity",
         "metal_cache_budget_mb",
         "metal_correction_cache_reserve_mb",
+        "metal_correction_cache_reserve_auto",
         "metal_batch_events",
         "metal_threads_per_threadgroup",
         "metal_fused_ratio",
@@ -2237,6 +2289,7 @@ def write_summary_csv(path, rows):
         "metal_move_sensitivity",
         "metal_cache_budget_mb",
         "metal_correction_cache_reserve_mb",
+        "metal_correction_cache_reserve_auto",
         "metal_batch_events",
         "metal_threads_per_threadgroup",
         "metal_fused_ratio",
@@ -2503,7 +2556,7 @@ def run_isolated_sweep(
                                     f"_cachemb_"
                                     f"{format_cache_budget_label(cache_budget_mb)}"
                                     f"_corrmb_"
-                                    f"{format_cache_budget_label(correction_reserve_mb)}"
+                                    f"{format_correction_cache_reserve_label(correction_reserve_mb)}"
                                     f"_tpg_{threads_per_threadgroup}"
                                 )
                                 case_out_dir = os.path.join(base_out_dir, case_label)
@@ -2525,7 +2578,9 @@ def run_isolated_sweep(
                                     "--metal-cache-budget-mb",
                                     f"{cache_budget_mb:g}",
                                     "--metal-correction-cache-reserve-mb",
-                                    f"{correction_reserve_mb:g}",
+                                    format_correction_cache_reserve_label(
+                                        correction_reserve_mb
+                                    ),
                                     "--metal-threads-per-threadgroup",
                                     str(threads_per_threadgroup),
                                     "--out-dir",
@@ -2992,7 +3047,18 @@ def parse_args():
             "siddon preserves the validated CPU-vs-Metal comparison path; "
             "joseph is Metal-only unless a separate reference is provided. "
             "For Joseph full-data benchmarks, current profiling favors "
-            "YRTPET_METAL_USE_NATIVE_FLOAT_ATOMICS=1."
+            "--metal-native-float-atomics."
+        ),
+    )
+    parser.add_argument(
+        "--metal-native-float-atomics",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help=(
+            "Enable native Metal float atomics for experimental Metal "
+            "backprojection kernels. Omit this option to preserve the ambient "
+            "YRTPET_METAL_USE_NATIVE_FLOAT_ATOMICS environment setting; use "
+            "--no-metal-native-float-atomics to clear it for A/B tests."
         ),
     )
     parser.add_argument(
@@ -3096,12 +3162,14 @@ def parse_args():
     )
     parser.add_argument(
         "--metal-correction-cache-reserve-mb",
-        default="0.0",
+        default="auto",
         help=(
             "Reserve this many MB of the experimental Metal cache for compact "
             "OSEM correction terms when --metal-cached-corrections is enabled. "
-            "Accepts one value or a comma-separated sweep list; 0 preserves "
-            "the default greedy full-batch cache admission."
+            "Accepts auto, one numeric value, or a comma-separated numeric sweep "
+            "list. auto reserves the full cache budget for corrections because "
+            "current full-data GE profiling favors correction-heavy cache "
+            "admission; 0 preserves the greedy full-batch cache admission."
         ),
     )
     parser.add_argument(
@@ -3455,10 +3523,10 @@ def validate_metric_args(args):
                 "--metal-joseph-adjoint-accumulation threadgroup-sample "
                 "currently requires --metal-joseph-sample-stride 1"
             )
-        if not env_flag("YRTPET_METAL_USE_NATIVE_FLOAT_ATOMICS"):
+        if not metal_native_float_atomics_enabled(args):
             raise SystemExit(
                 "--metal-joseph-adjoint-accumulation threadgroup-sample "
-                "requires YRTPET_METAL_USE_NATIVE_FLOAT_ATOMICS=1"
+                "requires --metal-native-float-atomics"
             )
     if args.compare_metal and args.metal_projector != "siddon":
         raise SystemExit(
@@ -3569,9 +3637,14 @@ def run_case(args, out_dir, write_images, case_label="", emit_pass=True):
     print(f"metal_sensitivity_projector={args.metal_sensitivity_projector}")
     print(f"metal_lazy_corrections={args.metal_lazy_corrections}")
     print(f"metal_cached_corrections={args.metal_cached_corrections}")
+    print(f"metal_native_float_atomics={metal_native_float_atomics_enabled(args)}")
     print(
         "metal_correction_cache_reserve_mb="
         f"{args.metal_correction_cache_reserve_mb}"
+    )
+    print(
+        "metal_correction_cache_reserve_auto="
+        f"{args.metal_correction_cache_reserve_auto}"
     )
     cache_plan = metal_cache_plan(args, used_events)
     print_metal_cache_plan(cache_plan, args)
@@ -3588,6 +3661,9 @@ def run_case(args, out_dir, write_images, case_label="", emit_pass=True):
         "metal_cache_budget_mb": args.metal_cache_budget_mb,
         "metal_correction_cache_reserve_mb": (
             args.metal_correction_cache_reserve_mb
+        ),
+        "metal_correction_cache_reserve_auto": (
+            args.metal_correction_cache_reserve_auto
         ),
         "metal_batch_events": args.metal_batch_events,
         "metal_threads_per_threadgroup": args.metal_threads_per_threadgroup,
@@ -3621,9 +3697,7 @@ def run_case(args, out_dir, write_images, case_label="", emit_pass=True):
         "metal_sensitivity_projector": args.metal_sensitivity_projector,
         "metal_lazy_corrections": args.metal_lazy_corrections,
         "metal_cached_corrections": args.metal_cached_corrections,
-        "metal_native_float_atomics": env_flag(
-            "YRTPET_METAL_USE_NATIVE_FLOAT_ATOMICS"
-        ),
+        "metal_native_float_atomics": metal_native_float_atomics_enabled(args),
         "metal_private_update_buffer": env_flag(
             "YRTPET_METAL_USE_PRIVATE_UPDATE_BUFFER"
         ),
@@ -3921,11 +3995,16 @@ def main():
     )
     args.metal_cache_budget_mb = cache_budget_values[0]
     args.metal_cache_budget_values = cache_budget_values
-    correction_reserve_values = parse_nonnegative_float_list(
+    correction_reserve_values = parse_metal_correction_cache_reserve_list(
         args.metal_correction_cache_reserve_mb,
         "--metal-correction-cache-reserve-mb",
     )
-    args.metal_correction_cache_reserve_mb = correction_reserve_values[0]
+    (
+        args.metal_correction_cache_reserve_mb,
+        args.metal_correction_cache_reserve_auto,
+    ) = resolve_metal_correction_cache_reserve_mb(
+        args, correction_reserve_values[0], args.metal_cache_budget_mb
+    )
     args.metal_correction_cache_reserve_values = correction_reserve_values
     batch_event_values = parse_nonnegative_int_list(
         args.metal_batch_events, "--metal-batch-events"
@@ -3973,7 +4052,7 @@ def main():
             "metal_cache_budget_mb:"
             f"{','.join(f'{value:g}' for value in cache_budget_values)};"
             "metal_correction_cache_reserve_mb:"
-            f"{','.join(f'{value:g}' for value in correction_reserve_values)};"
+            f"{','.join(format_correction_cache_reserve_label(value) for value in correction_reserve_values)};"
             "metal_threads_per_threadgroup:"
             f"{','.join(str(value) for value in threadgroup_values)}",
             flush=True,
@@ -4006,8 +4085,13 @@ def main():
                                         case_args.metal_cache_budget_mb = (
                                             cache_budget_mb
                                         )
-                                        case_args.metal_correction_cache_reserve_mb = (
-                                            correction_reserve_mb
+                                        (
+                                            case_args.metal_correction_cache_reserve_mb,
+                                            case_args.metal_correction_cache_reserve_auto,
+                                        ) = resolve_metal_correction_cache_reserve_mb(
+                                            case_args,
+                                            correction_reserve_mb,
+                                            cache_budget_mb,
                                         )
                                         case_args.metal_threads_per_threadgroup = (
                                             threads_per_threadgroup
@@ -4018,7 +4102,7 @@ def main():
                                             f"_cachemb_"
                                             f"{format_cache_budget_label(cache_budget_mb)}"
                                             f"_corrmb_"
-                                            f"{format_cache_budget_label(correction_reserve_mb)}"
+                                            f"{format_cache_budget_label(case_args.metal_correction_cache_reserve_mb)}"
                                             f"_tpg_{threads_per_threadgroup}"
                                         )
                                         case_out_dir = os.path.join(

@@ -1864,6 +1864,45 @@ bool computeHostOsemRatioValues(OperatorProjectorMetalProfile* profile,
 	return true;
 }
 
+bool computeAndUploadHostOsemRatioToBatch(
+    OperatorProjectorMetalProfile* profile, ProjectionBatchMetal& batch,
+    const std::vector<bin_t>& bins, const ProjectionData& measurements,
+    const Corrector_CPU& corrector,
+    const OperatorProjectorMetalOsemConfig& config,
+    std::size_t& nonzeroCount)
+{
+	std::vector<float> estimates;
+	const auto downloadStart = Clock::now();
+	const bool didDownload = batch.copyProjectionValuesToHost(estimates);
+	if (profile != nullptr)
+	{
+		profile->forwardDownloadSeconds +=
+		    getElapsedSeconds(downloadStart, Clock::now());
+	}
+	if (!didDownload || estimates.size() != bins.size())
+	{
+		return false;
+	}
+
+	std::vector<float> ratioValues;
+	if (!computeHostOsemRatioValues(profile, bins, estimates, measurements,
+	                                corrector, config, ratioValues,
+	                                nonzeroCount))
+	{
+		return false;
+	}
+	if (nonzeroCount == 0)
+	{
+		return true;
+	}
+
+	const auto uploadStart = Clock::now();
+	const bool didUpload = batch.setProjectionValues(ratioValues);
+	addBatchUploadProfile(profile, false, false,
+	                      getElapsedSeconds(uploadStart, Clock::now()));
+	return didUpload;
+}
+
 CachedOsemCorrections* findCachedCorrectionsForFrame(
     std::vector<CachedCorrectionBatch>* correctionBatches, frame_t frame,
     const std::vector<bin_t>& bins, const ProjectionData& measurements,
@@ -2664,38 +2703,29 @@ bool applyOsemHostRatioEventsWithImageBuffers(
 			}
 			if (config.cacheCorrectionFactors && correctionBatches != nullptr)
 			{
-				if (!applyOsemRatioToBatch(context, profile, batch, bins,
-				                           measurements, corrector, config))
+				std::size_t nonzeroCount = 0;
+				if (!computeAndUploadHostOsemRatioToBatch(
+				        profile, batch, bins, measurements, corrector, config,
+				        nonzeroCount))
 				{
 					return false;
+				}
+				if (nonzeroCount == 0)
+				{
+					continue;
 				}
 				if (profile != nullptr)
 				{
 					profile->adjointBatches += 1;
-					profile->adjointNonzeroEvents += batch.size();
+					profile->adjointNonzeroEvents += nonzeroCount;
 				}
 			}
 			else
 			{
-				std::vector<float> estimates;
-				const auto downloadStart = Clock::now();
-				const bool didDownload =
-				    batch.copyProjectionValuesToHost(estimates);
-				if (profile != nullptr)
-				{
-					profile->forwardDownloadSeconds +=
-					    getElapsedSeconds(downloadStart, Clock::now());
-				}
-				if (!didDownload || estimates.size() != bins.size())
-				{
-					return false;
-				}
-
-				std::vector<float> ratioValues;
 				std::size_t nonzeroCount = 0;
-				if (!computeHostOsemRatioValues(profile, bins, estimates,
-				                                measurements, corrector, config,
-				                                ratioValues, nonzeroCount))
+				if (!computeAndUploadHostOsemRatioToBatch(
+				        profile, batch, bins, measurements, corrector, config,
+				        nonzeroCount))
 				{
 					return false;
 				}
@@ -2704,19 +2734,10 @@ bool applyOsemHostRatioEventsWithImageBuffers(
 					continue;
 				}
 
-				const auto uploadStart = Clock::now();
-				const bool didUpload = batch.setProjectionValues(ratioValues);
 				if (profile != nullptr)
 				{
 					profile->adjointBatches += 1;
 					profile->adjointNonzeroEvents += nonzeroCount;
-				}
-				addBatchUploadProfile(
-				    profile, false, false,
-				    getElapsedSeconds(uploadStart, Clock::now()));
-				if (!didUpload)
-				{
-					return false;
 				}
 			}
 		}
@@ -2812,39 +2833,29 @@ bool applyOsemHostRatioCachedSegmentWithImageBuffers(
 			}
 			if (config.cacheCorrectionFactors)
 			{
-				if (!applyOsemRatioToBatch(context, profile, frameBatch.batch,
-				                           frameBatch.bins, measurements,
-				                           corrector, config))
+				std::size_t nonzeroCount = 0;
+				if (!computeAndUploadHostOsemRatioToBatch(
+				        profile, frameBatch.batch, frameBatch.bins,
+				        measurements, corrector, config, nonzeroCount))
 				{
 					return false;
+				}
+				if (nonzeroCount == 0)
+				{
+					continue;
 				}
 				if (profile != nullptr)
 				{
 					profile->adjointBatches += 1;
-					profile->adjointNonzeroEvents += frameBatch.batch.size();
+					profile->adjointNonzeroEvents += nonzeroCount;
 				}
 			}
 			else
 			{
-				std::vector<float> estimates;
-				const auto downloadStart = Clock::now();
-				const bool didDownload =
-				    frameBatch.batch.copyProjectionValuesToHost(estimates);
-				if (profile != nullptr)
-				{
-					profile->forwardDownloadSeconds +=
-					    getElapsedSeconds(downloadStart, Clock::now());
-				}
-				if (!didDownload || estimates.size() != frameBatch.bins.size())
-				{
-					return false;
-				}
-
-				std::vector<float> ratioValues;
 				std::size_t nonzeroCount = 0;
-				if (!computeHostOsemRatioValues(
-				        profile, frameBatch.bins, estimates, measurements,
-				        corrector, config, ratioValues, nonzeroCount))
+				if (!computeAndUploadHostOsemRatioToBatch(
+				        profile, frameBatch.batch, frameBatch.bins,
+				        measurements, corrector, config, nonzeroCount))
 				{
 					return false;
 				}
@@ -2853,20 +2864,10 @@ bool applyOsemHostRatioCachedSegmentWithImageBuffers(
 					continue;
 				}
 
-				const auto uploadStart = Clock::now();
-				const bool didUpload =
-				    frameBatch.batch.setProjectionValues(ratioValues);
 				if (profile != nullptr)
 				{
 					profile->adjointBatches += 1;
 					profile->adjointNonzeroEvents += nonzeroCount;
-				}
-				addBatchUploadProfile(
-				    profile, false, false,
-				    getElapsedSeconds(uploadStart, Clock::now()));
-				if (!didUpload)
-				{
-					return false;
 				}
 			}
 		}

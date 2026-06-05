@@ -26,6 +26,8 @@ int main(int argc, char** argv)
 	    "YRTPET_METAL_SMOKE_JOSEPH_ADJOINT_ACCUMULATION");
 	bool runJosephAxisSpecializedSmoke = envFlag(
 	    "YRTPET_METAL_SMOKE_JOSEPH_AXIS_SPECIALIZED");
+	bool runImageMotionGolden = envFlag(
+	    "YRTPET_METAL_SMOKE_IMAGE_MOTION_GOLDEN");
 	for (int i = 1; i < argc; ++i)
 	{
 		if (std::string(argv[i]) ==
@@ -37,6 +39,10 @@ int main(int argc, char** argv)
 		         "--joseph-axis-specialized-smoke")
 		{
 			runJosephAxisSpecializedSmoke = true;
+		}
+		else if (std::string(argv[i]) == "--image-motion-golden")
+		{
+			runImageMotionGolden = true;
 		}
 	}
 
@@ -75,6 +81,15 @@ int main(int argc, char** argv)
 		}
 		std::cout
 		    << "Metal Joseph axis-specialized smoke: PASS\n";
+	}
+	if (runImageMotionGolden)
+	{
+		if (!yrt::backend::metal::runImageMotionGoldenTests())
+		{
+			std::cerr << "Metal image motion golden tests: FAIL\n";
+			return 1;
+		}
+		std::cout << "Metal image motion golden tests: PASS\n";
 	}
 	return 0;
 }

@@ -93,6 +93,7 @@ Run the real-input OSEM comparison executable:
 ./build_metal/executables/yrtpet_metal_osem_compare \
   --sensitivity sensitivity.nii \
   --lors siddon_measurements.csv \
+  --psf image_psf.csv \
   --initial initial_estimate.nii \
   --cpu-out cpu_osem.nii \
   --metal-out metal_osem.nii \
@@ -106,9 +107,12 @@ and `--initial-value`; when dynamic frames are present, the initial image `nt`
 is inferred from the frame column. The executable runs CPU `OSEM_CPU` and then
 `OSEM_CPU` with `setExperimentalMetalProjectorEnabled(true)`, confirms that
 the Metal projector step actually ran, and reports max absolute/relative image
-differences. It currently supports the same guarded subset as the OSEM hook:
-one-ray Siddon, no TOF, no projection-space PSF, no image PSF, and host
-projection data.
+differences. `--psf` is optional; when provided, the CPU run uses the normal
+uniform image PSF path and the Metal run additionally enables
+`setExperimentalMetalProjectorImagePsfEnabled(true)`. It currently supports the
+same guarded subset as the OSEM hook: one-ray Siddon, no TOF,
+no projection-space PSF, host projection data, and uniform image PSF only when
+explicitly requested.
 
 The real-data Python smoke keeps Siddon as the default Metal projector. A
 separate experimental Joseph projector can be selected for Metal-only OSEM
@@ -174,6 +178,7 @@ The current opt-in adapter surface is intentionally small and host-owned:
 | `ProjectionBatchMetal` | LOR and projection-value Metal buffers plus host LOR metadata | `ProjectionGeometryKernels` | `ProjectionListDevice`, projectors, or reconstruction |
 | `ImageMetal` | allocated `ImageOwned` and `Context` | `ImageOps` | `ImageDevice`, reconstruction, or projectors |
 | `OperatorPsfMetal` | PSF kernels, flipped AH kernels, and `Context` | `PsfOps` | `OperatorPsf`, `OperatorPsfDevice`, or reconstruction |
+| `MotionOps` | caller-owned `Image` inputs/outputs and `Context` | image motion kernel | `timeAverageMoveImage`, motion production dispatch, or CUDA device motion |
 | `OperatorProjectorMetalBridge` | `Context` and temporary Metal projection batches | `SiddonProjectorMetal` and experimental `JosephProjectorMetal` | `OperatorProjectorDevice` or default reconstruction dispatch |
 
 Each adapter is a developer-facing convenience wrapper around the corresponding
@@ -355,16 +360,33 @@ The script reports setup time, CPU reconstruction time, Metal reconstruction
 time, whether the Metal projector path actually ran, image sum/max/nonzero
 counts, CPU-vs-Metal max absolute/relative differences, mismatch count, and the
 Metal/CPU time ratio. `--pct` selects a percentage of the list-mode file and
-`--max-events` caps it for development runs. The current Metal OSEM projector
-hook is explicitly incompatible with image PSF, so the script exits early if
-`--compare-metal` is combined with PSF. The Metal adjoint/backprojection path
-now uses a per-LOR atomic accumulation kernel instead of the original
+`--max-events` caps it for development runs. Image PSF remains disabled in the
+default Metal comparison guard; pass `--metal-image-psf` to allow the uniform
+image PSF Metal path. Without `--metal-resident-images`, PSF still uses the
+host-image adapter. With `--metal-resident-images`, the current image,
+PSF-forward image, update image, PSF-adjoint update image, and PSF scratch
+buffers stay resident on Metal around the projector update. This PSF opt-in
+remains intentionally incompatible with `--metal-fused-ratio` until fused ratio
+validation is implemented. Sensitivity image motion averaging can be moved from
+the CPU setup path to the experimental Metal image-motion kernel with
+`--metal-move-sensitivity`; this is still a setup-time helper, not a resident
+OSEM-loop integration, and it requires motion averaging to be enabled. The
+Metal adjoint/backprojection path now uses a per-LOR atomic accumulation kernel
+instead of the original
 per-voxel validation kernel, but the script still refuses `--compare-metal`
 runs above the default `--metal-event-limit` or with more than one
 iteration/subset unless `--allow-unsafe-metal` is passed. Larger runs should be
 unlocked gradually from C++/repo-side tests first. Use `--fail-on-mismatch` to
 make tolerance mismatches fatal; otherwise mismatches are reported as
 diagnostics.
+
+The GE smoke script also prints and writes setup-phase timing columns alongside
+the coarse `setup_s` total. These columns break setup into list-mode loading,
+motion loading, optional LOR export, histogram/correction setup, sensitivity
+projector, sensitivity PSF, sensitivity motion, and final sensitivity
+mask/scale work. They are intended to separate one-time setup costs from
+steady-state Metal reconstruction timing when comparing Siddon/Joseph, PSF, and
+motion options.
 
 For the real-data Siddon regression, prefer the metric-threshold validation
 profile instead of exact voxel matching:
@@ -737,7 +759,11 @@ When enabled in a `USE_METAL=ON` build, `OperatorProjector::applyA` and
 `OperatorProjector::applyAH` first ask `OperatorProjectorMetalBridge` whether
 the configuration is supported. The current supported subset is Siddon, one
 ray, no TOF, no projection PSF, and `DEFAULT4D` host
-`Image`/`ProjectionData` inputs. The bridge gathers LOR and dynamic-frame
+`Image`/`ProjectionData` inputs. Uniform image-space PSF can be layered around
+the experimental OSEM projector only through the separate
+`OSEM_CPU::setExperimentalMetalProjectorImagePsfEnabled(true)` opt-in; the
+projector bridge itself still does not own PSF dispatch. The bridge gathers LOR
+and dynamic-frame
 properties through the same `BinLoader`/`BinIterator` surface used by CPU
 `OperatorProjector`, then delegates to `SiddonProjectorMetal` by default or
 experimental `JosephProjectorMetal` when `"joseph"` or
@@ -911,9 +937,15 @@ psf.applyAH(inputImage, outputImage);
 
 This adapter does not inherit from `OperatorPsf` and is not used by the default
 `OperatorPsf` dispatch path. It is an explicit Metal-only wrapper around the
-host PSF API. The file constructor is a convenience for opt-in experiments that
-already have a uniform image-space PSF CSV on disk; it still stays entirely
-inside `yrt::backend::metal`.
+host and resident-buffer PSF APIs. The file constructor is a convenience for
+opt-in experiments that already have a uniform image-space PSF CSV on disk; it
+still stays entirely inside `yrt::backend::metal`.
+
+The experimental `OSEM_CPU` Metal projector path can use this adapter only when
+`setExperimentalMetalProjectorImagePsfEnabled(true)` is set, or from the GE smoke
+script with `--metal-image-psf`. This keeps PSF outside the default
+`OperatorPsf` and projector dispatch paths while allowing CPU-vs-Metal OSEM
+validation for uniform image-space PSF.
 
 A convenience `convolve3DSeparableHost` overload without an explicit `Context`
 also exists for single-call smoke usage. These APIs are only available in
@@ -972,6 +1004,8 @@ The current `.metal` file contains:
   add 3D image to 4D image, `applyThreshold`, `applyThresholdBroadcast`,
   static EM update, dynamic EM update, and dynamic EM update with sensitivity
   scaling
+- image motion ops: static 3D sensitivity-image time-average motion using
+  inverse rigid transforms, duration weights, and trilinear sampling
 - image PSF ops: separable 3D convolution over X, Y, and Z with circular
   boundary wrapping
 
@@ -982,7 +1016,9 @@ or adapter call copies data from CPU memory into Metal buffers, launches one or
 more kernels, and copies results back to CPU memory. The experimental
 `OSEM_CPU` opt-in projector path now keeps a conservative projector cache and
 uses a host-ratio fast path, but it is still guarded, explicit, and
-performance-oriented only for the validated GE/Siddon subset.
+performance-oriented only for the validated GE/Siddon subset. Uniform image PSF
+can stay resident only when both `--metal-image-psf` and
+`--metal-resident-images` are explicitly requested.
 
 Before broader reconstruction wiring, the project still needs:
 

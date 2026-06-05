@@ -31,6 +31,12 @@ bool isKernelSupported(const std::vector<float>& kernel, int axisSize)
 	       kernel.size() <= std::numeric_limits<std::uint32_t>::max();
 }
 
+bool isKernelSizeSupported(std::uint32_t kernelSize, std::uint32_t axisSize)
+{
+	return axisSize > 0 && kernelSize > 0 && kernelSize % 2 == 1 &&
+	       kernelSize <= axisSize;
+}
+
 ImageShape makeShape(const ImageParams& params)
 {
 	return {static_cast<std::uint32_t>(params.nx),
@@ -48,6 +54,11 @@ bool canUseHostImages(const Image& input, const Image& output)
 	       inputParams.isSameNumFramesAs(outputParams) &&
 	       fitsUint32(inputParams.nx) && fitsUint32(inputParams.ny) &&
 	       fitsUint32(inputParams.nz) && fitsUint32(inputParams.nt);
+}
+
+bool coversFloatCount(const Buffer& buffer, std::size_t count)
+{
+	return buffer.isValid() && buffer.byteCount() >= sizeof(float) * count;
 }
 
 }  // namespace
@@ -78,8 +89,6 @@ bool convolve3DSeparableHost(const Context& context, const Image& input,
 	const ImageShape shape = makeShape(params);
 	const std::size_t byteCount = sizeof(float) * shape.voxelCount();
 	const Device& device = context.device();
-	const Library& library = context.library();
-	const CommandQueue& commandQueue = context.commandQueue();
 
 	Buffer inputBuffer =
 	    Buffer::copyFromHost(device, input.getRawPointer(), byteCount);
@@ -98,25 +107,13 @@ bool convolve3DSeparableHost(const Context& context, const Image& input,
 		return false;
 	}
 
-	if (!launchImageConvolve3DSeparableX(device, library, commandQueue,
-	        inputBuffer, tempA, kernelXBuffer,
-	        static_cast<std::uint32_t>(kernelX.size()), shape))
+	if (!convolve3DSeparableBuffer(context, inputBuffer, tempA, tempB,
+	        kernelXBuffer, static_cast<std::uint32_t>(kernelX.size()),
+	        kernelYBuffer, static_cast<std::uint32_t>(kernelY.size()),
+	        kernelZBuffer, static_cast<std::uint32_t>(kernelZ.size()), shape))
 	{
 		return false;
 	}
-	if (!launchImageConvolve3DSeparableY(device, library, commandQueue, tempA,
-	        tempB, kernelYBuffer, static_cast<std::uint32_t>(kernelY.size()),
-	        shape))
-	{
-		return false;
-	}
-	if (!launchImageConvolve3DSeparableZ(device, library, commandQueue, tempB,
-	        tempA, kernelZBuffer, static_cast<std::uint32_t>(kernelZ.size()),
-	        shape))
-	{
-		return false;
-	}
-
 	return tempA.copyToHost(output.getRawPointer(), byteCount);
 }
 
@@ -128,6 +125,48 @@ bool convolve3DSeparableHost(const Image& input, Image& output,
 	const Context context;
 	return convolve3DSeparableHost(context, input, output, kernelX, kernelY,
 	    kernelZ);
+}
+
+bool convolve3DSeparableBuffer(const Context& context, const Buffer& input,
+                               Buffer& output, Buffer& temp,
+                               const Buffer& kernelX,
+                               std::uint32_t kernelXSize,
+                               const Buffer& kernelY,
+                               std::uint32_t kernelYSize,
+                               const Buffer& kernelZ,
+                               std::uint32_t kernelZSize,
+                               const ImageShape& shape)
+{
+	if (!context.isValid())
+	{
+		return false;
+	}
+	if (!isKernelSizeSupported(kernelXSize, shape.nx) ||
+	    !isKernelSizeSupported(kernelYSize, shape.ny) ||
+	    !isKernelSizeSupported(kernelZSize, shape.nz))
+	{
+		return false;
+	}
+
+	const std::size_t count = shape.voxelCount();
+	if (!coversFloatCount(input, count) || !coversFloatCount(output, count) ||
+	    !coversFloatCount(temp, count) ||
+	    !coversFloatCount(kernelX, kernelXSize) ||
+	    !coversFloatCount(kernelY, kernelYSize) ||
+	    !coversFloatCount(kernelZ, kernelZSize))
+	{
+		return false;
+	}
+
+	const Device& device = context.device();
+	const Library& library = context.library();
+	const CommandQueue& commandQueue = context.commandQueue();
+	return launchImageConvolve3DSeparableX(device, library, commandQueue,
+	           input, output, kernelX, kernelXSize, shape) &&
+	       launchImageConvolve3DSeparableY(device, library, commandQueue,
+	           output, temp, kernelY, kernelYSize, shape) &&
+	       launchImageConvolve3DSeparableZ(device, library, commandQueue, temp,
+	           output, kernelZ, kernelZSize, shape);
 }
 
 }  // namespace yrt::backend::metal

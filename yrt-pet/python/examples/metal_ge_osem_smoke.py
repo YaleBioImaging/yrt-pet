@@ -476,6 +476,25 @@ def format_field(value):
     return str(value)
 
 
+SETUP_PROFILE_FIELDS = [
+    "setup_listmode_load_s",
+    "setup_motion_load_s",
+    "setup_export_lors_s",
+    "setup_histogram_load_s",
+    "setup_randoms_scatter_scale_s",
+    "setup_corrections_s",
+    "setup_sensitivity_total_s",
+    "setup_sensitivity_projector_s",
+    "setup_sensitivity_psf_s",
+    "setup_sensitivity_motion_s",
+    "setup_sensitivity_mask_scale_s",
+]
+
+
+def make_setup_profile():
+    return {field: 0.0 for field in SETUP_PROFILE_FIELDS}
+
+
 def bytes_to_mb(value):
     return float(value) / (1024.0 * 1024.0)
 
@@ -709,6 +728,14 @@ def print_metal_projector_notes(args):
             "EM update image on Metal across subsets. It is an opt-in "
             "host-ratio path experiment; final output is downloaded at "
             "reconstruction end."
+        )
+    if args.metal_image_psf:
+        print(
+            "NOTE: --metal-image-psf keeps the experimental Metal OSEM path "
+            "enabled with uniform image PSF by running the separable PSF "
+            "convolutions through Metal. With --metal-resident-images, PSF "
+            "uses resident image/update buffers and avoids PSF-internal host "
+            "image copies."
         )
     if args.metal_projector != "joseph":
         return
@@ -1857,6 +1884,12 @@ def add_metal_subset_summaries(row, subset_profiles):
     summarize_metal_steady_state_profiles(row, subset_profiles)
 
 
+def print_setup_profile(row):
+    print("setup_profile")
+    print(",".join(SETUP_PROFILE_FIELDS))
+    print(",".join(format_field(row.get(field, 0.0)) for field in SETUP_PROFILE_FIELDS))
+
+
 def print_metal_profile(profile):
     if not profile:
         return
@@ -1953,6 +1986,7 @@ def print_sweep_summary(rows):
         "iterations",
         "subsets",
         "move_sensitivity",
+        "metal_move_sensitivity",
         "metal_cache_budget_mb",
         "metal_correction_cache_reserve_mb",
         "metal_batch_events",
@@ -1965,6 +1999,7 @@ def print_sweep_summary(rows):
         "metal_adjoint_event_order",
         "metal_adjoint_tile_size",
         "metal_resident_images",
+        "metal_image_psf",
         "metal_joseph_adjoint_accumulation",
         "metal_projector",
         "metal_joseph_forward_texture",
@@ -1988,6 +2023,7 @@ def print_sweep_summary(rows):
         "listmode_estimated_peak_gib",
         "listmode_python_alias_arrays",
         "setup_s",
+        *SETUP_PROFILE_FIELDS,
         "cpu_recon_s",
         "metal_recon_s",
         "metal_recon_profile_gap_s",
@@ -2198,6 +2234,7 @@ def write_summary_csv(path, rows):
         "iterations",
         "subsets",
         "move_sensitivity",
+        "metal_move_sensitivity",
         "metal_cache_budget_mb",
         "metal_correction_cache_reserve_mb",
         "metal_batch_events",
@@ -2209,6 +2246,7 @@ def write_summary_csv(path, rows):
         "metal_profile_ratio_nonzero",
         "metal_adjoint_event_order",
         "metal_adjoint_tile_size",
+        "metal_image_psf",
         "metal_joseph_adjoint_accumulation",
         "metal_projector",
         "metal_joseph_forward_texture",
@@ -2238,6 +2276,7 @@ def write_summary_csv(path, rows):
         "listmode_estimated_peak_gib",
         "listmode_python_alias_arrays",
         "setup_s",
+        *SETUP_PROFILE_FIELDS,
         "cpu_recon_s",
         "metal_recon_s",
         "metal_recon_profile_gap_s",
@@ -2553,7 +2592,10 @@ def build_sensitivity(
     use_psf,
     global_scale_factor,
     sensitivity_projector,
+    metal_move_sensitivity,
+    setup_profile=None,
 ):
+    total_start = time.perf_counter()
     sens_img = yrt.ImageOwned(img_params)
     sens_img.allocate()
     np.array(sens_img, copy=False).fill(0.0)
@@ -2581,29 +2623,62 @@ def build_sensitivity(
         print("Computing sensitivity map with experimental Metal Joseph...")
     else:
         print("Computing sensitivity map with Siddon...")
+    phase_start = time.perf_counter()
     operator_siddon.applyAH(histo_corr, sens_img)
+    if setup_profile is not None:
+        setup_profile["setup_sensitivity_projector_s"] = (
+            time.perf_counter() - phase_start
+        )
 
     if use_psf:
-        print("Applying image PSF to sensitivity map...")
-        yrt.OperatorPsf(psf_csv_path).applyA(sens_img, sens_img)
+        print("Applying image PSF adjoint to sensitivity map...")
+        phase_start = time.perf_counter()
+        yrt.OperatorPsf(psf_csv_path).applyAH(sens_img, sens_img)
+        if setup_profile is not None:
+            setup_profile["setup_sensitivity_psf_s"] = (
+                time.perf_counter() - phase_start
+            )
 
     if use_motion and move_sensitivity:
-        print("Moving sensitivity image...")
-        sens_img = yrt.timeAverageMoveImage(
+        move_fn = yrt.timeAverageMoveImage
+        if metal_move_sensitivity:
+            if not hasattr(yrt, "timeAverageMoveImageMetal"):
+                raise RuntimeError(
+                    "This pyyrtpet build does not expose "
+                    "timeAverageMoveImageMetal"
+                )
+            move_fn = yrt.timeAverageMoveImageMetal
+            print("Moving sensitivity image with experimental Metal...")
+        else:
+            print("Moving sensitivity image...")
+        phase_start = time.perf_counter()
+        sens_img = move_fn(
             lor_motion,
             sens_img,
             int(dataset.getTimestamp(0)),
             int(dataset.getTimestamp(dataset.count() - 1)),
         )
+        if setup_profile is not None:
+            setup_profile["setup_sensitivity_motion_s"] = (
+                time.perf_counter() - phase_start
+            )
     elif use_motion:
         print("Skipping sensitivity image motion averaging...")
 
+    phase_start = time.perf_counter()
     sens_np = np.array(sens_img, copy=False)
     sens_np = zero_outside_largest_fitting_circle(sens_np)
     sens_np = np.require(sens_np, dtype=np.float32, requirements=["C_CONTIGUOUS"])
     sens_alias = yrt.ImageAlias(img_params)
     sens_alias.bind(sens_np)
     sens_alias.multWithScalar(global_scale_factor)
+    if setup_profile is not None:
+        setup_profile["setup_sensitivity_mask_scale_s"] = (
+            time.perf_counter() - phase_start
+        )
+        setup_profile["setup_sensitivity_total_s"] = (
+            time.perf_counter() - total_start
+        )
     return sens_alias, sens_np
 
 
@@ -2662,6 +2737,16 @@ def run_osem(
                     "controls"
                 )
             recon.setExperimentalMetalProjectorResidentImagesEnabled(True)
+        if args.metal_image_psf:
+            if not hasattr(
+                recon,
+                "setExperimentalMetalProjectorImagePsfEnabled",
+            ):
+                raise RuntimeError(
+                    "This pyyrtpet build does not expose Metal image PSF "
+                    "controls"
+                )
+            recon.setExperimentalMetalProjectorImagePsfEnabled(True)
         cache_required = (
             "setExperimentalMetalProjectorCacheEnabled",
             "setExperimentalMetalProjectorCacheMaxBytes",
@@ -2804,6 +2889,15 @@ def parse_args():
             "motion time-averaging step."
         ),
     )
+    parser.add_argument(
+        "--metal-move-sensitivity",
+        action="store_true",
+        help=(
+            "Use the experimental Metal implementation for sensitivity image "
+            "motion time-averaging. This only affects setup, is opt-in, and "
+            "does not change CPU/CUDA defaults."
+        ),
+    )
     parser.add_argument("--psf", dest="psf", action="store_true", default=True)
     parser.add_argument("--no-psf", dest="psf", action="store_false")
     parser.add_argument("--compare-metal", action="store_true")
@@ -2877,6 +2971,16 @@ def parse_args():
             "resident across subsets, then download the final image at the "
             "end. This is opt-in, only applies to the host-ratio Metal path, "
             "and leaves CPU/CUDA/default Metal behavior unchanged."
+        ),
+    )
+    parser.add_argument(
+        "--metal-image-psf",
+        action="store_true",
+        help=(
+            "Allow the experimental Metal OSEM path with uniform image PSF by "
+            "running the existing separable image PSF kernels through Metal. "
+            "This opt-in path can be combined with --metal-resident-images to "
+            "keep PSF image buffers resident on Metal."
         ),
     )
     parser.add_argument(
@@ -3189,10 +3293,17 @@ def enforce_metal_safety(args, used_events):
     if not (args.compare_metal or args.metal_only):
         return
     mode_name = "--metal-only" if args.metal_only else "--compare-metal"
-    if args.psf:
+    if args.psf and not args.metal_image_psf:
         raise SystemExit(
-            "The current experimental Metal OSEM projector path cannot run with "
-            f"image PSF enabled. Re-run with {mode_name} --no-psf."
+            "The current experimental Metal OSEM projector path requires an "
+            f"explicit image PSF opt-in. Re-run with {mode_name} --no-psf or "
+            "add --metal-image-psf for the guarded uniform image PSF path."
+        )
+    if args.metal_image_psf and not args.psf:
+        raise SystemExit("--metal-image-psf requires image PSF; remove --no-psf")
+    if args.metal_image_psf and args.metal_fused_ratio:
+        raise SystemExit(
+            "--metal-image-psf cannot be combined with --metal-fused-ratio yet"
         )
     if args.allow_unsafe_metal:
         print(
@@ -3278,6 +3389,19 @@ def validate_metric_args(args):
         raise SystemExit("--metal-resident-images requires --compare-metal or --metal-only")
     if args.metal_resident_images and args.metal_fused_ratio:
         raise SystemExit("--metal-resident-images currently requires the host-ratio path")
+    if args.metal_image_psf and not (args.compare_metal or args.metal_only):
+        raise SystemExit("--metal-image-psf requires --compare-metal or --metal-only")
+    if args.metal_move_sensitivity and not args.motion:
+        raise SystemExit("--metal-move-sensitivity requires motion")
+    if args.metal_move_sensitivity and not args.move_sensitivity:
+        raise SystemExit(
+            "--metal-move-sensitivity cannot be combined with "
+            "--no-move-sensitivity"
+        )
+    if args.metal_move_sensitivity and not hasattr(yrt, "timeAverageMoveImageMetal"):
+        raise SystemExit(
+            "This pyyrtpet build does not expose timeAverageMoveImageMetal"
+        )
     if args.validate_metrics and not args.compare_metal:
         raise SystemExit("--validate-metrics requires --compare-metal")
     if args.metal_only and args.compare_metal:
@@ -3424,6 +3548,7 @@ def run_case(args, out_dir, write_images, case_label="", emit_pass=True):
     print(f"subsets={args.subsets}")
     print(f"motion={args.motion}")
     print(f"move_sensitivity={args.motion and args.move_sensitivity}")
+    print(f"metal_move_sensitivity={args.metal_move_sensitivity}")
     print(f"psf={args.psf}")
     print(f"compare_metal={args.compare_metal}")
     print(f"metal_only={args.metal_only}")
@@ -3440,6 +3565,7 @@ def run_case(args, out_dir, write_images, case_label="", emit_pass=True):
     print(f"metal_adjoint_tile_size={args.metal_adjoint_tile_size}")
     print(f"metal_threads_per_threadgroup={args.metal_threads_per_threadgroup}")
     print(f"metal_resident_images={args.metal_resident_images}")
+    print(f"metal_image_psf={args.metal_image_psf}")
     print(f"metal_sensitivity_projector={args.metal_sensitivity_projector}")
     print(f"metal_lazy_corrections={args.metal_lazy_corrections}")
     print(f"metal_cached_corrections={args.metal_cached_corrections}")
@@ -3458,6 +3584,7 @@ def run_case(args, out_dir, write_images, case_label="", emit_pass=True):
         "iterations": args.iterations,
         "subsets": args.subsets,
         "move_sensitivity": args.motion and args.move_sensitivity,
+        "metal_move_sensitivity": args.metal_move_sensitivity,
         "metal_cache_budget_mb": args.metal_cache_budget_mb,
         "metal_correction_cache_reserve_mb": (
             args.metal_correction_cache_reserve_mb
@@ -3478,6 +3605,7 @@ def run_case(args, out_dir, write_images, case_label="", emit_pass=True):
         "metal_adjoint_event_order": args.metal_adjoint_event_order,
         "metal_adjoint_tile_size": args.metal_adjoint_tile_size,
         "metal_resident_images": args.metal_resident_images,
+        "metal_image_psf": args.metal_image_psf,
         "metal_projector": args.metal_projector,
         "metal_joseph_forward_texture": args.metal_joseph_forward_texture,
         "metal_joseph_axis_specialized": (
@@ -3502,18 +3630,24 @@ def run_case(args, out_dir, write_images, case_label="", emit_pass=True):
         "metal_only": args.metal_only,
     }
     row.update(cache_plan)
+    setup_profile = make_setup_profile()
     setup_start = time.perf_counter()
+    phase_start = time.perf_counter()
     dataset, timestamps, detector1, detector2, listmode_plan = load_listmode_dataset(
         scanner, listmode_path, total_events, used_events, args
     )
+    setup_profile["setup_listmode_load_s"] = time.perf_counter() - phase_start
     row.update(listmode_plan)
 
     lor_motion = None
     if args.motion:
+        phase_start = time.perf_counter()
         lor_motion = yrt.LORMotion(os.path.join(args.base, "Motion.yrt"))
         dataset.addLORMotion(lor_motion)
+        setup_profile["setup_motion_load_s"] = time.perf_counter() - phase_start
 
     if args.export_lors_csv:
+        phase_start = time.perf_counter()
         exported = export_lors_csv(
             dataset,
             args.export_lors_csv,
@@ -3521,21 +3655,34 @@ def run_case(args, out_dir, write_images, case_label="", emit_pass=True):
             args.export_lors_stride,
             args.export_lors_value,
         )
+        setup_profile["setup_export_lors_s"] = time.perf_counter() - phase_start
         row["exported_lors"] = exported
         print(f"exported_lors_csv={args.export_lors_csv}")
         print(f"exported_lors={exported}")
         if args.export_lors_only:
             row["setup_s"] = time.perf_counter() - setup_start
+            row.update(setup_profile)
+            print_setup_profile(row)
             if emit_pass:
                 print("PASS")
             return row
 
+    phase_start = time.perf_counter()
     histo_corr, histo_scatter, histo_randoms, corr_np, histo_acf, histo_norm = (
         load_histos(scanner, config_dir, args.base)
     )
+    setup_profile["setup_histogram_load_s"] = time.perf_counter() - phase_start
     fraction = float(used_events) / float(total_events)
+    phase_start = time.perf_counter()
     randoms, randoms_np = scale_and_bind_histogram3d(scanner, histo_randoms, fraction)
     scatter, scatter_np = scale_and_bind_histogram3d(scanner, histo_scatter, fraction)
+    setup_profile["setup_randoms_scatter_scale_s"] = (
+        time.perf_counter() - phase_start
+    )
+    setup_profile["setup_corrections_s"] = (
+        setup_profile["setup_histogram_load_s"]
+        + setup_profile["setup_randoms_scatter_scale_s"]
+    )
 
     sensitivity, sensitivity_np = build_sensitivity(
         scanner,
@@ -3549,10 +3696,14 @@ def run_case(args, out_dir, write_images, case_label="", emit_pass=True):
         args.psf,
         args.global_scale_factor,
         args.metal_sensitivity_projector,
+        args.metal_move_sensitivity,
+        setup_profile,
     )
     if write_images:
         sensitivity.writeToFile(os.path.join(out_dir, "sens_img.nii.gz"))
     setup_elapsed = time.perf_counter() - setup_start
+    row.update(setup_profile)
+    print_setup_profile(row)
 
     if args.metal_only:
         print("Starting experimental Metal reconstruction...")

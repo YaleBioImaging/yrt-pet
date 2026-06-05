@@ -15,5 +15,6 @@ bool runJosephAxisSpecializedSmoke();
 bool runProjectionVectorGoldenTests();
 bool runImageScalarOpsGoldenTests();
 bool runPsfConvolutionGoldenTests();
+bool runImageMotionGoldenTests();
 
 }  // namespace yrt::backend::metal

@@ -3207,6 +3207,35 @@ struct ImageConvolutionKernelParams
 	uint kernelSize;
 };
 
+struct ImageMotionTransform
+{
+	float r00;
+	float r01;
+	float r02;
+	float tx;
+	float r10;
+	float r11;
+	float r12;
+	float ty;
+	float r20;
+	float r21;
+	float r22;
+	float tz;
+};
+
+struct ImageMotionKernelParams
+{
+	ImageShape shape;
+	float lengthX;
+	float lengthY;
+	float lengthZ;
+	float offsetX;
+	float offsetY;
+	float offsetZ;
+	uint outDynamicFrame;
+	uint transformCount;
+};
+
 inline uint image_spatial_count(ImageShape shape)
 {
 	return shape.nx * shape.ny * shape.nz;
@@ -3228,6 +3257,108 @@ inline uint image_circular(uint size, int value)
 		return uint(value - int(size));
 	}
 	return uint(value);
+}
+
+inline float image_index_to_position(uint index, float voxelSize, float length,
+                                     float offset)
+{
+	return float(index) * voxelSize - 0.5f * length + offset +
+	       0.5f * voxelSize;
+}
+
+inline float image_trilinear_sample_3d(device const float* image,
+                                       float posX, float posY, float posZ,
+                                       ImageMotionKernelParams params)
+{
+	const ImageShape shape = params.shape;
+	const float vx = params.lengthX / float(shape.nx);
+	const float vy = params.lengthY / float(shape.ny);
+	const float vz = params.lengthZ / float(shape.nz);
+	const float originX = params.offsetX - params.lengthX * 0.5f + vx * 0.5f;
+	const float originY = params.offsetY - params.lengthY * 0.5f + vy * 0.5f;
+	const float originZ = params.offsetZ - params.lengthZ * 0.5f + vz * 0.5f;
+
+	const float cx = (posX - originX) / vx;
+	const float cy = (posY - originY) / vy;
+	const float cz = (posZ - originZ) / vz;
+	const int ix0 = int(floor(cx));
+	const int iy0 = int(floor(cy));
+	const int iz0 = int(floor(cz));
+	const float dx = cx - float(ix0);
+	const float dy = cy - float(iy0);
+	const float dz = cz - float(iz0);
+
+	float total = 0.0f;
+	for (int oz = 0; oz <= 1; ++oz)
+	{
+		const int z = iz0 + oz;
+		if (z < 0 || z >= int(shape.nz))
+		{
+			continue;
+		}
+		const float wz = oz == 0 ? 1.0f - dz : dz;
+		for (int oy = 0; oy <= 1; ++oy)
+		{
+			const int y = iy0 + oy;
+			if (y < 0 || y >= int(shape.ny))
+			{
+				continue;
+			}
+			const float wy = oy == 0 ? 1.0f - dy : dy;
+			for (int ox = 0; ox <= 1; ++ox)
+			{
+				const int x = ix0 + ox;
+				if (x < 0 || x >= int(shape.nx))
+				{
+					continue;
+				}
+				const float wx = ox == 0 ? 1.0f - dx : dx;
+				total += image[image_idx3(uint(x), uint(y), uint(z), shape)] *
+				         wx * wy * wz;
+			}
+		}
+	}
+	return total;
+}
+
+kernel void image_time_average_move_3d(
+    device const float* input [[buffer(0)]],
+    device float* output [[buffer(1)]],
+    device const ImageMotionTransform* inverseTransforms [[buffer(2)]],
+    device const float* weights [[buffer(3)]],
+    constant ImageMotionKernelParams& params [[buffer(4)]],
+    uint id [[thread_position_in_grid]])
+{
+	const ImageShape shape = params.shape;
+	const uint spatialCount = image_spatial_count(shape);
+	const uint x = id % shape.nx;
+	const uint y = (id / shape.nx) % shape.ny;
+	const uint z = id / (shape.nx * shape.ny);
+	const float vx = params.lengthX / float(shape.nx);
+	const float vy = params.lengthY / float(shape.ny);
+	const float vz = params.lengthZ / float(shape.nz);
+	const float posX =
+	    image_index_to_position(x, vx, params.lengthX, params.offsetX);
+	const float posY =
+	    image_index_to_position(y, vy, params.lengthY, params.offsetY);
+	const float posZ =
+	    image_index_to_position(z, vz, params.lengthZ, params.offsetZ);
+
+	float value = output[params.outDynamicFrame * spatialCount + id];
+	for (uint transformId = 0; transformId < params.transformCount;
+	     ++transformId)
+	{
+		const ImageMotionTransform inv = inverseTransforms[transformId];
+		const float newX = fma(inv.r00, posX,
+		    fma(inv.r01, posY, fma(inv.r02, posZ, inv.tx)));
+		const float newY = fma(inv.r10, posX,
+		    fma(inv.r11, posY, fma(inv.r12, posZ, inv.ty)));
+		const float newZ = fma(inv.r20, posX,
+		    fma(inv.r21, posY, fma(inv.r22, posZ, inv.tz)));
+		value += image_trilinear_sample_3d(input, newX, newY, newZ, params) *
+		         weights[transformId];
+	}
+	output[params.outDynamicFrame * spatialCount + id] = value;
 }
 
 kernel void image_fill(device float* image [[buffer(0)]],

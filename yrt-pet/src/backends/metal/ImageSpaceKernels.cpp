@@ -38,6 +38,19 @@ struct ImageConvolutionKernelParams
 	std::uint32_t kernelSize;
 };
 
+struct ImageMotionKernelParams
+{
+	ImageShape shape;
+	float lengthX;
+	float lengthY;
+	float lengthZ;
+	float offsetX;
+	float offsetY;
+	float offsetZ;
+	std::uint32_t outDynamicFrame;
+	std::uint32_t transformCount;
+};
+
 bool isShapeValid(const ImageShape& shape)
 {
 	return shape.nx > 0 && shape.ny > 0 && shape.nz > 0 && shape.nt > 0;
@@ -46,6 +59,11 @@ bool isShapeValid(const ImageShape& shape)
 bool coversFloatCount(const Buffer& buffer, std::size_t count)
 {
 	return buffer.isValid() && buffer.byteCount() >= sizeof(float) * count;
+}
+
+bool coversTransformCount(const Buffer& buffer, std::size_t count)
+{
+	return buffer.isValid() && buffer.byteCount() >= sizeof(float) * 12 * count;
 }
 
 ImageThresholdKernelParams makeThresholdParams(const ImageShape& shape,
@@ -241,6 +259,31 @@ bool launchImageConvolve3DSeparableZ(const Device& device,
 	return launchImageConvolve3DSeparable(device, library, commandQueue,
 	    "image_convolve3d_separable_z", input, output, kernel, kernelSize,
 	    shape, shape.nz);
+}
+
+bool launchImageTimeAverageMove3D(const Device& device,
+    const Library& library, const CommandQueue& commandQueue,
+    const Buffer& input3D, Buffer& output, const Buffer& inverseTransforms,
+    const Buffer& weights, const ImageShape& outputShape, float lengthX,
+    float lengthY, float lengthZ, float offsetX, float offsetY, float offsetZ,
+    std::uint32_t outDynamicFrame, std::uint32_t transformCount)
+{
+	const auto spatialCount = outputShape.spatialVoxelCount();
+	const ImageMotionKernelParams params{outputShape, lengthX, lengthY, lengthZ,
+	    offsetX, offsetY, offsetZ, outDynamicFrame, transformCount};
+	return isShapeValid(outputShape) && transformCount > 0 &&
+	       outDynamicFrame < outputShape.nt &&
+	       coversFloatCount(input3D, spatialCount) &&
+	       coversFloatCount(output, outputShape.voxelCount()) &&
+	       coversTransformCount(inverseTransforms, transformCount) &&
+	       coversFloatCount(weights, transformCount) &&
+	       launchKernel1D(device, library, commandQueue,
+	           "image_time_average_move_3d",
+	           {{&input3D, 0},
+	               {&output, 1},
+	               {&inverseTransforms, 2},
+	               {&weights, 3}},
+	           {{&params, sizeof(params), 4}}, spatialCount);
 }
 
 }  // namespace yrt::backend::metal

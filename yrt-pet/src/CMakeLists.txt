@@ -156,6 +156,7 @@ if (USE_METAL)
         backends/metal/MetalBackend.cpp
         backends/metal/MetalContext.cpp
         backends/metal/MetalSmoke.cpp
+        backends/metal/MotionOps.cpp
         backends/metal/OperatorProjectorMetalBridge.cpp
         backends/metal/OperatorPsfMetal.cpp
         backends/metal/PsfFileOps.cpp

@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cstdint>
 #include <stdexcept>
 
 namespace yrt::backend::metal
@@ -70,6 +71,27 @@ UniformPsfKernels readUniformPsfCsv(const std::string& psfFilename)
 	return {readKernelRow(data, 0, kernelSizes[0]),
 	        readKernelRow(data, 1, kernelSizes[1]),
 	        readKernelRow(data, 2, kernelSizes[2])};
+}
+
+std::size_t imageByteCount(const ImageShape& shape)
+{
+	return sizeof(float) * shape.voxelCount();
+}
+
+bool copyKernelToBuffer(const Context& context, const std::vector<float>& kernel,
+                        Buffer& buffer)
+{
+	const std::size_t byteCount = sizeof(float) * kernel.size();
+	if (!context.isValid() || kernel.empty())
+	{
+		return false;
+	}
+	if (buffer.isValid() && buffer.byteCount() >= byteCount)
+	{
+		return true;
+	}
+	buffer = Buffer::copyFromHost(context.device(), kernel.data(), byteCount);
+	return buffer.isValid();
 }
 
 }  // namespace
@@ -135,6 +157,36 @@ bool OperatorPsfMetal::applyAH(const Image& input, Image& output) const
 	                               m_kernelYFlipped, m_kernelZFlipped);
 }
 
+bool OperatorPsfMetal::applyA(const Buffer& input, Buffer& output,
+                              const ImageShape& shape) const
+{
+	return ensureKernelBuffers() && apply(input, output, m_kernelXBuffer,
+	                                  static_cast<std::uint32_t>(
+	                                      m_kernelX.size()),
+	                                  m_kernelYBuffer,
+	                                  static_cast<std::uint32_t>(
+	                                      m_kernelY.size()),
+	                                  m_kernelZBuffer,
+	                                  static_cast<std::uint32_t>(
+	                                      m_kernelZ.size()),
+	                                  shape);
+}
+
+bool OperatorPsfMetal::applyAH(const Buffer& input, Buffer& output,
+                               const ImageShape& shape) const
+{
+	return ensureKernelBuffers() && apply(input, output, m_kernelXFlippedBuffer,
+	                                  static_cast<std::uint32_t>(
+	                                      m_kernelXFlipped.size()),
+	                                  m_kernelYFlippedBuffer,
+	                                  static_cast<std::uint32_t>(
+	                                      m_kernelYFlipped.size()),
+	                                  m_kernelZFlippedBuffer,
+	                                  static_cast<std::uint32_t>(
+	                                      m_kernelZFlipped.size()),
+	                                  shape);
+}
+
 const std::vector<float>& OperatorPsfMetal::getKernelX() const
 {
 	return m_kernelX;
@@ -148,6 +200,64 @@ const std::vector<float>& OperatorPsfMetal::getKernelY() const
 const std::vector<float>& OperatorPsfMetal::getKernelZ() const
 {
 	return m_kernelZ;
+}
+
+bool OperatorPsfMetal::ensureKernelBuffers() const
+{
+	return copyKernelToBuffer(m_context, m_kernelX, m_kernelXBuffer) &&
+	       copyKernelToBuffer(m_context, m_kernelY, m_kernelYBuffer) &&
+	       copyKernelToBuffer(m_context, m_kernelZ, m_kernelZBuffer) &&
+	       copyKernelToBuffer(
+	           m_context, m_kernelXFlipped, m_kernelXFlippedBuffer) &&
+	       copyKernelToBuffer(
+	           m_context, m_kernelYFlipped, m_kernelYFlippedBuffer) &&
+	       copyKernelToBuffer(
+	           m_context, m_kernelZFlipped, m_kernelZFlippedBuffer);
+}
+
+bool OperatorPsfMetal::ensureScratchBuffer(const ImageShape& shape) const
+{
+	const std::size_t byteCount = imageByteCount(shape);
+	if (!m_context.isValid() || byteCount == 0)
+	{
+		return false;
+	}
+	if (!m_scratchBuffer.isValid() ||
+	    m_scratchBuffer.byteCount() < byteCount)
+	{
+		m_scratchBuffer = Buffer::allocate(m_context.device(), byteCount);
+	}
+	return m_scratchBuffer.isValid();
+}
+
+bool OperatorPsfMetal::ensureOutputBuffer(Buffer& output,
+                                          const ImageShape& shape) const
+{
+	const std::size_t byteCount = imageByteCount(shape);
+	if (!m_context.isValid() || byteCount == 0)
+	{
+		return false;
+	}
+	if (!output.isValid() || output.byteCount() < byteCount)
+	{
+		output = Buffer::allocate(m_context.device(), byteCount);
+	}
+	return output.isValid();
+}
+
+bool OperatorPsfMetal::apply(const Buffer& input, Buffer& output,
+                             const Buffer& kernelX,
+                             std::uint32_t kernelXSize,
+                             const Buffer& kernelY,
+                             std::uint32_t kernelYSize,
+                             const Buffer& kernelZ,
+                             std::uint32_t kernelZSize,
+                             const ImageShape& shape) const
+{
+	return ensureOutputBuffer(output, shape) && ensureScratchBuffer(shape) &&
+	       convolve3DSeparableBuffer(m_context, input, output, m_scratchBuffer,
+	           kernelX, kernelXSize, kernelY, kernelYSize, kernelZ,
+	           kernelZSize, shape);
 }
 
 }  // namespace yrt::backend::metal

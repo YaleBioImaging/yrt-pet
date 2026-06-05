@@ -75,5 +75,11 @@ bool launchImageConvolve3DSeparableZ(const Device& device,
     const Library& library, const CommandQueue& commandQueue,
     const Buffer& input, Buffer& output, const Buffer& kernel,
     std::uint32_t kernelSize, const ImageShape& shape);
+bool launchImageTimeAverageMove3D(const Device& device,
+    const Library& library, const CommandQueue& commandQueue,
+    const Buffer& input3D, Buffer& output, const Buffer& inverseTransforms,
+    const Buffer& weights, const ImageShape& outputShape, float lengthX,
+    float lengthY, float lengthZ, float offsetX, float offsetY, float offsetZ,
+    std::uint32_t outDynamicFrame, std::uint32_t transformCount);
 
 }  // namespace yrt::backend::metal

@@ -341,6 +341,7 @@ std::unique_ptr<yrt::Image> runOsem(const yrt::Scanner& scanner,
                                     yrt::ProjectionData& dataInput,
                                     yrt::Image& initialEstimate,
                                     yrt::Image& sensitivityImage,
+                                    const std::string& imagePsfFilename,
                                     int numIterations, int numSubsets,
                                     bool useExperimentalMetalProjector,
                                     bool& didMetalRun)
@@ -354,7 +355,15 @@ std::unique_ptr<yrt::Image> runOsem(const yrt::Scanner& scanner,
 	osem.setImageParams(initialEstimate.getParams());
 	osem.setInitialEstimate(&initialEstimate);
 	osem.setSensitivityImage(&sensitivityImage);
+	if (!imagePsfFilename.empty())
+	{
+		osem.addImagePSF(imagePsfFilename, yrt::ImagePSFMode::UNIFORM);
+	}
 	osem.setExperimentalMetalProjectorEnabled(useExperimentalMetalProjector);
+	if (useExperimentalMetalProjector && !imagePsfFilename.empty())
+	{
+		osem.setExperimentalMetalProjectorImagePsfEnabled(true);
+	}
 	auto output = osem.reconstruct("");
 	didMetalRun = osem.didLastExperimentalMetalProjectorRun();
 	return output;
@@ -379,6 +388,7 @@ int main(int argc, char** argv)
 		std::string sensitivityFilename;
 		std::string lorFilename;
 		std::string scannerFilename;
+		std::string imagePsfFilename;
 		std::string cpuOutFilename;
 		std::string metalOutFilename;
 		std::string diffOutFilename;
@@ -405,6 +415,8 @@ int main(int argc, char** argv)
 		 cxxopts::value<float>(initialValue)->default_value("0.125"))
 		("scanner", "Optional scanner JSON file. A synthetic scanner is used when omitted.",
 		 cxxopts::value<std::string>(scannerFilename))
+		("p,psf", "Optional uniform image-space PSF CSV file",
+		 cxxopts::value<std::string>(imagePsfFilename))
 		("iterations", "Number of MLEM iterations",
 		 cxxopts::value<int>(numIterations)->default_value("1"))
 		("subsets", "Number of OSEM subsets",
@@ -509,11 +521,13 @@ int main(int argc, char** argv)
 		bool cpuMetalRan = false;
 		bool optInMetalRan = false;
 		auto cpuOutput = runOsem(scanner, cpuData, initialEstimate,
-		                         sensitivityImage, numIterations, numSubsets,
-		                         false, cpuMetalRan);
+		                         sensitivityImage, imagePsfFilename,
+		                         numIterations, numSubsets, false,
+		                         cpuMetalRan);
 		auto metalOutput = runOsem(scanner, metalData, metalInitial,
-		                           metalSensitivity, numIterations, numSubsets,
-		                           true, optInMetalRan);
+		                           metalSensitivity, imagePsfFilename,
+		                           numIterations, numSubsets, true,
+		                           optInMetalRan);
 		if (cpuMetalRan)
 		{
 			std::cerr << "Metal OSEM compare: FAIL "

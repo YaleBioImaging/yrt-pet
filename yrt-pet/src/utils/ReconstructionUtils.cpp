@@ -28,10 +28,17 @@
 #include "yrt-pet/utils/ReconstructionUtilsDevice.cuh"
 #endif
 
+#if BUILD_METAL
+#include "yrt-pet/backends/metal/MetalContext.hpp"
+#include "yrt-pet/backends/metal/MotionOps.hpp"
+#endif
+
 
 #if BUILD_PYBIND11
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
+
+#include <stdexcept>
 
 namespace py = pybind11;
 using namespace pybind11::literals;
@@ -153,6 +160,61 @@ void py_setup_reconstructionutils(pybind11::module& m)
 	      "directly in \"out_image\" in the dynamic frame "
 	      "\"out_dynamic_frame\". Use \"time_start\" and \"time_stop\" to "
 	      "define how motion frames are selected and weighted.");
+
+#if BUILD_METAL
+	m.def(
+	    "timeAverageMoveImageMetal",
+	    [](const LORMotion& lorMotion, const Image* unmovedImage,
+	       timestamp_t timeStart, timestamp_t timeStop)
+	    {
+		    if (unmovedImage == nullptr)
+		    {
+			    throw std::runtime_error("Null input image given");
+		    }
+		    backend::metal::Context context;
+		    if (!context.isValid())
+		    {
+			    throw std::runtime_error(
+			        "Metal context unavailable: " + context.errorMessage());
+		    }
+		    auto output = backend::metal::timeAverageMoveImage(
+		        context, lorMotion, *unmovedImage, timeStart, timeStop);
+		    if (!output)
+		    {
+			    throw std::runtime_error(
+			        "Metal sensitivity motion averaging failed");
+		    }
+		    return output;
+	    },
+	    "lor_motion"_a, "unmoved_image"_a, "time_start"_a, "time_stop"_a,
+	    "Experimental Metal implementation of timeAverageMoveImage.");
+	m.def(
+	    "timeAverageMoveImageMetal",
+	    [](const LORMotion& lorMotion, const Image* unmovedImage)
+	    {
+		    auto [timeStart, timeStop] = util::getFullTimeRange(lorMotion);
+		    if (unmovedImage == nullptr)
+		    {
+			    throw std::runtime_error("Null input image given");
+		    }
+		    backend::metal::Context context;
+		    if (!context.isValid())
+		    {
+			    throw std::runtime_error(
+			        "Metal context unavailable: " + context.errorMessage());
+		    }
+		    auto output = backend::metal::timeAverageMoveImage(
+		        context, lorMotion, *unmovedImage, timeStart, timeStop);
+		    if (!output)
+		    {
+			    throw std::runtime_error(
+			        "Metal sensitivity motion averaging failed");
+		    }
+		    return output;
+	    },
+	    "lor_motion"_a, "unmoved_image"_a,
+	    "Experimental Metal implementation of timeAverageMoveImage.");
+#endif
 
 	m.def("timeAverageMoveImageDynamic",
 	      static_cast<std::unique_ptr<ImageOwned> (*)(

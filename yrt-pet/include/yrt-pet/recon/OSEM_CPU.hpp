@@ -19,6 +19,16 @@
 
 namespace yrt
 {
+#if BUILD_METAL
+namespace backend::metal
+{
+class Context;
+class Buffer;
+class OperatorPsfMetal;
+struct ImageShape;
+}
+#endif
+
 class OSEM_CPU : public OSEM
 {
 public:
@@ -246,6 +256,8 @@ public:
 	bool isExperimentalMetalProjectorLazyCorrectionsEnabled() const;
 	void setExperimentalMetalProjectorCachedCorrectionsEnabled(bool enabled);
 	bool isExperimentalMetalProjectorCachedCorrectionsEnabled() const;
+	void setExperimentalMetalProjectorImagePsfEnabled(bool enabled);
+	bool isExperimentalMetalProjectorImagePsfEnabled() const;
 
 protected:
 	bool isReconstructionTimingEnabled() const override;
@@ -298,6 +310,7 @@ protected:
 	bool m_experimentalMetalProjectorCacheEnabled = true;
 	bool m_experimentalMetalProjectorLazyCorrectionsEnabled = false;
 	bool m_experimentalMetalProjectorCachedCorrectionsEnabled = false;
+	bool m_experimentalMetalProjectorImagePsfEnabled = false;
 	size_t m_experimentalMetalProjectorCacheMaxBytes =
 	    static_cast<size_t>(1024) * 1024 * 1024;
 	size_t m_experimentalMetalProjectorCorrectionCacheReserveBytes = 0;
@@ -312,6 +325,8 @@ protected:
 		backend::metal::Buffer imageBuffer;
 		backend::metal::Buffer updateBuffer;
 		backend::metal::Buffer sensitivityBuffer;
+		backend::metal::Buffer psfForwardBuffer;
+		backend::metal::Buffer psfUpdateBuffer;
 		ImageParams imageParams;
 		ImageParams updateParams;
 		ImageParams sensitivityParams;
@@ -327,6 +342,10 @@ protected:
 	    mp_experimentalMetalProjectorCache;
 	std::unique_ptr<ExperimentalMetalResidentOsemState>
 	    mp_experimentalMetalResidentOsemState;
+	std::unique_ptr<backend::metal::OperatorPsfMetal>
+	    mp_experimentalMetalImagePsf;
+	const backend::metal::Context* mp_experimentalMetalImagePsfContext =
+	    nullptr;
 #endif
 
 private:
@@ -339,6 +358,25 @@ private:
 	    bool hasSensitivity, bool hasAttenuation, bool hasScatterEstimates,
 	    bool hasRandomsEstimates, bool hasInVivoAttenuation);
 #if BUILD_METAL
+	bool canUseExperimentalMetalImagePsf() const;
+	backend::metal::OperatorPsfMetal* getExperimentalMetalImagePsf(
+	    const backend::metal::Context* context = nullptr);
+	std::string describeExperimentalMetalImagePsfState(
+	    const Image& input, const Image& output);
+	bool applyExperimentalMetalImagePsfForward(const Image& input,
+	                                           Image& output);
+	bool applyExperimentalMetalImagePsfAdjoint(const Image& input,
+	                                           Image& output);
+	bool applyExperimentalMetalResidentImagePsfForward(
+	    const backend::metal::Context& context,
+	    const backend::metal::Buffer& input,
+	    backend::metal::Buffer& output,
+	    const backend::metal::ImageShape& shape);
+	bool applyExperimentalMetalResidentImagePsfAdjoint(
+	    const backend::metal::Context& context,
+	    const backend::metal::Buffer& input,
+	    backend::metal::Buffer& output,
+	    const backend::metal::ImageShape& shape);
 	bool isExperimentalMetalResidentImagesAllowedForCurrentState() const;
 	bool tryResetExperimentalMetalResidentUpdateImage();
 	bool downloadExperimentalMetalResidentImage();

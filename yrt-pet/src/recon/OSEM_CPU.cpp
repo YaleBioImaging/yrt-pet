@@ -23,6 +23,7 @@
 #include <limits>
 #include <memory>
 #include <set>
+#include <sstream>
 #include <stdexcept>
 #include <utility>
 #include <vector>
@@ -36,6 +37,7 @@
 #include "yrt-pet/backends/metal/ImageSpaceKernels.hpp"
 #include "yrt-pet/backends/metal/MetalContext.hpp"
 #include "yrt-pet/backends/metal/OperatorProjectorMetalBridge.hpp"
+#include "yrt-pet/backends/metal/OperatorPsfMetal.hpp"
 #include "yrt-pet/backends/metal/SiddonProjectorOps.hpp"
 #endif
 
@@ -552,6 +554,11 @@ void py_setup_osem_cpu(pybind11::module& m)
 	      "enabled"_a);
 	c.def("isExperimentalMetalProjectorCachedCorrectionsEnabled",
 	      &OSEM_CPU::isExperimentalMetalProjectorCachedCorrectionsEnabled);
+	c.def("setExperimentalMetalProjectorImagePsfEnabled",
+	      &OSEM_CPU::setExperimentalMetalProjectorImagePsfEnabled,
+	      "enabled"_a);
+	c.def("isExperimentalMetalProjectorImagePsfEnabled",
+	      &OSEM_CPU::isExperimentalMetalProjectorImagePsfEnabled);
 }
 }  // namespace yrt
 #endif
@@ -1132,6 +1139,10 @@ OSEM_CPU::~OSEM_CPU() = default;
 void OSEM_CPU::addImagePSF(const std::string& p_imagePsf_fname,
                            ImagePSFMode p_imagePSFMode)
 {
+#if BUILD_METAL
+	mp_experimentalMetalImagePsf = nullptr;
+	mp_experimentalMetalImagePsfContext = nullptr;
+#endif
 	ASSERT_MSG(!p_imagePsf_fname.empty(), "Empty filename for Image-space PSF");
 	if (p_imagePSFMode == ImagePSFMode::UNIFORM)
 	{
@@ -1156,6 +1167,10 @@ void OSEM_CPU::addUniformGaussianImagePSFFromFWHM(float fwhmX, float fwhmY,
                                                   const size_t* kerSizeY,
                                                   const size_t* kerSizeZ)
 {
+#if BUILD_METAL
+	mp_experimentalMetalImagePsf = nullptr;
+	mp_experimentalMetalImagePsfContext = nullptr;
+#endif
 	ASSERT_MSG(imageParams.isValid(), "Image parameters not set");
 	imagePsf = OperatorPsf::createGaussianFromFWHM(
 	    fwhmX, fwhmY, fwhmZ, imageParams.vx, imageParams.vy, imageParams.vz,
@@ -1169,6 +1184,10 @@ void OSEM_CPU::addUniformGaussianImagePSFFromSigma(float sigmaX, float sigmaY,
                                                    const size_t* kerSizeY,
                                                    const size_t* kerSizeZ)
 {
+#if BUILD_METAL
+	mp_experimentalMetalImagePsf = nullptr;
+	mp_experimentalMetalImagePsfContext = nullptr;
+#endif
 	ASSERT_MSG(imageParams.isValid(), "Image parameters not set");
 	imagePsf = OperatorPsf::createGaussianFromSigma(
 	    sigmaX, sigmaY, sigmaZ, imageParams.vx, imageParams.vy, imageParams.vz,
@@ -1468,6 +1487,16 @@ bool OSEM_CPU::isExperimentalMetalProjectorCachedCorrectionsEnabled() const
 	return m_experimentalMetalProjectorCachedCorrectionsEnabled;
 }
 
+void OSEM_CPU::setExperimentalMetalProjectorImagePsfEnabled(bool enabled)
+{
+	m_experimentalMetalProjectorImagePsfEnabled = enabled;
+}
+
+bool OSEM_CPU::isExperimentalMetalProjectorImagePsfEnabled() const
+{
+	return m_experimentalMetalProjectorImagePsfEnabled;
+}
+
 void OSEM_CPU::setupProjectorForSensImgGen()
 {
 	ASSERT(projectorParams.numRays > 0);
@@ -1736,11 +1765,132 @@ void OSEM_CPU::prepareBuffersForRecon()
 }
 
 #if BUILD_METAL
+bool OSEM_CPU::canUseExperimentalMetalImagePsf() const
+{
+	return m_experimentalMetalProjectorImagePsfEnabled && flagImagePSF &&
+	       m_imagePSFMode == ImagePSFMode::UNIFORM &&
+	       dynamic_cast<const OperatorPsf*>(imagePsf.get()) != nullptr;
+}
+
+backend::metal::OperatorPsfMetal* OSEM_CPU::getExperimentalMetalImagePsf(
+    const backend::metal::Context* context)
+{
+	if (!canUseExperimentalMetalImagePsf())
+	{
+		return nullptr;
+	}
+	if (mp_experimentalMetalImagePsfContext != context)
+	{
+		mp_experimentalMetalImagePsf = nullptr;
+		mp_experimentalMetalImagePsfContext = context;
+	}
+	if (mp_experimentalMetalImagePsf == nullptr)
+	{
+		const auto* uniformPsf =
+		    dynamic_cast<const OperatorPsf*>(imagePsf.get());
+		if (uniformPsf == nullptr)
+		{
+			return nullptr;
+		}
+		if (context != nullptr)
+		{
+			mp_experimentalMetalImagePsf =
+			    std::make_unique<backend::metal::OperatorPsfMetal>(
+			        *context, uniformPsf->getKernelX(), uniformPsf->getKernelY(),
+			        uniformPsf->getKernelZ());
+		}
+		else
+		{
+			mp_experimentalMetalImagePsf =
+			    std::make_unique<backend::metal::OperatorPsfMetal>(
+			        uniformPsf->getKernelX(), uniformPsf->getKernelY(),
+			        uniformPsf->getKernelZ());
+		}
+	}
+	return mp_experimentalMetalImagePsf != nullptr &&
+	           mp_experimentalMetalImagePsf->isValid() ?
+	           mp_experimentalMetalImagePsf.get() :
+	           nullptr;
+}
+
+std::string OSEM_CPU::describeExperimentalMetalImagePsfState(
+    const Image& input, const Image& output)
+{
+	std::ostringstream stream;
+	const auto& inputParams = input.getParams();
+	const auto& outputParams = output.getParams();
+	stream << "input_valid=" << input.isMemoryValid()
+	       << " output_valid=" << output.isMemoryValid() << " input_dims="
+	       << inputParams.nx << "x" << inputParams.ny << "x"
+	       << inputParams.nz << "x" << inputParams.nt << " output_dims="
+	       << outputParams.nx << "x" << outputParams.ny << "x"
+	       << outputParams.nz << "x" << outputParams.nt
+	       << " input_frames=" << input.getNumFrames()
+	       << " output_frames=" << output.getNumFrames()
+	       << " uniform_psf=" << canUseExperimentalMetalImagePsf();
+	auto* psf = getExperimentalMetalImagePsf();
+	if (psf == nullptr)
+	{
+		stream << " psf_valid=0";
+		if (mp_experimentalMetalImagePsf != nullptr &&
+		    !mp_experimentalMetalImagePsf->errorMessage().empty())
+		{
+			stream << " psf_error="
+			       << mp_experimentalMetalImagePsf->errorMessage();
+		}
+	}
+	else
+	{
+		stream << " psf_valid=" << psf->isValid()
+		       << " kernel_sizes=" << psf->getKernelX().size() << "x"
+		       << psf->getKernelY().size() << "x"
+		       << psf->getKernelZ().size();
+		if (!psf->errorMessage().empty())
+		{
+			stream << " psf_error=" << psf->errorMessage();
+		}
+	}
+	return stream.str();
+}
+
+bool OSEM_CPU::applyExperimentalMetalImagePsfForward(const Image& input,
+                                                     Image& output)
+{
+	auto* psf = getExperimentalMetalImagePsf();
+	return psf != nullptr && psf->applyA(input, output);
+}
+
+bool OSEM_CPU::applyExperimentalMetalImagePsfAdjoint(const Image& input,
+                                                     Image& output)
+{
+	auto* psf = getExperimentalMetalImagePsf();
+	return psf != nullptr && psf->applyAH(input, output);
+}
+
+bool OSEM_CPU::applyExperimentalMetalResidentImagePsfForward(
+    const backend::metal::Context& context,
+    const backend::metal::Buffer& input, backend::metal::Buffer& output,
+    const backend::metal::ImageShape& shape)
+{
+	auto* psf = getExperimentalMetalImagePsf(&context);
+	return psf != nullptr && psf->applyA(input, output, shape);
+}
+
+bool OSEM_CPU::applyExperimentalMetalResidentImagePsfAdjoint(
+    const backend::metal::Context& context,
+    const backend::metal::Buffer& input, backend::metal::Buffer& output,
+    const backend::metal::ImageShape& shape)
+{
+	auto* psf = getExperimentalMetalImagePsf(&context);
+	return psf != nullptr && psf->applyAH(input, output, shape);
+}
+
 bool OSEM_CPU::isExperimentalMetalResidentImagesAllowedForCurrentState() const
 {
 	if (!m_experimentalMetalProjectorResidentImagesEnabled ||
 	    !m_experimentalMetalProjectorEnabled ||
-	    m_experimentalMetalProjectorFusedRatioEnabled || flagImagePSF ||
+	    m_experimentalMetalProjectorFusedRatioEnabled ||
+	    (flagImagePSF && !canUseExperimentalMetalImagePsf()) ||
 	    !saveIterRanges.empty() || outImage == nullptr ||
 	    mp_mlemImageTmpEMRatio == nullptr)
 	{
@@ -2002,17 +2152,53 @@ void OSEM_CPU::computeEMUpdateImage()
 	m_experimentalMetalProjectorRanLastCompute = false;
 #if BUILD_METAL
 	const auto computeUpdateStart = Clock::now();
+	const bool useExperimentalMetalImagePsf =
+	    canUseExperimentalMetalImagePsf();
+	const bool useExperimentalMetalResidentImagePsf =
+	    useExperimentalMetalImagePsf &&
+	    isExperimentalMetalResidentImagesAllowedForCurrentState();
+#else
+	const bool useExperimentalMetalImagePsf = false;
+	const bool useExperimentalMetalResidentImagePsf = false;
 #endif
 
 	if (flagImagePSF)
 	{
-		mp_imageTmpPsf->fill(0.0);
-		imagePsf->applyA(outImage.get(), mp_imageTmpPsf.get());
+		if (!useExperimentalMetalResidentImagePsf)
+		{
+			mp_imageTmpPsf->fill(0.0);
+#if BUILD_METAL
+			if (useExperimentalMetalImagePsf)
+			{
+				const Image* psfInput =
+				    dynamic_cast<const Image*>(outImage.get());
+				Image* psfOutput = dynamic_cast<Image*>(mp_imageTmpPsf.get());
+				if (psfInput == nullptr || psfOutput == nullptr ||
+				    !applyExperimentalMetalImagePsfForward(
+				        *psfInput, *psfOutput))
+				{
+					std::string details;
+					if (psfInput != nullptr && psfOutput != nullptr)
+					{
+						details = describeExperimentalMetalImagePsfState(
+						    *psfInput, *psfOutput);
+					}
+					throw std::runtime_error(
+					    "Experimental Metal image PSF forward apply failed: " +
+					    details);
+				}
+			}
+			else
+#endif
+			{
+				imagePsf->applyA(outImage.get(), mp_imageTmpPsf.get());
+			}
 
-		// We swap here so that the outImage buffer stores the MLEM image with
-		//  the PSF applied to it and the imageTmpPsf buffer stores the original
-		//  MLEM image.
-		outImage.swap(mp_imageTmpPsf);
+			// We swap here so that the outImage buffer stores the MLEM image
+			// with the PSF applied to it and the imageTmpPsf buffer stores the
+			// original MLEM image.
+			outImage.swap(mp_imageTmpPsf);
+		}
 	}
 
 	const Image* inputImageForForwardProj = outImage.get();
@@ -2039,7 +2225,7 @@ void OSEM_CPU::computeEMUpdateImage()
 	    m_experimentalMetalProjectorEnabled &&
 	    (m_experimentalMetalProjectorLazyCorrectionsEnabled ||
 	     m_experimentalMetalProjectorCachedCorrectionsEnabled) &&
-	    !flagImagePSF;
+	    (!flagImagePSF || useExperimentalMetalImagePsf);
 
 	if (!useNonPrecomputedMetalCorrections)
 	{
@@ -2047,7 +2233,8 @@ void OSEM_CPU::computeEMUpdateImage()
 	}
 
 	bool computedWithExperimentalMetalProjector = false;
-	if (m_experimentalMetalProjectorEnabled && !flagImagePSF)
+	if (m_experimentalMetalProjectorEnabled &&
+	    (!flagImagePSF || useExperimentalMetalImagePsf))
 	{
 		computedWithExperimentalMetalProjector =
 		    computeEMUpdateImageWithExperimentalMetalProjector(
@@ -2057,6 +2244,13 @@ void OSEM_CPU::computeEMUpdateImage()
 		        hasRandomsEstimates, hasInVivoAttenuation);
 		m_experimentalMetalProjectorRanLastCompute =
 		    computedWithExperimentalMetalProjector;
+	}
+
+	if (!computedWithExperimentalMetalProjector &&
+	    useExperimentalMetalResidentImagePsf)
+	{
+		throw std::runtime_error(
+		    "Experimental Metal resident image PSF path failed");
 	}
 
 #if BUILD_METAL
@@ -2149,18 +2343,47 @@ void OSEM_CPU::computeEMUpdateImage()
 	// Backward PSF
 	if (flagImagePSF)
 	{
-		// We swap again here so that outImage gets back to storing the original
-		//  MLEM image. This way, we can use the imageTmpPsf buffer to compute
-		//  the PSF
-		mp_imageTmpPsf.swap(outImage);
+		if (!useExperimentalMetalResidentImagePsf)
+		{
+			// We swap again here so that outImage gets back to storing the
+			// original MLEM image. This way, we can use the imageTmpPsf buffer
+			// to compute the PSF.
+			mp_imageTmpPsf.swap(outImage);
 
-		// YN: Is this initialization necessary ?
-		mp_imageTmpPsf->fill(0.0);
-		imagePsf->applyAH(mp_mlemImageTmpEMRatio.get(), mp_imageTmpPsf.get());
+			// YN: Is this initialization necessary ?
+			mp_imageTmpPsf->fill(0.0);
+#if BUILD_METAL
+			if (useExperimentalMetalImagePsf)
+			{
+				const Image* psfInput =
+				    dynamic_cast<const Image*>(mp_mlemImageTmpEMRatio.get());
+				Image* psfOutput = dynamic_cast<Image*>(mp_imageTmpPsf.get());
+				if (psfInput == nullptr || psfOutput == nullptr ||
+				    !applyExperimentalMetalImagePsfAdjoint(
+				        *psfInput, *psfOutput))
+				{
+					std::string details;
+					if (psfInput != nullptr && psfOutput != nullptr)
+					{
+						details = describeExperimentalMetalImagePsfState(
+						    *psfInput, *psfOutput);
+					}
+					throw std::runtime_error(
+					    "Experimental Metal image PSF adjoint apply failed: " +
+					    details);
+				}
+			}
+			else
+#endif
+			{
+				imagePsf->applyAH(mp_mlemImageTmpEMRatio.get(),
+				                  mp_imageTmpPsf.get());
+			}
 
-		// We swap these two buffers so that we can use mlemImageTmpEMRatio to
-		//  apply the image update
-		mp_mlemImageTmpEMRatio.swap(mp_imageTmpPsf);
+			// We swap these two buffers so that we can use mlemImageTmpEMRatio
+			// to apply the image update.
+			mp_mlemImageTmpEMRatio.swap(mp_imageTmpPsf);
+		}
 	}
 
 #if BUILD_METAL
@@ -2192,7 +2415,8 @@ bool OSEM_CPU::computeEMUpdateImageWithExperimentalMetalProjector(
     bool hasRandomsEstimates, bool hasInVivoAttenuation)
 {
 #if BUILD_METAL
-	if (flagImagePSF || mp_binLoader == nullptr)
+	if ((flagImagePSF && !canUseExperimentalMetalImagePsf()) ||
+	    mp_binLoader == nullptr)
 	{
 		return false;
 	}
@@ -2289,6 +2513,30 @@ bool OSEM_CPU::computeEMUpdateImageWithExperimentalMetalProjector(
 	    useResidentImages &&
 	    ensureExperimentalMetalResidentProjectorBuffers(
 	        inputImageForForwardProj, destImageForBackproj, bridgeProfile);
+	const backend::metal::Buffer* residentInputImageBuffer = nullptr;
+	backend::metal::ImageShape residentImageShape{};
+	if (residentImagesActive && mp_experimentalMetalResidentOsemState != nullptr)
+	{
+		auto& state = *mp_experimentalMetalResidentOsemState;
+		if (!makeMetalImageShape(inputImageForForwardProj, residentImageShape))
+		{
+			return false;
+		}
+		if (flagImagePSF)
+		{
+			if (!applyExperimentalMetalResidentImagePsfForward(
+			        state.context, state.imageBuffer, state.psfForwardBuffer,
+			        residentImageShape))
+			{
+				return false;
+			}
+			residentInputImageBuffer = &state.psfForwardBuffer;
+		}
+		else
+		{
+			residentInputImageBuffer = &state.imageBuffer;
+		}
+	}
 
 	auto metalProjectorKernel =
 	    backend::metal::OperatorProjectorMetalKernel::Siddon;
@@ -2364,13 +2612,28 @@ bool OSEM_CPU::computeEMUpdateImageWithExperimentalMetalProjector(
 		if (residentImagesActive &&
 		    mp_experimentalMetalResidentOsemState != nullptr)
 		{
+			if (residentInputImageBuffer == nullptr)
+			{
+				return false;
+			}
 			didRun = bridge.applyOsemEMUpdateHostRatioWithBuffers(projector,
-			    inputImageForForwardProj,
-			    mp_experimentalMetalResidentOsemState->imageBuffer,
+			    inputImageForForwardProj, *residentInputImageBuffer,
 			    destImageForBackproj,
 			    mp_experimentalMetalResidentOsemState->updateBuffer,
 			    measurements, binIter, *bridgeBinLoader, corrector,
 			    metalOsemConfig);
+			if (didRun && flagImagePSF)
+			{
+				auto& state = *mp_experimentalMetalResidentOsemState;
+				if (!applyExperimentalMetalResidentImagePsfAdjoint(
+				        state.context, state.updateBuffer, state.psfUpdateBuffer,
+				        residentImageShape))
+				{
+					return false;
+				}
+				std::swap(state.updateBuffer, state.psfUpdateBuffer);
+				state.updateReady = true;
+			}
 		}
 		else
 		{

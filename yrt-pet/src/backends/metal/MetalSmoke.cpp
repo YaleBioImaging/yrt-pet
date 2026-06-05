@@ -8,12 +8,16 @@
 #include "yrt-pet/backends/metal/ImageSpaceKernels.hpp"
 #include "yrt-pet/backends/metal/JosephProjectorKernels.hpp"
 #include "yrt-pet/backends/metal/MetalBackend.hpp"
+#include "yrt-pet/backends/metal/MetalContext.hpp"
+#include "yrt-pet/backends/metal/MotionOps.hpp"
 #include "yrt-pet/backends/metal/ProjectionGeometryKernels.hpp"
 #include "yrt-pet/backends/metal/ProjectionVectorKernels.hpp"
 #include "yrt-pet/backends/metal/SiddonProjectorKernels.hpp"
 #include "yrt-pet/datastruct/image/Image.hpp"
 #include "yrt-pet/datastruct/image/ImageParams.hpp"
+#include "yrt-pet/datastruct/projection/LORMotion.hpp"
 #include "yrt-pet/operators/OperatorPsf.hpp"
+#include "yrt-pet/utils/ReconstructionUtils.hpp"
 
 #include <array>
 #include <algorithm>
@@ -915,6 +919,74 @@ bool runPsfConvolutionGoldenTests()
 		const std::vector<float> referenceOutput = runOperatorPsfReference(
 		    input, shape, kernelXs[testId], kernelYs[testId], kernelZs[testId]);
 		if (!valuesMatch(metalOutput, referenceOutput))
+		{
+			return false;
+		}
+	}
+
+	return true;
+}
+
+bool runImageMotionGoldenTests()
+{
+	Context context;
+	if (!context.isValid())
+	{
+		return false;
+	}
+
+	yrt::ImageParams params(4, 3, 2, 4.0f, 3.0f, 2.0f);
+	const std::size_t voxelCount = static_cast<std::size_t>(params.nx) *
+	                               static_cast<std::size_t>(params.ny) *
+	                               static_cast<std::size_t>(params.nz);
+	yrt::ImageOwned inputImage(params);
+	inputImage.allocate();
+	for (std::size_t i = 0; i < voxelCount; ++i)
+	{
+		inputImage.getRawPointer()[i] =
+		    static_cast<float>((static_cast<int>(i) % 13) - 4) * 0.25f +
+		    static_cast<float>(i / 5) * 0.1f;
+	}
+
+	yrt::LORMotion motion(3);
+	motion.setStartingTimestamp(0, 0);
+	motion.setStartingTimestamp(1, 10);
+	motion.setStartingTimestamp(2, 20);
+	motion.setTransform(0,
+	    yrt::transform_t{1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f,
+	        0.0f, 0.0f, 1.0f, 0.0f});
+	motion.setTransform(1,
+	    yrt::transform_t{1.0f, 0.0f, 0.0f, 0.35f, 0.0f, 1.0f, 0.0f,
+	        -0.25f, 0.0f, 0.0f, 1.0f, 0.2f});
+	motion.setTransform(2,
+	    yrt::transform_t{0.9848077f, -0.1736482f, 0.0f, -0.15f, 0.1736482f,
+	        0.9848077f, 0.0f, 0.1f, 0.0f, 0.0f, 1.0f, -0.3f});
+
+	auto cpuReference =
+	    yrt::util::timeAverageMoveImage<false>(motion, &inputImage,
+	        static_cast<yrt::timestamp_t>(0),
+	        static_cast<yrt::timestamp_t>(30));
+	if (!cpuReference)
+	{
+		return false;
+	}
+
+	yrt::ImageOwned metalOutput(params);
+	metalOutput.allocate();
+	metalOutput.fill(0.0f);
+	if (!timeAverageMoveImage(context, motion, inputImage, metalOutput,
+	        static_cast<yrt::timestamp_t>(0),
+	        static_cast<yrt::timestamp_t>(30)))
+	{
+		return false;
+	}
+
+	const float* cpu = cpuReference->getRawPointer();
+	const float* metal = metalOutput.getRawPointer();
+	for (std::size_t i = 0; i < voxelCount; ++i)
+	{
+		const float scale = std::max(1.0f, std::fabs(cpu[i]));
+		if (std::fabs(metal[i] - cpu[i]) > 5.0e-5f * scale)
 		{
 			return false;
 		}

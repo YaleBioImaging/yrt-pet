@@ -1167,6 +1167,80 @@ METAL_SUBSET_PROFILE_FIELDS = [
     "memory_swapouts_delta",
 ]
 
+METAL_STEADY_STATE_FIELDS = [
+    "metal_steady_state_warmup_iteration",
+    "metal_steady_state_warmup_subset_calls",
+    "metal_steady_state_warmup_total_s",
+    "metal_steady_state_warmup_forward_s",
+    "metal_steady_state_warmup_forward_gather_s",
+    "metal_steady_state_warmup_forward_pack_s",
+    "metal_steady_state_warmup_forward_batch_upload_s",
+    "metal_steady_state_warmup_forward_kernel_s",
+    "metal_steady_state_warmup_ratio_s",
+    "metal_steady_state_warmup_ratio_correction_cache_build_s",
+    "metal_steady_state_warmup_adjoint_s",
+    "metal_steady_state_warmup_adjoint_kernel_s",
+    "metal_steady_state_warmup_image_update_s",
+    "metal_steady_state_warmup_cache_admission_s",
+    "metal_steady_state_warmup_cache_hits",
+    "metal_steady_state_warmup_cache_misses",
+    "metal_steady_state_warmup_ratio_correction_cache_builds",
+    "metal_steady_state_warmup_ratio_correction_cache_hits",
+    "metal_steady_state_warmup_ratio_correction_cache_misses",
+    "metal_steady_state_warmup_uncached_batches",
+    "metal_steady_state_warmup_pageouts_delta",
+    "metal_steady_state_warmup_compressions_delta",
+    "metal_steady_state_warmup_swapouts_delta",
+    "metal_steady_state_iterations",
+    "metal_steady_state_subset_calls",
+    "metal_steady_state_total_s",
+    "metal_steady_state_total_s_per_iteration",
+    "metal_steady_state_forward_s",
+    "metal_steady_state_forward_s_per_iteration",
+    "metal_steady_state_forward_gather_s",
+    "metal_steady_state_forward_gather_s_per_iteration",
+    "metal_steady_state_forward_pack_s",
+    "metal_steady_state_forward_pack_s_per_iteration",
+    "metal_steady_state_forward_batch_upload_s",
+    "metal_steady_state_forward_batch_upload_s_per_iteration",
+    "metal_steady_state_forward_kernel_s",
+    "metal_steady_state_forward_kernel_s_per_iteration",
+    "metal_steady_state_ratio_s",
+    "metal_steady_state_ratio_s_per_iteration",
+    "metal_steady_state_ratio_correction_cache_build_s",
+    "metal_steady_state_ratio_correction_cache_build_s_per_iteration",
+    "metal_steady_state_adjoint_s",
+    "metal_steady_state_adjoint_s_per_iteration",
+    "metal_steady_state_adjoint_kernel_s",
+    "metal_steady_state_adjoint_kernel_s_per_iteration",
+    "metal_steady_state_image_update_s",
+    "metal_steady_state_image_update_s_per_iteration",
+    "metal_steady_state_cache_admission_s",
+    "metal_steady_state_cache_admission_s_per_iteration",
+    "metal_steady_state_cache_hits",
+    "metal_steady_state_cache_hits_per_iteration",
+    "metal_steady_state_cache_misses",
+    "metal_steady_state_cache_misses_per_iteration",
+    "metal_steady_state_ratio_correction_cache_builds",
+    "metal_steady_state_ratio_correction_cache_builds_per_iteration",
+    "metal_steady_state_ratio_correction_cache_hits",
+    "metal_steady_state_ratio_correction_cache_hits_per_iteration",
+    "metal_steady_state_ratio_correction_cache_misses",
+    "metal_steady_state_ratio_correction_cache_misses_per_iteration",
+    "metal_steady_state_uncached_batches",
+    "metal_steady_state_uncached_batches_per_iteration",
+    "metal_steady_state_pageouts_delta",
+    "metal_steady_state_pageouts_delta_per_iteration",
+    "metal_steady_state_compressions_delta",
+    "metal_steady_state_compressions_delta_per_iteration",
+    "metal_steady_state_swapouts_delta",
+    "metal_steady_state_swapouts_delta_per_iteration",
+    "metal_steady_state_forward_fraction",
+    "metal_steady_state_adjoint_fraction",
+    "metal_steady_state_ratio_fraction",
+    "metal_steady_state_warmup_over_steady_total",
+]
+
 
 def normalized_metal_profile(raw_profile):
     if not raw_profile:
@@ -1673,6 +1747,116 @@ def summarize_metal_subset_profiles(row, subset_profiles):
     )
 
 
+def summarize_metal_steady_state_profiles(row, subset_profiles):
+    metal_profiles = [
+        item for item in subset_profiles if item.get("metal_ran", False)
+    ]
+    if not metal_profiles:
+        return
+
+    by_iteration = {}
+    for item in metal_profiles:
+        iteration = int(item.get("iteration", 0))
+        by_iteration.setdefault(iteration, []).append(item)
+    if not by_iteration:
+        return
+
+    def sum_field(items, field):
+        return sum(item.get(field, 0.0) for item in items)
+
+    def iteration_summary(items):
+        return {
+            "calls": len(items),
+            "total_s": sum_field(items, "total_s"),
+            "forward_s": sum_field(items, "forward_s"),
+            "forward_gather_s": sum_field(items, "forward_gather_s"),
+            "forward_pack_s": sum_field(items, "forward_pack_s"),
+            "forward_batch_upload_s": sum_field(
+                items, "forward_batch_upload_s"
+            ),
+            "forward_kernel_s": sum_field(items, "forward_kernel_s"),
+            "ratio_s": sum_field(items, "ratio_s"),
+            "ratio_correction_cache_build_s": sum_field(
+                items, "ratio_correction_cache_build_s"
+            ),
+            "adjoint_s": sum_field(items, "adjoint_s"),
+            "adjoint_kernel_s": sum_field(items, "adjoint_kernel_s"),
+            "image_update_s": sum_field(items, "image_update_s"),
+            "cache_admission_s": sum_field(items, "cache_admission_s"),
+            "cache_hits": sum_field(items, "cache_hits"),
+            "cache_misses": sum_field(items, "cache_misses"),
+            "ratio_correction_cache_builds": sum_field(
+                items, "ratio_correction_cache_builds"
+            ),
+            "ratio_correction_cache_hits": sum_field(
+                items, "ratio_correction_cache_hits"
+            ),
+            "ratio_correction_cache_misses": sum_field(
+                items, "ratio_correction_cache_misses"
+            ),
+            "uncached_batches": sum_field(items, "uncached_batches"),
+            "pageouts_delta": sum_field(items, "memory_pageouts_delta"),
+            "compressions_delta": sum_field(items, "memory_compressions_delta"),
+            "swapouts_delta": sum_field(items, "memory_swapouts_delta"),
+        }
+
+    iterations = sorted(by_iteration)
+    warmup_iteration = iterations[0]
+    warmup = iteration_summary(by_iteration[warmup_iteration])
+    steady_iterations = iterations[1:]
+    steady_items = [
+        item
+        for iteration in steady_iterations
+        for item in by_iteration[iteration]
+    ]
+    steady = iteration_summary(steady_items) if steady_items else None
+    steady_count = len(steady_iterations)
+
+    row["metal_steady_state_warmup_iteration"] = warmup_iteration
+    row["metal_steady_state_warmup_subset_calls"] = warmup["calls"]
+    for field, value in warmup.items():
+        if field == "calls":
+            continue
+        row[f"metal_steady_state_warmup_{field}"] = value
+
+    row["metal_steady_state_iterations"] = steady_count
+    row["metal_steady_state_subset_calls"] = (
+        steady["calls"] if steady is not None else 0
+    )
+    if steady is None or steady_count == 0:
+        return
+
+    for field, value in steady.items():
+        if field == "calls":
+            continue
+        row[f"metal_steady_state_{field}"] = value
+        row[f"metal_steady_state_{field}_per_iteration"] = (
+            value / steady_count
+        )
+    if steady["total_s"] > 0.0:
+        row["metal_steady_state_forward_fraction"] = (
+            steady["forward_s"] / steady["total_s"]
+        )
+        row["metal_steady_state_adjoint_fraction"] = (
+            steady["adjoint_s"] / steady["total_s"]
+        )
+        row["metal_steady_state_ratio_fraction"] = (
+            steady["ratio_s"] / steady["total_s"]
+        )
+    steady_total_per_iteration = (
+        steady["total_s"] / steady_count if steady_count else 0.0
+    )
+    if steady_total_per_iteration > 0.0:
+        row["metal_steady_state_warmup_over_steady_total"] = (
+            warmup["total_s"] / steady_total_per_iteration
+        )
+
+
+def add_metal_subset_summaries(row, subset_profiles):
+    summarize_metal_subset_profiles(row, subset_profiles)
+    summarize_metal_steady_state_profiles(row, subset_profiles)
+
+
 def print_metal_profile(profile):
     if not profile:
         return
@@ -1697,6 +1881,32 @@ def print_metal_subset_profile(subset_profiles):
                 for field in METAL_SUBSET_PROFILE_FIELDS
             )
         )
+
+
+def print_metal_steady_state_profile(row):
+    if not row.get("metal_steady_state_warmup_subset_calls"):
+        return
+
+    fields = [
+        "metal_steady_state_warmup_iteration",
+        "metal_steady_state_warmup_total_s",
+        "metal_steady_state_iterations",
+        "metal_steady_state_total_s_per_iteration",
+        "metal_steady_state_forward_s_per_iteration",
+        "metal_steady_state_forward_kernel_s_per_iteration",
+        "metal_steady_state_ratio_s_per_iteration",
+        "metal_steady_state_ratio_correction_cache_build_s_per_iteration",
+        "metal_steady_state_adjoint_s_per_iteration",
+        "metal_steady_state_adjoint_kernel_s_per_iteration",
+        "metal_steady_state_cache_hits",
+        "metal_steady_state_cache_misses",
+        "metal_steady_state_ratio_correction_cache_builds",
+        "metal_steady_state_ratio_correction_cache_hits",
+        "metal_steady_state_warmup_over_steady_total",
+    ]
+    print("metal_steady_state_profile")
+    print(",".join(fields))
+    print(",".join(format_field(row.get(field)) for field in fields))
 
 
 def warn_if_requested_adjoint_diagnostics_missing(args, profile):
@@ -1969,6 +2179,7 @@ def print_sweep_summary(rows):
         "metal_subset_pageouts_delta",
         "metal_subset_compressions_delta",
         "metal_subset_swapouts_delta",
+        *METAL_STEADY_STATE_FIELDS,
         "validation_passed",
     ]
     print("sweep_summary")
@@ -2129,6 +2340,7 @@ def write_summary_csv(path, rows):
         "metal_subset_pageouts_delta",
         "metal_subset_compressions_delta",
         "metal_subset_swapouts_delta",
+        *METAL_STEADY_STATE_FIELDS,
         "validation_passed",
         "validation_failures",
     ]
@@ -3377,7 +3589,7 @@ def run_case(args, out_dir, write_images, case_label="", emit_pass=True):
             }
         )
         row.update(metal_profile)
-        summarize_metal_subset_profiles(row, metal_subset_profile)
+        add_metal_subset_summaries(row, metal_subset_profile)
         if metal_subset_profile:
             row["_metal_subset_profile"] = metal_subset_profile
         update_actual_metal_cache_usage(row, metal_profile)
@@ -3394,6 +3606,7 @@ def run_case(args, out_dir, write_images, case_label="", emit_pass=True):
         )
         print_metal_profile(metal_profile)
         print_metal_subset_profile(metal_subset_profile)
+        print_metal_steady_state_profile(row)
         warn_if_requested_adjoint_diagnostics_missing(args, metal_profile)
         if not metal_recon.didLastExperimentalMetalProjectorRun():
             raise SystemExit("Metal projector path did not run")
@@ -3503,7 +3716,7 @@ def run_case(args, out_dir, write_images, case_label="", emit_pass=True):
         }
     )
     row.update(metal_profile)
-    summarize_metal_subset_profiles(row, metal_subset_profile)
+    add_metal_subset_summaries(row, metal_subset_profile)
     if metal_subset_profile:
         row["_metal_subset_profile"] = metal_subset_profile
     update_actual_metal_cache_usage(row, metal_profile)
@@ -3530,6 +3743,7 @@ def run_case(args, out_dir, write_images, case_label="", emit_pass=True):
     )
     print_metal_profile(metal_profile)
     print_metal_subset_profile(metal_subset_profile)
+    print_metal_steady_state_profile(row)
     warn_if_requested_adjoint_diagnostics_missing(args, metal_profile)
     print_diff_diagnostics(diff_stats)
 

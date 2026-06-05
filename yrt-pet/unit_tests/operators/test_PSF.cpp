@@ -15,6 +15,7 @@
 
 #include "catch.hpp"
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstring>
 #include <ctime>
@@ -644,94 +645,218 @@ TEST_CASE("VarPSF", "[varpsf]")
 
 TEST_CASE("VarPSF_2G", "[varpsf_2g]")
 {
-	ImageParams imgParams{30, 28, 15, 90.0f, 84.0f, 45.0f, 0.0f, 0.0f, 0.0f};
-	auto image = makeImageWithRandomPrism(imgParams);
-	OperatorVarPsf op_var(imgParams);
-	op_var.setRangeAndGap(100, 100, 100, 100, 100, 100);
+	const unsigned int randomSeed =
+	    static_cast<unsigned int>(std::time(nullptr));
+	std::default_random_engine engine(randomSeed);
 
-	std::vector<float> sigmas1 = {0.75f, 0.85f, 0.65f};
-	std::vector<float> sigmas2 = {1.55f, 1.35f, 1.15f};
-	const float weight2 = 0.35f;
-	const float nstdx = 4.0f;
-	const float nstdy = 4.0f;
-	const float nstdz = 4.0f;
-	OperatorVarPsf::ConvolutionKernelCollection kernels;
-	for (size_t i = 0; i < 8; ++i)
+	for (int i = 0; i < 100; ++i)
 	{
-		auto kernel = std::make_unique<ConvolutionKernelGaussianMixture>(
-		    sigmas1[0], sigmas1[1], sigmas1[2], sigmas2[0], sigmas2[1],
-		    sigmas2[2], weight2, nstdx, nstdy, nstdz, imgParams);
-		kernels.push_back(std::move(kernel));
-	}
-	op_var.setKernelCollection(kernels);
+		ImageParams imgParams{100,    100,  51,   400.0f, 401.0f,
+		                      421.0f, 0.0f, 0.0f, 0.0f};
+		auto image = makeImageWithRandomPrism(imgParams, &engine);
 
-	auto img_out = std::make_unique<ImageOwned>(imgParams);
-	img_out->allocate();
-	img_out->fill(0.0f);
+		std::uniform_real_distribution<float> sigma_dist1_low(0.5f, 1.0f);
+		std::uniform_real_distribution<float> sigma_dist1_high(1.1f, 1.5f);
+		std::uniform_real_distribution<float> sigma_dist2_low(1.6f, 2.0f);
+		std::uniform_real_distribution<float> sigma_dist2_high(2.1f, 2.5f);
+		std::uniform_real_distribution<float> weight_dist(0.2f, 0.6f);
 
-	std::vector<int64_t> dims = {imgParams.nx, imgParams.ny, imgParams.nz};
-	std::vector<float> voxels = {imgParams.vx, imgParams.vy, imgParams.vz};
-	std::vector<float> inputData(image->getData().getSizeTotal());
-	std::memcpy(inputData.data(), image->getRawPointer(),
-	            image->getData().getSizeTotal() * sizeof(float));
+		const std::vector<float> sigma1Low = {sigma_dist1_low(engine),
+		                                      sigma_dist1_low(engine),
+		                                      sigma_dist1_low(engine)};
+		const std::vector<float> sigma1High = {sigma_dist1_high(engine),
+		                                       sigma_dist1_high(engine),
+		                                       sigma_dist1_high(engine)};
+		const std::vector<float> sigma2Low = {sigma_dist2_low(engine),
+		                                      sigma_dist2_low(engine),
+		                                      sigma_dist2_low(engine)};
+		const std::vector<float> sigma2High = {sigma_dist2_high(engine),
+		                                       sigma_dist2_high(engine),
+		                                       sigma_dist2_high(engine)};
+		const float weight2 = weight_dist(engine);
 
-	const int kernel_size_x = std::max(
-	    1,
-	    static_cast<int>(
-	        std::floor((std::max(sigmas1[0], sigmas2[0]) * nstdx) /
-	                   imgParams.vx)) -
-	        1);
-	const int kernel_size_y = std::max(
-	    1,
-	    static_cast<int>(
-	        std::floor((std::max(sigmas1[1], sigmas2[1]) * nstdy) /
-	                   imgParams.vy)) -
-	        1);
-	const int kernel_size_z = std::max(
-	    1,
-	    static_cast<int>(
-	        std::floor((std::max(sigmas1[2], sigmas2[2]) * nstdz) /
-	                   imgParams.vz)) -
-	        1);
-
-	SECTION("forward_varpsf_2g")
-	{
-		op_var.applyA(image.get(), img_out.get());
-		std::vector<float> expected = convolveGaussianMixture(
-		    inputData, dims, voxels, sigmas1, sigmas2, weight2, false,
-		    kernel_size_x, kernel_size_y, kernel_size_z);
-
-		const std::vector<size_t> indices = {
-		    0,
-		    static_cast<size_t>(imgParams.nx / 2 +
-		                        imgParams.nx *
-		                            (imgParams.ny / 2 +
-		                             imgParams.ny * (imgParams.nz / 2))),
-		    static_cast<size_t>(imgParams.nx * imgParams.ny * imgParams.nz -
-		                        1)};
-		for (const auto idx : indices)
+		std::vector<std::tuple<float, float, float>> positions;
+		std::vector<float> xvals = {5.1f, 54.9f, 105.3f, 155.1f, 205.5f};
+		std::vector<float> yvals = {5.1f, 54.9f, 105.3f, 155.1f, 204.9f};
+		std::vector<float> zvals = {4.8f, 54.4f, 104.8f, 154.4f, 204.8f};
+		for (float z : zvals)
 		{
-			CHECK(img_out->getRawPointer()[idx] ==
-			      Approx(expected[idx]).epsilon(1e-3));
+			for (float y : yvals)
+			{
+				for (float x : xvals)
+				{
+					positions.emplace_back(x, y, z);
+				}
+			}
 		}
-	}
 
-	SECTION("adjoint_test_varpsf_2g")
-	{
-		auto img_out1 = std::make_unique<ImageOwned>(imgParams);
-		img_out1->allocate();
-		img_out1->fill(0.0f);
-		op_var.applyA(image.get(), img_out1.get());
+		OperatorVarPsf op_var(imgParams);
+		op_var.setRangeAndGap(200, 50, 200, 50, 200, 50);
 
-		auto image2 = makeImageWithRandomPrism(imgParams);
-		auto img_out2 = std::make_unique<ImageOwned>(imgParams);
-		img_out2->allocate();
-		img_out2->fill(0.0f);
-		op_var.applyAH(image2.get(), img_out2.get());
+		const float threshold = 100.0f;
+		const float nstdx = 4.0f;
+		const float nstdy = 4.0f;
+		const float nstdz = 4.0f;
+		OperatorVarPsf::ConvolutionKernelCollection kernels;
+		for (size_t ii = 0; ii < positions.size(); ++ii)
+		{
+			float tempx, tempy, tempz;
+			std::tie(tempx, tempy, tempz) = positions[ii];
+			std::vector<float> sigmas1 = {
+			    (tempx > threshold) ? sigma1High[0] : sigma1Low[0],
+			    (tempy > threshold) ? sigma1High[1] : sigma1Low[1],
+			    (tempz > threshold) ? sigma1High[2] : sigma1Low[2]};
+			std::vector<float> sigmas2 = {
+			    (tempx > threshold) ? sigma2High[0] : sigma2Low[0],
+			    (tempy > threshold) ? sigma2High[1] : sigma2Low[1],
+			    (tempz > threshold) ? sigma2High[2] : sigma2Low[2]};
+			auto kernel = std::make_unique<ConvolutionKernelGaussianMixture>(
+			    sigmas1[0], sigmas1[1], sigmas1[2], sigmas2[0], sigmas2[1],
+			    sigmas2[2], weight2, nstdx, nstdy, nstdz, imgParams);
+			kernels.push_back(std::move(kernel));
+		}
+		op_var.setKernelCollection(kernels);
 
-		const float lhs = img_out1->dotProduct(*image2);
-		const float rhs = image->dotProduct(*img_out2);
-		CHECK(lhs == Approx(rhs).epsilon(1e-3));
+		auto img_out = std::make_unique<ImageOwned>(imgParams);
+		img_out->allocate();
+
+		std::vector<int64_t> dims = {imgParams.nx, imgParams.ny,
+		                             imgParams.nz};
+		std::vector<float> voxels = {imgParams.vx, imgParams.vy,
+		                             imgParams.vz};
+		std::vector<float> inputData(image->getData().getSizeTotal());
+		float* outputPtr = img_out->getRawPointer();
+		std::memcpy(inputData.data(), image->getRawPointer(),
+		            image->getData().getSizeTotal() * sizeof(float));
+
+		const auto kernelSize = [&imgParams, nstdx, nstdy, nstdz](
+		                            const std::vector<float>& sigmas1,
+		                            const std::vector<float>& sigmas2)
+		{
+			return std::array<int, 3>{
+			    std::max(
+			        1,
+			        static_cast<int>(
+			            std::floor((std::max(sigmas1[0], sigmas2[0]) * nstdx) /
+			                       imgParams.vx)) -
+			            1),
+			    std::max(
+			        1,
+			        static_cast<int>(
+			            std::floor((std::max(sigmas1[1], sigmas2[1]) * nstdy) /
+			                       imgParams.vy)) -
+			            1),
+			    std::max(
+			        1,
+			        static_cast<int>(
+			            std::floor((std::max(sigmas1[2], sigmas2[2]) * nstdz) /
+			                       imgParams.vz)) -
+			            1)};
+		};
+		const auto makeExpected =
+		    [&](const std::vector<float>& sigmas1,
+		        const std::vector<float>& sigmas2, bool transpose)
+		{
+			const auto ksize = kernelSize(sigmas1, sigmas2);
+			return convolveGaussianMixture(inputData, dims, voxels, sigmas1,
+			                               sigmas2, weight2, transpose,
+			                               ksize[0], ksize[1], ksize[2]);
+		};
+
+		Vector3D center_pt = {-imgParams.vx / 2, -imgParams.vy / 2,
+		                      -imgParams.vz / 2};
+		Vector3D test_pt1 = {threshold + imgParams.vx, 0, 0};
+		Vector3D test_pt2 = {threshold + imgParams.vx,
+		                     -threshold - imgParams.vy,
+		                     threshold + imgParams.vz};
+		Vector3D test_pt3 = {(imgParams.nx - 1) * imgParams.vx / 2,
+		                     (imgParams.ny - 1) * imgParams.vy / 2,
+		                     -(imgParams.nz - 1) * imgParams.vz / 2};
+		int center_x, center_y, center_z;
+		int tp1_x, tp1_y, tp1_z;
+		int tp2_x, tp2_y, tp2_z;
+		int tp3_x, tp3_y, tp3_z;
+		image->getNearestNeighborIdx(center_pt, &center_x, &center_y,
+		                             &center_z);
+		image->getNearestNeighborIdx(test_pt1, &tp1_x, &tp1_y, &tp1_z);
+		image->getNearestNeighborIdx(test_pt2, &tp2_x, &tp2_y, &tp2_z);
+		image->getNearestNeighborIdx(test_pt3, &tp3_x, &tp3_y, &tp3_z);
+
+		const std::vector<float> sigmas1LLL = {sigma1Low[0], sigma1Low[1],
+		                                       sigma1Low[2]};
+		const std::vector<float> sigmas2LLL = {sigma2Low[0], sigma2Low[1],
+		                                       sigma2Low[2]};
+		const std::vector<float> sigmas1HLL = {sigma1High[0], sigma1Low[1],
+		                                       sigma1Low[2]};
+		const std::vector<float> sigmas2HLL = {sigma2High[0], sigma2Low[1],
+		                                       sigma2Low[2]};
+		const std::vector<float> sigmas1HHH = {sigma1High[0], sigma1High[1],
+		                                       sigma1High[2]};
+		const std::vector<float> sigmas2HHH = {sigma2High[0], sigma2High[1],
+		                                       sigma2High[2]};
+
+		SECTION("forward_varpsf_2g")
+		{
+			op_var.applyA(image.get(), img_out.get());
+			std::vector<float> expectedLLL =
+			    makeExpected(sigmas1LLL, sigmas2LLL, false);
+			std::vector<float> expectedHLL =
+			    makeExpected(sigmas1HLL, sigmas2HLL, false);
+			std::vector<float> expectedHHH =
+			    makeExpected(sigmas1HHH, sigmas2HHH, false);
+
+			size_t idx =
+			    center_x + imgParams.nx * (center_y + imgParams.ny * center_z);
+			CHECK(outputPtr[idx] == Approx(expectedLLL[idx]).epsilon(1e-3));
+			idx = tp1_x + imgParams.nx * (tp1_y + imgParams.ny * tp1_z);
+			CHECK(outputPtr[idx] == Approx(expectedHLL[idx]).epsilon(1e-3));
+			idx = tp2_x + imgParams.nx * (tp2_y + imgParams.ny * tp2_z);
+			CHECK(outputPtr[idx] == Approx(expectedHHH[idx]).epsilon(1e-3));
+			idx = tp3_x + imgParams.nx * (tp3_y + imgParams.ny * tp3_z);
+			CHECK(outputPtr[idx] == Approx(expectedHHH[idx]).epsilon(1e-3));
+		}
+
+		SECTION("transpose_varpsf_2g")
+		{
+			op_var.applyAH(image.get(), img_out.get());
+			std::vector<float> expectedLLL =
+			    makeExpected(sigmas1LLL, sigmas2LLL, true);
+			std::vector<float> expectedHLL =
+			    makeExpected(sigmas1HLL, sigmas2HLL, true);
+			std::vector<float> expectedHHH =
+			    makeExpected(sigmas1HHH, sigmas2HHH, true);
+			const auto ksizeHLL = kernelSize(sigmas1HLL, sigmas2HLL);
+			const auto ksizeHHH = kernelSize(sigmas1HHH, sigmas2HHH);
+
+			size_t idx =
+			    center_x + imgParams.nx * (center_y + imgParams.ny * center_z);
+			CHECK(outputPtr[idx] == Approx(expectedLLL[idx]).epsilon(1e-3));
+			idx = tp1_x - ksizeHLL[0] +
+			      imgParams.nx * (tp1_y + imgParams.ny * tp1_z);
+			CHECK(outputPtr[idx] == Approx(expectedHLL[idx]).epsilon(1e-3));
+			idx = tp2_x + ksizeHHH[0] +
+			      imgParams.nx * (tp2_y - ksizeHHH[1] +
+			                      imgParams.ny * (tp2_z + ksizeHHH[2]));
+			CHECK(outputPtr[idx] == Approx(expectedHHH[idx]).epsilon(1e-3));
+			idx = tp3_x + imgParams.nx * (tp3_y + imgParams.ny * tp3_z);
+			CHECK(outputPtr[idx] == Approx(expectedHHH[idx]).epsilon(1e-3));
+		}
+
+		SECTION("adjoint_test_varpsf_2g")
+		{
+			auto img_out1 = std::make_unique<ImageOwned>(imgParams);
+			img_out1->allocate();
+			op_var.applyA(image.get(), img_out1.get());
+
+			auto image2 = makeImageWithRandomPrism(imgParams);
+			auto img_out2 = std::make_unique<ImageOwned>(imgParams);
+			img_out2->allocate();
+			op_var.applyAH(image2.get(), img_out2.get());
+
+			const float lhs = img_out1->dotProduct(*image2);
+			const float rhs = image->dotProduct(*img_out2);
+			CHECK(lhs == Approx(rhs).epsilon(1e-3));
+		}
 	}
 }
 
@@ -928,95 +1053,219 @@ TEST_CASE("VarPSF_GPU", "[varpsf_gpu]")
 
 TEST_CASE("VarPSF_2G_GPU", "[varpsf_2g_gpu]")
 {
-	ImageParams imgParams{30, 28, 15, 90.0f, 84.0f, 45.0f, 0.0f, 0.0f, 0.0f};
-	auto image = makeImageWithRandomPrism(imgParams);
-	OperatorVarPsfDevice op_var(imgParams);
-	op_var.setRangeAndGap(100, 100, 100, 100, 100, 100);
+	const unsigned int randomSeed =
+	    static_cast<unsigned int>(std::time(nullptr));
+	std::default_random_engine engine(randomSeed);
 
-	std::vector<float> sigmas1 = {0.75f, 0.85f, 0.65f};
-	std::vector<float> sigmas2 = {1.55f, 1.35f, 1.15f};
-	const float weight2 = 0.35f;
-	const float nstdx = 4.0f;
-	const float nstdy = 4.0f;
-	const float nstdz = 4.0f;
-	OperatorVarPsf::ConvolutionKernelCollection kernels;
-	for (size_t i = 0; i < 8; ++i)
+	for (int i = 0; i < 100; ++i)
 	{
-		auto kernel = std::make_unique<ConvolutionKernelGaussianMixture>(
-		    sigmas1[0], sigmas1[1], sigmas1[2], sigmas2[0], sigmas2[1],
-		    sigmas2[2], weight2, nstdx, nstdy, nstdz, imgParams);
-		kernels.push_back(std::move(kernel));
-	}
-	op_var.setKernelCollection(kernels);
-	op_var.copyVarPsfToDevice(true);
+		ImageParams imgParams{100,    100,  51,   400.0f, 401.0f,
+		                      421.0f, 0.0f, 0.0f, 0.0f};
+		auto image = makeImageWithRandomPrism(imgParams, &engine);
 
-	auto img_out = std::make_unique<ImageOwned>(imgParams);
-	img_out->allocate();
-	img_out->fill(0.0f);
+		std::uniform_real_distribution<float> sigma_dist1_low(0.5f, 1.0f);
+		std::uniform_real_distribution<float> sigma_dist1_high(1.1f, 1.5f);
+		std::uniform_real_distribution<float> sigma_dist2_low(1.6f, 2.0f);
+		std::uniform_real_distribution<float> sigma_dist2_high(2.1f, 2.5f);
+		std::uniform_real_distribution<float> weight_dist(0.2f, 0.6f);
 
-	std::vector<int64_t> dims = {imgParams.nx, imgParams.ny, imgParams.nz};
-	std::vector<float> voxels = {imgParams.vx, imgParams.vy, imgParams.vz};
-	std::vector<float> inputData(image->getData().getSizeTotal());
-	std::memcpy(inputData.data(), image->getRawPointer(),
-	            image->getData().getSizeTotal() * sizeof(float));
+		const std::vector<float> sigma1Low = {sigma_dist1_low(engine),
+		                                      sigma_dist1_low(engine),
+		                                      sigma_dist1_low(engine)};
+		const std::vector<float> sigma1High = {sigma_dist1_high(engine),
+		                                       sigma_dist1_high(engine),
+		                                       sigma_dist1_high(engine)};
+		const std::vector<float> sigma2Low = {sigma_dist2_low(engine),
+		                                      sigma_dist2_low(engine),
+		                                      sigma_dist2_low(engine)};
+		const std::vector<float> sigma2High = {sigma_dist2_high(engine),
+		                                       sigma_dist2_high(engine),
+		                                       sigma_dist2_high(engine)};
+		const float weight2 = weight_dist(engine);
 
-	const int kernel_size_x = std::max(
-	    1,
-	    static_cast<int>(
-	        std::floor((std::max(sigmas1[0], sigmas2[0]) * nstdx) /
-	                   imgParams.vx)) -
-	        1);
-	const int kernel_size_y = std::max(
-	    1,
-	    static_cast<int>(
-	        std::floor((std::max(sigmas1[1], sigmas2[1]) * nstdy) /
-	                   imgParams.vy)) -
-	        1);
-	const int kernel_size_z = std::max(
-	    1,
-	    static_cast<int>(
-	        std::floor((std::max(sigmas1[2], sigmas2[2]) * nstdz) /
-	                   imgParams.vz)) -
-	        1);
-
-	SECTION("forward_varpsf_2g_gpu")
-	{
-		op_var.applyA(image.get(), img_out.get());
-		std::vector<float> expected = convolveGaussianMixture(
-		    inputData, dims, voxels, sigmas1, sigmas2, weight2, false,
-		    kernel_size_x, kernel_size_y, kernel_size_z);
-
-		const std::vector<size_t> indices = {
-		    0,
-		    static_cast<size_t>(imgParams.nx / 2 +
-		                        imgParams.nx *
-		                            (imgParams.ny / 2 +
-		                             imgParams.ny * (imgParams.nz / 2))),
-		    static_cast<size_t>(imgParams.nx * imgParams.ny * imgParams.nz -
-		                        1)};
-		for (const auto idx : indices)
+		std::vector<std::tuple<float, float, float>> positions;
+		std::vector<float> xvals = {5.1f, 54.9f, 105.3f, 155.1f, 205.5f};
+		std::vector<float> yvals = {5.1f, 54.9f, 105.3f, 155.1f, 204.9f};
+		std::vector<float> zvals = {4.8f, 54.4f, 104.8f, 154.4f, 204.8f};
+		for (float z : zvals)
 		{
-			CHECK(img_out->getRawPointer()[idx] ==
-			      Approx(expected[idx]).epsilon(1e-3));
+			for (float y : yvals)
+			{
+				for (float x : xvals)
+				{
+					positions.emplace_back(x, y, z);
+				}
+			}
 		}
-	}
 
-	SECTION("adjoint_test_varpsf_2g_gpu")
-	{
-		auto img_out1 = std::make_unique<ImageOwned>(imgParams);
-		img_out1->allocate();
-		img_out1->fill(0.0f);
-		op_var.applyA(image.get(), img_out1.get());
+		OperatorVarPsfDevice op_var(imgParams);
+		op_var.setRangeAndGap(200, 50, 200, 50, 200, 50);
 
-		auto image2 = makeImageWithRandomPrism(imgParams);
-		auto img_out2 = std::make_unique<ImageOwned>(imgParams);
-		img_out2->allocate();
-		img_out2->fill(0.0f);
-		op_var.applyAH(image2.get(), img_out2.get());
+		const float threshold = 100.0f;
+		const float nstdx = 4.0f;
+		const float nstdy = 4.0f;
+		const float nstdz = 4.0f;
+		OperatorVarPsf::ConvolutionKernelCollection kernels;
+		for (size_t ii = 0; ii < positions.size(); ++ii)
+		{
+			float tempx, tempy, tempz;
+			std::tie(tempx, tempy, tempz) = positions[ii];
+			std::vector<float> sigmas1 = {
+			    (tempx > threshold) ? sigma1High[0] : sigma1Low[0],
+			    (tempy > threshold) ? sigma1High[1] : sigma1Low[1],
+			    (tempz > threshold) ? sigma1High[2] : sigma1Low[2]};
+			std::vector<float> sigmas2 = {
+			    (tempx > threshold) ? sigma2High[0] : sigma2Low[0],
+			    (tempy > threshold) ? sigma2High[1] : sigma2Low[1],
+			    (tempz > threshold) ? sigma2High[2] : sigma2Low[2]};
+			auto kernel = std::make_unique<ConvolutionKernelGaussianMixture>(
+			    sigmas1[0], sigmas1[1], sigmas1[2], sigmas2[0], sigmas2[1],
+			    sigmas2[2], weight2, nstdx, nstdy, nstdz, imgParams);
+			kernels.push_back(std::move(kernel));
+		}
+		op_var.setKernelCollection(kernels);
+		op_var.copyVarPsfToDevice(true);
 
-		const float lhs = img_out1->dotProduct(*image2);
-		const float rhs = image->dotProduct(*img_out2);
-		CHECK(lhs == Approx(rhs).epsilon(1e-3));
+		auto img_out = std::make_unique<ImageOwned>(imgParams);
+		img_out->allocate();
+
+		std::vector<int64_t> dims = {imgParams.nx, imgParams.ny,
+		                             imgParams.nz};
+		std::vector<float> voxels = {imgParams.vx, imgParams.vy,
+		                             imgParams.vz};
+		std::vector<float> inputData(image->getData().getSizeTotal());
+		float* outputPtr = img_out->getRawPointer();
+		std::memcpy(inputData.data(), image->getRawPointer(),
+		            image->getData().getSizeTotal() * sizeof(float));
+
+		const auto kernelSize = [&imgParams, nstdx, nstdy, nstdz](
+		                            const std::vector<float>& sigmas1,
+		                            const std::vector<float>& sigmas2)
+		{
+			return std::array<int, 3>{
+			    std::max(
+			        1,
+			        static_cast<int>(
+			            std::floor((std::max(sigmas1[0], sigmas2[0]) * nstdx) /
+			                       imgParams.vx)) -
+			            1),
+			    std::max(
+			        1,
+			        static_cast<int>(
+			            std::floor((std::max(sigmas1[1], sigmas2[1]) * nstdy) /
+			                       imgParams.vy)) -
+			            1),
+			    std::max(
+			        1,
+			        static_cast<int>(
+			            std::floor((std::max(sigmas1[2], sigmas2[2]) * nstdz) /
+			                       imgParams.vz)) -
+			            1)};
+		};
+		const auto makeExpected =
+		    [&](const std::vector<float>& sigmas1,
+		        const std::vector<float>& sigmas2, bool transpose)
+		{
+			const auto ksize = kernelSize(sigmas1, sigmas2);
+			return convolveGaussianMixture(inputData, dims, voxels, sigmas1,
+			                               sigmas2, weight2, transpose,
+			                               ksize[0], ksize[1], ksize[2]);
+		};
+
+		Vector3D center_pt = {-imgParams.vx / 2, -imgParams.vy / 2,
+		                      -imgParams.vz / 2};
+		Vector3D test_pt1 = {threshold + imgParams.vx, 0, 0};
+		Vector3D test_pt2 = {threshold + imgParams.vx,
+		                     -threshold - imgParams.vy,
+		                     threshold + imgParams.vz};
+		Vector3D test_pt3 = {(imgParams.nx - 1) * imgParams.vx / 2,
+		                     (imgParams.ny - 1) * imgParams.vy / 2,
+		                     -(imgParams.nz - 1) * imgParams.vz / 2};
+		int center_x, center_y, center_z;
+		int tp1_x, tp1_y, tp1_z;
+		int tp2_x, tp2_y, tp2_z;
+		int tp3_x, tp3_y, tp3_z;
+		image->getNearestNeighborIdx(center_pt, &center_x, &center_y,
+		                             &center_z);
+		image->getNearestNeighborIdx(test_pt1, &tp1_x, &tp1_y, &tp1_z);
+		image->getNearestNeighborIdx(test_pt2, &tp2_x, &tp2_y, &tp2_z);
+		image->getNearestNeighborIdx(test_pt3, &tp3_x, &tp3_y, &tp3_z);
+
+		const std::vector<float> sigmas1LLL = {sigma1Low[0], sigma1Low[1],
+		                                       sigma1Low[2]};
+		const std::vector<float> sigmas2LLL = {sigma2Low[0], sigma2Low[1],
+		                                       sigma2Low[2]};
+		const std::vector<float> sigmas1HLL = {sigma1High[0], sigma1Low[1],
+		                                       sigma1Low[2]};
+		const std::vector<float> sigmas2HLL = {sigma2High[0], sigma2Low[1],
+		                                       sigma2Low[2]};
+		const std::vector<float> sigmas1HHH = {sigma1High[0], sigma1High[1],
+		                                       sigma1High[2]};
+		const std::vector<float> sigmas2HHH = {sigma2High[0], sigma2High[1],
+		                                       sigma2High[2]};
+
+		SECTION("forward_varpsf_2g_gpu")
+		{
+			op_var.applyA(image.get(), img_out.get());
+			std::vector<float> expectedLLL =
+			    makeExpected(sigmas1LLL, sigmas2LLL, false);
+			std::vector<float> expectedHLL =
+			    makeExpected(sigmas1HLL, sigmas2HLL, false);
+			std::vector<float> expectedHHH =
+			    makeExpected(sigmas1HHH, sigmas2HHH, false);
+
+			size_t idx =
+			    center_x + imgParams.nx * (center_y + imgParams.ny * center_z);
+			CHECK(outputPtr[idx] == Approx(expectedLLL[idx]).epsilon(1e-3));
+			idx = tp1_x + imgParams.nx * (tp1_y + imgParams.ny * tp1_z);
+			CHECK(outputPtr[idx] == Approx(expectedHLL[idx]).epsilon(1e-3));
+			idx = tp2_x + imgParams.nx * (tp2_y + imgParams.ny * tp2_z);
+			CHECK(outputPtr[idx] == Approx(expectedHHH[idx]).epsilon(1e-3));
+			idx = tp3_x + imgParams.nx * (tp3_y + imgParams.ny * tp3_z);
+			CHECK(outputPtr[idx] == Approx(expectedHHH[idx]).epsilon(1e-3));
+		}
+
+		SECTION("transpose_varpsf_2g_gpu")
+		{
+			op_var.applyAH(image.get(), img_out.get());
+			std::vector<float> expectedLLL =
+			    makeExpected(sigmas1LLL, sigmas2LLL, true);
+			std::vector<float> expectedHLL =
+			    makeExpected(sigmas1HLL, sigmas2HLL, true);
+			std::vector<float> expectedHHH =
+			    makeExpected(sigmas1HHH, sigmas2HHH, true);
+			const auto ksizeHLL = kernelSize(sigmas1HLL, sigmas2HLL);
+			const auto ksizeHHH = kernelSize(sigmas1HHH, sigmas2HHH);
+
+			size_t idx =
+			    center_x + imgParams.nx * (center_y + imgParams.ny * center_z);
+			CHECK(outputPtr[idx] == Approx(expectedLLL[idx]).epsilon(1e-3));
+			idx = tp1_x - ksizeHLL[0] +
+			      imgParams.nx * (tp1_y + imgParams.ny * tp1_z);
+			CHECK(outputPtr[idx] == Approx(expectedHLL[idx]).epsilon(1e-3));
+			idx = tp2_x + ksizeHHH[0] +
+			      imgParams.nx * (tp2_y - ksizeHHH[1] +
+			                      imgParams.ny * (tp2_z + ksizeHHH[2]));
+			CHECK(outputPtr[idx] == Approx(expectedHHH[idx]).epsilon(1e-3));
+			idx = tp3_x + imgParams.nx * (tp3_y + imgParams.ny * tp3_z);
+			CHECK(outputPtr[idx] == Approx(expectedHHH[idx]).epsilon(1e-3));
+		}
+
+		SECTION("adjoint_test_varpsf_2g_gpu")
+		{
+			auto img_out1 = std::make_unique<ImageOwned>(imgParams);
+			img_out1->allocate();
+			op_var.applyA(image.get(), img_out1.get());
+
+			auto image2 = makeImageWithRandomPrism(imgParams);
+			auto img_out2 = std::make_unique<ImageOwned>(imgParams);
+			img_out2->allocate();
+			op_var.applyAH(image2.get(), img_out2.get());
+
+			const float lhs = img_out1->dotProduct(*image2);
+			const float rhs = image->dotProduct(*img_out2);
+			CHECK(lhs == Approx(rhs).epsilon(1e-3));
+		}
 	}
 }
 #endif  // BUILD_CUDA

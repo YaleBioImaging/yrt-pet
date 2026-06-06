@@ -260,15 +260,25 @@ bool runJosephAdjointAccumulationSmoke()
 
 	std::vector<float> reference(voxelCount);
 	std::vector<float> threadgroupOutput(voxelCount);
+	std::vector<float> axisSwitchOutput(voxelCount);
+	std::vector<float> incrementalOutput(voxelCount);
 	if (!runKernel("joseph_backproject_single_ray_native_atomic_float",
 	        reference) ||
 	    !runKernel(
 	        "joseph_backproject_single_ray_threadgroup_sample_native_atomic_float",
-	        threadgroupOutput))
+	        threadgroupOutput) ||
+	    !runKernel(
+	        "joseph_backproject_single_ray_axis_switch_native_atomic_float",
+	        axisSwitchOutput) ||
+	    !runKernel(
+	        "joseph_backproject_single_ray_incremental_native_atomic_float",
+	        incrementalOutput))
 	{
 		return false;
 	}
-	return valuesMatch(threadgroupOutput, reference);
+	return valuesMatch(threadgroupOutput, reference) &&
+	       valuesMatch(axisSwitchOutput, reference) &&
+	       valuesMatch(incrementalOutput, reference);
 }
 
 bool runJosephAxisSpecializedSmoke()

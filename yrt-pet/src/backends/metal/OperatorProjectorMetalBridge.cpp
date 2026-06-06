@@ -31,6 +31,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdlib>
+#include <iterator>
 #include <map>
 #include <memory>
 #include <set>
@@ -56,6 +57,13 @@ struct BridgeEvent
 	ProjectionLineEndpoints line;
 	frame_t frame = 0;
 	float projectionValue = 0.0f;
+};
+
+struct BridgeFrameBatch
+{
+	frame_t frame = 0;
+	std::vector<ProjectionLineEndpoints> lines;
+	std::vector<bin_t> bins;
 };
 
 enum class AdjointEventOrder
@@ -172,6 +180,12 @@ bool profileRatioNonzeroDiagnostic()
 	return value != nullptr && value[0] != '\0' && value[0] != '0';
 }
 
+bool useDirectHostRatioFrameBatches()
+{
+	const char* value = std::getenv("YRTPET_METAL_DIRECT_FRAME_BATCHES");
+	return value != nullptr && value[0] != '\0' && value[0] != '0';
+}
+
 JosephAxisSpecialization getJosephAxisSpecialization()
 {
 	const char* value = std::getenv("YRTPET_METAL_JOSEPH_AXIS_SPECIALIZED");
@@ -248,6 +262,48 @@ std::uint32_t getAdjointTileSize()
 	}
 	return static_cast<std::uint32_t>(
 	    std::min<unsigned long>(parsed, 256));
+}
+
+std::size_t getAdjointDiagnosticMaxBatches()
+{
+	const char* value =
+	    std::getenv("YRTPET_METAL_ADJOINT_DIAGNOSTIC_MAX_BATCHES");
+	if (value == nullptr || value[0] == '\0' || value[0] == '-')
+	{
+		return 0;
+	}
+
+	char* end = nullptr;
+	const unsigned long long parsed = std::strtoull(value, &end, 10);
+	if (end == value)
+	{
+		return 0;
+	}
+	return static_cast<std::size_t>(
+	    std::min<unsigned long long>(
+	        parsed, static_cast<unsigned long long>(
+	                    std::numeric_limits<std::size_t>::max())));
+}
+
+std::size_t getAdjointDiagnosticStride()
+{
+	const char* value =
+	    std::getenv("YRTPET_METAL_ADJOINT_DIAGNOSTIC_STRIDE");
+	if (value == nullptr || value[0] == '\0' || value[0] == '-')
+	{
+		return 1;
+	}
+
+	char* end = nullptr;
+	const unsigned long long parsed = std::strtoull(value, &end, 10);
+	if (end == value || parsed <= 1)
+	{
+		return 1;
+	}
+	return static_cast<std::size_t>(
+	    std::min<unsigned long long>(
+	        parsed, static_cast<unsigned long long>(
+	                    std::numeric_limits<std::size_t>::max())));
 }
 
 std::uint64_t mix64(std::uint64_t value)
@@ -841,12 +897,43 @@ SiddonProjectorKernelProfile
     makeSiddonKernelProfile(const OperatorProjectorMetalProfile* profile)
 {
 	SiddonProjectorKernelProfile kernelProfile;
-	if (profile != nullptr)
+	(void)profile;
+	return kernelProfile;
+}
+
+SiddonProjectorKernelProfile
+    makeAdjointSiddonKernelProfile(OperatorProjectorMetalProfile* profile)
+{
+	SiddonProjectorKernelProfile kernelProfile;
+	if (profile == nullptr ||
+	    (!profile->diagnoseAdjointUpdateCounts &&
+	        !profile->diagnoseAdjointVoxelHits))
+	{
+		return kernelProfile;
+	}
+
+	const std::size_t maxBatches = getAdjointDiagnosticMaxBatches();
+	const std::size_t stride = getAdjointDiagnosticStride();
+	profile->adjointDiagnosticMaxBatches = maxBatches;
+	profile->adjointDiagnosticStride = stride;
+	profile->adjointDiagnosticBatchesSeen += 1;
+
+	const std::size_t batchIndex = profile->adjointDiagnosticBatchesSeen - 1;
+	const bool strideSelected = stride <= 1 || batchIndex % stride == 0;
+	const bool underLimit =
+	    maxBatches == 0 ||
+	    profile->adjointDiagnosticBatchesProfiled < maxBatches;
+	if (strideSelected && underLimit)
 	{
 		kernelProfile.diagnoseAdjointUpdateCounts =
 		    profile->diagnoseAdjointUpdateCounts;
 		kernelProfile.diagnoseAdjointVoxelHits =
 		    profile->diagnoseAdjointVoxelHits;
+		profile->adjointDiagnosticBatchesProfiled += 1;
+	}
+	else
+	{
+		profile->adjointDiagnosticBatchesSkipped += 1;
 	}
 	return kernelProfile;
 }
@@ -1136,6 +1223,302 @@ bool tryGatherListModeLUTBridgeEvents(const ProjectionData& projectionData,
 	}
 
 	events = std::move(gatheredEvents);
+	handled = true;
+	return true;
+}
+
+std::vector<std::vector<BridgeFrameBatch>>
+    makeFrameBatchWorkspace(std::size_t numThreads,
+                            const ImageParams& imageParams,
+                            std::size_t eventCount)
+{
+	const std::size_t frameCount =
+	    imageParams.nt > 0 ? static_cast<std::size_t>(imageParams.nt) : 0;
+	std::vector<std::vector<BridgeFrameBatch>> workspace(
+	    numThreads, std::vector<BridgeFrameBatch>(frameCount));
+	if (frameCount == 0)
+	{
+		return workspace;
+	}
+
+	const std::size_t reservePerFrame =
+	    std::max<std::size_t>(1, eventCount / (numThreads * frameCount));
+	for (auto& threadBatches : workspace)
+	{
+		for (std::size_t frame = 0; frame < frameCount; ++frame)
+		{
+			threadBatches[frame].frame = static_cast<frame_t>(frame);
+			threadBatches[frame].lines.reserve(reservePerFrame);
+			threadBatches[frame].bins.reserve(reservePerFrame);
+		}
+	}
+	return workspace;
+}
+
+bool appendFrameBatchEvent(std::vector<BridgeFrameBatch>& frameBatches,
+                           frame_t frame,
+                           const ProjectionLineEndpoints& line, bin_t bin)
+{
+	if (frame < 0)
+	{
+		return true;
+	}
+	const auto frameIndex = static_cast<std::size_t>(frame);
+	if (frameIndex >= frameBatches.size())
+	{
+		return false;
+	}
+	frameBatches[frameIndex].lines.push_back(line);
+	frameBatches[frameIndex].bins.push_back(bin);
+	return true;
+}
+
+void mergeFrameBatchWorkspace(
+    std::vector<std::vector<BridgeFrameBatch>>& workspace,
+    std::vector<BridgeFrameBatch>& frameBatches)
+{
+	frameBatches.clear();
+	if (workspace.empty())
+	{
+		return;
+	}
+
+	const std::size_t frameCount = workspace.front().size();
+	frameBatches.reserve(frameCount);
+	for (std::size_t frame = 0; frame < frameCount; ++frame)
+	{
+		std::size_t eventCount = 0;
+		for (const auto& threadBatches : workspace)
+		{
+			eventCount += threadBatches[frame].lines.size();
+		}
+		if (eventCount == 0)
+		{
+			continue;
+		}
+
+		BridgeFrameBatch merged;
+		merged.frame = static_cast<frame_t>(frame);
+		merged.lines.reserve(eventCount);
+		merged.bins.reserve(eventCount);
+		for (auto& threadBatches : workspace)
+		{
+			auto& batch = threadBatches[frame];
+			merged.lines.insert(merged.lines.end(),
+			                    std::make_move_iterator(batch.lines.begin()),
+			                    std::make_move_iterator(batch.lines.end()));
+			merged.bins.insert(merged.bins.end(), batch.bins.begin(),
+			                   batch.bins.end());
+		}
+		frameBatches.push_back(std::move(merged));
+	}
+}
+
+bool tryGatherListModeLUTFrameBatches(
+    const ProjectionData& projectionData, const Image& image,
+    const BinIterator& binIterator, OperatorProjectorMetalCache* cache,
+    std::vector<BridgeFrameBatch>& frameBatches, bool& handled)
+{
+	handled = false;
+	const auto* listMode = dynamic_cast<const ListModeLUT*>(&projectionData);
+	if (listMode == nullptr)
+	{
+		return true;
+	}
+
+	const Array1DBase<det_id_t>* detector1Array =
+	    listMode->getDetector1ArrayPtr();
+	const Array1DBase<det_id_t>* detector2Array =
+	    listMode->getDetector2ArrayPtr();
+	if (detector1Array == nullptr || detector2Array == nullptr ||
+	    detector1Array->getRawPointer() == nullptr ||
+	    detector2Array->getRawPointer() == nullptr)
+	{
+		return false;
+	}
+
+	const det_id_t* detector1 = detector1Array->getRawPointer();
+	const det_id_t* detector2 = detector2Array->getRawPointer();
+	const Scanner& scanner = listMode->getScanner();
+	const std::size_t numDets = scanner.getNumDets();
+	std::vector<Vector3D> localDetectorPositions;
+	const std::vector<Vector3D>* detectorPositions = nullptr;
+	if (cache != nullptr)
+	{
+		detectorPositions = &cache->detectorPositions(scanner);
+	}
+	else
+	{
+		localDetectorPositions.resize(numDets);
+		for (std::size_t det = 0; det < numDets; ++det)
+		{
+			localDetectorPositions[det] =
+			    scanner.getDetectorPos(static_cast<det_id_t>(det));
+		}
+		detectorPositions = &localDetectorPositions;
+	}
+
+	const bool hasMotion = listMode->hasMotion();
+	std::vector<transform_t> motionTransforms;
+	if (hasMotion)
+	{
+		const std::size_t numMotionFrames = listMode->getNumMotionFrames();
+		motionTransforms.resize(numMotionFrames);
+		for (std::size_t frame = 0; frame < numMotionFrames; ++frame)
+		{
+			motionTransforms[frame] = listMode->getTransformOfMotionFrame(
+			    static_cast<frame_t>(frame));
+		}
+	}
+
+	const bool hasDynamicFraming = listMode->hasDynamicFraming();
+	const ImageParams& imageParams = image.getParams();
+	const std::size_t numThreads =
+	    std::max<std::size_t>(1, globals::getNumThreads());
+	auto workspace =
+	    makeFrameBatchWorkspace(numThreads, imageParams, binIterator.size());
+	if (workspace.empty() || workspace.front().empty())
+	{
+		return false;
+	}
+
+	std::atomic_bool failed{false};
+	util::parallelForChunked(
+	    binIterator.size(), numThreads,
+	    [&](std::size_t i, std::size_t tid)
+	    {
+		    if (failed.load(std::memory_order_relaxed))
+		    {
+			    return;
+		    }
+
+		    const bin_t bin = binIterator.get(static_cast<bin_t>(i));
+		    if (bin >= listMode->count())
+		    {
+			    failed.store(true, std::memory_order_relaxed);
+			    return;
+		    }
+
+		    const det_id_t det1 = detector1[bin];
+		    const det_id_t det2 = detector2[bin];
+		    if (det1 >= numDets || det2 >= numDets)
+		    {
+			    failed.store(true, std::memory_order_relaxed);
+			    return;
+		    }
+
+		    Vector3D point1 = (*detectorPositions)[det1];
+		    Vector3D point2 = (*detectorPositions)[det2];
+		    if (hasMotion)
+		    {
+			    const frame_t motionFrame = listMode->getMotionFrame(bin);
+			    if (motionFrame >= 0)
+			    {
+				    if (static_cast<std::size_t>(motionFrame) >=
+				        motionTransforms.size())
+				    {
+					    failed.store(true, std::memory_order_relaxed);
+					    return;
+				    }
+				    const transform_t& transform =
+				        motionTransforms[static_cast<std::size_t>(motionFrame)];
+				    point1 = applyTransform(point1, transform);
+				    point2 = applyTransform(point2, transform);
+			    }
+		    }
+
+		    frame_t dynamicFrame = 0;
+		    if (hasDynamicFraming)
+		    {
+			    dynamicFrame = listMode->getDynamicFrame(bin);
+		    }
+		    if (!appendFrameBatchEvent(
+		            workspace[tid], dynamicFrame,
+		            makeCenteredEndpoints(point1, point2, imageParams), bin))
+		    {
+			    failed.store(true, std::memory_order_relaxed);
+		    }
+	    });
+
+	if (failed.load(std::memory_order_relaxed))
+	{
+		return false;
+	}
+
+	mergeFrameBatchWorkspace(workspace, frameBatches);
+	handled = true;
+	return true;
+}
+
+bool gatherBridgeFrameBatches(const ProjectionData& projectionData,
+                              const Image& image,
+                              const BinIterator& binIterator,
+                              const BinLoader& binLoader,
+                              OperatorProjectorMetalCache* cache,
+                              std::vector<BridgeFrameBatch>& frameBatches,
+                              bool& handled)
+{
+	handled = false;
+	if (!image.isMemoryValid() ||
+	    !binLoader.getPropertyManager().has(ProjectionPropertyType::LOR) ||
+	    binLoader.getProjectionPropertiesRawPointer() == nullptr)
+	{
+		return false;
+	}
+	if (hasConstraints(binLoader))
+	{
+		return true;
+	}
+
+	bool listModeHandled = false;
+	if (!tryGatherListModeLUTFrameBatches(
+	        projectionData, image, binIterator, cache, frameBatches,
+	        listModeHandled))
+	{
+		return false;
+	}
+	if (listModeHandled)
+	{
+		handled = true;
+		return true;
+	}
+
+	const ImageParams& imageParams = image.getParams();
+	const std::size_t numThreads =
+	    std::max<std::size_t>(1, globals::getNumThreads());
+	auto workspace =
+	    makeFrameBatchWorkspace(numThreads, imageParams, binIterator.size());
+	if (workspace.empty() || workspace.front().empty())
+	{
+		return false;
+	}
+
+	std::atomic_bool failed{false};
+	util::parallelForChunked(
+	    binIterator.size(), numThreads,
+	    [&](std::size_t i, std::size_t tid)
+	    {
+		    if (failed.load(std::memory_order_relaxed))
+		    {
+			    return;
+		    }
+		    const bin_t bin = binIterator.get(static_cast<bin_t>(i));
+		    BridgeEvent event;
+		    if (!makeBridgeEvent(projectionData, imageParams, bin,
+		                         projectionData.getLOR(bin), false,
+		                         event) ||
+		        !appendFrameBatchEvent(workspace[tid], event.frame,
+		                               event.line, event.bin))
+		    {
+			    failed.store(true, std::memory_order_relaxed);
+		    }
+	    });
+	if (failed.load(std::memory_order_relaxed))
+	{
+		return false;
+	}
+
+	mergeFrameBatchWorkspace(workspace, frameBatches);
 	handled = true;
 	return true;
 }
@@ -2079,7 +2462,7 @@ bool backProjectEventsWithImageBuffer(
 		addBatchUploadProfile(profile, false, false,
 		                      getElapsedSeconds(batchStart, Clock::now()));
 
-		auto kernelProfile = makeSiddonKernelProfile(profile);
+		auto kernelProfile = makeAdjointSiddonKernelProfile(profile);
 		const bool didBackProject =
 		    batch.isValid() &&
 		    backProjectSingleRay(projectorKernel, context, batch, imageBuffer,
@@ -2165,7 +2548,7 @@ bool applyOsemEventsWithImageBuffers(
 			return false;
 		}
 
-		kernelProfile = makeSiddonKernelProfile(profile);
+		kernelProfile = makeAdjointSiddonKernelProfile(profile);
 		SiddonForwardImageParams updateImageParams{};
 		const bool didBackProject =
 		    makeSiddonForwardImageParams(workingImage,
@@ -2492,7 +2875,7 @@ bool backProjectCachedSegmentWithImageBuffer(
 			return false;
 		}
 
-		auto kernelProfile = makeSiddonKernelProfile(profile);
+		auto kernelProfile = makeAdjointSiddonKernelProfile(profile);
 		SiddonForwardImageParams imageParams{};
 		const bool didBackProject =
 		    makeSiddonForwardImageParams(
@@ -2559,7 +2942,7 @@ bool applyOsemCachedSegmentWithImageBuffers(
 			return false;
 		}
 
-		kernelProfile = makeSiddonKernelProfile(profile);
+		kernelProfile = makeAdjointSiddonKernelProfile(profile);
 		SiddonForwardImageParams updateImageParams{};
 		const bool didBackProject =
 		    makeSiddonForwardImageParams(
@@ -2742,7 +3125,7 @@ bool applyOsemHostRatioEventsWithImageBuffers(
 			}
 		}
 
-		kernelProfile = makeSiddonKernelProfile(profile);
+		kernelProfile = makeAdjointSiddonKernelProfile(profile);
 		SiddonForwardImageParams updateImageParams{};
 		const bool didBackProject =
 		    makeSiddonForwardImageParams(workingImage,
@@ -2766,6 +3149,202 @@ bool applyOsemHostRatioEventsWithImageBuffers(
 		profile->adjointEvents += events.size();
 	}
 	return true;
+}
+
+bool applyOsemHostRatioFrameBatchesWithImageBuffers(
+    const Context& context, OperatorProjectorMetalProfile* profile,
+    const Image& inputImage, ForwardImageResources& inputImageResources,
+    Image& workingImage, Buffer& updateImageBuffer,
+    const ProjectionData& measurements, const Corrector_CPU& corrector,
+    const OperatorProjectorMetalOsemConfig& config,
+    const std::vector<BridgeFrameBatch>& frameBatches,
+    std::size_t eventCount,
+    std::vector<CachedCorrectionBatch>* correctionBatches = nullptr,
+    bool buildMissingCorrectionBatches = false)
+{
+	if (frameBatches.empty())
+	{
+		return true;
+	}
+
+	const SiddonProjectorMetal metalProjector(context);
+	for (const BridgeFrameBatch& frameBatch : frameBatches)
+	{
+		const auto batchStart = Clock::now();
+		auto batch = metalProjector.makeBatch(
+		    frameBatch.lines,
+		    std::vector<float>(frameBatch.lines.size(), 0.0f));
+		if (profile != nullptr)
+		{
+			profile->forwardBatches += 1;
+		}
+		addBatchUploadProfile(profile, true, false,
+		                      getElapsedSeconds(batchStart, Clock::now()));
+
+		auto kernelProfile = makeSiddonKernelProfile(profile);
+		SiddonForwardImageParams imageParams{};
+		const bool didForward =
+		    batch.isValid() &&
+		    makeSiddonForwardImageParams(
+		        inputImage, static_cast<std::uint32_t>(frameBatch.frame),
+		        imageParams) &&
+		    forwardProjectSingleRay(
+		        config.projectorKernel, context, inputImageResources, batch,
+		        imageParams, profile != nullptr ? &kernelProfile : nullptr);
+		if (profile != nullptr)
+		{
+			addForwardKernelProfile(profile, kernelProfile);
+		}
+
+		if (!didForward)
+		{
+			return false;
+		}
+
+		CachedOsemCorrections* cachedCorrections =
+		    findCachedCorrectionsForFrame(
+		        correctionBatches, frameBatch.frame, frameBatch.bins,
+		        measurements, corrector, config);
+		if (cachedCorrections == nullptr && buildMissingCorrectionBatches &&
+		    correctionBatches != nullptr && config.cacheCorrectionFactors)
+		{
+			CachedCorrectionBatch correctionBatch;
+			correctionBatch.frame = frameBatch.frame;
+			correctionBatch.bins = frameBatch.bins;
+			if (!buildCachedOsemCorrections(
+			        context, profile, measurements, corrector,
+			        correctionBatch.bins, config,
+			        correctionBatch.osemCorrections, false))
+			{
+				return false;
+			}
+			correctionBatches->push_back(std::move(correctionBatch));
+			cachedCorrections =
+			    &correctionBatches->back().osemCorrections;
+		}
+		if (cachedCorrections != nullptr)
+		{
+			if (!applyOsemRatioToBatch(context, profile, batch,
+			                           frameBatch.bins, measurements,
+			                           corrector, config,
+			                           cachedCorrections))
+			{
+				return false;
+			}
+			if (profile != nullptr)
+			{
+				profile->adjointBatches += 1;
+				profile->adjointNonzeroEvents += batch.size();
+			}
+		}
+		else
+		{
+			if (config.cacheCorrectionFactors && correctionBatches != nullptr &&
+			    profile != nullptr)
+			{
+				profile->ratioCorrectionCacheMisses += 1;
+			}
+			std::size_t nonzeroCount = 0;
+			if (!computeAndUploadHostOsemRatioToBatch(
+			        profile, batch, frameBatch.bins, measurements, corrector,
+			        config, nonzeroCount))
+			{
+				return false;
+			}
+			if (nonzeroCount == 0)
+			{
+				continue;
+			}
+			if (profile != nullptr)
+			{
+				profile->adjointBatches += 1;
+				profile->adjointNonzeroEvents += nonzeroCount;
+			}
+		}
+
+		kernelProfile = makeAdjointSiddonKernelProfile(profile);
+		SiddonForwardImageParams updateImageParams{};
+		const bool didBackProject =
+		    makeSiddonForwardImageParams(workingImage,
+		                                 static_cast<std::uint32_t>(
+		                                     frameBatch.frame),
+		                                 updateImageParams) &&
+		    backProjectSingleRay(config.projectorKernel, context, batch,
+		                         updateImageBuffer, updateImageParams,
+		                         profile != nullptr ? &kernelProfile : nullptr);
+		if (profile != nullptr)
+		{
+			addAdjointKernelProfile(profile, kernelProfile);
+		}
+		if (!didBackProject)
+		{
+			return false;
+		}
+	}
+	if (profile != nullptr)
+	{
+		profile->forwardEvents += eventCount;
+		profile->adjointEvents += eventCount;
+	}
+	return true;
+}
+
+bool applyOsemHostRatioBinIteratorWithImageBuffers(
+    const Context& context, OperatorProjectorMetalProfile* profile,
+    const Image& inputImage, ForwardImageResources& inputImageResources,
+    Image& workingImage, Buffer& updateImageBuffer,
+    const ProjectionData& measurements, const Corrector_CPU& corrector,
+    const OperatorProjectorMetalOsemConfig& config,
+    const BinIterator& batchIterator, const BinLoader& binLoader,
+    OperatorProjectorMetalCache* cache,
+    std::vector<CachedCorrectionBatch>* correctionBatches = nullptr,
+    bool buildMissingCorrectionBatches = false)
+{
+	if (useDirectHostRatioFrameBatches() &&
+	    getAdjointEventOrder() == AdjointEventOrder::None)
+	{
+		const auto gatherStart = Clock::now();
+		std::vector<BridgeFrameBatch> frameBatches;
+		bool handled = false;
+		if (!gatherBridgeFrameBatches(measurements, inputImage, batchIterator,
+		                              binLoader, cache, frameBatches,
+		                              handled))
+		{
+			return false;
+		}
+		if (handled)
+		{
+			addGatherProfile(profile, binLoader, true, false,
+			                 getElapsedSeconds(gatherStart, Clock::now()));
+			if (profile != nullptr)
+			{
+				profile->uncachedBatches += 1;
+			}
+			return applyOsemHostRatioFrameBatchesWithImageBuffers(
+			    context, profile, inputImage, inputImageResources, workingImage,
+			    updateImageBuffer, measurements, corrector, config,
+			    frameBatches, batchIterator.size(), correctionBatches,
+			    buildMissingCorrectionBatches);
+		}
+	}
+
+	const auto gatherStart = Clock::now();
+	std::vector<BridgeEvent> events;
+	if (!gatherBridgeEvents(measurements, inputImage, batchIterator, binLoader,
+	                        cache, false, events))
+	{
+		return false;
+	}
+	addGatherProfile(profile, binLoader, true, false,
+	                 getElapsedSeconds(gatherStart, Clock::now()));
+	if (profile != nullptr)
+	{
+		profile->uncachedBatches += 1;
+	}
+	return applyOsemHostRatioEventsWithImageBuffers(
+	    context, profile, inputImage, inputImageResources, workingImage,
+	    updateImageBuffer, measurements, corrector, config, events,
+	    correctionBatches, buildMissingCorrectionBatches);
 }
 
 bool applyOsemHostRatioCachedSegmentWithImageBuffers(
@@ -2872,7 +3451,7 @@ bool applyOsemHostRatioCachedSegmentWithImageBuffers(
 			}
 		}
 
-		kernelProfile = makeSiddonKernelProfile(profile);
+		kernelProfile = makeAdjointSiddonKernelProfile(profile);
 		SiddonForwardImageParams updateImageParams{};
 		const bool didBackProject =
 		    makeSiddonForwardImageParams(
@@ -3307,24 +3886,12 @@ bool applyOsemHostRatioCachedEntry(
 
 		BinIteratorBatched batchIterator(&binIterator, segment.offset,
 		                                 segment.spanSize);
-		const auto gatherStart = Clock::now();
-		std::vector<BridgeEvent> events;
-		if (!gatherBridgeEvents(measurements, inputImage, batchIterator,
-		                        binLoader, cache, false, events))
-		{
-			return false;
-		}
-		addGatherProfile(profile, binLoader, true, false,
-		                 getElapsedSeconds(gatherStart, Clock::now()));
-		if (profile != nullptr)
-		{
-			profile->uncachedBatches += 1;
-		}
 		const bool buildMissingCorrectionBatches =
 		    segment.correctionOnlyCached && !segment.correctionOnlyCacheBuilt;
-		if (!applyOsemHostRatioEventsWithImageBuffers(
+		if (!applyOsemHostRatioBinIteratorWithImageBuffers(
 		        context, profile, inputImage, inputImageResources, workingImage,
-		        updateImageBuffer, measurements, corrector, config, events,
+		        updateImageBuffer, measurements, corrector, config,
+		        batchIterator, binLoader, cache,
 		        &segment.correctionBatches, buildMissingCorrectionBatches))
 		{
 			return false;
@@ -3469,24 +4036,10 @@ bool OperatorProjectorMetalBridge::applyOsemHostRatioWithImageBuffers(
 			BinIteratorBatched batchIterator(&binIterator, offset,
 			                                 currentBatchSize);
 
-			const auto gatherStart = Clock::now();
-			std::vector<BridgeEvent> events;
-			if (!gatherBridgeEvents(measurements, inputImage, batchIterator,
-			                        binLoader, mp_cache, false, events))
-			{
-				return false;
-			}
-			addGatherProfile(mp_profile, binLoader, true, false,
-			                 getElapsedSeconds(gatherStart, Clock::now()));
-			if (mp_profile != nullptr)
-			{
-				mp_profile->uncachedBatches += 1;
-			}
-
-			if (!applyOsemHostRatioEventsWithImageBuffers(
+			if (!applyOsemHostRatioBinIteratorWithImageBuffers(
 			        m_context, mp_profile, inputImage, inputImageResources,
 			        workingImage, updateImageBuffer, measurements, corrector,
-			        config, events))
+			        config, batchIterator, binLoader, mp_cache))
 			{
 				return false;
 			}

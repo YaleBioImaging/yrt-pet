@@ -1970,6 +1970,138 @@ inline void joseph_bilinear_backproject(AtomicImagePointer image, uint axis,
 	    update * fx * fy, params);
 }
 
+template <typename AtomicImagePointer>
+inline void joseph_bilinear_backproject_axis_x(
+    AtomicImagePointer image, int majorIndex, float alpha, float update,
+    ProjectionLineEndpoints line, SiddonForwardImageParams params)
+{
+	const float y = line.p1y + alpha * (line.p2y - line.p1y);
+	const float z = line.p1z + alpha * (line.p2z - line.p1z);
+	const float gy = joseph_grid_coord(y, params.halfLengthY,
+	                                   params.invVoxelY);
+	const float gz = joseph_grid_coord(z, params.halfLengthZ,
+	                                   params.invVoxelZ);
+	const int y0 = int(floor(gy));
+	const int z0 = int(floor(gz));
+	const float fy = gy - float(y0);
+	const float fz = gz - float(z0);
+	joseph_add_voxel(image, majorIndex, y0, z0,
+	    update * (1.0f - fy) * (1.0f - fz), params);
+	joseph_add_voxel(image, majorIndex, y0 + 1, z0,
+	    update * fy * (1.0f - fz), params);
+	joseph_add_voxel(image, majorIndex, y0, z0 + 1,
+	    update * (1.0f - fy) * fz, params);
+	joseph_add_voxel(image, majorIndex, y0 + 1, z0 + 1,
+	    update * fy * fz, params);
+}
+
+template <typename AtomicImagePointer>
+inline void joseph_bilinear_backproject_axis_y(
+    AtomicImagePointer image, int majorIndex, float alpha, float update,
+    ProjectionLineEndpoints line, SiddonForwardImageParams params)
+{
+	const float x = line.p1x + alpha * (line.p2x - line.p1x);
+	const float z = line.p1z + alpha * (line.p2z - line.p1z);
+	const float gx = joseph_grid_coord(x, params.halfLengthX,
+	                                   params.invVoxelX);
+	const float gz = joseph_grid_coord(z, params.halfLengthZ,
+	                                   params.invVoxelZ);
+	const int x0 = int(floor(gx));
+	const int z0 = int(floor(gz));
+	const float fx = gx - float(x0);
+	const float fz = gz - float(z0);
+	joseph_add_voxel(image, x0, majorIndex, z0,
+	    update * (1.0f - fx) * (1.0f - fz), params);
+	joseph_add_voxel(image, x0 + 1, majorIndex, z0,
+	    update * fx * (1.0f - fz), params);
+	joseph_add_voxel(image, x0, majorIndex, z0 + 1,
+	    update * (1.0f - fx) * fz, params);
+	joseph_add_voxel(image, x0 + 1, majorIndex, z0 + 1,
+	    update * fx * fz, params);
+}
+
+template <typename AtomicImagePointer>
+inline void joseph_bilinear_backproject_axis_z(
+    AtomicImagePointer image, int majorIndex, float alpha, float update,
+    ProjectionLineEndpoints line, SiddonForwardImageParams params)
+{
+	const float x = line.p1x + alpha * (line.p2x - line.p1x);
+	const float y = line.p1y + alpha * (line.p2y - line.p1y);
+	const float gx = joseph_grid_coord(x, params.halfLengthX,
+	                                   params.invVoxelX);
+	const float gy = joseph_grid_coord(y, params.halfLengthY,
+	                                   params.invVoxelY);
+	const int x0 = int(floor(gx));
+	const int y0 = int(floor(gy));
+	const float fx = gx - float(x0);
+	const float fy = gy - float(y0);
+	joseph_add_voxel(image, x0, y0, majorIndex,
+	    update * (1.0f - fx) * (1.0f - fy), params);
+	joseph_add_voxel(image, x0 + 1, y0, majorIndex,
+	    update * fx * (1.0f - fy), params);
+	joseph_add_voxel(image, x0, y0 + 1, majorIndex,
+	    update * (1.0f - fx) * fy, params);
+	joseph_add_voxel(image, x0 + 1, y0 + 1, majorIndex,
+	    update * fx * fy, params);
+}
+
+template <typename AtomicImagePointer>
+inline void joseph_bilinear_backproject_axis_x_grid(
+    AtomicImagePointer image, int majorIndex, float gy, float gz,
+    float update, SiddonForwardImageParams params)
+{
+	const int y0 = int(floor(gy));
+	const int z0 = int(floor(gz));
+	const float fy = gy - float(y0);
+	const float fz = gz - float(z0);
+	joseph_add_voxel(image, majorIndex, y0, z0,
+	    update * (1.0f - fy) * (1.0f - fz), params);
+	joseph_add_voxel(image, majorIndex, y0 + 1, z0,
+	    update * fy * (1.0f - fz), params);
+	joseph_add_voxel(image, majorIndex, y0, z0 + 1,
+	    update * (1.0f - fy) * fz, params);
+	joseph_add_voxel(image, majorIndex, y0 + 1, z0 + 1,
+	    update * fy * fz, params);
+}
+
+template <typename AtomicImagePointer>
+inline void joseph_bilinear_backproject_axis_y_grid(
+    AtomicImagePointer image, int majorIndex, float gx, float gz,
+    float update, SiddonForwardImageParams params)
+{
+	const int x0 = int(floor(gx));
+	const int z0 = int(floor(gz));
+	const float fx = gx - float(x0);
+	const float fz = gz - float(z0);
+	joseph_add_voxel(image, x0, majorIndex, z0,
+	    update * (1.0f - fx) * (1.0f - fz), params);
+	joseph_add_voxel(image, x0 + 1, majorIndex, z0,
+	    update * fx * (1.0f - fz), params);
+	joseph_add_voxel(image, x0, majorIndex, z0 + 1,
+	    update * (1.0f - fx) * fz, params);
+	joseph_add_voxel(image, x0 + 1, majorIndex, z0 + 1,
+	    update * fx * fz, params);
+}
+
+template <typename AtomicImagePointer>
+inline void joseph_bilinear_backproject_axis_z_grid(
+    AtomicImagePointer image, int majorIndex, float gx, float gy,
+    float update, SiddonForwardImageParams params)
+{
+	const int x0 = int(floor(gx));
+	const int y0 = int(floor(gy));
+	const float fx = gx - float(x0);
+	const float fy = gy - float(y0);
+	joseph_add_voxel(image, x0, y0, majorIndex,
+	    update * (1.0f - fx) * (1.0f - fy), params);
+	joseph_add_voxel(image, x0 + 1, y0, majorIndex,
+	    update * fx * (1.0f - fy), params);
+	joseph_add_voxel(image, x0, y0 + 1, majorIndex,
+	    update * (1.0f - fx) * fy, params);
+	joseph_add_voxel(image, x0 + 1, y0 + 1, majorIndex,
+	    update * fx * fy, params);
+}
+
 constant uint kJosephThreadgroupAccumulatorSlots = 1024u;
 constant uint kJosephThreadgroupAccumulatorEmpty = 0xffffffffu;
 constant uint kJosephThreadgroupAccumulatorMaxProbes = 8u;
@@ -2490,6 +2622,197 @@ inline void joseph_backproject_single_ray_atomic_axis_value(
 	}
 }
 
+template <typename AtomicImagePointer>
+inline void joseph_backproject_single_ray_atomic_axis_switch_value(
+    AtomicImagePointer image, ProjectionLineEndpoints line,
+    float projectionValue, SiddonForwardImageParams params)
+{
+	if (projectionValue == 0.0f)
+	{
+		return;
+	}
+	float alphaMin;
+	float alphaMax;
+	if (!joseph_alpha_range(line, params, alphaMin, alphaMax))
+	{
+		return;
+	}
+	const uint axis = joseph_major_axis(line, params);
+	int first;
+	int last;
+	if (!joseph_sample_bounds(line, params, axis, alphaMin, alphaMax, first,
+	        last))
+	{
+		return;
+	}
+
+	const JosephAxisCache axisCache =
+	    joseph_make_axis_cache(line, params, axis);
+	if (axis == 0u)
+	{
+		for (int majorIndex = first; majorIndex <= last; ++majorIndex)
+		{
+			const float alpha =
+			    joseph_cached_sample_alpha(axisCache, majorIndex);
+			const float weight =
+			    joseph_cached_sample_weight(axisCache, alpha, alphaMin,
+			                                alphaMax);
+			if (weight == 0.0f)
+			{
+				continue;
+			}
+			joseph_bilinear_backproject_axis_x(
+			    image, majorIndex, alpha, projectionValue * weight, line,
+			    params);
+		}
+		return;
+	}
+	if (axis == 1u)
+	{
+		for (int majorIndex = first; majorIndex <= last; ++majorIndex)
+		{
+			const float alpha =
+			    joseph_cached_sample_alpha(axisCache, majorIndex);
+			const float weight =
+			    joseph_cached_sample_weight(axisCache, alpha, alphaMin,
+			                                alphaMax);
+			if (weight == 0.0f)
+			{
+				continue;
+			}
+			joseph_bilinear_backproject_axis_y(
+			    image, majorIndex, alpha, projectionValue * weight, line,
+			    params);
+		}
+		return;
+	}
+	for (int majorIndex = first; majorIndex <= last; ++majorIndex)
+	{
+		const float alpha =
+		    joseph_cached_sample_alpha(axisCache, majorIndex);
+		const float weight =
+		    joseph_cached_sample_weight(axisCache, alpha, alphaMin,
+		                                alphaMax);
+		if (weight == 0.0f)
+		{
+			continue;
+		}
+		joseph_bilinear_backproject_axis_z(
+		    image, majorIndex, alpha, projectionValue * weight, line,
+		    params);
+	}
+}
+
+template <typename AtomicImagePointer>
+inline void joseph_backproject_single_ray_atomic_incremental_value(
+    AtomicImagePointer image, ProjectionLineEndpoints line,
+    float projectionValue, SiddonForwardImageParams params)
+{
+	if (projectionValue == 0.0f)
+	{
+		return;
+	}
+	float alphaMin;
+	float alphaMax;
+	if (!joseph_alpha_range(line, params, alphaMin, alphaMax))
+	{
+		return;
+	}
+	const uint axis = joseph_major_axis(line, params);
+	int first;
+	int last;
+	if (!joseph_sample_bounds(line, params, axis, alphaMin, alphaMax, first,
+	        last))
+	{
+		return;
+	}
+
+	const JosephAxisCache axisCache =
+	    joseph_make_axis_cache(line, params, axis);
+	const float alphaStep = axisCache.voxel * axisCache.invDelta;
+	float alpha = joseph_cached_sample_alpha(axisCache, first);
+	const float dx = line.p2x - line.p1x;
+	const float dy = line.p2y - line.p1y;
+	const float dz = line.p2z - line.p1z;
+
+	if (axis == 0u)
+	{
+		float gy = joseph_grid_coord(line.p1y + alpha * dy,
+		                             params.halfLengthY,
+		                             params.invVoxelY);
+		float gz = joseph_grid_coord(line.p1z + alpha * dz,
+		                             params.halfLengthZ,
+		                             params.invVoxelZ);
+		const float gyStep = alphaStep * dy * params.invVoxelY;
+		const float gzStep = alphaStep * dz * params.invVoxelZ;
+		for (int majorIndex = first; majorIndex <= last; ++majorIndex)
+		{
+			const float weight =
+			    joseph_cached_sample_weight(axisCache, alpha, alphaMin,
+			                                alphaMax);
+			if (weight != 0.0f)
+			{
+				joseph_bilinear_backproject_axis_x_grid(
+				    image, majorIndex, gy, gz, projectionValue * weight,
+				    params);
+			}
+			alpha += alphaStep;
+			gy += gyStep;
+			gz += gzStep;
+		}
+		return;
+	}
+	if (axis == 1u)
+	{
+		float gx = joseph_grid_coord(line.p1x + alpha * dx,
+		                             params.halfLengthX,
+		                             params.invVoxelX);
+		float gz = joseph_grid_coord(line.p1z + alpha * dz,
+		                             params.halfLengthZ,
+		                             params.invVoxelZ);
+		const float gxStep = alphaStep * dx * params.invVoxelX;
+		const float gzStep = alphaStep * dz * params.invVoxelZ;
+		for (int majorIndex = first; majorIndex <= last; ++majorIndex)
+		{
+			const float weight =
+			    joseph_cached_sample_weight(axisCache, alpha, alphaMin,
+			                                alphaMax);
+			if (weight != 0.0f)
+			{
+				joseph_bilinear_backproject_axis_y_grid(
+				    image, majorIndex, gx, gz, projectionValue * weight,
+				    params);
+			}
+			alpha += alphaStep;
+			gx += gxStep;
+			gz += gzStep;
+		}
+		return;
+	}
+
+	float gx = joseph_grid_coord(line.p1x + alpha * dx, params.halfLengthX,
+	                             params.invVoxelX);
+	float gy = joseph_grid_coord(line.p1y + alpha * dy, params.halfLengthY,
+	                             params.invVoxelY);
+	const float gxStep = alphaStep * dx * params.invVoxelX;
+	const float gyStep = alphaStep * dy * params.invVoxelY;
+	for (int majorIndex = first; majorIndex <= last; ++majorIndex)
+	{
+		const float weight =
+		    joseph_cached_sample_weight(axisCache, alpha, alphaMin,
+		                                alphaMax);
+		if (weight != 0.0f)
+		{
+			joseph_bilinear_backproject_axis_z_grid(
+			    image, majorIndex, gx, gy, projectionValue * weight,
+			    params);
+		}
+		alpha += alphaStep;
+		gx += gxStep;
+		gy += gyStep;
+	}
+}
+
 inline uint joseph_backproject_single_ray_update_count_value(
     ProjectionLineEndpoints line, float projectionValue,
     SiddonForwardImageParams params)
@@ -2914,6 +3237,28 @@ kernel void joseph_backproject_single_ray(
 	    image, lines[id], projectionValues[id], params);
 }
 
+kernel void joseph_backproject_single_ray_axis_switch(
+    device atomic_uint* image [[buffer(0)]],
+    device const ProjectionLineEndpoints* lines [[buffer(1)]],
+    device const float* projectionValues [[buffer(2)]],
+    constant SiddonForwardImageParams& params [[buffer(3)]],
+    uint id [[thread_position_in_grid]])
+{
+	joseph_backproject_single_ray_atomic_axis_switch_value(
+	    image, lines[id], projectionValues[id], params);
+}
+
+kernel void joseph_backproject_single_ray_incremental(
+    device atomic_uint* image [[buffer(0)]],
+    device const ProjectionLineEndpoints* lines [[buffer(1)]],
+    device const float* projectionValues [[buffer(2)]],
+    constant SiddonForwardImageParams& params [[buffer(3)]],
+    uint id [[thread_position_in_grid]])
+{
+	joseph_backproject_single_ray_atomic_incremental_value(
+	    image, lines[id], projectionValues[id], params);
+}
+
 kernel void joseph_backproject_single_ray_axis_x(
     device atomic_uint* image [[buffer(0)]],
     device const ProjectionLineEndpoints* lines [[buffer(1)]],
@@ -2967,6 +3312,28 @@ kernel void joseph_backproject_single_ray_native_atomic_float(
     uint id [[thread_position_in_grid]])
 {
 	joseph_backproject_single_ray_atomic_value(
+	    image, lines[id], projectionValues[id], params);
+}
+
+kernel void joseph_backproject_single_ray_axis_switch_native_atomic_float(
+    device atomic_float* image [[buffer(0)]],
+    device const ProjectionLineEndpoints* lines [[buffer(1)]],
+    device const float* projectionValues [[buffer(2)]],
+    constant SiddonForwardImageParams& params [[buffer(3)]],
+    uint id [[thread_position_in_grid]])
+{
+	joseph_backproject_single_ray_atomic_axis_switch_value(
+	    image, lines[id], projectionValues[id], params);
+}
+
+kernel void joseph_backproject_single_ray_incremental_native_atomic_float(
+    device atomic_float* image [[buffer(0)]],
+    device const ProjectionLineEndpoints* lines [[buffer(1)]],
+    device const float* projectionValues [[buffer(2)]],
+    constant SiddonForwardImageParams& params [[buffer(3)]],
+    uint id [[thread_position_in_grid]])
+{
+	joseph_backproject_single_ray_atomic_incremental_value(
 	    image, lines[id], projectionValues[id], params);
 }
 

@@ -182,6 +182,10 @@ void py_setup_osem_cpu(pybind11::module& m)
 		      result["forward_download_s"] = timings.forwardDownloadSeconds;
 		      result["forward_host_write_s"] =
 		          timings.forwardHostWriteSeconds;
+		      result["image_psf_forward_s"] =
+		          timings.imagePsfForwardSeconds;
+		      result["image_psf_adjoint_s"] =
+		          timings.imagePsfAdjointSeconds;
 		      result["ratio_pack_s"] = timings.ratioPackSeconds;
 		      result["ratio_batch_upload_s"] =
 		          timings.ratioBatchUploadSeconds;
@@ -221,6 +225,16 @@ void py_setup_osem_cpu(pybind11::module& m)
 		          timings.adjointUpdateCountSeconds;
 		      result["adjoint_voxel_hit_count_s"] =
 		          timings.adjointVoxelHitCountSeconds;
+		      result["adjoint_diagnostic_batches_seen"] =
+		          timings.adjointDiagnosticBatchesSeen;
+		      result["adjoint_diagnostic_batches_profiled"] =
+		          timings.adjointDiagnosticBatchesProfiled;
+		      result["adjoint_diagnostic_batches_skipped"] =
+		          timings.adjointDiagnosticBatchesSkipped;
+		      result["adjoint_diagnostic_max_batches"] =
+		          timings.adjointDiagnosticMaxBatches;
+		      result["adjoint_diagnostic_stride"] =
+		          timings.adjointDiagnosticStride;
 		      result["cache_lookup_s"] = timings.cacheLookupSeconds;
 		      result["cache_admission_s"] = timings.cacheAdmissionSeconds;
 		      result["cache_admission_gather_s"] =
@@ -392,6 +406,10 @@ void py_setup_osem_cpu(pybind11::module& m)
 			          timing.forwardImageUploadSeconds;
 			      row["forward_kernel_s"] = timing.forwardKernelSeconds;
 			      row["forward_download_s"] = timing.forwardDownloadSeconds;
+			      row["image_psf_forward_s"] =
+			          timing.imagePsfForwardSeconds;
+			      row["image_psf_adjoint_s"] =
+			          timing.imagePsfAdjointSeconds;
 			      row["ratio_pack_s"] = timing.ratioPackSeconds;
 			      row["ratio_batch_upload_s"] =
 			          timing.ratioBatchUploadSeconds;
@@ -413,6 +431,16 @@ void py_setup_osem_cpu(pybind11::module& m)
 			          timing.adjointUpdateCountSeconds;
 			      row["adjoint_voxel_hit_count_s"] =
 			          timing.adjointVoxelHitCountSeconds;
+			      row["adjoint_diagnostic_batches_seen"] =
+			          timing.adjointDiagnosticBatchesSeen;
+			      row["adjoint_diagnostic_batches_profiled"] =
+			          timing.adjointDiagnosticBatchesProfiled;
+			      row["adjoint_diagnostic_batches_skipped"] =
+			          timing.adjointDiagnosticBatchesSkipped;
+			      row["adjoint_diagnostic_max_batches"] =
+			          timing.adjointDiagnosticMaxBatches;
+			      row["adjoint_diagnostic_stride"] =
+			          timing.adjointDiagnosticStride;
 			      row["cache_lookup_s"] = timing.cacheLookupSeconds;
 			      row["cache_admission_s"] = timing.cacheAdmissionSeconds;
 			      row["cache_admission_gather_s"] =
@@ -748,6 +776,8 @@ void addBridgeProfileToTimings(
 	timings.forwardKernelSeconds += bridgeProfile.forwardKernelSeconds;
 	timings.forwardDownloadSeconds += bridgeProfile.forwardDownloadSeconds;
 	timings.forwardHostWriteSeconds += bridgeProfile.forwardHostWriteSeconds;
+	timings.imagePsfForwardSeconds += bridgeProfile.imagePsfForwardSeconds;
+	timings.imagePsfAdjointSeconds += bridgeProfile.imagePsfAdjointSeconds;
 	timings.ratioPackSeconds += bridgeProfile.ratioPackSeconds;
 	timings.ratioBatchUploadSeconds += bridgeProfile.ratioBatchUploadSeconds;
 	timings.ratioKernelSeconds += bridgeProfile.ratioKernelSeconds;
@@ -785,6 +815,16 @@ void addBridgeProfileToTimings(
 	    bridgeProfile.adjointUpdateCountSeconds;
 	timings.adjointVoxelHitCountSeconds +=
 	    bridgeProfile.adjointVoxelHitCountSeconds;
+	timings.adjointDiagnosticBatchesSeen +=
+	    bridgeProfile.adjointDiagnosticBatchesSeen;
+	timings.adjointDiagnosticBatchesProfiled +=
+	    bridgeProfile.adjointDiagnosticBatchesProfiled;
+	timings.adjointDiagnosticBatchesSkipped +=
+	    bridgeProfile.adjointDiagnosticBatchesSkipped;
+	timings.adjointDiagnosticMaxBatches =
+	    bridgeProfile.adjointDiagnosticMaxBatches;
+	timings.adjointDiagnosticStride =
+	    bridgeProfile.adjointDiagnosticStride;
 	timings.cacheLookupSeconds += bridgeProfile.cacheLookupSeconds;
 	timings.cacheAdmissionSeconds += bridgeProfile.cacheAdmissionSeconds;
 	timings.cacheAdmissionGatherSeconds +=
@@ -2524,12 +2564,15 @@ bool OSEM_CPU::computeEMUpdateImageWithExperimentalMetalProjector(
 		}
 		if (flagImagePSF)
 		{
+			const auto psfForwardStart = Clock::now();
 			if (!applyExperimentalMetalResidentImagePsfForward(
 			        state.context, state.imageBuffer, state.psfForwardBuffer,
 			        residentImageShape))
 			{
 				return false;
 			}
+			bridgeProfile.imagePsfForwardSeconds +=
+			    getElapsedSeconds(psfForwardStart, Clock::now());
 			residentInputImageBuffer = &state.psfForwardBuffer;
 		}
 		else
@@ -2625,12 +2668,15 @@ bool OSEM_CPU::computeEMUpdateImageWithExperimentalMetalProjector(
 			if (didRun && flagImagePSF)
 			{
 				auto& state = *mp_experimentalMetalResidentOsemState;
+				const auto psfAdjointStart = Clock::now();
 				if (!applyExperimentalMetalResidentImagePsfAdjoint(
 				        state.context, state.updateBuffer, state.psfUpdateBuffer,
 				        residentImageShape))
 				{
 					return false;
 				}
+				bridgeProfile.imagePsfAdjointSeconds +=
+				    getElapsedSeconds(psfAdjointStart, Clock::now());
 				std::swap(state.updateBuffer, state.psfUpdateBuffer);
 				state.updateReady = true;
 			}
@@ -2791,6 +2837,9 @@ bool OSEM_CPU::computeEMUpdateImageWithExperimentalMetalProjector(
 		const double totalSeconds = getElapsedSeconds(totalStart, Clock::now());
 		const double accountedSeconds =
 		    setupSeconds + forwardSeconds + ratioSeconds + adjointSeconds +
+		    bridgeProfile.imagePsfForwardSeconds +
+		    bridgeProfile.imagePsfAdjointSeconds +
+		    bridgeProfile.ratioCorrectionCacheBuildSeconds +
 		    bridgeProfile.ratioNonzeroDiagnosticSeconds;
 		bridgeProfile.metalPathOverheadSeconds =
 		    std::max(0.0, totalSeconds - accountedSeconds);

@@ -88,6 +88,8 @@ public:
 		double forwardKernelSeconds = 0.0;
 		double forwardDownloadSeconds = 0.0;
 		double forwardHostWriteSeconds = 0.0;
+		double imagePsfForwardSeconds = 0.0;
+		double imagePsfAdjointSeconds = 0.0;
 		double ratioPackSeconds = 0.0;
 		double ratioBatchUploadSeconds = 0.0;
 		double ratioKernelSeconds = 0.0;
@@ -110,6 +112,11 @@ public:
 		double adjointHostImageCopySeconds = 0.0;
 		double adjointUpdateCountSeconds = 0.0;
 		double adjointVoxelHitCountSeconds = 0.0;
+		size_t adjointDiagnosticBatchesSeen = 0;
+		size_t adjointDiagnosticBatchesProfiled = 0;
+		size_t adjointDiagnosticBatchesSkipped = 0;
+		size_t adjointDiagnosticMaxBatches = 0;
+		size_t adjointDiagnosticStride = 1;
 		double cacheLookupSeconds = 0.0;
 		double cacheAdmissionSeconds = 0.0;
 		double cacheAdmissionGatherSeconds = 0.0;

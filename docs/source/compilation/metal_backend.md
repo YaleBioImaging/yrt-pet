@@ -148,6 +148,85 @@ CPU-vs-Metal comparison mode intentionally requires `--metal-projector siddon`
 and `--metal-sensitivity-projector siddon`, because there is no public CPU
 Joseph projector or Joseph sensitivity generator in this codebase.
 
+## Real-data Metal OSEM recipe
+
+The GE mini-hot-spot Python driver has a named, explicit Metal recipe for the
+current best experimental Joseph path. The recipe is still opt-in and
+script-local; it does not change default CPU, CUDA, `OSEM_CPU`,
+`OperatorProjector`, or Python binding behavior.
+
+First inspect the resolved command and memory/cache plan:
+
+```sh
+PYTHONPATH=build_metal \
+  python yrt-pet/python/examples/metal_ge_osem_smoke.py \
+    --base /Users/yanischemli/Desktop/mini_hot_spot \
+    --metal-recipe ge-mini-hotspot-joseph-full-3it \
+    --dry-run
+```
+
+The recipe currently expands to the full-data Metal-only Joseph path:
+
+- full pseudo-listmode input (`--pct 100`, no event cap)
+- `--iterations 3 --subsets 17`
+- motion enabled
+- Metal sensitivity motion enabled
+- uniform image PSF enabled on the resident Metal image path
+- Joseph projector and Joseph sensitivity projector
+- cached compact corrections
+- direct frame batches for the no-constraint listmode path
+- native Metal float atomics
+- 512 threads per threadgroup
+- the tested Joseph adjoint axis-switch shader
+- a 24 GiB Metal cache budget with automatic correction-cache reservation
+
+For a quick sanity run using the same recipe but fewer events:
+
+```sh
+PYTHONPATH=build_metal \
+  python yrt-pet/python/examples/metal_ge_osem_smoke.py \
+    --base /Users/yanischemli/Desktop/mini_hot_spot \
+    --metal-recipe ge-mini-hotspot-joseph-full-3it \
+    --max-events 65536 \
+    --iterations 1 \
+    --subsets 1 \
+    --metal-cache-budget-mb 8192 \
+    --no-write-images \
+    --summary-csv ./metal_ge_joseph_recipe_65k_1it.csv
+```
+
+For the full recipe while keeping images for visual inspection:
+
+```sh
+PYTHONPATH=build_metal \
+  python yrt-pet/python/examples/metal_ge_osem_smoke.py \
+    --base /Users/yanischemli/Desktop/mini_hot_spot \
+    --metal-recipe ge-mini-hotspot-joseph-full-3it \
+    --out-dir /private/tmp/metal_ge_joseph_recipe_full_3it \
+    --summary-csv ./metal_ge_joseph_recipe_full_3it.csv
+```
+
+`--metal-recipe` only fills options that were not provided on the command line,
+so it can be used as a base for smaller runs, cache-size experiments, or image
+write/no-write toggles. `--dry-run` prints the exact resolved command, selected
+event count, listmode loader plan, estimated listmode memory, Metal cache plan,
+and combined listmode/cache peak estimate without starting reconstruction.
+
+The full recipe intentionally uses `--allow-unsafe-metal` because it runs
+beyond the conservative smoke-test event/iteration guard. That does not make
+Metal the default backend; it only acknowledges that the current Joseph OSEM
+path remains experimental and should be scaled deliberately. Watch macOS memory
+pressure during full-data runs, especially when the cache pressure risk is
+reported as `high` or `very_high`.
+
+The current full-precision Joseph checkpoint did not find a large remaining
+easy win from ray ordering or simple adjoint shader rewrites. The best measured
+path is the direct-frame, cached-correction, native-atomic, 512-threadgroup,
+axis-switch-adjoint recipe above. The incremental-coordinate Joseph adjoint
+kernel remains available for A/B testing through
+`--metal-joseph-adjoint-incremental-coords`, but it is not part of the
+recommended recipe.
+
 Run the Metal golden tests:
 
 ```sh

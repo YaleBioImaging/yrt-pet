@@ -92,6 +92,20 @@ bool useThreadgroupSampleAccumulationForAdjoint()
 	           std::strcmp(value, "threadgroup") == 0);
 }
 
+bool useAxisSwitchOnceForAdjoint()
+{
+	const char* value =
+	    std::getenv("YRTPET_METAL_JOSEPH_ADJOINT_AXIS_SWITCH_ONCE");
+	return value != nullptr && value[0] != '\0' && value[0] != '0';
+}
+
+bool useIncrementalCoordinatesForAdjoint()
+{
+	const char* value =
+	    std::getenv("YRTPET_METAL_JOSEPH_ADJOINT_INCREMENTAL_COORDS");
+	return value != nullptr && value[0] != '\0' && value[0] != '0';
+}
+
 const char* axisSuffix(std::uint32_t axis)
 {
 	if (axis == 0)
@@ -199,13 +213,31 @@ bool launchJosephBackProjectSingleRay(const Device& device,
 	const bool useNativeFloatAtomics = useNativeFloatAtomicsForAdjoint();
 	if (sampleStride <= 1)
 	{
-		const char* kernelName =
+		const bool useThreadgroupSampleAccumulation =
 		    useNativeFloatAtomics &&
-		            useThreadgroupSampleAccumulationForAdjoint() ?
+		    useThreadgroupSampleAccumulationForAdjoint();
+		const bool useAxisSwitchOnce =
+		    !useThreadgroupSampleAccumulation &&
+		    useAxisSwitchOnceForAdjoint();
+		const bool useIncrementalCoordinates =
+		    !useThreadgroupSampleAccumulation &&
+		    useIncrementalCoordinatesForAdjoint();
+		const char* kernelName =
+		    useThreadgroupSampleAccumulation ?
 		        "joseph_backproject_single_ray_threadgroup_sample_"
+		        "native_atomic_float" :
+		    useNativeFloatAtomics && useIncrementalCoordinates ?
+		        "joseph_backproject_single_ray_incremental_"
+		        "native_atomic_float" :
+		    useIncrementalCoordinates ?
+		        "joseph_backproject_single_ray_incremental" :
+		    useNativeFloatAtomics && useAxisSwitchOnce ?
+		        "joseph_backproject_single_ray_axis_switch_"
 		        "native_atomic_float" :
 		    useNativeFloatAtomics ?
 		        "joseph_backproject_single_ray_native_atomic_float" :
+		    useAxisSwitchOnce ?
+		        "joseph_backproject_single_ray_axis_switch" :
 		        "joseph_backproject_single_ray";
 		return launchKernel1D(device, library, commandQueue, kernelName,
 		    {{&image, 0}, {&lines, 1}, {&projectionValues, 2}},

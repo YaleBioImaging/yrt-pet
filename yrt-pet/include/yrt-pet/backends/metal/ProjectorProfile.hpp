@@ -69,6 +69,8 @@ struct OperatorProjectorMetalProfile
 	double forwardKernelSeconds = 0.0;
 	double forwardDownloadSeconds = 0.0;
 	double forwardHostWriteSeconds = 0.0;
+	double imagePsfForwardSeconds = 0.0;
+	double imagePsfAdjointSeconds = 0.0;
 
 	double ratioPackSeconds = 0.0;
 	double ratioBatchUploadSeconds = 0.0;
@@ -109,6 +111,11 @@ struct OperatorProjectorMetalProfile
 
 	bool diagnoseAdjointUpdateCounts = false;
 	bool diagnoseAdjointVoxelHits = false;
+	std::size_t adjointDiagnosticBatchesSeen = 0;
+	std::size_t adjointDiagnosticBatchesProfiled = 0;
+	std::size_t adjointDiagnosticBatchesSkipped = 0;
+	std::size_t adjointDiagnosticMaxBatches = 0;
+	std::size_t adjointDiagnosticStride = 1;
 	std::size_t forwardEvents = 0;
 	std::size_t forwardBatches = 0;
 	std::size_t adjointEvents = 0;

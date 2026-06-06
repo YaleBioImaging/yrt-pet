@@ -3196,6 +3196,10 @@ def configure_osem_experimental_metal(recon, args):
     if hasattr(recon, "setExperimentalMetalProjectorOptions") and hasattr(
         yrt, "ExperimentalMetalProjectorOptions"
     ):
+        def set_option_if_available(options, name, value):
+            if hasattr(options, name):
+                setattr(options, name, value)
+
         options = yrt.ExperimentalMetalProjectorOptions()
         options.enabled = True
         options.fused_ratio = bool(args.metal_fused_ratio)
@@ -3215,6 +3219,36 @@ def configure_osem_experimental_metal(recon, args):
         options.cache_max_bytes = cache_max_bytes
         options.correction_cache_reserve_bytes = correction_cache_reserve_bytes
         options.max_batch_events = int(args.metal_batch_events)
+        set_option_if_available(options, "direct_frame_batches_explicit", True)
+        set_option_if_available(
+            options, "direct_frame_batches", bool(args.metal_direct_frame_batches)
+        )
+        native_float_atomics = getattr(args, "metal_native_float_atomics", None)
+        if native_float_atomics is not None:
+            set_option_if_available(
+                options, "native_float_atomics_explicit", True
+            )
+            set_option_if_available(
+                options, "native_float_atomics", bool(native_float_atomics)
+            )
+        set_option_if_available(
+            options,
+            "joseph_adjoint_axis_switch_once_explicit",
+            True,
+        )
+        set_option_if_available(
+            options,
+            "joseph_adjoint_axis_switch_once",
+            bool(args.metal_joseph_adjoint_axis_switch_once),
+        )
+        set_option_if_available(
+            options, "threads_per_threadgroup_explicit", True
+        )
+        set_option_if_available(
+            options,
+            "threads_per_threadgroup",
+            int(args.metal_threads_per_threadgroup),
+        )
         recon.setExperimentalMetalProjectorOptions(options)
         reset_metal_profile_timings(recon, args)
         return

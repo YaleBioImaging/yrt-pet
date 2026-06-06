@@ -31,6 +31,67 @@ def make_scanner():
     return scanner
 
 
+def test_experimental_metal_projector_options_roundtrip(monkeypatch):
+    monkeypatch.setenv("YRTPET_METAL_DIRECT_FRAME_BATCHES", "0")
+    monkeypatch.setenv("YRTPET_METAL_USE_NATIVE_FLOAT_ATOMICS", "0")
+    monkeypatch.setenv("YRTPET_METAL_THREADS_PER_THREADGROUP", "1024")
+    monkeypatch.setenv("YRTPET_METAL_JOSEPH_ADJOINT_AXIS_SWITCH_ONCE", "0")
+
+    scanner = make_scanner()
+    osem = yrt.createOSEM(scanner, False)
+    options = yrt.ExperimentalMetalProjectorOptions()
+    options.enabled = True
+    options.fused_ratio = False
+    options.resident_images = True
+    options.kernel = "joseph"
+    options.profiling = True
+    options.adjoint_diagnostics = True
+    options.adjoint_hit_diagnostics = True
+    options.cache_enabled = True
+    options.lazy_corrections = False
+    options.cached_corrections = True
+    options.image_psf = True
+    options.cache_max_bytes = 123456
+    options.correction_cache_reserve_bytes = 4096
+    options.max_batch_events = 2048
+    options.direct_frame_batches_explicit = True
+    options.direct_frame_batches = True
+    options.native_float_atomics_explicit = True
+    options.native_float_atomics = True
+    options.joseph_adjoint_axis_switch_once_explicit = True
+    options.joseph_adjoint_axis_switch_once = True
+    options.threads_per_threadgroup_explicit = True
+    options.threads_per_threadgroup = 512
+
+    osem.setExperimentalMetalProjectorOptions(options)
+    actual = osem.getExperimentalMetalProjectorOptions()
+
+    assert actual.enabled is True
+    assert actual.resident_images is True
+    assert actual.kernel == "joseph"
+    assert actual.profiling is True
+    assert actual.adjoint_diagnostics is True
+    assert actual.adjoint_hit_diagnostics is True
+    assert actual.cache_enabled is True
+    assert actual.cached_corrections is True
+    assert actual.image_psf is True
+    assert actual.cache_max_bytes == 123456
+    assert actual.correction_cache_reserve_bytes == 4096
+    assert actual.max_batch_events == 2048
+    assert actual.direct_frame_batches_explicit is True
+    assert actual.direct_frame_batches is True
+    assert actual.native_float_atomics_explicit is True
+    assert actual.native_float_atomics is True
+    assert actual.joseph_adjoint_axis_switch_once_explicit is True
+    assert actual.joseph_adjoint_axis_switch_once is True
+    assert actual.threads_per_threadgroup_explicit is True
+    assert actual.threads_per_threadgroup == 512
+
+    options.threads_per_threadgroup = 0
+    osem.setExperimentalMetalProjectorOptions(options)
+    assert osem.getExperimentalMetalProjectorOptions().threads_per_threadgroup == 0
+
+
 # %% List-mode
 
 

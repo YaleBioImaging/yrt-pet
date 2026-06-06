@@ -26,32 +26,39 @@ struct SiddonProjectorKernelProfile;
 
 bool forwardProjectJosephSingleRay(const Context& context, const Image& image,
     ProjectionBatchMetal& batch, std::uint32_t frame = 0,
-    SiddonProjectorKernelProfile* profile = nullptr);
+    SiddonProjectorKernelProfile* profile = nullptr,
+    const ProjectorKernelOptions* options = nullptr);
 bool forwardProjectJosephSingleRay(const Context& context,
     const Buffer& imageBuffer, ProjectionBatchMetal& batch,
     const SiddonForwardImageParams& params,
-    SiddonProjectorKernelProfile* profile = nullptr);
+    SiddonProjectorKernelProfile* profile = nullptr,
+    const ProjectorKernelOptions* options = nullptr);
 bool forwardProjectJosephSingleRayAxis(const Context& context,
     const Buffer& imageBuffer, ProjectionBatchMetal& batch,
     const SiddonForwardImageParams& params, std::uint32_t axis,
-    SiddonProjectorKernelProfile* profile = nullptr);
+    SiddonProjectorKernelProfile* profile = nullptr,
+    const ProjectorKernelOptions* options = nullptr);
 bool uploadJosephImageFrameTexture(const Context& context, const Image& image,
     std::uint32_t frame, Texture3D& texture, Sampler& sampler,
     SiddonProjectorKernelProfile* profile = nullptr);
 bool forwardProjectJosephSingleRayTexture(const Context& context,
     const Texture3D& imageTexture, const Sampler& sampler,
     ProjectionBatchMetal& batch, const SiddonForwardImageParams& params,
-    SiddonProjectorKernelProfile* profile = nullptr);
+    SiddonProjectorKernelProfile* profile = nullptr,
+    const ProjectorKernelOptions* options = nullptr);
 bool backProjectJosephSingleRay(const Context& context,
     const ProjectionBatchMetal& batch, Image& image, std::uint32_t frame = 0,
-    SiddonProjectorKernelProfile* profile = nullptr);
+    SiddonProjectorKernelProfile* profile = nullptr,
+    const ProjectorKernelOptions* options = nullptr);
 bool backProjectJosephSingleRay(const Context& context,
     const ProjectionBatchMetal& batch, Buffer& imageBuffer,
     const SiddonForwardImageParams& params,
-    SiddonProjectorKernelProfile* profile = nullptr);
+    SiddonProjectorKernelProfile* profile = nullptr,
+    const ProjectorKernelOptions* options = nullptr);
 bool backProjectJosephSingleRayAxis(const Context& context,
     const ProjectionBatchMetal& batch, Buffer& imageBuffer,
     const SiddonForwardImageParams& params, std::uint32_t axis,
-    SiddonProjectorKernelProfile* profile = nullptr);
+    SiddonProjectorKernelProfile* profile = nullptr,
+    const ProjectorKernelOptions* options = nullptr);
 
 }  // namespace yrt::backend::metal

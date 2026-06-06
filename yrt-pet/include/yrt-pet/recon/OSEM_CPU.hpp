@@ -229,6 +229,14 @@ public:
 		size_t cacheMaxBytes = static_cast<size_t>(1024) * 1024 * 1024;
 		size_t correctionCacheReserveBytes = 0;
 		size_t maxBatchEvents = 1000000;
+		bool directFrameBatchesExplicit = false;
+		bool directFrameBatches = false;
+		bool nativeFloatAtomicsExplicit = false;
+		bool nativeFloatAtomics = false;
+		bool josephAdjointAxisSwitchOnceExplicit = false;
+		bool josephAdjointAxisSwitchOnce = false;
+		bool threadsPerThreadgroupExplicit = false;
+		size_t threadsPerThreadgroup = 0;
 	};
 
 	explicit OSEM_CPU(const Scanner& pr_scanner);
@@ -344,6 +352,15 @@ protected:
 	    static_cast<size_t>(1024) * 1024 * 1024;
 	size_t m_experimentalMetalProjectorCorrectionCacheReserveBytes = 0;
 	size_t m_experimentalMetalProjectorMaxBatchEvents = 1000000;
+	bool m_experimentalMetalProjectorDirectFrameBatchesExplicit = false;
+	bool m_experimentalMetalProjectorDirectFrameBatches = false;
+	bool m_experimentalMetalProjectorNativeFloatAtomicsExplicit = false;
+	bool m_experimentalMetalProjectorNativeFloatAtomics = false;
+	bool m_experimentalMetalProjectorJosephAdjointAxisSwitchOnceExplicit =
+	    false;
+	bool m_experimentalMetalProjectorJosephAdjointAxisSwitchOnce = false;
+	bool m_experimentalMetalProjectorThreadsPerThreadgroupExplicit = false;
+	size_t m_experimentalMetalProjectorThreadsPerThreadgroup = 0;
 	ExperimentalMetalProjectorTimings m_experimentalMetalProjectorTimings;
 	std::vector<ExperimentalMetalProjectorSubsetTiming>
 	    m_experimentalMetalProjectorSubsetTimings;

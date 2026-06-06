@@ -55,6 +55,14 @@ struct OperatorProjectorMetalOsemConfig
 	bool cacheCorrectionFactors = false;
 	OperatorProjectorMetalKernel projectorKernel =
 	    OperatorProjectorMetalKernel::Siddon;
+	bool directFrameBatchesExplicit = false;
+	bool directFrameBatches = false;
+	bool nativeFloatAtomicsExplicit = false;
+	bool nativeFloatAtomics = false;
+	bool josephAdjointAxisSwitchOnceExplicit = false;
+	bool josephAdjointAxisSwitchOnce = false;
+	bool threadsPerThreadgroupExplicit = false;
+	std::size_t threadsPerThreadgroup = 0;
 };
 
 class OperatorProjectorMetalCache

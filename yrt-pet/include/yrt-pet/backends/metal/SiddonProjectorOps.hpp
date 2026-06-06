@@ -35,17 +35,21 @@ bool downloadSiddonImageBuffer(const Context& context,
 
 bool forwardProjectSiddonSingleRay(const Context& context, const Image& image,
     ProjectionBatchMetal& batch, std::uint32_t frame = 0,
-    SiddonProjectorKernelProfile* profile = nullptr);
+    SiddonProjectorKernelProfile* profile = nullptr,
+    const ProjectorKernelOptions* options = nullptr);
 bool forwardProjectSiddonSingleRay(const Context& context,
     const Buffer& imageBuffer, ProjectionBatchMetal& batch,
     const SiddonForwardImageParams& params,
-    SiddonProjectorKernelProfile* profile = nullptr);
+    SiddonProjectorKernelProfile* profile = nullptr,
+    const ProjectorKernelOptions* options = nullptr);
 bool backProjectSiddonSingleRay(const Context& context,
     const ProjectionBatchMetal& batch, Image& image, std::uint32_t frame = 0,
-    SiddonProjectorKernelProfile* profile = nullptr);
+    SiddonProjectorKernelProfile* profile = nullptr,
+    const ProjectorKernelOptions* options = nullptr);
 bool backProjectSiddonSingleRay(const Context& context,
     const ProjectionBatchMetal& batch, Buffer& imageBuffer,
     const SiddonForwardImageParams& params,
-    SiddonProjectorKernelProfile* profile = nullptr);
+    SiddonProjectorKernelProfile* profile = nullptr,
+    const ProjectorKernelOptions* options = nullptr);
 
 }  // namespace yrt::backend::metal

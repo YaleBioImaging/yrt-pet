@@ -186,6 +186,39 @@ bool useDirectHostRatioFrameBatches()
 	return value != nullptr && value[0] != '\0' && value[0] != '0';
 }
 
+bool useDirectHostRatioFrameBatches(
+    const OperatorProjectorMetalOsemConfig& config)
+{
+	if (config.directFrameBatchesExplicit)
+	{
+		return config.directFrameBatches;
+	}
+	return useDirectHostRatioFrameBatches();
+}
+
+ProjectorKernelOptions makeProjectorKernelOptions(
+    const OperatorProjectorMetalOsemConfig* config)
+{
+	ProjectorKernelOptions options;
+	if (config == nullptr)
+	{
+		return options;
+	}
+
+	options.nativeFloatAtomicsExplicit =
+	    config->nativeFloatAtomicsExplicit;
+	options.nativeFloatAtomics = config->nativeFloatAtomics;
+	options.josephAdjointAxisSwitchOnceExplicit =
+	    config->josephAdjointAxisSwitchOnceExplicit;
+	options.josephAdjointAxisSwitchOnce =
+	    config->josephAdjointAxisSwitchOnce;
+	options.launchOptions.threadsPerThreadgroupExplicit =
+	    config->threadsPerThreadgroupExplicit;
+	options.launchOptions.threadsPerThreadgroup =
+	    config->threadsPerThreadgroup;
+	return options;
+}
+
 JosephAxisSpecialization getJosephAxisSpecialization()
 {
 	const char* value = std::getenv("YRTPET_METAL_JOSEPH_AXIS_SPECIALIZED");
@@ -585,7 +618,8 @@ bool forwardProjectSingleRay(OperatorProjectorMetalKernel kernel,
                              ProjectionBatchMetal& batch,
                              const SiddonForwardImageParams& params,
                              SiddonProjectorKernelProfile* profile,
-                             std::uint32_t josephAxis = kNoJosephAxis)
+                             std::uint32_t josephAxis = kNoJosephAxis,
+                             const ProjectorKernelOptions* options = nullptr)
 {
 	if (kernel == OperatorProjectorMetalKernel::Joseph)
 	{
@@ -593,13 +627,14 @@ bool forwardProjectSingleRay(OperatorProjectorMetalKernel kernel,
 		    josephAxis < kNoJosephAxis)
 		{
 			return forwardProjectJosephSingleRayAxis(
-			    context, imageBuffer, batch, params, josephAxis, profile);
+			    context, imageBuffer, batch, params, josephAxis, profile,
+			    options);
 		}
 		return forwardProjectJosephSingleRay(context, imageBuffer, batch,
-		                                     params, profile);
+		                                     params, profile, options);
 	}
 	return forwardProjectSiddonSingleRay(context, imageBuffer, batch, params,
-	                                     profile);
+	                                     profile, options);
 }
 
 bool forwardProjectSingleRay(OperatorProjectorMetalKernel kernel,
@@ -608,13 +643,14 @@ bool forwardProjectSingleRay(OperatorProjectorMetalKernel kernel,
                              ProjectionBatchMetal& batch,
                              const SiddonForwardImageParams& params,
                              SiddonProjectorKernelProfile* profile,
-                             std::uint32_t josephAxis = kNoJosephAxis)
+                             std::uint32_t josephAxis = kNoJosephAxis,
+                             const ProjectorKernelOptions* options = nullptr)
 {
 	if (kernel != OperatorProjectorMetalKernel::JosephTextureForward)
 	{
 		return forwardProjectSingleRay(kernel, context,
 		                               imageResources.imageBuffer, batch,
-		                               params, profile, josephAxis);
+		                               params, profile, josephAxis, options);
 	}
 
 	auto textureIt = imageResources.josephTexturesByFrame.find(params.frame);
@@ -634,7 +670,7 @@ bool forwardProjectSingleRay(OperatorProjectorMetalKernel kernel,
 
 	return forwardProjectJosephSingleRayTexture(context, textureIt->second,
 	                                            imageResources.sampler, batch,
-	                                            params, profile);
+	                                            params, profile, options);
 }
 
 bool backProjectSingleRay(OperatorProjectorMetalKernel kernel,
@@ -643,7 +679,8 @@ bool backProjectSingleRay(OperatorProjectorMetalKernel kernel,
                           Buffer& imageBuffer,
                           const SiddonForwardImageParams& params,
                           SiddonProjectorKernelProfile* profile,
-                          std::uint32_t josephAxis = kNoJosephAxis)
+                          std::uint32_t josephAxis = kNoJosephAxis,
+                          const ProjectorKernelOptions* options = nullptr)
 {
 	if (kernel == OperatorProjectorMetalKernel::Joseph ||
 	    kernel == OperatorProjectorMetalKernel::JosephTextureForward)
@@ -652,13 +689,14 @@ bool backProjectSingleRay(OperatorProjectorMetalKernel kernel,
 		    josephAxis < kNoJosephAxis)
 		{
 			return backProjectJosephSingleRayAxis(
-			    context, batch, imageBuffer, params, josephAxis, profile);
+			    context, batch, imageBuffer, params, josephAxis, profile,
+			    options);
 		}
 		return backProjectJosephSingleRay(context, batch, imageBuffer, params,
-		                                  profile);
+		                                  profile, options);
 	}
 	return backProjectSiddonSingleRay(context, batch, imageBuffer, params,
-	                                  profile);
+	                                  profile, options);
 }
 
 std::size_t estimateCorrectionBytesPerEvent(
@@ -2496,6 +2534,7 @@ bool applyOsemEventsWithImageBuffers(
 		return true;
 	}
 
+	const auto kernelOptions = makeProjectorKernelOptions(&config);
 	const SiddonProjectorMetal metalProjector(context);
 	for (const auto& [frame, indices] : groupNonNegativeFrames(events))
 	{
@@ -2539,7 +2578,8 @@ bool applyOsemEventsWithImageBuffers(
 		        inputImage, static_cast<std::uint32_t>(frame), imageParams) &&
 		    forwardProjectSingleRay(
 		        config.projectorKernel, context, inputImageResources, batch,
-		        imageParams, profile != nullptr ? &kernelProfile : nullptr);
+		        imageParams, profile != nullptr ? &kernelProfile : nullptr,
+		        kNoJosephAxis, &kernelOptions);
 		addForwardKernelProfile(profile, kernelProfile);
 		if (!didForward ||
 		    !applyOsemRatioToBatch(context, profile, batch, bins, measurements,
@@ -2556,7 +2596,8 @@ bool applyOsemEventsWithImageBuffers(
 		                                 updateImageParams) &&
 		    backProjectSingleRay(config.projectorKernel, context, batch,
 		                         updateImageBuffer, updateImageParams,
-		                         profile != nullptr ? &kernelProfile : nullptr);
+		                         profile != nullptr ? &kernelProfile : nullptr,
+		                         kNoJosephAxis, &kernelOptions);
 		if (profile != nullptr)
 		{
 			profile->adjointBatches += 1;
@@ -2913,6 +2954,7 @@ bool applyOsemCachedSegmentWithImageBuffers(
 		return true;
 	}
 
+	const auto kernelOptions = makeProjectorKernelOptions(&config);
 	for (CachedFrameBatch& frameBatch : segment.frameBatches)
 	{
 		auto kernelProfile = makeSiddonKernelProfile(profile);
@@ -2928,7 +2970,8 @@ bool applyOsemCachedSegmentWithImageBuffers(
 		        profile != nullptr ? &kernelProfile : nullptr,
 		        canUseJosephAxisSpecializedForward(config.projectorKernel) ?
 		            frameBatch.josephAxis :
-		            kNoJosephAxis);
+		            kNoJosephAxis,
+		        &kernelOptions);
 		if (profile != nullptr)
 		{
 			profile->forwardBatches += 1;
@@ -2954,7 +2997,8 @@ bool applyOsemCachedSegmentWithImageBuffers(
 		                         profile != nullptr ? &kernelProfile : nullptr,
 		                         canUseJosephAxisSpecializedAdjoint(config.projectorKernel) ?
 		                             frameBatch.josephAxis :
-		                             kNoJosephAxis);
+		                             kNoJosephAxis,
+		                         &kernelOptions);
 		if (profile != nullptr)
 		{
 			profile->adjointBatches += 1;
@@ -2989,6 +3033,7 @@ bool applyOsemHostRatioEventsWithImageBuffers(
 		return true;
 	}
 
+	const auto kernelOptions = makeProjectorKernelOptions(&config);
 	const SiddonProjectorMetal metalProjector(context);
 	for (const auto& [frame, indices] : groupNonNegativeFrames(events))
 	{
@@ -3032,7 +3077,8 @@ bool applyOsemHostRatioEventsWithImageBuffers(
 		        inputImage, static_cast<std::uint32_t>(frame), imageParams) &&
 		    forwardProjectSingleRay(
 		        config.projectorKernel, context, inputImageResources, batch,
-		        imageParams, profile != nullptr ? &kernelProfile : nullptr);
+		        imageParams, profile != nullptr ? &kernelProfile : nullptr,
+		        kNoJosephAxis, &kernelOptions);
 		if (profile != nullptr)
 		{
 			addForwardKernelProfile(profile, kernelProfile);
@@ -3133,7 +3179,8 @@ bool applyOsemHostRatioEventsWithImageBuffers(
 		                                 updateImageParams) &&
 		    backProjectSingleRay(config.projectorKernel, context, batch,
 		                         updateImageBuffer, updateImageParams,
-		                         profile != nullptr ? &kernelProfile : nullptr);
+		                         profile != nullptr ? &kernelProfile : nullptr,
+		                         kNoJosephAxis, &kernelOptions);
 		if (profile != nullptr)
 		{
 			addAdjointKernelProfile(profile, kernelProfile);
@@ -3167,6 +3214,7 @@ bool applyOsemHostRatioFrameBatchesWithImageBuffers(
 		return true;
 	}
 
+	const auto kernelOptions = makeProjectorKernelOptions(&config);
 	const SiddonProjectorMetal metalProjector(context);
 	for (const BridgeFrameBatch& frameBatch : frameBatches)
 	{
@@ -3190,7 +3238,8 @@ bool applyOsemHostRatioFrameBatchesWithImageBuffers(
 		        imageParams) &&
 		    forwardProjectSingleRay(
 		        config.projectorKernel, context, inputImageResources, batch,
-		        imageParams, profile != nullptr ? &kernelProfile : nullptr);
+		        imageParams, profile != nullptr ? &kernelProfile : nullptr,
+		        kNoJosephAxis, &kernelOptions);
 		if (profile != nullptr)
 		{
 			addForwardKernelProfile(profile, kernelProfile);
@@ -3271,7 +3320,8 @@ bool applyOsemHostRatioFrameBatchesWithImageBuffers(
 		                                 updateImageParams) &&
 		    backProjectSingleRay(config.projectorKernel, context, batch,
 		                         updateImageBuffer, updateImageParams,
-		                         profile != nullptr ? &kernelProfile : nullptr);
+		                         profile != nullptr ? &kernelProfile : nullptr,
+		                         kNoJosephAxis, &kernelOptions);
 		if (profile != nullptr)
 		{
 			addAdjointKernelProfile(profile, kernelProfile);
@@ -3300,7 +3350,7 @@ bool applyOsemHostRatioBinIteratorWithImageBuffers(
     std::vector<CachedCorrectionBatch>* correctionBatches = nullptr,
     bool buildMissingCorrectionBatches = false)
 {
-	if (useDirectHostRatioFrameBatches() &&
+	if (useDirectHostRatioFrameBatches(config) &&
 	    getAdjointEventOrder() == AdjointEventOrder::None)
 	{
 		const auto gatherStart = Clock::now();
@@ -3360,6 +3410,7 @@ bool applyOsemHostRatioCachedSegmentWithImageBuffers(
 		return true;
 	}
 
+	const auto kernelOptions = makeProjectorKernelOptions(&config);
 	for (CachedFrameBatch& frameBatch : segment.frameBatches)
 	{
 		auto kernelProfile = makeSiddonKernelProfile(profile);
@@ -3375,7 +3426,8 @@ bool applyOsemHostRatioCachedSegmentWithImageBuffers(
 		        profile != nullptr ? &kernelProfile : nullptr,
 		        canUseJosephAxisSpecializedForward(config.projectorKernel) ?
 		            frameBatch.josephAxis :
-		            kNoJosephAxis);
+		            kNoJosephAxis,
+		        &kernelOptions);
 		if (profile != nullptr)
 		{
 			profile->forwardBatches += 1;
@@ -3463,7 +3515,8 @@ bool applyOsemHostRatioCachedSegmentWithImageBuffers(
 		                         profile != nullptr ? &kernelProfile : nullptr,
 		                         canUseJosephAxisSpecializedAdjoint(config.projectorKernel) ?
 		                             frameBatch.josephAxis :
-		                             kNoJosephAxis);
+		                             kNoJosephAxis,
+		                         &kernelOptions);
 		addAdjointKernelProfile(profile, kernelProfile);
 		if (!didBackProject)
 		{

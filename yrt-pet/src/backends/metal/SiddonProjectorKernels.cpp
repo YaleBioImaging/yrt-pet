@@ -50,8 +50,17 @@ std::size_t voxelCount(const SiddonForwardImageParams& params)
 	       static_cast<std::size_t>(params.nt);
 }
 
-bool useNativeFloatAtomicsForAdjoint()
+KernelLaunchOptions launchOptions(const ProjectorKernelOptions* options)
 {
+	return options == nullptr ? KernelLaunchOptions{} : options->launchOptions;
+}
+
+bool useNativeFloatAtomicsForAdjoint(const ProjectorKernelOptions* options)
+{
+	if (options != nullptr && options->nativeFloatAtomicsExplicit)
+	{
+		return options->nativeFloatAtomics;
+	}
 	const char* value = std::getenv("YRTPET_METAL_USE_NATIVE_FLOAT_ATOMICS");
 	return value != nullptr && value[0] != '\0' && value[0] != '0';
 }
@@ -61,7 +70,8 @@ bool useNativeFloatAtomicsForAdjoint()
 bool launchSiddonForwardSingleRay(const Device& device,
     const Library& library, const CommandQueue& commandQueue,
     const Buffer& image, const Buffer& lines, Buffer& projectionValues,
-    const SiddonForwardImageParams& params, std::size_t lineCount)
+    const SiddonForwardImageParams& params, std::size_t lineCount,
+    const ProjectorKernelOptions* options)
 {
 	return areParamsValid(params) && coversFloatCount(image, voxelCount(params)) &&
 	       coversLineCount(lines, lineCount) &&
@@ -69,30 +79,34 @@ bool launchSiddonForwardSingleRay(const Device& device,
 	       launchKernel1D(device, library, commandQueue,
 	           "siddon_forward_single_ray",
 	           {{&image, 0}, {&lines, 1}, {&projectionValues, 2}},
-	           {{&params, sizeof(params), 3}}, lineCount);
+	           {{&params, sizeof(params), 3}}, lineCount,
+	           launchOptions(options));
 }
 
 bool launchSiddonBackProjectSingleRay(const Device& device,
     const Library& library, const CommandQueue& commandQueue,
     Buffer& image, const Buffer& lines, const Buffer& projectionValues,
-    const SiddonForwardImageParams& params, std::size_t lineCount)
+    const SiddonForwardImageParams& params, std::size_t lineCount,
+    const ProjectorKernelOptions* options)
 {
 	return areParamsValid(params) && lineCount > 0 &&
 	       coversFloatCount(image, voxelCount(params)) &&
 	       coversLineCount(lines, lineCount) &&
 	       coversFloatCount(projectionValues, lineCount) &&
 	       launchKernel1D(device, library, commandQueue,
-	           useNativeFloatAtomicsForAdjoint()
+	           useNativeFloatAtomicsForAdjoint(options)
 	               ? "siddon_backproject_single_ray_native_atomic_float"
 	               : "siddon_backproject_single_ray",
 	           {{&image, 0}, {&lines, 1}, {&projectionValues, 2}},
-	           {{&params, sizeof(params), 3}}, lineCount);
+	           {{&params, sizeof(params), 3}}, lineCount,
+	           launchOptions(options));
 }
 
 bool launchSiddonBackProjectSingleRayUpdateCount(const Device& device,
     const Library& library, const CommandQueue& commandQueue,
     const Buffer& lines, const Buffer& projectionValues, Buffer& updateCounts,
-    const SiddonForwardImageParams& params, std::size_t lineCount)
+    const SiddonForwardImageParams& params, std::size_t lineCount,
+    const ProjectorKernelOptions* options)
 {
 	return areParamsValid(params) && lineCount > 0 &&
 	       coversLineCount(lines, lineCount) &&
@@ -101,14 +115,15 @@ bool launchSiddonBackProjectSingleRayUpdateCount(const Device& device,
 	       launchKernel1D(device, library, commandQueue,
 	           "siddon_backproject_single_ray_update_count",
 	           {{&lines, 0}, {&projectionValues, 1}, {&updateCounts, 2}},
-	           {{&params, sizeof(params), 3}}, lineCount);
+	           {{&params, sizeof(params), 3}}, lineCount,
+	           launchOptions(options));
 }
 
 bool launchSiddonBackProjectSingleRayVoxelHitCount(const Device& device,
     const Library& library, const CommandQueue& commandQueue,
     const Buffer& lines, const Buffer& projectionValues,
     Buffer& voxelHitCounts, const SiddonForwardImageParams& params,
-    std::size_t lineCount)
+    std::size_t lineCount, const ProjectorKernelOptions* options)
 {
 	return areParamsValid(params) && lineCount > 0 &&
 	       coversLineCount(lines, lineCount) &&
@@ -117,7 +132,8 @@ bool launchSiddonBackProjectSingleRayVoxelHitCount(const Device& device,
 	       launchKernel1D(device, library, commandQueue,
 	           "siddon_backproject_single_ray_voxel_hit_count",
 	           {{&lines, 0}, {&projectionValues, 1}, {&voxelHitCounts, 2}},
-	           {{&params, sizeof(params), 3}}, lineCount);
+	           {{&params, sizeof(params), 3}}, lineCount,
+	           launchOptions(options));
 }
 
 }  // namespace yrt::backend::metal

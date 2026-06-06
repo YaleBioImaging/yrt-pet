@@ -35,22 +35,34 @@ struct SiddonForwardImageParams
 	float fovRadius;
 };
 
+struct ProjectorKernelOptions
+{
+	bool nativeFloatAtomicsExplicit = false;
+	bool nativeFloatAtomics = false;
+	bool josephAdjointAxisSwitchOnceExplicit = false;
+	bool josephAdjointAxisSwitchOnce = false;
+	KernelLaunchOptions launchOptions;
+};
+
 bool launchSiddonForwardSingleRay(const Device& device,
     const Library& library, const CommandQueue& commandQueue,
     const Buffer& image, const Buffer& lines, Buffer& projectionValues,
-    const SiddonForwardImageParams& params, std::size_t lineCount);
+    const SiddonForwardImageParams& params, std::size_t lineCount,
+    const ProjectorKernelOptions* options = nullptr);
 bool launchSiddonBackProjectSingleRay(const Device& device,
     const Library& library, const CommandQueue& commandQueue,
     Buffer& image, const Buffer& lines, const Buffer& projectionValues,
-    const SiddonForwardImageParams& params, std::size_t lineCount);
+    const SiddonForwardImageParams& params, std::size_t lineCount,
+    const ProjectorKernelOptions* options = nullptr);
 bool launchSiddonBackProjectSingleRayUpdateCount(const Device& device,
     const Library& library, const CommandQueue& commandQueue,
     const Buffer& lines, const Buffer& projectionValues, Buffer& updateCounts,
-    const SiddonForwardImageParams& params, std::size_t lineCount);
+    const SiddonForwardImageParams& params, std::size_t lineCount,
+    const ProjectorKernelOptions* options = nullptr);
 bool launchSiddonBackProjectSingleRayVoxelHitCount(const Device& device,
     const Library& library, const CommandQueue& commandQueue,
     const Buffer& lines, const Buffer& projectionValues,
     Buffer& voxelHitCounts, const SiddonForwardImageParams& params,
-    std::size_t lineCount);
+    std::size_t lineCount, const ProjectorKernelOptions* options = nullptr);
 
 }  // namespace yrt::backend::metal

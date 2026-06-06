@@ -403,22 +403,36 @@ options.imagePsf = true;
 options.cacheMaxBytes = cacheBudgetBytes;
 options.correctionCacheReserveBytes = reserveBytes;
 options.maxBatchEvents = 1000000;
+options.directFrameBatchesExplicit = true;
+options.directFrameBatches = true;
+options.nativeFloatAtomicsExplicit = true;
+options.nativeFloatAtomics = true;
+options.josephAdjointAxisSwitchOnceExplicit = true;
+options.josephAdjointAxisSwitchOnce = true;
+options.threadsPerThreadgroupExplicit = true;
+options.threadsPerThreadgroup = 512;
 osemCpu.setExperimentalMetalProjectorOptions(options);
 ```
 
 Python exposes the same stable controls as
 `pyyrtpet.ExperimentalMetalProjectorOptions` with snake-case fields such as
 `resident_images`, `image_psf`, `cache_max_bytes`,
-`correction_cache_reserve_bytes`, and `max_batch_events`. The GE smoke/recipe
+`correction_cache_reserve_bytes`, `max_batch_events`,
+`direct_frame_batches`, `native_float_atomics`,
+`joseph_adjoint_axis_switch_once`, and `threads_per_threadgroup`. The matching
+`*_explicit` fields control whether the option overrides the older debug
+environment fallback; for example, `threads_per_threadgroup_explicit=true` and
+`threads_per_threadgroup=0` forces the backend automatic threadgroup choice
+without reading `YRTPET_METAL_THREADS_PER_THREADGROUP`. The GE smoke/recipe
 driver uses this explicit API when it is available and falls back to the older
-individual setters for older local builds.
+individual setters and environment variables for older local builds.
 
-The lower-level shader/debug switches remain environment-variable based for
-now. Examples include `YRTPET_METAL_DIRECT_FRAME_BATCHES`,
-`YRTPET_METAL_USE_NATIVE_FLOAT_ATOMICS`,
-`YRTPET_METAL_THREADS_PER_THREADGROUP`, and the Joseph adjoint diagnostic
-variants. They are still useful for controlled experiments, but they are not
-part of the stable `OSEM_CPU` Metal options surface yet.
+Lower-level shader/debug switches remain environment-variable based for now.
+Examples include `YRTPET_METAL_JOSEPH_AXIS_SPECIALIZED`,
+`YRTPET_METAL_ADJOINT_EVENT_ORDER`, `YRTPET_METAL_ADJOINT_TILE_SIZE`, and the
+Joseph adjoint diagnostic variants. They are still useful for controlled
+experiments, but they are not part of the stable `OSEM_CPU` Metal options
+surface yet.
 
 The flag is disabled by default and is exposed to Python only as this explicit
 experimental API; it is not wired into command-line reconstruction tools. When
@@ -690,8 +704,10 @@ YRTPET_METAL_USE_NATIVE_FLOAT_ATOMICS=1 \
 
 The script can also sweep Metal compute threadgroup size without changing
 Joseph math. `--metal-threads-per-threadgroup 0` keeps the backend auto choice;
-positive values set the existing `YRTPET_METAL_THREADS_PER_THREADGROUP`
-override for that run. Comma-separated values create a sweep and add
+positive values set the explicit `OSEM_CPU` Metal launch option for that run
+when the options API is available, with
+`YRTPET_METAL_THREADS_PER_THREADGROUP` retained as the older fallback for local
+builds without that field. Comma-separated values create a sweep and add
 `metal_threads_per_threadgroup` to the summary CSV:
 
 ```sh

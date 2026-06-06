@@ -135,7 +135,8 @@ std::vector<std::size_t> collectTileCounts(
 
 bool collectBackProjectUpdateCounts(const Context& context,
     const ProjectionBatchMetal& batch, const SiddonForwardImageParams& params,
-    SiddonProjectorKernelProfile& profile)
+    SiddonProjectorKernelProfile& profile,
+    const ProjectorKernelOptions* options)
 {
 	std::vector<std::uint32_t> counts(batch.size(), 0);
 	const auto countStart = Clock::now();
@@ -146,7 +147,7 @@ bool collectBackProjectUpdateCounts(const Context& context,
 	    launchJosephBackProjectSingleRayUpdateCount(
 	        context.device(), context.library(), context.commandQueue(),
 	        batch.lorBuffer(), batch.projectionValuesBuffer(), countBuffer,
-	        params, batch.size()) &&
+	        params, batch.size(), options) &&
 	    countBuffer.copyToHost(counts.data(), updateCountByteCount(counts.size()));
 	profile.adjointUpdateCountSeconds +=
 	    getElapsedSeconds(countStart, Clock::now());
@@ -177,7 +178,8 @@ bool collectBackProjectUpdateCounts(const Context& context,
 
 bool collectBackProjectVoxelHitCounts(const Context& context,
     const ProjectionBatchMetal& batch, const SiddonForwardImageParams& params,
-    SiddonProjectorKernelProfile& profile)
+    SiddonProjectorKernelProfile& profile,
+    const ProjectorKernelOptions* options)
 {
 	std::vector<std::uint32_t> counts(imageVoxelCount(params), 0);
 	const auto countStart = Clock::now();
@@ -188,7 +190,7 @@ bool collectBackProjectVoxelHitCounts(const Context& context,
 	    launchJosephBackProjectSingleRayVoxelHitCount(
 	        context.device(), context.library(), context.commandQueue(),
 	        batch.lorBuffer(), batch.projectionValuesBuffer(), countBuffer,
-	        params, batch.size()) &&
+	        params, batch.size(), options) &&
 	    countBuffer.copyToHost(counts.data(), updateCountByteCount(counts.size()));
 	profile.adjointVoxelHitCountSeconds +=
 	    getElapsedSeconds(countStart, Clock::now());
@@ -291,7 +293,8 @@ bool collectBackProjectVoxelHitCounts(const Context& context,
 
 bool forwardProjectJosephSingleRay(const Context& context, const Image& image,
     ProjectionBatchMetal& batch, std::uint32_t frame,
-    SiddonProjectorKernelProfile* profile)
+    SiddonProjectorKernelProfile* profile,
+    const ProjectorKernelOptions* options)
 {
 	if (!context.isValid() || !batch.isValid() || !fitsUint32Size(batch.size()))
 	{
@@ -307,13 +310,14 @@ bool forwardProjectJosephSingleRay(const Context& context, const Image& image,
 	}
 
 	return forwardProjectJosephSingleRay(context, imageBuffer, batch, params,
-	                                     profile);
+	                                     profile, options);
 }
 
 bool forwardProjectJosephSingleRay(const Context& context,
     const Buffer& imageBuffer, ProjectionBatchMetal& batch,
     const SiddonForwardImageParams& params,
-    SiddonProjectorKernelProfile* profile)
+    SiddonProjectorKernelProfile* profile,
+    const ProjectorKernelOptions* options)
 {
 	if (!context.isValid() || !imageBuffer.isValid() || !batch.isValid() ||
 	    !fitsUint32Size(batch.size()))
@@ -325,7 +329,7 @@ bool forwardProjectJosephSingleRay(const Context& context,
 	const bool didRun = launchJosephForwardSingleRay(
 	    context.device(), context.library(), context.commandQueue(),
 	    imageBuffer, batch.lorBuffer(), batch.projectionValuesBuffer(), params,
-	    batch.size());
+	    batch.size(), options);
 	if (profile != nullptr)
 	{
 		profile->kernelSeconds += getElapsedSeconds(kernelStart, Clock::now());
@@ -340,7 +344,8 @@ bool forwardProjectJosephSingleRay(const Context& context,
 bool forwardProjectJosephSingleRayAxis(const Context& context,
     const Buffer& imageBuffer, ProjectionBatchMetal& batch,
     const SiddonForwardImageParams& params, std::uint32_t axis,
-    SiddonProjectorKernelProfile* profile)
+    SiddonProjectorKernelProfile* profile,
+    const ProjectorKernelOptions* options)
 {
 	if (!context.isValid() || !imageBuffer.isValid() || !batch.isValid() ||
 	    !fitsUint32Size(batch.size()))
@@ -352,7 +357,7 @@ bool forwardProjectJosephSingleRayAxis(const Context& context,
 	const bool didRun = launchJosephForwardSingleRayAxis(
 	    context.device(), context.library(), context.commandQueue(),
 	    imageBuffer, batch.lorBuffer(), batch.projectionValuesBuffer(), params,
-	    batch.size(), axis);
+	    batch.size(), axis, options);
 	if (profile != nullptr)
 	{
 		profile->kernelSeconds += getElapsedSeconds(kernelStart, Clock::now());
@@ -403,7 +408,8 @@ bool uploadJosephImageFrameTexture(const Context& context, const Image& image,
 bool forwardProjectJosephSingleRayTexture(const Context& context,
     const Texture3D& imageTexture, const Sampler& sampler,
     ProjectionBatchMetal& batch, const SiddonForwardImageParams& params,
-    SiddonProjectorKernelProfile* profile)
+    SiddonProjectorKernelProfile* profile,
+    const ProjectorKernelOptions* options)
 {
 	if (!context.isValid() || !imageTexture.isValid() || !sampler.isValid() ||
 	    !batch.isValid() || !fitsUint32Size(batch.size()))
@@ -415,7 +421,7 @@ bool forwardProjectJosephSingleRayTexture(const Context& context,
 	const bool didRun = launchJosephForwardSingleRayTexture(
 	    context.device(), context.library(), context.commandQueue(),
 	    imageTexture, sampler, batch.lorBuffer(),
-	    batch.projectionValuesBuffer(), params, batch.size());
+	    batch.projectionValuesBuffer(), params, batch.size(), options);
 	if (profile != nullptr)
 	{
 		profile->kernelSeconds += getElapsedSeconds(kernelStart, Clock::now());
@@ -429,7 +435,8 @@ bool forwardProjectJosephSingleRayTexture(const Context& context,
 
 bool backProjectJosephSingleRay(const Context& context,
     const ProjectionBatchMetal& batch, Image& image, std::uint32_t frame,
-    SiddonProjectorKernelProfile* profile)
+    SiddonProjectorKernelProfile* profile,
+    const ProjectorKernelOptions* options)
 {
 	if (!context.isValid() || !batch.isValid() || !fitsUint32Size(batch.size()))
 	{
@@ -445,14 +452,15 @@ bool backProjectJosephSingleRay(const Context& context,
 	}
 
 	return backProjectJosephSingleRay(context, batch, imageBuffer, params,
-	                                  profile) &&
+	                                  profile, options) &&
 	       downloadSiddonImageBuffer(context, imageBuffer, image, profile);
 }
 
 bool backProjectJosephSingleRay(const Context& context,
     const ProjectionBatchMetal& batch, Buffer& imageBuffer,
     const SiddonForwardImageParams& params,
-    SiddonProjectorKernelProfile* profile)
+    SiddonProjectorKernelProfile* profile,
+    const ProjectorKernelOptions* options)
 {
 	if (!context.isValid() || !imageBuffer.isValid() || !batch.isValid() ||
 	    !fitsUint32Size(batch.size()))
@@ -464,7 +472,7 @@ bool backProjectJosephSingleRay(const Context& context,
 	const bool didRun = launchJosephBackProjectSingleRay(
 	    context.device(), context.library(), context.commandQueue(),
 	    imageBuffer, batch.lorBuffer(), batch.projectionValuesBuffer(), params,
-	    batch.size());
+	    batch.size(), options);
 	if (profile != nullptr)
 	{
 		profile->kernelSeconds += getElapsedSeconds(kernelStart, Clock::now());
@@ -474,12 +482,14 @@ bool backProjectJosephSingleRay(const Context& context,
 		return false;
 	}
 	if (profile != nullptr && profile->diagnoseAdjointUpdateCounts &&
-	    !collectBackProjectUpdateCounts(context, batch, params, *profile))
+	    !collectBackProjectUpdateCounts(context, batch, params, *profile,
+	        options))
 	{
 		return false;
 	}
 	if (profile != nullptr && profile->diagnoseAdjointVoxelHits &&
-	    !collectBackProjectVoxelHitCounts(context, batch, params, *profile))
+	    !collectBackProjectVoxelHitCounts(context, batch, params, *profile,
+	        options))
 	{
 		return false;
 	}
@@ -489,7 +499,8 @@ bool backProjectJosephSingleRay(const Context& context,
 bool backProjectJosephSingleRayAxis(const Context& context,
     const ProjectionBatchMetal& batch, Buffer& imageBuffer,
     const SiddonForwardImageParams& params, std::uint32_t axis,
-    SiddonProjectorKernelProfile* profile)
+    SiddonProjectorKernelProfile* profile,
+    const ProjectorKernelOptions* options)
 {
 	if (!context.isValid() || !imageBuffer.isValid() || !batch.isValid() ||
 	    !fitsUint32Size(batch.size()))
@@ -501,7 +512,7 @@ bool backProjectJosephSingleRayAxis(const Context& context,
 	const bool didRun = launchJosephBackProjectSingleRayAxis(
 	    context.device(), context.library(), context.commandQueue(),
 	    imageBuffer, batch.lorBuffer(), batch.projectionValuesBuffer(), params,
-	    batch.size(), axis);
+	    batch.size(), axis, options);
 	if (profile != nullptr)
 	{
 		profile->kernelSeconds += getElapsedSeconds(kernelStart, Clock::now());
@@ -511,12 +522,14 @@ bool backProjectJosephSingleRayAxis(const Context& context,
 		return false;
 	}
 	if (profile != nullptr && profile->diagnoseAdjointUpdateCounts &&
-	    !collectBackProjectUpdateCounts(context, batch, params, *profile))
+	    !collectBackProjectUpdateCounts(context, batch, params, *profile,
+	        options))
 	{
 		return false;
 	}
 	if (profile != nullptr && profile->diagnoseAdjointVoxelHits &&
-	    !collectBackProjectVoxelHitCounts(context, batch, params, *profile))
+	    !collectBackProjectVoxelHitCounts(context, batch, params, *profile,
+	        options))
 	{
 		return false;
 	}

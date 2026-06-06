@@ -78,7 +78,24 @@ void py_setup_osem_cpu(pybind11::module& m)
 	    .def_readwrite("correction_cache_reserve_bytes",
 	                   &MetalProjectorOptions::correctionCacheReserveBytes)
 	    .def_readwrite("max_batch_events",
-	                   &MetalProjectorOptions::maxBatchEvents);
+	                   &MetalProjectorOptions::maxBatchEvents)
+	    .def_readwrite("direct_frame_batches_explicit",
+	                   &MetalProjectorOptions::directFrameBatchesExplicit)
+	    .def_readwrite("direct_frame_batches",
+	                   &MetalProjectorOptions::directFrameBatches)
+	    .def_readwrite("native_float_atomics_explicit",
+	                   &MetalProjectorOptions::nativeFloatAtomicsExplicit)
+	    .def_readwrite("native_float_atomics",
+	                   &MetalProjectorOptions::nativeFloatAtomics)
+	    .def_readwrite(
+	        "joseph_adjoint_axis_switch_once_explicit",
+	        &MetalProjectorOptions::josephAdjointAxisSwitchOnceExplicit)
+	    .def_readwrite("joseph_adjoint_axis_switch_once",
+	                   &MetalProjectorOptions::josephAdjointAxisSwitchOnce)
+	    .def_readwrite("threads_per_threadgroup_explicit",
+	                   &MetalProjectorOptions::threadsPerThreadgroupExplicit)
+	    .def_readwrite("threads_per_threadgroup",
+	                   &MetalProjectorOptions::threadsPerThreadgroup);
 
 	auto c = py::class_<OSEM_CPU, OSEM>(m, "OSEM_CPU");
 	c.def("setExperimentalMetalProjectorEnabled",
@@ -1592,6 +1609,22 @@ void OSEM_CPU::setExperimentalMetalProjectorOptions(
 	setExperimentalMetalProjectorCachedCorrectionsEnabled(
 	    options.cachedCorrections);
 	setExperimentalMetalProjectorImagePsfEnabled(options.imagePsf);
+	m_experimentalMetalProjectorDirectFrameBatchesExplicit =
+	    options.directFrameBatchesExplicit;
+	m_experimentalMetalProjectorDirectFrameBatches =
+	    options.directFrameBatches;
+	m_experimentalMetalProjectorNativeFloatAtomicsExplicit =
+	    options.nativeFloatAtomicsExplicit;
+	m_experimentalMetalProjectorNativeFloatAtomics =
+	    options.nativeFloatAtomics;
+	m_experimentalMetalProjectorJosephAdjointAxisSwitchOnceExplicit =
+	    options.josephAdjointAxisSwitchOnceExplicit;
+	m_experimentalMetalProjectorJosephAdjointAxisSwitchOnce =
+	    options.josephAdjointAxisSwitchOnce;
+	m_experimentalMetalProjectorThreadsPerThreadgroupExplicit =
+	    options.threadsPerThreadgroupExplicit;
+	m_experimentalMetalProjectorThreadsPerThreadgroup =
+	    options.threadsPerThreadgroup;
 }
 
 OSEM_CPU::ExperimentalMetalProjectorOptions
@@ -1617,6 +1650,22 @@ OSEM_CPU::getExperimentalMetalProjectorOptions() const
 	options.correctionCacheReserveBytes =
 	    m_experimentalMetalProjectorCorrectionCacheReserveBytes;
 	options.maxBatchEvents = m_experimentalMetalProjectorMaxBatchEvents;
+	options.directFrameBatchesExplicit =
+	    m_experimentalMetalProjectorDirectFrameBatchesExplicit;
+	options.directFrameBatches =
+	    m_experimentalMetalProjectorDirectFrameBatches;
+	options.nativeFloatAtomicsExplicit =
+	    m_experimentalMetalProjectorNativeFloatAtomicsExplicit;
+	options.nativeFloatAtomics =
+	    m_experimentalMetalProjectorNativeFloatAtomics;
+	options.josephAdjointAxisSwitchOnceExplicit =
+	    m_experimentalMetalProjectorJosephAdjointAxisSwitchOnceExplicit;
+	options.josephAdjointAxisSwitchOnce =
+	    m_experimentalMetalProjectorJosephAdjointAxisSwitchOnce;
+	options.threadsPerThreadgroupExplicit =
+	    m_experimentalMetalProjectorThreadsPerThreadgroupExplicit;
+	options.threadsPerThreadgroup =
+	    m_experimentalMetalProjectorThreadsPerThreadgroup;
 	return options;
 }
 
@@ -2682,20 +2731,42 @@ bool OSEM_CPU::computeEMUpdateImageWithExperimentalMetalProjector(
 	      m_experimentalMetalProjectorCachedCorrectionsEnabled);
 	const bool cacheCorrectionFactors =
 	    m_experimentalMetalProjectorCachedCorrectionsEnabled;
+	auto makeMetalOsemConfig =
+	    [&]() -> backend::metal::OperatorProjectorMetalOsemConfig
+	{
+		backend::metal::OperatorProjectorMetalOsemConfig config;
+		config.globalScaleFactor = globalScaleFactor;
+		config.denomThreshold = denomThreshold;
+		config.hasSensitivity = hasSensitivity;
+		config.hasAttenuation = hasAttenuation;
+		config.hasScatterEstimates = hasScatterEstimates;
+		config.hasRandomsEstimates = hasRandomsEstimates;
+		config.hasInVivoAttenuation = hasInVivoAttenuation;
+		config.zeroInitializeUpdateImage = true;
+		config.usePrecomputedCorrections = usePrecomputedCorrections;
+		config.cacheCorrectionFactors = cacheCorrectionFactors;
+		config.projectorKernel = metalProjectorKernel;
+		config.directFrameBatchesExplicit =
+		    m_experimentalMetalProjectorDirectFrameBatchesExplicit;
+		config.directFrameBatches =
+		    m_experimentalMetalProjectorDirectFrameBatches;
+		config.nativeFloatAtomicsExplicit =
+		    m_experimentalMetalProjectorNativeFloatAtomicsExplicit;
+		config.nativeFloatAtomics =
+		    m_experimentalMetalProjectorNativeFloatAtomics;
+		config.josephAdjointAxisSwitchOnceExplicit =
+		    m_experimentalMetalProjectorJosephAdjointAxisSwitchOnceExplicit;
+		config.josephAdjointAxisSwitchOnce =
+		    m_experimentalMetalProjectorJosephAdjointAxisSwitchOnce;
+		config.threadsPerThreadgroupExplicit =
+		    m_experimentalMetalProjectorThreadsPerThreadgroupExplicit;
+		config.threadsPerThreadgroup =
+		    m_experimentalMetalProjectorThreadsPerThreadgroup;
+		return config;
+	};
 	if (m_experimentalMetalProjectorFusedRatioEnabled)
 	{
-		const backend::metal::OperatorProjectorMetalOsemConfig metalOsemConfig{
-		    globalScaleFactor,
-		    denomThreshold,
-		    hasSensitivity,
-		    hasAttenuation,
-		    hasScatterEstimates,
-		    hasRandomsEstimates,
-		    hasInVivoAttenuation,
-		    true,
-		    usePrecomputedCorrections,
-		    cacheCorrectionFactors,
-		    metalProjectorKernel};
+		const auto metalOsemConfig = makeMetalOsemConfig();
 		didRun = bridge.applyOsemEMUpdate(projector, inputImageForForwardProj,
 		    destImageForBackproj, measurements, binIter, *bridgeBinLoader,
 		    corrector, metalOsemConfig);
@@ -2723,18 +2794,7 @@ bool OSEM_CPU::computeEMUpdateImageWithExperimentalMetalProjector(
 	}
 	else
 	{
-		const backend::metal::OperatorProjectorMetalOsemConfig metalOsemConfig{
-		    globalScaleFactor,
-		    denomThreshold,
-		    hasSensitivity,
-		    hasAttenuation,
-		    hasScatterEstimates,
-		    hasRandomsEstimates,
-		    hasInVivoAttenuation,
-		    true,
-		    usePrecomputedCorrections,
-		    cacheCorrectionFactors,
-		    metalProjectorKernel};
+		const auto metalOsemConfig = makeMetalOsemConfig();
 		if (residentImagesActive &&
 		    mp_experimentalMetalResidentOsemState != nullptr)
 		{

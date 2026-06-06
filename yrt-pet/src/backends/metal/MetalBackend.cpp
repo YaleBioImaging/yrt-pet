@@ -100,7 +100,8 @@ void printLaunchError(const std::string& functionName, const char* stage,
 }
 
 NS::UInteger chooseThreadsPerThreadgroup(
-    const MTL::ComputePipelineState* pipeline, std::size_t valueCount)
+    const MTL::ComputePipelineState* pipeline, std::size_t valueCount,
+    const KernelLaunchOptions& options)
 {
 	if (pipeline == nullptr)
 	{
@@ -113,7 +114,16 @@ NS::UInteger chooseThreadsPerThreadgroup(
 	    1, std::min<NS::UInteger>(
 	           pipeline->maxTotalThreadsPerThreadgroup(), valueCountU));
 
-	const auto overrideThreads = parseThreadgroupOverride();
+	NS::UInteger overrideThreads = 0;
+	if (options.threadsPerThreadgroupExplicit)
+	{
+		overrideThreads =
+		    static_cast<NS::UInteger>(options.threadsPerThreadgroup);
+	}
+	else
+	{
+		overrideThreads = parseThreadgroupOverride();
+	}
 	if (overrideThreads != 0)
 	{
 		return std::max<NS::UInteger>(
@@ -609,9 +619,31 @@ bool launchKernel1D(const Device& device, const Library& library,
 bool launchKernel1D(const Device& device, const Library& library,
     const CommandQueue& commandQueue, const std::string& functionName,
     const std::vector<BufferBinding>& buffers,
+    const std::vector<BytesBinding>& bytes, std::size_t valueCount,
+    const KernelLaunchOptions& options)
+{
+	return launchKernel1D(device, library, commandQueue, functionName, buffers,
+	    bytes, {}, {}, valueCount, options);
+}
+
+bool launchKernel1D(const Device& device, const Library& library,
+    const CommandQueue& commandQueue, const std::string& functionName,
+    const std::vector<BufferBinding>& buffers,
     const std::vector<BytesBinding>& bytes,
     const std::vector<TextureBinding>& textures,
     const std::vector<SamplerBinding>& samplers, std::size_t valueCount)
+{
+	return launchKernel1D(device, library, commandQueue, functionName, buffers,
+	    bytes, textures, samplers, valueCount, KernelLaunchOptions{});
+}
+
+bool launchKernel1D(const Device& device, const Library& library,
+    const CommandQueue& commandQueue, const std::string& functionName,
+    const std::vector<BufferBinding>& buffers,
+    const std::vector<BytesBinding>& bytes,
+    const std::vector<TextureBinding>& textures,
+    const std::vector<SamplerBinding>& samplers, std::size_t valueCount,
+    const KernelLaunchOptions& options)
 {
 	if (!device.isValid() || !library.isValid() || !commandQueue.isValid() ||
 	    functionName.empty())
@@ -746,7 +778,7 @@ bool launchKernel1D(const Device& device, const Library& library,
 
 	const auto gridSize = MTL::Size::Make(toUInteger(valueCount), 1, 1);
 	const auto threadsPerGroup =
-	    chooseThreadsPerThreadgroup(p_pipeline.get(), valueCount);
+	    chooseThreadsPerThreadgroup(p_pipeline.get(), valueCount, options);
 	const auto threadgroupSize = MTL::Size::Make(threadsPerGroup, 1, 1);
 
 	p_encoder->dispatchThreads(gridSize, threadgroupSize);

@@ -112,7 +112,8 @@ std::size_t percentileCount(const std::vector<std::uint32_t>& sortedCounts,
 
 bool collectBackProjectUpdateCounts(const Context& context,
     const ProjectionBatchMetal& batch, const SiddonForwardImageParams& params,
-    SiddonProjectorKernelProfile& profile)
+    SiddonProjectorKernelProfile& profile,
+    const ProjectorKernelOptions* options)
 {
 	std::vector<std::uint32_t> counts(batch.size(), 0);
 	const auto countStart = Clock::now();
@@ -123,7 +124,7 @@ bool collectBackProjectUpdateCounts(const Context& context,
 	    launchSiddonBackProjectSingleRayUpdateCount(
 	        context.device(), context.library(), context.commandQueue(),
 	        batch.lorBuffer(), batch.projectionValuesBuffer(), countBuffer,
-	        params, batch.size()) &&
+	        params, batch.size(), options) &&
 	    countBuffer.copyToHost(counts.data(), updateCountByteCount(counts.size()));
 	profile.adjointUpdateCountSeconds +=
 	    getElapsedSeconds(countStart, Clock::now());
@@ -154,7 +155,8 @@ bool collectBackProjectUpdateCounts(const Context& context,
 
 bool collectBackProjectVoxelHitCounts(const Context& context,
     const ProjectionBatchMetal& batch, const SiddonForwardImageParams& params,
-    SiddonProjectorKernelProfile& profile)
+    SiddonProjectorKernelProfile& profile,
+    const ProjectorKernelOptions* options)
 {
 	std::vector<std::uint32_t> counts(imageVoxelCount(params), 0);
 	const auto countStart = Clock::now();
@@ -165,7 +167,7 @@ bool collectBackProjectVoxelHitCounts(const Context& context,
 	    launchSiddonBackProjectSingleRayVoxelHitCount(
 	        context.device(), context.library(), context.commandQueue(),
 	        batch.lorBuffer(), batch.projectionValuesBuffer(), countBuffer,
-	        params, batch.size()) &&
+	        params, batch.size(), options) &&
 	    countBuffer.copyToHost(counts.data(), updateCountByteCount(counts.size()));
 	profile.adjointVoxelHitCountSeconds +=
 	    getElapsedSeconds(countStart, Clock::now());
@@ -290,7 +292,8 @@ bool downloadSiddonImageBuffer(const Context& context,
 
 bool forwardProjectSiddonSingleRay(const Context& context, const Image& image,
     ProjectionBatchMetal& batch, std::uint32_t frame,
-    SiddonProjectorKernelProfile* profile)
+    SiddonProjectorKernelProfile* profile,
+    const ProjectorKernelOptions* options)
 {
 	if (!context.isValid() || !batch.isValid() || !fitsUint32Size(batch.size()))
 	{
@@ -306,13 +309,14 @@ bool forwardProjectSiddonSingleRay(const Context& context, const Image& image,
 	}
 
 	return forwardProjectSiddonSingleRay(context, imageBuffer, batch, params,
-	                                     profile);
+	                                     profile, options);
 }
 
 bool forwardProjectSiddonSingleRay(const Context& context,
     const Buffer& imageBuffer, ProjectionBatchMetal& batch,
     const SiddonForwardImageParams& params,
-    SiddonProjectorKernelProfile* profile)
+    SiddonProjectorKernelProfile* profile,
+    const ProjectorKernelOptions* options)
 {
 	if (!context.isValid() || !imageBuffer.isValid() || !batch.isValid() ||
 	    !fitsUint32Size(batch.size()))
@@ -324,7 +328,7 @@ bool forwardProjectSiddonSingleRay(const Context& context,
 	const bool didRun = launchSiddonForwardSingleRay(
 	    context.device(), context.library(), context.commandQueue(),
 	    imageBuffer, batch.lorBuffer(), batch.projectionValuesBuffer(), params,
-	    batch.size());
+	    batch.size(), options);
 	if (profile != nullptr)
 	{
 		profile->kernelSeconds += getElapsedSeconds(kernelStart, Clock::now());
@@ -334,7 +338,8 @@ bool forwardProjectSiddonSingleRay(const Context& context,
 
 bool backProjectSiddonSingleRay(const Context& context,
     const ProjectionBatchMetal& batch, Image& image, std::uint32_t frame,
-    SiddonProjectorKernelProfile* profile)
+    SiddonProjectorKernelProfile* profile,
+    const ProjectorKernelOptions* options)
 {
 	if (!context.isValid() || !batch.isValid() || !fitsUint32Size(batch.size()))
 	{
@@ -350,14 +355,15 @@ bool backProjectSiddonSingleRay(const Context& context,
 	}
 
 	return backProjectSiddonSingleRay(context, batch, imageBuffer, params,
-	                                  profile) &&
+	                                  profile, options) &&
 	       downloadSiddonImageBuffer(context, imageBuffer, image, profile);
 }
 
 bool backProjectSiddonSingleRay(const Context& context,
     const ProjectionBatchMetal& batch, Buffer& imageBuffer,
     const SiddonForwardImageParams& params,
-    SiddonProjectorKernelProfile* profile)
+    SiddonProjectorKernelProfile* profile,
+    const ProjectorKernelOptions* options)
 {
 	if (!context.isValid() || !imageBuffer.isValid() || !batch.isValid() ||
 	    !fitsUint32Size(batch.size()))
@@ -369,7 +375,7 @@ bool backProjectSiddonSingleRay(const Context& context,
 	const bool didRun = launchSiddonBackProjectSingleRay(
 	    context.device(), context.library(), context.commandQueue(), imageBuffer,
 	    batch.lorBuffer(), batch.projectionValuesBuffer(), params,
-	    batch.size());
+	    batch.size(), options);
 	if (profile != nullptr)
 	{
 		profile->kernelSeconds += getElapsedSeconds(kernelStart, Clock::now());
@@ -379,12 +385,14 @@ bool backProjectSiddonSingleRay(const Context& context,
 		return false;
 	}
 	if (profile != nullptr && profile->diagnoseAdjointUpdateCounts &&
-	    !collectBackProjectUpdateCounts(context, batch, params, *profile))
+	    !collectBackProjectUpdateCounts(context, batch, params, *profile,
+	        options))
 	{
 		return false;
 	}
 	if (profile != nullptr && profile->diagnoseAdjointVoxelHits &&
-	    !collectBackProjectVoxelHitCounts(context, batch, params, *profile))
+	    !collectBackProjectVoxelHitCounts(context, batch, params, *profile,
+	        options))
 	{
 		return false;
 	}

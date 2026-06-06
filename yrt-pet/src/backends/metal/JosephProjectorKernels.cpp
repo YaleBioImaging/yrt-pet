@@ -56,8 +56,17 @@ std::size_t voxelCount(const SiddonForwardImageParams& params)
 	       static_cast<std::size_t>(params.nt);
 }
 
-bool useNativeFloatAtomicsForAdjoint()
+KernelLaunchOptions launchOptions(const ProjectorKernelOptions* options)
 {
+	return options == nullptr ? KernelLaunchOptions{} : options->launchOptions;
+}
+
+bool useNativeFloatAtomicsForAdjoint(const ProjectorKernelOptions* options)
+{
+	if (options != nullptr && options->nativeFloatAtomicsExplicit)
+	{
+		return options->nativeFloatAtomics;
+	}
 	const char* value = std::getenv("YRTPET_METAL_USE_NATIVE_FLOAT_ATOMICS");
 	return value != nullptr && value[0] != '\0' && value[0] != '0';
 }
@@ -92,8 +101,12 @@ bool useThreadgroupSampleAccumulationForAdjoint()
 	           std::strcmp(value, "threadgroup") == 0);
 }
 
-bool useAxisSwitchOnceForAdjoint()
+bool useAxisSwitchOnceForAdjoint(const ProjectorKernelOptions* options)
 {
+	if (options != nullptr && options->josephAdjointAxisSwitchOnceExplicit)
+	{
+		return options->josephAdjointAxisSwitchOnce;
+	}
 	const char* value =
 	    std::getenv("YRTPET_METAL_JOSEPH_ADJOINT_AXIS_SWITCH_ONCE");
 	return value != nullptr && value[0] != '\0' && value[0] != '0';
@@ -124,7 +137,7 @@ const char* axisSuffix(std::uint32_t axis)
 bool launchJosephForwardSingleRay(const Device& device, const Library& library,
     const CommandQueue& commandQueue, const Buffer& image, const Buffer& lines,
     Buffer& projectionValues, const SiddonForwardImageParams& params,
-    std::size_t lineCount)
+    std::size_t lineCount, const ProjectorKernelOptions* options)
 {
 	const std::uint32_t sampleStride = josephSampleStride();
 	return areParamsValid(params) && coversFloatCount(image, voxelCount(params)) &&
@@ -134,27 +147,28 @@ bool launchJosephForwardSingleRay(const Device& device, const Library& library,
 	            launchKernel1D(device, library, commandQueue,
 	                "joseph_forward_single_ray",
 	                {{&image, 0}, {&lines, 1}, {&projectionValues, 2}},
-	                {{&params, sizeof(params), 3}}, lineCount) :
+	                {{&params, sizeof(params), 3}}, lineCount,
+	                launchOptions(options)) :
 	            launchKernel1D(device, library, commandQueue,
 	                "joseph_forward_single_ray_sample_stride",
 	                {{&image, 0}, {&lines, 1}, {&projectionValues, 2}},
 	                {{&params, sizeof(params), 3},
 	                    {&sampleStride, sizeof(sampleStride), 4}},
-	                lineCount));
+	                lineCount, launchOptions(options)));
 }
 
 bool launchJosephForwardSingleRayAxis(const Device& device,
     const Library& library, const CommandQueue& commandQueue,
     const Buffer& image, const Buffer& lines, Buffer& projectionValues,
     const SiddonForwardImageParams& params, std::size_t lineCount,
-    std::uint32_t axis)
+    std::uint32_t axis, const ProjectorKernelOptions* options)
 {
 	const char* suffix = axisSuffix(axis);
 	const std::uint32_t sampleStride = josephSampleStride();
 	if (suffix == nullptr || sampleStride > 1)
 	{
 		return launchJosephForwardSingleRay(device, library, commandQueue,
-		    image, lines, projectionValues, params, lineCount);
+		    image, lines, projectionValues, params, lineCount, options);
 	}
 	if (!areParamsValid(params) || !coversFloatCount(image, voxelCount(params)) ||
 	    !coversLineCount(lines, lineCount) ||
@@ -167,14 +181,14 @@ bool launchJosephForwardSingleRayAxis(const Device& device,
 	    std::string("joseph_forward_single_ray_axis_") + suffix;
 	return launchKernel1D(device, library, commandQueue, kernelName.c_str(),
 	    {{&image, 0}, {&lines, 1}, {&projectionValues, 2}},
-	    {{&params, sizeof(params), 3}}, lineCount);
+	    {{&params, sizeof(params), 3}}, lineCount, launchOptions(options));
 }
 
 bool launchJosephForwardSingleRayTexture(const Device& device,
     const Library& library, const CommandQueue& commandQueue,
     const Texture3D& image, const Sampler& sampler, const Buffer& lines,
     Buffer& projectionValues, const SiddonForwardImageParams& params,
-    std::size_t lineCount)
+    std::size_t lineCount, const ProjectorKernelOptions* options)
 {
 	const std::uint32_t sampleStride = josephSampleStride();
 	return areParamsValid(params) && image.isValid() &&
@@ -187,19 +201,21 @@ bool launchJosephForwardSingleRayTexture(const Device& device,
 	                "joseph_forward_single_ray_texture",
 	                {{&lines, 0}, {&projectionValues, 1}},
 	                {{&params, sizeof(params), 2}}, {{&image, 0}},
-	                {{&sampler, 0}}, lineCount) :
+	                {{&sampler, 0}}, lineCount, launchOptions(options)) :
 	            launchKernel1D(device, library, commandQueue,
 	                "joseph_forward_single_ray_texture_sample_stride",
 	                {{&lines, 0}, {&projectionValues, 1}},
 	                {{&params, sizeof(params), 2},
 	                    {&sampleStride, sizeof(sampleStride), 3}},
-	                {{&image, 0}}, {{&sampler, 0}}, lineCount));
+	                {{&image, 0}}, {{&sampler, 0}}, lineCount,
+	                launchOptions(options)));
 }
 
 bool launchJosephBackProjectSingleRay(const Device& device,
     const Library& library, const CommandQueue& commandQueue, Buffer& image,
     const Buffer& lines, const Buffer& projectionValues,
-    const SiddonForwardImageParams& params, std::size_t lineCount)
+    const SiddonForwardImageParams& params, std::size_t lineCount,
+    const ProjectorKernelOptions* options)
 {
 	const std::uint32_t sampleStride = josephSampleStride();
 	if (!areParamsValid(params) || lineCount == 0 ||
@@ -210,7 +226,7 @@ bool launchJosephBackProjectSingleRay(const Device& device,
 		return false;
 	}
 
-	const bool useNativeFloatAtomics = useNativeFloatAtomicsForAdjoint();
+	const bool useNativeFloatAtomics = useNativeFloatAtomicsForAdjoint(options);
 	if (sampleStride <= 1)
 	{
 		const bool useThreadgroupSampleAccumulation =
@@ -218,7 +234,7 @@ bool launchJosephBackProjectSingleRay(const Device& device,
 		    useThreadgroupSampleAccumulationForAdjoint();
 		const bool useAxisSwitchOnce =
 		    !useThreadgroupSampleAccumulation &&
-		    useAxisSwitchOnceForAdjoint();
+		    useAxisSwitchOnceForAdjoint(options);
 		const bool useIncrementalCoordinates =
 		    !useThreadgroupSampleAccumulation &&
 		    useIncrementalCoordinatesForAdjoint();
@@ -241,7 +257,8 @@ bool launchJosephBackProjectSingleRay(const Device& device,
 		        "joseph_backproject_single_ray";
 		return launchKernel1D(device, library, commandQueue, kernelName,
 		    {{&image, 0}, {&lines, 1}, {&projectionValues, 2}},
-		    {{&params, sizeof(params), 3}}, lineCount);
+		    {{&params, sizeof(params), 3}}, lineCount,
+		    launchOptions(options));
 	}
 
 	return launchKernel1D(device, library, commandQueue,
@@ -252,14 +269,14 @@ bool launchJosephBackProjectSingleRay(const Device& device,
 	    {{&image, 0}, {&lines, 1}, {&projectionValues, 2}},
 	    {{&params, sizeof(params), 3},
 	        {&sampleStride, sizeof(sampleStride), 4}},
-	    lineCount);
+	    lineCount, launchOptions(options));
 }
 
 bool launchJosephBackProjectSingleRayAxis(const Device& device,
     const Library& library, const CommandQueue& commandQueue, Buffer& image,
     const Buffer& lines, const Buffer& projectionValues,
     const SiddonForwardImageParams& params, std::size_t lineCount,
-    std::uint32_t axis)
+    std::uint32_t axis, const ProjectorKernelOptions* options)
 {
 	const char* suffix = axisSuffix(axis);
 	const std::uint32_t sampleStride = josephSampleStride();
@@ -267,7 +284,7 @@ bool launchJosephBackProjectSingleRayAxis(const Device& device,
 	    useThreadgroupSampleAccumulationForAdjoint())
 	{
 		return launchJosephBackProjectSingleRay(device, library, commandQueue,
-		    image, lines, projectionValues, params, lineCount);
+		    image, lines, projectionValues, params, lineCount, options);
 	}
 	if (!areParamsValid(params) || lineCount == 0 ||
 	    !coversFloatCount(image, voxelCount(params)) ||
@@ -277,19 +294,20 @@ bool launchJosephBackProjectSingleRayAxis(const Device& device,
 		return false;
 	}
 
-	const bool useNativeFloatAtomics = useNativeFloatAtomicsForAdjoint();
+	const bool useNativeFloatAtomics = useNativeFloatAtomicsForAdjoint(options);
 	const std::string kernelName =
 	    std::string("joseph_backproject_single_ray_axis_") + suffix +
 	    (useNativeFloatAtomics ? "_native_atomic_float" : "");
 	return launchKernel1D(device, library, commandQueue, kernelName.c_str(),
 	    {{&image, 0}, {&lines, 1}, {&projectionValues, 2}},
-	    {{&params, sizeof(params), 3}}, lineCount);
+	    {{&params, sizeof(params), 3}}, lineCount, launchOptions(options));
 }
 
 bool launchJosephBackProjectSingleRayUpdateCount(const Device& device,
     const Library& library, const CommandQueue& commandQueue,
     const Buffer& lines, const Buffer& projectionValues, Buffer& updateCounts,
-    const SiddonForwardImageParams& params, std::size_t lineCount)
+    const SiddonForwardImageParams& params, std::size_t lineCount,
+    const ProjectorKernelOptions* options)
 {
 	const std::uint32_t sampleStride = josephSampleStride();
 	return areParamsValid(params) && lineCount > 0 &&
@@ -300,20 +318,21 @@ bool launchJosephBackProjectSingleRayUpdateCount(const Device& device,
 	            launchKernel1D(device, library, commandQueue,
 	                "joseph_backproject_single_ray_update_count",
 	                {{&lines, 0}, {&projectionValues, 1}, {&updateCounts, 2}},
-	                {{&params, sizeof(params), 3}}, lineCount) :
+	                {{&params, sizeof(params), 3}}, lineCount,
+	                launchOptions(options)) :
 	            launchKernel1D(device, library, commandQueue,
 	                "joseph_backproject_single_ray_update_count_sample_stride",
 	                {{&lines, 0}, {&projectionValues, 1}, {&updateCounts, 2}},
 	                {{&params, sizeof(params), 3},
 	                    {&sampleStride, sizeof(sampleStride), 4}},
-	                lineCount));
+	                lineCount, launchOptions(options)));
 }
 
 bool launchJosephBackProjectSingleRayVoxelHitCount(const Device& device,
     const Library& library, const CommandQueue& commandQueue,
     const Buffer& lines, const Buffer& projectionValues,
     Buffer& voxelHitCounts, const SiddonForwardImageParams& params,
-    std::size_t lineCount)
+    std::size_t lineCount, const ProjectorKernelOptions* options)
 {
 	const std::uint32_t sampleStride = josephSampleStride();
 	return areParamsValid(params) && lineCount > 0 &&
@@ -324,14 +343,15 @@ bool launchJosephBackProjectSingleRayVoxelHitCount(const Device& device,
 	            launchKernel1D(device, library, commandQueue,
 	                "joseph_backproject_single_ray_voxel_hit_count",
 	                {{&lines, 0}, {&projectionValues, 1}, {&voxelHitCounts, 2}},
-	                {{&params, sizeof(params), 3}}, lineCount) :
+	                {{&params, sizeof(params), 3}}, lineCount,
+	                launchOptions(options)) :
 	            launchKernel1D(device, library, commandQueue,
 	                "joseph_backproject_single_ray_voxel_hit_count_"
 	                "sample_stride",
 	                {{&lines, 0}, {&projectionValues, 1}, {&voxelHitCounts, 2}},
 	                {{&params, sizeof(params), 3},
 	                    {&sampleStride, sizeof(sampleStride), 4}},
-	                lineCount));
+	                lineCount, launchOptions(options)));
 }
 
 }  // namespace yrt::backend::metal

@@ -27,7 +27,8 @@ public:
 	enum ProjectorType
 	{
 		SIDDON = 0,
-		DD
+		DD,
+		JOSEPH
 	};
 
 	explicit OperatorProjector(const Scanner& pr_scanner,

@@ -68,6 +68,7 @@ void py_setup_projectiondatadevice(py::module& m);
 void py_setup_operatorpsfdevice(py::module& m);
 void py_setup_operatorprojectordevice(py::module& m);
 void py_setup_operatorprojectordd_gpu(py::module& m);
+void py_setup_operatorprojectorjoseph_gpu(py::module& m);
 void py_setup_operatorprojectorsiddon_gpu(py::module& m);
 void py_setup_reconstructionutilsdevice(py::module& m);
 #endif
@@ -130,6 +131,7 @@ PYBIND11_MODULE(pyyrtpet, m)
 	py_setup_operatorpsfdevice(m);
 	py_setup_operatorprojectordevice(m);
 	py_setup_operatorprojectordd_gpu(m);
+	py_setup_operatorprojectorjoseph_gpu(m);
 	py_setup_operatorprojectorsiddon_gpu(m);
 	py_setup_reconstructionutilsdevice(m);
 #endif

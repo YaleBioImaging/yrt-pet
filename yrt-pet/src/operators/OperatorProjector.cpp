@@ -45,6 +45,7 @@ void py_setup_operatorprojector(py::module& m)
 	py::enum_<OperatorProjector::ProjectorType>(c, "ProjectorType")
 	    .value("SIDDON", OperatorProjector::ProjectorType::SIDDON)
 	    .value("DD", OperatorProjector::ProjectorType::DD)
+	    .value("JOSEPH", OperatorProjector::ProjectorType::JOSEPH)
 	    .export_values();
 }
 }  // namespace yrt

@@ -717,6 +717,10 @@ void OSEM::summary() const
 	{
 		std::cout << "Projector type: Distance-Driven" << std::endl;
 	}
+	else if (projectorType == OperatorProjector::JOSEPH)
+	{
+		std::cout << "Projector type: Joseph" << std::endl;
+	}
 
 	std::cout << "Number of threads used: " << globals::getNumThreads()
 	          << std::endl;

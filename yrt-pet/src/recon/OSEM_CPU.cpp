@@ -11,6 +11,7 @@
 #include "yrt-pet/recon/Corrector_CPU.hpp"
 #include "yrt-pet/utils/Assert.hpp"
 
+#include <stdexcept>
 #include <utility>
 
 namespace yrt
@@ -88,6 +89,11 @@ void OSEM_CPU::setupOperatorsForSensImgGen()
 	else if (projectorType == OperatorProjector::ProjectorType::DD)
 	{
 		mp_projector = std::make_unique<OperatorProjectorDD>(projParams);
+	}
+	else if (projectorType == OperatorProjector::ProjectorType::JOSEPH)
+	{
+		throw std::runtime_error(
+		    "Joseph projector is currently available only on CUDA/GPU");
 	}
 	else
 	{
@@ -200,6 +206,11 @@ void OSEM_CPU::setupOperatorsForRecon()
 	else if (projectorType == OperatorProjector::DD)
 	{
 		mp_projector = std::make_unique<OperatorProjectorDD>(projParams);
+	}
+	else if (projectorType == OperatorProjector::JOSEPH)
+	{
+		throw std::runtime_error(
+		    "Joseph projector is currently available only on CUDA/GPU");
 	}
 	else
 	{

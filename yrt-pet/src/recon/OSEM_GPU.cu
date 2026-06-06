@@ -8,6 +8,7 @@
 #include "yrt-pet/datastruct/image/ImageDevice.cuh"
 #include "yrt-pet/datastruct/projection/ProjectionDataDevice.cuh"
 #include "yrt-pet/operators/OperatorProjectorDD_GPU.cuh"
+#include "yrt-pet/operators/OperatorProjectorJoseph_GPU.cuh"
 #include "yrt-pet/operators/OperatorProjectorSiddon_GPU.cuh"
 #include "yrt-pet/operators/OperatorPsfDevice.cuh"
 #include "yrt-pet/utils/Assert.hpp"
@@ -74,6 +75,11 @@ std::unique_ptr<OperatorProjectorDevice> OSEM_GPU::createDeviceProjector(
 	if (projectorType == OperatorProjector::SIDDON)
 	{
 		return std::make_unique<OperatorProjectorSiddon_GPU>(
+		    projParams, mainStream, auxStream);
+	}
+	if (projectorType == OperatorProjector::JOSEPH)
+	{
+		return std::make_unique<OperatorProjectorJoseph_GPU>(
 		    projParams, mainStream, auxStream);
 	}
 	throw std::runtime_error("Unknown error");

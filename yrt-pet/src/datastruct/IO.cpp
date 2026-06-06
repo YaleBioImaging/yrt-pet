@@ -75,8 +75,12 @@ OperatorProjector::ProjectorType
 	{
 		return OperatorProjector::ProjectorType::DD;
 	}
+	if (projectorName_upper == "J" || projectorName_upper == "JOSEPH")
+	{
+		return OperatorProjector::ProjectorType::JOSEPH;
+	}
 	throw std::invalid_argument(
 	    "Invalid Projector name, choices are Siddon (S), "
-	    "Distance-Driven cpu (D)");
+	    "Distance-Driven (D), Joseph (J)");
 }
 }  // namespace yrt

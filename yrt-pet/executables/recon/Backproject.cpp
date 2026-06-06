@@ -59,8 +59,8 @@ int main(int argc, char** argv)
 
 		registry.registerArgument(
 		    "projector",
-		    "Projector to use, choices: Siddon (S), Distance-Driven (D). The "
-		    "default projector is Siddon",
+		    "Projector to use, choices: Siddon (S), Distance-Driven (D), "
+		    "CUDA Joseph (J). The default projector is Siddon",
 		    false, io::TypeOfArgument::STRING, "S", projectorGroup);
 		registry.registerArgument(
 		    "psf",

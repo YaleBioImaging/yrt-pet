@@ -178,7 +178,33 @@ The recipe currently expands to the full-data Metal-only Joseph path:
 - native Metal float atomics
 - 512 threads per threadgroup
 - the tested Joseph adjoint axis-switch shader
-- a 24 GiB Metal cache budget with automatic correction-cache reservation
+- automatic Metal cache sizing with automatic correction-cache reservation
+
+The automatic cache budget is intentionally based on Apple Silicon unified
+memory rather than treating the GPU as if it had separate VRAM. The policy uses
+the selected listmode memory estimate, total system RAM, a conservative
+headroom reserve, and a maximum cache fraction:
+
+```text
+headroom_gib = max(--metal-cache-headroom-gib, 20% of total RAM)
+safe_cap_gib = --metal-cache-budget-fraction * total RAM
+available_gib = total RAM - listmode_peak_gib - headroom_gib
+cache_budget_gib = clamp(min(available_gib, safe_cap_gib), min=1 GiB)
+```
+
+The default knobs are:
+
+```text
+--metal-cache-budget-mb auto
+--metal-cache-budget-fraction 0.55
+--metal-cache-headroom-gib 12
+```
+
+On a 48 GiB Mac where the full GE listmode run estimates about 18.2 GiB of
+listmode peak memory, the auto policy selects about 17.8 GiB of Metal cache
+instead of the previous fixed 24 GiB budget. That leaves roughly 12 GiB of
+explicit headroom for macOS, Python, other apps, compression, and Metal runtime
+overhead.
 
 For a quick sanity run using the same recipe but fewer events:
 
@@ -212,12 +238,25 @@ write/no-write toggles. `--dry-run` prints the exact resolved command, selected
 event count, listmode loader plan, estimated listmode memory, Metal cache plan,
 and combined listmode/cache peak estimate without starting reconstruction.
 
+For intentional benchmarking against the previous fixed cache size, override
+the recipe explicitly:
+
+```sh
+PYTHONPATH=build_metal \
+  python yrt-pet/python/examples/metal_ge_osem_smoke.py \
+    --base /Users/yanischemli/Desktop/mini_hot_spot \
+    --metal-recipe ge-mini-hotspot-joseph-full-3it \
+    --metal-cache-budget-mb 24576 \
+    --summary-csv ./metal_ge_joseph_recipe_full_3it_24g_cache.csv
+```
+
 The full recipe intentionally uses `--allow-unsafe-metal` because it runs
 beyond the conservative smoke-test event/iteration guard. That does not make
 Metal the default backend; it only acknowledges that the current Joseph OSEM
 path remains experimental and should be scaled deliberately. Watch macOS memory
 pressure during full-data runs, especially when the cache pressure risk is
-reported as `high` or `very_high`.
+reported as `high` or `very_high`. Prefer the auto budget for normal full-data
+runs and use fixed large budgets only for controlled A/B timing.
 
 The current full-precision Joseph checkpoint did not find a large remaining
 easy win from ray ordering or simple adjoint shader rewrites. The best measured
@@ -352,6 +391,35 @@ osemCpu.isExperimentalMetalProjectorEnabled();
 osemCpu.didLastExperimentalMetalProjectorRun();
 ```
 
+For scripts that need several Metal OSEM controls at once, prefer the aggregate
+options object instead of setting each knob separately:
+
+```cpp
+yrt::OSEM_CPU::ExperimentalMetalProjectorOptions options;
+options.enabled = true;
+options.kernel = "joseph";
+options.residentImages = true;
+options.imagePsf = true;
+options.cacheMaxBytes = cacheBudgetBytes;
+options.correctionCacheReserveBytes = reserveBytes;
+options.maxBatchEvents = 1000000;
+osemCpu.setExperimentalMetalProjectorOptions(options);
+```
+
+Python exposes the same stable controls as
+`pyyrtpet.ExperimentalMetalProjectorOptions` with snake-case fields such as
+`resident_images`, `image_psf`, `cache_max_bytes`,
+`correction_cache_reserve_bytes`, and `max_batch_events`. The GE smoke/recipe
+driver uses this explicit API when it is available and falls back to the older
+individual setters for older local builds.
+
+The lower-level shader/debug switches remain environment-variable based for
+now. Examples include `YRTPET_METAL_DIRECT_FRAME_BATCHES`,
+`YRTPET_METAL_USE_NATIVE_FLOAT_ATOMICS`,
+`YRTPET_METAL_THREADS_PER_THREADGROUP`, and the Joseph adjoint diagnostic
+variants. They are still useful for controlled experiments, but they are not
+part of the stable `OSEM_CPU` Metal options surface yet.
+
 The flag is disabled by default and is exposed to Python only as this explicit
 experimental API; it is not wired into command-line reconstruction tools. When
 enabled in a `USE_METAL=ON` build, the `OSEM_CPU::computeEMUpdateImage()`
@@ -449,8 +517,14 @@ remains intentionally incompatible with `--metal-fused-ratio` until fused ratio
 validation is implemented. Sensitivity image motion averaging can be moved from
 the CPU setup path to the experimental Metal image-motion kernel with
 `--metal-move-sensitivity`; this is still a setup-time helper, not a resident
-OSEM-loop integration, and it requires motion averaging to be enabled. The
-Metal adjoint/backprojection path now uses a per-LOR atomic accumulation kernel
+OSEM-loop integration, and it requires motion averaging to be enabled. If this
+experimental setup helper fails, the GE smoke driver warns and falls back to
+CPU sensitivity motion by default so projector/OSEM smoke runs can continue.
+Use `--strict-metal-move-sensitivity` when validating the motion helper itself,
+or `--no-metal-move-sensitivity` to override a named recipe and keep sensitivity
+motion on CPU. The setup CSV reports the actual choice in
+`setup_sensitivity_motion_backend`.
+The Metal adjoint/backprojection path now uses a per-LOR atomic accumulation kernel
 instead of the original
 per-voxel validation kernel, but the script still refuses `--compare-metal`
 runs above the default `--metal-event-limit` or with more than one

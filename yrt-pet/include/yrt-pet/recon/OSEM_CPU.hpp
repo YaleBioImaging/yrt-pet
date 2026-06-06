@@ -213,6 +213,24 @@ public:
 		ExperimentalMetalProjectorMemorySnapshot memoryAfter;
 	};
 
+	struct ExperimentalMetalProjectorOptions
+	{
+		bool enabled = false;
+		bool fusedRatio = false;
+		bool residentImages = false;
+		std::string kernel = "siddon";
+		bool profiling = false;
+		bool adjointDiagnostics = false;
+		bool adjointHitDiagnostics = false;
+		bool cacheEnabled = true;
+		bool lazyCorrections = false;
+		bool cachedCorrections = false;
+		bool imagePsf = false;
+		size_t cacheMaxBytes = static_cast<size_t>(1024) * 1024 * 1024;
+		size_t correctionCacheReserveBytes = 0;
+		size_t maxBatchEvents = 1000000;
+	};
+
 	explicit OSEM_CPU(const Scanner& pr_scanner);
 	~OSEM_CPU() override;
 
@@ -265,6 +283,10 @@ public:
 	bool isExperimentalMetalProjectorCachedCorrectionsEnabled() const;
 	void setExperimentalMetalProjectorImagePsfEnabled(bool enabled);
 	bool isExperimentalMetalProjectorImagePsfEnabled() const;
+	void setExperimentalMetalProjectorOptions(
+	    const ExperimentalMetalProjectorOptions& options);
+	ExperimentalMetalProjectorOptions getExperimentalMetalProjectorOptions()
+	    const;
 
 protected:
 	bool isReconstructionTimingEnabled() const override;

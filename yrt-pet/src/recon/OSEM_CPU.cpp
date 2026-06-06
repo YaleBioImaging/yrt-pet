@@ -51,6 +51,35 @@ namespace yrt
 {
 void py_setup_osem_cpu(pybind11::module& m)
 {
+	using MetalProjectorOptions =
+	    OSEM_CPU::ExperimentalMetalProjectorOptions;
+
+	py::class_<MetalProjectorOptions>(m, "ExperimentalMetalProjectorOptions")
+	    .def(py::init<>())
+	    .def_readwrite("enabled", &MetalProjectorOptions::enabled)
+	    .def_readwrite("fused_ratio", &MetalProjectorOptions::fusedRatio)
+	    .def_readwrite("resident_images",
+	                   &MetalProjectorOptions::residentImages)
+	    .def_readwrite("kernel", &MetalProjectorOptions::kernel)
+	    .def_readwrite("profiling", &MetalProjectorOptions::profiling)
+	    .def_readwrite("adjoint_diagnostics",
+	                   &MetalProjectorOptions::adjointDiagnostics)
+	    .def_readwrite("adjoint_hit_diagnostics",
+	                   &MetalProjectorOptions::adjointHitDiagnostics)
+	    .def_readwrite("cache_enabled",
+	                   &MetalProjectorOptions::cacheEnabled)
+	    .def_readwrite("lazy_corrections",
+	                   &MetalProjectorOptions::lazyCorrections)
+	    .def_readwrite("cached_corrections",
+	                   &MetalProjectorOptions::cachedCorrections)
+	    .def_readwrite("image_psf", &MetalProjectorOptions::imagePsf)
+	    .def_readwrite("cache_max_bytes",
+	                   &MetalProjectorOptions::cacheMaxBytes)
+	    .def_readwrite("correction_cache_reserve_bytes",
+	                   &MetalProjectorOptions::correctionCacheReserveBytes)
+	    .def_readwrite("max_batch_events",
+	                   &MetalProjectorOptions::maxBatchEvents);
+
 	auto c = py::class_<OSEM_CPU, OSEM>(m, "OSEM_CPU");
 	c.def("setExperimentalMetalProjectorEnabled",
 	      &OSEM_CPU::setExperimentalMetalProjectorEnabled, "enabled"_a);
@@ -587,6 +616,10 @@ void py_setup_osem_cpu(pybind11::module& m)
 	      "enabled"_a);
 	c.def("isExperimentalMetalProjectorImagePsfEnabled",
 	      &OSEM_CPU::isExperimentalMetalProjectorImagePsfEnabled);
+	c.def("setExperimentalMetalProjectorOptions",
+	      &OSEM_CPU::setExperimentalMetalProjectorOptions, "options"_a);
+	c.def("getExperimentalMetalProjectorOptions",
+	      &OSEM_CPU::getExperimentalMetalProjectorOptions);
 }
 }  // namespace yrt
 #endif
@@ -1535,6 +1568,56 @@ void OSEM_CPU::setExperimentalMetalProjectorImagePsfEnabled(bool enabled)
 bool OSEM_CPU::isExperimentalMetalProjectorImagePsfEnabled() const
 {
 	return m_experimentalMetalProjectorImagePsfEnabled;
+}
+
+void OSEM_CPU::setExperimentalMetalProjectorOptions(
+    const ExperimentalMetalProjectorOptions& options)
+{
+	setExperimentalMetalProjectorEnabled(options.enabled);
+	setExperimentalMetalProjectorFusedRatioEnabled(options.fusedRatio);
+	setExperimentalMetalProjectorResidentImagesEnabled(options.residentImages);
+	setExperimentalMetalProjectorKernel(options.kernel);
+	setExperimentalMetalProjectorProfilingEnabled(options.profiling);
+	setExperimentalMetalProjectorAdjointDiagnosticsEnabled(
+	    options.adjointDiagnostics);
+	setExperimentalMetalProjectorAdjointHitDiagnosticsEnabled(
+	    options.adjointHitDiagnostics);
+	setExperimentalMetalProjectorCacheEnabled(options.cacheEnabled);
+	setExperimentalMetalProjectorCacheMaxBytes(options.cacheMaxBytes);
+	setExperimentalMetalProjectorCorrectionCacheReserveBytes(
+	    options.correctionCacheReserveBytes);
+	setExperimentalMetalProjectorMaxBatchEvents(options.maxBatchEvents);
+	setExperimentalMetalProjectorLazyCorrectionsEnabled(
+	    options.lazyCorrections);
+	setExperimentalMetalProjectorCachedCorrectionsEnabled(
+	    options.cachedCorrections);
+	setExperimentalMetalProjectorImagePsfEnabled(options.imagePsf);
+}
+
+OSEM_CPU::ExperimentalMetalProjectorOptions
+OSEM_CPU::getExperimentalMetalProjectorOptions() const
+{
+	ExperimentalMetalProjectorOptions options;
+	options.enabled = m_experimentalMetalProjectorEnabled;
+	options.fusedRatio = m_experimentalMetalProjectorFusedRatioEnabled;
+	options.residentImages = m_experimentalMetalProjectorResidentImagesEnabled;
+	options.kernel = m_experimentalMetalProjectorKernel;
+	options.profiling = m_experimentalMetalProjectorProfilingEnabled;
+	options.adjointDiagnostics =
+	    m_experimentalMetalProjectorAdjointDiagnosticsEnabled;
+	options.adjointHitDiagnostics =
+	    m_experimentalMetalProjectorAdjointHitDiagnosticsEnabled;
+	options.cacheEnabled = m_experimentalMetalProjectorCacheEnabled;
+	options.lazyCorrections =
+	    m_experimentalMetalProjectorLazyCorrectionsEnabled;
+	options.cachedCorrections =
+	    m_experimentalMetalProjectorCachedCorrectionsEnabled;
+	options.imagePsf = m_experimentalMetalProjectorImagePsfEnabled;
+	options.cacheMaxBytes = m_experimentalMetalProjectorCacheMaxBytes;
+	options.correctionCacheReserveBytes =
+	    m_experimentalMetalProjectorCorrectionCacheReserveBytes;
+	options.maxBatchEvents = m_experimentalMetalProjectorMaxBatchEvents;
+	return options;
 }
 
 void OSEM_CPU::setupProjectorForSensImgGen()

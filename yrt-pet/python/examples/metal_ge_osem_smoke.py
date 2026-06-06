@@ -17,6 +17,9 @@ import pyyrtpet as yrt
 METAL_CACHE_BYTES_PER_EVENT = 60.0
 METAL_COMPACT_CORRECTION_CACHE_BYTES_PER_EVENT = 3.0 * 4.0
 DEFAULT_METAL_CACHE_PRESSURE_CAP_MB = 24576.0
+DEFAULT_METAL_CACHE_BUDGET_FRACTION = 0.55
+DEFAULT_METAL_CACHE_HEADROOM_GIB = 12.0
+DEFAULT_METAL_CACHE_HEADROOM_FRACTION = 0.20
 LISTMODE_FIELDS_PER_EVENT = 3
 LISTMODE_FIELD_BYTES = 4
 LISTMODE_BYTES_PER_EVENT = LISTMODE_FIELDS_PER_EVENT * LISTMODE_FIELD_BYTES
@@ -464,7 +467,37 @@ def parse_nonnegative_float_list(value, option_name):
     return parsed
 
 
+def parse_metal_cache_budget_list(value, option_name):
+    if value is None:
+        return []
+    text = str(value)
+    if not text:
+        return []
+    parsed = []
+    for item in text.split(","):
+        item = item.strip()
+        if not item:
+            continue
+        if item.lower() == "auto":
+            parsed.append(None)
+            continue
+        try:
+            number = float(item)
+        except ValueError as exc:
+            raise SystemExit(
+                f"{option_name} expects auto or comma-separated numbers"
+            ) from exc
+        if number < 0.0:
+            raise SystemExit(f"{option_name} values must be non-negative")
+        parsed.append(number)
+    if not parsed:
+        raise SystemExit(f"{option_name} did not contain any values")
+    return parsed
+
+
 def format_cache_budget_label(value):
+    if value is None:
+        return "auto"
     return f"{value:g}".replace(".", "p")
 
 
@@ -493,12 +526,16 @@ SETUP_PROFILE_FIELDS = [
     "setup_sensitivity_projector_s",
     "setup_sensitivity_psf_s",
     "setup_sensitivity_motion_s",
+    "setup_sensitivity_motion_backend",
     "setup_sensitivity_mask_scale_s",
 ]
 
 
 def make_setup_profile():
-    return {field: 0.0 for field in SETUP_PROFILE_FIELDS}
+    return {
+        field: "" if field.endswith("_backend") else 0.0
+        for field in SETUP_PROFILE_FIELDS
+    }
 
 
 def bytes_to_mb(value):
@@ -507,6 +544,26 @@ def bytes_to_mb(value):
 
 def bytes_to_gib(value):
     return float(value) / (1024.0 * 1024.0 * 1024.0)
+
+
+def system_memory_gib():
+    try:
+        page_size = os.sysconf("SC_PAGE_SIZE")
+        page_count = os.sysconf("SC_PHYS_PAGES")
+        if page_size > 0 and page_count > 0:
+            return bytes_to_gib(page_size * page_count)
+    except (AttributeError, OSError, ValueError):
+        pass
+
+    try:
+        output = subprocess.check_output(
+            ["sysctl", "-n", "hw.memsize"],
+            text=True,
+            stderr=subprocess.DEVNULL,
+        )
+        return bytes_to_gib(int(output.strip()))
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return 0.0
 
 
 def estimate_metal_correction_cache_bytes_per_event(args):
@@ -556,6 +613,50 @@ def resolve_metal_correction_cache_reserve_mb(args, value, cache_budget_mb):
     return auto_metal_correction_cache_reserve_mb(args, cache_budget_mb), auto_active
 
 
+def resolve_metal_cache_budget_mb(args, listmode_plan):
+    requested = getattr(args, "metal_cache_budget_mb", 0.0)
+    args.metal_cache_budget_requested = "auto" if requested is None else f"{float(requested):g}"
+    args.metal_cache_budget_auto = requested is None
+    args.metal_cache_auto_total_ram_gib = 0.0
+    args.metal_cache_auto_listmode_peak_gib = 0.0
+    args.metal_cache_auto_headroom_gib = 0.0
+    args.metal_cache_auto_safe_cap_gib = 0.0
+    args.metal_cache_auto_available_gib = 0.0
+
+    if requested is not None:
+        return float(requested)
+
+    total_ram_gib = system_memory_gib()
+    listmode_peak_gib = float(listmode_plan.get("listmode_estimated_peak_gib", 0.0))
+    reserved_headroom_gib = max(
+        float(args.metal_cache_headroom_gib),
+        DEFAULT_METAL_CACHE_HEADROOM_FRACTION * total_ram_gib,
+    )
+    safe_cap_gib = max(0.0, total_ram_gib * float(args.metal_cache_budget_fraction))
+    available_gib = max(0.0, total_ram_gib - listmode_peak_gib - reserved_headroom_gib)
+    cache_budget_gib = min(available_gib, safe_cap_gib)
+    if safe_cap_gib > 0.0:
+        cache_budget_gib = max(1.0, cache_budget_gib)
+
+    args.metal_cache_auto_total_ram_gib = total_ram_gib
+    args.metal_cache_auto_listmode_peak_gib = listmode_peak_gib
+    args.metal_cache_auto_headroom_gib = reserved_headroom_gib
+    args.metal_cache_auto_safe_cap_gib = safe_cap_gib
+    args.metal_cache_auto_available_gib = available_gib
+    return cache_budget_gib * 1024.0
+
+
+def resolve_case_cache_options(args, listmode_plan):
+    args.metal_cache_budget_mb = resolve_metal_cache_budget_mb(args, listmode_plan)
+    raw_reserve = getattr(args, "metal_correction_cache_reserve_mb", None)
+    (
+        args.metal_correction_cache_reserve_mb,
+        args.metal_correction_cache_reserve_auto,
+    ) = resolve_metal_correction_cache_reserve_mb(
+        args, raw_reserve, args.metal_cache_budget_mb
+    )
+
+
 def classify_cache_pressure(planned_cache_mb, pressure_cap_mb):
     if planned_cache_mb <= 0.0:
         return "none"
@@ -598,6 +699,27 @@ def metal_cache_plan(args, used_events):
         args.metal_cache_pressure_cap_mb,
     )
     return {
+        "metal_cache_budget_auto": getattr(args, "metal_cache_budget_auto", False),
+        "metal_cache_budget_requested": getattr(
+            args, "metal_cache_budget_requested", f"{args.metal_cache_budget_mb:g}"
+        ),
+        "metal_cache_budget_fraction": args.metal_cache_budget_fraction,
+        "metal_cache_headroom_gib": args.metal_cache_headroom_gib,
+        "metal_cache_auto_total_ram_gib": getattr(
+            args, "metal_cache_auto_total_ram_gib", 0.0
+        ),
+        "metal_cache_auto_listmode_peak_gib": getattr(
+            args, "metal_cache_auto_listmode_peak_gib", 0.0
+        ),
+        "metal_cache_auto_headroom_gib": getattr(
+            args, "metal_cache_auto_headroom_gib", 0.0
+        ),
+        "metal_cache_auto_safe_cap_gib": getattr(
+            args, "metal_cache_auto_safe_cap_gib", 0.0
+        ),
+        "metal_cache_auto_available_gib": getattr(
+            args, "metal_cache_auto_available_gib", 0.0
+        ),
         "metal_cache_estimate_bytes_per_event": METAL_CACHE_BYTES_PER_EVENT,
         "metal_cache_estimate_correction_bytes_per_event": correction_bytes_per_event,
         "metal_cache_estimated_full_mb": bytes_to_mb(estimated_full_bytes),
@@ -617,12 +739,24 @@ def print_metal_cache_plan(plan, args):
         "metal_cache_plan="
         f"fit:{plan['metal_cache_fit']};"
         f"estimated_full_gib:{plan['metal_cache_estimated_full_gib']:.3f};"
+        f"budget_auto:{plan['metal_cache_budget_auto']};"
+        f"budget_requested:{plan['metal_cache_budget_requested']};"
         f"budget_mb:{args.metal_cache_budget_mb:g};"
         f"correction_reserve_mb:{args.metal_correction_cache_reserve_mb:g};"
         f"planned_cache_gib:{plan['metal_cache_planned_gib']:.3f};"
         f"pressure_risk:{plan['metal_cache_pressure_risk']};"
         f"pressure_cap_mb:{plan['metal_cache_pressure_cap_mb']:g}"
     )
+    if plan["metal_cache_budget_auto"]:
+        print(
+            "metal_cache_auto_policy="
+            f"total_ram_gib:{plan['metal_cache_auto_total_ram_gib']:.3f};"
+            f"listmode_peak_gib:{plan['metal_cache_auto_listmode_peak_gib']:.3f};"
+            f"headroom_gib:{plan['metal_cache_auto_headroom_gib']:.3f};"
+            f"safe_cap_gib:{plan['metal_cache_auto_safe_cap_gib']:.3f};"
+            f"available_for_cache_gib:{plan['metal_cache_auto_available_gib']:.3f};"
+            f"budget_fraction:{plan['metal_cache_budget_fraction']:.3f}"
+        )
     if plan["metal_cache_fit"] == "partial":
         print(
             "WARNING: Metal cache budget is below the estimated full-cache "
@@ -2237,7 +2371,12 @@ def print_sweep_summary(rows):
         "metal_recipe",
         "move_sensitivity",
         "metal_move_sensitivity",
+        "strict_metal_move_sensitivity",
         "metal_cache_budget_mb",
+        "metal_cache_budget_auto",
+        "metal_cache_budget_requested",
+        "metal_cache_budget_fraction",
+        "metal_cache_headroom_gib",
         "metal_correction_cache_reserve_mb",
         "metal_correction_cache_reserve_auto",
         "metal_batch_events",
@@ -2269,6 +2408,11 @@ def print_sweep_summary(rows):
         "metal_private_update_buffer",
         "metal_only",
         "metal_cache_estimated_full_mb",
+        "metal_cache_auto_total_ram_gib",
+        "metal_cache_auto_listmode_peak_gib",
+        "metal_cache_auto_headroom_gib",
+        "metal_cache_auto_safe_cap_gib",
+        "metal_cache_auto_available_gib",
         "metal_cache_fit",
         "metal_cache_used_gib",
         "metal_cache_pressure_risk",
@@ -2514,7 +2658,12 @@ def write_summary_csv(path, rows):
         "metal_recipe",
         "move_sensitivity",
         "metal_move_sensitivity",
+        "strict_metal_move_sensitivity",
         "metal_cache_budget_mb",
+        "metal_cache_budget_auto",
+        "metal_cache_budget_requested",
+        "metal_cache_budget_fraction",
+        "metal_cache_headroom_gib",
         "metal_correction_cache_reserve_mb",
         "metal_correction_cache_reserve_auto",
         "metal_batch_events",
@@ -2546,6 +2695,11 @@ def write_summary_csv(path, rows):
         "metal_only",
         "metal_cache_estimate_bytes_per_event",
         "metal_cache_estimate_correction_bytes_per_event",
+        "metal_cache_auto_total_ram_gib",
+        "metal_cache_auto_listmode_peak_gib",
+        "metal_cache_auto_headroom_gib",
+        "metal_cache_auto_safe_cap_gib",
+        "metal_cache_auto_available_gib",
         "metal_cache_estimated_full_mb",
         "metal_cache_estimated_full_gib",
         "metal_cache_fit",
@@ -2827,7 +2981,7 @@ def run_isolated_sweep(
                                     "--metal-batch-events",
                                     str(batch_events),
                                     "--metal-cache-budget-mb",
-                                    f"{cache_budget_mb:g}",
+                                    format_cache_budget_label(cache_budget_mb),
                                     "--metal-correction-cache-reserve-mb",
                                     format_correction_cache_reserve_label(
                                         correction_reserve_mb
@@ -2899,6 +3053,7 @@ def build_sensitivity(
     global_scale_factor,
     sensitivity_projector,
     metal_move_sensitivity,
+    strict_metal_move_sensitivity,
     setup_profile=None,
 ):
     total_start = time.perf_counter()
@@ -2947,6 +3102,7 @@ def build_sensitivity(
 
     if use_motion and move_sensitivity:
         move_fn = yrt.timeAverageMoveImage
+        motion_backend = "cpu"
         if metal_move_sensitivity:
             if not hasattr(yrt, "timeAverageMoveImageMetal"):
                 raise RuntimeError(
@@ -2954,22 +3110,37 @@ def build_sensitivity(
                     "timeAverageMoveImageMetal"
                 )
             move_fn = yrt.timeAverageMoveImageMetal
+            motion_backend = "metal"
             print("Moving sensitivity image with experimental Metal...")
         else:
             print("Moving sensitivity image...")
         phase_start = time.perf_counter()
-        sens_img = move_fn(
-            lor_motion,
-            sens_img,
-            int(dataset.getTimestamp(0)),
-            int(dataset.getTimestamp(dataset.count() - 1)),
-        )
+        time_start = int(dataset.getTimestamp(0))
+        time_stop = int(dataset.getTimestamp(dataset.count() - 1))
+        try:
+            sens_img = move_fn(lor_motion, sens_img, time_start, time_stop)
+        except RuntimeError as exc:
+            if not metal_move_sensitivity or strict_metal_move_sensitivity:
+                raise
+            print(
+                "WARNING: Experimental Metal sensitivity motion failed "
+                f"({exc}); falling back to CPU sensitivity motion."
+            )
+            motion_backend = "cpu_fallback"
+            sens_img = yrt.timeAverageMoveImage(
+                lor_motion, sens_img, time_start, time_stop
+            )
         if setup_profile is not None:
             setup_profile["setup_sensitivity_motion_s"] = (
                 time.perf_counter() - phase_start
             )
+            setup_profile["setup_sensitivity_motion_backend"] = motion_backend
     elif use_motion:
         print("Skipping sensitivity image motion averaging...")
+        if setup_profile is not None:
+            setup_profile["setup_sensitivity_motion_backend"] = "skipped"
+    elif setup_profile is not None:
+        setup_profile["setup_sensitivity_motion_backend"] = "none"
 
     phase_start = time.perf_counter()
     sens_np = np.array(sens_img, copy=False)
@@ -2986,6 +3157,164 @@ def build_sensitivity(
             time.perf_counter() - total_start
         )
     return sens_alias, sens_np
+
+
+def selected_metal_projector_kernel(args):
+    return (
+        "joseph_texture_forward"
+        if args.metal_joseph_forward_texture
+        else args.metal_projector
+    )
+
+
+def reset_metal_profile_timings(recon, args):
+    if not args.profile_metal:
+        return
+    required = (
+        "resetExperimentalMetalProjectorTimings",
+        "getExperimentalMetalProjectorTimings",
+    )
+    missing = [name for name in required if not hasattr(recon, name)]
+    if missing:
+        raise RuntimeError(
+            "This pyyrtpet build does not expose Metal OSEM profiling: "
+            + ",".join(missing)
+        )
+    recon.resetExperimentalMetalProjectorTimings()
+
+
+def configure_osem_experimental_metal(recon, args):
+    if not hasattr(recon, "setExperimentalMetalProjectorEnabled"):
+        raise RuntimeError("This pyyrtpet build does not expose the Metal OSEM opt-in")
+
+    metal_projector_kernel = selected_metal_projector_kernel(args)
+    cache_max_bytes = int(args.metal_cache_budget_mb * 1024.0 * 1024.0)
+    correction_cache_reserve_bytes = int(
+        args.metal_correction_cache_reserve_mb * 1024.0 * 1024.0
+    )
+
+    if hasattr(recon, "setExperimentalMetalProjectorOptions") and hasattr(
+        yrt, "ExperimentalMetalProjectorOptions"
+    ):
+        options = yrt.ExperimentalMetalProjectorOptions()
+        options.enabled = True
+        options.fused_ratio = bool(args.metal_fused_ratio)
+        options.resident_images = bool(args.metal_resident_images)
+        options.kernel = metal_projector_kernel
+        options.profiling = bool(args.profile_metal)
+        options.adjoint_diagnostics = bool(
+            args.profile_metal and args.profile_metal_adjoint_diagnostics
+        )
+        options.adjoint_hit_diagnostics = bool(
+            args.profile_metal and args.profile_metal_adjoint_hit_diagnostics
+        )
+        options.cache_enabled = not args.no_metal_cache
+        options.lazy_corrections = bool(args.metal_lazy_corrections)
+        options.cached_corrections = bool(args.metal_cached_corrections)
+        options.image_psf = bool(args.metal_image_psf)
+        options.cache_max_bytes = cache_max_bytes
+        options.correction_cache_reserve_bytes = correction_cache_reserve_bytes
+        options.max_batch_events = int(args.metal_batch_events)
+        recon.setExperimentalMetalProjectorOptions(options)
+        reset_metal_profile_timings(recon, args)
+        return
+
+    recon.setExperimentalMetalProjectorEnabled(True)
+    if metal_projector_kernel != "siddon":
+        if not hasattr(recon, "setExperimentalMetalProjectorKernel"):
+            raise RuntimeError(
+                "This pyyrtpet build does not expose Metal projector "
+                "kernel selection"
+            )
+        recon.setExperimentalMetalProjectorKernel(metal_projector_kernel)
+    if args.metal_fused_ratio:
+        if not hasattr(recon, "setExperimentalMetalProjectorFusedRatioEnabled"):
+            raise RuntimeError(
+                "This pyyrtpet build does not expose Metal fused ratio controls"
+            )
+        recon.setExperimentalMetalProjectorFusedRatioEnabled(True)
+    if args.metal_resident_images:
+        if not hasattr(
+            recon,
+            "setExperimentalMetalProjectorResidentImagesEnabled",
+        ):
+            raise RuntimeError(
+                "This pyyrtpet build does not expose Metal resident image "
+                "controls"
+            )
+        recon.setExperimentalMetalProjectorResidentImagesEnabled(True)
+    if args.metal_image_psf:
+        if not hasattr(
+            recon,
+            "setExperimentalMetalProjectorImagePsfEnabled",
+        ):
+            raise RuntimeError(
+                "This pyyrtpet build does not expose Metal image PSF controls"
+            )
+        recon.setExperimentalMetalProjectorImagePsfEnabled(True)
+    cache_required = (
+        "setExperimentalMetalProjectorCacheEnabled",
+        "setExperimentalMetalProjectorCacheMaxBytes",
+        "setExperimentalMetalProjectorCorrectionCacheReserveBytes",
+        "setExperimentalMetalProjectorMaxBatchEvents",
+    )
+    missing_cache = [name for name in cache_required if not hasattr(recon, name)]
+    if missing_cache:
+        raise RuntimeError(
+            "This pyyrtpet build does not expose Metal OSEM cache controls: "
+            + ",".join(missing_cache)
+        )
+    recon.setExperimentalMetalProjectorCacheEnabled(not args.no_metal_cache)
+    recon.setExperimentalMetalProjectorCacheMaxBytes(cache_max_bytes)
+    recon.setExperimentalMetalProjectorCorrectionCacheReserveBytes(
+        correction_cache_reserve_bytes
+    )
+    recon.setExperimentalMetalProjectorMaxBatchEvents(args.metal_batch_events)
+    if args.metal_lazy_corrections:
+        if not hasattr(
+            recon,
+            "setExperimentalMetalProjectorLazyCorrectionsEnabled",
+        ):
+            raise RuntimeError(
+                "This pyyrtpet build does not expose Metal lazy correction "
+                "controls"
+            )
+        recon.setExperimentalMetalProjectorLazyCorrectionsEnabled(True)
+    if args.metal_cached_corrections:
+        if not hasattr(
+            recon,
+            "setExperimentalMetalProjectorCachedCorrectionsEnabled",
+        ):
+            raise RuntimeError(
+                "This pyyrtpet build does not expose Metal cached correction "
+                "controls"
+            )
+        recon.setExperimentalMetalProjectorCachedCorrectionsEnabled(True)
+    if args.profile_metal:
+        if not hasattr(recon, "setExperimentalMetalProjectorProfilingEnabled"):
+            raise RuntimeError(
+                "This pyyrtpet build does not expose Metal OSEM profiling"
+            )
+        recon.setExperimentalMetalProjectorProfilingEnabled(True)
+        if args.profile_metal_adjoint_diagnostics:
+            if not hasattr(
+                recon,
+                "setExperimentalMetalProjectorAdjointDiagnosticsEnabled",
+            ):
+                raise RuntimeError(
+                    "This pyyrtpet build does not expose Metal adjoint diagnostics"
+                )
+            recon.setExperimentalMetalProjectorAdjointDiagnosticsEnabled(True)
+        if args.profile_metal_adjoint_hit_diagnostics:
+            if not hasattr(
+                recon,
+                "setExperimentalMetalProjectorAdjointHitDiagnosticsEnabled",
+            ):
+                raise RuntimeError(
+                    "This pyyrtpet build does not expose Metal adjoint hit diagnostics"
+                )
+            recon.setExperimentalMetalProjectorAdjointHitDiagnosticsEnabled(True)
+        reset_metal_profile_timings(recon, args)
 
 
 def run_osem(
@@ -3012,123 +3341,7 @@ def run_osem(
     recon.setSensitivityImages([sensitivity])
     recon.setGlobalScalingFactor(args.global_scale_factor)
     if use_metal:
-        if not hasattr(recon, "setExperimentalMetalProjectorEnabled"):
-            raise RuntimeError("This pyyrtpet build does not expose the Metal OSEM opt-in")
-        recon.setExperimentalMetalProjectorEnabled(True)
-        metal_projector_kernel = (
-            "joseph_texture_forward"
-            if args.metal_joseph_forward_texture
-            else args.metal_projector
-        )
-        if metal_projector_kernel != "siddon":
-            if not hasattr(recon, "setExperimentalMetalProjectorKernel"):
-                raise RuntimeError(
-                    "This pyyrtpet build does not expose Metal projector "
-                    "kernel selection"
-                )
-            recon.setExperimentalMetalProjectorKernel(metal_projector_kernel)
-        if args.metal_fused_ratio:
-            if not hasattr(recon, "setExperimentalMetalProjectorFusedRatioEnabled"):
-                raise RuntimeError(
-                    "This pyyrtpet build does not expose Metal fused ratio controls"
-                )
-            recon.setExperimentalMetalProjectorFusedRatioEnabled(True)
-        if args.metal_resident_images:
-            if not hasattr(
-                recon,
-                "setExperimentalMetalProjectorResidentImagesEnabled",
-            ):
-                raise RuntimeError(
-                    "This pyyrtpet build does not expose Metal resident image "
-                    "controls"
-                )
-            recon.setExperimentalMetalProjectorResidentImagesEnabled(True)
-        if args.metal_image_psf:
-            if not hasattr(
-                recon,
-                "setExperimentalMetalProjectorImagePsfEnabled",
-            ):
-                raise RuntimeError(
-                    "This pyyrtpet build does not expose Metal image PSF "
-                    "controls"
-                )
-            recon.setExperimentalMetalProjectorImagePsfEnabled(True)
-        cache_required = (
-            "setExperimentalMetalProjectorCacheEnabled",
-            "setExperimentalMetalProjectorCacheMaxBytes",
-            "setExperimentalMetalProjectorCorrectionCacheReserveBytes",
-            "setExperimentalMetalProjectorMaxBatchEvents",
-        )
-        missing_cache = [name for name in cache_required if not hasattr(recon, name)]
-        if missing_cache:
-            raise RuntimeError(
-                "This pyyrtpet build does not expose Metal OSEM cache controls: "
-                + ",".join(missing_cache)
-            )
-        recon.setExperimentalMetalProjectorCacheEnabled(not args.no_metal_cache)
-        recon.setExperimentalMetalProjectorCacheMaxBytes(
-            int(args.metal_cache_budget_mb * 1024.0 * 1024.0)
-        )
-        recon.setExperimentalMetalProjectorCorrectionCacheReserveBytes(
-            int(args.metal_correction_cache_reserve_mb * 1024.0 * 1024.0)
-        )
-        recon.setExperimentalMetalProjectorMaxBatchEvents(args.metal_batch_events)
-        if args.metal_lazy_corrections:
-            if not hasattr(
-                recon,
-                "setExperimentalMetalProjectorLazyCorrectionsEnabled",
-            ):
-                raise RuntimeError(
-                    "This pyyrtpet build does not expose Metal lazy correction "
-                    "controls"
-                )
-            recon.setExperimentalMetalProjectorLazyCorrectionsEnabled(True)
-        if args.metal_cached_corrections:
-            if not hasattr(
-                recon,
-                "setExperimentalMetalProjectorCachedCorrectionsEnabled",
-            ):
-                raise RuntimeError(
-                    "This pyyrtpet build does not expose Metal cached "
-                    "correction controls"
-                )
-            recon.setExperimentalMetalProjectorCachedCorrectionsEnabled(True)
-        if args.profile_metal:
-            required = (
-                "setExperimentalMetalProjectorProfilingEnabled",
-                "resetExperimentalMetalProjectorTimings",
-                "getExperimentalMetalProjectorTimings",
-            )
-            missing = [name for name in required if not hasattr(recon, name)]
-            if missing:
-                raise RuntimeError(
-                    "This pyyrtpet build does not expose Metal OSEM profiling: "
-                    + ",".join(missing)
-                )
-            recon.setExperimentalMetalProjectorProfilingEnabled(True)
-            if args.profile_metal_adjoint_diagnostics:
-                if not hasattr(
-                    recon,
-                    "setExperimentalMetalProjectorAdjointDiagnosticsEnabled",
-                ):
-                    raise RuntimeError(
-                        "This pyyrtpet build does not expose Metal adjoint "
-                        "diagnostics"
-                    )
-                recon.setExperimentalMetalProjectorAdjointDiagnosticsEnabled(True)
-            if args.profile_metal_adjoint_hit_diagnostics:
-                if not hasattr(
-                    recon,
-                    "setExperimentalMetalProjectorAdjointHitDiagnosticsEnabled",
-                ):
-                    raise RuntimeError(
-                        "This pyyrtpet build does not expose Metal adjoint "
-                        "hit diagnostics"
-                    )
-                recon.setExperimentalMetalProjectorAdjointHitDiagnosticsEnabled(
-                    True
-                )
-            recon.resetExperimentalMetalProjectorTimings()
+        configure_osem_experimental_metal(recon, args)
 
     start = time.perf_counter()
     image = recon.reconstruct()
@@ -3171,7 +3384,8 @@ def apply_metal_recipe(args, provided_options):
     set_recipe_default(args, "move_sensitivity", True, provided_options,
                        "--move-sensitivity", "--no-move-sensitivity")
     set_recipe_default(args, "metal_move_sensitivity", True, provided_options,
-                       "--metal-move-sensitivity")
+                       "--metal-move-sensitivity",
+                       "--no-metal-move-sensitivity")
     set_recipe_default(args, "psf", True, provided_options, "--psf", "--no-psf")
     set_recipe_default(args, "profile_metal", True, provided_options,
                        "--profile-metal")
@@ -3199,7 +3413,7 @@ def apply_metal_recipe(args, provided_options):
         "--metal-native-float-atomics",
         "--no-metal-native-float-atomics",
     )
-    set_recipe_default(args, "metal_cache_budget_mb", "24576", provided_options,
+    set_recipe_default(args, "metal_cache_budget_mb", "auto", provided_options,
                        "--metal-cache-budget-mb")
     set_recipe_default(args, "metal_correction_cache_reserve_mb", "auto",
                        provided_options, "--metal-correction-cache-reserve-mb")
@@ -3297,10 +3511,16 @@ def resolved_command(args):
         command.append("--no-metal-cache")
     if args.metal_direct_frame_batches:
         command.append("--metal-direct-frame-batches")
-    command.extend(["--metal-cache-budget-mb", f"{args.metal_cache_budget_mb:g}"])
+    cache_budget_value = (
+        "auto"
+        if args.metal_cache_budget_mb is None
+        else f"{args.metal_cache_budget_mb:g}"
+    )
+    command.extend(["--metal-cache-budget-mb", cache_budget_value])
     reserve_value = (
         "auto"
-        if args.metal_correction_cache_reserve_auto
+        if getattr(args, "metal_correction_cache_reserve_auto", False)
+        or args.metal_correction_cache_reserve_mb is None
         else f"{args.metal_correction_cache_reserve_mb:g}"
     )
     command.extend(["--metal-correction-cache-reserve-mb", reserve_value])
@@ -3350,12 +3570,12 @@ def print_dry_run(args):
     print("dry_run=True")
     if args.metal_recipe:
         print(f"metal_recipe={args.metal_recipe}")
-    command = resolved_command(args)
-    print("resolved_command=" + " ".join(shlex.quote(part) for part in command))
 
     listmode_path = os.path.join(args.base, "PseudoListMode.yrt")
     if not os.path.exists(listmode_path):
         print(f"listmode_path_missing={listmode_path}")
+        command = resolved_command(args)
+        print("resolved_command=" + " ".join(shlex.quote(part) for part in command))
         return
 
     total_events, used_events = resolve_event_count(
@@ -3366,6 +3586,9 @@ def print_dry_run(args):
     print(f"used_events={used_events}")
     loader = resolve_listmode_loader(args, total_events, used_events)
     listmode_plan = listmode_memory_plan(loader, used_events)
+    resolve_case_cache_options(args, listmode_plan)
+    command = resolved_command(args)
+    print("resolved_command=" + " ".join(shlex.quote(part) for part in command))
     print_listmode_memory_plan(listmode_plan)
     cache_plan = metal_cache_plan(args, used_events)
     print_metal_cache_plan(cache_plan, args)
@@ -3437,11 +3660,33 @@ def parse_args():
     )
     parser.add_argument(
         "--metal-move-sensitivity",
+        dest="metal_move_sensitivity",
         action="store_true",
+        default=False,
         help=(
             "Use the experimental Metal implementation for sensitivity image "
             "motion time-averaging. This only affects setup, is opt-in, and "
             "does not change CPU/CUDA defaults."
+        ),
+    )
+    parser.add_argument(
+        "--no-metal-move-sensitivity",
+        dest="metal_move_sensitivity",
+        action="store_false",
+        default=False,
+        help=(
+            "Use the CPU implementation for sensitivity image motion "
+            "time-averaging, even when a named Metal recipe would otherwise "
+            "select the experimental Metal helper."
+        ),
+    )
+    parser.add_argument(
+        "--strict-metal-move-sensitivity",
+        action="store_true",
+        help=(
+            "Treat experimental Metal sensitivity motion failure as fatal. "
+            "By default the GE driver falls back to CPU sensitivity motion so "
+            "OSEM smoke/profiling runs can continue."
         ),
     )
     parser.add_argument("--psf", dest="psf", action="store_true", default=True)
@@ -3697,9 +3942,30 @@ def parse_args():
         default="1024.0",
         help=(
             "Maximum persistent cache budget in MB for experimental Metal "
-            "LOR/batch data. Accepts one value or a comma-separated sweep "
-            "list. Subsets larger than the budget are partly cached by batch "
-            "and partly streamed."
+            "LOR/batch data. Accepts auto, one numeric value, or a "
+            "comma-separated sweep list. auto sizes the cache from total "
+            "unified memory, selected listmode memory, and conservative OS/app "
+            "headroom. Subsets larger than the budget are partly cached by "
+            "batch and partly streamed."
+        ),
+    )
+    parser.add_argument(
+        "--metal-cache-budget-fraction",
+        type=float,
+        default=DEFAULT_METAL_CACHE_BUDGET_FRACTION,
+        help=(
+            "For --metal-cache-budget-mb auto, cap the Metal cache budget to "
+            "this fraction of total system memory."
+        ),
+    )
+    parser.add_argument(
+        "--metal-cache-headroom-gib",
+        type=float,
+        default=DEFAULT_METAL_CACHE_HEADROOM_GIB,
+        help=(
+            "For --metal-cache-budget-mb auto, reserve at least this many GiB "
+            "for macOS, Python, apps, compression, and Metal overhead. The "
+            "auto policy also reserves at least 20 percent of total memory."
         ),
     )
     parser.add_argument(
@@ -4024,6 +4290,10 @@ def validate_metric_args(args):
         raise SystemExit(
             "This pyyrtpet build does not expose timeAverageMoveImageMetal"
         )
+    if args.strict_metal_move_sensitivity and not args.metal_move_sensitivity:
+        raise SystemExit(
+            "--strict-metal-move-sensitivity requires --metal-move-sensitivity"
+        )
     if args.validate_metrics and not args.compare_metal:
         raise SystemExit("--validate-metrics requires --compare-metal")
     if args.metal_only and args.compare_metal:
@@ -4151,6 +4421,10 @@ def validate_metric_args(args):
         raise SystemExit(
             "--metal-cached-corrections requires the experimental Metal cache"
         )
+    if args.metal_cache_budget_fraction <= 0.0 or args.metal_cache_budget_fraction > 1.0:
+        raise SystemExit("--metal-cache-budget-fraction must be in (0, 1]")
+    if args.metal_cache_headroom_gib < 0.0:
+        raise SystemExit("--metal-cache-headroom-gib must be non-negative")
     if args.metal_cache_pressure_cap_mb < 0.0:
         raise SystemExit("--metal-cache-pressure-cap-mb must be non-negative")
     for name in (
@@ -4189,6 +4463,9 @@ def run_case(args, out_dir, write_images, case_label="", emit_pass=True):
         listmode_path, args.pct, args.max_events
     )
     enforce_metal_safety(args, used_events)
+    preflight_loader = resolve_listmode_loader(args, total_events, used_events)
+    preflight_listmode_plan = listmode_memory_plan(preflight_loader, used_events)
+    resolve_case_cache_options(args, preflight_listmode_plan)
 
     voxel_size = np.round(img_params.length_x / img_params.nx, 1)
     psf_csv_path = os.path.join(
@@ -4209,6 +4486,7 @@ def run_case(args, out_dir, write_images, case_label="", emit_pass=True):
     print(f"motion={args.motion}")
     print(f"move_sensitivity={args.motion and args.move_sensitivity}")
     print(f"metal_move_sensitivity={args.metal_move_sensitivity}")
+    print(f"strict_metal_move_sensitivity={args.strict_metal_move_sensitivity}")
     print(f"psf={args.psf}")
     print(f"compare_metal={args.compare_metal}")
     print(f"metal_only={args.metal_only}")
@@ -4268,6 +4546,7 @@ def run_case(args, out_dir, write_images, case_label="", emit_pass=True):
         "metal_recipe": args.metal_recipe,
         "move_sensitivity": args.motion and args.move_sensitivity,
         "metal_move_sensitivity": args.metal_move_sensitivity,
+        "strict_metal_move_sensitivity": args.strict_metal_move_sensitivity,
         "metal_cache_budget_mb": args.metal_cache_budget_mb,
         "metal_correction_cache_reserve_mb": (
             args.metal_correction_cache_reserve_mb
@@ -4394,6 +4673,7 @@ def run_case(args, out_dir, write_images, case_label="", emit_pass=True):
         args.global_scale_factor,
         args.metal_sensitivity_projector,
         args.metal_move_sensitivity,
+        args.strict_metal_move_sensitivity,
         setup_profile,
     )
     if write_images:
@@ -4615,7 +4895,7 @@ def main():
     provided_options = cli_options(sys.argv[1:])
     apply_metal_recipe(args, provided_options)
     apply_validation_profile(args)
-    cache_budget_values = parse_nonnegative_float_list(
+    cache_budget_values = parse_metal_cache_budget_list(
         args.metal_cache_budget_mb, "--metal-cache-budget-mb"
     )
     args.metal_cache_budget_mb = cache_budget_values[0]
@@ -4624,11 +4904,9 @@ def main():
         args.metal_correction_cache_reserve_mb,
         "--metal-correction-cache-reserve-mb",
     )
-    (
-        args.metal_correction_cache_reserve_mb,
-        args.metal_correction_cache_reserve_auto,
-    ) = resolve_metal_correction_cache_reserve_mb(
-        args, correction_reserve_values[0], args.metal_cache_budget_mb
+    args.metal_correction_cache_reserve_mb = correction_reserve_values[0]
+    args.metal_correction_cache_reserve_auto = (
+        args.metal_correction_cache_reserve_mb is None
     )
     args.metal_correction_cache_reserve_values = correction_reserve_values
     batch_event_values = parse_nonnegative_int_list(
@@ -4679,7 +4957,7 @@ def main():
             "metal_batch_events:"
             f"{','.join(str(value) for value in batch_event_values)};"
             "metal_cache_budget_mb:"
-            f"{','.join(f'{value:g}' for value in cache_budget_values)};"
+            f"{','.join(format_cache_budget_label(value) for value in cache_budget_values)};"
             "metal_correction_cache_reserve_mb:"
             f"{','.join(format_correction_cache_reserve_label(value) for value in correction_reserve_values)};"
             "metal_threads_per_threadgroup:"
@@ -4714,13 +4992,11 @@ def main():
                                         case_args.metal_cache_budget_mb = (
                                             cache_budget_mb
                                         )
-                                        (
-                                            case_args.metal_correction_cache_reserve_mb,
-                                            case_args.metal_correction_cache_reserve_auto,
-                                        ) = resolve_metal_correction_cache_reserve_mb(
-                                            case_args,
-                                            correction_reserve_mb,
-                                            cache_budget_mb,
+                                        case_args.metal_correction_cache_reserve_mb = (
+                                            correction_reserve_mb
+                                        )
+                                        case_args.metal_correction_cache_reserve_auto = (
+                                            correction_reserve_mb is None
                                         )
                                         case_args.metal_threads_per_threadgroup = (
                                             threads_per_threadgroup
@@ -4731,7 +5007,7 @@ def main():
                                             f"_cachemb_"
                                             f"{format_cache_budget_label(cache_budget_mb)}"
                                             f"_corrmb_"
-                                            f"{format_cache_budget_label(case_args.metal_correction_cache_reserve_mb)}"
+                                            f"{format_correction_cache_reserve_label(correction_reserve_mb)}"
                                             f"_tpg_{threads_per_threadgroup}"
                                         )
                                         case_out_dir = os.path.join(

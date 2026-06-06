@@ -65,6 +65,16 @@ struct OperatorProjectorMetalOsemConfig
 	std::size_t threadsPerThreadgroup = 0;
 };
 
+struct OperatorProjectorMetalRuntimeOptions
+{
+	bool nativeFloatAtomicsExplicit = false;
+	bool nativeFloatAtomics = false;
+	bool josephAdjointAxisSwitchOnceExplicit = false;
+	bool josephAdjointAxisSwitchOnce = false;
+	bool threadsPerThreadgroupExplicit = false;
+	std::size_t threadsPerThreadgroup = 0;
+};
+
 class OperatorProjectorMetalCache
 {
 public:
@@ -106,13 +116,17 @@ public:
 	            ProjectionData& projectionData, const BinIterator& binIterator,
 	            const BinLoader& binLoader,
 	            OperatorProjectorMetalKernel projectorKernel =
-	                OperatorProjectorMetalKernel::Siddon) const;
+	                OperatorProjectorMetalKernel::Siddon,
+	            const OperatorProjectorMetalRuntimeOptions* runtimeOptions =
+	                nullptr) const;
 	bool applyAH(const OperatorProjector& projector,
 	             const ProjectionData& projectionData, Image& image,
 	             const BinIterator& binIterator,
 	             const BinLoader& binLoader,
 	             OperatorProjectorMetalKernel projectorKernel =
-	                 OperatorProjectorMetalKernel::Siddon) const;
+	                 OperatorProjectorMetalKernel::Siddon,
+	             const OperatorProjectorMetalRuntimeOptions* runtimeOptions =
+	                 nullptr) const;
 	bool applyOsemEMUpdate(const OperatorProjector& projector,
 	                       const Image& inputImage, Image& updateImage,
 	                       const ProjectionData& measurements,

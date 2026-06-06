@@ -38,6 +38,27 @@ namespace yrt
 {
 void py_setup_operatorprojector(py::module& m)
 {
+	using MetalProjectorOptions =
+	    OperatorProjector::ExperimentalMetalProjectorOptions;
+	py::class_<MetalProjectorOptions>(
+	    m, "ExperimentalMetalOperatorProjectorOptions")
+	    .def(py::init<>())
+	    .def_readwrite("enabled", &MetalProjectorOptions::enabled)
+	    .def_readwrite("kernel", &MetalProjectorOptions::kernel)
+	    .def_readwrite("native_float_atomics_explicit",
+	                   &MetalProjectorOptions::nativeFloatAtomicsExplicit)
+	    .def_readwrite("native_float_atomics",
+	                   &MetalProjectorOptions::nativeFloatAtomics)
+	    .def_readwrite(
+	        "joseph_adjoint_axis_switch_once_explicit",
+	        &MetalProjectorOptions::josephAdjointAxisSwitchOnceExplicit)
+	    .def_readwrite("joseph_adjoint_axis_switch_once",
+	                   &MetalProjectorOptions::josephAdjointAxisSwitchOnce)
+	    .def_readwrite("threads_per_threadgroup_explicit",
+	                   &MetalProjectorOptions::threadsPerThreadgroupExplicit)
+	    .def_readwrite("threads_per_threadgroup",
+	                   &MetalProjectorOptions::threadsPerThreadgroup);
+
 	auto c = py::class_<OperatorProjector, OperatorProjectorBase>(
 	    m, "OperatorProjector");
 
@@ -80,6 +101,11 @@ void py_setup_operatorprojector(py::module& m)
 	      "kernel"_a);
 	c.def("getExperimentalMetalProjectorKernel",
 	      &OperatorProjector::getExperimentalMetalProjectorKernel);
+	c.def("setExperimentalMetalProjectorOptions",
+	      &OperatorProjector::setExperimentalMetalProjectorOptions,
+	      "options"_a);
+	c.def("getExperimentalMetalProjectorOptions",
+	      &OperatorProjector::getExperimentalMetalProjectorOptions);
 
 	c.def("setUpdaterLRUpdateH",
 	      [](OperatorProjector& self, bool updateH)
@@ -323,9 +349,22 @@ void OperatorProjector::applyA(const Variable* in, Variable* out)
 		const auto projectorKernel =
 		    parseExperimentalMetalProjectorKernel(
 		        m_experimentalMetalProjectorKernel);
+		backend::metal::OperatorProjectorMetalRuntimeOptions runtimeOptions;
+		runtimeOptions.nativeFloatAtomicsExplicit =
+		    m_experimentalMetalProjectorNativeFloatAtomicsExplicit;
+		runtimeOptions.nativeFloatAtomics =
+		    m_experimentalMetalProjectorNativeFloatAtomics;
+		runtimeOptions.josephAdjointAxisSwitchOnceExplicit =
+		    m_experimentalMetalProjectorJosephAdjointAxisSwitchOnceExplicit;
+		runtimeOptions.josephAdjointAxisSwitchOnce =
+		    m_experimentalMetalProjectorJosephAdjointAxisSwitchOnce;
+		runtimeOptions.threadsPerThreadgroupExplicit =
+		    m_experimentalMetalProjectorThreadsPerThreadgroupExplicit;
+		runtimeOptions.threadsPerThreadgroup =
+		    m_experimentalMetalProjectorThreadsPerThreadgroup;
 		if (bridge.canRunSiddon(*this).supported &&
 		    bridge.applyA(*this, *img, *dat, *binIter, *mp_binLoader,
-		        projectorKernel))
+		        projectorKernel, &runtimeOptions))
 		{
 			return;
 		}
@@ -375,9 +414,22 @@ void OperatorProjector::applyAH(const Variable* in, Variable* out)
 		const auto projectorKernel =
 		    parseExperimentalMetalProjectorKernel(
 		        m_experimentalMetalProjectorKernel);
+		backend::metal::OperatorProjectorMetalRuntimeOptions runtimeOptions;
+		runtimeOptions.nativeFloatAtomicsExplicit =
+		    m_experimentalMetalProjectorNativeFloatAtomicsExplicit;
+		runtimeOptions.nativeFloatAtomics =
+		    m_experimentalMetalProjectorNativeFloatAtomics;
+		runtimeOptions.josephAdjointAxisSwitchOnceExplicit =
+		    m_experimentalMetalProjectorJosephAdjointAxisSwitchOnceExplicit;
+		runtimeOptions.josephAdjointAxisSwitchOnce =
+		    m_experimentalMetalProjectorJosephAdjointAxisSwitchOnce;
+		runtimeOptions.threadsPerThreadgroupExplicit =
+		    m_experimentalMetalProjectorThreadsPerThreadgroupExplicit;
+		runtimeOptions.threadsPerThreadgroup =
+		    m_experimentalMetalProjectorThreadsPerThreadgroup;
 		if (bridge.canRunSiddon(*this).supported &&
 		    bridge.applyAH(*this, *dat, *img, *binIter, *mp_binLoader,
-		        projectorKernel))
+		        projectorKernel, &runtimeOptions))
 		{
 			return;
 		}
@@ -431,6 +483,46 @@ void OperatorProjector::setExperimentalMetalProjectorKernel(
 std::string OperatorProjector::getExperimentalMetalProjectorKernel() const
 {
 	return m_experimentalMetalProjectorKernel;
+}
+
+void OperatorProjector::setExperimentalMetalProjectorOptions(
+    const ExperimentalMetalProjectorOptions& options)
+{
+	setExperimentalMetalProjectorEnabled(options.enabled);
+	setExperimentalMetalProjectorKernel(options.kernel);
+	m_experimentalMetalProjectorNativeFloatAtomicsExplicit =
+	    options.nativeFloatAtomicsExplicit;
+	m_experimentalMetalProjectorNativeFloatAtomics =
+	    options.nativeFloatAtomics;
+	m_experimentalMetalProjectorJosephAdjointAxisSwitchOnceExplicit =
+	    options.josephAdjointAxisSwitchOnceExplicit;
+	m_experimentalMetalProjectorJosephAdjointAxisSwitchOnce =
+	    options.josephAdjointAxisSwitchOnce;
+	m_experimentalMetalProjectorThreadsPerThreadgroupExplicit =
+	    options.threadsPerThreadgroupExplicit;
+	m_experimentalMetalProjectorThreadsPerThreadgroup =
+	    options.threadsPerThreadgroup;
+}
+
+OperatorProjector::ExperimentalMetalProjectorOptions
+OperatorProjector::getExperimentalMetalProjectorOptions() const
+{
+	ExperimentalMetalProjectorOptions options;
+	options.enabled = m_experimentalMetalProjectorEnabled;
+	options.kernel = m_experimentalMetalProjectorKernel;
+	options.nativeFloatAtomicsExplicit =
+	    m_experimentalMetalProjectorNativeFloatAtomicsExplicit;
+	options.nativeFloatAtomics =
+	    m_experimentalMetalProjectorNativeFloatAtomics;
+	options.josephAdjointAxisSwitchOnceExplicit =
+	    m_experimentalMetalProjectorJosephAdjointAxisSwitchOnceExplicit;
+	options.josephAdjointAxisSwitchOnce =
+	    m_experimentalMetalProjectorJosephAdjointAxisSwitchOnce;
+	options.threadsPerThreadgroupExplicit =
+	    m_experimentalMetalProjectorThreadsPerThreadgroupExplicit;
+	options.threadsPerThreadgroup =
+	    m_experimentalMetalProjectorThreadsPerThreadgroup;
+	return options;
 }
 
 void OperatorProjector::addTOF(float tofWidth_ps, int tofNumStd)

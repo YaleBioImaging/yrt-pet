@@ -17,6 +17,9 @@
 #include "yrt-pet/operators/TimeOfFlight.hpp"
 #include "yrt-pet/utils/Types.hpp"
 
+#include <cstddef>
+#include <string>
+
 namespace yrt
 {
 
@@ -29,6 +32,18 @@ class Histogram;
 class OperatorProjector : public OperatorProjectorBase
 {
 public:
+	struct ExperimentalMetalProjectorOptions
+	{
+		bool enabled = false;
+		std::string kernel = "siddon";
+		bool nativeFloatAtomicsExplicit = false;
+		bool nativeFloatAtomics = false;
+		bool josephAdjointAxisSwitchOnceExplicit = false;
+		bool josephAdjointAxisSwitchOnce = false;
+		bool threadsPerThreadgroupExplicit = false;
+		std::size_t threadsPerThreadgroup = 0;
+	};
+
 	explicit OperatorProjector(
 	    const ProjectorParams& pr_projParams,
 	    const BinIterator* pp_binIter = nullptr,
@@ -44,6 +59,10 @@ public:
 	bool isExperimentalMetalProjectorEnabled() const;
 	void setExperimentalMetalProjectorKernel(const std::string& kernel);
 	std::string getExperimentalMetalProjectorKernel() const;
+	void setExperimentalMetalProjectorOptions(
+	    const ExperimentalMetalProjectorOptions& options);
+	ExperimentalMetalProjectorOptions getExperimentalMetalProjectorOptions()
+	    const;
 
 	void addTOF(float tofWidth_ps, int tofNumStd = -1);
 	void addProjPSF(const std::string& projPsf_fname);
@@ -72,5 +91,12 @@ protected:
 
 	bool m_experimentalMetalProjectorEnabled = false;
 	std::string m_experimentalMetalProjectorKernel = "siddon";
+	bool m_experimentalMetalProjectorNativeFloatAtomicsExplicit = false;
+	bool m_experimentalMetalProjectorNativeFloatAtomics = false;
+	bool m_experimentalMetalProjectorJosephAdjointAxisSwitchOnceExplicit =
+	    false;
+	bool m_experimentalMetalProjectorJosephAdjointAxisSwitchOnce = false;
+	bool m_experimentalMetalProjectorThreadsPerThreadgroupExplicit = false;
+	std::size_t m_experimentalMetalProjectorThreadsPerThreadgroup = 0;
 };
 }  // namespace yrt

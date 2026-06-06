@@ -9,6 +9,7 @@ import shlex
 import subprocess
 import sys
 import time
+from dataclasses import dataclass
 
 import numpy as np
 import pyyrtpet as yrt
@@ -3054,6 +3055,7 @@ def build_sensitivity(
     sensitivity_projector,
     metal_move_sensitivity,
     strict_metal_move_sensitivity,
+    metal_recipe_options,
     setup_profile=None,
 ):
     total_start = time.perf_counter()
@@ -3066,21 +3068,9 @@ def build_sensitivity(
     proj_params.setProjector("Siddon")
     operator_siddon = yrt.createOperatorProjector(proj_params, bin_iter)
     if sensitivity_projector == "joseph":
-        missing = [
-            name
-            for name in (
-                "setExperimentalMetalProjectorEnabled",
-                "setExperimentalMetalProjectorKernel",
-            )
-            if not hasattr(operator_siddon, name)
-        ]
-        if missing:
-            raise RuntimeError(
-                "This pyyrtpet build does not expose OperatorProjector Metal "
-                "kernel controls: " + ",".join(missing)
-            )
-        operator_siddon.setExperimentalMetalProjectorEnabled(True)
-        operator_siddon.setExperimentalMetalProjectorKernel("joseph")
+        configure_operator_projector_experimental_metal(
+            operator_siddon, "joseph", metal_recipe_options
+        )
         print("Computing sensitivity map with experimental Metal Joseph...")
     else:
         print("Computing sensitivity map with Siddon...")
@@ -3167,6 +3157,48 @@ def selected_metal_projector_kernel(args):
     )
 
 
+@dataclass(frozen=True)
+class MetalRecipeOptions:
+    osem_kernel: str
+    sensitivity_kernel: str
+    cache_max_bytes: int
+    correction_cache_reserve_bytes: int
+    direct_frame_batches_explicit: bool
+    direct_frame_batches: bool
+    native_float_atomics_explicit: bool
+    native_float_atomics: bool
+    joseph_adjoint_axis_switch_once_explicit: bool
+    joseph_adjoint_axis_switch_once: bool
+    threads_per_threadgroup_explicit: bool
+    threads_per_threadgroup: int
+
+
+def build_metal_recipe_options(args):
+    native_float_atomics = getattr(args, "metal_native_float_atomics", None)
+    cache_max_bytes = int(args.metal_cache_budget_mb * 1024.0 * 1024.0)
+    correction_cache_reserve_bytes = int(
+        args.metal_correction_cache_reserve_mb * 1024.0 * 1024.0
+    )
+    return MetalRecipeOptions(
+        osem_kernel=selected_metal_projector_kernel(args),
+        sensitivity_kernel=args.metal_sensitivity_projector,
+        cache_max_bytes=cache_max_bytes,
+        correction_cache_reserve_bytes=correction_cache_reserve_bytes,
+        direct_frame_batches_explicit=True,
+        direct_frame_batches=bool(args.metal_direct_frame_batches),
+        native_float_atomics_explicit=native_float_atomics is not None,
+        native_float_atomics=bool(native_float_atomics)
+        if native_float_atomics is not None
+        else False,
+        joseph_adjoint_axis_switch_once_explicit=True,
+        joseph_adjoint_axis_switch_once=bool(
+            args.metal_joseph_adjoint_axis_switch_once
+        ),
+        threads_per_threadgroup_explicit=True,
+        threads_per_threadgroup=int(args.metal_threads_per_threadgroup),
+    )
+
+
 def reset_metal_profile_timings(recon, args):
     if not args.profile_metal:
         return
@@ -3183,28 +3215,96 @@ def reset_metal_profile_timings(recon, args):
     recon.resetExperimentalMetalProjectorTimings()
 
 
-def configure_osem_experimental_metal(recon, args):
+def set_option_if_available(options, name, value):
+    if hasattr(options, name):
+        setattr(options, name, value)
+
+
+def apply_projector_runtime_options(
+    options, metal_recipe_options, include_direct_frame_batches=False
+):
+    if include_direct_frame_batches:
+        set_option_if_available(
+            options,
+            "direct_frame_batches_explicit",
+            metal_recipe_options.direct_frame_batches_explicit,
+        )
+        set_option_if_available(
+            options, "direct_frame_batches", metal_recipe_options.direct_frame_batches
+        )
+    if metal_recipe_options.native_float_atomics_explicit:
+        set_option_if_available(
+            options,
+            "native_float_atomics_explicit",
+            metal_recipe_options.native_float_atomics_explicit,
+        )
+        set_option_if_available(
+            options, "native_float_atomics", metal_recipe_options.native_float_atomics
+        )
+    set_option_if_available(
+        options,
+        "joseph_adjoint_axis_switch_once_explicit",
+        metal_recipe_options.joseph_adjoint_axis_switch_once_explicit,
+    )
+    set_option_if_available(
+        options,
+        "joseph_adjoint_axis_switch_once",
+        metal_recipe_options.joseph_adjoint_axis_switch_once,
+    )
+    set_option_if_available(
+        options,
+        "threads_per_threadgroup_explicit",
+        metal_recipe_options.threads_per_threadgroup_explicit,
+    )
+    set_option_if_available(
+        options,
+        "threads_per_threadgroup",
+        metal_recipe_options.threads_per_threadgroup,
+    )
+
+
+def configure_operator_projector_experimental_metal(
+    operator_projector, kernel, metal_recipe_options
+):
+    if hasattr(operator_projector, "setExperimentalMetalProjectorOptions") and hasattr(
+        yrt, "ExperimentalMetalOperatorProjectorOptions"
+    ):
+        options = yrt.ExperimentalMetalOperatorProjectorOptions()
+        options.enabled = True
+        options.kernel = kernel
+        apply_projector_runtime_options(options, metal_recipe_options)
+        operator_projector.setExperimentalMetalProjectorOptions(options)
+        return
+
+    missing = [
+        name
+        for name in (
+            "setExperimentalMetalProjectorEnabled",
+            "setExperimentalMetalProjectorKernel",
+        )
+        if not hasattr(operator_projector, name)
+    ]
+    if missing:
+        raise RuntimeError(
+            "This pyyrtpet build does not expose OperatorProjector Metal "
+            "kernel controls: " + ",".join(missing)
+        )
+    operator_projector.setExperimentalMetalProjectorEnabled(True)
+    operator_projector.setExperimentalMetalProjectorKernel(kernel)
+
+
+def configure_osem_experimental_metal(recon, args, metal_recipe_options):
     if not hasattr(recon, "setExperimentalMetalProjectorEnabled"):
         raise RuntimeError("This pyyrtpet build does not expose the Metal OSEM opt-in")
-
-    metal_projector_kernel = selected_metal_projector_kernel(args)
-    cache_max_bytes = int(args.metal_cache_budget_mb * 1024.0 * 1024.0)
-    correction_cache_reserve_bytes = int(
-        args.metal_correction_cache_reserve_mb * 1024.0 * 1024.0
-    )
 
     if hasattr(recon, "setExperimentalMetalProjectorOptions") and hasattr(
         yrt, "ExperimentalMetalProjectorOptions"
     ):
-        def set_option_if_available(options, name, value):
-            if hasattr(options, name):
-                setattr(options, name, value)
-
         options = yrt.ExperimentalMetalProjectorOptions()
         options.enabled = True
         options.fused_ratio = bool(args.metal_fused_ratio)
         options.resident_images = bool(args.metal_resident_images)
-        options.kernel = metal_projector_kernel
+        options.kernel = metal_recipe_options.osem_kernel
         options.profiling = bool(args.profile_metal)
         options.adjoint_diagnostics = bool(
             args.profile_metal and args.profile_metal_adjoint_diagnostics
@@ -3216,51 +3316,26 @@ def configure_osem_experimental_metal(recon, args):
         options.lazy_corrections = bool(args.metal_lazy_corrections)
         options.cached_corrections = bool(args.metal_cached_corrections)
         options.image_psf = bool(args.metal_image_psf)
-        options.cache_max_bytes = cache_max_bytes
-        options.correction_cache_reserve_bytes = correction_cache_reserve_bytes
+        options.cache_max_bytes = metal_recipe_options.cache_max_bytes
+        options.correction_cache_reserve_bytes = (
+            metal_recipe_options.correction_cache_reserve_bytes
+        )
         options.max_batch_events = int(args.metal_batch_events)
-        set_option_if_available(options, "direct_frame_batches_explicit", True)
-        set_option_if_available(
-            options, "direct_frame_batches", bool(args.metal_direct_frame_batches)
-        )
-        native_float_atomics = getattr(args, "metal_native_float_atomics", None)
-        if native_float_atomics is not None:
-            set_option_if_available(
-                options, "native_float_atomics_explicit", True
-            )
-            set_option_if_available(
-                options, "native_float_atomics", bool(native_float_atomics)
-            )
-        set_option_if_available(
-            options,
-            "joseph_adjoint_axis_switch_once_explicit",
-            True,
-        )
-        set_option_if_available(
-            options,
-            "joseph_adjoint_axis_switch_once",
-            bool(args.metal_joseph_adjoint_axis_switch_once),
-        )
-        set_option_if_available(
-            options, "threads_per_threadgroup_explicit", True
-        )
-        set_option_if_available(
-            options,
-            "threads_per_threadgroup",
-            int(args.metal_threads_per_threadgroup),
+        apply_projector_runtime_options(
+            options, metal_recipe_options, include_direct_frame_batches=True
         )
         recon.setExperimentalMetalProjectorOptions(options)
         reset_metal_profile_timings(recon, args)
         return
 
     recon.setExperimentalMetalProjectorEnabled(True)
-    if metal_projector_kernel != "siddon":
+    if metal_recipe_options.osem_kernel != "siddon":
         if not hasattr(recon, "setExperimentalMetalProjectorKernel"):
             raise RuntimeError(
                 "This pyyrtpet build does not expose Metal projector "
                 "kernel selection"
             )
-        recon.setExperimentalMetalProjectorKernel(metal_projector_kernel)
+        recon.setExperimentalMetalProjectorKernel(metal_recipe_options.osem_kernel)
     if args.metal_fused_ratio:
         if not hasattr(recon, "setExperimentalMetalProjectorFusedRatioEnabled"):
             raise RuntimeError(
@@ -3299,9 +3374,11 @@ def configure_osem_experimental_metal(recon, args):
             + ",".join(missing_cache)
         )
     recon.setExperimentalMetalProjectorCacheEnabled(not args.no_metal_cache)
-    recon.setExperimentalMetalProjectorCacheMaxBytes(cache_max_bytes)
+    recon.setExperimentalMetalProjectorCacheMaxBytes(
+        metal_recipe_options.cache_max_bytes
+    )
     recon.setExperimentalMetalProjectorCorrectionCacheReserveBytes(
-        correction_cache_reserve_bytes
+        metal_recipe_options.correction_cache_reserve_bytes
     )
     recon.setExperimentalMetalProjectorMaxBatchEvents(args.metal_batch_events)
     if args.metal_lazy_corrections:
@@ -3360,6 +3437,7 @@ def run_osem(
     scatter,
     psf_csv_path,
     args,
+    metal_recipe_options,
     use_metal,
 ):
     recon = yrt.createOSEM(scanner, False)
@@ -3375,7 +3453,7 @@ def run_osem(
     recon.setSensitivityImages([sensitivity])
     recon.setGlobalScalingFactor(args.global_scale_factor)
     if use_metal:
-        configure_osem_experimental_metal(recon, args)
+        configure_osem_experimental_metal(recon, args, metal_recipe_options)
 
     start = time.perf_counter()
     image = recon.reconstruct()
@@ -4640,6 +4718,7 @@ def run_case(args, out_dir, write_images, case_label="", emit_pass=True):
         "metal_only": args.metal_only,
     }
     row.update(cache_plan)
+    metal_recipe_options = build_metal_recipe_options(args)
     setup_profile = make_setup_profile()
     setup_start = time.perf_counter()
     phase_start = time.perf_counter()
@@ -4705,9 +4784,10 @@ def run_case(args, out_dir, write_images, case_label="", emit_pass=True):
         args.move_sensitivity,
         args.psf,
         args.global_scale_factor,
-        args.metal_sensitivity_projector,
+        metal_recipe_options.sensitivity_kernel,
         args.metal_move_sensitivity,
         args.strict_metal_move_sensitivity,
+        metal_recipe_options,
         setup_profile,
     )
     if write_images:
@@ -4733,6 +4813,7 @@ def run_case(args, out_dir, write_images, case_label="", emit_pass=True):
             scatter,
             psf_csv_path,
             args,
+            metal_recipe_options,
             use_metal=True,
         )
         for subset_row in metal_subset_profile:
@@ -4786,6 +4867,7 @@ def run_case(args, out_dir, write_images, case_label="", emit_pass=True):
         scatter,
         psf_csv_path,
         args,
+        metal_recipe_options,
         use_metal=False,
     )
     if cpu_recon.didLastExperimentalMetalProjectorRun():
@@ -4849,6 +4931,7 @@ def run_case(args, out_dir, write_images, case_label="", emit_pass=True):
         scatter,
         psf_csv_path,
         args,
+        metal_recipe_options,
         use_metal=True,
     )
     for subset_row in metal_subset_profile:

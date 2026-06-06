@@ -427,6 +427,31 @@ without reading `YRTPET_METAL_THREADS_PER_THREADGROUP`. The GE smoke/recipe
 driver uses this explicit API when it is available and falls back to the older
 individual setters and environment variables for older local builds.
 
+The lower-level `OperatorProjector` Metal opt-in has a smaller aggregate
+runtime options object for direct `applyA`/`applyAH` use, including the
+sensitivity-image path:
+
+```cpp
+yrt::OperatorProjector::ExperimentalMetalProjectorOptions options;
+options.enabled = true;
+options.kernel = "joseph";
+options.nativeFloatAtomicsExplicit = true;
+options.nativeFloatAtomics = true;
+options.josephAdjointAxisSwitchOnceExplicit = true;
+options.josephAdjointAxisSwitchOnce = true;
+options.threadsPerThreadgroupExplicit = true;
+options.threadsPerThreadgroup = 512;
+operatorProjector.setExperimentalMetalProjectorOptions(options);
+```
+
+Python exposes this as `pyyrtpet.ExperimentalMetalOperatorProjectorOptions`
+with snake-case fields. The GE smoke/recipe driver uses it for
+`--metal-sensitivity-projector joseph`, so recipe-critical sensitivity
+projector launch behavior is explicit in the `OperatorProjector` object instead
+of depending only on process environment variables. Older pyyrtpet builds still
+fall back to `setExperimentalMetalProjectorEnabled(true)` and
+`setExperimentalMetalProjectorKernel("joseph")`.
+
 Lower-level shader/debug switches remain environment-variable based for now.
 Examples include `YRTPET_METAL_JOSEPH_AXIS_SPECIALIZED`,
 `YRTPET_METAL_ADJOINT_EVENT_ORDER`, `YRTPET_METAL_ADJOINT_TILE_SIZE`, and the

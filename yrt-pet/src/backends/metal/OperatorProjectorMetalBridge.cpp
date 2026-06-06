@@ -219,6 +219,29 @@ ProjectorKernelOptions makeProjectorKernelOptions(
 	return options;
 }
 
+ProjectorKernelOptions makeProjectorKernelOptions(
+    const OperatorProjectorMetalRuntimeOptions* config)
+{
+	ProjectorKernelOptions options;
+	if (config == nullptr)
+	{
+		return options;
+	}
+
+	options.nativeFloatAtomicsExplicit =
+	    config->nativeFloatAtomicsExplicit;
+	options.nativeFloatAtomics = config->nativeFloatAtomics;
+	options.josephAdjointAxisSwitchOnceExplicit =
+	    config->josephAdjointAxisSwitchOnceExplicit;
+	options.josephAdjointAxisSwitchOnce =
+	    config->josephAdjointAxisSwitchOnce;
+	options.launchOptions.threadsPerThreadgroupExplicit =
+	    config->threadsPerThreadgroupExplicit;
+	options.launchOptions.threadsPerThreadgroup =
+	    config->threadsPerThreadgroup;
+	return options;
+}
+
 JosephAxisSpecialization getJosephAxisSpecialization()
 {
 	const char* value = std::getenv("YRTPET_METAL_JOSEPH_AXIS_SPECIALIZED");
@@ -2366,7 +2389,8 @@ bool forwardProjectEventsWithImageBuffer(
     const Context& context, OperatorProjectorMetalProfile* profile,
     const Image& image, ForwardImageResources& imageResources,
     ProjectionData& projectionData, const std::vector<BridgeEvent>& events,
-    OperatorProjectorMetalKernel projectorKernel)
+    OperatorProjectorMetalKernel projectorKernel,
+    const ProjectorKernelOptions* options = nullptr)
 {
 	if (events.empty())
 	{
@@ -2406,7 +2430,8 @@ bool forwardProjectEventsWithImageBuffer(
 		        image, static_cast<std::uint32_t>(frame), imageParams) &&
 		    forwardProjectSingleRay(
 		        projectorKernel, context, imageResources, batch, imageParams,
-		        profile != nullptr ? &kernelProfile : nullptr);
+		        profile != nullptr ? &kernelProfile : nullptr, kNoJosephAxis,
+		        options);
 		addForwardKernelProfile(profile, kernelProfile);
 
 		const auto downloadStart = Clock::now();
@@ -2448,7 +2473,8 @@ bool backProjectEventsWithImageBuffer(
     const Context& context, OperatorProjectorMetalProfile* profile,
     const ProjectionData& projectionData, Image& workingImage,
     Buffer& imageBuffer, const std::vector<BridgeEvent>& events,
-    OperatorProjectorMetalKernel projectorKernel)
+    OperatorProjectorMetalKernel projectorKernel,
+    const ProjectorKernelOptions* options = nullptr)
 {
 	if (events.empty())
 	{
@@ -2505,7 +2531,8 @@ bool backProjectEventsWithImageBuffer(
 		    batch.isValid() &&
 		    backProjectSingleRay(projectorKernel, context, batch, imageBuffer,
 		                         imageParams,
-		                         profile != nullptr ? &kernelProfile : nullptr);
+		                         profile != nullptr ? &kernelProfile : nullptr,
+		                         kNoJosephAxis, options);
 		addAdjointKernelProfile(profile, kernelProfile);
 		if (!didBackProject)
 		{
@@ -2787,7 +2814,8 @@ bool forwardProjectCachedSegmentWithImageBuffer(
     const Context& context, OperatorProjectorMetalProfile* profile,
     const Image& image, ForwardImageResources& imageResources,
     ProjectionData& projectionData, CachedIteratorSegment& segment,
-    OperatorProjectorMetalKernel projectorKernel)
+    OperatorProjectorMetalKernel projectorKernel,
+    const ProjectorKernelOptions* options = nullptr)
 {
 	if (segment.eventCount == 0)
 	{
@@ -2823,7 +2851,8 @@ bool forwardProjectCachedSegmentWithImageBuffer(
 		        imageParams, profile != nullptr ? &kernelProfile : nullptr,
 		        canUseJosephAxisSpecializedForward(projectorKernel) ?
 		            frameBatch.josephAxis :
-		            kNoJosephAxis);
+		            kNoJosephAxis,
+		        options);
 		if (profile != nullptr)
 		{
 			profile->forwardBatches += 1;
@@ -2868,7 +2897,8 @@ bool backProjectCachedSegmentWithImageBuffer(
     const Context& context, OperatorProjectorMetalProfile* profile,
     const ProjectionData& projectionData, Image& workingImage,
     Buffer& imageBuffer, CachedIteratorSegment& segment,
-    OperatorProjectorMetalKernel projectorKernel)
+    OperatorProjectorMetalKernel projectorKernel,
+    const ProjectorKernelOptions* options = nullptr)
 {
 	if (segment.eventCount == 0)
 	{
@@ -2927,7 +2957,8 @@ bool backProjectCachedSegmentWithImageBuffer(
 		                         profile != nullptr ? &kernelProfile : nullptr,
 		                         canUseJosephAxisSpecializedAdjoint(projectorKernel) ?
 		                             frameBatch.josephAxis :
-		                             kNoJosephAxis);
+		                             kNoJosephAxis,
+		                         options);
 		addAdjointKernelProfile(profile, kernelProfile);
 		if (!didBackProject)
 		{
@@ -3715,7 +3746,8 @@ bool forwardProjectCachedEntry(
     const Image& image, ProjectionData& projectionData,
     const BinIterator& binIterator, const BinLoader& binLoader,
     OperatorProjectorMetalCache* cache, CachedBinIteratorEntry& entry,
-    OperatorProjectorMetalKernel projectorKernel)
+    OperatorProjectorMetalKernel projectorKernel,
+    const ProjectorKernelOptions* options = nullptr)
 {
 	if (entry.eventCount == 0)
 	{
@@ -3743,7 +3775,7 @@ bool forwardProjectCachedEntry(
 		{
 			if (!forwardProjectCachedSegmentWithImageBuffer(
 			        context, profile, image, imageResources, projectionData,
-			        segment, projectorKernel))
+			        segment, projectorKernel, options))
 			{
 				return false;
 			}
@@ -3767,7 +3799,8 @@ bool forwardProjectCachedEntry(
 		}
 		if (!forwardProjectEventsWithImageBuffer(context, profile, image,
 		                                         imageResources, projectionData,
-		                                         events, projectorKernel))
+		                                         events, projectorKernel,
+		                                         options))
 		{
 			return false;
 		}
@@ -3782,7 +3815,8 @@ bool backProjectCachedEntry(const Context& context,
                             const BinLoader& binLoader,
                             OperatorProjectorMetalCache* cache,
                             CachedBinIteratorEntry& entry,
-                            OperatorProjectorMetalKernel projectorKernel)
+                            OperatorProjectorMetalKernel projectorKernel,
+                            const ProjectorKernelOptions* options = nullptr)
 {
 	if (entry.eventCount == 0)
 	{
@@ -3809,7 +3843,7 @@ bool backProjectCachedEntry(const Context& context,
 		{
 			if (!backProjectCachedSegmentWithImageBuffer(
 			        context, profile, projectionData, workingImage, imageBuffer,
-			        segment, projectorKernel))
+			        segment, projectorKernel, options))
 			{
 				return false;
 			}
@@ -3833,7 +3867,7 @@ bool backProjectCachedEntry(const Context& context,
 		}
 		if (!backProjectEventsWithImageBuffer(context, profile, projectionData,
 		                                      workingImage, imageBuffer, events,
-		                                      projectorKernel))
+		                                      projectorKernel, options))
 		{
 			return false;
 		}
@@ -4226,13 +4260,15 @@ bool OperatorProjectorMetalBridge::applyA(
     const OperatorProjector& projector, const Image& image,
     ProjectionData& projectionData, const BinIterator& binIterator,
     const BinLoader& binLoader,
-    OperatorProjectorMetalKernel projectorKernel) const
+    OperatorProjectorMetalKernel projectorKernel,
+    const OperatorProjectorMetalRuntimeOptions* runtimeOptions) const
 {
 	if (!canRunSiddon(projector).supported)
 	{
 		return false;
 	}
 
+	const auto kernelOptions = makeProjectorKernelOptions(runtimeOptions);
 	auto runUncached = [&]() -> bool
 	{
 		const std::size_t totalEvents = binIterator.size();
@@ -4287,7 +4323,7 @@ bool OperatorProjectorMetalBridge::applyA(
 
 			if (!forwardProjectEventsWithImageBuffer(
 			        m_context, mp_profile, image, imageResources,
-			        projectionData, events, projectorKernel))
+			        projectionData, events, projectorKernel, &kernelOptions))
 			{
 				return false;
 			}
@@ -4325,7 +4361,8 @@ bool OperatorProjectorMetalBridge::applyA(
 		}
 		return forwardProjectCachedEntry(
 		    m_context, mp_profile, image, projectionData, binIterator,
-		    binLoader, mp_cache, entryIt->second, projectorKernel);
+		    binLoader, mp_cache, entryIt->second, projectorKernel,
+		    &kernelOptions);
 	}
 
 	if (mp_profile != nullptr)
@@ -4372,19 +4409,21 @@ bool OperatorProjectorMetalBridge::applyA(
 	}
 	return forwardProjectCachedEntry(
 	    m_context, mp_profile, image, projectionData, binIterator, binLoader,
-	    mp_cache, insertedIt->second, projectorKernel);
+	    mp_cache, insertedIt->second, projectorKernel, &kernelOptions);
 }
 
 bool OperatorProjectorMetalBridge::applyAH(
     const OperatorProjector& projector, const ProjectionData& projectionData,
     Image& image, const BinIterator& binIterator, const BinLoader& binLoader,
-    OperatorProjectorMetalKernel projectorKernel) const
+    OperatorProjectorMetalKernel projectorKernel,
+    const OperatorProjectorMetalRuntimeOptions* runtimeOptions) const
 {
 	if (!canRunSiddon(projector).supported)
 	{
 		return false;
 	}
 
+	const auto kernelOptions = makeProjectorKernelOptions(runtimeOptions);
 	const auto workingImageStart = Clock::now();
 	ImageOwned workingImage(image.getParams());
 	workingImage.allocate();
@@ -4460,7 +4499,7 @@ bool OperatorProjectorMetalBridge::applyAH(
 
 			if (!backProjectEventsWithImageBuffer(
 			        m_context, mp_profile, projectionData, workingImage,
-			        imageBuffer, events, projectorKernel))
+			        imageBuffer, events, projectorKernel, &kernelOptions))
 			{
 				return false;
 			}
@@ -4510,7 +4549,8 @@ bool OperatorProjectorMetalBridge::applyAH(
 		}
 		if (!backProjectCachedEntry(m_context, mp_profile, projectionData,
 		                            workingImage, binIterator, binLoader,
-		                            mp_cache, entryIt->second, projectorKernel))
+		                            mp_cache, entryIt->second, projectorKernel,
+		                            &kernelOptions))
 		{
 			return false;
 		}
@@ -4561,7 +4601,8 @@ bool OperatorProjectorMetalBridge::applyAH(
 	}
 	if (!backProjectCachedEntry(m_context, mp_profile, projectionData,
 	                            workingImage, binIterator, binLoader, mp_cache,
-	                            insertedIt->second, projectorKernel))
+	                            insertedIt->second, projectorKernel,
+	                            &kernelOptions))
 	{
 		return false;
 	}

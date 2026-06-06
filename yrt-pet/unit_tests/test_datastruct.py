@@ -92,6 +92,50 @@ def test_experimental_metal_projector_options_roundtrip(monkeypatch):
     assert osem.getExperimentalMetalProjectorOptions().threads_per_threadgroup == 0
 
 
+def test_experimental_metal_operator_projector_options_roundtrip(monkeypatch):
+    monkeypatch.setenv("YRTPET_METAL_USE_NATIVE_FLOAT_ATOMICS", "0")
+    monkeypatch.setenv("YRTPET_METAL_THREADS_PER_THREADGROUP", "1024")
+    monkeypatch.setenv("YRTPET_METAL_JOSEPH_ADJOINT_AXIS_SWITCH_ONCE", "0")
+
+    scanner = make_scanner()
+    histo = yrt.Histogram3DOwned(scanner)
+    histo.allocate()
+    bin_iter = histo.getBinIter(1, 0)
+    proj_params = yrt.ProjectorParams(scanner)
+    proj_params.setProjector("Siddon")
+    operator_projector = yrt.createOperatorProjector(proj_params, bin_iter)
+
+    options = yrt.ExperimentalMetalOperatorProjectorOptions()
+    options.enabled = True
+    options.kernel = "joseph"
+    options.native_float_atomics_explicit = True
+    options.native_float_atomics = True
+    options.joseph_adjoint_axis_switch_once_explicit = True
+    options.joseph_adjoint_axis_switch_once = True
+    options.threads_per_threadgroup_explicit = True
+    options.threads_per_threadgroup = 512
+
+    operator_projector.setExperimentalMetalProjectorOptions(options)
+    actual = operator_projector.getExperimentalMetalProjectorOptions()
+
+    assert actual.enabled is True
+    assert actual.kernel == "joseph"
+    assert actual.native_float_atomics_explicit is True
+    assert actual.native_float_atomics is True
+    assert actual.joseph_adjoint_axis_switch_once_explicit is True
+    assert actual.joseph_adjoint_axis_switch_once is True
+    assert actual.threads_per_threadgroup_explicit is True
+    assert actual.threads_per_threadgroup == 512
+
+    options.threads_per_threadgroup = 0
+    operator_projector.setExperimentalMetalProjectorOptions(options)
+    assert (
+        operator_projector.getExperimentalMetalProjectorOptions()
+        .threads_per_threadgroup
+        == 0
+    )
+
+
 # %% List-mode
 
 

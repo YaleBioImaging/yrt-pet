@@ -56,6 +56,8 @@ public:
 	void precomputeBatchLORs(int subsetId, int batchId);
 	void loadPrecomputedLORsToDevice(GPULaunchConfig launchConfig);
 	void releaseDeviceLORs(GPULaunchConfig launchConfig);
+	void setHostLORCacheEnabled(bool enabled);
+	bool isHostLORCacheEnabled() const;
 
 	// Gather the projection values from the reference ProjectionData object and
 	// store them on the GPU buffer

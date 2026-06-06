@@ -15,7 +15,9 @@
 namespace yrt
 {
 LORsDevice::LORsDevice()
-    : m_hasTOF(false),
+    : mp_activeHostCachedBatch(nullptr),
+      m_hasTOF(false),
+      m_hostCacheEnabled(false),
       m_precomputedBatchSize(0ull),
       m_precomputedBatchId(-1),
       m_precomputedSubsetId(-1),
@@ -26,6 +28,53 @@ LORsDevice::LORsDevice()
 {
 	initializeDeviceArrays();
 }
+
+namespace
+{
+void precomputeLORBatchToHost(const BinIterator& binIter, size_t offset,
+                              size_t batchSize,
+                              const ProjectionData& reference, bool hasTOF,
+                              float4* tempBufferLorDet1Pos_ptr,
+                              float4* tempBufferLorDet2Pos_ptr,
+                              float4* tempBufferLorDet1Orient_ptr,
+                              float4* tempBufferLorDet2Orient_ptr,
+                              float* tempBufferLorTOFValue_ptr)
+{
+	const BinIterator* binIter_ptr = &binIter;
+	const ProjectionData* reference_ptr = &reference;
+
+	bin_t binId;
+	size_t binIdx;
+#pragma omp parallel for default(none) private(binIdx, binId)                \
+    firstprivate(offset, batchSize, binIter_ptr, tempBufferLorDet1Pos_ptr,   \
+                     tempBufferLorDet2Pos_ptr, tempBufferLorDet1Orient_ptr,  \
+                     tempBufferLorDet2Orient_ptr, tempBufferLorTOFValue_ptr, \
+                     reference_ptr, hasTOF)
+	for (binIdx = 0; binIdx < batchSize; binIdx++)
+	{
+		binId = binIter_ptr->get(binIdx + offset);
+		auto [lor, tofValue, det1Orient, det2Orient] =
+		    reference_ptr->getProjectionProperties(binId);
+
+		tempBufferLorDet1Pos_ptr[binIdx].x = lor.point1.x;
+		tempBufferLorDet1Pos_ptr[binIdx].y = lor.point1.y;
+		tempBufferLorDet1Pos_ptr[binIdx].z = lor.point1.z;
+		tempBufferLorDet2Pos_ptr[binIdx].x = lor.point2.x;
+		tempBufferLorDet2Pos_ptr[binIdx].y = lor.point2.y;
+		tempBufferLorDet2Pos_ptr[binIdx].z = lor.point2.z;
+		tempBufferLorDet1Orient_ptr[binIdx].x = det1Orient.x;
+		tempBufferLorDet1Orient_ptr[binIdx].y = det1Orient.y;
+		tempBufferLorDet1Orient_ptr[binIdx].z = det1Orient.z;
+		tempBufferLorDet2Orient_ptr[binIdx].x = det2Orient.x;
+		tempBufferLorDet2Orient_ptr[binIdx].y = det2Orient.y;
+		tempBufferLorDet2Orient_ptr[binIdx].z = det2Orient.z;
+		if (hasTOF)
+		{
+			tempBufferLorTOFValue_ptr[binIdx] = tofValue;
+		}
+	}
+}
+}  // namespace
 
 void LORsDevice::precomputeBatchLORs(const BinIterator& binIter,
                                      const GPUBatchSetup& batchSetup,
@@ -39,58 +88,91 @@ void LORsDevice::precomputeBatchLORs(const BinIterator& binIter,
 		m_hasTOF = reference.hasTOF();
 
 		const size_t batchSize = batchSetup.getBatchSize(batchId);
-
-		m_tempLorDet1Pos.reAllocateIfNeeded(batchSize);
-		m_tempLorDet2Pos.reAllocateIfNeeded(batchSize);
-		m_tempLorDet1Orient.reAllocateIfNeeded(batchSize);
-		m_tempLorDet2Orient.reAllocateIfNeeded(batchSize);
-		float4* tempBufferLorDet1Pos_ptr = m_tempLorDet1Pos.getPointer();
-		float4* tempBufferLorDet2Pos_ptr = m_tempLorDet2Pos.getPointer();
-		float4* tempBufferLorDet1Orient_ptr = m_tempLorDet1Orient.getPointer();
-		float4* tempBufferLorDet2Orient_ptr = m_tempLorDet2Orient.getPointer();
-
-		float* tempBufferLorTOFValue_ptr = nullptr;
-		if (m_hasTOF)
+		const size_t offset = batchId * batchSetup.getBatchSize(0);
+		HostCachedBatch* reusableHostBatch = getReusableHostCachedBatch(
+		    subsetId, batchId, binIter, reference, offset, batchSize,
+		    m_hasTOF);
+		if (reusableHostBatch != nullptr)
 		{
-			m_tempLorTOFValue.reAllocateIfNeeded(batchSize);
-			tempBufferLorTOFValue_ptr = m_tempLorTOFValue.getPointer();
+			mp_activeHostCachedBatch = reusableHostBatch;
+			m_precomputedBatchSize = batchSize;
+			m_precomputedBatchId = batchId;
+			m_precomputedSubsetId = subsetId;
+			m_areLORsPrecomputed = true;
+			return;
 		}
 
-		const size_t offset = batchId * batchSetup.getBatchSize(0);
-		auto* binIter_ptr = &binIter;
-		const ProjectionData* reference_ptr = &reference;
+		float4* tempBufferLorDet1Pos_ptr = nullptr;
+		float4* tempBufferLorDet2Pos_ptr = nullptr;
+		float4* tempBufferLorDet1Orient_ptr = nullptr;
+		float4* tempBufferLorDet2Orient_ptr = nullptr;
+		float* tempBufferLorTOFValue_ptr = nullptr;
 
-		bin_t binId;
-		size_t binIdx;
-#pragma omp parallel for default(none) private(binIdx, binId)                \
-    firstprivate(offset, batchSize, binIter_ptr, tempBufferLorDet1Pos_ptr,   \
-                     tempBufferLorDet2Pos_ptr, tempBufferLorDet1Orient_ptr,  \
-                     tempBufferLorDet2Orient_ptr, tempBufferLorTOFValue_ptr, \
-                     reference_ptr, m_hasTOF)
-		for (binIdx = 0; binIdx < batchSize; binIdx++)
+		if (m_hostCacheEnabled)
 		{
-			binId = binIter_ptr->get(binIdx + offset);
-			auto [lor, tofValue, det1Orient, det2Orient] =
-			    reference_ptr->getProjectionProperties(binId);
-
-			tempBufferLorDet1Pos_ptr[binIdx].x = lor.point1.x;
-			tempBufferLorDet1Pos_ptr[binIdx].y = lor.point1.y;
-			tempBufferLorDet1Pos_ptr[binIdx].z = lor.point1.z;
-			tempBufferLorDet2Pos_ptr[binIdx].x = lor.point2.x;
-			tempBufferLorDet2Pos_ptr[binIdx].y = lor.point2.y;
-			tempBufferLorDet2Pos_ptr[binIdx].z = lor.point2.z;
-			tempBufferLorDet1Orient_ptr[binIdx].x = det1Orient.x;
-			tempBufferLorDet1Orient_ptr[binIdx].y = det1Orient.y;
-			tempBufferLorDet1Orient_ptr[binIdx].z = det1Orient.z;
-			tempBufferLorDet2Orient_ptr[binIdx].x = det2Orient.x;
-			tempBufferLorDet2Orient_ptr[binIdx].y = det2Orient.y;
-			tempBufferLorDet2Orient_ptr[binIdx].z = det2Orient.z;
+			auto& hostBatch =
+			    m_hostCachedBatches[std::make_pair(subsetId, batchId)];
+			if (hostBatch == nullptr)
+			{
+				hostBatch = std::make_unique<HostCachedBatch>();
+			}
+			hostBatch->lorDet1Pos.reAllocateIfNeeded(batchSize);
+			hostBatch->lorDet2Pos.reAllocateIfNeeded(batchSize);
+			hostBatch->lorDet1Orient.reAllocateIfNeeded(batchSize);
+			hostBatch->lorDet2Orient.reAllocateIfNeeded(batchSize);
+			tempBufferLorDet1Pos_ptr =
+			    hostBatch->lorDet1Pos.getPointer();
+			tempBufferLorDet2Pos_ptr =
+			    hostBatch->lorDet2Pos.getPointer();
+			tempBufferLorDet1Orient_ptr =
+			    hostBatch->lorDet1Orient.getPointer();
+			tempBufferLorDet2Orient_ptr =
+			    hostBatch->lorDet2Orient.getPointer();
 			if (m_hasTOF)
 			{
-				tempBufferLorTOFValue_ptr[binIdx] = tofValue;
+				hostBatch->lorTOFValue.reAllocateIfNeeded(batchSize);
+				tempBufferLorTOFValue_ptr =
+				    hostBatch->lorTOFValue.getPointer();
+			}
+			hostBatch->binIterator = &binIter;
+			hostBatch->reference = &reference;
+			hostBatch->offset = offset;
+			hostBatch->batchSize = batchSize;
+			hostBatch->hasTOF = m_hasTOF;
+			hostBatch->valid = false;
+			mp_activeHostCachedBatch = hostBatch.get();
+		}
+		else
+		{
+			mp_activeHostCachedBatch = nullptr;
+			m_tempLorDet1Pos.reAllocateIfNeeded(batchSize);
+			m_tempLorDet2Pos.reAllocateIfNeeded(batchSize);
+			m_tempLorDet1Orient.reAllocateIfNeeded(batchSize);
+			m_tempLorDet2Orient.reAllocateIfNeeded(batchSize);
+			tempBufferLorDet1Pos_ptr = m_tempLorDet1Pos.getPointer();
+			tempBufferLorDet2Pos_ptr = m_tempLorDet2Pos.getPointer();
+			tempBufferLorDet1Orient_ptr =
+			    m_tempLorDet1Orient.getPointer();
+			tempBufferLorDet2Orient_ptr =
+			    m_tempLorDet2Orient.getPointer();
+			if (m_hasTOF)
+			{
+				m_tempLorTOFValue.reAllocateIfNeeded(batchSize);
+				tempBufferLorTOFValue_ptr =
+				    m_tempLorTOFValue.getPointer();
 			}
 		}
 
+		precomputeLORBatchToHost(
+		    binIter, offset, batchSize, reference, m_hasTOF,
+		    tempBufferLorDet1Pos_ptr, tempBufferLorDet2Pos_ptr,
+		    tempBufferLorDet1Orient_ptr, tempBufferLorDet2Orient_ptr,
+		    tempBufferLorTOFValue_ptr);
+
+		if (mp_activeHostCachedBatch != nullptr)
+		{
+			mp_activeHostCachedBatch->valid = true;
+		}
 		m_precomputedBatchSize = batchSize;
 		m_precomputedBatchId = batchId;
 		m_precomputedSubsetId = subsetId;
@@ -107,19 +189,38 @@ void LORsDevice::loadPrecomputedLORsToDevice(GPULaunchConfig launchConfig)
 	    m_loadedBatchId != m_precomputedBatchId)
 	{
 		allocateForPrecomputedLORsIfNeeded({stream, false});
+		const float4* lorDet1Pos =
+		    mp_activeHostCachedBatch != nullptr ?
+		        mp_activeHostCachedBatch->lorDet1Pos.getPointer() :
+		        m_tempLorDet1Pos.getPointer();
+		const float4* lorDet2Pos =
+		    mp_activeHostCachedBatch != nullptr ?
+		        mp_activeHostCachedBatch->lorDet2Pos.getPointer() :
+		        m_tempLorDet2Pos.getPointer();
+		const float4* lorDet1Orient =
+		    mp_activeHostCachedBatch != nullptr ?
+		        mp_activeHostCachedBatch->lorDet1Orient.getPointer() :
+		        m_tempLorDet1Orient.getPointer();
+		const float4* lorDet2Orient =
+		    mp_activeHostCachedBatch != nullptr ?
+		        mp_activeHostCachedBatch->lorDet2Orient.getPointer() :
+		        m_tempLorDet2Orient.getPointer();
+		const float* lorTOFValue =
+		    mp_activeHostCachedBatch != nullptr ?
+		        mp_activeHostCachedBatch->lorTOFValue.getPointer() :
+		        m_tempLorTOFValue.getPointer();
 
-		mp_lorDet1Pos->copyFromHost(m_tempLorDet1Pos.getPointer(),
-		                            m_precomputedBatchSize, {stream, false});
-		mp_lorDet2Pos->copyFromHost(m_tempLorDet2Pos.getPointer(),
-		                            m_precomputedBatchSize, {stream, false});
-		mp_lorDet1Orient->copyFromHost(m_tempLorDet1Orient.getPointer(),
+		mp_lorDet1Pos->copyFromHost(lorDet1Pos, m_precomputedBatchSize,
+		                            {stream, false});
+		mp_lorDet2Pos->copyFromHost(lorDet2Pos, m_precomputedBatchSize,
+		                            {stream, false});
+		mp_lorDet1Orient->copyFromHost(lorDet1Orient,
 		                               m_precomputedBatchSize, {stream, false});
-		mp_lorDet2Orient->copyFromHost(m_tempLorDet2Orient.getPointer(),
+		mp_lorDet2Orient->copyFromHost(lorDet2Orient,
 		                               m_precomputedBatchSize, {stream, false});
 		if (m_hasTOF)
 		{
-			mp_lorTOFValue->copyFromHost(m_tempLorTOFValue.getPointer(),
-			                             m_precomputedBatchSize,
+			mp_lorTOFValue->copyFromHost(lorTOFValue, m_precomputedBatchSize,
 			                             {stream, false});
 		}
 
@@ -153,6 +254,29 @@ void LORsDevice::releaseDeviceLORs(GPULaunchConfig launchConfig)
 	m_loadedBatchSize = 0ull;
 	m_loadedBatchId = -1;
 	m_loadedSubsetId = -1;
+}
+
+void LORsDevice::setHostCacheEnabled(bool enabled)
+{
+	if (m_hostCacheEnabled == enabled)
+	{
+		return;
+	}
+	m_hostCacheEnabled = enabled;
+	if (!m_hostCacheEnabled)
+	{
+		m_hostCachedBatches.clear();
+		mp_activeHostCachedBatch = nullptr;
+		m_areLORsPrecomputed = false;
+		m_precomputedBatchSize = 0ull;
+		m_precomputedBatchId = -1;
+		m_precomputedSubsetId = -1;
+	}
+}
+
+bool LORsDevice::isHostCacheEnabled() const
+{
+	return m_hostCacheEnabled;
 }
 
 size_t LORsDevice::getPrecomputedBatchSize() const
@@ -210,6 +334,34 @@ void LORsDevice::allocateForPrecomputedLORsIfNeeded(
 			cudaDeviceSynchronize();
 		}
 	}
+}
+
+LORsDevice::HostCachedBatch* LORsDevice::getReusableHostCachedBatch(
+    int subsetId, int batchId, const BinIterator& binIter,
+    const ProjectionData& reference, size_t offset, size_t batchSize,
+    bool hasTOF)
+{
+	if (!m_hostCacheEnabled)
+	{
+		return nullptr;
+	}
+
+	const auto cacheIt =
+	    m_hostCachedBatches.find(std::make_pair(subsetId, batchId));
+	if (cacheIt == m_hostCachedBatches.end() || cacheIt->second == nullptr)
+	{
+		return nullptr;
+	}
+
+	HostCachedBatch* hostBatch = cacheIt->second.get();
+	if (!hostBatch->valid || hostBatch->binIterator != &binIter ||
+	    hostBatch->reference != &reference || hostBatch->offset != offset ||
+	    hostBatch->batchSize != batchSize || hostBatch->hasTOF != hasTOF)
+	{
+		return nullptr;
+	}
+
+	return hostBatch;
 }
 
 const float4* LORsDevice::getLorDet1PosDevicePointer() const

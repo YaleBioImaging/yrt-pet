@@ -31,9 +31,26 @@ void py_setup_projectiondatadevice(py::module& m)
 	c.def(
 	    "prepareBatchLORs",
 	    [](ProjectionDataDevice& self, size_t subsetId, size_t batchId)
-	    { self.prepareBatchLORs(subsetId, batchId, {nullptr, true}); },
+	      { self.prepareBatchLORs(subsetId, batchId, {nullptr, true}); },
 	    "Load the LORs of a specific batch in a specific subset", "subsetId"_a,
 	    "batchId"_a);
+	c.def(
+	    "precomputeBatchLORs",
+	    [](ProjectionDataDevice& self, size_t subsetId, size_t batchId)
+	    { self.precomputeBatchLORs(subsetId, batchId); },
+	    "Precompute the LORs of a specific batch in host memory without "
+	    "loading them to the GPU",
+	    "subsetId"_a, "batchId"_a);
+	c.def(
+	    "loadPrecomputedLORsToDevice",
+	    [](ProjectionDataDevice& self)
+	    { self.loadPrecomputedLORsToDevice({nullptr, true}); },
+	    "Load the latest precomputed LOR batch to the GPU");
+	c.def(
+	    "releaseDeviceLORs",
+	    [](ProjectionDataDevice& self)
+	    { self.releaseDeviceLORs({nullptr, true}); },
+	    "Release the currently loaded device LOR buffers");
 
 	c.def("loadProjValuesFromReference", [](ProjectionDataDeviceOwned& self)
 	      { self.loadProjValuesFromReference({nullptr, true}); });
@@ -242,6 +259,16 @@ void ProjectionDataDevice::loadPrecomputedLORsToDevice(
 void ProjectionDataDevice::releaseDeviceLORs(GPULaunchConfig launchConfig)
 {
 	mp_LORs->releaseDeviceLORs(launchConfig);
+}
+
+void ProjectionDataDevice::setHostLORCacheEnabled(bool enabled)
+{
+	mp_LORs->setHostCacheEnabled(enabled);
+}
+
+bool ProjectionDataDevice::isHostLORCacheEnabled() const
+{
+	return mp_LORs->isHostCacheEnabled();
 }
 
 void ProjectionDataDevice::loadProjValuesFromReference(

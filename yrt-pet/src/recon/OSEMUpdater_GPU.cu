@@ -418,6 +418,27 @@ MultiGPULORCacheMode getMultiGPULORCacheModeFromEnv()
 	    "YRT_CACHE_MULTI_GPU_LORS must be 0, 1, host, or device");
 }
 
+float getSensitivityProjectionMemoryShare(const Corrector_GPU& corrector)
+{
+	float memoryShare = ProjectionDataDevice::DefaultMemoryShare;
+	if (corrector.hasHardwareAttenuation())
+	{
+		const size_t memoryUsagePerLOR =
+		    corrector.getSensImgGenProjData()->hasTOF() ?
+		        LORsDevice::MemoryUsagePerLORWithTOF :
+		        LORsDevice::MemoryUsagePerLOR;
+		const size_t baseMemoryUsagePerEvent =
+		    memoryUsagePerLOR + sizeof(float);
+		const size_t correctedMemoryUsagePerEvent =
+		    memoryUsagePerLOR + 2 * sizeof(float);
+		memoryShare *=
+		    static_cast<float>(baseMemoryUsagePerEvent) /
+		    static_cast<float>(correctedMemoryUsagePerEvent);
+	}
+
+	return memoryShare;
+}
+
 const char* getMultiGPULORCacheModeName(MultiGPULORCacheMode cacheMode)
 {
 	switch (cacheMode)
@@ -430,6 +451,34 @@ const char* getMultiGPULORCacheModeName(MultiGPULORCacheMode cacheMode)
 		return "device";
 	}
 	return "unknown";
+}
+
+bool shouldUseHostLORCache(MultiGPULORCacheMode cacheMode, int numBatches)
+{
+	return cacheMode == MultiGPULORCacheMode::Host ||
+	       (cacheMode == MultiGPULORCacheMode::Device && numBatches > 1);
+}
+
+void configureLORCache(ProjectionDataDevice& projectionData,
+                       MultiGPULORCacheMode cacheMode)
+{
+	const int numBatches = projectionData.getNumBatches(0);
+	projectionData.setHostLORCacheEnabled(
+	    shouldUseHostLORCache(cacheMode, numBatches));
+}
+
+const char* getLORCachePlacementName(MultiGPULORCacheMode cacheMode,
+                                     int numBatches)
+{
+	if (cacheMode == MultiGPULORCacheMode::Off)
+	{
+		return "off";
+	}
+	if (shouldUseHostLORCache(cacheMode, numBatches))
+	{
+		return "host-precomputed";
+	}
+	return "device-resident";
 }
 
 void printMultiGPUSetup(const char* operationName,
@@ -769,36 +818,34 @@ void OSEMUpdater_GPU::preloadMultiGPULORCacheIfRequested() const
 					    const int numBatches =
 					        measurementsDevice->getNumBatches(0);
 
-					    if (numBatches != 1)
+					    if (lorCacheMode == MultiGPULORCacheMode::Device &&
+					        numBatches == 1)
 					    {
-						    std::cout
-						        << "Skipping upfront LOR preload for subset "
-						        << subsetId + 1 << ", worker " << workerId
-						        << " because it has " << numBatches
-						        << " batches. Lazy per-batch caching will be "
-						           "used instead."
-						        << std::endl;
+						    {
+							    ScopedProfileTimer profileTimer(
+							        profileEnabled,
+							        workerProfile.precomputeLORs);
+							    measurementsDevice->precomputeBatchLORs(0, 0);
+						    }
+						    {
+							    ScopedProfileTimer profileTimer(
+							        profileEnabled, workerProfile.loadLORs);
+							    measurementsDevice->loadPrecomputedLORsToDevice(
+							        {&mainStream.getStream(), true});
+						    }
 						    continue;
 					    }
 
+					    std::cout
+					        << "Precomputing host LOR cache for subset "
+					        << subsetId + 1 << ", worker " << workerId
+					        << " (" << numBatches << " batches)."
+					        << std::endl;
+					    for (int batch = 0; batch < numBatches; batch++)
 					    {
 						    ScopedProfileTimer profileTimer(
 						        profileEnabled, workerProfile.precomputeLORs);
-						    measurementsDevice->precomputeBatchLORs(0, 0);
-					    }
-					    if (lorCacheMode == MultiGPULORCacheMode::Device)
-					    {
-						    ScopedProfileTimer profileTimer(
-						        profileEnabled, workerProfile.loadLORs);
-						    measurementsDevice->loadPrecomputedLORsToDevice(
-						        {&mainStream.getStream(), true});
-					    }
-					    else if (lorCacheMode == MultiGPULORCacheMode::Host)
-					    {
-						    ScopedProfileTimer profileTimer(
-						        profileEnabled, workerProfile.releaseLORs);
-						    measurementsDevice->releaseDeviceLORs(
-						        {&mainStream.getStream(), true});
+						    measurementsDevice->precomputeBatchLORs(0, batch);
 					    }
 				    }
 			    }
@@ -842,6 +889,8 @@ void OSEMUpdater_GPU::ensureMultiGPUReconCache(
 {
 	const auto& deviceIds = mp_osem->getDeviceIds();
 	const ProjectionData* dataInput = mp_osem->getDataInput();
+	const MultiGPULORCacheMode lorCacheMode =
+	    getMultiGPULORCacheModeFromEnv();
 	const bool cacheValid =
 	    mp_reconCache != nullptr && mp_reconCache->deviceIds == deviceIds &&
 	    mp_reconCache->dataInput == dataInput &&
@@ -866,8 +915,14 @@ void OSEMUpdater_GPU::ensureMultiGPUReconCache(
 	{
 		const size_t start = ranges.at(workerId).first;
 		const size_t count = ranges.at(workerId).second;
-		if (count == 0 || subsetContexts.at(workerId) != nullptr)
+		if (count == 0)
 		{
+			continue;
+		}
+		if (subsetContexts.at(workerId) != nullptr)
+		{
+			configureLORCache(*subsetContexts.at(workerId)->measurementsDevice,
+			                  lorCacheMode);
 			continue;
 		}
 
@@ -889,6 +944,7 @@ void OSEMUpdater_GPU::ensureMultiGPUReconCache(
 		context->tmpBufferDevice =
 		    std::make_unique<ProjectionDataDeviceOwned>(
 		        context->measurementsDevice.get());
+		configureLORCache(*context->measurementsDevice, lorCacheMode);
 		context->corrector =
 		    std::make_unique<Corrector_GPU>(mp_osem->getCorrector_GPU());
 		context->corrector->initializeTemporaryDeviceBuffer(
@@ -1272,10 +1328,21 @@ void OSEMUpdater_GPU::computeSensitivityImageMultiGPU(
 				        &sliceIterator};
 
 				    Corrector_GPU corrector(mp_osem->getCorrector_GPU());
+				    if (corrector.hasHardwareAttenuationImage())
+				    {
+					    // Reserve the attenuation image before GPU batch sizing.
+					    // Otherwise the per-worker ProjectionDataDevice can claim
+					    // nearly all free VRAM and leave no room for this image.
+					    corrector.initializeTemporaryDeviceImageIfNeeded(
+					        corrector.getHardwareAttenuationImage(),
+					        {&mainStream.getStream(), true});
+				    }
+
 				    auto sensDataBuffer =
 				        std::make_unique<ProjectionDataDeviceOwned>(
 				            mp_osem->scanner,
-				            corrector.getSensImgGenProjData(), binIterators);
+				            corrector.getSensImgGenProjData(), binIterators,
+				            getSensitivityProjectionMemoryShare(corrector));
 				    corrector.initializeTemporaryDeviceBuffer(
 				        sensDataBuffer.get());
 
@@ -1637,7 +1704,10 @@ void OSEMUpdater_GPU::computeEMUpdateImageMultiGPU(
 					    std::cout << "Multi-GPU EM worker " << workerId
 					              << " using visible CUDA device " << deviceId
 					              << " for " << count << " LORs in "
-					              << numBatches << " batches." << std::endl;
+					              << numBatches << " batches (LOR cache: "
+					              << getLORCachePlacementName(lorCacheMode,
+					                                          numBatches)
+					              << ")." << std::endl;
 
 						    std::vector<CUDAEventProfileTimer>
 						        backprojectCudaTimers;

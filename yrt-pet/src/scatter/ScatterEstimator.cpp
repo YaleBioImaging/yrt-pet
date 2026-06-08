@@ -262,91 +262,85 @@ void ScatterEstimator::computeScatterTailsMask()
 
 void ScatterEstimator::computeTailsMask(const ScatterSpace& insideMask,
                                         ScatterSpace& tailsMask,
-                                        size_t scatterTailsMaskWidth)
+                                        size_t maskWidth)
 {
 	ASSERT(insideMask.isMemoryValid());
 	ASSERT(tailsMask.isMemoryValid());
 	ASSERT(insideMask.getSizeTotal() == tailsMask.getSizeTotal());
 
-	const size_t numPlanes1 = insideMask.getNumPlanes();
 	const size_t numAngles1 = insideMask.getNumAngles();
-	const size_t numPlanes2 = numPlanes1;
 	const size_t numAngles2 = numAngles1;
+	const size_t numSamples = insideMask.getSizeTotal();
+	const size_t maskWidthDiv2 = maskWidth / 2;  // Integer division
+	const size_t neighborhoodSize = maskWidth + 1;
 
 	// For printing purposes
 	const int numThreads = globals::getNumThreads();
-	const size_t progressMax = numPlanes1;
+	const size_t progressMax = numSamples;
 	util::ProgressDisplayMultiThread progressBar(numThreads, progressMax, 5);
+
+	// Need to build a little "kernel" and populate it with all the neighbors
+	std::vector<std::vector<float>> neighborhoodPerThread;
+	neighborhoodPerThread.resize(numThreads);
+	for (auto& neighborhood : neighborhoodPerThread)
+	{
+		neighborhood.resize(neighborhoodSize);
+	}
 
 	// Parallelize over planeIndex1
 	util::parallelForChunked(
-	    numPlanes1, numThreads,
-	    [&progressBar, numAngles1, numPlanes2, numAngles2, &insideMask,
-	     scatterTailsMaskWidth,
-	     &tailsMask](size_t planeIndex1, unsigned int threadId)
+	    numSamples, numThreads,
+	    [&progressBar, numAngles2, &insideMask, maskWidth, maskWidthDiv2,
+	     neighborhoodSize, &neighborhoodPerThread,
+	     &tailsMask](size_t sampleIdx, unsigned int threadId)
 	    {
 		    progressBar.incrementProgress(threadId);
 
-		    for (size_t angleIndex1 = 0; angleIndex1 < numAngles1;
-		         angleIndex1++)
+		    auto& neighborhood = neighborhoodPerThread[threadId];
+
+		    const auto scsIdx = insideMask.unravelIndex(sampleIdx);
+		    const size_t angleIdx1 = scsIdx.angleIndex1;
+		    const size_t planeIdx1 = scsIdx.planeIndex1;
+		    const size_t angleIdx2 = scsIdx.angleIndex2;
+		    const size_t planeIdx2 = scsIdx.planeIndex2;
+
+		    if (angleIdx2 < maskWidth || angleIdx2 + maskWidth >= numAngles2)
 		    {
-			    for (size_t planeIndex2 = 0; planeIndex2 < numPlanes2;
-			         planeIndex2++)
+			    // Outside bounds
+			    tailsMask.setValue(0, planeIdx1, angleIdx1, planeIdx2,
+			                       angleIdx2, 0.0f);
+			    return;
+		    }
+
+		    // Fill-up the neighborhood
+		    for (size_t neighborIdx = 0; neighborIdx < neighborhoodSize;
+		         neighborIdx++)
+		    {
+			    const ssize_t neighborOffset = -maskWidthDiv2 + neighborIdx;
+			    const ssize_t neighborAngleIdx = angleIdx2 + neighborOffset;
+
+			    neighborhood[neighborIdx] = insideMask.getValue(
+			        0, planeIdx1, angleIdx1, planeIdx2, neighborAngleIdx);
+		    }
+
+		    // If the neighborhood is all ones or all zeros, we are
+		    //  not in a tail, otherwise we are.
+		    const auto firstVal = neighborhood[0];
+		    bool isInTail = false;
+		    for (size_t neighborIdx = 1; neighborIdx < neighborhoodSize;
+		         neighborIdx++)
+		    {
+			    if (neighborhood[neighborIdx] != firstVal)
 			    {
-				    // Start from the subsequent angle
-				    size_t angleIndex2 = 1;
-				    float insideValue = insideMask.getValue(
-				        0, planeIndex1, angleIndex1, planeIndex2, angleIndex2);
-
-				    bool startInside = insideValue > 0.0f;
-
-				    // More forward until we reach (or leave) the object
-				    for (angleIndex2 = 2; angleIndex2 < angleIndex1;
-				         angleIndex2++)
-				    {
-					    insideValue =
-					        insideMask.getValue(0, planeIndex1, angleIndex1,
-					                            planeIndex2, angleIndex2);
-
-					    bool isInside = insideValue > 0.0f;
-
-					    if (isInside != startInside)
-					    {
-						    // Here we went from outside the object to inside
-						    //  the object (or the other way around)
-						    for (size_t angleBackOff = 0;
-						         angleBackOff < scatterTailsMaskWidth;
-						         angleBackOff++)
-						    {
-							    size_t angleIndex2InTail;
-							    if (isInside)
-							    {
-								    // We went from outside to inside
-								    angleIndex2InTail =
-								        (angleIndex2 - angleBackOff) %
-								        numAngles2;
-							    }
-							    else
-							    {
-								    // We went from inside to outside
-								    angleIndex2InTail =
-								        (angleIndex2 + angleBackOff) %
-								        numAngles2;
-							    }
-
-							    tailsMask.setValue(0, planeIndex1, angleIndex1,
-							                       planeIndex2,
-							                       angleIndex2InTail, 1.0f);
-						    }
-
-						    // Switch
-						    startInside = !startInside;
-					    }
-				    }
+				    // Some values are different in the
+				    // neighborhood. We are therefore in a tail.
+				    isInTail = true;
 			    }
 		    }
+
+		    tailsMask.setValue(0, planeIdx1, angleIdx1, planeIdx2, angleIdx2,
+		                       isInTail ? 1.0f : 0.0f);
 	    });
-	tailsMask.symmetrizeIfNeeded();
 }
 
 void ScatterEstimator::computePromptsAndRandomsInScatterSpace()

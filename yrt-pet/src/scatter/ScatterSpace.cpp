@@ -49,21 +49,50 @@ void py_setup_scatterspace(py::module& m)
 	    .def_readwrite("angle2", &ScatterSpace::ScatterSpacePosition::angle2);
 
 	// ScatterSpace class
-	auto c = py::class_<ScatterSpace, std::shared_ptr<ScatterSpace>>(
-	    m, "ScatterSpace", py::buffer_protocol());
+	auto c = py::class_<ScatterSpace, Histogram>(m, "ScatterSpace",
+	                                             py::buffer_protocol());
 	c.def(py::init<const Scanner&, const std::string&>());
 	c.def(py::init<const Scanner&, size_t, size_t, size_t>());
 	c.def("allocate", &ScatterSpace::allocate);
+	c.def("isMemoryValid", &ScatterSpace::isMemoryValid);
 
 	// I/O
-	c.def("readFromFile", &ScatterSpace::readFromFile);
-	c.def("writeToFile", &ScatterSpace::writeToFile);
+	c.def("readFromFile", &ScatterSpace::readFromFile, "filename"_a);
+	c.def("writeToFile", &ScatterSpace::writeToFile, "filename"_a);
 
 	// Access methods
 	c.def("getNearestNeighborIndex", &ScatterSpace::getNearestNeighborIndex);
 	c.def("getNearestNeighborValue", &ScatterSpace::getNearestNeighborValue);
 	c.def("getLinearInterpolationValue",
 	      &ScatterSpace::getLinearInterpolationValue);
+
+	// Helpers
+	c.def_static(
+	    "computeCylindricalCoordinates",
+	    [](const Line3D& lor)
+	    {
+		    // Compute cylindrical coordinates from two points
+		    float planePos1, angle1, planePos2, angle2;
+		    ScatterSpace::computeCylindricalCoordinates(lor, planePos1, angle1,
+		                                                planePos2, angle2);
+
+		    // Return as tuple
+		    return py::make_tuple(planePos1, angle1, planePos2, angle2);
+	    },
+	    "lor"_a, "Compute cylindrical coordinates from an LOR");
+	c.def("lineFromCylindricalCoordinates",
+	      &ScatterSpace::lineFromCylindricalCoordinates, "plane_pos1"_a,
+	      "angle1"_a, "plane_pos2"_a, "angle2"_a,
+	      "Gather an LOR from a pair of cylindrical coordinates (Using the "
+	      "scanner radius)");
+
+	// Getters
+	c.def("getPosition", &ScatterSpace::getPosition, "idx"_a);
+	c.def("getTOFAndLORFromIndex", &ScatterSpace::getTOFAndLORFromIndex,
+	      "idx"_a);
+	c.def("getLORFromIndex", &ScatterSpace::getLORFromIndex, "idx"_a);
+	c.def("histogramBinToScatterSpacePosition",
+	      &ScatterSpace::histogramBinToScatterSpacePosition, "histo_bin_id"_a);
 
 	// Index <-> Position conversions
 	c.def("getTOF_ps", &ScatterSpace::getTOF_ps);
@@ -81,12 +110,30 @@ void py_setup_scatterspace(py::module& m)
 	                      size_t tofBin, size_t planeIndex1, size_t angleIndex1,
 	                      size_t planeIndex2, size_t angleIndex2) const>(
 	                      &ScatterSpace::getValue));
+	c.def("getValueFlat", &ScatterSpace::getValueFlat, "flat_idx"_a);
 	c.def("setValue",
 	      py::overload_cast<const ScatterSpace::ScatterSpaceIndex&, float>(
 	          &ScatterSpace::setValue));
 	c.def("setValue",
 	      py::overload_cast<size_t, size_t, size_t, size_t, size_t, float>(
 	          &ScatterSpace::setValue));
+	c.def("setValueFlat", &ScatterSpace::setValueFlat, "flat_idx"_a, "value"_a);
+	c.def("incrementValue",
+	      static_cast<void (ScatterSpace::*)(
+	          const ScatterSpace::ScatterSpaceIndex& idx, float value)>(
+	          &ScatterSpace::incrementValue),
+	      "idx"_a, "value"_a);
+	c.def("incrementValue",
+	      static_cast<void (ScatterSpace::*)(
+	          size_t tofBin, size_t planeIndex1, size_t angleIndex1,
+	          size_t planeIndex2, size_t angleIndex2, float value)>(
+	          &ScatterSpace::incrementValue),
+	      "tof_bin"_a, "plane_idx1"_a, "angle_idx1"_a, "plane_idx2"_a,
+	      "angle_idx2"_a, "value"_a);
+	c.def("incrementValueFlat", &ScatterSpace::incrementValueFlat, "flat_idx"_a,
+	      "value"_a);
+	c.def("scaleValues", &ScatterSpace::scaleValues, "scale"_a);
+	c.def("fill", &ScatterSpace::fill, "value"_a);
 
 	// Utility functions
 	c.def("symmetrizeIfNeeded", &ScatterSpace::symmetrizeIfNeeded);
@@ -99,12 +146,21 @@ void py_setup_scatterspace(py::module& m)
 	c.def("getNumTOFBins", &ScatterSpace::getNumTOFBins);
 	c.def("getNumPlanes", &ScatterSpace::getNumPlanes);
 	c.def("getNumAngles", &ScatterSpace::getNumAngles);
-	c.def("count", &ScatterSpace::count);
+	c.def("getSizeTotal", &ScatterSpace::getSizeTotal);
+	c.def("unravelIndex", &ScatterSpace::unravelIndex, "flat_idx"_a);
+	c.def("getFlatIdx", &ScatterSpace::getFlatIdx, "idx"_a);
 
 	// Step sizes
 	c.def("getTOFBinStep_ps", &ScatterSpace::getTOFBinStep_ps);
 	c.def("getPlaneStep", &ScatterSpace::getPlaneStep);
 	c.def("getAngleStep", &ScatterSpace::getAngleStep);
+
+	c.def("getMinSampledPlanePosition",
+	      &ScatterSpace::getMinSampledPlanePosition);
+	c.def("getMaxSampledPlanePosition",
+	      &ScatterSpace::getMaxSampledPlanePosition);
+	c.def("getMinSampledAngle", &ScatterSpace::getMinSampledAngle);
+	c.def("getMaxSampledAngle", &ScatterSpace::getMaxSampledAngle);
 
 	// Scanner properties
 	c.def("getAxialFOV", &ScatterSpace::getAxialFOV);
@@ -112,19 +168,6 @@ void py_setup_scatterspace(py::module& m)
 	c.def("getDiameter", &ScatterSpace::getDiameter);
 	c.def("getMaxTOF_ps", &ScatterSpace::getMaxTOF_ps);
 
-	// Compute cylindrical coordinates from two points
-	c.def_static(
-	    "computeCylindricalCoordinates",
-	    [](const Line3D& lor)
-	    {
-		    float planePos1, angle1, planePos2, angle2;
-		    ScatterSpace::computeCylindricalCoordinates(lor, planePos1, angle1,
-		                                                planePos2, angle2);
-
-		    // Return as tuple
-		    return py::make_tuple(planePos1, angle1, planePos2, angle2);
-	    },
-	    "Compute cylindrical coordinates from two 3D points");
 	c.def_buffer(
 	    [](ScatterSpace& self) -> py::buffer_info
 	    {
@@ -592,6 +635,11 @@ void ScatterSpace::scaleValues(float scale)
 	    { valuesPtr[flatIdx] *= scale; });
 }
 
+void ScatterSpace::fill(float value)
+{
+	mp_values->fill(value);
+}
+
 void ScatterSpace::symmetrizeIfNeeded()
 {
 	// Here, make it so that for all elements of this scatter space,
@@ -774,7 +822,7 @@ void ScatterSpace::setProjectionValue(bin_t id, float val)
 
 void ScatterSpace::clearProjections(float value)
 {
-	mp_values->fill(value);
+	fill(value);
 }
 
 float ScatterSpace::getProjectionValueFromHistogramBin(

@@ -50,7 +50,7 @@ public:
 	void computeScatterTailsMask();
 	static void computeTailsMask(
 	    const ScatterSpace& insideMask, ScatterSpace& tailsMask,
-	    size_t scatterTailsMaskWidth = DefaultScatterTailsMaskWidth);
+	    size_t maskWidth = DefaultScatterTailsMaskWidth);
 	void computePromptsAndRandomsInScatterSpace();
 	float computeTailFittingFactor() const;
 

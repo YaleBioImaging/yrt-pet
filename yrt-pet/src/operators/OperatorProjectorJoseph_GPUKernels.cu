@@ -489,7 +489,31 @@ __device__ inline void joseph_add_voxel_in_bounds(float* image, int offset,
 	{
 		return;
 	}
-	atomicAdd(&image[offset], update);
+	float* voxel = &image[offset];
+#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 700
+	const unsigned int activeMask = __activemask();
+	const unsigned int lane = threadIdx.x & 31;
+	const unsigned int selfMask = 1u << lane;
+	const unsigned int peerMask = __match_any_sync(activeMask, offset);
+
+	if (peerMask != selfMask)
+	{
+		float sum = 0.0f;
+		unsigned int remainingPeers = peerMask;
+		while (remainingPeers != 0)
+		{
+			const int sourceLane = __ffs(remainingPeers) - 1;
+			sum += __shfl_sync(peerMask, update, sourceLane);
+			remainingPeers &= remainingPeers - 1;
+		}
+		if (lane == __ffs(peerMask) - 1)
+		{
+			atomicAdd(voxel, sum);
+		}
+		return;
+	}
+#endif
+	atomicAdd(voxel, update);
 }
 
 template <int Axis>

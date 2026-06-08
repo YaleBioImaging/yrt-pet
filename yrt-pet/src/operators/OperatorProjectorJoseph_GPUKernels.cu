@@ -32,6 +32,15 @@ struct JosephAxisCache
 	float rayLength;
 };
 
+struct JosephTraceCache
+{
+	float transverse0;
+	float transverse1;
+	float transverseStep0;
+	float transverseStep1;
+	float interiorWeight;
+};
+
 __device__ inline int joseph_image_offset(int vx, int vy, int vz,
                                           const CUImageParams& imgParams)
 {
@@ -96,6 +105,25 @@ __device__ inline float joseph_grid_coord(float coord, float halfLength,
                                           float invVoxel)
 {
 	return (coord + halfLength) * invVoxel - 0.5f;
+}
+
+__device__ inline void joseph_transverse_axes(int axis, int& axis0,
+                                             int& axis1)
+{
+	if (axis == 0)
+	{
+		axis0 = 1;
+		axis1 = 2;
+		return;
+	}
+	if (axis == 1)
+	{
+		axis0 = 0;
+		axis1 = 2;
+		return;
+	}
+	axis0 = 0;
+	axis1 = 1;
 }
 
 template <bool HasTOF>
@@ -253,6 +281,63 @@ __device__ inline float joseph_sample_weight(
 	return weight;
 }
 
+__device__ inline JosephTraceCache
+    joseph_make_trace_cache(const JosephLine& line,
+                            const CUImageParams& imgParams, int axis,
+                            const JosephAxisCache& axisCache, int first)
+{
+	int axis0;
+	int axis1;
+	joseph_transverse_axes(axis, axis0, axis1);
+
+	const float alphaFirst = joseph_sample_alpha(axisCache, first);
+	const float alphaStep = axisCache.voxel * axisCache.invDelta;
+
+	JosephTraceCache cache;
+	cache.transverse0 = joseph_grid_coord(
+	    joseph_axis_coord(line, axis0, alphaFirst),
+	    joseph_half_length(imgParams, axis0),
+	    1.0f / imgParams.voxelSize[axis0]);
+	cache.transverse1 = joseph_grid_coord(
+	    joseph_axis_coord(line, axis1, alphaFirst),
+	    joseph_half_length(imgParams, axis1),
+	    1.0f / imgParams.voxelSize[axis1]);
+	cache.transverseStep0 =
+	    joseph_axis_delta(line, axis0) * alphaStep /
+	    imgParams.voxelSize[axis0];
+	cache.transverseStep1 =
+	    joseph_axis_delta(line, axis1) * alphaStep /
+	    imgParams.voxelSize[axis1];
+	cache.interiorWeight = axisCache.rayLength *
+	                       (2.0f * axisCache.halfAlphaStep);
+	return cache;
+}
+
+template <bool HasTOF>
+__device__ inline float joseph_sample_weight_fast(
+    const JosephAxisCache& cache, int majorIndex, int first, int last,
+    float alphaMin, float alphaMax, float tofValue,
+    const TimeOfFlightHelper* tofHelper, float interiorWeight)
+{
+	if constexpr (!HasTOF)
+	{
+		if (majorIndex != first && majorIndex != last)
+		{
+			return interiorWeight;
+		}
+	}
+	else
+	{
+		(void)first;
+		(void)last;
+		(void)interiorWeight;
+	}
+
+	const float alpha = joseph_sample_alpha(cache, majorIndex);
+	return joseph_sample_weight<HasTOF>(cache, alpha, alphaMin, alphaMax,
+	                                    tofValue, tofHelper);
+}
+
 __device__ inline float joseph_image_value(const float* image, int vx, int vy,
                                            int vz,
                                            const CUImageParams& imgParams)
@@ -267,79 +352,92 @@ __device__ inline float joseph_image_value(const float* image, int vx, int vy,
 }
 
 __device__ inline float joseph_bilinear_forward(
-    const float* image, int axis, int majorIndex, float alpha,
-    const JosephLine& line, const CUImageParams& imgParams)
+    const float* image, int axis, int majorIndex, float transverse0,
+    float transverse1, const CUImageParams& imgParams)
 {
-	const float x = line.p1x + alpha * (line.p2x - line.p1x);
-	const float y = line.p1y + alpha * (line.p2y - line.p1y);
-	const float z = line.p1z + alpha * (line.p2z - line.p1z);
+	const int i0 = static_cast<int>(floorf(transverse0));
+	const int i1 = static_cast<int>(floorf(transverse1));
+	const float f0 = transverse0 - static_cast<float>(i0);
+	const float f1 = transverse1 - static_cast<float>(i1);
+	const float w00 = (1.0f - f0) * (1.0f - f1);
+	const float w10 = f0 * (1.0f - f1);
+	const float w01 = (1.0f - f0) * f1;
+	const float w11 = f0 * f1;
+	const int nx = imgParams.voxelNumber[0];
+	const int ny = imgParams.voxelNumber[1];
+	const int nz = imgParams.voxelNumber[2];
+	const int planeStride = nx * ny;
+
 	if (axis == 0)
 	{
-		const float gy = joseph_grid_coord(
-		    y, joseph_half_length(imgParams, 1),
-		    1.0f / imgParams.voxelSize[1]);
-		const float gz = joseph_grid_coord(
-		    z, joseph_half_length(imgParams, 2),
-		    1.0f / imgParams.voxelSize[2]);
-		const int y0 = static_cast<int>(floorf(gy));
-		const int z0 = static_cast<int>(floorf(gz));
-		const float fy = gy - static_cast<float>(y0);
-		const float fz = gz - static_cast<float>(z0);
-		return (1.0f - fy) * (1.0f - fz) *
-		           joseph_image_value(image, majorIndex, y0, z0,
+		if (majorIndex >= 0 && majorIndex < nx && i0 >= 0 &&
+		    i0 + 1 < ny && i1 >= 0 && i1 + 1 < nz)
+		{
+			const int o00 = majorIndex + nx * (i0 + ny * i1);
+			const int o10 = o00 + nx;
+			const int o01 = o00 + planeStride;
+			const int o11 = o01 + nx;
+			return w00 * image[o00] + w10 * image[o10] +
+			       w01 * image[o01] + w11 * image[o11];
+		}
+		return w00 *
+		           joseph_image_value(image, majorIndex, i0, i1,
 		                              imgParams) +
-		       fy * (1.0f - fz) *
-		           joseph_image_value(image, majorIndex, y0 + 1, z0,
+		       w10 *
+		           joseph_image_value(image, majorIndex, i0 + 1, i1,
 		                              imgParams) +
-		       (1.0f - fy) * fz *
-		           joseph_image_value(image, majorIndex, y0, z0 + 1,
+		       w01 *
+		           joseph_image_value(image, majorIndex, i0, i1 + 1,
 		                              imgParams) +
-		       fy * fz *
-		           joseph_image_value(image, majorIndex, y0 + 1, z0 + 1,
+		       w11 *
+		           joseph_image_value(image, majorIndex, i0 + 1, i1 + 1,
 		                              imgParams);
 	}
 	if (axis == 1)
 	{
-		const float gx = joseph_grid_coord(
-		    x, joseph_half_length(imgParams, 0),
-		    1.0f / imgParams.voxelSize[0]);
-		const float gz = joseph_grid_coord(
-		    z, joseph_half_length(imgParams, 2),
-		    1.0f / imgParams.voxelSize[2]);
-		const int x0 = static_cast<int>(floorf(gx));
-		const int z0 = static_cast<int>(floorf(gz));
-		const float fx = gx - static_cast<float>(x0);
-		const float fz = gz - static_cast<float>(z0);
-		return (1.0f - fx) * (1.0f - fz) *
-		           joseph_image_value(image, x0, majorIndex, z0,
+		if (i0 >= 0 && i0 + 1 < nx && majorIndex >= 0 &&
+		    majorIndex < ny && i1 >= 0 && i1 + 1 < nz)
+		{
+			const int o00 = i0 + nx * (majorIndex + ny * i1);
+			const int o10 = o00 + 1;
+			const int o01 = o00 + planeStride;
+			const int o11 = o01 + 1;
+			return w00 * image[o00] + w10 * image[o10] +
+			       w01 * image[o01] + w11 * image[o11];
+		}
+		return w00 *
+		           joseph_image_value(image, i0, majorIndex, i1,
 		                              imgParams) +
-		       fx * (1.0f - fz) *
-		           joseph_image_value(image, x0 + 1, majorIndex, z0,
+		       w10 *
+		           joseph_image_value(image, i0 + 1, majorIndex, i1,
 		                              imgParams) +
-		       (1.0f - fx) * fz *
-		           joseph_image_value(image, x0, majorIndex, z0 + 1,
+		       w01 *
+		           joseph_image_value(image, i0, majorIndex, i1 + 1,
 		                              imgParams) +
-		       fx * fz *
-		           joseph_image_value(image, x0 + 1, majorIndex, z0 + 1,
+		       w11 *
+		           joseph_image_value(image, i0 + 1, majorIndex, i1 + 1,
 		                              imgParams);
 	}
 
-	const float gx = joseph_grid_coord(
-	    x, joseph_half_length(imgParams, 0), 1.0f / imgParams.voxelSize[0]);
-	const float gy = joseph_grid_coord(
-	    y, joseph_half_length(imgParams, 1), 1.0f / imgParams.voxelSize[1]);
-	const int x0 = static_cast<int>(floorf(gx));
-	const int y0 = static_cast<int>(floorf(gy));
-	const float fx = gx - static_cast<float>(x0);
-	const float fy = gy - static_cast<float>(y0);
-	return (1.0f - fx) * (1.0f - fy) *
-	           joseph_image_value(image, x0, y0, majorIndex, imgParams) +
-	       fx * (1.0f - fy) *
-	           joseph_image_value(image, x0 + 1, y0, majorIndex, imgParams) +
-	       (1.0f - fx) * fy *
-	           joseph_image_value(image, x0, y0 + 1, majorIndex, imgParams) +
-	       fx * fy *
-	           joseph_image_value(image, x0 + 1, y0 + 1, majorIndex,
+	if (i0 >= 0 && i0 + 1 < nx && i1 >= 0 && i1 + 1 < ny &&
+	    majorIndex >= 0 && majorIndex < nz)
+	{
+		const int o00 = i0 + nx * (i1 + ny * majorIndex);
+		const int o10 = o00 + 1;
+		const int o01 = o00 + nx;
+		const int o11 = o01 + 1;
+		return w00 * image[o00] + w10 * image[o10] + w01 * image[o01] +
+		       w11 * image[o11];
+	}
+	return w00 * joseph_image_value(image, i0, i1, majorIndex, imgParams) +
+	       w10 *
+	           joseph_image_value(image, i0 + 1, i1, majorIndex,
+	                              imgParams) +
+	       w01 *
+	           joseph_image_value(image, i0, i1 + 1, majorIndex,
+	                              imgParams) +
+	       w11 *
+	           joseph_image_value(image, i0 + 1, i1 + 1, majorIndex,
 	                              imgParams);
 }
 
@@ -356,74 +454,100 @@ __device__ inline void joseph_add_voxel(float* image, int vx, int vy, int vz,
 	atomicAdd(&image[joseph_image_offset(vx, vy, vz, imgParams)], update);
 }
 
-__device__ inline void joseph_bilinear_backproject(
-    float* image, int axis, int majorIndex, float alpha, float update,
-    const JosephLine& line, const CUImageParams& imgParams)
+__device__ inline void joseph_add_voxel_in_bounds(float* image, int offset,
+                                                  float update)
 {
-	const float x = line.p1x + alpha * (line.p2x - line.p1x);
-	const float y = line.p1y + alpha * (line.p2y - line.p1y);
-	const float z = line.p1z + alpha * (line.p2z - line.p1z);
+	if (update == 0.0f)
+	{
+		return;
+	}
+	atomicAdd(&image[offset], update);
+}
+
+__device__ inline void joseph_bilinear_backproject(
+    float* image, int axis, int majorIndex, float transverse0,
+    float transverse1, float update, const CUImageParams& imgParams)
+{
+	if (update == 0.0f)
+	{
+		return;
+	}
+
+	const int i0 = static_cast<int>(floorf(transverse0));
+	const int i1 = static_cast<int>(floorf(transverse1));
+	const float f0 = transverse0 - static_cast<float>(i0);
+	const float f1 = transverse1 - static_cast<float>(i1);
+	const float w00 = update * (1.0f - f0) * (1.0f - f1);
+	const float w10 = update * f0 * (1.0f - f1);
+	const float w01 = update * (1.0f - f0) * f1;
+	const float w11 = update * f0 * f1;
+	const int nx = imgParams.voxelNumber[0];
+	const int ny = imgParams.voxelNumber[1];
+	const int nz = imgParams.voxelNumber[2];
+	const int planeStride = nx * ny;
+
 	if (axis == 0)
 	{
-		const float gy = joseph_grid_coord(
-		    y, joseph_half_length(imgParams, 1),
-		    1.0f / imgParams.voxelSize[1]);
-		const float gz = joseph_grid_coord(
-		    z, joseph_half_length(imgParams, 2),
-		    1.0f / imgParams.voxelSize[2]);
-		const int y0 = static_cast<int>(floorf(gy));
-		const int z0 = static_cast<int>(floorf(gz));
-		const float fy = gy - static_cast<float>(y0);
-		const float fz = gz - static_cast<float>(z0);
-		joseph_add_voxel(image, majorIndex, y0, z0,
-		                 update * (1.0f - fy) * (1.0f - fz), imgParams);
-		joseph_add_voxel(image, majorIndex, y0 + 1, z0,
-		                 update * fy * (1.0f - fz), imgParams);
-		joseph_add_voxel(image, majorIndex, y0, z0 + 1,
-		                 update * (1.0f - fy) * fz, imgParams);
-		joseph_add_voxel(image, majorIndex, y0 + 1, z0 + 1,
-		                 update * fy * fz, imgParams);
+		if (majorIndex >= 0 && majorIndex < nx && i0 >= 0 &&
+		    i0 + 1 < ny && i1 >= 0 && i1 + 1 < nz)
+		{
+			const int o00 = majorIndex + nx * (i0 + ny * i1);
+			const int o10 = o00 + nx;
+			const int o01 = o00 + planeStride;
+			const int o11 = o01 + nx;
+			joseph_add_voxel_in_bounds(image, o00, w00);
+			joseph_add_voxel_in_bounds(image, o10, w10);
+			joseph_add_voxel_in_bounds(image, o01, w01);
+			joseph_add_voxel_in_bounds(image, o11, w11);
+			return;
+		}
+		joseph_add_voxel(image, majorIndex, i0, i1, w00, imgParams);
+		joseph_add_voxel(image, majorIndex, i0 + 1, i1, w10, imgParams);
+		joseph_add_voxel(image, majorIndex, i0, i1 + 1, w01, imgParams);
+		joseph_add_voxel(image, majorIndex, i0 + 1, i1 + 1, w11,
+		                 imgParams);
 		return;
 	}
 	if (axis == 1)
 	{
-		const float gx = joseph_grid_coord(
-		    x, joseph_half_length(imgParams, 0),
-		    1.0f / imgParams.voxelSize[0]);
-		const float gz = joseph_grid_coord(
-		    z, joseph_half_length(imgParams, 2),
-		    1.0f / imgParams.voxelSize[2]);
-		const int x0 = static_cast<int>(floorf(gx));
-		const int z0 = static_cast<int>(floorf(gz));
-		const float fx = gx - static_cast<float>(x0);
-		const float fz = gz - static_cast<float>(z0);
-		joseph_add_voxel(image, x0, majorIndex, z0,
-		                 update * (1.0f - fx) * (1.0f - fz), imgParams);
-		joseph_add_voxel(image, x0 + 1, majorIndex, z0,
-		                 update * fx * (1.0f - fz), imgParams);
-		joseph_add_voxel(image, x0, majorIndex, z0 + 1,
-		                 update * (1.0f - fx) * fz, imgParams);
-		joseph_add_voxel(image, x0 + 1, majorIndex, z0 + 1,
-		                 update * fx * fz, imgParams);
+		if (i0 >= 0 && i0 + 1 < nx && majorIndex >= 0 &&
+		    majorIndex < ny && i1 >= 0 && i1 + 1 < nz)
+		{
+			const int o00 = i0 + nx * (majorIndex + ny * i1);
+			const int o10 = o00 + 1;
+			const int o01 = o00 + planeStride;
+			const int o11 = o01 + 1;
+			joseph_add_voxel_in_bounds(image, o00, w00);
+			joseph_add_voxel_in_bounds(image, o10, w10);
+			joseph_add_voxel_in_bounds(image, o01, w01);
+			joseph_add_voxel_in_bounds(image, o11, w11);
+			return;
+		}
+		joseph_add_voxel(image, i0, majorIndex, i1, w00, imgParams);
+		joseph_add_voxel(image, i0 + 1, majorIndex, i1, w10, imgParams);
+		joseph_add_voxel(image, i0, majorIndex, i1 + 1, w01, imgParams);
+		joseph_add_voxel(image, i0 + 1, majorIndex, i1 + 1, w11,
+		                 imgParams);
 		return;
 	}
 
-	const float gx = joseph_grid_coord(
-	    x, joseph_half_length(imgParams, 0), 1.0f / imgParams.voxelSize[0]);
-	const float gy = joseph_grid_coord(
-	    y, joseph_half_length(imgParams, 1), 1.0f / imgParams.voxelSize[1]);
-	const int x0 = static_cast<int>(floorf(gx));
-	const int y0 = static_cast<int>(floorf(gy));
-	const float fx = gx - static_cast<float>(x0);
-	const float fy = gy - static_cast<float>(y0);
-	joseph_add_voxel(image, x0, y0, majorIndex,
-	                 update * (1.0f - fx) * (1.0f - fy), imgParams);
-	joseph_add_voxel(image, x0 + 1, y0, majorIndex,
-	                 update * fx * (1.0f - fy), imgParams);
-	joseph_add_voxel(image, x0, y0 + 1, majorIndex,
-	                 update * (1.0f - fx) * fy, imgParams);
-	joseph_add_voxel(image, x0 + 1, y0 + 1, majorIndex,
-	                 update * fx * fy, imgParams);
+	if (i0 >= 0 && i0 + 1 < nx && i1 >= 0 && i1 + 1 < ny &&
+	    majorIndex >= 0 && majorIndex < nz)
+	{
+		const int o00 = i0 + nx * (i1 + ny * majorIndex);
+		const int o10 = o00 + 1;
+		const int o01 = o00 + nx;
+		const int o11 = o01 + 1;
+		joseph_add_voxel_in_bounds(image, o00, w00);
+		joseph_add_voxel_in_bounds(image, o10, w10);
+		joseph_add_voxel_in_bounds(image, o01, w01);
+		joseph_add_voxel_in_bounds(image, o11, w11);
+		return;
+	}
+	joseph_add_voxel(image, i0, i1, majorIndex, w00, imgParams);
+	joseph_add_voxel(image, i0 + 1, i1, majorIndex, w10, imgParams);
+	joseph_add_voxel(image, i0, i1 + 1, majorIndex, w01, imgParams);
+	joseph_add_voxel(image, i0 + 1, i1 + 1, majorIndex, w11, imgParams);
 }
 }  // namespace
 
@@ -482,23 +606,27 @@ __global__ void OperatorProjectorJosephCU_kernel(
 
 	const JosephAxisCache axisCache =
 	    joseph_make_axis_cache(line, imgParams, axis, rayLength);
+	const JosephTraceCache traceCache =
+	    joseph_make_trace_cache(line, imgParams, axis, axisCache, first);
 	if constexpr (IsForward)
 	{
 		float projection = 0.0f;
+		float transverse0 = traceCache.transverse0;
+		float transverse1 = traceCache.transverse1;
 		for (int majorIndex = first; majorIndex <= last; majorIndex++)
 		{
-			const float alpha = joseph_sample_alpha(axisCache, majorIndex);
-			const float weight = joseph_sample_weight<HasTOF>(
-			    axisCache, alpha, alphaMin, alphaMax, tofValue,
-			    pd_tofHelper);
-			if (weight == 0.0f)
+			const float weight = joseph_sample_weight_fast<HasTOF>(
+			    axisCache, majorIndex, first, last, alphaMin, alphaMax,
+			    tofValue, pd_tofHelper, traceCache.interiorWeight);
+			if (weight != 0.0f)
 			{
-				continue;
+				projection += weight * joseph_bilinear_forward(
+				                            pd_image, axis, majorIndex,
+				                            transverse0, transverse1,
+				                            imgParams);
 			}
-
-			projection += weight * joseph_bilinear_forward(
-			                            pd_image, axis, majorIndex, alpha,
-			                            line, imgParams);
+			transverse0 += traceCache.transverseStep0;
+			transverse1 += traceCache.transverseStep1;
 		}
 
 		pd_projValues[eventId] = projection;
@@ -510,20 +638,21 @@ __global__ void OperatorProjectorJosephCU_kernel(
 		{
 			return;
 		}
+		float transverse0 = traceCache.transverse0;
+		float transverse1 = traceCache.transverse1;
 		for (int majorIndex = first; majorIndex <= last; majorIndex++)
 		{
-			const float alpha = joseph_sample_alpha(axisCache, majorIndex);
-			const float weight = joseph_sample_weight<HasTOF>(
-			    axisCache, alpha, alphaMin, alphaMax, tofValue,
-			    pd_tofHelper);
-			if (weight == 0.0f)
+			const float weight = joseph_sample_weight_fast<HasTOF>(
+			    axisCache, majorIndex, first, last, alphaMin, alphaMax,
+			    tofValue, pd_tofHelper, traceCache.interiorWeight);
+			if (weight != 0.0f)
 			{
-				continue;
+				joseph_bilinear_backproject(
+				    pd_image, axis, majorIndex, transverse0, transverse1,
+				    projectionValue * weight, imgParams);
 			}
-
-			joseph_bilinear_backproject(pd_image, axis, majorIndex, alpha,
-			                            projectionValue * weight, line,
-			                            imgParams);
+			transverse0 += traceCache.transverseStep0;
+			transverse1 += traceCache.transverseStep1;
 		}
 	}
 }

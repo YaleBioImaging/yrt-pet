@@ -49,6 +49,42 @@ __device__ inline int joseph_image_offset(int vx, int vy, int vz,
 	return vx + nx * (vy + ny * vz);
 }
 
+template <int Axis>
+__device__ inline int joseph_major_stride(const CUImageParams& imgParams)
+{
+	if constexpr (Axis == 0)
+	{
+		return 1;
+	}
+	if constexpr (Axis == 1)
+	{
+		return imgParams.voxelNumber[0];
+	}
+	return imgParams.voxelNumber[0] * imgParams.voxelNumber[1];
+}
+
+template <int Axis>
+__device__ inline int joseph_transverse_stride0(
+    const CUImageParams& imgParams)
+{
+	if constexpr (Axis == 0)
+	{
+		return imgParams.voxelNumber[0];
+	}
+	return 1;
+}
+
+template <int Axis>
+__device__ inline int joseph_transverse_stride1(
+    const CUImageParams& imgParams)
+{
+	if constexpr (Axis == 2)
+	{
+		return imgParams.voxelNumber[0];
+	}
+	return imgParams.voxelNumber[0] * imgParams.voxelNumber[1];
+}
+
 __device__ inline float joseph_half_length(const CUImageParams& imgParams,
                                            int axis)
 {
@@ -334,8 +370,9 @@ __device__ inline float joseph_image_value(const float* image, int vx, int vy,
 
 template <int Axis>
 __device__ inline float joseph_bilinear_forward(
-    const float* image, int majorIndex, float transverse0, float transverse1,
-    const CUImageParams& imgParams)
+    const float* image, int majorIndex, int majorOffset,
+    int transverseStride0, int transverseStride1, float transverse0,
+    float transverse1, const CUImageParams& imgParams)
 {
 	const int i0 = static_cast<int>(floorf(transverse0));
 	const int i1 = static_cast<int>(floorf(transverse1));
@@ -347,18 +384,18 @@ __device__ inline float joseph_bilinear_forward(
 	const float w11 = f0 * f1;
 	const int nx = imgParams.voxelNumber[0];
 	const int ny = imgParams.voxelNumber[1];
-	const int nz = imgParams.voxelNumber[2];
 
 	if constexpr (Axis == 0)
 	{
-		if (majorIndex >= 0 && majorIndex < nx && i0 >= 0 &&
-		    i0 + 1 < ny && i1 >= 0 && i1 + 1 < nz)
+		const int nz = imgParams.voxelNumber[2];
+		if (i0 >= 0 && i0 + 1 < ny && i1 >= 0 && i1 + 1 < nz)
 		{
-			const int planeStride = nx * ny;
-			const int o00 = majorIndex + nx * (i0 + ny * i1);
-			const int o10 = o00 + nx;
-			const int o01 = o00 + planeStride;
-			const int o11 = o01 + nx;
+			const int o00 =
+			    majorOffset + transverseStride0 * i0 +
+			    transverseStride1 * i1;
+			const int o10 = o00 + transverseStride0;
+			const int o01 = o00 + transverseStride1;
+			const int o11 = o01 + transverseStride0;
 			return w00 * image[o00] + w10 * image[o10] +
 			       w01 * image[o01] + w11 * image[o11];
 		}
@@ -377,13 +414,14 @@ __device__ inline float joseph_bilinear_forward(
 	}
 	if constexpr (Axis == 1)
 	{
-		if (i0 >= 0 && i0 + 1 < nx && majorIndex >= 0 &&
-		    majorIndex < ny && i1 >= 0 && i1 + 1 < nz)
+		const int nz = imgParams.voxelNumber[2];
+		if (i0 >= 0 && i0 + 1 < nx && i1 >= 0 && i1 + 1 < nz)
 		{
-			const int planeStride = nx * ny;
-			const int o00 = i0 + nx * (majorIndex + ny * i1);
+			const int o00 =
+			    majorOffset + transverseStride0 * i0 +
+			    transverseStride1 * i1;
 			const int o10 = o00 + 1;
-			const int o01 = o00 + planeStride;
+			const int o01 = o00 + transverseStride1;
 			const int o11 = o01 + 1;
 			return w00 * image[o00] + w10 * image[o10] +
 			       w01 * image[o01] + w11 * image[o11];
@@ -404,12 +442,13 @@ __device__ inline float joseph_bilinear_forward(
 
 	if constexpr (Axis == 2)
 	{
-		if (i0 >= 0 && i0 + 1 < nx && i1 >= 0 && i1 + 1 < ny &&
-		    majorIndex >= 0 && majorIndex < nz)
+		if (i0 >= 0 && i0 + 1 < nx && i1 >= 0 && i1 + 1 < ny)
 		{
-			const int o00 = i0 + nx * (i1 + ny * majorIndex);
+			const int o00 =
+			    majorOffset + transverseStride0 * i0 +
+			    transverseStride1 * i1;
 			const int o10 = o00 + 1;
-			const int o01 = o00 + nx;
+			const int o01 = o00 + transverseStride1;
 			const int o11 = o01 + 1;
 			return w00 * image[o00] + w10 * image[o10] +
 			       w01 * image[o01] + w11 * image[o11];
@@ -455,7 +494,8 @@ __device__ inline void joseph_add_voxel_in_bounds(float* image, int offset,
 
 template <int Axis>
 __device__ inline void joseph_bilinear_backproject(
-    float* image, int majorIndex, float transverse0, float transverse1,
+    float* image, int majorIndex, int majorOffset, int transverseStride0,
+    int transverseStride1, float transverse0, float transverse1,
     float update, const CUImageParams& imgParams)
 {
 	if (update == 0.0f)
@@ -473,18 +513,18 @@ __device__ inline void joseph_bilinear_backproject(
 	const float w11 = update * f0 * f1;
 	const int nx = imgParams.voxelNumber[0];
 	const int ny = imgParams.voxelNumber[1];
-	const int nz = imgParams.voxelNumber[2];
 
 	if constexpr (Axis == 0)
 	{
-		if (majorIndex >= 0 && majorIndex < nx && i0 >= 0 &&
-		    i0 + 1 < ny && i1 >= 0 && i1 + 1 < nz)
+		const int nz = imgParams.voxelNumber[2];
+		if (i0 >= 0 && i0 + 1 < ny && i1 >= 0 && i1 + 1 < nz)
 		{
-			const int planeStride = nx * ny;
-			const int o00 = majorIndex + nx * (i0 + ny * i1);
-			const int o10 = o00 + nx;
-			const int o01 = o00 + planeStride;
-			const int o11 = o01 + nx;
+			const int o00 =
+			    majorOffset + transverseStride0 * i0 +
+			    transverseStride1 * i1;
+			const int o10 = o00 + transverseStride0;
+			const int o01 = o00 + transverseStride1;
+			const int o11 = o01 + transverseStride0;
 			joseph_add_voxel_in_bounds(image, o00, w00);
 			joseph_add_voxel_in_bounds(image, o10, w10);
 			joseph_add_voxel_in_bounds(image, o01, w01);
@@ -500,13 +540,14 @@ __device__ inline void joseph_bilinear_backproject(
 	}
 	if constexpr (Axis == 1)
 	{
-		if (i0 >= 0 && i0 + 1 < nx && majorIndex >= 0 &&
-		    majorIndex < ny && i1 >= 0 && i1 + 1 < nz)
+		const int nz = imgParams.voxelNumber[2];
+		if (i0 >= 0 && i0 + 1 < nx && i1 >= 0 && i1 + 1 < nz)
 		{
-			const int planeStride = nx * ny;
-			const int o00 = i0 + nx * (majorIndex + ny * i1);
+			const int o00 =
+			    majorOffset + transverseStride0 * i0 +
+			    transverseStride1 * i1;
 			const int o10 = o00 + 1;
-			const int o01 = o00 + planeStride;
+			const int o01 = o00 + transverseStride1;
 			const int o11 = o01 + 1;
 			joseph_add_voxel_in_bounds(image, o00, w00);
 			joseph_add_voxel_in_bounds(image, o10, w10);
@@ -524,12 +565,13 @@ __device__ inline void joseph_bilinear_backproject(
 
 	if constexpr (Axis == 2)
 	{
-		if (i0 >= 0 && i0 + 1 < nx && i1 >= 0 && i1 + 1 < ny &&
-		    majorIndex >= 0 && majorIndex < nz)
+		if (i0 >= 0 && i0 + 1 < nx && i1 >= 0 && i1 + 1 < ny)
 		{
-			const int o00 = i0 + nx * (i1 + ny * majorIndex);
+			const int o00 =
+			    majorOffset + transverseStride0 * i0 +
+			    transverseStride1 * i1;
 			const int o10 = o00 + 1;
-			const int o01 = o00 + nx;
+			const int o01 = o00 + transverseStride1;
 			const int o11 = o01 + 1;
 			joseph_add_voxel_in_bounds(image, o00, w00);
 			joseph_add_voxel_in_bounds(image, o10, w10);
@@ -568,11 +610,15 @@ __device__ inline void joseph_project_axis(
 	    joseph_make_axis_cache(line, imgParams, Axis, rayLength);
 	const JosephTraceCache traceCache =
 	    joseph_make_trace_cache<Axis>(line, imgParams, axisCache, first);
+	const int majorStride = joseph_major_stride<Axis>(imgParams);
+	const int transverseStride0 = joseph_transverse_stride0<Axis>(imgParams);
+	const int transverseStride1 = joseph_transverse_stride1<Axis>(imgParams);
 	if constexpr (IsForward)
 	{
 		float projection = 0.0f;
 		float transverse0 = traceCache.transverse0;
 		float transverse1 = traceCache.transverse1;
+		int majorOffset = first * majorStride;
 		for (int majorIndex = first; majorIndex <= last; majorIndex++)
 		{
 			const float weight = joseph_sample_weight_fast<HasTOF>(
@@ -581,10 +627,13 @@ __device__ inline void joseph_project_axis(
 			if (weight != 0.0f)
 			{
 				projection += weight * joseph_bilinear_forward<Axis>(
-				                            pd_image, majorIndex,
-				                            transverse0, transverse1,
+				                            pd_image, majorIndex, majorOffset,
+				                            transverseStride0,
+				                            transverseStride1, transverse0,
+				                            transverse1,
 				                            imgParams);
 			}
+			majorOffset += majorStride;
 			transverse0 += traceCache.transverseStep0;
 			transverse1 += traceCache.transverseStep1;
 		}
@@ -600,6 +649,7 @@ __device__ inline void joseph_project_axis(
 		}
 		float transverse0 = traceCache.transverse0;
 		float transverse1 = traceCache.transverse1;
+		int majorOffset = first * majorStride;
 		for (int majorIndex = first; majorIndex <= last; majorIndex++)
 		{
 			const float weight = joseph_sample_weight_fast<HasTOF>(
@@ -608,9 +658,11 @@ __device__ inline void joseph_project_axis(
 			if (weight != 0.0f)
 			{
 				joseph_bilinear_backproject<Axis>(
-				    pd_image, majorIndex, transverse0, transverse1,
+				    pd_image, majorIndex, majorOffset, transverseStride0,
+				    transverseStride1, transverse0, transverse1,
 				    projectionValue * weight, imgParams);
 			}
+			majorOffset += majorStride;
 			transverse0 += traceCache.transverseStep0;
 			transverse1 += traceCache.transverseStep1;
 		}

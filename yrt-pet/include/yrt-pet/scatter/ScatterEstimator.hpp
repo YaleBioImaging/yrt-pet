@@ -34,10 +34,11 @@ public:
 	    const Histogram* pp_sensitivityHis = nullptr,
 	    CrystalMaterial p_crystalMaterial = DefaultCrystal,
 	    int seedi = DefaultSeed,
-	    size_t scatterTailsMaskWidth = DefaultScatterTailsMaskWidth,
-	    float attThreshold = DefaultAttThreshold,
+	    size_t p_scatterTailsMaskWidth = DefaultScatterTailsMaskWidth,
+	    float p_attThreshold = DefaultAttThreshold,
 	    float p_numSampFrac = 2.f / 3.f,
-	    const std::string& saveIntermediary_dir = "");
+	    const std::string& p_saveIntermediary_dir = "",
+	    bool p_onlyDirectPlanes = true);
 
 	void allocate();
 
@@ -48,9 +49,10 @@ public:
 	void computeScatterEstimate();
 	void computeInsideMaskInScatterSpace();
 	void computeScatterTailsMask();
-	static void computeTailsMask(
-	    const ScatterSpace& insideMask, ScatterSpace& tailsMask,
-	    size_t maskWidth = DefaultScatterTailsMaskWidth);
+	static void
+	    computeTailsMask(const ScatterSpace& insideMask,
+	                     ScatterSpace& tailsMask,
+	                     size_t maskWidth = DefaultScatterTailsMaskWidth);
 	void computePromptsAndRandomsInScatterSpace();
 	float computeTailFittingFactor() const;
 
@@ -105,6 +107,9 @@ private:
 
 	// TODO: We might need to also store a scatter-space vector for the
 	//  sensitivity (multiplied by livetime if available)
+
+	// If true, only estimate direct plane and fill non-direct from average
+	bool m_onlyEstimateDirectPlanes;
 
 	// LOR inside the object: 1.0; Outside the object: 0.0
 	std::unique_ptr<ScatterSpace> mp_insideMask_scs;

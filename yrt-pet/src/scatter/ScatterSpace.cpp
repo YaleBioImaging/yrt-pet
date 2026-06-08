@@ -137,6 +137,8 @@ void py_setup_scatterspace(py::module& m)
 
 	// Utility functions
 	c.def("symmetrizeIfNeeded", &ScatterSpace::symmetrizeIfNeeded);
+	c.def("fillNonDirectPlanes", &ScatterSpace::fillNonDirectPlanes,
+	      "Populate the non-direct planes using the direct plane in between");
 	c.def("clampTOF", &ScatterSpace::clampTOF);
 	c.def("clampPlanePosition", &ScatterSpace::clampPlanePosition);
 	c.def_static("wrapAngle", &ScatterSpace::wrapAngle);
@@ -638,6 +640,39 @@ void ScatterSpace::scaleValues(float scale)
 void ScatterSpace::fill(float value)
 {
 	mp_values->fill(value);
+}
+
+void ScatterSpace::fillNonDirectPlanes()
+{
+	util::parallelForChunked(
+	    getSizeTotal(), globals::getNumThreads(),
+	    [this](size_t flatIdx, unsigned int /*threadId*/)
+	    {
+		    const auto idx = unravelIndex(flatIdx);
+		    const size_t p1 = idx.planeIndex1;
+		    const size_t p2 = idx.planeIndex2;
+		    if (p1 != p2)
+		    {
+			    const size_t avg = (p1 + p2) / 2;
+			    if ((p1 + p2) % 2 == 0)
+			    {
+				    const float val = getValue(idx.tofBin, avg, idx.angleIndex1,
+				                               avg, idx.angleIndex2);
+				    setValueFlat(flatIdx, val);
+			    }
+			    else
+			    {
+				    const size_t high = avg + 1;
+				    const float vLow = getValue(
+				        idx.tofBin, avg, idx.angleIndex1, avg, idx.angleIndex2);
+				    const float vHigh =
+				        getValue(idx.tofBin, high, idx.angleIndex1, high,
+				                 idx.angleIndex2);
+				    const float val = (vLow + vHigh) * 0.5f;
+				    setValueFlat(flatIdx, val);
+			    }
+		    }
+	    });
 }
 
 void ScatterSpace::symmetrizeIfNeeded()

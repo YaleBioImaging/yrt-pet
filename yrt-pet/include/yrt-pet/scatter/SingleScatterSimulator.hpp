@@ -32,7 +32,8 @@ public:
 	                       CrystalMaterial p_crystalMaterial, int seedi,
 	                       float numSampFrac = 2.f / 3.f);
 
-	void runSSS(ScatterSpace& outScatterSpace);
+	void runSSS(ScatterSpace& outScatterSpace,
+	            bool onlyDirectPlanes = false);
 
 	float computeSingleScatterInLOR(const Line3D& lor, float tof_ps) const;
 

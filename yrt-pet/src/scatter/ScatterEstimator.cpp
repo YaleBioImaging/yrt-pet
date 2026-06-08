@@ -31,7 +31,7 @@ void py_setup_scatterestimator(py::module& m)
 	               const ProjectionData&, size_t, size_t, size_t,
 	               const Histogram3D*, const Histogram3D*,
 	               scatter::CrystalMaterial, int, size_t, float, float,
-	               const std::string&>(),
+	               const std::string&, bool>(),
 	      "scanner"_a, "lambda"_a, "mu"_a, "prompts"_a, "num_tof_bins"_a,
 	      "num_planes"_a, "num_angles"_a, "randoms_his"_a = nullptr,
 	      "sensitivity_his"_a = nullptr,
@@ -41,7 +41,7 @@ void py_setup_scatterestimator(py::module& m)
 	          scatter::ScatterEstimator::DefaultScatterTailsMaskWidth,
 	      "att_threshold"_a = scatter::ScatterEstimator::DefaultAttThreshold,
 	      "num_samp_frac"_a = scatter::ScatterEstimator::DefaultNumSampFrac,
-	      "saveIntermediary_dir"_a = "");
+	      "saveIntermediary_dir"_a = "", "only_direct_planes"_a = true);
 
 	// Allocation
 	c.def("allocate", &scatter::ScatterEstimator::allocate);
@@ -93,17 +93,19 @@ ScatterEstimator::ScatterEstimator(
     const ProjectionData& pr_prompts, size_t numTOFBins, size_t numPlanes,
     size_t numAngles, const Histogram* pp_randomsHis,
     const Histogram* pp_sensitivityHis, CrystalMaterial p_crystalMaterial,
-    int seedi, size_t scatterTailsMaskWidth, float attThreshold,
-    float p_numSampFrac, const std::string& saveIntermediary_dir)
+    int seedi, size_t p_scatterTailsMaskWidth, float p_attThreshold,
+    float p_numSampFrac, const std::string& p_saveIntermediary_dir,
+    bool p_onlyDirectPlanes)
     : mr_scanner(pr_scanner),
       m_sss(pr_scanner, pr_mu, pr_lambda, p_crystalMaterial, seedi,
             p_numSampFrac),
       mr_prompts(pr_prompts),
       mp_randomsHis(pp_randomsHis),
       mp_sensitivityHis(pp_sensitivityHis),
-      m_scatterTailsMaskWidth(scatterTailsMaskWidth),
-      m_attThreshold(attThreshold),
-      m_saveIntermediary_dir(saveIntermediary_dir)
+      m_scatterTailsMaskWidth(p_scatterTailsMaskWidth),
+      m_attThreshold(p_attThreshold),
+      m_saveIntermediary_dir(p_saveIntermediary_dir),
+      m_onlyEstimateDirectPlanes(p_onlyDirectPlanes)
 {
 	// Scatter estimate in scatter-space
 	mp_scatter_scs = std::make_unique<ScatterSpace>(mr_scanner, numTOFBins,
@@ -203,11 +205,22 @@ void ScatterEstimator::computeTailFittedScatterEstimate()
 
 void ScatterEstimator::computeScatterEstimate()
 {
-	std::cout << "Estimating scatter..." << std::endl;
+	std::cout << "Estimating scatter";
+	if (m_onlyEstimateDirectPlanes)
+	{
+		std::cout << " (direct planes only, filling non-direct from average)";
+	}
+	std::cout << "..." << std::endl;
+
 	ASSERT_MSG(mp_scatter_scs->isMemoryValid(),
 	           "Scatter-space array is unallocated (for scatter estimates)");
 
-	m_sss.runSSS(*mp_scatter_scs);
+	m_sss.runSSS(*mp_scatter_scs, m_onlyEstimateDirectPlanes);
+
+	if (m_onlyEstimateDirectPlanes)
+	{
+		mp_scatter_scs->fillNonDirectPlanes();
+	}
 }
 
 void ScatterEstimator::computeInsideMaskInScatterSpace()

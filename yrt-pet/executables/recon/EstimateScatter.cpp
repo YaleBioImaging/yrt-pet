@@ -48,6 +48,13 @@ int main(int argc, char** argv)
 		registry.registerArgument("num_threads", "Number of threads to use",
 		                          false, io::TypeOfArgument::INT, -1,
 		                          coreGroup);
+		registry.registerArgument(
+		    "full_estimate",
+		    "When set to true, compute full scatter estimate for all plane "
+		    "pairs (slower but more accurate). When false (default), only "
+		    "estimate direct planes and fill non-direct planes from average "
+		    "of nearest direct plane.",
+		    false, io::TypeOfArgument::BOOL, false, sssGroup);
 		registry.registerArgument("seed", "Random number generator seed to use",
 		                          false, io::TypeOfArgument::INT,
 		                          scatter::ScatterEstimator::DefaultSeed,
@@ -177,6 +184,7 @@ int main(int argc, char** argv)
 		int maskWidth = config.getValue<int>("mask_width");
 		float numSampFrac = config.getValue<float>("num_samp_frac");
 		int seed = config.getValue<int>("seed");
+		bool fullEstimate = config.getValue<bool>("full_estimate");
 
 		if (useGPU)
 		{
@@ -258,7 +266,8 @@ int main(int argc, char** argv)
 		scatter::ScatterEstimator scatterEstimator(
 		    *scanner, *sourceImage, *attImage, *prompts, numTOFBins, numPlanes,
 		    numAngles, randomsHis, sensitivityHis, crystalMaterial, seed,
-		    maskWidth, attThreshold, numSampFrac, saveIntermediary_dir);
+		    maskWidth, attThreshold, numSampFrac, saveIntermediary_dir,
+		    !fullEstimate);
 
 		scatterEstimator.allocate();
 

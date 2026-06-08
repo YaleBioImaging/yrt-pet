@@ -153,6 +153,10 @@ public:
 	// To avoid d1-d2 vs d2-d1 problems (for no TOF)
 	void symmetrizeIfNeeded();
 
+	// Fill non-direct planes from the nearest direct plane
+	// estimate(p1, p2) := estimate(avg, avg) where avg = round((p1+p2)/2)
+	void fillNonDirectPlanes();
+
 	// Clamp and wrap
 	float clampTOF(float tof_ps) const;
 	float clampPlanePosition(float planePosition) const;

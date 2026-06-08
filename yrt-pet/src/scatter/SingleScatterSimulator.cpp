@@ -33,7 +33,8 @@ void py_setup_singlescattersimulator(py::module& m)
 	               scatter::CrystalMaterial, int, float>(),
 	      "scanner"_a, "attenuation_image"_a, "source_image"_a,
 	      "crystal_material"_a, "seed"_a, "num_samp_frac"_a);
-	c.def("runSSS", &scatter::SingleScatterSimulator::runSSS);
+	c.def("runSSS", &scatter::SingleScatterSimulator::runSSS,
+	      "out_scatter_space"_a, "only_direct_planes"_a = false);
 	c.def("computeSingleScatterInLOR",
 	      &scatter::SingleScatterSimulator::computeSingleScatterInLOR, "lor"_a,
 	      "tof"_a);
@@ -167,7 +168,8 @@ SingleScatterSimulator::SingleScatterSimulator(
 	}
 }
 
-void SingleScatterSimulator::runSSS(ScatterSpace& outScatterSpace)
+void SingleScatterSimulator::runSSS(ScatterSpace& outScatterSpace,
+                                    bool onlyDirectPlanes)
 {
 	ASSERT_MSG(outScatterSpace.isMemoryValid(),
 	           "Destination scatter-space array is unallocated");
@@ -181,12 +183,19 @@ void SingleScatterSimulator::runSSS(ScatterSpace& outScatterSpace)
 
 	util::parallelForChunked(
 	    numSamples, globals::getNumThreads(),
-	    [&progressBar, &outScatterSpace, this](size_t sampleId, size_t threadId)
+	    [&progressBar, &outScatterSpace, onlyDirectPlanes,
+	     this](size_t sampleId, size_t threadId)
 	    {
 		    progressBar.incrementProgress(threadId, 1);
 
 		    const ScatterSpace::ScatterSpaceIndex scsIdx =
 		        outScatterSpace.unravelIndex(sampleId);
+
+		    if (onlyDirectPlanes && scsIdx.planeIndex1 != scsIdx.planeIndex2)
+		    {
+			    return;
+		    }
+
 		    const auto [tof, lor] =
 		        outScatterSpace.getTOFAndLORFromIndex(scsIdx);
 

@@ -53,6 +53,7 @@ void py_setup_scatterspace(py::module& m)
 	    m, "ScatterSpace", py::buffer_protocol());
 	c.def(py::init<const Scanner&, const std::string&>());
 	c.def(py::init<const Scanner&, size_t, size_t, size_t>());
+	c.def("allocate", &ScatterSpace::allocate);
 
 	// I/O
 	c.def("readFromFile", &ScatterSpace::readFromFile);

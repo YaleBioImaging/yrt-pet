@@ -41,16 +41,17 @@ void py_setup_listmode(py::module& m)
 
 	c.def("getLORMotion", &ListMode::getLORMotion);
 	c.def("getDynamicFraming", &ListMode::getDynamicFraming);
+	c.def("getRandomsTimeWindow", &ListMode::getRandomsTimeWindow);
+	c.def("getSinglesRate", &ListMode::getSinglesRate);
 }
 }  // namespace yrt
 #endif  // if BUILD_PYBIND11
 
 namespace yrt
 {
-ListMode::ListMode(const Scanner& pr_scanner,
-                   float p_timeWindow)
-    : ProjectionData{pr_scanner},
-      m_timeWindow(p_timeWindow)
+
+ListMode::ListMode(const Scanner& pr_scanner, float p_timeWindow)
+    : ProjectionData{pr_scanner}, m_timeWindow(p_timeWindow)
 {
 }
 

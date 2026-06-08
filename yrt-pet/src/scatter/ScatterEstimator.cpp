@@ -57,6 +57,11 @@ void py_setup_scatterestimator(py::module& m)
 	      &scatter::ScatterEstimator::computeInsideMaskInScatterSpace);
 	c.def("computeScatterTailsMask",
 	      &scatter::ScatterEstimator::computeScatterTailsMask);
+	c.def_static("computeTailsMask",
+	             &scatter::ScatterEstimator::computeTailsMask, "inside_mask"_a,
+	             "tails_mask"_a,
+	             "mask_width"_a =
+	                 scatter::ScatterEstimator::DefaultScatterTailsMaskWidth);
 	c.def("computePromptsAndRandomsInScatterSpace",
 	      &scatter::ScatterEstimator::computePromptsAndRandomsInScatterSpace);
 	c.def("computeTailFittingFactor",
@@ -151,7 +156,7 @@ void ScatterEstimator::computeTailFittedScatterEstimate()
 	if (saveIntermediate)
 	{
 		mp_insideMask_scs->writeToFile(m_saveIntermediary_dir /
-		                               "intermediary_AcfInScatterSpace.scs");
+		                               "intermediary_insideMask.scs");
 	}
 
 	computeScatterTailsMask();
@@ -252,14 +257,19 @@ void ScatterEstimator::computeInsideMaskInScatterSpace()
 void ScatterEstimator::computeScatterTailsMask()
 {
 	std::cout << "Generating scatter tails mask..." << std::endl;
-	ASSERT_MSG(mp_tail_scs->isMemoryValid(),
-	           "Scatter-space array is unallocated (for tail)");
-	ASSERT_MSG(mp_insideMask_scs->isMemoryValid(),
-	           "Scatter-space array is unallocated (for inside-outside mask)");
-	ASSERT(mp_insideMask_scs->getSizeTotal() == mp_tail_scs->getSizeTotal());
+	computeTailsMask(*mp_insideMask_scs, *mp_tail_scs, m_scatterTailsMaskWidth);
+}
 
-	const size_t numPlanes1 = mp_insideMask_scs->getNumPlanes();
-	const size_t numAngles1 = mp_insideMask_scs->getNumAngles();
+void ScatterEstimator::computeTailsMask(const ScatterSpace& insideMask,
+                                        ScatterSpace& tailsMask,
+                                        size_t scatterTailsMaskWidth)
+{
+	ASSERT(insideMask.isMemoryValid());
+	ASSERT(tailsMask.isMemoryValid());
+	ASSERT(insideMask.getSizeTotal() == tailsMask.getSizeTotal());
+
+	const size_t numPlanes1 = insideMask.getNumPlanes();
+	const size_t numAngles1 = insideMask.getNumAngles();
 	const size_t numPlanes2 = numPlanes1;
 	const size_t numAngles2 = numAngles1;
 
@@ -271,8 +281,9 @@ void ScatterEstimator::computeScatterTailsMask()
 	// Parallelize over planeIndex1
 	util::parallelForChunked(
 	    numPlanes1, numThreads,
-	    [&progressBar, numAngles1, numPlanes2, numAngles2,
-	     this](size_t planeIndex1, unsigned int threadId)
+	    [&progressBar, numAngles1, numPlanes2, numAngles2, &insideMask,
+	     scatterTailsMaskWidth,
+	     &tailsMask](size_t planeIndex1, unsigned int threadId)
 	    {
 		    progressBar.incrementProgress(threadId);
 
@@ -284,7 +295,7 @@ void ScatterEstimator::computeScatterTailsMask()
 			    {
 				    // Start from the subsequent angle
 				    size_t angleIndex2 = 1;
-				    float insideValue = mp_insideMask_scs->getValue(
+				    float insideValue = insideMask.getValue(
 				        0, planeIndex1, angleIndex1, planeIndex2, angleIndex2);
 
 				    bool startInside = insideValue > 0.0f;
@@ -293,9 +304,9 @@ void ScatterEstimator::computeScatterTailsMask()
 				    for (angleIndex2 = 2; angleIndex2 < angleIndex1;
 				         angleIndex2++)
 				    {
-					    insideValue = mp_insideMask_scs->getValue(
-					        0, planeIndex1, angleIndex1, planeIndex2,
-					        angleIndex2);
+					    insideValue =
+					        insideMask.getValue(0, planeIndex1, angleIndex1,
+					                            planeIndex2, angleIndex2);
 
 					    bool isInside = insideValue > 0.0f;
 
@@ -304,7 +315,7 @@ void ScatterEstimator::computeScatterTailsMask()
 						    // Here we went from outside the object to inside
 						    //  the object (or the other way around)
 						    for (size_t angleBackOff = 0;
-						         angleBackOff < m_scatterTailsMaskWidth;
+						         angleBackOff < scatterTailsMaskWidth;
 						         angleBackOff++)
 						    {
 							    size_t angleIndex2InTail;
@@ -323,9 +334,9 @@ void ScatterEstimator::computeScatterTailsMask()
 								        numAngles2;
 							    }
 
-							    mp_tail_scs->setValue(0, planeIndex1,
-							                          angleIndex1, planeIndex2,
-							                          angleIndex2InTail, 1.0f);
+							    tailsMask.setValue(0, planeIndex1, angleIndex1,
+							                       planeIndex2,
+							                       angleIndex2InTail, 1.0f);
 						    }
 
 						    // Switch
@@ -335,6 +346,7 @@ void ScatterEstimator::computeScatterTailsMask()
 			    }
 		    }
 	    });
+	tailsMask.symmetrizeIfNeeded();
 }
 
 void ScatterEstimator::computePromptsAndRandomsInScatterSpace()
@@ -406,6 +418,7 @@ void ScatterEstimator::computePromptsAndRandomsInScatterSpace()
 			    // Increment scatter-space arrays (Atomic)
 			    mp_prompts_scs->incrementValueAtomic(scsIdx, promptsValue);
 		    });
+		mp_prompts_scs->symmetrizeIfNeeded();
 	}
 
 	// Randoms

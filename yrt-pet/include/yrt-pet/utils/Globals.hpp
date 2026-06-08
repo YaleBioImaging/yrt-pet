@@ -129,7 +129,7 @@ inline int getPrimaryCudaDeviceId()
 // TODO: Add an option to set the max VRAM
 
 // CUDA Constants
-static constexpr size_t ThreadsPerBlockData = 256;
+static constexpr size_t ThreadsPerBlockData = 512;
 static constexpr size_t ThreadsPerBlockImg3d = 8;
 static constexpr size_t ThreadsPerBlockImg2d = 32;
 

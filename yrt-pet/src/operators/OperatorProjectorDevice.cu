@@ -10,6 +10,7 @@
 #include "yrt-pet/datastruct/scanner/Scanner.hpp"
 #include "yrt-pet/operators/OperatorProjectorDD_GPU.cuh"
 #include "yrt-pet/operators/OperatorProjectorJoseph_GPU.cuh"
+#include "yrt-pet/operators/OperatorProjectorJosephLPP_GPU.cuh"
 #include "yrt-pet/operators/OperatorProjectorSiddon_GPU.cuh"
 #include "yrt-pet/utils/GPUUtils.cuh"
 #include "yrt-pet/utils/GPUStream.cuh"
@@ -622,6 +623,11 @@ std::unique_ptr<OperatorProjectorDevice>
 	if (dynamic_cast<const OperatorProjectorJoseph_GPU*>(this) != nullptr)
 	{
 		return std::make_unique<OperatorProjectorJoseph_GPU>(
+		    workerParams, mainStream, auxStream);
+	}
+	if (dynamic_cast<const OperatorProjectorJosephLPP_GPU*>(this) != nullptr)
+	{
+		return std::make_unique<OperatorProjectorJosephLPP_GPU>(
 		    workerParams, mainStream, auxStream);
 	}
 	throw std::runtime_error(

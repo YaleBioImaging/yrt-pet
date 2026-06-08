@@ -59,11 +59,12 @@ int main(int argc, char** argv)
 		                          "Subset to backproject (Default: 0)", false,
 		                          io::TypeOfArgument::INT, 0, inputGroup);
 
-		registry.registerArgument(
-		    "projector",
-		    "Projector to use, choices: Siddon (S), Distance-Driven (D), "
-		    "CUDA Joseph (J). The default projector is Siddon",
-		    false, io::TypeOfArgument::STRING, "S", projectorGroup);
+	registry.registerArgument(
+	    "projector",
+	    "Projector to use, choices: Siddon (S), Distance-Driven (D), "
+	    "CUDA Joseph (J), CUDA Joseph LPP (JL). The default projector is "
+	    "Siddon",
+	    false, io::TypeOfArgument::STRING, "S", projectorGroup);
 		registry.registerArgument(
 		    "proj_psf",
 		    "Projection-space PSF kernel file (for DD projector only)", false,

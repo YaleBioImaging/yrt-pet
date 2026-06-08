@@ -21,6 +21,7 @@
 #if BUILD_CUDA
 #include "yrt-pet/operators/OperatorProjectorDD_GPU.cuh"
 #include "yrt-pet/operators/OperatorProjectorJoseph_GPU.cuh"
+#include "yrt-pet/operators/OperatorProjectorJosephLPP_GPU.cuh"
 #include "yrt-pet/operators/OperatorProjectorSiddon_GPU.cuh"
 #include "yrt-pet/recon/OSEM_GPU.cuh"
 #endif
@@ -528,6 +529,26 @@ static void project(Image* img, ProjectionData* projData,
 		{
 			throw std::runtime_error(
 			    "Joseph projector is currently available only on CUDA/GPU");
+		}
+	}
+	else if (projectorType == OperatorProjector::JOSEPH_LPP)
+	{
+		if (useGPU)
+		{
+#ifdef BUILD_CUDA
+			oper = std::make_unique<OperatorProjectorJosephLPP_GPU>(
+			    projParams, &mainStream->getStream(), &auxStream->getStream());
+#else
+			throw std::runtime_error(
+			    "Joseph LPP GPU projector not supported because "
+			    "project was not compiled with CUDA");
+#endif
+		}
+		else
+		{
+			throw std::runtime_error(
+			    "Joseph LPP projector is currently available only on "
+			    "CUDA/GPU");
 		}
 	}
 	else

@@ -77,9 +77,11 @@ if (USE_CUDA)
         operators/OperatorPsfDevice.cu
         operators/OperatorProjectorDD_GPUKernels.cu
         operators/OperatorProjectorJoseph_GPUKernels.cu
+        operators/OperatorProjectorJosephLPP_GPUKernels.cu
         operators/OperatorProjectorSiddon_GPUKernels.cu
         operators/OperatorProjectorDD_GPU.cu
         operators/OperatorProjectorJoseph_GPU.cu
+        operators/OperatorProjectorJosephLPP_GPU.cu
         operators/OperatorProjectorSiddon_GPU.cu
         operators/ProjectionPsfManagerDevice.cu
         recon/Corrector_GPU.cu

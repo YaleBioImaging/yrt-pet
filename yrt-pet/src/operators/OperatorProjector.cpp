@@ -46,6 +46,7 @@ void py_setup_operatorprojector(py::module& m)
 	    .value("SIDDON", OperatorProjector::ProjectorType::SIDDON)
 	    .value("DD", OperatorProjector::ProjectorType::DD)
 	    .value("JOSEPH", OperatorProjector::ProjectorType::JOSEPH)
+	    .value("JOSEPH_LPP", OperatorProjector::ProjectorType::JOSEPH_LPP)
 	    .export_values();
 }
 }  // namespace yrt

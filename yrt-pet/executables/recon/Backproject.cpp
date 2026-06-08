@@ -57,11 +57,12 @@ int main(int argc, char** argv)
 		                          io::TypeOfArgument::STRING, "", outputGroup,
 		                          "p");
 
-		registry.registerArgument(
-		    "projector",
-		    "Projector to use, choices: Siddon (S), Distance-Driven (D), "
-		    "CUDA Joseph (J). The default projector is Siddon",
-		    false, io::TypeOfArgument::STRING, "S", projectorGroup);
+	registry.registerArgument(
+	    "projector",
+	    "Projector to use, choices: Siddon (S), Distance-Driven (D), "
+	    "CUDA Joseph (J), CUDA Joseph LPP (JL). The default projector is "
+	    "Siddon",
+	    false, io::TypeOfArgument::STRING, "S", projectorGroup);
 		registry.registerArgument(
 		    "psf",
 		    "Image-space PSF kernel file (Applied after the backprojection)",

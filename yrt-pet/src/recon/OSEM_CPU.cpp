@@ -90,10 +90,11 @@ void OSEM_CPU::setupOperatorsForSensImgGen()
 	{
 		mp_projector = std::make_unique<OperatorProjectorDD>(projParams);
 	}
-	else if (projectorType == OperatorProjector::ProjectorType::JOSEPH)
+	else if (projectorType == OperatorProjector::ProjectorType::JOSEPH ||
+	         projectorType == OperatorProjector::ProjectorType::JOSEPH_LPP)
 	{
 		throw std::runtime_error(
-		    "Joseph projector is currently available only on CUDA/GPU");
+		    "Joseph projectors are currently available only on CUDA/GPU");
 	}
 	else
 	{
@@ -207,10 +208,11 @@ void OSEM_CPU::setupOperatorsForRecon()
 	{
 		mp_projector = std::make_unique<OperatorProjectorDD>(projParams);
 	}
-	else if (projectorType == OperatorProjector::JOSEPH)
+	else if (projectorType == OperatorProjector::JOSEPH ||
+	         projectorType == OperatorProjector::JOSEPH_LPP)
 	{
 		throw std::runtime_error(
-		    "Joseph projector is currently available only on CUDA/GPU");
+		    "Joseph projectors are currently available only on CUDA/GPU");
 	}
 	else
 	{

@@ -213,7 +213,7 @@ if __name__ == "__main__":
     parser.add_argument("-o", "--out", help="Output folder", required=True)
     parser.add_argument(
         "--projector",
-        help="Projector to use (Siddon (S), Distance-driven (DD), or CUDA Joseph (J))",
+        help="Projector to use (Siddon (S), Distance-driven (DD), CUDA Joseph (J), or CUDA Joseph LPP (JL))",
     )
     parser.add_argument(
         "--num_rays",
@@ -326,6 +326,8 @@ if __name__ == "__main__":
         op_proj = yrt.OperatorProjectorDD_GPU(proj_params)
     elif args.projector == "J":
         op_proj = yrt.OperatorProjectorJoseph_GPU(proj_params)
+    elif args.projector == "JL":
+        op_proj = yrt.OperatorProjectorJosephLPP_GPU(proj_params)
     else:
         raise ValueError("Unknown projector given: " + str(args.projector))
 

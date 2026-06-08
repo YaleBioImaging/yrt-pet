@@ -28,7 +28,8 @@ public:
 	{
 		SIDDON = 0,
 		DD,
-		JOSEPH
+		JOSEPH,
+		JOSEPH_LPP
 	};
 
 	explicit OperatorProjector(const Scanner& pr_scanner,

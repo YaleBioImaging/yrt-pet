@@ -11,7 +11,7 @@ Current features include:
 - GPU acceleration with NVIDIA CUDA
 - Python bindings with pybind11
 - Event-by-event motion correction
-- Siddon, multi-ray Siddon, Distance-Driven, and CUDA Joseph projectors
+- Siddon, multi-ray Siddon, Distance-Driven, CUDA Joseph, and CUDA Joseph LPP projectors
     - Time-of-Flight Support
     - Projection-space PSF support for the Distance-Driven projector
 - Image-space PSF

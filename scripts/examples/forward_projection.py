@@ -13,7 +13,7 @@ outHis.allocate()
 # Read an image to Forward-project
 inputImage = yrt.ImageOwned(imgParams, "<path to input image>")
 
-# Available projectors: SIDDON, DD
+# Available projectors: SIDDON, DD. GPU builds also support JOSEPH and JOSEPH_LPP with useGPU=True.
 projectorType = yrt.OperatorProjector.ProjectorType.DD
 
 yrt.forwProject(scanner, inputImage, outHis, projectorType)

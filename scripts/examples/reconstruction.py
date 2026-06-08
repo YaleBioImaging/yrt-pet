@@ -13,7 +13,7 @@ osem = yrt.createOSEM(scanner)
 # or, alternatively, use GPU reconstruction (available only if yrt.compiledWithCuda() returns True)
 osem = yrt.createOSEM(scanner, useGPU=True)
 
-osem.setProjector("<Projector>") # Possible values: S (Siddon), DD (Distance-Driven), J (CUDA Joseph)
+osem.setProjector("<Projector>") # Possible values: S (Siddon), DD (Distance-Driven), J (CUDA Joseph), JL (CUDA Joseph LPP)
 osem.setImageParams(imgParams) # Set the parameters of the output image
 osem.num_MLEM_iterations = 10 # Number of MLEM iterations
 osem.num_OSEM_subsets = 5 # Number of OSEM subsets

@@ -721,6 +721,10 @@ void OSEM::summary() const
 	{
 		std::cout << "Projector type: Joseph" << std::endl;
 	}
+	else if (projectorType == OperatorProjector::JOSEPH_LPP)
+	{
+		std::cout << "Projector type: Joseph LPP" << std::endl;
+	}
 
 	std::cout << "Number of threads used: " << globals::getNumThreads()
 	          << std::endl;

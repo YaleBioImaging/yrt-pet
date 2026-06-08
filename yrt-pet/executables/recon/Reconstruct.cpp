@@ -235,11 +235,12 @@ int main(int argc, char** argv)
 		        io::possibleFormats(plugin::InputFormatsChoice::ONLYHISTOGRAMS),
 		    false, io::TypeOfArgument::STRING, "", attenuationGroup);
 
-		registry.registerArgument(
-		    "projector",
-		    "Projector to use, choices: Siddon (S), Distance-Driven (D), "
-		    "CUDA Joseph (J). The default projector is Siddon",
-		    false, io::TypeOfArgument::STRING, "S", projectorGroup);
+	registry.registerArgument(
+	    "projector",
+	    "Projector to use, choices: Siddon (S), Distance-Driven (D), "
+	    "CUDA Joseph (J), CUDA Joseph LPP (JL). The default projector is "
+	    "Siddon",
+	    false, io::TypeOfArgument::STRING, "S", projectorGroup);
 		registry.registerArgument(
 		    "num_rays", "Number of rays to use (for Siddon projector only)",
 		    false, io::TypeOfArgument::INT, 1, projectorGroup);

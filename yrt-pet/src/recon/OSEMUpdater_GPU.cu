@@ -17,6 +17,9 @@
 #include <chrono>
 #include <cstdlib>
 #include <exception>
+#include <cmath>
+#include <limits>
+#include <mutex>
 #include <stdexcept>
 #include <string>
 #include <thread>
@@ -383,6 +386,30 @@ bool isMultiGPULORPreloadEnabled()
 	       envValue[0] != '0';
 }
 
+bool isMultiGPUImageHostStagingForced()
+{
+	const char* envValue =
+	    std::getenv("YRT_FORCE_MULTI_GPU_IMAGE_HOST_STAGING");
+	return envValue != nullptr && envValue[0] != '\0' &&
+	       envValue[0] != '0';
+}
+
+bool isMultiGPUImagePeerCopyEnabled()
+{
+	const char* envValue = std::getenv("YRT_USE_MULTI_GPU_IMAGE_PEER_COPY");
+	return envValue != nullptr && envValue[0] != '\0' &&
+	       envValue[0] != '0' && !isMultiGPUImageHostStagingForced();
+}
+
+const char* getMultiGPUImageCopyModeName()
+{
+	if (isMultiGPUImageHostStagingForced())
+	{
+		return "host-forced";
+	}
+	return isMultiGPUImagePeerCopyEnabled() ? "peer" : "host";
+}
+
 std::string toLower(std::string value)
 {
 	std::transform(value.begin(), value.end(), value.begin(),
@@ -432,6 +459,331 @@ const char* getMultiGPULORCacheModeName(MultiGPULORCacheMode cacheMode)
 	return "unknown";
 }
 
+bool isMultiGPUStatsDebugEnabled()
+{
+	const char* envValue = std::getenv("YRT_DEBUG_MULTI_GPU_STATS");
+	return envValue != nullptr && envValue[0] != '\0' &&
+	       envValue[0] != '0';
+}
+
+bool isMultiGPUSliceStatsDebugEnabled()
+{
+	const char* envValue = std::getenv("YRT_DEBUG_MULTI_GPU_SLICE_STATS");
+	return envValue != nullptr && envValue[0] != '\0' &&
+	       envValue[0] != '0';
+}
+
+std::mutex& getMultiGPUStatsLogMutex()
+{
+	static std::mutex mutex;
+	return mutex;
+}
+
+struct MultiGPUBufferStats
+{
+	size_t numElements = 0;
+	size_t numNaNs = 0;
+	double sum = 0.0;
+	float min = 0.0f;
+	float max = 0.0f;
+};
+
+MultiGPUBufferStats collectDeviceFloatStats(const float* devicePointer,
+                                            size_t numElements,
+                                            const cudaStream_t* stream)
+{
+	MultiGPUBufferStats stats;
+	stats.numElements = numElements;
+	if (numElements == 0 || devicePointer == nullptr)
+	{
+		return stats;
+	}
+
+	if (stream != nullptr)
+	{
+		cudaStreamSynchronize(*stream);
+	}
+	else
+	{
+		cudaDeviceSynchronize();
+	}
+	ASSERT(cudaCheckError());
+
+	std::vector<float> hostValues(numElements);
+	cudaMemcpy(hostValues.data(), devicePointer, numElements * sizeof(float),
+	           cudaMemcpyDeviceToHost);
+	ASSERT(cudaCheckError());
+
+	bool hasNonNaN = false;
+	for (float value : hostValues)
+	{
+		if (std::isnan(value))
+		{
+			stats.numNaNs++;
+			continue;
+		}
+		if (!hasNonNaN)
+		{
+			stats.min = value;
+			stats.max = value;
+			hasNonNaN = true;
+		}
+		else
+		{
+			stats.min = std::min(stats.min, value);
+			stats.max = std::max(stats.max, value);
+		}
+		stats.sum += static_cast<double>(value);
+	}
+	if (!hasNonNaN)
+	{
+		stats.min = std::numeric_limits<float>::quiet_NaN();
+		stats.max = std::numeric_limits<float>::quiet_NaN();
+	}
+	return stats;
+}
+
+std::vector<float> copyDeviceFloatBufferToHost(const float* devicePointer,
+                                               size_t numElements,
+                                               const cudaStream_t* stream)
+{
+	if (stream != nullptr)
+	{
+		cudaStreamSynchronize(*stream);
+	}
+	else
+	{
+		cudaDeviceSynchronize();
+	}
+	ASSERT(cudaCheckError());
+
+	std::vector<float> hostValues(numElements);
+	if (numElements > 0 && devicePointer != nullptr)
+	{
+		cudaMemcpy(hostValues.data(), devicePointer,
+		           numElements * sizeof(float), cudaMemcpyDeviceToHost);
+		ASSERT(cudaCheckError());
+	}
+	return hostValues;
+}
+
+void printMultiGPUStatsLine(const char* path, const char* stage,
+                            const char* valueKind, int workerId, int deviceId,
+                            int subsetId, int batchId, size_t workerStart,
+                            size_t workerCount, size_t batchStart,
+                            size_t batchCount,
+                            MultiGPULORCacheMode lorCacheMode,
+                            const MultiGPUBufferStats& stats)
+{
+	std::lock_guard<std::mutex> lock(getMultiGPUStatsLogMutex());
+	std::cout << "YRT_DEBUG_MULTI_GPU_STATS"
+	          << " path=" << path << " stage=" << stage
+	          << " values=" << valueKind
+	          << " cache=" << getMultiGPULORCacheModeName(lorCacheMode)
+	          << " preload=" << (isMultiGPULORPreloadEnabled() ? "on" : "off")
+	          << " worker=" << workerId << " device=" << deviceId
+	          << " subset_id=" << subsetId
+	          << " worker_lor_range=[" << workerStart << ","
+	          << workerStart + workerCount << ")";
+	if (batchId >= 0)
+	{
+		std::cout << " batch=" << batchId
+		          << " batch_lor_range=[" << batchStart << ","
+		          << batchStart + batchCount << ")";
+	}
+	else
+	{
+		std::cout << " batch=all"
+		          << " batch_lor_range=[" << batchStart << ","
+		          << batchStart + batchCount << ")";
+	}
+	std::cout << " elements=" << stats.numElements
+	          << " nan=" << stats.numNaNs << " min=" << stats.min
+	          << " max=" << stats.max << " sum=" << stats.sum << std::endl;
+}
+
+void debugProjectionStats(const char* path, const char* stage, int workerId,
+                          int deviceId, int subsetId, size_t workerStart,
+                          size_t workerCount, MultiGPULORCacheMode lorCacheMode,
+                          const ProjectionDataDevice& projection,
+                          const cudaStream_t* stream)
+{
+	if (!isMultiGPUStatsDebugEnabled())
+	{
+		return;
+	}
+
+	const size_t loadedSubsetId = projection.getLoadedSubsetId();
+	const size_t loadedBatchId = projection.getLoadedBatchId();
+	const size_t firstBatchSize =
+	    projection.getBatchSetup(loadedSubsetId).getBatchSize(0);
+	const size_t batchCount = projection.getLoadedBatchSize();
+	const size_t batchStart = workerStart + loadedBatchId * firstBatchSize;
+	const MultiGPUBufferStats stats = collectDeviceFloatStats(
+	    projection.getProjValuesDevicePointer(), batchCount, stream);
+	printMultiGPUStatsLine(path, stage, "projection", workerId, deviceId,
+	                       subsetId, static_cast<int>(loadedBatchId),
+	                       workerStart, workerCount, batchStart, batchCount,
+	                       lorCacheMode, stats);
+}
+
+void debugImageStats(const char* path, const char* stage, int workerId,
+                     int deviceId, int subsetId, int batchId,
+                     size_t workerStart, size_t workerCount,
+                     size_t batchStart, size_t batchCount,
+                     MultiGPULORCacheMode lorCacheMode,
+                     const ImageDevice& image, const cudaStream_t* stream)
+{
+	if (!isMultiGPUStatsDebugEnabled())
+	{
+		return;
+	}
+
+	const MultiGPUBufferStats stats = collectDeviceFloatStats(
+	    image.getDevicePointer(), image.getImageSize(), stream);
+	printMultiGPUStatsLine(path, stage, "image", workerId, deviceId, subsetId,
+	                       batchId, workerStart, workerCount, batchStart,
+	                       batchCount, lorCacheMode, stats);
+}
+
+void debugImageStatsForProjectionBatch(
+    const char* path, const char* stage, int workerId, int deviceId,
+    int subsetId, size_t workerStart, size_t workerCount,
+    MultiGPULORCacheMode lorCacheMode, const ProjectionDataDevice& projection,
+    const ImageDevice& image, const cudaStream_t* stream)
+{
+	if (!isMultiGPUStatsDebugEnabled())
+	{
+		return;
+	}
+
+	const size_t loadedSubsetId = projection.getLoadedSubsetId();
+	const size_t loadedBatchId = projection.getLoadedBatchId();
+	const size_t firstBatchSize =
+	    projection.getBatchSetup(loadedSubsetId).getBatchSize(0);
+	const size_t batchCount = projection.getLoadedBatchSize();
+	const size_t batchStart = workerStart + loadedBatchId * firstBatchSize;
+	debugImageStats(path, stage, workerId, deviceId, subsetId,
+	                static_cast<int>(loadedBatchId), workerStart, workerCount,
+	                batchStart, batchCount, lorCacheMode, image, stream);
+}
+
+void debugImageSliceStats(const char* path, const char* stage, int workerId,
+                          int deviceId, int subsetId, int batchId,
+                          size_t workerStart, size_t workerCount,
+                          size_t batchStart, size_t batchCount,
+                          MultiGPULORCacheMode lorCacheMode,
+                          const ImageDevice& image, const cudaStream_t* stream)
+{
+	if (!isMultiGPUSliceStatsDebugEnabled())
+	{
+		return;
+	}
+
+	const ImageParams& params = image.getParams();
+	const size_t sliceElements =
+	    static_cast<size_t>(params.nx) * static_cast<size_t>(params.ny);
+	const size_t expectedElements =
+	    sliceElements * static_cast<size_t>(params.nz);
+	const std::vector<float> hostValues = copyDeviceFloatBufferToHost(
+	    image.getDevicePointer(), image.getImageSize(), stream);
+
+	std::lock_guard<std::mutex> lock(getMultiGPUStatsLogMutex());
+	for (int z = 0; z < params.nz; z++)
+	{
+		MultiGPUBufferStats stats;
+		const size_t sliceOffset = static_cast<size_t>(z) * sliceElements;
+		const size_t sliceEnd =
+		    std::min(sliceOffset + sliceElements, hostValues.size());
+		stats.numElements = sliceEnd > sliceOffset ? sliceEnd - sliceOffset : 0;
+
+		bool hasNonNaN = false;
+		for (size_t i = sliceOffset; i < sliceEnd; i++)
+		{
+			const float value = hostValues[i];
+			if (std::isnan(value))
+			{
+				stats.numNaNs++;
+				continue;
+			}
+			if (!hasNonNaN)
+			{
+				stats.min = value;
+				stats.max = value;
+				hasNonNaN = true;
+			}
+			else
+			{
+				stats.min = std::min(stats.min, value);
+				stats.max = std::max(stats.max, value);
+			}
+			stats.sum += static_cast<double>(value);
+		}
+		if (!hasNonNaN)
+		{
+			stats.min = std::numeric_limits<float>::quiet_NaN();
+			stats.max = std::numeric_limits<float>::quiet_NaN();
+		}
+
+		std::cout << "YRT_DEBUG_MULTI_GPU_SLICE_STATS"
+		          << " path=" << path << " stage=" << stage
+		          << " values=image_slice"
+		          << " cache=" << getMultiGPULORCacheModeName(lorCacheMode)
+		          << " preload="
+		          << (isMultiGPULORPreloadEnabled() ? "on" : "off")
+		          << " worker=" << workerId << " device=" << deviceId
+		          << " subset_id=" << subsetId
+		          << " worker_lor_range=[" << workerStart << ","
+		          << workerStart + workerCount << ")";
+		if (batchId >= 0)
+		{
+			std::cout << " batch=" << batchId;
+		}
+		else
+		{
+			std::cout << " batch=all";
+		}
+		std::cout << " batch_lor_range=[" << batchStart << ","
+		          << batchStart + batchCount << ")"
+		          << " z=" << z
+		          << " image_elements=" << image.getImageSize()
+		          << " expected_elements=" << expectedElements
+		          << " elements=" << stats.numElements
+		          << " nan=" << stats.numNaNs << " min=" << stats.min
+		          << " max=" << stats.max << " sum=" << stats.sum
+		          << std::endl;
+	}
+}
+
+void debugPrimaryPartialImageStats(
+    const char* path, const char* stage,
+    const std::vector<std::unique_ptr<ImageDeviceOwned>>& primaryPartialImages,
+    const std::vector<std::unique_ptr<ImageDeviceOwned>>& workerPartialImages,
+    const std::vector<size_t>& activeWorkerIds,
+    const std::vector<int>& deviceIds, int primaryDeviceId, int subsetId,
+    size_t totalLORCount, MultiGPULORCacheMode lorCacheMode,
+    const cudaStream_t* primaryStream)
+{
+	if (!isMultiGPUStatsDebugEnabled())
+	{
+		return;
+	}
+
+	ScopedCUDADevice guard(primaryDeviceId);
+	for (size_t workerId : activeWorkerIds)
+	{
+		const auto& image =
+		    deviceIds.at(workerId) == primaryDeviceId ?
+		        workerPartialImages.at(workerId) :
+		        primaryPartialImages.at(workerId);
+		ASSERT(image != nullptr);
+		debugImageStats(path, stage, static_cast<int>(workerId),
+		                deviceIds.at(workerId), subsetId, -1, 0,
+		                totalLORCount, 0, totalLORCount, lorCacheMode, *image,
+		                primaryStream);
+	}
+}
+
 void printMultiGPUSetup(const char* operationName,
                         const std::vector<int>& deviceIds)
 {
@@ -456,6 +808,9 @@ void printMultiGPUSetup(const char* operationName,
 	          << ", OpenMP threads/GPU worker=" << ompThreadsPerWorker
 	          << ", LOR cache="
 	          << getMultiGPULORCacheModeName(lorCacheMode)
+	          << ", LOR preload="
+	          << (isMultiGPULORPreloadEnabled() ? "on" : "off")
+	          << ", image copy=" << getMultiGPUImageCopyModeName()
 	          << std::endl;
 }
 
@@ -473,6 +828,7 @@ void copyDeviceImageAcrossGPUsAsync(const ImageDevice& sourceImage,
 	           "Peer-copy stream must belong to source or destination device");
 
 	const size_t byteCount = sourceImage.getImageSize() * sizeof(float);
+	const bool usePeerCopy = isMultiGPUImagePeerCopyEnabled();
 	{
 		ScopedCUDADevice guard(streamDeviceId);
 		if (sourceDeviceId == destDeviceId)
@@ -489,11 +845,14 @@ void copyDeviceImageAcrossGPUsAsync(const ImageDevice& sourceImage,
 			return;
 		}
 
-		if (ensurePeerAccess(destDeviceId, sourceDeviceId))
+		if (usePeerCopy && ensurePeerAccess(destDeviceId, sourceDeviceId))
 		{
 			cudaMemcpyPeerAsync(destImage.getDevicePointer(), destDeviceId,
 			                    sourceImage.getDevicePointer(), sourceDeviceId,
 			                    byteCount, stream);
+			ASSERT(cudaCheckError());
+			// Make the primary-side partial image visible before reduction.
+			cudaStreamSynchronize(stream);
 			ASSERT(cudaCheckError());
 			if (completionEvent != nullptr)
 			{
@@ -507,9 +866,12 @@ void copyDeviceImageAcrossGPUsAsync(const ImageDevice& sourceImage,
 		ASSERT(cudaCheckError());
 	}
 
-	std::cout << "CUDA peer access is unavailable from visible device "
-	          << destDeviceId << " to " << sourceDeviceId << "; staging "
-	          << imageDescription << " through host memory." << std::endl;
+	if (usePeerCopy)
+	{
+		std::cout << "CUDA peer access is unavailable from visible device "
+		          << destDeviceId << " to " << sourceDeviceId << "; staging "
+		          << imageDescription << " through host memory." << std::endl;
+	}
 	auto hostImage = std::make_unique<ImageOwned>(sourceImage.getParams());
 	hostImage->allocate();
 	{
@@ -1216,6 +1578,9 @@ void OSEMUpdater_GPU::computeSensitivityImageMultiGPU(
 	const BinIterator& subsetIterator = *mp_osem->getCurrentBinIterator();
 	const auto ranges = splitWork(subsetIterator.size(), deviceIds.size());
 	const int primaryDeviceId = mp_osem->getPrimaryDeviceId();
+	const int currentSubset = mp_osem->getCurrentOSEMSubset();
+	const MultiGPULORCacheMode lorCacheMode =
+	    getMultiGPULORCacheModeFromEnv();
 
 	const bool profileEnabled = isMultiGPUProfileEnabled();
 	const auto totalStartTime = std::chrono::steady_clock::now();
@@ -1379,6 +1744,12 @@ void OSEMUpdater_GPU::computeSensitivityImageMultiGPU(
 								    loadGlobalScalingFactor = false;
 							    }
 						    }
+						    debugProjectionStats(
+						        "sensitivity",
+						        "projection_after_load_corrections",
+						        static_cast<int>(workerId), deviceId,
+						        currentSubset, start, count, lorCacheMode,
+						        *sensDataBuffer, &mainStream.getStream());
 
 						    {
 							    ScopedProfileTimer profileTimer(
@@ -1393,6 +1764,13 @@ void OSEMUpdater_GPU::computeSensitivityImageMultiGPU(
 							    projector->applyAH(sensDataBuffer.get(),
 							                       partialImageDevice, false);
 						    }
+						    debugImageStatsForProjectionBatch(
+						        "sensitivity",
+						        "partial_image_after_backprojection",
+						        static_cast<int>(workerId), deviceId,
+						        currentSubset, start, count, lorCacheMode,
+						        *sensDataBuffer, *partialImageDevice,
+						        &mainStream.getStream());
 					    }
 
 					    {
@@ -1447,14 +1825,32 @@ void OSEMUpdater_GPU::computeSensitivityImageMultiGPU(
 	}
 	rethrowMultiGPUWorkerErrors(errors, partialReadyEvents, deviceIds);
 
-	{
-		ScopedProfileTimer profileTimer(profileEnabled,
-		                                reducePartialImagesSeconds);
-		sumPrimaryPartialImagesToDevice(
-		    m_sensitivityBuffers.primaryPartialImages,
-		    m_sensitivityBuffers.workerPartialImages, activeWorkerIds,
-		    partialReadyEvents, deviceIds, destImage, primaryDeviceId,
-		    mp_osem->getMainStream());
+		{
+			ScopedProfileTimer profileTimer(profileEnabled,
+			                                reducePartialImagesSeconds);
+			sumPrimaryPartialImagesToDevice(
+			    m_sensitivityBuffers.primaryPartialImages,
+			    m_sensitivityBuffers.workerPartialImages, activeWorkerIds,
+			    partialReadyEvents, deviceIds, destImage, primaryDeviceId,
+			    mp_osem->getMainStream());
+		}
+		{
+			ScopedCUDADevice guard(primaryDeviceId);
+			debugPrimaryPartialImageStats(
+			    "sensitivity", "primary_partial_after_copy",
+			    m_sensitivityBuffers.primaryPartialImages,
+			    m_sensitivityBuffers.workerPartialImages, activeWorkerIds,
+			    deviceIds, primaryDeviceId, currentSubset,
+			    subsetIterator.size(), lorCacheMode, mp_osem->getMainStream());
+			debugImageStats("sensitivity", "image_after_reduction", -1,
+			                primaryDeviceId, currentSubset, -1, 0,
+			                subsetIterator.size(), 0, subsetIterator.size(),
+			                lorCacheMode, destImage, mp_osem->getMainStream());
+		debugImageSliceStats("sensitivity", "image_after_reduction", -1,
+		                     primaryDeviceId, currentSubset, -1, 0,
+		                     subsetIterator.size(), 0,
+		                     subsetIterator.size(), lorCacheMode, destImage,
+		                     mp_osem->getMainStream());
 	}
 	emitMultiGPUProfileMetric("sensitivity_total",
 	                          secondsSince(totalStartTime));
@@ -1696,11 +2092,18 @@ void OSEMUpdater_GPU::computeEMUpdateImageMultiGPU(
 								        workerProfile.forwardProjectEnqueue);
 								    projector->applyA(inputImageForWorker,
 								                      tmpBufferDevice, false);
-							    }
-							    forwardProjectCudaTimer.stop();
+								    }
+								    forwardProjectCudaTimer.stop();
+								    debugProjectionStats(
+								        "em",
+								        "projection_after_forward",
+								        static_cast<int>(workerId), deviceId,
+								        currentSubset, start, count,
+								        lorCacheMode, *tmpBufferDevice,
+								        &mainStream.getStream());
 
-							    CUDAEventProfileTimer correctionsCudaTimer(
-							        cudaProfileEnabled, mainStream.getStream());
+								    CUDAEventProfileTimer correctionsCudaTimer(
+								        cudaProfileEnabled, mainStream.getStream());
 							    {
 								    ScopedProfileTimer profileTimer(
 								        profileEnabled,
@@ -1747,11 +2150,18 @@ void OSEMUpdater_GPU::computeEMUpdateImageMultiGPU(
 								        measurementsDevice,
 									        {&mainStream.getStream(), false});
 								    }
-							    }
-							    ratioCudaTimer.stop();
+								    }
+								    ratioCudaTimer.stop();
+								    debugProjectionStats(
+								        "em",
+								        "projection_after_ratio_corrections",
+								        static_cast<int>(workerId), deviceId,
+								        currentSubset, start, count,
+								        lorCacheMode, *tmpBufferDevice,
+								        &mainStream.getStream());
 
-							    {
-								    ScopedProfileTimer profileTimer(
+								    {
+									    ScopedProfileTimer profileTimer(
 								        profileEnabled,
 								        workerProfile.preBackprojectSync);
 								    cudaStreamSynchronize(mainStream.getStream());
@@ -1774,10 +2184,18 @@ void OSEMUpdater_GPU::computeEMUpdateImageMultiGPU(
 								        workerProfile.backprojectEnqueue);
 								    projector->applyAH(tmpBufferDevice,
 								                       partialImageDevice, false);
+								    }
+								    backprojectCudaTimers.at(backprojectTimerIndex)
+								        .stop();
+								    debugImageStatsForProjectionBatch(
+								        "em",
+								        "partial_image_after_backprojection",
+								        static_cast<int>(workerId), deviceId,
+								        currentSubset, start, count,
+								        lorCacheMode, *tmpBufferDevice,
+								        *partialImageDevice,
+								        &mainStream.getStream());
 							    }
-							    backprojectCudaTimers.at(backprojectTimerIndex)
-							        .stop();
-						    }
 
 						    {
 							    ScopedProfileTimer profileTimer(
@@ -1842,13 +2260,30 @@ void OSEMUpdater_GPU::computeEMUpdateImageMultiGPU(
 	}
 	rethrowMultiGPUWorkerErrors(errors, partialReadyEvents, deviceIds);
 
-	{
-		ScopedProfileTimer profileTimer(profileEnabled,
-		                                reducePartialImagesSeconds);
-		sumPrimaryPartialImagesToDevice(
-		    m_emBuffers.primaryPartialImages, m_emBuffers.workerPartialImages,
-		    activeWorkerIds, partialReadyEvents, deviceIds, destImage,
-		    primaryDeviceId, mp_osem->getMainStream());
+		{
+			ScopedProfileTimer profileTimer(profileEnabled,
+			                                reducePartialImagesSeconds);
+			sumPrimaryPartialImagesToDevice(
+			    m_emBuffers.primaryPartialImages, m_emBuffers.workerPartialImages,
+			    activeWorkerIds, partialReadyEvents, deviceIds, destImage,
+			    primaryDeviceId, mp_osem->getMainStream());
+		}
+		{
+			ScopedCUDADevice guard(primaryDeviceId);
+			debugPrimaryPartialImageStats(
+			    "em", "primary_partial_after_copy",
+			    m_emBuffers.primaryPartialImages, m_emBuffers.workerPartialImages,
+			    activeWorkerIds, deviceIds, primaryDeviceId, currentSubset,
+			    subsetIterator.size(), lorCacheMode, mp_osem->getMainStream());
+			debugImageStats("em", "image_after_reduction", -1, primaryDeviceId,
+			                currentSubset, -1, 0, subsetIterator.size(), 0,
+			                subsetIterator.size(), lorCacheMode, destImage,
+		                mp_osem->getMainStream());
+		debugImageSliceStats("em", "image_after_reduction", -1,
+		                     primaryDeviceId, currentSubset, -1, 0,
+		                     subsetIterator.size(), 0,
+		                     subsetIterator.size(), lorCacheMode, destImage,
+		                     mp_osem->getMainStream());
 	}
 	emitMultiGPUProfileMetric("em_total", secondsSince(totalStartTime));
 	emitMultiGPUProfileMetric("em_sync_primary", syncPrimarySeconds);

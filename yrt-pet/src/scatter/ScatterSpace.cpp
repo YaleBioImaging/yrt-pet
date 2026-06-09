@@ -24,30 +24,57 @@ namespace yrt
 void py_setup_scatterspace(py::module& m)
 {
 	// ScatterSpaceIndex struct
-	py::class_<ScatterSpace::ScatterSpaceIndex>(m, "ScatterSpaceIndex")
-	    .def(py::init<>())
-	    .def(py::init<size_t, size_t, size_t, size_t, size_t>())
-	    .def_readwrite("tofBin", &ScatterSpace::ScatterSpaceIndex::tofBin)
-	    .def_readwrite("planeIndex1",
-	                   &ScatterSpace::ScatterSpaceIndex::planeIndex1)
-	    .def_readwrite("angleIndex1",
-	                   &ScatterSpace::ScatterSpaceIndex::angleIndex1)
-	    .def_readwrite("planeIndex2",
-	                   &ScatterSpace::ScatterSpaceIndex::planeIndex2)
-	    .def_readwrite("angleIndex2",
-	                   &ScatterSpace::ScatterSpaceIndex::angleIndex2);
+	auto c_idx =
+	    py::class_<ScatterSpace::ScatterSpaceIndex>(m, "ScatterSpaceIndex");
+	c_idx.def(py::init<>());
+	c_idx.def(py::init<size_t, size_t, size_t, size_t, size_t>(),
+	          "tof_bin_idx"_a, "plane_idx1"_a, "angle_idx1"_a, "plane_idx2"_a,
+	          "angle_idx2"_a);
+	c_idx.def_readwrite("tofBin", &ScatterSpace::ScatterSpaceIndex::tofBin);
+	c_idx.def_readwrite("planeIndex1",
+	                    &ScatterSpace::ScatterSpaceIndex::planeIndex1);
+	c_idx.def_readwrite("angleIndex1",
+	                    &ScatterSpace::ScatterSpaceIndex::angleIndex1);
+	c_idx.def_readwrite("planeIndex2",
+	                    &ScatterSpace::ScatterSpaceIndex::planeIndex2);
+	c_idx.def_readwrite("angleIndex2",
+	                    &ScatterSpace::ScatterSpaceIndex::angleIndex2);
+	c_idx.def("__repr__",
+	          [](const ScatterSpace::ScatterSpaceIndex& self)
+	          {
+		          std::stringstream ss;
+		          ss << "tof_bin_idx=\t" << self.tofBin << "\n";
+		          ss << "plane_idx1=\t" << self.planeIndex1 << "\n";
+		          ss << "angle_idx1=\t" << self.angleIndex1 << "\n";
+		          ss << "plane_idx2=\t" << self.planeIndex2 << "\n";
+		          ss << "angle_idx2=\t" << self.angleIndex2 << "\n";
+		          return ss.str();
+	          });
 
 	// ScatterSpacePosition struct
-	py::class_<ScatterSpace::ScatterSpacePosition>(m, "ScatterSpacePosition")
-	    .def(py::init<>())
-	    .def(py::init<float, float, float, float, float>())
-	    .def_readwrite("tof_ps", &ScatterSpace::ScatterSpacePosition::tof_ps)
-	    .def_readwrite("planePosition1",
-	                   &ScatterSpace::ScatterSpacePosition::planePosition1)
-	    .def_readwrite("angle1", &ScatterSpace::ScatterSpacePosition::angle1)
-	    .def_readwrite("planePosition2",
-	                   &ScatterSpace::ScatterSpacePosition::planePosition2)
-	    .def_readwrite("angle2", &ScatterSpace::ScatterSpacePosition::angle2);
+	auto c_pos = py::class_<ScatterSpace::ScatterSpacePosition>(
+	    m, "ScatterSpacePosition");
+	c_pos.def(py::init<>());
+	c_pos.def(py::init<float, float, float, float, float>(), "tof_ps"_a,
+	          "plane_pos1"_a, "angle1"_a, "plane_pos2"_a, "angle2"_a);
+	c_pos.def_readwrite("tof_ps", &ScatterSpace::ScatterSpacePosition::tof_ps);
+	c_pos.def_readwrite("planePosition1",
+	                    &ScatterSpace::ScatterSpacePosition::planePosition1);
+	c_pos.def_readwrite("angle1", &ScatterSpace::ScatterSpacePosition::angle1);
+	c_pos.def_readwrite("planePosition2",
+	                    &ScatterSpace::ScatterSpacePosition::planePosition2);
+	c_pos.def_readwrite("angle2", &ScatterSpace::ScatterSpacePosition::angle2);
+	c_pos.def("__repr__",
+	          [](const ScatterSpace::ScatterSpacePosition& self)
+	          {
+		          std::stringstream ss;
+		          ss << "tof_ps=\t" << self.tof_ps << " ps\n";
+		          ss << "plane_pos1=\t" << self.planePosition1 << " mm\n";
+		          ss << "angle1=\t" << self.angle1 << " rad\n";
+		          ss << "plane_pos2=\t" << self.planePosition2 << " mm\n";
+		          ss << "angle2=\t" << self.angle2 << " rad\n";
+		          return ss.str();
+	          });
 
 	// ScatterSpace class
 	auto c = py::class_<ScatterSpace, Histogram>(m, "ScatterSpace",
@@ -62,10 +89,12 @@ void py_setup_scatterspace(py::module& m)
 	c.def("writeToFile", &ScatterSpace::writeToFile, "filename"_a);
 
 	// Access methods
-	c.def("getNearestNeighborIndex", &ScatterSpace::getNearestNeighborIndex);
-	c.def("getNearestNeighborValue", &ScatterSpace::getNearestNeighborValue);
+	c.def("getNearestNeighborIndex", &ScatterSpace::getNearestNeighborIndex,
+	      "pos"_a);
+	c.def("getNearestNeighborValue", &ScatterSpace::getNearestNeighborValue,
+	      "pos"_a);
 	c.def("getLinearInterpolationValue",
-	      &ScatterSpace::getLinearInterpolationValue);
+	      &ScatterSpace::getLinearInterpolationValue, "pos"_a);
 
 	// Helpers
 	c.def_static(
@@ -96,28 +125,36 @@ void py_setup_scatterspace(py::module& m)
 	      &ScatterSpace::histogramBinToScatterSpacePosition, "histo_bin_id"_a);
 
 	// Index <-> Position conversions
-	c.def("getTOF_ps", &ScatterSpace::getTOF_ps);
-	c.def("getPlanePosition", &ScatterSpace::getPlanePosition);
-	c.def("getAngle", &ScatterSpace::getAngle);
-	c.def("getTOFBin", &ScatterSpace::getTOFBin);
-	c.def("getPlaneIndex", &ScatterSpace::getPlaneIndex);
-	c.def("getAngleIndex", &ScatterSpace::getAngleIndex);
+	c.def("getTOF_ps", &ScatterSpace::getTOF_ps, "tof_bin_idx"_a);
+	c.def("getPlanePosition", &ScatterSpace::getPlanePosition, "plane_idx"_a);
+	c.def("getAngle", &ScatterSpace::getAngle, "angle_idx"_a);
+	c.def("getTOFBin", &ScatterSpace::getTOFBin, "tof_ps"_a);
+	c.def("getPlaneIndex", &ScatterSpace::getPlaneIndex, "plane_pos"_a);
+	c.def("getAngleIndex", &ScatterSpace::getAngleIndex, "angle"_a);
 
 	// Get/Set values
-	c.def("getValue", static_cast<float (ScatterSpace::*)(
-	                      const ScatterSpace::ScatterSpaceIndex& idx) const>(
-	                      &ScatterSpace::getValue));
-	c.def("getValue", static_cast<float (ScatterSpace::*)(
-	                      size_t tofBin, size_t planeIndex1, size_t angleIndex1,
-	                      size_t planeIndex2, size_t angleIndex2) const>(
-	                      &ScatterSpace::getValue));
+	c.def("getValue",
+	      static_cast<float (ScatterSpace::*)(
+	          const ScatterSpace::ScatterSpaceIndex& idx) const>(
+	          &ScatterSpace::getValue),
+	      "idx"_a);
+	c.def("getValue",
+	      static_cast<float (ScatterSpace::*)(
+	          size_t tofBin, size_t planeIndex1, size_t angleIndex1,
+	          size_t planeIndex2, size_t angleIndex2) const>(
+	          &ScatterSpace::getValue),
+	      "tof_bin_idx"_a, "plane_idx1"_a, "angle_idx1"_a, "plane_idx2"_a,
+	      "angle_idx2"_a);
 	c.def("getValueFlat", &ScatterSpace::getValueFlat, "flat_idx"_a);
 	c.def("setValue",
 	      py::overload_cast<const ScatterSpace::ScatterSpaceIndex&, float>(
-	          &ScatterSpace::setValue));
+	          &ScatterSpace::setValue),
+	      "idx"_a, "value"_a);
 	c.def("setValue",
 	      py::overload_cast<size_t, size_t, size_t, size_t, size_t, float>(
-	          &ScatterSpace::setValue));
+	          &ScatterSpace::setValue),
+	      "tof_bin_idx"_a, "plane_idx1"_a, "angle_idx1"_a, "plane_idx2"_a,
+	      "angle_idx2"_a, "value"_a);
 	c.def("setValueFlat", &ScatterSpace::setValueFlat, "flat_idx"_a, "value"_a);
 	c.def("incrementValue",
 	      static_cast<void (ScatterSpace::*)(
@@ -129,7 +166,7 @@ void py_setup_scatterspace(py::module& m)
 	          size_t tofBin, size_t planeIndex1, size_t angleIndex1,
 	          size_t planeIndex2, size_t angleIndex2, float value)>(
 	          &ScatterSpace::incrementValue),
-	      "tof_bin"_a, "plane_idx1"_a, "angle_idx1"_a, "plane_idx2"_a,
+	      "tof_bin_idx"_a, "plane_idx1"_a, "angle_idx1"_a, "plane_idx2"_a,
 	      "angle_idx2"_a, "value"_a);
 	c.def("incrementValueFlat", &ScatterSpace::incrementValueFlat, "flat_idx"_a,
 	      "value"_a);
@@ -140,10 +177,11 @@ void py_setup_scatterspace(py::module& m)
 	c.def("symmetrizeIfNeeded", &ScatterSpace::symmetrizeIfNeeded);
 	c.def("fillNonDirectPlanes", &ScatterSpace::fillNonDirectPlanes,
 	      "Populate the non-direct planes using the direct plane in between");
-	c.def("clampTOF", &ScatterSpace::clampTOF);
-	c.def("clampPlanePosition", &ScatterSpace::clampPlanePosition);
-	c.def_static("wrapAngle", &ScatterSpace::wrapAngle);
-	c.def("wrapAngleIndex", &ScatterSpace::wrapAngleIndex);
+	c.def("clampTOF", &ScatterSpace::clampTOF, "tof_ps"_a);
+	c.def("clampPlanePosition", &ScatterSpace::clampPlanePosition,
+	      "plane_pos"_a);
+	c.def_static("wrapAngle", &ScatterSpace::wrapAngle, "angle"_a);
+	c.def("wrapAngleIndex", &ScatterSpace::wrapAngleIndex, "angle_idx"_a);
 
 	// Size information
 	c.def("getNumTOFBins", &ScatterSpace::getNumTOFBins);

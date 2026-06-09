@@ -52,7 +52,14 @@ public:
 	struct ScatterSpaceIndex
 	{
 		size_t tofBin, planeIndex1, angleIndex1, planeIndex2, angleIndex2;
-		ScatterSpaceIndex() {}
+		ScatterSpaceIndex()
+		    : tofBin(0),
+		      planeIndex1(0),
+		      angleIndex1(0),
+		      planeIndex2(0),
+		      angleIndex2(0)
+		{
+		}
 		ScatterSpaceIndex(size_t t, size_t p1, size_t a1, size_t p2, size_t a2)
 		    : tofBin(t),
 		      planeIndex1(p1),
@@ -66,7 +73,14 @@ public:
 	struct ScatterSpacePosition
 	{
 		float tof_ps, planePosition1, angle1, planePosition2, angle2;
-		ScatterSpacePosition() {}
+		ScatterSpacePosition()
+		    : tof_ps(0),
+		      planePosition1(0),
+		      angle1(0),
+		      planePosition2(0),
+		      angle2(0)
+		{
+		}
 		ScatterSpacePosition(float t, float p1, float a1, float p2, float a2)
 		    : tof_ps(t),
 		      planePosition1(p1),

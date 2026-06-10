@@ -15,6 +15,7 @@
 #include "yrt-pet/utils/Assert.hpp"
 #include "yrt-pet/utils/ProgressDisplayMultiThread.hpp"
 #include "yrt-pet/utils/ReconstructionUtils.hpp"
+#include "yrt-pet/utils/Timer.hpp"
 #include "yrt-pet/utils/Types.hpp"
 
 #if BUILD_PYBIND11
@@ -177,7 +178,18 @@ void ScatterEstimator::computeTailFittedScatterEstimate()
 	// Note: Technically, the tail selection can be done in parallel to the
 	//  scatter estimation. This would save some computation time.
 
-	computeScatterEstimate();
+	util::Timer timer;
+
+	auto measureTimeTaken = [&timer]<typename FuncType>(FuncType oper)
+	{
+		timer.run();
+		oper();
+		std::cout << "Time taken: " << timer.getElapsedSeconds() << " sec"
+		          << std::endl;
+		timer.reset();
+	};
+
+	measureTimeTaken([this]() { computeScatterEstimate(); });
 	if (saveIntermediate)
 	{
 		mp_scatter_scs->writeToFile(
@@ -185,28 +197,29 @@ void ScatterEstimator::computeTailFittedScatterEstimate()
 		    "intermediary_scatterEstimateNonFitted.scs");
 	}
 
-	computeInsideMaskInScatterSpace();
+	measureTimeTaken([this]() { computeInsideMaskInScatterSpace(); });
 	if (saveIntermediate)
 	{
 		mp_insideMask_scs->writeToFile(m_saveIntermediary_dir /
 		                               "intermediary_insideMask.scs");
 	}
 
-	computeScatterTailsMask();
+	measureTimeTaken([this]() { computeScatterTailsMask(); });
 	if (saveIntermediate)
 	{
 		mp_tail_scs->writeToFile(m_saveIntermediary_dir /
 		                         "intermediary_scatterTailsMask.scs");
 	}
 
-	computePromptsInScatterSpace();
+	measureTimeTaken([this]() { computePromptsInScatterSpace(); });
 	if (saveIntermediate)
 	{
 		mp_prompts_scs->writeToFile(m_saveIntermediary_dir /
 		                            "intermediary_prompts.scs");
 	}
 
-	computeSensitivityAndRandomsInScatterSpace();
+	measureTimeTaken([this]()
+	                 { computeSensitivityAndRandomsInScatterSpace(); });
 	if (saveIntermediate)
 	{
 		mp_randoms_scs->writeToFile(m_saveIntermediary_dir /
@@ -215,30 +228,12 @@ void ScatterEstimator::computeTailFittedScatterEstimate()
 		                                "intermediary_sensitivity.scs");
 	}
 
-	const float fac = computeTailFittingFactor();
+	float fac = -1;
+	measureTimeTaken([this, &fac]() { fac = computeTailFittingFactor(); });
+	ASSERT(fac > 0.0f);
 
 	std::cout << "Applying tail-fit factor..." << std::endl;
-	mp_scatter_scs->scaleValues(fac);
-
-	// TODO: Maybe apply sensitivity on the scatter estimate
-
-	/*
-	if (mp_sensitivityHis != nullptr && denormalize)
-	{
-	    // Since the scatter estimate was tail-fitted using the sensitivity
-	    //  as a denominator to prompts and randoms, it is necessary to
-	    //  multiply it with the sensitivity again before using it in the
-	    //  reconstruction
-	    std::cout << "Denormalize scatter histogram..." << std::endl;
-	    scatterEstimate->operationOnEachBinParallel(
-	        [this, &scatterEstimate](bin_t bin) -> float
-	        {
-	            return mp_sensitivityHis->getProjectionValue(bin) *
-	                   scatterEstimate->getProjectionValue(bin);
-	        });
-	}
-	return scatterEstimate;
-	*/
+	measureTimeTaken([this, fac]() { mp_scatter_scs->scaleValues(fac); });
 }
 
 void ScatterEstimator::computeScatterEstimate()
@@ -269,7 +264,7 @@ void ScatterEstimator::computeInsideMaskInScatterSpace()
 	//  a new "projector"
 	//  It can also be simplified further by only projecting d1-d2 and not d2-d1
 
-	std::cout << "Computing inside-outside mask in preparation for tail-fitting"
+	std::cout << "Computing inside-outside mask for tail-fitting..."
 	          << std::endl;
 
 	// Note: The attenuation image used should not include the bed
@@ -403,8 +398,6 @@ void ScatterEstimator::computePromptsInScatterSpace()
 	// Iterate on all events or all histogram bins
 	const size_t count = mr_prompts.count();
 
-	const bool applySensitivity = useSensitivity();
-
 	// Only used for printing purposes
 	const int numThreads = globals::getNumThreads();
 
@@ -412,31 +405,15 @@ void ScatterEstimator::computePromptsInScatterSpace()
 	util::ProgressDisplayMultiThread progressBar(numThreads, count, 5);
 	util::parallelForChunked(
 	    count, numThreads,
-	    [&progressBar, applySensitivity, this](size_t binId, size_t threadId)
+	    [&progressBar, this](size_t binId, size_t threadId)
 	    {
 		    progressBar.incrementProgress(threadId);
 
 		    // Gather prompts
-		    float promptsValue = mr_prompts.getProjectionValue(binId);
+		    const float promptsValue = mr_prompts.getProjectionValue(binId);
 
 		    // Histogram bin
 		    const histo_bin_t histoBin = mr_prompts.getHistogramBin(binId);
-
-		    // Normalize prompts estimate
-		    if (applySensitivity)
-		    {
-			    const float sensitivity =
-			        mp_sensitivityHis->getProjectionValueFromHistogramBin(
-			            histoBin);
-			    if (sensitivity > EPS_FLT)
-			    {
-				    promptsValue /= sensitivity;
-			    }
-			    else
-			    {
-				    promptsValue = 0.0f;
-			    }
-		    }
 
 		    // Gather scatter-space index
 		    const ScatterSpace::ScatterSpacePosition scsPos =
@@ -462,7 +439,7 @@ void ScatterEstimator::computeSensitivityAndRandomsInScatterSpace()
 	}
 	if (useRandoms && useSensitivity)
 	{
-		std::cout << "and " << std::endl;
+		std::cout << "and ";
 	}
 	if (useSensitivity)
 	{
@@ -515,12 +492,6 @@ void ScatterEstimator::computeSensitivityAndRandomsInScatterSpace()
 				    sensitivityValue =
 				        mp_sensitivityHis->getProjectionValueFromHistogramBin(
 				            histoBin);
-
-				    // Also normalize the randoms estimate using the detector
-				    //  pair's sensitivity
-				    randomsValue = sensitivityValue > EPS_FLT ?
-				                       randomsValue / sensitivityValue :
-				                       0.0f;
 			    }
 
 			    // Gather scatter-space index

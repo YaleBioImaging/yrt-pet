@@ -220,7 +220,7 @@ void ScatterEstimator::computeTailFittedScatterEstimate()
 	std::cout << "Applying tail-fit factor..." << std::endl;
 	mp_scatter_scs->scaleValues(fac);
 
-	// TODO: Apply sensitivity on the scatter estimate
+	// TODO: Maybe apply sensitivity on the scatter estimate
 
 	/*
 	if (mp_sensitivityHis != nullptr && denormalize)
@@ -479,7 +479,7 @@ void ScatterEstimator::computeSensitivityAndRandomsInScatterSpace()
 	// Only used for printing purposes
 	const int numThreads = globals::getNumThreads();
 
-	// Randoms
+	// Randoms and sensitivity
 	if (useRandoms || useSensitivity)
 	{
 		auto histo = Histogram3DAlias(mr_scanner);
@@ -531,12 +531,25 @@ void ScatterEstimator::computeSensitivityAndRandomsInScatterSpace()
 			        mp_randoms_scs->getNearestNeighborIndex(scsPos);
 
 			    // Increment scatter-space arrays (Atomic)
-			    mp_randoms_scs->incrementValueAtomic(scsIdx, randomsValue);
-			    mp_sensitivity_scs->incrementValueAtomic(scsIdx,
-			                                             sensitivityValue);
+			    if (useRandoms)
+			    {
+				    mp_randoms_scs->incrementValueAtomic(scsIdx, randomsValue);
+			    }
+			    if (useSensitivity)
+			    {
+				    mp_sensitivity_scs->incrementValueAtomic(scsIdx,
+				                                             sensitivityValue);
+			    }
 		    });
-		mp_randoms_scs->symmetrizeIfNeeded();
-		mp_sensitivity_scs->symmetrizeIfNeeded();
+
+		if (useRandoms)
+		{
+			mp_randoms_scs->symmetrizeIfNeeded();
+		}
+		if (useSensitivity)
+		{
+			mp_sensitivity_scs->symmetrizeIfNeeded();
+		}
 	}
 	else
 	{
@@ -562,6 +575,11 @@ float ScatterEstimator::computeTailFittingFactor() const
 	{
 		ASSERT(numSamples == mp_randoms_scs->getSizeTotal());
 	}
+	const bool hasSensitivity = mp_sensitivity_scs->isMemoryValid();
+	if (hasSensitivity)
+	{
+		ASSERT(numSamples == mp_sensitivity_scs->getSizeTotal());
+	}
 
 	// Only used for printing purposes
 	const int numThreads = globals::getNumThreads();
@@ -575,7 +593,7 @@ float ScatterEstimator::computeTailFittingFactor() const
 	util::parallelForChunked(
 	    numSamples, numThreads,
 	    [&progressBar, &alphaDenominatorSumPerThread,
-	     &alphaNumeratorSumPerThread, hasRandoms,
+	     &alphaNumeratorSumPerThread, hasRandoms, hasSensitivity,
 	     this](size_t sampleId, size_t threadId)
 	    {
 		    progressBar.incrementProgress(threadId);
@@ -603,8 +621,14 @@ float ScatterEstimator::computeTailFittingFactor() const
 
 			    alphaNumeratorSumPerThread[threadId] += alphaNumerator;
 
-			    const float alphaDenominator =
-			        mp_scatter_scs->getValueFlat(sampleId);
+			    float alphaDenominator = mp_scatter_scs->getValueFlat(sampleId);
+
+			    if (hasSensitivity)
+			    {
+				    alphaDenominator *=
+				        mp_sensitivity_scs->getValueFlat(sampleId);
+			    }
+
 			    alphaDenominatorSumPerThread[threadId] += alphaDenominator;
 		    }
 	    });

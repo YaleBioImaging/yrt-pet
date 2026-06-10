@@ -32,6 +32,7 @@ public:
 	    const ProjectionData& pr_prompts, size_t numTOFBins, size_t numPlanes,
 	    size_t numAngles, const Histogram* pp_randomsHis = nullptr,
 	    const Histogram* pp_sensitivityHis = nullptr,
+	    timestamp_t p_scanDuration = 0,
 	    CrystalMaterial p_crystalMaterial = DefaultCrystal,
 	    int seedi = DefaultSeed,
 	    size_t p_scatterTailsMaskWidth = DefaultScatterTailsMaskWidth,
@@ -40,7 +41,9 @@ public:
 	    const std::string& p_saveIntermediary_dir = "",
 	    bool p_onlyDirectPlanes = true);
 
+	// Allocate scatter-space buffers
 	void allocate();
+	void initScanDuration();
 
 	// This function calls all the steps
 	void computeTailFittedScatterEstimate();
@@ -53,10 +56,12 @@ public:
 	    computeTailsMask(const ScatterSpace& insideMask,
 	                     ScatterSpace& tailsMask,
 	                     size_t maskWidth = DefaultScatterTailsMaskWidth);
-	void computePromptsAndRandomsInScatterSpace();
+	void computePromptsInScatterSpace();
+	void computeSensitivityAndRandomsInScatterSpace();
 	float computeTailFittingFactor() const;
 
 	// Getters
+	bool isPromptsListMode() const; // Return true if prompts are a list-mode
 	const ScatterSpace& getScatterEstimate() const;
 	const ScatterSpace& getPromptsInScatterSpace() const;
 	const ScatterSpace& getRandomsInScatterSpace() const;
@@ -87,6 +92,8 @@ private:
 	// Threshold on the forward projection of the attenuation image to consider
 	// an LOR "inside" the object
 	const float m_attThreshold;
+	// Duration of the scan
+	timestamp_t m_scanDuration;
 
 	// Where to save intermediary scatter-space values
 	std::filesystem::path m_saveIntermediary_dir;
@@ -104,9 +111,8 @@ private:
 	std::unique_ptr<ScatterSpace> mp_prompts_scs;
 	// Populated from randoms estimates
 	std::unique_ptr<ScatterSpace> mp_randoms_scs;
-
-	// TODO: We might need to also store a scatter-space vector for the
-	//  sensitivity (multiplied by livetime if available)
+	// Populated from the sensitivity histogram
+	std::unique_ptr<ScatterSpace> mp_sensitivity_scs;
 
 	// If true, only estimate direct plane and fill non-direct from average
 	bool m_onlyEstimateDirectPlanes;

@@ -118,6 +118,12 @@ int main(int argc, char** argv)
 		        io::possibleFormats(plugin::InputFormatsChoice::ONLYHISTOGRAMS),
 		    false, io::TypeOfArgument::STRING, "", tailFittingGroup);
 		registry.registerArgument(
+		    "scan_duration",
+		    "Scan duration in seconds. This value is used to scale the "
+		    "randoms. If it is not provided, the scan duration used will be "
+		    "gathered from the list-mode.",
+		    false, io::TypeOfArgument::INT, 0, tailFittingGroup);
+		registry.registerArgument(
 		    "sensitivity", "Sensitivity histogram file (optional)", false,
 		    io::TypeOfArgument::STRING, "", tailFittingGroup);
 		registry.registerArgument(
@@ -182,6 +188,8 @@ int main(int argc, char** argv)
 		    config.getValue<std::string>("save_intermediary");
 		int numThreads = config.getValue<int>("num_threads");
 		int maskWidth = config.getValue<int>("mask_width");
+		auto scanDuration =
+		    static_cast<timestamp_t>(config.getValue<int>("scan_duration"));
 		float numSampFrac = config.getValue<float>("num_samp_frac");
 		int seed = config.getValue<int>("seed");
 		bool fullEstimate = config.getValue<bool>("full_estimate");
@@ -265,7 +273,7 @@ int main(int argc, char** argv)
 
 		scatter::ScatterEstimator scatterEstimator(
 		    *scanner, *sourceImage, *attImage, *prompts, numTOFBins, numPlanes,
-		    numAngles, randomsHis, sensitivityHis, crystalMaterial, seed,
+		    numAngles, randomsHis, sensitivityHis, scanDuration, crystalMaterial, seed,
 		    maskWidth, attThreshold, numSampFrac, saveIntermediary_dir,
 		    !fullEstimate);
 

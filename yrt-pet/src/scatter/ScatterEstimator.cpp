@@ -7,6 +7,7 @@
 
 #include "yrt-pet/datastruct/image/Image.hpp"
 #include "yrt-pet/datastruct/projection/Histogram3D.hpp"
+#include "yrt-pet/datastruct/projection/ListMode.hpp"
 #include "yrt-pet/datastruct/scanner/Scanner.hpp"
 #include "yrt-pet/geometry/Constants.hpp"
 #include "yrt-pet/operators/ProjectorSiddon.hpp"
@@ -29,12 +30,12 @@ void py_setup_scatterestimator(py::module& m)
 	auto c = py::class_<scatter::ScatterEstimator>(m, "ScatterEstimator");
 	c.def(py::init<const Scanner&, const Image&, const Image&,
 	               const ProjectionData&, size_t, size_t, size_t,
-	               const Histogram3D*, const Histogram3D*,
+	               const Histogram3D*, const Histogram3D*, timestamp_t,
 	               scatter::CrystalMaterial, int, size_t, float, float,
 	               const std::string&, bool>(),
 	      "scanner"_a, "lambda"_a, "mu"_a, "prompts"_a, "num_tof_bins"_a,
 	      "num_planes"_a, "num_angles"_a, "randoms_his"_a = nullptr,
-	      "sensitivity_his"_a = nullptr,
+	      "sensitivity_his"_a = nullptr, "scan_duration"_a = 0,
 	      "crystal_material"_a = scatter::ScatterEstimator::DefaultCrystal,
 	      "seedi"_a = scatter::ScatterEstimator::DefaultSeed,
 	      "scatter_tails_mask_width"_a =
@@ -63,7 +64,10 @@ void py_setup_scatterestimator(py::module& m)
 	             "mask_width"_a =
 	                 scatter::ScatterEstimator::DefaultScatterTailsMaskWidth);
 	c.def("computePromptsAndRandomsInScatterSpace",
-	      &scatter::ScatterEstimator::computePromptsAndRandomsInScatterSpace);
+	      &scatter::ScatterEstimator::computePromptsInScatterSpace);
+	c.def(
+	    "computeSensitivityAndRandomsInScatterSpace",
+	    &scatter::ScatterEstimator::computeSensitivityAndRandomsInScatterSpace);
 	c.def("computeTailFittingFactor",
 	      &scatter::ScatterEstimator::computeTailFittingFactor);
 
@@ -92,10 +96,10 @@ ScatterEstimator::ScatterEstimator(
     const Scanner& pr_scanner, const Image& pr_lambda, const Image& pr_mu,
     const ProjectionData& pr_prompts, size_t numTOFBins, size_t numPlanes,
     size_t numAngles, const Histogram* pp_randomsHis,
-    const Histogram* pp_sensitivityHis, CrystalMaterial p_crystalMaterial,
-    int seedi, size_t p_scatterTailsMaskWidth, float p_attThreshold,
-    float p_numSampFrac, const std::string& p_saveIntermediary_dir,
-    bool p_onlyDirectPlanes)
+    const Histogram* pp_sensitivityHis, timestamp_t p_scanDuration,
+    CrystalMaterial p_crystalMaterial, int seedi,
+    size_t p_scatterTailsMaskWidth, float p_attThreshold, float p_numSampFrac,
+    const std::string& p_saveIntermediary_dir, bool p_onlyDirectPlanes)
     : mr_scanner(pr_scanner),
       m_sss(pr_scanner, pr_mu, pr_lambda, p_crystalMaterial, seedi,
             p_numSampFrac),
@@ -104,6 +108,7 @@ ScatterEstimator::ScatterEstimator(
       mp_sensitivityHis(pp_sensitivityHis),
       m_scatterTailsMaskWidth(p_scatterTailsMaskWidth),
       m_attThreshold(p_attThreshold),
+      m_scanDuration(p_scanDuration),
       m_saveIntermediary_dir(p_saveIntermediary_dir),
       m_onlyEstimateDirectPlanes(p_onlyDirectPlanes)
 {
@@ -116,6 +121,10 @@ ScatterEstimator::ScatterEstimator(
 	                                                numPlanes, numAngles);
 	mp_randoms_scs = std::make_unique<ScatterSpace>(mr_scanner, numTOFBins,
 	                                                numPlanes, numAngles);
+	mp_sensitivity_scs = std::make_unique<ScatterSpace>(mr_scanner, numTOFBins,
+	                                                    numPlanes, numAngles);
+
+	initScanDuration();
 
 	// Tail-fitting is done without TOF
 	constexpr size_t numTOFBinsForTailFitting = 1ull;
@@ -136,7 +145,29 @@ void ScatterEstimator::allocate()
 		mp_randoms_scs->allocate();
 	}
 
+	if (useSensitivity())
+	{
+		mp_sensitivity_scs->allocate();
+	}
+
 	mp_tail_scs->allocate();
+}
+
+void ScatterEstimator::initScanDuration()
+{
+	if (m_scanDuration == 0)
+	{
+		if (isPromptsListMode())
+		{
+			m_scanDuration = mr_prompts.getScanDuration();
+		}
+		else
+		{
+			// When working with a Histogram, do not scale by scan duration
+			//  unless the user provides a scaling.
+			m_scanDuration = 1;
+		}
+	}
 }
 
 void ScatterEstimator::computeTailFittedScatterEstimate()
@@ -168,13 +199,20 @@ void ScatterEstimator::computeTailFittedScatterEstimate()
 		                         "intermediary_scatterTailsMask.scs");
 	}
 
-	computePromptsAndRandomsInScatterSpace();
+	computePromptsInScatterSpace();
 	if (saveIntermediate)
 	{
 		mp_prompts_scs->writeToFile(m_saveIntermediary_dir /
 		                            "intermediary_prompts.scs");
+	}
+
+	computeSensitivityAndRandomsInScatterSpace();
+	if (saveIntermediate)
+	{
 		mp_randoms_scs->writeToFile(m_saveIntermediary_dir /
 		                            "intermediary_randoms.scs");
+		mp_sensitivity_scs->writeToFile(m_saveIntermediary_dir /
+		                                "intermediary_sensitivity.scs");
 	}
 
 	const float fac = computeTailFittingFactor();
@@ -356,24 +394,11 @@ void ScatterEstimator::computeTailsMask(const ScatterSpace& insideMask,
 	    });
 }
 
-void ScatterEstimator::computePromptsAndRandomsInScatterSpace()
+void ScatterEstimator::computePromptsInScatterSpace()
 {
-	const bool useRandoms = useRandomsEstimates();
-
-	std::cout << "Populating prompts ";
-	if (useRandoms)
-	{
-		std::cout << "and randoms estimates ";
-	}
-	std::cout << "in scatter space..." << std::endl;
+	std::cout << "Populating prompts in scatter space..." << std::endl;
 	ASSERT_MSG(mp_prompts_scs->isMemoryValid(),
 	           "Scatter-space array is unallocated (for prompts)");
-	if (useRandoms)
-	{
-		ASSERT_MSG(
-		    mp_randoms_scs->isMemoryValid(),
-		    "Scatter-space array is unallocated (for randoms estimates)");
-	}
 
 	// Iterate on all events or all histogram bins
 	const size_t count = mr_prompts.count();
@@ -384,52 +409,78 @@ void ScatterEstimator::computePromptsAndRandomsInScatterSpace()
 	const int numThreads = globals::getNumThreads();
 
 	// Prompts
-	{
-		util::ProgressDisplayMultiThread progressBar(numThreads, count, 5);
-		util::parallelForChunked(
-		    count, numThreads,
-		    [&progressBar, applySensitivity, this](size_t binId,
-		                                           size_t threadId)
+	util::ProgressDisplayMultiThread progressBar(numThreads, count, 5);
+	util::parallelForChunked(
+	    count, numThreads,
+	    [&progressBar, applySensitivity, this](size_t binId, size_t threadId)
+	    {
+		    progressBar.incrementProgress(threadId);
+
+		    // Gather prompts
+		    float promptsValue = mr_prompts.getProjectionValue(binId);
+
+		    // Histogram bin
+		    const histo_bin_t histoBin = mr_prompts.getHistogramBin(binId);
+
+		    // Normalize prompts estimate
+		    if (applySensitivity)
 		    {
-			    progressBar.incrementProgress(threadId);
-
-			    // Gather prompts
-			    float promptsValue = mr_prompts.getProjectionValue(binId);
-
-			    // Histogram bin
-			    const histo_bin_t histoBin = mr_prompts.getHistogramBin(binId);
-
-			    // Normalize prompts and randoms estimate
-			    if (applySensitivity)
-			    {
-				    const float sensitivity =
-				        mp_sensitivityHis->getProjectionValueFromHistogramBin(
-				            histoBin);
-				    if (sensitivity > EPS_FLT)
-				    {
-					    promptsValue /= sensitivity;
-				    }
-				    else
-				    {
-					    promptsValue = 0.0f;
-				    }
-			    }
-
-			    // Gather scatter-space index
-			    const ScatterSpace::ScatterSpacePosition scsPos =
-			        mp_prompts_scs->histogramBinToScatterSpacePosition(
+			    const float sensitivity =
+			        mp_sensitivityHis->getProjectionValueFromHistogramBin(
 			            histoBin);
-			    const ScatterSpace::ScatterSpaceIndex scsIdx =
-			        mp_prompts_scs->getNearestNeighborIndex(scsPos);
+			    if (sensitivity > EPS_FLT)
+			    {
+				    promptsValue /= sensitivity;
+			    }
+			    else
+			    {
+				    promptsValue = 0.0f;
+			    }
+		    }
 
-			    // Increment scatter-space arrays (Atomic)
-			    mp_prompts_scs->incrementValueAtomic(scsIdx, promptsValue);
-		    });
-		mp_prompts_scs->symmetrizeIfNeeded();
+		    // Gather scatter-space index
+		    const ScatterSpace::ScatterSpacePosition scsPos =
+		        mp_prompts_scs->histogramBinToScatterSpacePosition(histoBin);
+		    const ScatterSpace::ScatterSpaceIndex scsIdx =
+		        mp_prompts_scs->getNearestNeighborIndex(scsPos);
+
+		    // Increment scatter-space arrays (Atomic)
+		    mp_prompts_scs->incrementValueAtomic(scsIdx, promptsValue);
+	    });
+	mp_prompts_scs->symmetrizeIfNeeded();
+}
+
+void ScatterEstimator::computeSensitivityAndRandomsInScatterSpace()
+{
+	const bool useRandoms = this->useRandomsEstimates();
+	const bool useSensitivity = this->useSensitivity();
+
+	std::cout << "Populating ";
+	if (useRandoms)
+	{
+		std::cout << "randoms estimates ";
 	}
+	if (useRandoms && useSensitivity)
+	{
+		std::cout << "and " << std::endl;
+	}
+	if (useSensitivity)
+	{
+		std::cout << "sensitivity ";
+	}
+	std::cout << "in scatter space..." << std::endl;
+
+	ASSERT_MSG(mp_prompts_scs->isMemoryValid(),
+	           "Scatter-space array is unallocated (for prompts)");
+	ASSERT_MSG(useRandoms == mp_randoms_scs->isMemoryValid(),
+	           "Scatter-space array is unallocated (for randoms estimates)");
+	ASSERT_MSG(useSensitivity == mp_sensitivity_scs->isMemoryValid(),
+	           "Scatter-space array is unallocated (for sensitivity)");
+	// Only used for printing purposes
+	const int numThreads = globals::getNumThreads();
 
 	// Randoms
-	if (useRandoms)
+	if (useRandoms || useSensitivity)
 	{
 		auto histo = Histogram3DAlias(mr_scanner);
 		auto binIter = histo.getBinIter(1, 0);
@@ -438,31 +489,38 @@ void ScatterEstimator::computePromptsAndRandomsInScatterSpace()
 		                                             binIter->size(), 5);
 		util::parallelForChunked(
 		    binIter->size(), numThreads,
-		    [&progressBar, applySensitivity, &histo, binIter_ptr,
+		    [&progressBar, useRandoms, useSensitivity, &histo, binIter_ptr,
 		     this](size_t binIdx, size_t threadId)
 		    {
 			    progressBar.incrementProgress(threadId);
-			    bin_t binId = binIter_ptr->get(binIdx);
-			    det_pair_t histoBin = histo.getDetPairFromBinId(binId);
 
-			    // Gather prompts
-			    float randomsValue =
-			        mp_randomsHis->getProjectionValueFromHistogramBin(histoBin);
+			    const bin_t binId = binIter_ptr->get(binIdx);
+			    const det_pair_t histoBin = histo.getDetPairFromBinId(binId);
 
-			    // Normalize prompts and randoms estimate
-			    if (applySensitivity)
+			    float randomsValue = 0.0f;
+			    if (useRandoms)
 			    {
-				    const float sensitivity =
+				    // Gather randoms estimate of current detector pair
+				    randomsValue =
+				        mp_randomsHis->getProjectionValueFromHistogramBin(
+				            histoBin);
+
+				    // Scale by scan duration
+				    randomsValue *= m_scanDuration;
+			    }
+
+			    float sensitivityValue = 1.0f;
+			    if (useSensitivity)
+			    {
+				    sensitivityValue =
 				        mp_sensitivityHis->getProjectionValueFromHistogramBin(
 				            histoBin);
-				    if (sensitivity > EPS_FLT)
-				    {
-					    randomsValue /= sensitivity;
-				    }
-				    else
-				    {
-					    randomsValue = 0.0f;
-				    }
+
+				    // Also normalize the randoms estimate using the detector
+				    //  pair's sensitivity
+				    randomsValue = sensitivityValue > EPS_FLT ?
+				                       randomsValue / sensitivityValue :
+				                       0.0f;
 			    }
 
 			    // Gather scatter-space index
@@ -474,8 +532,15 @@ void ScatterEstimator::computePromptsAndRandomsInScatterSpace()
 
 			    // Increment scatter-space arrays (Atomic)
 			    mp_randoms_scs->incrementValueAtomic(scsIdx, randomsValue);
+			    mp_sensitivity_scs->incrementValueAtomic(scsIdx,
+			                                             sensitivityValue);
 		    });
 		mp_randoms_scs->symmetrizeIfNeeded();
+		mp_sensitivity_scs->symmetrizeIfNeeded();
+	}
+	else
+	{
+		std::cout << "Skipped..." << std::endl;
 	}
 }
 
@@ -557,6 +622,13 @@ float ScatterEstimator::computeTailFittingFactor() const
 	return fac;
 }
 
+bool ScatterEstimator::isPromptsListMode() const
+{
+	const ListMode* promptsAsListMode =
+	    dynamic_cast<const ListMode*>(&mr_prompts);
+	return promptsAsListMode != nullptr;
+}
+
 const ScatterSpace& ScatterEstimator::getScatterEstimate() const
 {
 	return *mp_scatter_scs;
@@ -567,14 +639,14 @@ const ScatterSpace& ScatterEstimator::getPromptsInScatterSpace() const
 	return *mp_prompts_scs;
 }
 
-const ScatterSpace& ScatterEstimator::getInsideMaskInScatterSpace() const
-{
-	return *mp_insideMask_scs;
-}
-
 const ScatterSpace& ScatterEstimator::getRandomsInScatterSpace() const
 {
 	return *mp_randoms_scs;
+}
+
+const ScatterSpace& ScatterEstimator::getInsideMaskInScatterSpace() const
+{
+	return *mp_insideMask_scs;
 }
 
 const ScatterSpace& ScatterEstimator::getTailInScatterSpace() const

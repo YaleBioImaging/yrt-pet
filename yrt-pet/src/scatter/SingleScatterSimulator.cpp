@@ -167,52 +167,95 @@ SingleScatterSimulator::SingleScatterSimulator(
 		throw std::runtime_error(errorMessage);
 	}
 }
-
 void SingleScatterSimulator::runSSS(ScatterSpace& outScatterSpace,
                                     bool onlyDirectPlanes)
 {
 	ASSERT_MSG(outScatterSpace.isMemoryValid(),
 	           "Destination scatter-space array is unallocated");
 
-	const size_t numSamples = outScatterSpace.getSizeTotal();
+	const size_t numTOFBins = outScatterSpace.getNumTOFBins();
+	const size_t numPlanes = outScatterSpace.getNumPlanes();
+	const size_t numAngles = outScatterSpace.getNumAngles();
 
-	// Only used for printing purposes
-	const int numThreads = globals::getNumThreads();
-	const size_t progressMax = numSamples;
-	util::ProgressDisplayMultiThread progressBar(numThreads, progressMax, 5);
+	const size_t numThreads = globals::getNumThreads();
 
-	util::parallelForChunked(
-	    numSamples, globals::getNumThreads(),
-	    [&progressBar, &outScatterSpace, onlyDirectPlanes,
-	     this](size_t sampleId, size_t threadId)
-	    {
-		    progressBar.incrementProgress(threadId, 1);
+	if (onlyDirectPlanes)
+	{
+		const size_t numDirectSamples =
+		    numTOFBins * numPlanes * numAngles * numAngles;
 
-		    const ScatterSpace::ScatterSpaceIndex scsIdx =
-		        outScatterSpace.unravelIndex(sampleId);
+		const size_t numDirectPlanesTOF = numTOFBins * numPlanes;
 
-		    if (onlyDirectPlanes && scsIdx.planeIndex1 != scsIdx.planeIndex2)
+		util::ProgressDisplayMultiThread progressBar(numThreads,
+		                                             numDirectSamples, 5);
+
+		util::parallelForChunked(
+		    numDirectPlanesTOF, numThreads,
+		    [&progressBar, &outScatterSpace, numPlanes, numAngles,
+		     this](size_t planeSampleIdx, size_t threadId)
 		    {
-			    return;
-		    }
+			    // Here, "planeSampleIdx" is a flat index encoding both the
+			    //  direct plane index and the TOF bin
+			    const size_t tofBin = planeSampleIdx / numPlanes;
+			    const size_t planeIdx = planeSampleIdx % numPlanes;
 
-		    const auto [tof, lor] =
-		        outScatterSpace.getTOFAndLORFromIndex(scsIdx);
+			    for (size_t a1 = 0; a1 < numAngles; ++a1)
+			    {
+				    for (size_t a2 = 0; a2 < numAngles; ++a2)
+				    {
+					    progressBar.incrementProgress(threadId, 1);
 
-		    float scatterResult = 0.0f;
+					    const auto [tof_ps, lor] =
+					        outScatterSpace.getTOFAndLORFromIndex(
+					            {tofBin, planeIdx, a1, planeIdx, a2});
 
-		    // Do nothing if LOR is invalid. This is done to ignore
-		    //  scatter-space bins that are defined by the same virtual detector
-		    if (lor.isValid())
+					    float scatterResult = 0.0f;
+
+					    if (lor.isValid())
+					    {
+						    scatterResult =
+						        computeSingleScatterInLOR(lor, tof_ps);
+						    // Avoid negative values
+						    scatterResult = std::max(0.0f, scatterResult);
+					    }
+
+					    outScatterSpace.setValue(tofBin, planeIdx, a1, planeIdx,
+					                             a2, scatterResult);
+				    }
+			    }
+		    });
+	}
+	else
+	{
+		const size_t numSamples = outScatterSpace.getSizeTotal();
+
+		util::ProgressDisplayMultiThread progressBar(numThreads, numSamples, 5);
+
+		util::parallelForChunked(
+		    numSamples, numThreads,
+		    [&progressBar, &outScatterSpace, this](size_t sampleId,
+		                                           size_t threadId)
 		    {
-			    scatterResult = computeSingleScatterInLOR(lor, tof);
+			    progressBar.incrementProgress(threadId, 1);
 
-			    // Ensure positive values
-			    scatterResult = std::max(0.0f, scatterResult);
-		    }
+			    const ScatterSpace::ScatterSpaceIndex scsIdx =
+			        outScatterSpace.unravelIndex(sampleId);
 
-		    outScatterSpace.setValue(scsIdx, scatterResult);
-	    });
+			    const auto [tof_ps, lor] =
+			        outScatterSpace.getTOFAndLORFromIndex(scsIdx);
+
+			    float scatterResult = 0.0f;
+
+			    if (lor.isValid())
+			    {
+				    scatterResult = computeSingleScatterInLOR(lor, tof_ps);
+				    // Avoid negative values
+				    scatterResult = std::max(0.0f, scatterResult);
+			    }
+
+			    outScatterSpace.setValue(scsIdx, scatterResult);
+		    });
+	}
 }
 
 // TODO: Put this function in a separate file (a ".cuh" file) as

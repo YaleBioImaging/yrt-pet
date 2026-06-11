@@ -12,6 +12,8 @@
 #include <thread>
 #include <vector>
 
+#include "yrt-pet/utils/Assert.hpp"
+
 namespace yrt::util
 {
 
@@ -43,17 +45,21 @@ template <typename Func>
 void parallelForChunkedRandomized(size_t total, size_t numThreads,
                                   float probability, Func fn)
 {
-	using RNGSuite = std::tuple<std::random_device, std::mt19937_64,
+	ASSERT_MSG(probability > 0.0f && probability <= 1.0f,
+	           "Unsupported probability");
+
+	using RNGSuite = std::tuple<std::mt19937_64,
 	                            std::geometric_distribution<size_t>>;
-	// One random device, generator, and distribution per thread.
+
+	// One generator and distribution per thread (random_device is local only).
 	std::vector<RNGSuite> rngs;
-	rngs.resize(numThreads);
+	rngs.reserve(numThreads);
 	for (size_t threadId = 0; threadId < numThreads; ++threadId)
 	{
-		auto& rng = rngs[threadId];
-		auto& rd = std::get<0>(rng);
-		std::get<1>(rng) = std::mt19937_64{rd()};
-		std::get<2>(rng) = std::geometric_distribution<size_t>{probability};
+		std::random_device rd;
+		std::mt19937_64 gen{rd()};
+		rngs.emplace_back(gen,
+		                  std::geometric_distribution<size_t>{probability});
 	}
 
 	const size_t chunk = total / numThreads;
@@ -68,8 +74,8 @@ void parallelForChunkedRandomized(size_t total, size_t numThreads,
 		    [start, end, threadId, &rngs, &fn]()
 		    {
 			    auto& rng = rngs[threadId];
-			    auto& gen = std::get<1>(rng);
-			    auto& distribution = std::get<2>(rng);
+			    auto& gen = std::get<0>(rng);
+			    auto& distribution = std::get<1>(rng);
 
 			    size_t idx = start;
 			    while (idx < end)
@@ -79,7 +85,7 @@ void parallelForChunkedRandomized(size_t total, size_t numThreads,
 
 				    idx += skip;
 
-				    // Don't overshot the end of the data
+				    // Don't overshoot the end of the data
 				    if (idx < end)
 				    {
 					    fn(idx, threadId);

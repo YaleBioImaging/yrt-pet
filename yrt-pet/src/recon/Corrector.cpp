@@ -577,6 +577,8 @@ float Corrector::getScatterEstimate(const histo_bin_t& histoBin) const
 {
 	if (mp_scatter != nullptr)
 	{
+		// TODO: If the scatter estimate comes from a "scatter-space",
+		//  apply the sensitivity on the returned value
 		return mp_scatter->getProjectionValueFromHistogramBin(histoBin);
 	}
 	return 0.0f;

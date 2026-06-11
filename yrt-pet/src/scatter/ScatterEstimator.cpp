@@ -176,6 +176,7 @@ void ScatterEstimator::initScanDuration()
 			m_scanDuration = 1;
 		}
 	}
+	ASSERT_MSG(m_scanDuration != 0.0f, "Scan duration cannot be zero");
 }
 
 void ScatterEstimator::computeTailFittedScatterEstimate()
@@ -618,6 +619,9 @@ float ScatterEstimator::computeTailFittingFactor() const
 		alphaNumerator += alphaNumeratorSumPerThread[threadId];
 		alphaDenominator += alphaDenominatorSumPerThread[threadId];
 	}
+
+	// The denominator should be scaled by the scan duration
+	alphaDenominator *= m_scanDuration;
 
 	const float fac = alphaNumerator / alphaDenominator;
 

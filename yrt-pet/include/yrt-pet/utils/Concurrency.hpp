@@ -51,14 +51,16 @@ void parallelForChunkedRandomized(size_t total, size_t numThreads,
 	using RNGSuite = std::tuple<std::mt19937_64,
 	                            std::geometric_distribution<size_t>>;
 
-	// One generator and distribution per thread (random_device is local only).
+	// Seed a master generator once, then derive per-thread generators from it
+	//  to avoid correlated seeds from repeated std::random_device calls.
+	std::random_device rd;
+	std::mt19937_64 masterGen(rd());
+
 	std::vector<RNGSuite> rngs;
 	rngs.reserve(numThreads);
 	for (size_t threadId = 0; threadId < numThreads; ++threadId)
 	{
-		std::random_device rd;
-		std::mt19937_64 gen{rd()};
-		rngs.emplace_back(gen,
+		rngs.emplace_back(std::mt19937_64{masterGen()},
 		                  std::geometric_distribution<size_t>{probability});
 	}
 

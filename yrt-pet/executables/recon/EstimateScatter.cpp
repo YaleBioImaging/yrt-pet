@@ -76,7 +76,7 @@ int main(int argc, char** argv)
 		    false, io::TypeOfArgument::FLOAT,
 		    scatter::ScatterEstimator::DefaultAttThreshold, tailFittingGroup);
 
-		// By default, no TOF
+		// By default, we consider no TOF, so only one TOF bin
 		registry.registerArgument("n_tof",
 		                          "Number of TOF bins to consider for SSS",
 		                          false, io::TypeOfArgument::INT, 1, sssGroup);
@@ -141,6 +141,16 @@ int main(int argc, char** argv)
 		    static_cast<int>(
 		        scatter::ScatterEstimator::DefaultScatterTailsMaskWidth),
 		    tailFittingGroup);
+		registry.registerArgument(
+		    "lor_downsampling",
+		    "Fraction of LORs to use for the calculation of randoms and "
+		    "sensitivity factors per scatter-space bin (Default: " +
+		        std::to_string(
+		            scatter::ScatterEstimator::DefaultLORDownsamplingFactor) +
+		        ")",
+		    false, io::TypeOfArgument::FLOAT,
+		    scatter::ScatterEstimator::DefaultLORDownsamplingFactor,
+		    tailFittingGroup);
 
 		plugin::addOptionsFromPlugins(registry,
 		                              plugin::InputFormatsChoice::ALL);
@@ -191,6 +201,8 @@ int main(int argc, char** argv)
 		auto scanDuration =
 		    static_cast<timestamp_t>(config.getValue<int>("scan_duration"));
 		float numSampFrac = config.getValue<float>("num_samp_frac");
+		float lorDownsamplingFactor =
+		    config.getValue<float>("lor_downsampling");
 		int seed = config.getValue<int>("seed");
 		bool fullEstimate = config.getValue<bool>("full_estimate");
 
@@ -273,9 +285,9 @@ int main(int argc, char** argv)
 
 		scatter::ScatterEstimator scatterEstimator(
 		    *scanner, *sourceImage, *attImage, *prompts, numTOFBins, numPlanes,
-		    numAngles, randomsHis, sensitivityHis, scanDuration, crystalMaterial, seed,
-		    maskWidth, attThreshold, numSampFrac, saveIntermediary_dir,
-		    !fullEstimate);
+		    numAngles, randomsHis, sensitivityHis, scanDuration,
+		    crystalMaterial, seed, maskWidth, attThreshold, numSampFrac,
+		    saveIntermediary_dir, !fullEstimate, lorDownsamplingFactor);
 
 		scatterEstimator.allocate();
 

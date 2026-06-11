@@ -33,7 +33,7 @@ void py_setup_scatterestimator(py::module& m)
 	               const ProjectionData&, size_t, size_t, size_t,
 	               const Histogram3D*, const Histogram3D*, timestamp_t,
 	               scatter::CrystalMaterial, int, size_t, float, float,
-	               const std::string&, bool>(),
+	               const std::string&, bool, float>(),
 	      "scanner"_a, "lambda"_a, "mu"_a, "prompts"_a, "num_tof_bins"_a,
 	      "num_planes"_a, "num_angles"_a, "randoms_his"_a = nullptr,
 	      "sensitivity_his"_a = nullptr, "scan_duration"_a = 0,
@@ -43,7 +43,9 @@ void py_setup_scatterestimator(py::module& m)
 	          scatter::ScatterEstimator::DefaultScatterTailsMaskWidth,
 	      "att_threshold"_a = scatter::ScatterEstimator::DefaultAttThreshold,
 	      "num_samp_frac"_a = scatter::ScatterEstimator::DefaultNumSampFrac,
-	      "saveIntermediary_dir"_a = "", "only_direct_planes"_a = true);
+	      "saveIntermediary_dir"_a = "", "only_direct_planes"_a = true,
+	      "lor_downsampling"_a =
+	          scatter::ScatterEstimator::DefaultLORDownsamplingFactor);
 
 	// Allocation
 	c.def("allocate", &scatter::ScatterEstimator::allocate);
@@ -100,7 +102,8 @@ ScatterEstimator::ScatterEstimator(
     const Histogram* pp_sensitivityHis, timestamp_t p_scanDuration,
     CrystalMaterial p_crystalMaterial, int seedi,
     size_t p_scatterTailsMaskWidth, float p_attThreshold, float p_numSampFrac,
-    const std::string& p_saveIntermediary_dir, bool p_onlyDirectPlanes)
+    const std::string& p_saveIntermediary_dir, bool p_onlyDirectPlanes,
+    float p_lorDownsamplingFactor)
     : mr_scanner(pr_scanner),
       m_sss(pr_scanner, pr_mu, pr_lambda, p_crystalMaterial, seedi,
             p_numSampFrac),
@@ -110,8 +113,9 @@ ScatterEstimator::ScatterEstimator(
       m_scatterTailsMaskWidth(p_scatterTailsMaskWidth),
       m_attThreshold(p_attThreshold),
       m_scanDuration(p_scanDuration),
-      m_saveIntermediary_dir(p_saveIntermediary_dir),
-      m_onlyEstimateDirectPlanes(p_onlyDirectPlanes)
+      m_onlyEstimateDirectPlanes(p_onlyDirectPlanes),
+      m_lorDownsamplingFactor(p_lorDownsamplingFactor),
+      m_saveIntermediary_dir(p_saveIntermediary_dir)
 {
 	// Scatter estimate in scatter-space
 	mp_scatter_scs = std::make_unique<ScatterSpace>(mr_scanner, numTOFBins,
@@ -160,7 +164,10 @@ void ScatterEstimator::initScanDuration()
 	{
 		if (isPromptsListMode())
 		{
-			m_scanDuration = mr_prompts.getScanDuration();
+			// This is the scan duration in milliseconds
+			const timestamp_t scanDuration_ms = mr_prompts.getScanDuration();
+			// Get the scan duration in *seconds*
+			m_scanDuration = scanDuration_ms / 1000;
 		}
 		else
 		{
@@ -464,10 +471,10 @@ void ScatterEstimator::computeSensitivityAndRandomsInScatterSpace()
 		auto binIter_ptr = binIter.get();
 		util::ProgressDisplayMultiThread progressBar(numThreads,
 		                                             binIter->size(), 5);
-		util::parallelForChunked(
-		    binIter->size(), numThreads,
+		util::parallelForChunkedRandomized(
+		    binIter->size(), numThreads, m_lorDownsamplingFactor,
 		    [&progressBar, useRandoms, useSensitivity, &histo, binIter_ptr,
-		     this](size_t binIdx, size_t threadId)
+		     this](size_t binIdx, size_t /*counter*/, unsigned int threadId)
 		    {
 			    progressBar.incrementProgress(threadId);
 
@@ -613,7 +620,13 @@ float ScatterEstimator::computeTailFittingFactor() const
 	}
 
 	const float fac = alphaNumerator / alphaDenominator;
+
 	std::cout << "Tail-fitting factor: " << fac << std::endl;
+
+	ASSERT_MSG_WARNING(fac != 0, "Tail-fitting failure: The factor is zero");
+	ASSERT_MSG_WARNING(fac >= 0,
+	                   "Tail-fitting failure: The factor is negative");
+
 	return fac;
 }
 

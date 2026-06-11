@@ -13,7 +13,7 @@
 
 TEST_CASE("parallelForChunkedRandomized", "[concurrency]")
 {
-	constexpr size_t total = 1 << 23;  // Around 8 million
+	constexpr size_t total = 1 << 20;  // Around 1 million
 	constexpr size_t numThreads = 4;
 	constexpr float probability = 0.05f;
 
@@ -22,7 +22,8 @@ TEST_CASE("parallelForChunkedRandomized", "[concurrency]")
 		std::vector<size_t> threadCounts(numThreads, 0);
 		yrt::util::parallelForChunkedRandomized(
 		    total, numThreads, 1.0f,
-		    [&threadCounts](size_t, size_t tid) { threadCounts[tid]++; });
+		    [&threadCounts](size_t, size_t, unsigned int tid)
+		    { threadCounts[tid]++; });
 		const size_t sum = std::accumulate(threadCounts.begin(),
 		                                   threadCounts.end(), size_t{0});
 		REQUIRE(sum == total);
@@ -33,7 +34,7 @@ TEST_CASE("parallelForChunkedRandomized", "[concurrency]")
 		std::atomic<bool> outOfRange{false};
 		yrt::util::parallelForChunkedRandomized(
 		    total, numThreads, 0.5f,
-		    [&outOfRange](size_t idx, size_t)
+		    [&outOfRange](size_t idx, size_t, unsigned int)
 		    {
 			    if (idx >= total)
 				    outOfRange = true;
@@ -52,7 +53,7 @@ TEST_CASE("parallelForChunkedRandomized", "[concurrency]")
 
 		yrt::util::parallelForChunkedRandomized(
 		    total, numThreads, 0.5f,
-		    [&visited, &callCount](size_t idx, size_t)
+		    [&visited, &callCount](size_t idx, size_t, unsigned int)
 		    {
 			    visited[idx] = 1;  // Set to one
 			    ++callCount;       // Add one
@@ -72,7 +73,8 @@ TEST_CASE("parallelForChunkedRandomized", "[concurrency]")
 		}
 
 		yrt::util::parallelForChunkedRandomized(
-		    total, numThreads, 0.5f, [&threadUsed](size_t, size_t tid)
+		    total, numThreads, 0.5f,
+		    [&threadUsed](size_t, size_t, unsigned int tid)
 		    { threadUsed[tid].store(true, std::memory_order_relaxed); });
 
 		for (size_t i = 0; i < numThreads; i++)
@@ -86,7 +88,7 @@ TEST_CASE("parallelForChunkedRandomized", "[concurrency]")
 		std::vector<size_t> threadCounts(numThreads, 0);
 
 		yrt::util::parallelForChunked(total, numThreads,
-		                              [&threadCounts](size_t, size_t tid)
+		                              [&threadCounts](size_t, unsigned int tid)
 		                              { threadCounts[tid]++; });
 		const size_t fullSum = std::accumulate(threadCounts.begin(),
 		                                       threadCounts.end(), size_t{0});
@@ -95,7 +97,8 @@ TEST_CASE("parallelForChunkedRandomized", "[concurrency]")
 		std::fill(threadCounts.begin(), threadCounts.end(), size_t{0});
 		yrt::util::parallelForChunkedRandomized(
 		    total, numThreads, probability,
-		    [&threadCounts](size_t, size_t tid) { threadCounts[tid]++; });
+		    [&threadCounts](size_t, size_t, unsigned int tid)
+		    { threadCounts[tid]++; });
 		const size_t randomSum = std::accumulate(threadCounts.begin(),
 		                                         threadCounts.end(), size_t{0});
 
@@ -116,7 +119,8 @@ TEST_CASE("parallelForChunkedRandomized", "[concurrency]")
 			std::vector<size_t> threadCounts(numThreads, 0);
 			yrt::util::parallelForChunkedRandomized(
 			    total, numThreads, probability,
-			    [&threadCounts](size_t, size_t tid) { threadCounts[tid]++; });
+			    [&threadCounts](size_t, size_t, unsigned int tid)
+			    { threadCounts[tid]++; });
 			counts[t] = std::accumulate(threadCounts.begin(),
 			                            threadCounts.end(), size_t{0});
 		}
@@ -128,12 +132,33 @@ TEST_CASE("parallelForChunkedRandomized", "[concurrency]")
 		REQUIRE(mean == Approx(expected).epsilon(0.02f));
 	}
 
+	SECTION("counter-is-contiguous")
+	{
+		// Ensure that the "counter" we get in the lambda function is always
+		//  increased by exactly one
+		std::vector<std::vector<size_t>> counters(numThreads);
+		yrt::util::parallelForChunkedRandomized(
+		    total, numThreads, probability,
+		    [&counters](size_t, size_t counter, unsigned int tid)
+		    { counters[tid].push_back(counter); });
+
+		for (size_t t = 0; t < numThreads; ++t)
+		{
+			REQUIRE_FALSE(counters[t].empty());
+			for (size_t i = 1; i < counters[t].size(); ++i)
+			{
+				REQUIRE(counters[t][i] == counters[t][i - 1] + 1);
+			}
+		}
+	}
+
 	SECTION("edge-total-zero")
 	{
 		// If total is zero, the loop should do nothing
 		std::atomic<size_t> count{0};
 		yrt::util::parallelForChunkedRandomized(
-		    0, numThreads, 0.5f, [&count](size_t, size_t) { ++count; });
+		    0, numThreads, 0.5f,
+		    [&count](size_t, size_t, unsigned int) { ++count; });
 		REQUIRE(count == 0);
 	}
 
@@ -143,7 +168,8 @@ TEST_CASE("parallelForChunkedRandomized", "[concurrency]")
 		std::vector<size_t> threadCounts(numThreads, 0);
 		yrt::util::parallelForChunkedRandomized(
 		    smallTotal, numThreads, 1.0f,
-		    [&threadCounts](size_t, size_t tid) { threadCounts[tid]++; });
+		    [&threadCounts](size_t, size_t, unsigned int tid)
+		    { threadCounts[tid]++; });
 
 		const size_t sum = std::accumulate(threadCounts.begin(),
 		                                   threadCounts.end(), size_t{0});

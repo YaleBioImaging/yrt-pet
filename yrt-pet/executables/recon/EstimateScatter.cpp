@@ -245,7 +245,7 @@ int main(int argc, char** argv)
 		    prompts_fname, prompts_format, *scanner, config.getAllArguments());
 
 		std::cout << "Time taken to read prompts: " << timer.getElapsedSeconds()
-		          << "seconds" << std::endl;
+		          << " seconds" << std::endl;
 		timer.reset();
 
 		Histogram* randomsHis = nullptr;
@@ -265,7 +265,7 @@ int main(int argc, char** argv)
 			ASSERT(randomsHis != nullptr);
 
 			std::cout << "Time taken to read randoms histogram: "
-			          << timer.getElapsedSeconds() << "seconds" << std::endl;
+			          << timer.getElapsedSeconds() << " seconds" << std::endl;
 			timer.reset();
 		}
 		else if (prompts->hasRandomsEstimates())
@@ -287,7 +287,7 @@ int main(int argc, char** argv)
 			ASSERT(randomsHis != nullptr);
 
 			std::cout << "Time taken to generate randoms histogram: "
-			          << timer.getElapsedSeconds() << "seconds" << std::endl;
+			          << timer.getElapsedSeconds() << " seconds" << std::endl;
 			timer.reset();
 		}
 
@@ -307,7 +307,7 @@ int main(int argc, char** argv)
 			ASSERT(sensitivityHis != nullptr);
 
 			std::cout << "Time taken to read sensitivity histogram: "
-			          << timer.getElapsedSeconds() << "seconds" << std::endl;
+			          << timer.getElapsedSeconds() << " seconds" << std::endl;
 			timer.reset();
 		}
 
@@ -318,7 +318,7 @@ int main(int argc, char** argv)
 		auto sourceImage = std::make_unique<ImageOwned>(sourceImage_fname);
 
 		std::cout << "Time taken to read attenuation and source images: "
-		          << timer.getElapsedSeconds() << "seconds" << std::endl;
+		          << timer.getElapsedSeconds() << " seconds" << std::endl;
 		timer.reset();
 
 		scatter::ScatterEstimator scatterEstimator(

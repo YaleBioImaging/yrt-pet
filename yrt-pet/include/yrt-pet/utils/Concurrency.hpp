@@ -7,6 +7,7 @@
 
 #include <atomic>
 #include <functional>
+#include <random>
 #include <stdexcept>
 #include <thread>
 #include <vector>
@@ -39,22 +40,82 @@ void parallelDoIndexed(size_t numThreads, F f, Args... args)
 // Function given as a parameter has two arguments: The position in the for loop
 //  and the current thread's ID.
 template <typename Func>
+void parallelForChunkedRandomized(size_t total, size_t numThreads,
+                                  float probability, Func fn)
+{
+	using RNGSuite = std::tuple<std::random_device, std::mt19937_64,
+	                            std::geometric_distribution<size_t>>;
+	// One random device, generator, and distribution per thread.
+	std::vector<RNGSuite> rngs;
+	rngs.resize(numThreads);
+	for (size_t threadId = 0; threadId < numThreads; ++threadId)
+	{
+		auto& rng = rngs[threadId];
+		auto& rd = std::get<0>(rng);
+		std::get<1>(rng) = std::mt19937_64{rd()};
+		std::get<2>(rng) = std::geometric_distribution<size_t>{probability};
+	}
+
+	const size_t chunk = total / numThreads;
+	std::vector<std::thread> threads;
+	threads.reserve(numThreads);
+
+	for (unsigned threadId = 0; threadId < numThreads; ++threadId)
+	{
+		const size_t start = threadId * chunk;
+		const size_t end = (threadId + 1 == numThreads) ? total : start + chunk;
+		threads.emplace_back(
+		    [start, end, threadId, &rngs, &fn]()
+		    {
+			    auto& rng = rngs[threadId];
+			    auto& gen = std::get<1>(rng);
+			    auto& distribution = std::get<2>(rng);
+
+			    size_t idx = start;
+			    while (idx < end)
+			    {
+				    // Ask the generator how many elements to skip
+				    const size_t skip = distribution(gen);
+
+				    idx += skip;
+
+				    // Don't overshot the end of the data
+				    if (idx < end)
+				    {
+					    fn(idx, threadId);
+
+					    // Move to the next item after the selected one
+					    idx++;
+				    }
+			    }
+		    });
+	}
+
+	for (auto& th : threads)
+	{
+		th.join();
+	}
+}
+
+// Function given as a parameter has two arguments: The position in the for loop
+//  and the current thread's ID.
+template <typename Func>
 void parallelForChunked(size_t total, size_t numThreads, Func fn)
 {
 	const size_t chunk = total / numThreads;
 	std::vector<std::thread> threads;
 	threads.reserve(numThreads);
 
-	for (unsigned t = 0; t < numThreads; ++t)
+	for (unsigned threadId = 0; threadId < numThreads; ++threadId)
 	{
-		const size_t start = t * chunk;
-		const size_t end = (t + 1 == numThreads) ? total : start + chunk;
+		const size_t start = threadId * chunk;
+		const size_t end = (threadId + 1 == numThreads) ? total : start + chunk;
 		threads.emplace_back(
-		    [=, &fn]()
+		    [start, end, threadId, &fn]()
 		    {
 			    for (size_t i = start; i < end; ++i)
 			    {
-				    fn(i, t);
+				    fn(i, threadId);
 			    }
 		    });
 	}

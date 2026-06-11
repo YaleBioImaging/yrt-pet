@@ -43,6 +43,7 @@ set(SOURCES_ALGORITHMS
     recon/test_ApplyThreshold.cpp
     recon/test_TimeAverageMove.cpp
     recon/test_UpdateEM.cpp
+    utils/test_Concurrency.cpp
 )
 
 if (${USE_CUDA})

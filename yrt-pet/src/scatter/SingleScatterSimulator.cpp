@@ -181,19 +181,18 @@ void SingleScatterSimulator::runSSS(ScatterSpace& outScatterSpace,
 
 	if (onlyDirectPlanes)
 	{
-		const size_t numDirectSamples =
-		    numTOFBins * numPlanes * numAngles * numAngles;
-
 		const size_t numDirectPlanesTOF = numTOFBins * numPlanes;
 
 		util::ProgressDisplayMultiThread progressBar(numThreads,
-		                                             numDirectSamples, 5);
+		                                             numDirectPlanesTOF, 5);
 
 		util::parallelForChunked(
 		    numDirectPlanesTOF, numThreads,
 		    [&progressBar, &outScatterSpace, numPlanes, numAngles,
 		     this](size_t planeSampleIdx, size_t threadId)
 		    {
+				progressBar.incrementProgress(threadId);
+
 			    // Here, "planeSampleIdx" is a flat index encoding both the
 			    //  direct plane index and the TOF bin
 			    const size_t tofBin = planeSampleIdx / numPlanes;
@@ -203,8 +202,6 @@ void SingleScatterSimulator::runSSS(ScatterSpace& outScatterSpace,
 			    {
 				    for (size_t a2 = 0; a2 < numAngles; ++a2)
 				    {
-					    progressBar.incrementProgress(threadId, 1);
-
 					    const auto [tof_ps, lor] =
 					        outScatterSpace.getTOFAndLORFromIndex(
 					            {tofBin, planeIdx, a1, planeIdx, a2});
@@ -236,7 +233,7 @@ void SingleScatterSimulator::runSSS(ScatterSpace& outScatterSpace,
 		    [&progressBar, &outScatterSpace, this](size_t sampleId,
 		                                           size_t threadId)
 		    {
-			    progressBar.incrementProgress(threadId, 1);
+			    progressBar.incrementProgress(threadId);
 
 			    const ScatterSpace::ScatterSpaceIndex scsIdx =
 			        outScatterSpace.unravelIndex(sampleId);

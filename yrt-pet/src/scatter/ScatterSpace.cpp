@@ -476,17 +476,15 @@ Line3D ScatterSpace::lineFromCylindricalCoordinates(float planePosition1,
 	Line3D lor;
 
 	auto coordinatesToPoint =
-	    [this](Vector3D& point, float angle, float planePosition)
+	    [this](float angle, float planePosition, Vector3D& point)
 	{
-		{
-			point.x = std::cos(angle) * getRadius();
-			point.y = std::sin(angle) * getRadius();
-			point.z = planePosition;
-		}
+		point.x = std::cos(angle) * getRadius();
+		point.y = std::sin(angle) * getRadius();
+		point.z = planePosition;
 	};
 
-	coordinatesToPoint(lor.point1, angle1, planePosition1);
-	coordinatesToPoint(lor.point2, angle2, planePosition2);
+	coordinatesToPoint(angle1, planePosition1, lor.point1);
+	coordinatesToPoint(angle2, planePosition2, lor.point2);
 
 	return lor;
 }

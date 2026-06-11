@@ -523,10 +523,18 @@ void ScatterEstimator::computeSensitivityAndRandomsInScatterSpace()
 
 		if (useRandoms)
 		{
+			// Since we only took a given percentage of the possible LORs,
+			//  scale this amount by the inverse to get the proper scaling
+			mp_randoms_scs->scaleValues(1.0f / m_lorDownsamplingFactor);
+
 			mp_randoms_scs->symmetrizeIfNeeded();
 		}
 		if (useSensitivity)
 		{
+			// We scale sensitivity for the same reason as for the randoms
+			//  (read comment above).
+			mp_sensitivity_scs->scaleValues(1.0f / m_lorDownsamplingFactor);
+
 			mp_sensitivity_scs->symmetrizeIfNeeded();
 		}
 	}

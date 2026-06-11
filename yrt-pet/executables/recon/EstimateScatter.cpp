@@ -15,6 +15,7 @@
 #include "yrt-pet/utils/Assert.hpp"
 #include "yrt-pet/utils/Globals.hpp"
 #include "yrt-pet/utils/ReconstructionUtils.hpp"
+#include "yrt-pet/utils/Timer.hpp"
 #include "yrt-pet/utils/Tools.hpp"
 #include "yrt-pet/utils/Version.hpp"
 
@@ -235,15 +236,25 @@ int main(int argc, char** argv)
 		scatter::CrystalMaterial crystalMaterial =
 		    scatter::getCrystalMaterialFromName(crystalMaterial_name);
 
+		util::Timer timer;
+
+		timer.run();
 		std::cout << "Reading prompts..." << std::endl;
+
 		auto prompts = io::openProjectionData(
 		    prompts_fname, prompts_format, *scanner, config.getAllArguments());
+
+		std::cout << "Time taken to read prompts: " << timer.getElapsedSeconds()
+		          << "seconds" << std::endl;
+		timer.reset();
 
 		Histogram* randomsHis = nullptr;
 		std::unique_ptr<ProjectionData> randomsHisProjData = nullptr;
 		if (!randomsHis_fname.empty())
 		{
 			std::cout << "Reading randoms histogram..." << std::endl;
+			timer.run();
+
 			ASSERT_MSG(!io::isFormatListMode(randomsHis_format),
 			           "Randoms histogram format has to a histogram format");
 			randomsHisProjData =
@@ -252,11 +263,21 @@ int main(int argc, char** argv)
 
 			randomsHis = dynamic_cast<Histogram*>(randomsHisProjData.get());
 			ASSERT(randomsHis != nullptr);
+
+			std::cout << "Time taken to read randoms histogram: "
+			          << timer.getElapsedSeconds() << "seconds" << std::endl;
+			timer.reset();
 		}
 		else if (prompts->hasRandomsEstimates())
 		{
 			auto listMode = dynamic_cast<ListMode*>(prompts.get());
-			ASSERT(listMode != nullptr);
+			ASSERT_MSG(listMode != nullptr, "Randoms histogram generation can "
+			                                "only work with list-mode data.");
+
+			std::cout << "Generating randoms histogram using list-mode..."
+			          << std::endl;
+			timer.run();
+
 			randomsHisProjData = std::make_unique<RandomsHistogram>(
 			    *scanner.get(), listMode->getRandomsTimeWindow());
 			auto randomsHis_ptr =
@@ -264,6 +285,10 @@ int main(int argc, char** argv)
 			randomsHis_ptr->populateFromListMode(*listMode);
 			randomsHis = dynamic_cast<Histogram*>(randomsHisProjData.get());
 			ASSERT(randomsHis != nullptr);
+
+			std::cout << "Time taken to generate randoms histogram: "
+			          << timer.getElapsedSeconds() << "seconds" << std::endl;
+			timer.reset();
 		}
 
 		Histogram* sensitivityHis = nullptr;
@@ -271,6 +296,8 @@ int main(int argc, char** argv)
 		if (!sensitivityHis_fname.empty())
 		{
 			std::cout << "Reading sensitivity histogram..." << std::endl;
+			timer.run();
+
 			sensitivityHisProjData = io::openProjectionData(
 			    sensitivityHis_fname, sensitivityHis_format, *scanner,
 			    config.getAllArguments());
@@ -278,10 +305,21 @@ int main(int argc, char** argv)
 			sensitivityHis =
 			    dynamic_cast<Histogram*>(sensitivityHisProjData.get());
 			ASSERT(sensitivityHis != nullptr);
+
+			std::cout << "Time taken to read sensitivity histogram: "
+			          << timer.getElapsedSeconds() << "seconds" << std::endl;
+			timer.reset();
 		}
+
+		std::cout << "Reading attenuation and source image" << std::endl;
+		timer.run();
 
 		auto attImage = std::make_unique<ImageOwned>(attImage_fname);
 		auto sourceImage = std::make_unique<ImageOwned>(sourceImage_fname);
+
+		std::cout << "Time taken to read attenuation and source images: "
+		          << timer.getElapsedSeconds() << "seconds" << std::endl;
+		timer.reset();
 
 		scatter::ScatterEstimator scatterEstimator(
 		    *scanner, *sourceImage, *attImage, *prompts, numTOFBins, numPlanes,

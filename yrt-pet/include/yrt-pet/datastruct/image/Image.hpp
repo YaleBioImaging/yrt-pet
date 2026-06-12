@@ -28,7 +28,7 @@ public:
 	float* getRawPointer();
 	const float* getRawPointer() const;
 	bool isMemoryValid() const;
-	int getNumFrames() const;
+	ssize_t getNumFrames() const;
 
 	void copyFromImage(const ImageBase* imSrc) override;
 	void multWithScalar(float scalar);
@@ -64,33 +64,33 @@ public:
 	    transformImage(const Vector3D& rotation,
 	                   const Vector3D& translation) const;
 	void transformImage(const transform_t& t, Image& dest, float weight,
-	                    int destDynamicFrame = 0) const;
+	                    frame_t destDynamicFrame = 0) const;
 	std::unique_ptr<ImageOwned> transformImage(const transform_t& t) const;
-	void resampleImage(const ImageParams& imageRef, Image& dest) const;
+	void resampleImage(const ImageParams& paramsRef, Image& dest) const;
 	std::unique_ptr<ImageOwned> resampleImage(const Image& imageRef) const;
 	std::unique_ptr<ImageOwned>
-	    resampleImage(const ImageParams& imageRef) const;
+	    resampleImage(const ImageParams& paramsRef) const;
 
 	float dotProduct(const Image& y) const;
-	float nearestNeighbor(const Vector3D& pt, int frame = 0) const;
-	float nearestNeighbor(const Vector3D& pt, int* pi, int* pj, int* pk,
-	                      int frame = 0) const;
+	float nearestNeighbor(const Vector3D& pt, frame_t frame = 0) const;
+	float nearestNeighbor(const Vector3D& pt, ssize_t* pi, ssize_t* pj, ssize_t* pk,
+	                      frame_t frame = 0) const;
 	template <bool MULT_FLAG>
 	void updateImageNearestNeighbor(const Vector3D& pt, float value,
-	                                int frame = 0);
+	                                frame_t frame = 0);
 	void assignImageNearestNeighbor(const Vector3D& pt, float value,
-	                                int frame = 0);
-	bool getNearestNeighborIdx(const Vector3D& pt, int* pi, int* pj, int* pk,
-	                           int frame = 0) const;
+	                                frame_t frame = 0);
+	bool getNearestNeighborIdx(const Vector3D& pt, ssize_t* pi, ssize_t* pj, ssize_t* pk,
+	                           frame_t frame = 0) const;
 
-	float interpolateImage(const Vector3D& pt, int frame = 0) const;
+	float interpolateImage(const Vector3D& pt, frame_t frame = 0) const;
 	float interpolateImage(const Vector3D& pt, const Image& sens,
-	                       int frame = 0) const;
+	                       frame_t frame = 0) const;
 	template <bool MULT_FLAG>
 	void updateImageInterpolate(const Vector3D& point, float value,
-	                            int frame = 0);
+	                            frame_t frame = 0);
 	void assignImageInterpolate(const Vector3D& point, float value,
-	                            int frame = 0);
+	                            frame_t frame = 0);
 
 	void operationOnEachVoxel(const std::function<float(size_t)>& func);
 
@@ -107,7 +107,7 @@ protected:
 private:
 	// Helper
 	template <int OPERATION>  // operations 0: assign, 1: multiply, 2: add
-	void operationImageInterpolate(const Vector3D& pt, float value, int frame);
+	void operationImageInterpolate(const Vector3D& pt, float value, frame_t frame);
 
 	void updateEMThresholdDynamicWith4DSens(Image* updateImg,
 	                                        const Image* sensImg,

@@ -22,8 +22,8 @@ void checkTwoImages(const Image& img1, const Image& img2)
 
 	const float* i1_ptr = img1.getRawPointer();
 	const float* i2_ptr = img2.getRawPointer();
-	const int numVoxels = params1.nx * params1.ny * params1.nz;
-	for (int i = 0; i < numVoxels; i++)
+	const ssize_t numVoxels = params1.nt * params1.nx * params1.ny * params1.nz;
+	for (ssize_t i = 0; i < numVoxels; i++)
 	{
 		CHECK(i1_ptr[i] == Approx(i2_ptr[i]));
 	}
@@ -43,9 +43,9 @@ TEST_CASE("imageparams-fromParams", "[image]")
 
 	for (int trial = 0; trial < NumTrials; trial++)
 	{
-		const int nx = numVoxelsDistribution(engine);
-		const int ny = numVoxelsDistribution(engine);
-		const int nz = numVoxelsDistribution(engine);
+		const ssize_t nx = numVoxelsDistribution(engine);
+		const ssize_t ny = numVoxelsDistribution(engine);
+		const ssize_t nz = numVoxelsDistribution(engine);
 		const float vx = voxelSizeDistribution(engine);
 		const float vy = voxelSizeDistribution(engine);
 		const float vz = voxelSizeDistribution(engine);
@@ -74,7 +74,7 @@ TEST_CASE("image-readwrite", "[image]")
 	std::default_random_engine engine(
 	    static_cast<unsigned int>(std::time(nullptr)));
 
-	std::uniform_int_distribution<int> imageSizeDistribution(25, 75);
+	std::uniform_int_distribution<size_t> imageSizeDistribution(25, 75);
 	std::uniform_real_distribution<float> imageLengthDistribution(25.0f, 75.0f);
 	std::uniform_real_distribution<float> imageDataDistribution(0.0f, 1.0f);
 	std::uniform_real_distribution<float> imageOffsetDistribution(-10.0f,
@@ -84,9 +84,9 @@ TEST_CASE("image-readwrite", "[image]")
 	std::string tmpCompressedImage_fname = "tmp.nii.gz";
 	std::string tmpParams_fname = "tmp_params.json";
 
-	int nx = imageSizeDistribution(engine);
-	int ny = imageSizeDistribution(engine);
-	int nz = imageSizeDistribution(engine);
+	ssize_t nx = imageSizeDistribution(engine);
+	ssize_t ny = imageSizeDistribution(engine);
+	ssize_t nz = imageSizeDistribution(engine);
 	float length_x = imageLengthDistribution(engine);
 	float length_y = imageLengthDistribution(engine);
 	float length_z = imageLengthDistribution(engine);
@@ -101,9 +101,9 @@ TEST_CASE("image-readwrite", "[image]")
 
 	// Fill the image with random values
 	float* imgData_ptr = img1.getRawPointer();
-	int numVoxels = nx * ny * nz;
+	ssize_t numVoxels = nx * ny * nz;
 	double sum = 0.0;
-	for (int i = 0; i < numVoxels; i++)
+	for (ssize_t i = 0; i < numVoxels; i++)
 	{
 		imgData_ptr[i] = imageDataDistribution(engine);
 		sum += imgData_ptr[i];

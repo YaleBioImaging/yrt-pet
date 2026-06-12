@@ -151,8 +151,8 @@ bool checkImageAllPositive(const Image& img)
 	const ImageParams& params = img.getParams();
 
 	const float* i_ptr = img.getRawPointer();
-	const int numVoxels = params.nx * params.ny * params.nz * params.nt;
-	for (int i = 0; i < numVoxels; i++)
+	const ssize_t numVoxels = params.nx * params.ny * params.nz * params.nt;
+	for (ssize_t i = 0; i < numVoxels; i++)
 	{
 		if (i_ptr[i] < 0)
 		{
@@ -193,6 +193,7 @@ std::unique_ptr<ImageOwned>
 	bool mustTryAgain = false;
 
 	int prismBeginX, prismBeginY, prismBeginZ, prismEndX, prismEndY, prismEndZ;
+	const ssize_t nt = params.nt;
 
 	do
 	{
@@ -230,7 +231,7 @@ std::unique_ptr<ImageOwned>
 		{
 			for (int i_z = prismBeginZ; i_z < prismEndZ; i_z++)
 			{
-				for (frame_t t = 0; t < params.nt; t++)
+				for (frame_t t = 0; t < nt; t++)
 				{
 					const float value = prismValueDistribution(*usedEngine);
 					const size_t flatIdx = image->unravel(i_z, i_y, i_x, t);

@@ -181,18 +181,18 @@ __device__ void
 		float inv_p12_x = flat_x ? 0.0f : 1.0f / (p2.x - p1.x);
 		float inv_p12_y = flat_y ? 0.0f : 1.0f / (p2.y - p1.y);
 		float inv_p12_z = flat_z ? 0.0f : 1.0f / (p2.z - p1.z);
-		int dir_x = (inv_p12_x >= 0.0) ? 1 : -1;
-		int dir_y = (inv_p12_y >= 0.0) ? 1 : -1;
-		int dir_z = (inv_p12_z >= 0.0) ? 1 : -1;
+		ssize_t dir_x = (inv_p12_x >= 0.0) ? 1 : -1;
+		ssize_t dir_y = (inv_p12_y >= 0.0) ? 1 : -1;
+		ssize_t dir_z = (inv_p12_z >= 0.0) ? 1 : -1;
 
 		// 2. Intersection with volume
-		const int nx = imgParams.nx;
-		const int ny = imgParams.ny;
-		const int nz = imgParams.nz;
+		const ssize_t nx = imgParams.nx;
+		const ssize_t ny = imgParams.ny;
+		const ssize_t nz = imgParams.nz;
 		const float imgLength_x = imgParams.length_x;
 		const float imgLength_y = imgParams.length_y;
 		const float imgLength_z = imgParams.length_z;
-		const int num_xy = nx * ny;
+		const ssize_t num_xy = nx * ny;
 		const float dx = imgParams.vx;
 		const float dy = imgParams.vy;
 		const float dz = imgParams.vz;
@@ -240,33 +240,33 @@ __device__ void
 		float ax_next = flat_x ? FLT_MAX : ax_min;
 		if (!flat_x)
 		{
-			int kx =
-			    (int)ceil(dir_x * (a_cur * (p2.x - p1.x) - x_cur + p1.x) / dx);
+			ssize_t kx =
+			    ceil(dir_x * (a_cur * (p2.x - p1.x) - x_cur + p1.x) / dx);
 			x_cur += kx * dir_x * dx;
 			ax_next = (x_cur - p1.x) * inv_p12_x;
 		}
 		float ay_next = flat_y ? FLT_MAX : ay_min;
 		if (!flat_y)
 		{
-			int ky =
-			    (int)ceil(dir_y * (a_cur * (p2.y - p1.y) - y_cur + p1.y) / dy);
+			ssize_t ky =
+			    ceil(dir_y * (a_cur * (p2.y - p1.y) - y_cur + p1.y) / dy);
 			y_cur += ky * dir_y * dy;
 			ay_next = (y_cur - p1.y) * inv_p12_y;
 		}
 		float az_next = flat_z ? FLT_MAX : az_min;
 		if (!flat_z)
 		{
-			int kz =
-			    (int)ceil(dir_z * (a_cur * (p2.z - p1.z) - z_cur + p1.z) / dz);
+			ssize_t kz =
+			    ceil(dir_z * (a_cur * (p2.z - p1.z) - z_cur + p1.z) / dz);
 			z_cur += kz * dir_z * dz;
 			az_next = (z_cur - p1.z) * inv_p12_z;
 		}
 		// Pixel location (move pixel to pixel instead of calculating
 		// position for each intersection)
 		bool flag_first = true;
-		int vx = -1;
-		int vy = -1;
-		int vz = -1;
+		ssize_t vx = -1;
+		ssize_t vy = -1;
+		ssize_t vz = -1;
 		// The dir variables operate as binary bit-flags to determine in
 		// which direction the current pixel should move: format 0bzyx
 		// (where z, y and x are bits set to 1 when the pixel should move in
@@ -278,7 +278,7 @@ __device__ void
 		// Prepare data pointer (this assumes that the data is stored as a
 		// contiguous array)
 		float* raw_img_ptr = pd_image;
-		size_t offset_img = 0;
+		ssize_t offset_img = 0;
 
 		float ax_next_prev = ax_next;
 		float ay_next_prev = ay_next;
@@ -333,12 +333,12 @@ __device__ void
 			}
 			if (!IsIncremental || flag_first)
 			{
-				vx = (int)((p1.x + a_mid * (p2.x - p1.x) + imgLength_x / 2) *
-				           inv_dx);
-				vy = (int)((p1.y + a_mid * (p2.y - p1.y) + imgLength_y / 2) *
-				           inv_dy);
-				vz = (int)((p1.z + a_mid * (p2.z - p1.z) + imgLength_z / 2) *
-				           inv_dz);
+				vx = static_cast<ssize_t>(
+				    (p1.x + a_mid * (p2.x - p1.x) + imgLength_x / 2) * inv_dx);
+				vy = static_cast<ssize_t>(
+				    (p1.y + a_mid * (p2.y - p1.y) + imgLength_y / 2) * inv_dy);
+				vz = static_cast<ssize_t>(
+				    (p1.z + a_mid * (p2.z - p1.z) + imgLength_z / 2) * inv_dz);
 				offset_img = vz * num_xy + vy * nx;
 				flag_first = false;
 				if (vx < 0 || vx >= nx || vy < 0 || vy >= ny || vz < 0 ||
@@ -388,8 +388,8 @@ __device__ void
 			}
 			dir_prev = dir_next;
 			float weight = (a_next - a_cur) * d_norm;
-			const size_t numVoxelsPerFrame = nx * ny * nz;
-			const size_t imageOffset = vx + offset_img;
+			const ssize_t numVoxelsPerFrame = nx * ny * nz;
+			const ssize_t imageOffset = vx + offset_img;
 			if constexpr (HasTOF)
 			{
 				weight *= tof_weight;

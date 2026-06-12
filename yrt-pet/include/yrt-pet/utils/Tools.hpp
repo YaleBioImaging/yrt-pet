@@ -29,8 +29,10 @@ template <typename T>
 void conv3D(const Array3DBase<T>& image, const Array3DBase<T>& kernel,
             Array3DBase<T>& newImage);
 
-int reflect(int M, int x);
-int circular(int M, int x);
+template <typename IntType>
+IntType reflect(IntType M, IntType x);
+template <typename IntType>
+IntType circular(IntType M, IntType x);
 
 template <typename T>
 void conv3D_separable(const Array3DBase<T>& src, const Array1DBase<T>& kernelX,

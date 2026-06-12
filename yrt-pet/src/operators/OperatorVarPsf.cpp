@@ -241,9 +241,9 @@ void OperatorVarPsf::varconvolve(const Image* in, Image* out) const
 	ASSERT_MSG(m_kernelLUT.size() > 0, "LUT not defined");
 	const float* inPtr = in->getRawPointer();
 	float* outPtr = out->getRawPointer();
-	const int nx = params.nx;
-	const int ny = params.ny;
-	const int nz = params.nz;
+	const ssize_t nx = params.nx;
+	const ssize_t ny = params.ny;
+	const ssize_t nz = params.nz;
 	const float vx = params.vx;
 	const float vy = params.vy;
 	const float vz = params.vz;
@@ -256,33 +256,33 @@ void OperatorVarPsf::varconvolve(const Image* in, Image* out) const
 	    [nx, ny, nz, vx, vy, vz, x_center, y_center, z_center, inPtr, outPtr,
 	     this](size_t pp, size_t /*tid*/)
 	    {
-		    int i = pp % nx;
-		    int j = (pp / nx) % ny;
-		    int k = pp / (nx * ny);
-		    float temp_x = std::abs((i + 0.5) * vx - x_center);
-		    float temp_y = std::abs((j + 0.5) * vy - y_center);
-		    float temp_z = std::abs((k + 0.5) * vz - z_center);
+		    const ssize_t k = pp / (nx * ny);
+		    const ssize_t i = pp % nx;
+		    const ssize_t j = (pp / nx) % ny;
+		    const float temp_x = std::abs((i + 0.5) * vx - x_center);
+		    const float temp_y = std::abs((j + 0.5) * vy - y_center);
+		    const float temp_z = std::abs((k + 0.5) * vz - z_center);
 		    auto& kernel = findNearestKernel(temp_x, temp_y, temp_z);
 
-		    int kernel_size_x = kernel.getHalfSizeX();
-		    int kernel_size_y = kernel.getHalfSizeY();
-		    int kernel_size_z = kernel.getHalfSizeZ();
+		    const ssize_t kernelSize_x = kernel.getHalfSizeX();
+		    const ssize_t kernelSize_y = kernel.getHalfSizeY();
+		    const ssize_t kernelSize_z = kernel.getHalfSizeZ();
 
 		    auto& psf_kernel = kernel.getArray();
-		    int idx = 0;
-		    float temp1 = inPtr[IDX3(i, j, k, nx, ny)];
+		    ssize_t idx = 0;
+		    const float temp1 = inPtr[IDX3(i, j, k, nx, ny)];
 
-		    for (int z_diff = -kernel_size_z; z_diff <= kernel_size_z; ++z_diff)
+		    for (ssize_t z_diff = -kernelSize_z; z_diff <= kernelSize_z; ++z_diff)
 		    {
-			    for (int y_diff = -kernel_size_y; y_diff <= kernel_size_y;
+			    for (ssize_t y_diff = -kernelSize_y; y_diff <= kernelSize_y;
 			         ++y_diff)
 			    {
-				    for (int x_diff = -kernel_size_x; x_diff <= kernel_size_x;
+				    for (ssize_t x_diff = -kernelSize_x; x_diff <= kernelSize_x;
 				         ++x_diff, ++idx)
 				    {
-					    int ii = util::circular(nx, i + x_diff);
-					    int jj = util::circular(ny, j + y_diff);
-					    int kk = util::circular(nz, k + z_diff);
+					    const ssize_t ii = util::circular(nx, i + x_diff);
+					    const ssize_t jj = util::circular(ny, j + y_diff);
+					    const ssize_t kk = util::circular(nz, k + z_diff);
 
 					    if constexpr (IS_FWD)
 					    {

@@ -122,10 +122,9 @@ ProjectorSiddon::ProjectorSiddon(const ProjectorParams& pr_projParams)
 	{
 		const int numThreads = globals::getNumThreads();
 		mp_lineGen = std::make_unique<std::vector<MultiRayGenerator>>(
-		    numThreads,
-		    MultiRayGenerator{
-		      mr_scanner.crystalSize_z, mr_scanner.crystalSize_trans,
-		      mr_scanner.crystalDepth});
+		    numThreads, MultiRayGenerator{mr_scanner.crystalSize_z,
+		                                  mr_scanner.crystalSize_trans,
+		                                  mr_scanner.crystalDepth});
 	}
 	ASSERT_MSG_WARNING(
 	    mp_projPsfManager == nullptr,
@@ -525,9 +524,9 @@ void ProjectorSiddon::project_helper(Image* img, const Line3D& lor,
 	float inv_p12_x = flat_x ? 0.0f : 1.0f / (p2.x - p1.x);
 	float inv_p12_y = flat_y ? 0.0f : 1.0f / (p2.y - p1.y);
 	float inv_p12_z = flat_z ? 0.0f : 1.0f / (p2.z - p1.z);
-	int dir_x = (inv_p12_x >= 0.0f) ? 1 : -1;
-	int dir_y = (inv_p12_y >= 0.0f) ? 1 : -1;
-	int dir_z = (inv_p12_z >= 0.0f) ? 1 : -1;
+	ssize_t dir_x = (inv_p12_x >= 0.0f) ? 1 : -1;
+	ssize_t dir_y = (inv_p12_y >= 0.0f) ? 1 : -1;
+	ssize_t dir_z = (inv_p12_z >= 0.0f) ? 1 : -1;
 
 	// 2. Intersection with volume
 	float dx = params.vx;
@@ -575,30 +574,30 @@ void ProjectorSiddon::project_helper(Image* img, const Line3D& lor,
 	float ax_next = flat_x ? std::numeric_limits<float>::max() : ax_min;
 	if (!flat_x)
 	{
-		int kx = (int)ceil(dir_x * (a_cur * (p2.x - p1.x) - x_cur + p1.x) / dx);
+		ssize_t kx = ceil(dir_x * (a_cur * (p2.x - p1.x) - x_cur + p1.x) / dx);
 		x_cur += kx * dir_x * dx;
 		ax_next = (x_cur - p1.x) * inv_p12_x;
 	}
 	float ay_next = flat_y ? std::numeric_limits<float>::max() : ay_min;
 	if (!flat_y)
 	{
-		int ky = (int)ceil(dir_y * (a_cur * (p2.y - p1.y) - y_cur + p1.y) / dy);
+		ssize_t ky = ceil(dir_y * (a_cur * (p2.y - p1.y) - y_cur + p1.y) / dy);
 		y_cur += ky * dir_y * dy;
 		ay_next = (y_cur - p1.y) * inv_p12_y;
 	}
 	float az_next = flat_z ? std::numeric_limits<float>::max() : az_min;
 	if (!flat_z)
 	{
-		int kz = (int)ceil(dir_z * (a_cur * (p2.z - p1.z) - z_cur + p1.z) / dz);
+		ssize_t kz = ceil(dir_z * (a_cur * (p2.z - p1.z) - z_cur + p1.z) / dz);
 		z_cur += kz * dir_z * dz;
 		az_next = (z_cur - p1.z) * inv_p12_z;
 	}
 	// Pixel location (move pixel to pixel instead of calculating position for
 	// each intersection)
 	bool flag_first = true;
-	int vx = -1;
-	int vy = -1;
-	int vz = -1;
+	ssize_t vx = -1;
+	ssize_t vy = -1;
+	ssize_t vz = -1;
 	// The dir variables operate as binary bit-flags to determine in which
 	// direction the current pixel should move: format 0bzyx (where z, y and x
 	// are bits set to 1 when the pixel should move in the corresponding
@@ -610,9 +609,11 @@ void ProjectorSiddon::project_helper(Image* img, const Line3D& lor,
 	// contiguous array)
 	float* raw_img_ptr = img->getRawPointer();
 	// float* cur_img_ptr = nullptr;
-	size_t offset_img_ptr = 0;
-	int num_x = params.nx;
-	int num_xy = params.nx * params.ny;
+	ssize_t offset_img_ptr = 0;
+	ssize_t nx = params.nx;
+	ssize_t ny = params.ny;
+	ssize_t nz = params.nz;
+	ssize_t num_xy = nx * ny;
 
 	float ax_next_prev = ax_next;
 	float ay_next_prev = ay_next;
@@ -667,16 +668,15 @@ void ProjectorSiddon::project_helper(Image* img, const Line3D& lor,
 		}
 		if (!FLAG_INCR || flag_first)
 		{
-			vx = (int)((p1.x + a_mid * (p2.x - p1.x) + params.length_x / 2.0f) *
-			           inv_dx);
-			vy = (int)((p1.y + a_mid * (p2.y - p1.y) + params.length_y / 2.0f) *
-			           inv_dy);
-			vz = (int)((p1.z + a_mid * (p2.z - p1.z) + params.length_z / 2.0f) *
-			           inv_dz);
-			offset_img_ptr = vz * num_xy + vy * num_x;
+			vx = (p1.x + a_mid * (p2.x - p1.x) + params.length_x / 2.0f) *
+			     inv_dx;
+			vy = (p1.y + a_mid * (p2.y - p1.y) + params.length_y / 2.0f) *
+			     inv_dy;
+			vz = (p1.z + a_mid * (p2.z - p1.z) + params.length_z / 2.0f) *
+			     inv_dz;
+			offset_img_ptr = vz * num_xy + vy * nx;
 			flag_first = false;
-			if (vx < 0 || vx >= params.nx || vy < 0 || vy >= params.ny ||
-			    vz < 0 || vz >= params.nz)
+			if (vx < 0 || vx >= nx || vy < 0 || vy >= ny || vz < 0 || vz >= nz)
 			{
 				flag_done = true;
 			}
@@ -686,7 +686,7 @@ void ProjectorSiddon::project_helper(Image* img, const Line3D& lor,
 			if (dir_prev & SIDDON_DIR::DIR_X)
 			{
 				vx += dir_x;
-				if (vx < 0 || vx >= params.nx)
+				if (vx < 0 || vx >= nx)
 				{
 					flag_done = true;
 				}
@@ -700,7 +700,7 @@ void ProjectorSiddon::project_helper(Image* img, const Line3D& lor,
 				}
 				else
 				{
-					offset_img_ptr += dir_y * num_x;
+					offset_img_ptr += dir_y * nx;
 				}
 			}
 			if (dir_prev & SIDDON_DIR::DIR_Z)
@@ -722,8 +722,8 @@ void ProjectorSiddon::project_helper(Image* img, const Line3D& lor,
 		}
 		dir_prev = dir_next;
 		float weight = (a_next - a_cur) * d_norm;
-		const size_t numVoxelsPerFrame = params.nx * params.ny * params.nz;
-		const size_t imageOffset = vx + offset_img_ptr;
+		const ssize_t numVoxelsPerFrame = params.nx * params.ny * params.nz;
+		const ssize_t imageOffset = vx + offset_img_ptr;
 		if (FLAG_TOF)
 		{
 			weight *= tof_weight;
@@ -768,28 +768,28 @@ void ProjectorSiddon::project_helper(Image* img, const Line3D& lor,
 
 // Explicit instantiation of slow version used in tests
 template void ProjectorSiddon::project_helper<true, false, true, false>(
-    Image* img, const Line3D&, float&, ProjectorUpdater*, int, int,
+    Image* img, const Line3D&, float&, ProjectorUpdater*, frame_t, int,
     const TimeOfFlightHelper*, float);
 template void ProjectorSiddon::project_helper<false, false, true, false>(
-    Image* img, const Line3D&, float&, ProjectorUpdater*, int, int,
+    Image* img, const Line3D&, float&, ProjectorUpdater*, frame_t, int,
     const TimeOfFlightHelper*, float);
 template void ProjectorSiddon::project_helper<true, false, false, false>(
-    Image* img, const Line3D&, float&, ProjectorUpdater*, int, int,
+    Image* img, const Line3D&, float&, ProjectorUpdater*, frame_t, int,
     const TimeOfFlightHelper*, float);
 template void ProjectorSiddon::project_helper<false, false, false, false>(
-    Image* img, const Line3D&, float&, ProjectorUpdater*, int, int,
+    Image* img, const Line3D&, float&, ProjectorUpdater*, frame_t, int,
     const TimeOfFlightHelper*, float);
 template void ProjectorSiddon::project_helper<true, false, true, true>(
-    Image* img, const Line3D&, float&, ProjectorUpdater*, int, int,
+    Image* img, const Line3D&, float&, ProjectorUpdater*, frame_t, int,
     const TimeOfFlightHelper*, float);
 template void ProjectorSiddon::project_helper<false, false, true, true>(
-    Image* img, const Line3D&, float&, ProjectorUpdater*, int, int,
+    Image* img, const Line3D&, float&, ProjectorUpdater*, frame_t, int,
     const TimeOfFlightHelper*, float);
 template void ProjectorSiddon::project_helper<true, false, false, true>(
-    Image* img, const Line3D&, float&, ProjectorUpdater*, int, int,
+    Image* img, const Line3D&, float&, ProjectorUpdater*, frame_t, int,
     const TimeOfFlightHelper*, float);
 template void ProjectorSiddon::project_helper<false, false, false, true>(
-    Image* img, const Line3D&, float&, ProjectorUpdater*, int, int,
+    Image* img, const Line3D&, float&, ProjectorUpdater*, frame_t, int,
     const TimeOfFlightHelper*, float);
 
 }  // namespace yrt

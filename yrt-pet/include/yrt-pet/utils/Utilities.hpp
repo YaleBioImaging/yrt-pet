@@ -73,7 +73,7 @@ void setBits(T& pCode, unsigned int pInsertionMSBLimit,
 }
 
 template <typename TSrc, typename TDst>
-TDst reinterpretAndCast(void* src, int offset = 0)
+TDst reinterpretAndCast(void* src, ssize_t offset = 0l)
 {
 	return static_cast<TDst>(*(reinterpret_cast<TSrc*>(src) + offset));
 }

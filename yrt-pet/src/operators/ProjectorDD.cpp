@@ -146,8 +146,8 @@ void ProjectorDD::backProjection(Image* image,
 	if (dynamicFrame >= 0)
 	{
 		backProjection(image, lor, detOrient.d1, detOrient.d2, projValue, pos,
-					   dynamicFrame, mp_tofHelper.get(), tofValue,
-					   mp_projPsfManager.get());
+		               dynamicFrame, mp_tofHelper.get(), tofValue,
+		               mp_projPsfManager.get());
 	}
 }
 
@@ -296,7 +296,7 @@ void ProjectorDD::dd_project_ref(Image* in_image, const Line3D& lor,
 	}
 	// Pixel limits (ignore detector width)
 	float* raw_img_ptr = in_image->getRawPointer();
-	const int num_xy = params.nx * params.ny;
+	const ssize_t num_xy = params.nx * params.ny;
 	const size_t numVoxelsPerFrame = params.nx * params.ny * params.nz;
 	const float dx = params.vx;
 	const float dy = params.vy;
@@ -330,10 +330,10 @@ void ProjectorDD::dd_project_ref(Image* in_image, const Line3D& lor,
 	const float y_0 = d1.y + amin * (d2.y - d1.y);
 	const float x_1 = d1.x + amax * (d2.x - d1.x);
 	const float y_1 = d1.y + amax * (d2.y - d1.y);
-	const int x_i_0 = std::floor(x_0 / dx + 0.5f * (params.nx - 1) + 0.5f);
-	const int y_i_0 = std::floor(y_0 / dy + 0.5f * (params.ny - 1) + 0.5f);
-	const int x_i_1 = std::floor(x_1 / dx + 0.5f * (params.nx - 1) + 0.5f);
-	const int y_i_1 = std::floor(y_1 / dy + 0.5f * (params.ny - 1) + 0.5f);
+	const ssize_t x_i_0 = std::floor(x_0 / dx + 0.5f * (params.nx - 1) + 0.5f);
+	const ssize_t y_i_0 = std::floor(y_0 / dy + 0.5f * (params.ny - 1) + 0.5f);
+	const ssize_t x_i_1 = std::floor(x_1 / dx + 0.5f * (params.nx - 1) + 0.5f);
+	const ssize_t y_i_1 = std::floor(y_1 / dy + 0.5f * (params.ny - 1) + 0.5f);
 
 	float d1_i, d2_i, n1_i, n2_i;
 	if (flag_y)
@@ -393,15 +393,15 @@ void ProjectorDD::dd_project_ref(Image* in_image, const Line3D& lor,
 	const float d2_z_hi_i = d2_i + half_thickness_z * n2_p_i;
 	const float d2_z_hi_z = d2.z + half_thickness_z * n2_p_z;
 
-	float xy_i_0, xy_i_1;
+	ssize_t xy_i_0, xy_i_1;
 	float lxy, lyx, dxy, dyx;
-	int nyx;
+	ssize_t nyx;
 	float d1_xy_lo, d1_xy_hi, d2_xy_lo, d2_xy_hi;
 	float d1_yx_lo, d1_yx_hi, d2_yx_lo, d2_yx_hi;
 	if (flag_y)
 	{
-		xy_i_0 = std::max(0, std::min(y_i_0, y_i_1));
-		xy_i_1 = std::min(params.ny - 1, std::max(y_i_0, y_i_1));
+		xy_i_0 = std::max(0l, std::min(y_i_0, y_i_1));
+		xy_i_1 = std::min(params.ny - 1l, std::max(y_i_0, y_i_1));
 		lxy = params.length_y;
 		dxy = params.vy;
 		lyx = params.length_x;
@@ -418,8 +418,8 @@ void ProjectorDD::dd_project_ref(Image* in_image, const Line3D& lor,
 	}
 	else
 	{
-		xy_i_0 = std::max(0, std::min(x_i_0, x_i_1));
-		xy_i_1 = std::min(params.nx - 1, std::max(x_i_0, x_i_1));
+		xy_i_0 = std::max(0l, std::min(x_i_0, x_i_1));
+		xy_i_1 = std::min(params.nx - 1l, std::max(x_i_0, x_i_1));
 		lxy = params.length_x;
 		dxy = params.vx;
 		lyx = params.length_y;
@@ -444,7 +444,7 @@ void ProjectorDD::dd_project_ref(Image* in_image, const Line3D& lor,
 		dxy_cos_theta = dxy;
 	}
 
-	for (int xyi = xy_i_0; xyi <= xy_i_1; xyi++)
+	for (ssize_t xyi = xy_i_0; xyi <= xy_i_1; xyi++)
 	{
 		const float pix_xy = -0.5f * lxy + (xyi + 0.5f) * dxy;
 		const float a_xy_lo = (pix_xy - d1_xy_lo) / (d2_xy_hi - d1_xy_lo);
@@ -465,13 +465,13 @@ void ProjectorDD::dd_project_ref(Image* in_image, const Line3D& lor,
 		dd_yx_r_1 += detFootprintExt;
 		const float dd_yx_i_offset = (nyx - 1) / 2.f;
 		const float inv_dyx = 1.0f / dyx;
-		const int dd_yx_i_0 = std::max(
-		    0,
-		    static_cast<int>(std::rintf(dd_yx_r_0 * inv_dyx + dd_yx_i_offset)));
-		const int dd_yx_i_1 = std::min(
-		    nyx - 1,
-		    static_cast<int>(std::rintf(dd_yx_r_1 * inv_dyx + dd_yx_i_offset)));
-		for (int yxi = dd_yx_i_0; yxi <= dd_yx_i_1; yxi++)
+		const ssize_t dd_yx_i_0 =
+		    std::max(0l, static_cast<ssize_t>(
+		                     std::rintf(dd_yx_r_0 * inv_dyx + dd_yx_i_offset)));
+		const ssize_t dd_yx_i_1 =
+		    std::min(nyx - 1, static_cast<ssize_t>(std::rintf(
+		                          dd_yx_r_1 * inv_dyx + dd_yx_i_offset)));
+		for (ssize_t yxi = dd_yx_i_0; yxi <= dd_yx_i_1; yxi++)
 		{
 			const float pix_yx = -0.5f * lyx + (yxi + 0.5f) * dyx;
 			float dd_z_r_0 = d1_z_lo_z + a_z_lo * (d2_z_lo_z - d1_z_lo_z);
@@ -492,13 +492,14 @@ void ProjectorDD::dd_project_ref(Image* in_image, const Line3D& lor,
 				const float weight_xy_s = weight_xy / widthFrac_yx;
 				const float dd_z_i_offset = (params.nz - 1) * 0.5f;
 				const float inv_dz = 1.0f / dz;
-				const int dd_z_i_0 =
-				    std::max(0, static_cast<int>(std::rintf(dd_z_r_0 * inv_dz +
-				                                            dd_z_i_offset)));
-				const int dd_z_i_1 = std::min(
-				    params.nz - 1, static_cast<int>(std::rintf(
-				                       dd_z_r_1 * inv_dz + dd_z_i_offset)));
-				for (int zi = dd_z_i_0; zi <= dd_z_i_1; zi++)
+				const ssize_t dd_z_i_0 =
+				    std::max(0l, static_cast<ssize_t>(std::rintf(
+				                     dd_z_r_0 * inv_dz + dd_z_i_offset)));
+				const ssize_t dd_z_i_1 =
+				    std::min(static_cast<ssize_t>(params.nz) - 1,
+				             static_cast<ssize_t>(std::rintf(dd_z_r_1 * inv_dz +
+				                                             dd_z_i_offset)));
+				for (ssize_t zi = dd_z_i_0; zi <= dd_z_i_1; zi++)
 				{
 					const float pix_z =
 					    -0.5f * params.length_z + (zi + 0.5f) * params.vz;

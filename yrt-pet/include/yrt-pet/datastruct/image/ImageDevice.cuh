@@ -94,7 +94,7 @@ protected:
 	                     const cudaStream_t* stream_ptr = nullptr);
 	void setDeviceParams(const ImageParams& params);
 
-	size_t m_imgSize;
+	ssize_t m_imgSize;
 	const cudaStream_t* mp_stream;
 
 private:

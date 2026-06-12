@@ -12,11 +12,10 @@
 namespace yrt::util
 {
 
-inline HOST_DEVICE_CALLABLE void
-    trilinearInterpolateCore(float pos_x, float pos_y, float pos_z, int nx,
-                             int ny, int nz, float origin_x, float origin_y,
-                             float origin_z, float inv_vx, float inv_vy,
-                             float inv_vz, int indices[8], float weights[8])
+inline HOST_DEVICE_CALLABLE void trilinearInterpolateCore(
+    float pos_x, float pos_y, float pos_z, ssize_t nx, ssize_t ny, ssize_t nz,
+    float origin_x, float origin_y, float origin_z, float inv_vx, float inv_vy,
+    float inv_vz, ssize_t indices[8], float weights[8])
 {
 
 	// Convert physical position to grid coordinates
@@ -71,10 +70,10 @@ inline HOST_DEVICE_CALLABLE void
 }
 
 inline HOST_DEVICE_CALLABLE void
-    trilinearInterpolate(float pos_x, float pos_y, float pos_z, int nx, int ny,
-                         int nz, float length_x, float length_y, float length_z,
-                         float off_x, float off_y, float off_z, int indices[8],
-                         float weights[8])
+    trilinearInterpolate(float pos_x, float pos_y, float pos_z, ssize_t nx,
+                         ssize_t ny, ssize_t nz, float length_x, float length_y,
+                         float length_z, float off_x, float off_y, float off_z,
+                         ssize_t indices[8], float weights[8])
 {
 	// Get voxel size
 	const float vx = length_x / nx;

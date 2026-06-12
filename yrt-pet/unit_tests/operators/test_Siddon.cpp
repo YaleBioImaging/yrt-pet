@@ -52,9 +52,9 @@ TEST_CASE("Siddon-simple", "[siddon]")
 	std::string rseed_str = "random_seed=" + std::to_string(random_seed);
 
 	// Setup image
-	int nx = 5;
-	int ny = 5;
-	int nz = 6;
+	ssize_t nx = 5;
+	ssize_t ny = 5;
+	ssize_t nz = 6;
 	float sx = 1.1;
 	float sy = 1.1;
 	float sz = 1.2;
@@ -349,9 +349,9 @@ TEST_CASE("Siddon-random", "[siddon]")
 	std::string rseed_str = "random_seed=" + std::to_string(random_seed);
 
 	// Setup image
-	size_t nx = 1 + (rand() % 30);
-	size_t ny = 1 + (rand() % 30);
-	size_t nz = 1 + (rand() % 20);
+	ssize_t nx = 1 + (rand() % 30);
+	ssize_t ny = 1 + (rand() % 30);
+	ssize_t nz = 1 + (rand() % 20);
 	double sx = 0.01 + (rand() / (double)RAND_MAX * 5.0);
 	double sy = 0.01 + (rand() / (double)RAND_MAX * 10.0);
 	double sz = 0.01 + (rand() / (double)RAND_MAX * 10.0);
@@ -364,13 +364,13 @@ TEST_CASE("Siddon-random", "[siddon]")
 	img->fill(1.0);
 	// Randomize image content
 	yrt::Array4DAlias<float> img_arr = img->getArray();
-	for (int f = 0; f < img->getNumFrames(); ++f)
+	for (ssize_t f = 0; f < img->getNumFrames(); ++f)
 	{
-		for (size_t k = 0; k < nz; k++)
+		for (ssize_t k = 0; k < nz; k++)
 		{
-			for (size_t j = 0; j < ny; j++)
+			for (ssize_t j = 0; j < ny; j++)
 			{
-				for (size_t i = 0; i < nx; i++)
+				for (ssize_t i = 0; i < nx; i++)
 				{
 					img_arr[f][k][j][i] =
 					    rand() / static_cast<float>(RAND_MAX) * 10.0f - 5.0f;
@@ -388,8 +388,8 @@ TEST_CASE("Siddon-random", "[siddon]")
 
 	SECTION("sampling_check")
 	{
-		int num_tests = 100;
-		for (int i = 0; i < num_tests; i++)
+		int numTests = 100;
+		for (int testIdx = 0; testIdx < numTests; testIdx++)
 		{
 			// Line of response
 			float x1 = rand() / static_cast<float>(RAND_MAX) * 2.0 * sx - sx;
@@ -441,13 +441,13 @@ TEST_CASE("Siddon-random", "[siddon]")
 			t2 = std::min(1.0, t2);
 			if ((p2 - p1).getNorm() > 0.0 && t1 < t2)
 			{
-				for (int f = 0; f < img->getNumFrames(); ++f)
+				for (ssize_t f = 0; f < img->getNumFrames(); ++f)
 				{
-					for (size_t k = 0; k < nz; k++)
+					for (ssize_t k = 0; k < nz; k++)
 					{
-						for (size_t j = 0; j < ny; j++)
+						for (ssize_t j = 0; j < ny; j++)
 						{
-							for (size_t i = 0; i < nx; i++)
+							for (ssize_t i = 0; i < nx; i++)
 							{
 								double x0 = -sx / 2 + i * dx;
 								double x1 = -sx / 2 + (i + 1) * dx;
@@ -478,7 +478,7 @@ TEST_CASE("Siddon-random", "[siddon]")
 					}
 				}
 			}
-			INFO(rseed_str + " i=" + std::to_string(i) +
+			INFO(rseed_str + " i=" + std::to_string(testIdx) +
 			     " p1=" + std::to_string(p1.x) + ", " + std::to_string(p1.y) +
 			     ", " + std::to_string(p1.z) + " p2=" + std::to_string(p2.x) +
 			     ", " + std::to_string(p2.y) + ", " + std::to_string(p2.z));
@@ -509,9 +509,9 @@ TEST_CASE("Siddon-bugs", "[siddon]")
 		// in pixel indices
 
 		// Setup image
-		size_t nx = 1;
-		size_t ny = 1;
-		size_t nz = 89;
+		ssize_t nx = 1;
+		ssize_t ny = 1;
+		ssize_t nz = 89;
 		double sx = 38.4;
 		double sy = 38.4;
 		double sz = 25;
@@ -552,14 +552,14 @@ TEST_CASE("Siddon-bugs", "[siddon]")
 		// numerical precision
 
 		// Setup image
-		size_t nx = 500;
-		size_t ny = 500;
-		size_t nz = 118;
+		ssize_t nx = 500;
+		ssize_t ny = 500;
+		ssize_t nz = 118;
 		double sx = 25.0;
 		double sy = 25.0;
 		double sz = 23.5;
-		yrt::ImageParams img_params(nx, ny, nz, sx, sy, sz);
-		auto img = std::make_unique<yrt::ImageOwned>(img_params);
+		yrt::ImageParams imgParams(nx, ny, nz, sx, sy, sz);
+		auto img = std::make_unique<yrt::ImageOwned>(imgParams);
 		img->allocate();
 		double v = rand() / (double)RAND_MAX * 1000.0;
 		img->fill(v);
@@ -567,14 +567,14 @@ TEST_CASE("Siddon-bugs", "[siddon]")
 		yrt::Vector3D p1{-15.998346, -11.563760, 10.800007};
 		yrt::Vector3D p2{19.74, 0.0, 13.200009};
 		yrt::Line3D lor{p1, p2};
-		double proj_val =
+		double projVal =
 		    yrt::ProjectorSiddon::singleForwardProjection(img.get(), lor);
-		REQUIRE(proj_val > 0.0f);
+		REQUIRE(projVal > 0.0f);
 
-		float proj_val_slow;
+		float projValSlow;
 		yrt::ProjectorSiddon::project_helper<true, false, false>(img.get(), lor,
-		                                                         proj_val_slow);
-		REQUIRE(proj_val == Approx(proj_val_slow));
+		                                                         projValSlow);
+		REQUIRE(projVal == Approx(projValSlow));
 	}
 
 	SECTION("check_bug_fast_multi_intersection")
@@ -583,24 +583,24 @@ TEST_CASE("Siddon-bugs", "[siddon]")
 		// response with more than one pixel edge
 
 		// Setup image
-		size_t nx = 4;
-		size_t ny = 4;
-		size_t nz = 4;
+		ssize_t nx = 4;
+		ssize_t ny = 4;
+		ssize_t nz = 4;
 		double sx = 4.0;
 		double sy = 4.0;
 		double sz = 4.0;
-		yrt::ImageParams img_params(nx, ny, nz, sx, sy, sz);
-		auto img = std::make_unique<yrt::ImageOwned>(img_params);
+		yrt::ImageParams imgParams(nx, ny, nz, sx, sy, sz);
+		auto img = std::make_unique<yrt::ImageOwned>(imgParams);
 		img->allocate();
 		// Randomize image content
 		yrt::Array4DAlias<float> img_arr = img->getArray();
-		for (int f = 0; f < img->getNumFrames(); ++f)
+		for (ssize_t f = 0; f < img->getNumFrames(); ++f)
 		{
-			for (size_t k = 0; k < nz; k++)
+			for (ssize_t k = 0; k < nz; k++)
 			{
-				for (size_t j = 0; j < ny; j++)
+				for (ssize_t j = 0; j < ny; j++)
 				{
-					for (size_t i = 0; i < nx; i++)
+					for (ssize_t i = 0; i < nx; i++)
 					{
 						img_arr[f][k][j][i] =
 						    rand() / (double)RAND_MAX * 10 - 5.0;
@@ -669,9 +669,9 @@ TEST_CASE("Siddon-oper", "[siddon]")
 	auto scanner =
 	    yrt::Scanner("test", 25.0, 5.0, 3.0, 10.0, 300.0, 256, 5, 1, 4, 2, 8);
 	// Setup image
-	size_t nx = 100;
-	size_t ny = 100;
-	size_t nz = 50;
+	ssize_t nx = 100;
+	ssize_t ny = 100;
+	ssize_t nz = 50;
 	double sx = 250.0;
 	double sy = 250.0;
 	double sz = 235.0;
@@ -680,13 +680,13 @@ TEST_CASE("Siddon-oper", "[siddon]")
 	img->allocate();
 	// Randomize image content
 	yrt::Array4DAlias<float> img_arr = img->getArray();
-	for (int f = 0; f < img->getNumFrames(); ++f)
+	for (ssize_t f = 0; f < img->getNumFrames(); ++f)
 	{
-		for (size_t k = 0; k < nz; k++)
+		for (ssize_t k = 0; k < nz; k++)
 		{
-			for (size_t j = 0; j < ny; j++)
+			for (ssize_t j = 0; j < ny; j++)
 			{
-				for (size_t i = 0; i < nx; i++)
+				for (ssize_t i = 0; i < nx; i++)
 				{
 					img_arr[f][k][j][i] =
 					    rand() / static_cast<float>(RAND_MAX) * 10.0f - 5.0f;

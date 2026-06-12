@@ -274,9 +274,9 @@ void OperatorVarPsfDevice::varconvolveDevice(const ImageDevice& inputImage,
 	const int* pd_kernelDims = mpd_kernelDims->getDevicePointer();
 	const int* pd_kernelHalf = mpd_kernelHalfSizes->getDevicePointer();
 
-	const int nx = inputImage.getParams().nx;
-	const int ny = inputImage.getParams().ny;
-	const int nz = inputImage.getParams().nz;
+	const ssize_t nx = inputImage.getParams().nx;
+	const ssize_t ny = inputImage.getParams().ny;
+	const ssize_t nz = inputImage.getParams().nz;
 	const float vx = inputImage.getParams().vx;
 	const float vy = inputImage.getParams().vy;
 	const float vz = inputImage.getParams().vz;

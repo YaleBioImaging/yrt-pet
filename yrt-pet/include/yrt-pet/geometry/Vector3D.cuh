@@ -3,4 +3,7 @@
  * file 'LICENSE.txt', which is part of this source code package.
  */
 
-#include "yrt-pet/geometry/Cylinder.hpp"
+#pragma once
+
+#include "yrt-pet/geometry/Vector3D.hpp"
+#include "yrt-pet/geometry/Vector3D_impl.inl"

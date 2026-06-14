@@ -5,7 +5,11 @@
 
 #pragma once
 
+#include "yrt-pet/utils/GPUUtils.cuh"
+
+#ifndef __CUDACC__
 #include <ostream>
+#endif
 
 namespace yrt
 {
@@ -14,33 +18,34 @@ template <typename TFloat>
 class Vector3DBase
 {
 public:
-	TFloat getNorm() const;
-	TFloat getNormSquared() const;
-	void update(TFloat xi, TFloat yi, TFloat zi);
-	void update(const Vector3DBase& v);
-	Vector3DBase& normalize();
-	Vector3DBase getNormalized();
-	bool isNormalized() const;
-	Vector3DBase operator-(const Vector3DBase& v) const;
-	Vector3DBase operator+(const Vector3DBase& v) const;
-	Vector3DBase& operator-=(const Vector3DBase& v);
-	Vector3DBase& operator+=(const Vector3DBase& v);
-	TFloat scalProd(const Vector3DBase& vector) const;
-	Vector3DBase crossProduct(const Vector3DBase& B) const;
-	void linearTransformation(const Vector3DBase& i, const Vector3DBase& j,
-	                          const Vector3DBase& k);
-	int argmax();
-	Vector3DBase operator*(const Vector3DBase& vector) const;
-	Vector3DBase operator+(TFloat scal) const;
-	Vector3DBase operator-(TFloat scal) const;
-	Vector3DBase operator*(TFloat scal) const;
-	Vector3DBase operator/(TFloat scal) const;
-	TFloat operator[](int idx) const;
-	TFloat operator[](int idx);
-	bool operator==(const Vector3DBase& vector) const;
+	HOST_DEVICE_CALLABLE TFloat getNorm() const;
+	HOST_DEVICE_CALLABLE TFloat getNormSquared() const;
+	HOST_DEVICE_CALLABLE void update(TFloat xi, TFloat yi, TFloat zi);
+	HOST_DEVICE_CALLABLE void update(const Vector3DBase& v);
+	HOST_DEVICE_CALLABLE Vector3DBase& normalize();
+	HOST_DEVICE_CALLABLE Vector3DBase getNormalized();
+	HOST_DEVICE_CALLABLE bool isNormalized() const;
+	HOST_DEVICE_CALLABLE Vector3DBase operator-(const Vector3DBase& v) const;
+	HOST_DEVICE_CALLABLE Vector3DBase operator+(const Vector3DBase& v) const;
+	HOST_DEVICE_CALLABLE Vector3DBase& operator-=(const Vector3DBase& v);
+	HOST_DEVICE_CALLABLE Vector3DBase& operator+=(const Vector3DBase& v);
+	HOST_DEVICE_CALLABLE TFloat scalProd(const Vector3DBase& vector) const;
+	HOST_DEVICE_CALLABLE Vector3DBase crossProduct(const Vector3DBase& B) const;
+	HOST_DEVICE_CALLABLE void linearTransformation(const Vector3DBase& i,
+	                                               const Vector3DBase& j,
+	                                               const Vector3DBase& k);
+	HOST_DEVICE_CALLABLE int argmax();
+	HOST_DEVICE_CALLABLE Vector3DBase operator*(const Vector3DBase& vector) const;
+	HOST_DEVICE_CALLABLE Vector3DBase operator+(TFloat scal) const;
+	HOST_DEVICE_CALLABLE Vector3DBase operator-(TFloat scal) const;
+	HOST_DEVICE_CALLABLE Vector3DBase operator*(TFloat scal) const;
+	HOST_DEVICE_CALLABLE Vector3DBase operator/(TFloat scal) const;
+	HOST_DEVICE_CALLABLE TFloat operator[](int idx) const;
+	HOST_DEVICE_CALLABLE TFloat operator[](int idx);
+	HOST_DEVICE_CALLABLE bool operator==(const Vector3DBase& vector) const;
 
 	template <typename TargetType>
-	Vector3DBase<TargetType> to() const;
+	HOST_DEVICE_CALLABLE Vector3DBase<TargetType> to() const;
 
 public:
 	TFloat x;
@@ -48,8 +53,10 @@ public:
 	TFloat z;
 };
 
+#ifndef __CUDACC__
 template <typename TFloat>
 std::ostream& operator<<(std::ostream& oss, const Vector3DBase<TFloat>& v);
+#endif
 
 using Vector3D = Vector3DBase<float>;
 

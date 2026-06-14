@@ -7,6 +7,7 @@
 
 #include "yrt-pet/datastruct/projection/ProjectionProperties.hpp"
 #include "yrt-pet/operators/OperatorProjectorDevice.cuh"
+#include "yrt-pet/recon/RawParameters.hpp"
 
 namespace yrt
 {
@@ -43,8 +44,8 @@ private:
 	    const PropertyUnit* pd_projProperties,
 	    const TimeOfFlightHelper* pd_tofHelper,
 	    ProjectionPsfProperties projectionPsfProperties,
-	    const float* pd_projPsfKernels, CUScannerParams scannerParams,
-	    CUImageParams imgParams, size_t batchSize, unsigned int gridSize,
+	    const float* pd_projPsfKernels, RawScannerParams scannerParams,
+	    RawImageParams imgParams, size_t batchSize, unsigned int gridSize,
 	    unsigned int blockSize, const cudaStream_t* stream, bool synchronize);
 };
 

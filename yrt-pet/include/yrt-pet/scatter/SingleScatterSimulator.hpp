@@ -35,6 +35,13 @@ public:
 	void runSSS(ScatterSpace& outScatterSpace,
 	            bool onlyDirectPlanes = false);
 
+#if BUILD_CUDA
+	void runSSSOnGPU(ScatterSpace& outScatterSpace,
+	              bool onlyDirectPlanes = false);
+#endif
+
+	void setUseGPU(bool useGPU) { m_useGPU = useGPU; }
+
 	float computeSingleScatterInLOR(const Line3D& lor, float tof_ps) const;
 
 	Vector3D getSamplePoint(int i) const;
@@ -44,8 +51,6 @@ public:
 
 private:
 	static float ran1(int* idum);
-	static float getKleinNishina(float cosa);
-	static float getMuScalingFactor(float energy);
 
 	float getIntersectionLengthLORCrystal(const Line3D& lor) const;
 
@@ -64,6 +69,8 @@ private:
 
 	// Updater for forward and back-projection
 	std::unique_ptr<OperatorProjector> mp_proj;
+
+	bool m_useGPU = false;
 };
 
 }  // namespace scatter

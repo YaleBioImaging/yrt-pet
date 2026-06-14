@@ -19,8 +19,8 @@
 namespace yrt
 {
 
-struct CUScannerParams;
-struct CUImage;
+struct RawScannerParams;
+struct RawImage;
 
 class OSEM_GPU : public OSEM
 {
@@ -125,21 +125,21 @@ private:
 
 template <bool UseUpdater>
 __global__ void computeEMUpdateImage_kernel(
-    CUImage forwImage, CUImage emImage, float globalScaleFactor,
+    RawImage forwImage, RawImage emImage, float globalScaleFactor,
     float measurementUniformValue,
     const ProjectionPropertyManager* pd_projPropManager,
     const PropertyUnit* pd_projectionProperties, UpdaterPointer pd_updater,
     const TimeOfFlightHelper* pd_tofHelper,
     ProjectionPsfKernelStruct projPsfKernelStruct,
-    CUScannerParams scannerParams, int numRays, float denomThreshold,
+    RawScannerParams scannerParams, int numRays, float denomThreshold,
     ProjectorType projectorType, size_t batchSize);
 
 __global__ void generateSensImage_kernel(
-    CUImage sensImage, CUImage attImage,
+    RawImage sensImage, RawImage attImage,
     const ProjectionPropertyManager* pd_projPropManager,
     const PropertyUnit* pd_projectionProperties,
     ProjectionPsfKernelStruct projPsfKernelStruct,
-    CUScannerParams scannerParams, int numRays, ProjectorType projectorType,
+    RawScannerParams scannerParams, int numRays, ProjectorType projectorType,
     size_t batchSize);
 
 }  // namespace yrt

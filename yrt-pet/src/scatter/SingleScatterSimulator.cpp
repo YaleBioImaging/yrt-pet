@@ -4,6 +4,7 @@
  */
 
 #include "yrt-pet/scatter/SingleScatterSimulator.hpp"
+#include "yrt-pet/scatter/SingleScatterSimulatorUtils.cuh"
 
 #include "yrt-pet/datastruct/image/Image.hpp"
 #include "yrt-pet/datastruct/projection/Histogram3D.hpp"
@@ -35,6 +36,11 @@ void py_setup_singlescattersimulator(py::module& m)
 	      "crystal_material"_a, "seed"_a, "num_samp_frac"_a);
 	c.def("runSSS", &scatter::SingleScatterSimulator::runSSS,
 	      "out_scatter_space"_a, "only_direct_planes"_a = false);
+#if BUILD_CUDA
+	c.def("runSSSOnGPU", &scatter::SingleScatterSimulator::runSSSOnGPU,
+	      "out_scatter_space"_a, "only_direct_planes"_a = false);
+#endif
+	c.def("setUseGPU", &scatter::SingleScatterSimulator::setUseGPU, "use"_a);
 	c.def("computeSingleScatterInLOR",
 	      &scatter::SingleScatterSimulator::computeSingleScatterInLOR, "lor"_a,
 	      "tof"_a);
@@ -173,6 +179,12 @@ void SingleScatterSimulator::runSSS(ScatterSpace& outScatterSpace,
 	ASSERT_MSG(outScatterSpace.isMemoryValid(),
 	           "Destination scatter-space array is unallocated");
 
+	if (m_useGPU)
+	{
+		runSSSOnGPU(outScatterSpace, onlyDirectPlanes);
+		return;
+	}
+
 	const size_t numTOFBins = outScatterSpace.getNumTOFBins();
 	const size_t numPlanes = outScatterSpace.getNumPlanes();
 	const size_t numAngles = outScatterSpace.getNumAngles();
@@ -191,7 +203,7 @@ void SingleScatterSimulator::runSSS(ScatterSpace& outScatterSpace,
 		    [&progressBar, &outScatterSpace, numPlanes, numAngles,
 		     this](size_t planeSampleIdx, size_t threadId)
 		    {
-				progressBar.incrementProgress(threadId);
+			    progressBar.incrementProgress(threadId);
 
 			    // Here, "planeSampleIdx" is a flat index encoding both the
 			    //  direct plane index and the TOF bin
@@ -255,162 +267,14 @@ void SingleScatterSimulator::runSSS(ScatterSpace& outScatterSpace,
 	}
 }
 
-// TODO: Put this function in a separate file (a ".cuh" file) as
-//  HOST_DEVICE_CALLABLE function and and use it here from the CPU. Also make a
-//  helper function that would transfer data on the GPU and call it from a
-//  kernel.
-//  This might require us to create a new projector such that we don't
-//  interfere on other branches
 float SingleScatterSimulator::computeSingleScatterInLOR(const Line3D& lor,
-                                                        float /*tof_ps*/) const
+                                                        float tof_ps) const
 {
-	// TODO : support TOF
-	int i;
-	double res = 0.0;
-	float dist1, dist2, energy, cosa, mu_scaling_factor;
-	float vatt, att_s_1_511, att_s_1, att_s_2_511, att_s_2;
-	float dsigcompdomega, lamb_s_1, lamb_s_2, sig_s_1, sig_s_2;
-	float eps_s_1_511, eps_s_1, eps_s_2_511, eps_s_2, fac1, fac2;
-	float tmp, tmp511, delta_1, delta_2, mu_det, mu_det_511;
-	Line3D lor_1_s, lor_2_s;
-	Vector3D ps, p1, p2, u, v;
-
-	p1.update(lor.point1);
-	p2.update(lor.point2);
-
-	// Unit vectors pointing towards the exterior of the scanner
-	Vector3D n1 = {lor.point1.x, lor.point1.y, 0.0f};
-	n1.normalize();
-	Vector3D n2 = {lor.point2.x, lor.point2.y, 0.0f};
-	n2.normalize();
-
-	tmp511 = (m_energyLLD - 511.0) / (sqrt(2.0) * m_sigmaEnergy);
-	mu_det_511 = getMuDet(511.0, m_crystalMaterial);
-
-	for (i = 0; i < m_numSamples; i++)
-	{
-		// for each scatter point in the image volume
-
-		ps.update(m_xSamples[i], m_ySamples[i], m_zSamples[i]);
-
-		// LOR going from scatter point "ps" to detector 1
-		lor_1_s.update(p1, ps);
-		// LOR going from scatter point "ps" to detector 2
-		lor_2_s.update(p2, ps);
-
-		// check that the rays S-det1 and S-det2 pass the end plates
-		// collimator before going further:
-		if (std::abs(ps.z) > m_axialFOV / 2 &&
-		    (!passCollimator(lor_1_s) || !passCollimator(lor_2_s)))
-			continue;
-
-
-		u.update(ps - p1);
-		dist1 = u.getNorm();
-		u.x /= dist1;
-		u.y /= dist1;
-		u.z /= dist1;
-		v.update(p2 - ps);
-		dist2 = v.getNorm();
-		v.x /= dist2;
-		v.y /= dist2;
-		v.z /= dist2;
-
-		cosa = u.scalProd(v);
-		// larger angle change -> more energy loss
-		energy = 511.0 / (2.0 - cosa);
-		if (energy <= m_energyLLD)
-		{
-			continue;
-		}
-		tmp = (m_energyLLD - energy) / (sqrt(2.0) * m_sigmaEnergy);
-		mu_scaling_factor = getMuScalingFactor(energy);
-
-		// get scatter values:
-		vatt = mr_mu.nearestNeighbor(ps);
-		dsigcompdomega = getKleinNishina(cosa);
-
-		// compute I1 and I2:
-		att_s_1_511 =
-		    ProjectorSiddon::singleForwardProjection(&mr_mu, lor_1_s) / 10.0;
-
-		att_s_1 = att_s_1_511 * mu_scaling_factor;
-		lamb_s_1 =
-		    ProjectorSiddon::singleForwardProjection(&mr_lambda, lor_1_s);
-		delta_1 = getIntersectionLengthLORCrystal(lor_1_s);
-		if (delta_1 > 10 * m_crystalDepth)
-		{
-			std::string errorMessage =
-			    "Error computing propagation distance in detector. delta_1=" +
-			    std::to_string(delta_1);
-			throw std::runtime_error(errorMessage);
-		}
-
-		att_s_2_511 =
-		    ProjectorSiddon::singleForwardProjection(&mr_mu, lor_2_s) / 10.0;
-
-		att_s_2 = att_s_2_511 * mu_scaling_factor;
-		lamb_s_2 =
-		    ProjectorSiddon::singleForwardProjection(&mr_lambda, lor_2_s);
-		delta_2 = getIntersectionLengthLORCrystal(lor_2_s);
-
-		// Check that the distance between the two cylinders is not too big
-		if (delta_2 > 10 * m_crystalDepth)
-		{
-			std::string errorMessage =
-			    "Error computing propagation distance in detector. delta_2=" +
-			    std::to_string(delta_2);
-			throw std::runtime_error(errorMessage);
-		}
-
-		// geometric efficiencies (n1 and n2 must be normalized unit
-		// vectors):
-		sig_s_1 = std::abs(n1.scalProd(u));
-		sig_s_2 = std::abs(n2.scalProd(v));
-
-		// detection efficiencies (energy+spatial):
-		eps_s_1_511 = eps_s_2_511 = util::erfc(tmp511);
-		eps_s_1 = eps_s_2 = util::erfc(tmp);
-		mu_det = getMuDet(energy, m_crystalMaterial);
-		eps_s_1_511 *= 1 - exp(-delta_1 * mu_det_511);
-		eps_s_2_511 *= 1 - exp(-delta_2 * mu_det_511);
-		eps_s_1 *= 1 - exp(-delta_1 * mu_det);
-		eps_s_2 *= 1 - exp(-delta_2 * mu_det);
-
-		fac1 = lamb_s_1 * exp(-att_s_1_511 - att_s_2);
-		fac1 *= eps_s_1_511 * eps_s_2;  // I^A
-		fac2 = lamb_s_2 * exp(-att_s_1 - att_s_2_511);
-		fac2 *= eps_s_2_511 * eps_s_1;  // I^B
-
-		res += vatt * dsigcompdomega * (fac1 + fac2) * sig_s_1 * sig_s_2 /
-		       (dist1 * dist1 * dist2 * dist2 * 4 * PI);
-	}
-	// divide the result by the sensitivity for trues for that LOR (don't do
-	// this anymore because we use the sensitivity corrected scatter
-	// sinogram in the reconstruction):
-	u.update(p2 - p1);
-	dist1 = u.getNorm();
-	u.x /= dist1;
-	u.y /= dist1;
-	u.z /= dist1;
-	sig_s_1 = std::abs(n1.scalProd(u));
-	sig_s_2 = std::abs(n2.scalProd(u));
-	eps_s_1_511 = eps_s_2_511 = util::erfc(tmp511);
-	Vector3D mid{p1.x + p2.x, p1.y + p2.y, p1.z + p2.z};
-	mid.x /= 2;
-	mid.y /= 2;
-	mid.z /= 2;
-	lor_1_s.update(p1, mid);
-	delta_1 = getIntersectionLengthLORCrystal(lor_1_s);
-	lor_2_s.update(p2, mid);
-	delta_2 = getIntersectionLengthLORCrystal(lor_2_s);
-	eps_s_1_511 *= 1 - exp(-delta_1 * mu_det_511);
-	eps_s_2_511 *= 1 - exp(-delta_2 * mu_det_511);
-	// YN: Changed eps_s_1_511 * eps_s_1_511 to eps_s_1_511 * eps_s_2_511
-	res /= eps_s_1_511 * eps_s_2_511 * sig_s_1 * sig_s_2 /
-	       (dist1 * dist1 * 4 * PI);
-
-	return res;
+	return scatter::computeSingleScatterInLOR(
+	    lor, tof_ps, m_numSamples, m_xSamples.data(), m_ySamples.data(),
+	    m_zSamples.data(), m_energyLLD, m_sigmaEnergy, m_crystalDepth,
+	    m_axialFOV, m_collimatorRadius, m_crystalMaterial, m_cyl1, m_cyl2,
+	    m_endPlate1, m_endPlate2, mr_mu, mr_lambda);
 }
 
 Vector3D SingleScatterSimulator::getSamplePoint(int i) const
@@ -461,79 +325,21 @@ float SingleScatterSimulator::ran1(int* idum)
 		return temp;
 }
 
-// This is the integrated KN formula up to a proportionaity constant:
-float SingleScatterSimulator::getMuScalingFactor(float energy)
-{
-	float a = energy / 511.0;
-	float res = (1 + a) / (a * a);
-	res *= 2.0 * (1 + a) / (1 + 2.0 * a) - log(1 + 2.0 * a) / a;
-	res += log(1 + 2 * a) / (2 * a) - (1 + 3 * a) / ((1 + 2 * a) * (1 + 2 * a));
-	res /= 20.0 / 9.0 - 1.5 * log(3.0);
-	return res;
-}
-
-// The first point of lor must be the detector, the second point must be the
-// scatter point.
 float SingleScatterSimulator::getIntersectionLengthLORCrystal(
     const Line3D& lor) const
 {
-	Vector3D a1, a2, inter1, inter2;
-	// direction of prop.
-	const Vector3D n1 = (lor.point1) - (lor.point2);
-
-	// Compute entry point:
-	m_cyl1.doesLineIntersectCylinder(lor, a1, a2);
-	Vector3D n2 = a1 - (lor.point2);
-	if (n2.scalProd(n1) > 0)
-		inter1.update(a1);
-	else
-		inter1.update(a2);
-
-	// Compute out point:
-	m_cyl2.doesLineIntersectCylinder(lor, a1, a2);
-	n2 = a1 - (lor.point2);
-	if (n2.scalProd(n1) > 0)
-		inter2.update(a1);
-	else
-		inter2.update(a2);
-
-	// Return distance of prop. in detector:
-	const float dist = (inter1 - inter2).getNorm();
-	return dist;
+	return getIntersectionLengthLORCrystalRaw(lor, m_cyl1, m_cyl2);
 }
 
-// Return true if the line lor does not cross the end plates
-// First point is detector, second point is scatter point
 bool SingleScatterSimulator::passCollimator(const Line3D& lor) const
 {
-	if (m_collimatorRadius < 1e-7)
-		return true;
-	Vector3D inter;
-	if (lor.point2.z < 0)
-		inter = m_endPlate1.findInterLine(lor);
-	else
-		inter = m_endPlate2.findInterLine(lor);
-	const float r = std::sqrt(inter.x * inter.x + inter.y * inter.y);
-	if (r < m_collimatorRadius)
-	{
-		return true;
-	}
-	return false;
+	return passCollimatorRaw(lor, m_collimatorRadius, m_axialFOV, m_endPlate1,
+	                         m_endPlate2);
 }
 
 const Image& SingleScatterSimulator::getAttenuationImage() const
 {
 	return mr_mu;
-}
-
-// This is the differential KN formula up to a proportionality constant for
-// Ep=511keV.
-float SingleScatterSimulator::getKleinNishina(float cosa)
-{
-	float res = (1 + cosa * cosa) / 2;
-	res /= (2 - cosa) * (2 - cosa);
-	res *= 1 + (1 - cosa) * (1 - cosa) / ((2 - cosa) * (1 + cosa * cosa));
-	return res;
 }
 
 }  // namespace yrt::scatter

@@ -242,8 +242,9 @@ float ProjectorSiddon::forwardProjection(const Image* img, const Line3D& lor,
                                          const TimeOfFlightHelper* tofHelper,
                                          float tofValue) const
 {
-	const ImageParams& params = img->getParams();
-	const Vector3D offsetVec = {params.off_x, params.off_y, params.off_z};
+	const RawImage rawImg = getRawImage(*const_cast<Image*>(img));
+	const Vector3D offsetVec = {rawImg.rawParams.off_x, rawImg.rawParams.off_y,
+	                            rawImg.rawParams.off_z};
 
 	float imProj = 0.;
 
@@ -269,30 +270,30 @@ float ProjectorSiddon::forwardProjection(const Image* img, const Line3D& lor,
 		{
 			if (mp_updater != nullptr)
 			{
-				project_helper<true, true, true, true>(
-				    const_cast<Image*>(img), randLine, currentProjValue,
-				    mp_updater.get(), dynamicFrame, tid, tofHelper, tofValue);
+				projection<true, true, true, true>(
+				    rawImg, randLine, currentProjValue, mp_updater.get(),
+				    dynamicFrame, tid, tofHelper, tofValue);
 			}
 			else
 			{
-				project_helper<true, true, true, false>(
-				    const_cast<Image*>(img), randLine, currentProjValue,
-				    nullptr, dynamicFrame, tid, tofHelper, tofValue);
+				projection<true, true, true, false>(
+				    rawImg, randLine, currentProjValue, nullptr, dynamicFrame,
+				    tid, tofHelper, tofValue);
 			}
 		}
 		else
 		{
 			if (mp_updater != nullptr)
 			{
-				project_helper<true, true, false, true>(
-				    const_cast<Image*>(img), randLine, currentProjValue,
-				    mp_updater.get(), dynamicFrame, tid, nullptr, 0);
+				projection<true, true, false, true>(
+				    rawImg, randLine, currentProjValue, mp_updater.get(),
+				    dynamicFrame, tid, nullptr, 0);
 			}
 			else
 			{
-				project_helper<true, true, false, false>(
-				    const_cast<Image*>(img), randLine, currentProjValue,
-				    nullptr, dynamicFrame, tid, nullptr, 0);
+				projection<true, true, false, false>(
+				    rawImg, randLine, currentProjValue, nullptr, dynamicFrame,
+				    tid, nullptr, 0);
 			}
 		}
 		imProj += currentProjValue;
@@ -313,9 +314,9 @@ void ProjectorSiddon::backProjection(Image* img, const Line3D& lor,
                                      const TimeOfFlightHelper* tofHelper,
                                      float tofValue) const
 {
-	const ImageParams& params = img->getParams();
-	const Vector3D offsetVec = {params.off_x, params.off_y, params.off_z};
-
+	const RawImage rawImg = getRawImage(*img);
+	const Vector3D offsetVec = {rawImg.rawParams.off_x, rawImg.rawParams.off_y,
+	                            rawImg.rawParams.off_z};
 
 	int currThread = 0;
 	float projValuePerLor = projValue;
@@ -339,30 +340,30 @@ void ProjectorSiddon::backProjection(Image* img, const Line3D& lor,
 		{
 			if (mp_updater != nullptr)
 			{
-				project_helper<false, true, true, true>(
-				    img, randLine, projValuePerLor, mp_updater.get(),
+				projection<false, true, true, true>(
+				    rawImg, randLine, projValuePerLor, mp_updater.get(),
 				    dynamicFrame, tid, tofHelper, tofValue);
 			}
 			else
 			{
-				project_helper<false, true, true, false>(
-				    img, randLine, projValuePerLor, nullptr, dynamicFrame, tid,
-				    tofHelper, tofValue);
+				projection<false, true, true, false>(
+				    rawImg, randLine, projValuePerLor, nullptr, dynamicFrame,
+				    tid, tofHelper, tofValue);
 			}
 		}
 		else
 		{
 			if (mp_updater != nullptr)
 			{
-				project_helper<false, true, false, true>(
-				    img, randLine, projValuePerLor, mp_updater.get(),
+				projection<false, true, false, true>(
+				    rawImg, randLine, projValuePerLor, mp_updater.get(),
 				    dynamicFrame, tid, nullptr, 0);
 			}
 			else
 			{
-				project_helper<false, true, false, false>(
-				    img, randLine, projValuePerLor, nullptr, dynamicFrame, tid,
-				    nullptr, 0);
+				projection<false, true, false, false>(
+				    rawImg, randLine, projValuePerLor, nullptr, dynamicFrame,
+				    tid, nullptr, 0);
 			}
 		}
 	}
@@ -380,35 +381,33 @@ float ProjectorSiddon::singleForwardProjection(
     const Image* img, const Line3D& lor, ProjectorUpdater* updater,
     frame_t dynamicFrame, const TimeOfFlightHelper* tofHelper, float tofValue)
 {
+	const RawImage rawImg = getRawImage(*const_cast<Image*>(img));
+
 	float v;
 	if (tofHelper != nullptr)
 	{
 		if (updater != nullptr)
 		{
-			project_helper<true, true, true, true>(const_cast<Image*>(img), lor,
-			                                       v, updater, dynamicFrame, 0,
-			                                       tofHelper, tofValue);
+			projection<true, true, true, true>(
+			    rawImg, lor, v, updater, dynamicFrame, 0, tofHelper, tofValue);
 		}
 		else
 		{
-			project_helper<true, true, true, false>(
-			    const_cast<Image*>(img), lor, v, nullptr, dynamicFrame, 0,
-			    tofHelper, tofValue);
+			projection<true, true, true, false>(
+			    rawImg, lor, v, nullptr, dynamicFrame, 0, tofHelper, tofValue);
 		}
 	}
 	else
 	{
 		if (updater != nullptr)
 		{
-			project_helper<true, true, false, true>(
-			    const_cast<Image*>(img), lor, v, updater, dynamicFrame, 0,
-			    tofHelper, tofValue);
+			projection<true, true, false, true>(
+			    rawImg, lor, v, updater, dynamicFrame, 0, tofHelper, tofValue);
 		}
 		else
 		{
-			project_helper<true, true, false, false>(
-			    const_cast<Image*>(img), lor, v, nullptr, dynamicFrame, 0,
-			    tofHelper, tofValue);
+			projection<true, true, false, false>(
+			    rawImg, lor, v, nullptr, dynamicFrame, 0, tofHelper, tofValue);
 		}
 	}
 	return v;
@@ -429,17 +428,19 @@ void ProjectorSiddon::singleBackProjection(
     Image* img, const Line3D& lor, float projValue, ProjectorUpdater* updater,
     frame_t dynamicFrame, const TimeOfFlightHelper* tofHelper, float tofValue)
 {
+	const RawImage rawImg = getRawImage(*img);
+
 	if (tofHelper != nullptr)
 	{
 		if (updater != nullptr)
 		{
-			project_helper<false, true, true, true>(img, lor, projValue,
+			projection<false, true, true, true>(rawImg, lor, projValue,
 			                                        updater, dynamicFrame, 0,
 			                                        tofHelper, tofValue);
 		}
 		else
 		{
-			project_helper<false, true, true, false>(img, lor, projValue,
+			projection<false, true, true, false>(rawImg, lor, projValue,
 			                                         nullptr, dynamicFrame, 0,
 			                                         tofHelper, tofValue);
 		}
@@ -448,13 +449,13 @@ void ProjectorSiddon::singleBackProjection(
 	{
 		if (updater != nullptr)
 		{
-			project_helper<false, true, false, true>(img, lor, projValue,
+			projection<false, true, false, true>(rawImg, lor, projValue,
 			                                         updater, dynamicFrame, 0,
 			                                         tofHelper, tofValue);
 		}
 		else
 		{
-			project_helper<false, true, false, false>(img, lor, projValue,
+			projection<false, true, false, false>(rawImg, lor, projValue,
 			                                          nullptr, dynamicFrame, 0,
 			                                          tofHelper, tofValue);
 		}
@@ -476,7 +477,7 @@ enum SIDDON_DIR
 // are compared in tests, the "faster" version (FLAG_INCR=true) is used by
 // default.
 template <bool IS_FWD, bool FLAG_INCR, bool FLAG_TOF, bool USE_UPDATER>
-void ProjectorSiddon::project_helper(Image* img, const Line3D& lor,
+void ProjectorSiddon::projection(const RawImage& img, const Line3D& lor,
                                      float& projValue,
                                      ProjectorUpdater* updater,
                                      frame_t dynamicFrame, int tid,
@@ -488,7 +489,7 @@ void ProjectorSiddon::project_helper(Image* img, const Line3D& lor,
 		projValue = 0.0f;
 	}
 
-	ImageParams params = img->getParams();
+	RawImageParams params = img.rawParams;
 
 	const Vector3D& p1 = lor.point1;
 	const Vector3D& p2 = lor.point2;
@@ -607,7 +608,7 @@ void ProjectorSiddon::project_helper(Image* img, const Line3D& lor,
 
 	// Prepare data pointer (this assumes that the data is stored as a
 	// contiguous array)
-	float* raw_img_ptr = img->getRawPointer();
+	float* raw_img_ptr = img.rawPointer;
 	// float* cur_img_ptr = nullptr;
 	ssize_t offset_img_ptr = 0;
 	ssize_t nx = params.nx;
@@ -767,29 +768,29 @@ void ProjectorSiddon::project_helper(Image* img, const Line3D& lor,
 }
 
 // Explicit instantiation of slow version used in tests
-template void ProjectorSiddon::project_helper<true, false, true, false>(
-    Image* img, const Line3D&, float&, ProjectorUpdater*, frame_t, int,
+template void ProjectorSiddon::projection<true, false, true, false>(
+    const RawImage& img, const Line3D&, float&, ProjectorUpdater*, frame_t, int,
     const TimeOfFlightHelper*, float);
-template void ProjectorSiddon::project_helper<false, false, true, false>(
-    Image* img, const Line3D&, float&, ProjectorUpdater*, frame_t, int,
+template void ProjectorSiddon::projection<false, false, true, false>(
+    const RawImage& img, const Line3D&, float&, ProjectorUpdater*, frame_t, int,
     const TimeOfFlightHelper*, float);
-template void ProjectorSiddon::project_helper<true, false, false, false>(
-    Image* img, const Line3D&, float&, ProjectorUpdater*, frame_t, int,
+template void ProjectorSiddon::projection<true, false, false, false>(
+    const RawImage& img, const Line3D&, float&, ProjectorUpdater*, frame_t, int,
     const TimeOfFlightHelper*, float);
-template void ProjectorSiddon::project_helper<false, false, false, false>(
-    Image* img, const Line3D&, float&, ProjectorUpdater*, frame_t, int,
+template void ProjectorSiddon::projection<false, false, false, false>(
+    const RawImage& img, const Line3D&, float&, ProjectorUpdater*, frame_t, int,
     const TimeOfFlightHelper*, float);
-template void ProjectorSiddon::project_helper<true, false, true, true>(
-    Image* img, const Line3D&, float&, ProjectorUpdater*, frame_t, int,
+template void ProjectorSiddon::projection<true, false, true, true>(
+    const RawImage& img, const Line3D&, float&, ProjectorUpdater*, frame_t, int,
     const TimeOfFlightHelper*, float);
-template void ProjectorSiddon::project_helper<false, false, true, true>(
-    Image* img, const Line3D&, float&, ProjectorUpdater*, frame_t, int,
+template void ProjectorSiddon::projection<false, false, true, true>(
+    const RawImage& img, const Line3D&, float&, ProjectorUpdater*, frame_t, int,
     const TimeOfFlightHelper*, float);
-template void ProjectorSiddon::project_helper<true, false, false, true>(
-    Image* img, const Line3D&, float&, ProjectorUpdater*, frame_t, int,
+template void ProjectorSiddon::projection<true, false, false, true>(
+    const RawImage& img, const Line3D&, float&, ProjectorUpdater*, frame_t, int,
     const TimeOfFlightHelper*, float);
-template void ProjectorSiddon::project_helper<false, false, false, true>(
-    Image* img, const Line3D&, float&, ProjectorUpdater*, frame_t, int,
+template void ProjectorSiddon::projection<false, false, false, true>(
+    const RawImage& img, const Line3D&, float&, ProjectorUpdater*, frame_t, int,
     const TimeOfFlightHelper*, float);
 
 }  // namespace yrt

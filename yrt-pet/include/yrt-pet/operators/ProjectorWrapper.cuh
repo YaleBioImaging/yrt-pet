@@ -7,6 +7,7 @@
 
 #include "yrt-pet/operators/ProjectionPsfManagerDevice.cuh"
 #include "yrt-pet/operators/SiddonKernels.cuh"
+#include "yrt-pet/recon/RawParameters.hpp"
 
 #include <cuda_runtime.h>
 
@@ -18,11 +19,11 @@ namespace yrt
 //  arguments that would be provided to any projector call
 template <bool IsForward, bool HasTOF, bool UseUpdater>
 __device__ void
-    projectAny(float& value, CUImage d_image, UpdaterPointer pd_updater,
+    projectAny(float& value, RawImage d_image, UpdaterPointer pd_updater,
                float3 p1, float3 p2, float3 n1, float3 n2, frame_t dynamicFrame,
                const TimeOfFlightHelper* pd_tofHelper, float tofValue,
                ProjectionPsfKernelStruct projPsfKernelStruct,
-               CUScannerParams scannerParams, int numRays, size_t randomId,
+               RawScannerParams scannerParams, int numRays, size_t randomId,
                ProjectorType projectorType)
 {
 	const bool hasProjPsf = projPsfKernelStruct.kernels != nullptr;
@@ -34,17 +35,17 @@ __device__ void
 		{
 			// Single-ray Siddon
 			projectSiddon<IsForward, HasTOF, true, false, UseUpdater>(
-			    value, d_image.devicePointer, pd_updater, p1, p2, n1, n2,
+			    value, d_image.rawPointer, pd_updater, p1, p2, n1, n2,
 			    dynamicFrame, pd_tofHelper, tofValue, scannerParams,
-			    d_image.params, numRays, randomId);
+			    d_image.rawParams, numRays, randomId);
 		}
 		else
 		{
 			// Multi-ray Siddon
 			projectSiddon<IsForward, HasTOF, true, true, UseUpdater>(
-			    value, d_image.devicePointer, pd_updater, p1, p2, n1, n2,
+			    value, d_image.rawPointer, pd_updater, p1, p2, n1, n2,
 			    dynamicFrame, pd_tofHelper, tofValue, scannerParams,
-			    d_image.params, numRays, randomId);
+			    d_image.rawParams, numRays, randomId);
 		}
 		break;
 	case ProjectorType::DD:
@@ -52,17 +53,17 @@ __device__ void
 		{
 			// No projection-space PSF
 			projectDD<IsForward, HasTOF, false, UseUpdater>(
-			    value, d_image.devicePointer, pd_updater, p1, p2, n1, n2,
+			    value, d_image.rawPointer, pd_updater, p1, p2, n1, n2,
 			    dynamicFrame, pd_tofHelper, tofValue, projPsfKernelStruct,
-			    scannerParams, d_image.params);
+			    scannerParams, d_image.rawParams);
 		}
 		else
 		{
 			// With projection-space PSF
 			projectDD<IsForward, HasTOF, true, UseUpdater>(
-			    value, d_image.devicePointer, pd_updater, p1, p2, n1, n2,
+			    value, d_image.rawPointer, pd_updater, p1, p2, n1, n2,
 			    dynamicFrame, pd_tofHelper, tofValue, projPsfKernelStruct,
-			    scannerParams, d_image.params);
+			    scannerParams, d_image.rawParams);
 		}
 		break;
 	default:

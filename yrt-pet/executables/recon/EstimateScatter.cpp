@@ -311,7 +311,7 @@ int main(int argc, char** argv)
 			timer.reset();
 		}
 
-		std::cout << "Reading attenuation and source image" << std::endl;
+		std::cout << "Reading attenuation and source image..." << std::endl;
 		timer.run();
 
 		auto attImage = std::make_unique<ImageOwned>(attImage_fname);

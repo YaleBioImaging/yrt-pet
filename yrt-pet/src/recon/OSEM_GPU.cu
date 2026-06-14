@@ -12,6 +12,7 @@
 #include "yrt-pet/operators/OperatorVarPsfDevice.cuh"
 #include "yrt-pet/operators/ProjectorWrapper.cuh"
 #include "yrt-pet/operators/SiddonKernels.cuh"
+#include "yrt-pet/recon/RawParameters.hpp"
 #include "yrt-pet/utils/Assert.hpp"
 #include "yrt-pet/utils/Tools.hpp"
 
@@ -822,15 +823,15 @@ void OSEM_GPU::generateSensImageForLoadedBatch(int subsetId, int batchId,
 
 	GPULaunchParams launchParams = util::initiateDeviceParameters(batchSize);
 
-	CUImage sensImage = DeviceSynchronized::getCUImage(*mpd_sensImageBuffer);
+	RawImage sensImage = getRawImage(*mpd_sensImageBuffer);
 
 	// The device pointer inside will be initialized to null if there is no
 	//  attenuation image
-	CUImage attImage{};
+	RawImage attImage{};
 	if (mp_corrector->hasHardwareAttenuationImage())
 	{
 		ASSERT(mpd_tmpImage1 != nullptr);
-		attImage = DeviceSynchronized::getCUImage(*mpd_tmpImage1);
+		attImage = getRawImage(*mpd_tmpImage1);
 	}
 
 	const ProjectionPropertyManager* pd_projPropManager =
@@ -849,8 +850,8 @@ void OSEM_GPU::generateSensImageForLoadedBatch(int subsetId, int batchId,
 		    mp_projPsfManager->getKernelsDevicePointer();
 	}
 
-	const CUScannerParams scannerParams =
-	    DeviceSynchronized::getCUScannerParams(scanner);
+	const RawScannerParams scannerParams =
+	    getRawScannerParams(scanner);
 	const int numRays = projectorParams.numRays;
 
 	if (launchConfig.stream != nullptr)
@@ -886,15 +887,15 @@ void OSEM_GPU::computeEMUpdateImageForLoadedBatch(int subsetId, int batchId,
 	    dynamic_cast<ImageDevice*>(getMLEMImageBuffer());
 	ASSERT(inputImageForForwardProj_ptr != nullptr);
 	ASSERT(inputImageForForwardProj_ptr->isMemoryValid());
-	CUImage inputImageForForwardProj =
-	    DeviceSynchronized::getCUImage(*inputImageForForwardProj_ptr);
+	RawImage inputImageForForwardProj =
+	    getRawImage(*inputImageForForwardProj_ptr);
 
 	auto destImageForBackproj_ptr =
 	    dynamic_cast<ImageDevice*>(getEMUpdateImageBuffer());
 	ASSERT(destImageForBackproj_ptr != nullptr);
 	ASSERT(destImageForBackproj_ptr->isMemoryValid());
-	CUImage destImageForBackproj =
-	    DeviceSynchronized::getCUImage(*destImageForBackproj_ptr);
+	RawImage destImageForBackproj =
+	    getRawImage(*destImageForBackproj_ptr);
 
 	const float globalScaleFactor = mp_corrector->getGlobalScalingFactor();
 	const float measurementUniformValue = dataInput->getProjectionValue(0);
@@ -923,8 +924,8 @@ void OSEM_GPU::computeEMUpdateImageForLoadedBatch(int subsetId, int batchId,
 		    mp_projPsfManager->getKernelsDevicePointer();
 	}
 
-	const CUScannerParams scannerParams =
-	    DeviceSynchronized::getCUScannerParams(scanner);
+	const RawScannerParams scannerParams =
+	    getRawScannerParams(scanner);
 	const int numRays = projectorParams.numRays;
 
 	if (launchConfig.stream != nullptr)
@@ -1046,11 +1047,11 @@ std::set<ProjectionPropertyType>
 }
 
 __global__ void generateSensImage_kernel(
-    CUImage sensImage, CUImage attImage,
+    RawImage sensImage, RawImage attImage,
     const ProjectionPropertyManager* pd_projPropManager,
     const PropertyUnit* pd_projectionProperties,
     ProjectionPsfKernelStruct projPsfKernelStruct,
-    CUScannerParams scannerParams, int numRays, ProjectorType projectorType,
+    RawScannerParams scannerParams, int numRays, ProjectorType projectorType,
     size_t batchSize)
 {
 	const long eventId = blockIdx.x * blockDim.x + threadIdx.x;
@@ -1061,7 +1062,7 @@ __global__ void generateSensImage_kernel(
 		    pd_projPropManager->has(ProjectionPropertyType::SENSITIVITY);
 		const bool hasAttFactor =
 		    pd_projPropManager->has(ProjectionPropertyType::ATTENUATION);
-		const bool needToForwProjAtt = attImage.devicePointer != nullptr;
+		const bool needToForwProjAtt = attImage.rawPointer != nullptr;
 
 		// Gather LOR
 		const float* lor = pd_projPropManager->getDataPtr<float>(
@@ -1096,12 +1097,12 @@ __global__ void generateSensImage_kernel(
 			// Subtract the offset of the attenuation image
 			float3 p1 = p1Init;
 			float3 p2 = p2Init;
-			p1.x -= attImage.params.off_x;
-			p1.y -= attImage.params.off_y;
-			p1.z -= attImage.params.off_z;
-			p2.x -= attImage.params.off_x;
-			p2.y -= attImage.params.off_y;
-			p2.z -= attImage.params.off_z;
+			p1.x -= attImage.rawParams.off_x;
+			p1.y -= attImage.rawParams.off_y;
+			p1.z -= attImage.rawParams.off_z;
+			p2.x -= attImage.rawParams.off_x;
+			p2.y -= attImage.rawParams.off_y;
+			p2.z -= attImage.rawParams.off_z;
 
 			// Orientation is left blank since it is not used by the single-ray
 			//  Siddon projection, which is what is used for forward-projecting
@@ -1110,8 +1111,8 @@ __global__ void generateSensImage_kernel(
 			const float3 n2 = {};
 
 			projectSiddon<true, false, true, false, false>(
-			    attenuationFactor, attImage.devicePointer, nullptr, p1, p2, n1,
-			    n2, 0, nullptr, 0.0f, scannerParams, attImage.params, 1,
+			    attenuationFactor, attImage.rawPointer, nullptr, p1, p2, n1,
+			    n2, 0, nullptr, 0.0f, scannerParams, attImage.rawParams, 1,
 			    eventId);
 
 			attenuationFactor =
@@ -1142,12 +1143,12 @@ __global__ void generateSensImage_kernel(
 		// Subtract the offset of the reconstruction image's grid
 		float3 p1 = p1Init;
 		float3 p2 = p2Init;
-		p1.x -= sensImage.params.off_x;
-		p1.y -= sensImage.params.off_y;
-		p1.z -= sensImage.params.off_z;
-		p2.x -= sensImage.params.off_x;
-		p2.y -= sensImage.params.off_y;
-		p2.z -= sensImage.params.off_z;
+		p1.x -= sensImage.rawParams.off_x;
+		p1.y -= sensImage.rawParams.off_y;
+		p1.z -= sensImage.rawParams.off_z;
+		p2.x -= sensImage.rawParams.off_x;
+		p2.y -= sensImage.rawParams.off_y;
+		p2.z -= sensImage.rawParams.off_z;
 
 		projectAny<false, false, false>(toBackproject, sensImage, nullptr, p1,
 		                                p2, n1, n2, dynamicFrame, nullptr, 0.0f,
@@ -1158,13 +1159,13 @@ __global__ void generateSensImage_kernel(
 
 template <bool UseUpdater>
 __global__ void computeEMUpdateImage_kernel(
-    CUImage forwImage, CUImage emImage, float globalScaleFactor,
+    RawImage forwImage, RawImage emImage, float globalScaleFactor,
     float measurementUniformValue,
     const ProjectionPropertyManager* pd_projPropManager,
     const PropertyUnit* pd_projectionProperties, UpdaterPointer pd_updater,
     const TimeOfFlightHelper* pd_tofHelper,
     ProjectionPsfKernelStruct projPsfKernelStruct,
-    CUScannerParams scannerParams, int numRays, float denomThreshold,
+    RawScannerParams scannerParams, int numRays, float denomThreshold,
     ProjectorType projectorType, size_t batchSize)
 {
 	const long eventId = blockIdx.x * blockDim.x + threadIdx.x;
@@ -1232,12 +1233,12 @@ __global__ void computeEMUpdateImage_kernel(
 			float3 p2{lor[3], lor[4], lor[5]};
 
 			// Subtract image offset
-			p1.x -= forwImage.params.off_x;
-			p1.y -= forwImage.params.off_y;
-			p1.z -= forwImage.params.off_z;
-			p2.x -= forwImage.params.off_x;
-			p2.y -= forwImage.params.off_y;
-			p2.z -= forwImage.params.off_z;
+			p1.x -= forwImage.rawParams.off_x;
+			p1.y -= forwImage.rawParams.off_y;
+			p1.z -= forwImage.rawParams.off_z;
+			p2.x -= forwImage.rawParams.off_x;
+			p2.y -= forwImage.rawParams.off_y;
+			p2.z -= forwImage.rawParams.off_z;
 
 			// Gather detector orientation if available
 			float3 n1 = {};

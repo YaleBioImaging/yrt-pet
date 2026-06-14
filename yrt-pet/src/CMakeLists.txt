@@ -60,6 +60,7 @@ set(SOURCES
     recon/OSEM_CPU.cpp
     recon/LREM.cpp
     recon/LREM_CPU.cpp
+    recon/RawParameters.cpp
     scatter/Crystal.cpp
     scatter/ScatterEstimator.cpp
     scatter/ScatterSpace.cpp
@@ -97,6 +98,8 @@ if (USE_CUDA)
         recon/Corrector_GPU.cu
         recon/OSEM_GPU.cu
         recon/LREM_GPU.cu
+        scatter/ScatterDeviceKernels.cu
+        scatter/SingleScatterSimulatorGPU.cu
         utils/GPUStream.cu
         utils/GPUTypes.cu
         utils/GPUUtils.cu

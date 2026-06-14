@@ -59,4 +59,14 @@ RawImage getRawImage(ImageDevice& img)
 	return {getRawImageParams(img.getParams()), img.getDevicePointer()};
 }
 
+RawImageConst getRawImage(const Image& img)
+{
+	return {getRawImageParams(img.getParams()), img.getRawPointer()};
+}
+
+RawImageConst getRawImage(const ImageDevice& img)
+{
+	return {getRawImageParams(img.getParams()), img.getDevicePointer()};
+}
+
 }  // namespace yrt

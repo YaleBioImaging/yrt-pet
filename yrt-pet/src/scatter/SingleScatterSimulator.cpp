@@ -37,8 +37,12 @@ void py_setup_singlescattersimulator(py::module& m)
 	c.def("runSSS", &scatter::SingleScatterSimulator::runSSS,
 	      "out_scatter_space"_a, "only_direct_planes"_a = false);
 #if BUILD_CUDA
-	c.def("runSSSOnGPU", &scatter::SingleScatterSimulator::runSSSOnGPU,
-	      "out_scatter_space"_a, "only_direct_planes"_a = false);
+	c.def(
+	    "runSSSOnGPU",
+	    [](const scatter::SingleScatterSimulator& self, ScatterSpace& outScs,
+	       bool onlyDirectPlanes)
+	    { self.runSSSDevice(outScs, onlyDirectPlanes); },
+	    "out_scatter_space"_a, "only_direct_planes"_a = false);
 #endif
 	c.def("setUseGPU", &scatter::SingleScatterSimulator::setUseGPU, "use"_a);
 	c.def("computeSingleScatterInLOR",
@@ -174,14 +178,14 @@ SingleScatterSimulator::SingleScatterSimulator(
 	}
 }
 void SingleScatterSimulator::runSSS(ScatterSpace& outScatterSpace,
-                                    bool onlyDirectPlanes)
+                                    bool onlyDirectPlanes) const
 {
 	ASSERT_MSG(outScatterSpace.isMemoryValid(),
 	           "Destination scatter-space array is unallocated");
 
 	if (m_useGPU)
 	{
-		runSSSOnGPU(outScatterSpace, onlyDirectPlanes);
+		runSSSDevice(outScatterSpace, onlyDirectPlanes);
 		return;
 	}
 

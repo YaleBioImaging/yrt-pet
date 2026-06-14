@@ -38,9 +38,17 @@ struct RawImage
 	float* rawPointer = nullptr;
 };
 
+struct RawImageConst
+{
+	RawImageParams rawParams;
+	const float* rawPointer = nullptr;
+};
+
 RawScannerParams getRawScannerParams(const Scanner& scanner);
 RawImageParams getRawImageParams(const ImageParams& imgParams);
 RawImage getRawImage(Image& img);
 RawImage getRawImage(ImageDevice& img);
+RawImageConst getRawImage(const Image& img);
+RawImageConst getRawImage(const ImageDevice& img);
 
 }  // namespace yrt

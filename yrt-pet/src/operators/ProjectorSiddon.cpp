@@ -434,15 +434,15 @@ void ProjectorSiddon::singleBackProjection(
 	{
 		if (updater != nullptr)
 		{
-			projection<false, true, true, true>(rawImg, lor, projValue,
-			                                        updater, dynamicFrame, 0,
-			                                        tofHelper, tofValue);
+			projection<false, true, true, true>(rawImg, lor, projValue, updater,
+			                                    dynamicFrame, 0, tofHelper,
+			                                    tofValue);
 		}
 		else
 		{
 			projection<false, true, true, false>(rawImg, lor, projValue,
-			                                         nullptr, dynamicFrame, 0,
-			                                         tofHelper, tofValue);
+			                                     nullptr, dynamicFrame, 0,
+			                                     tofHelper, tofValue);
 		}
 	}
 	else
@@ -450,14 +450,14 @@ void ProjectorSiddon::singleBackProjection(
 		if (updater != nullptr)
 		{
 			projection<false, true, false, true>(rawImg, lor, projValue,
-			                                         updater, dynamicFrame, 0,
-			                                         tofHelper, tofValue);
+			                                     updater, dynamicFrame, 0,
+			                                     tofHelper, tofValue);
 		}
 		else
 		{
 			projection<false, true, false, false>(rawImg, lor, projValue,
-			                                          nullptr, dynamicFrame, 0,
-			                                          tofHelper, tofValue);
+			                                      nullptr, dynamicFrame, 0,
+			                                      tofHelper, tofValue);
 		}
 	}
 }
@@ -478,11 +478,10 @@ enum SIDDON_DIR
 // default.
 template <bool IS_FWD, bool FLAG_INCR, bool FLAG_TOF, bool USE_UPDATER>
 void ProjectorSiddon::projection(const RawImage& img, const Line3D& lor,
-                                     float& projValue,
-                                     ProjectorUpdater* updater,
-                                     frame_t dynamicFrame, int tid,
-                                     const TimeOfFlightHelper* tofHelper,
-                                     float tofValue)
+                                 float& projValue, ProjectorUpdater* updater,
+                                 frame_t dynamicFrame, int tid,
+                                 const TimeOfFlightHelper* tofHelper,
+                                 float tofValue)
 {
 	if (IS_FWD)
 	{
@@ -767,30 +766,55 @@ void ProjectorSiddon::projection(const RawImage& img, const Line3D& lor,
 	}
 }
 
-// Explicit instantiation of slow version used in tests
+// Explicit instantiation
 template void ProjectorSiddon::projection<true, false, true, false>(
-    const RawImage& img, const Line3D&, float&, ProjectorUpdater*, frame_t, int,
+    const RawImage&, const Line3D&, float&, ProjectorUpdater*, frame_t, int,
     const TimeOfFlightHelper*, float);
 template void ProjectorSiddon::projection<false, false, true, false>(
-    const RawImage& img, const Line3D&, float&, ProjectorUpdater*, frame_t, int,
+    const RawImage&, const Line3D&, float&, ProjectorUpdater*, frame_t, int,
     const TimeOfFlightHelper*, float);
 template void ProjectorSiddon::projection<true, false, false, false>(
-    const RawImage& img, const Line3D&, float&, ProjectorUpdater*, frame_t, int,
+    const RawImage&, const Line3D&, float&, ProjectorUpdater*, frame_t, int,
     const TimeOfFlightHelper*, float);
 template void ProjectorSiddon::projection<false, false, false, false>(
-    const RawImage& img, const Line3D&, float&, ProjectorUpdater*, frame_t, int,
+    const RawImage&, const Line3D&, float&, ProjectorUpdater*, frame_t, int,
     const TimeOfFlightHelper*, float);
 template void ProjectorSiddon::projection<true, false, true, true>(
-    const RawImage& img, const Line3D&, float&, ProjectorUpdater*, frame_t, int,
+    const RawImage&, const Line3D&, float&, ProjectorUpdater*, frame_t, int,
     const TimeOfFlightHelper*, float);
 template void ProjectorSiddon::projection<false, false, true, true>(
-    const RawImage& img, const Line3D&, float&, ProjectorUpdater*, frame_t, int,
+    const RawImage&, const Line3D&, float&, ProjectorUpdater*, frame_t, int,
     const TimeOfFlightHelper*, float);
 template void ProjectorSiddon::projection<true, false, false, true>(
-    const RawImage& img, const Line3D&, float&, ProjectorUpdater*, frame_t, int,
+    const RawImage&, const Line3D&, float&, ProjectorUpdater*, frame_t, int,
     const TimeOfFlightHelper*, float);
 template void ProjectorSiddon::projection<false, false, false, true>(
-    const RawImage& img, const Line3D&, float&, ProjectorUpdater*, frame_t, int,
+    const RawImage&, const Line3D&, float&, ProjectorUpdater*, frame_t, int,
     const TimeOfFlightHelper*, float);
+template void ProjectorSiddon::projection<true, true, true, false>(
+    const RawImage&, const Line3D&, float&, ProjectorUpdater*, frame_t, int,
+    const TimeOfFlightHelper*, float);
+template void ProjectorSiddon::projection<false, true, true, false>(
+    const RawImage&, const Line3D&, float&, ProjectorUpdater*, frame_t, int,
+    const TimeOfFlightHelper*, float);
+template void ProjectorSiddon::projection<true, true, false, false>(
+    const RawImage&, const Line3D&, float&, ProjectorUpdater*, frame_t, int,
+    const TimeOfFlightHelper*, float);
+template void ProjectorSiddon::projection<false, true, false, false>(
+    const RawImage&, const Line3D&, float&, ProjectorUpdater*, frame_t, int,
+    const TimeOfFlightHelper*, float);
+template void ProjectorSiddon::projection<true, true, true, true>(
+    const RawImage&, const Line3D&, float&, ProjectorUpdater*, frame_t, int,
+    const TimeOfFlightHelper*, float);
+template void ProjectorSiddon::projection<false, true, true, true>(
+    const RawImage&, const Line3D&, float&, ProjectorUpdater*, frame_t, int,
+    const TimeOfFlightHelper*, float);
+template void ProjectorSiddon::projection<true, true, false, true>(
+    const RawImage&, const Line3D&, float&, ProjectorUpdater*, frame_t, int,
+    const TimeOfFlightHelper*, float);
+template void ProjectorSiddon::projection<false, true, false, true>(
+    const RawImage&, const Line3D&, float&, ProjectorUpdater*, frame_t, int,
+    const TimeOfFlightHelper*, float);
+
 
 }  // namespace yrt

@@ -9,26 +9,31 @@
 
 #include "yrt-pet/geometry/Constants.hpp"
 #include "yrt-pet/geometry/Cylinder.hpp"
-#include "yrt-pet/geometry/Line3D.hpp"
 #include "yrt-pet/geometry/Plane.hpp"
-#include "yrt-pet/operators/ProjectorUtils.hpp"
 #include "yrt-pet/recon/RawParameters.hpp"
 #include "yrt-pet/scatter/Crystal.hpp"
 #include "yrt-pet/utils/Tools.hpp"
 
 #ifndef __CUDACC__
 #include "yrt-pet/datastruct/image/Image.hpp"
+#include "yrt-pet/geometry/Line3D.hpp"
+#endif
+#ifdef __CUDACC__
+#include "yrt-pet/geometry/Line3D.cuh"
+#endif
+
+#if !defined(__CUDA_ARCH__)
+#include "yrt-pet/operators/ProjectorSiddon.hpp"
+#endif
+
+#if !defined(__CUDACC__)
 #include <cfloat>
 #include <cmath>
 #include <stdexcept>
 #include <string>
-// Note: siddonForwardProjection replaces ProjectorSiddon for the raw-pointer
-// path
 #endif
 
 #ifdef __CUDACC__
-#include "yrt-pet/geometry/Line3D_impl.inl"
-#include "yrt-pet/geometry/Vector3D_impl.inl"
 #include "yrt-pet/operators/SiddonKernels.cuh"
 #endif
 
@@ -101,234 +106,6 @@ HOST_DEVICE_CALLABLE inline bool passCollimatorRaw(const Line3D& lor,
 	return r < collimatorRadius;
 }
 
-// Siddon forward projection using raw data pointer.
-// Works on both CPU and GPU (no CUDA-specific dependencies, no TOF, no
-// multi-ray, no backprojection, no updater).
-HOST_DEVICE_CALLABLE inline float siddonForwardProjection(const float* data,
-                                                          RawImageParams params,
-                                                          const Line3D& lor)
-{
-	float projValue = 0.0f;
-
-	const ssize_t nx = params.nx;
-	const ssize_t ny = params.ny;
-	const ssize_t nz = params.nz;
-	const float length_x = params.length_x;
-	const float length_y = params.length_y;
-	const float length_z = params.length_z;
-	const ssize_t num_xy = nx * ny;
-	const float dx = params.vx;
-	const float dy = params.vy;
-	const float dz = params.vz;
-	const float inv_dx = 1.0f / dx;
-	const float inv_dy = 1.0f / dy;
-	const float inv_dz = 1.0f / dz;
-
-	const float p1x = lor.point1.x;
-	const float p1y = lor.point1.y;
-	const float p1z = lor.point1.z;
-	const float p2x = lor.point2.x;
-	const float p2y = lor.point2.y;
-	const float p2z = lor.point2.z;
-
-	// 1. Intersection with FOV cylinder
-	float A = (p2x - p1x) * (p2x - p1x) + (p2y - p1y) * (p2y - p1y);
-	float B = 2.0f * ((p2x - p1x) * p1x + (p2y - p1y) * p1y);
-	float C = p1x * p1x + p1y * p1y - params.fovRadius * params.fovRadius;
-	float Delta = B * B - 4.0f * A * C;
-
-	float t0, t1;
-	if (A != 0.0f)
-	{
-		if (Delta <= 0.0f)
-			return 0.0f;
-		t0 = (-B - sqrtf(Delta)) / (2.0f * A);
-		t1 = (-B + sqrtf(Delta)) / (2.0f * A);
-	}
-	else
-	{
-		t0 = 0.0f;
-		t1 = 1.0f;
-	}
-
-	float d_norm = sqrtf((p1x - p2x) * (p1x - p2x) + (p1y - p2y) * (p1y - p2y) +
-	                     (p1z - p2z) * (p1z - p2z));
-	bool flat_x = (p1x == p2x);
-	bool flat_y = (p1y == p2y);
-	bool flat_z = (p1z == p2z);
-	float inv_p12_x = flat_x ? 0.0f : 1.0f / (p2x - p1x);
-	float inv_p12_y = flat_y ? 0.0f : 1.0f / (p2y - p1y);
-	float inv_p12_z = flat_z ? 0.0f : 1.0f / (p2z - p1z);
-	ssize_t dir_x = (inv_p12_x >= 0.0f) ? 1 : -1;
-	ssize_t dir_y = (inv_p12_y >= 0.0f) ? 1 : -1;
-	ssize_t dir_z = (inv_p12_z >= 0.0f) ? 1 : -1;
-
-	// 2. Intersection with volume
-	float ax_min, ax_max, ay_min, ay_max, az_min, az_max;
-	util::get_alpha(-0.5f * length_x, 0.5f * length_x, p1x, p2x, inv_p12_x,
-	                ax_min, ax_max);
-	util::get_alpha(-0.5f * length_y, 0.5f * length_y, p1y, p2y, inv_p12_y,
-	                ay_min, ay_max);
-	util::get_alpha(-0.5f * length_z, 0.5f * length_z, p1z, p2z, inv_p12_z,
-	                az_min, az_max);
-
-	float amin = fmaxf(0.0f, t0);
-	amin = fmaxf(amin, ax_min);
-	amin = fmaxf(amin, ay_min);
-	amin = fmaxf(amin, az_min);
-	float amax = fminf(1.0f, t1);
-	amax = fminf(amax, ax_max);
-	amax = fminf(amax, ay_max);
-	amax = fminf(amax, az_max);
-
-	float a_cur = amin;
-	float a_next = -1.0f;
-	float x0 = -length_x * 0.5f;
-	float x1 = length_x * 0.5f;
-	float y0 = -length_y * 0.5f;
-	float y1 = length_y * 0.5f;
-	float z0 = -length_z * 0.5f;
-	float z1 = length_z * 0.5f;
-	float x_cur = (inv_p12_x > 0.0f) ? x0 : x1;
-	float y_cur = (inv_p12_y > 0.0f) ? y0 : y1;
-	float z_cur = (inv_p12_z > 0.0f) ? z0 : z1;
-	if ((inv_p12_x >= 0.0f && p1x > x1) || (inv_p12_x < 0.0f && p1x < x0) ||
-	    (inv_p12_y >= 0.0f && p1y > y1) || (inv_p12_y < 0.0f && p1y < y0) ||
-	    (inv_p12_z >= 0.0f && p1z > z1) || (inv_p12_z < 0.0f && p1z < z0))
-	{
-		return 0.0f;
-	}
-
-	constexpr float SIDDON_BIG = 3.402823466e+38f;
-	float ax_next = flat_x ? SIDDON_BIG : ax_min;
-	if (!flat_x)
-	{
-		float kx = ceilf(dir_x * (a_cur * (p2x - p1x) - x_cur + p1x) / dx);
-		x_cur += kx * dir_x * dx;
-		ax_next = (x_cur - p1x) * inv_p12_x;
-	}
-	float ay_next = flat_y ? SIDDON_BIG : ay_min;
-	if (!flat_y)
-	{
-		float ky = ceilf(dir_y * (a_cur * (p2y - p1y) - y_cur + p1y) / dy);
-		y_cur += ky * dir_y * dy;
-		ay_next = (y_cur - p1y) * inv_p12_y;
-	}
-	float az_next = flat_z ? SIDDON_BIG : az_min;
-	if (!flat_z)
-	{
-		float kz = ceilf(dir_z * (a_cur * (p2z - p1z) - z_cur + p1z) / dz);
-		z_cur += kz * dir_z * dz;
-		az_next = (z_cur - p1z) * inv_p12_z;
-	}
-
-	// 3. Integrate along ray
-	enum SIDDON_DIR_FLAGS
-	{
-		DIR_X_FLAG = 0b001,
-		DIR_Y_FLAG = 0b010,
-		DIR_Z_FLAG = 0b100
-	};
-
-	bool flag_first = true;
-	ssize_t vx = -1, vy = -1, vz = -1;
-	short dir_prev = -1;
-	ssize_t offset_img_ptr = 0;
-
-	float ax_next_prev = ax_next;
-	float ay_next_prev = ay_next;
-	float az_next_prev = az_next;
-	bool flag_done = false;
-
-	while (a_cur < amax && !flag_done)
-	{
-		short dir_next = 0;
-		if (ax_next_prev <= ay_next_prev && ax_next_prev <= az_next_prev)
-		{
-			a_next = ax_next;
-			x_cur += dir_x * dx;
-			ax_next = (x_cur - p1x) * inv_p12_x;
-			dir_next |= DIR_X_FLAG;
-		}
-		if (ay_next_prev <= ax_next_prev && ay_next_prev <= az_next_prev)
-		{
-			a_next = ay_next;
-			y_cur += dir_y * dy;
-			ay_next = (y_cur - p1y) * inv_p12_y;
-			dir_next |= DIR_Y_FLAG;
-		}
-		if (az_next_prev <= ax_next_prev && az_next_prev <= ay_next_prev)
-		{
-			a_next = az_next;
-			z_cur += dir_z * dz;
-			az_next = (z_cur - p1z) * inv_p12_z;
-			dir_next |= DIR_Z_FLAG;
-		}
-		if (a_next > amax)
-			a_next = amax;
-		if (a_cur >= a_next)
-		{
-			ax_next_prev = ax_next;
-			ay_next_prev = ay_next;
-			az_next_prev = az_next;
-			continue;
-		}
-
-		float a_mid = 0.5f * (a_cur + a_next);
-		if (flag_first)
-		{
-			vx = static_cast<ssize_t>(
-			    (p1x + a_mid * (p2x - p1x) + length_x * 0.5f) * inv_dx);
-			vy = static_cast<ssize_t>(
-			    (p1y + a_mid * (p2y - p1y) + length_y * 0.5f) * inv_dy);
-			vz = static_cast<ssize_t>(
-			    (p1z + a_mid * (p2z - p1z) + length_z * 0.5f) * inv_dz);
-			offset_img_ptr = vz * num_xy + vy * nx;
-			flag_first = false;
-			if (vx < 0 || vx >= nx || vy < 0 || vy >= ny || vz < 0 || vz >= nz)
-				flag_done = true;
-		}
-		else
-		{
-			if (dir_prev & DIR_X_FLAG)
-			{
-				vx += dir_x;
-				if (vx < 0 || vx >= nx)
-					flag_done = true;
-			}
-			if (dir_prev & DIR_Y_FLAG)
-			{
-				vy += dir_y;
-				if (vy < 0 || vy >= ny)
-					flag_done = true;
-				else
-					offset_img_ptr += dir_y * nx;
-			}
-			if (dir_prev & DIR_Z_FLAG)
-			{
-				vz += dir_z;
-				if (vz < 0 || vz >= nz)
-					flag_done = true;
-				else
-					offset_img_ptr += dir_z * num_xy;
-			}
-		}
-		if (flag_done)
-			continue;
-
-		dir_prev = dir_next;
-		float weight = (a_next - a_cur) * d_norm;
-		ssize_t imageOffset = vx + offset_img_ptr;
-		projValue += weight * data[imageOffset];
-		a_cur = a_next;
-		ax_next_prev = ax_next;
-		ay_next_prev = ay_next;
-		az_next_prev = az_next;
-	}
-
-	return projValue;
-}
-
 // Unified HOST_DEVICE_CALLABLE computeSingleScatterInLOR.
 // Uses raw data pointers + RawImageParams (works on both CPU and GPU).
 HOST_DEVICE_CALLABLE inline float computeSingleScatterInLOR(
@@ -337,8 +114,7 @@ HOST_DEVICE_CALLABLE inline float computeSingleScatterInLOR(
     float sigmaEnergy, float crystalDepth, float axialFOV,
     float collimatorRadius, CrystalMaterial crystalMaterial,
     const Cylinder& cyl1, const Cylinder& cyl2, const Plane& endPlate1,
-    const Plane& endPlate2, const float* mu_data, const float* lambda_data,
-    RawImageParams mu_params, RawImageParams lambda_params, float3 imageOffset)
+    const Plane& endPlate2, RawImageConst muImg, RawImageConst lambdaImg)
 {
 	int i;
 	double res = 0.0;
@@ -349,6 +125,18 @@ HOST_DEVICE_CALLABLE inline float computeSingleScatterInLOR(
 	float tmp, tmp511, delta_1, delta_2, mu_det, mu_det_511;
 	Line3D lor_1_s, lor_2_s;
 	Vector3D ps, p1, p2, u, v;
+
+	RawImageParams muParams = muImg.rawParams;
+	const float* muData = muImg.rawPointer;
+	RawImageParams lambdaParams = lambdaImg.rawParams;
+	const float* lambdaData = lambdaImg.rawPointer;
+
+#if defined(__CUDACC__) && defined(__CUDA_ARCH__)
+	const float3 muImageOffset =
+	    make_float3(muParams.off_x, muParams.off_y, muParams.off_z);
+	const float3 lambdaImageOffset =
+	    make_float3(lambdaParams.off_x, lambdaParams.off_y, lambdaParams.off_z);
+#endif
 
 	p1.update(lor.point1);
 	p2.update(lor.point2);
@@ -395,27 +183,27 @@ HOST_DEVICE_CALLABLE inline float computeSingleScatterInLOR(
 
 		// nearest-neighbor voxel value (inline index math)
 		{
-			const float x = ps.x - mu_params.off_x;
-			const float y = ps.y - mu_params.off_y;
-			const float z = ps.z - mu_params.off_z;
-			const float dx = (x + mu_params.length_x / 2.0f) /
-			                 mu_params.length_x *
-			                 static_cast<float>(mu_params.nx);
-			const float dy = (y + mu_params.length_y / 2.0f) /
-			                 mu_params.length_y *
-			                 static_cast<float>(mu_params.ny);
-			const float dz = (z + mu_params.length_z / 2.0f) /
-			                 mu_params.length_z *
-			                 static_cast<float>(mu_params.nz);
+			const float x = ps.x - muParams.off_x;
+			const float y = ps.y - muParams.off_y;
+			const float z = ps.z - muParams.off_z;
+			const float dx = (x + muParams.length_x / 2.0f) /
+			                 muParams.length_x *
+			                 static_cast<float>(muParams.nx);
+			const float dy = (y + muParams.length_y / 2.0f) /
+			                 muParams.length_y *
+			                 static_cast<float>(muParams.ny);
+			const float dz = (z + muParams.length_z / 2.0f) /
+			                 muParams.length_z *
+			                 static_cast<float>(muParams.nz);
 			const ssize_t ix = static_cast<ssize_t>(dx);
 			const ssize_t iy = static_cast<ssize_t>(dy);
 			const ssize_t iz = static_cast<ssize_t>(dz);
-			if (ix < 0 || ix >= mu_params.nx || iy < 0 || iy >= mu_params.ny ||
-			    iz < 0 || iz >= mu_params.nz)
+			if (ix < 0 || ix >= muParams.nx || iy < 0 || iy >= muParams.ny ||
+			    iz < 0 || iz >= muParams.nz)
 				vatt = 0.0f;
 			else
-				vatt = mu_data[iz * mu_params.nx * mu_params.ny +
-				               iy * mu_params.nx + ix];
+				vatt = muData[iz * muParams.nx * muParams.ny +
+				              iy * muParams.nx + ix];
 		}
 		dsigcompdomega = getKleinNishina(cosa);
 
@@ -426,19 +214,21 @@ HOST_DEVICE_CALLABLE inline float computeSingleScatterInLOR(
 			                          lor_1_s.point1.z);
 			float3 p2_f = make_float3(lor_1_s.point2.x, lor_1_s.point2.y,
 			                          lor_1_s.point2.z);
-			p1_f -= imageOffset;
-			p2_f -= imageOffset;
+			p1_f -= muImageOffset;
+			p2_f -= muImageOffset;
 			RawScannerParams scannerParams{};
 			projectSiddonDefault<true, false>(
-			    att_s_1_511, const_cast<float*>(mu_data), nullptr, p1_f, p2_f,
+			    att_s_1_511, const_cast<float*>(muData), nullptr, p1_f, p2_f,
 			    make_float3(0, 0, 0), make_float3(0, 0, 0), 0, nullptr, 0.0f,
-			    scannerParams, mu_params, 1, 0);
-			att_s_1_511 /= 10.0f;
+			    scannerParams, muParams, 1, 0);
+			att_s_1_511 *= 0.1f;
 		}
 #else
 		{
-			att_s_1_511 =
-			    siddonForwardProjection(mu_data, mu_params, lor_1_s) / 10.0f;
+			ProjectorSiddon::projection<true, false, false>(
+			    RawImage{muParams, const_cast<float*>(muData)}, lor_1_s,
+			    att_s_1_511);
+			att_s_1_511 *= 0.1f;
 		}
 #endif
 
@@ -451,18 +241,19 @@ HOST_DEVICE_CALLABLE inline float computeSingleScatterInLOR(
 			                          lor_1_s.point1.z);
 			float3 p2_f = make_float3(lor_1_s.point2.x, lor_1_s.point2.y,
 			                          lor_1_s.point2.z);
-			p1_f -= imageOffset;
-			p2_f -= imageOffset;
+			p1_f -= lambdaImageOffset;
+			p2_f -= lambdaImageOffset;
 			RawScannerParams scannerParams{};
 			projectSiddonDefault<true, false>(
-			    lamb_s_1, const_cast<float*>(lambda_data), nullptr, p1_f, p2_f,
+			    lamb_s_1, const_cast<float*>(lambdaData), nullptr, p1_f, p2_f,
 			    make_float3(0, 0, 0), make_float3(0, 0, 0), 0, nullptr, 0.0f,
-			    scannerParams, lambda_params, 1, 0);
+			    scannerParams, lambdaParams, 1, 0);
 		}
 #else
 		{
-			lamb_s_1 =
-			    siddonForwardProjection(lambda_data, lambda_params, lor_1_s);
+			ProjectorSiddon::projection<true, false, false>(
+			    RawImage{lambdaParams, const_cast<float*>(lambdaData)}, lor_1_s,
+			    lamb_s_1);
 		}
 #endif
 
@@ -475,14 +266,14 @@ HOST_DEVICE_CALLABLE inline float computeSingleScatterInLOR(
 			                          lor_2_s.point1.z);
 			float3 p2_f = make_float3(lor_2_s.point2.x, lor_2_s.point2.y,
 			                          lor_2_s.point2.z);
-			p1_f -= imageOffset;
-			p2_f -= imageOffset;
+			p1_f -= muImageOffset;
+			p2_f -= muImageOffset;
 			RawScannerParams scannerParams{};
 			projectSiddonDefault<true, false>(
-			    att_s_2_511, const_cast<float*>(mu_data), nullptr, p1_f, p2_f,
+			    att_s_2_511, const_cast<float*>(muData), nullptr, p1_f, p2_f,
 			    make_float3(0, 0, 0), make_float3(0, 0, 0), 0, nullptr, 0.0f,
-			    scannerParams, mu_params, 1, 0);
-			att_s_2_511 /= 10.0f;
+			    scannerParams, muParams, 1, 0);
+			att_s_2_511 *= 0.1f;
 		}
 #else
 		{
@@ -494,8 +285,10 @@ HOST_DEVICE_CALLABLE inline float computeSingleScatterInLOR(
 				throw std::runtime_error(errorMessage);
 			}
 
-			att_s_2_511 =
-			    siddonForwardProjection(mu_data, mu_params, lor_2_s) / 10.0f;
+			ProjectorSiddon::projection<true, false, false>(
+			    RawImage{muParams, const_cast<float*>(muData)}, lor_2_s,
+			    att_s_2_511);
+			att_s_2_511 *= 0.1f;
 		}
 #endif
 
@@ -508,18 +301,19 @@ HOST_DEVICE_CALLABLE inline float computeSingleScatterInLOR(
 			                          lor_2_s.point1.z);
 			float3 p2_f = make_float3(lor_2_s.point2.x, lor_2_s.point2.y,
 			                          lor_2_s.point2.z);
-			p1_f -= imageOffset;
-			p2_f -= imageOffset;
+			p1_f -= lambdaImageOffset;
+			p2_f -= lambdaImageOffset;
 			RawScannerParams scannerParams{};
 			projectSiddonDefault<true, false>(
-			    lamb_s_2, const_cast<float*>(lambda_data), nullptr, p1_f, p2_f,
+			    lamb_s_2, const_cast<float*>(lambdaData), nullptr, p1_f, p2_f,
 			    make_float3(0, 0, 0), make_float3(0, 0, 0), 0, nullptr, 0.0f,
-			    scannerParams, lambda_params, 1, 0);
+			    scannerParams, lambdaParams, 1, 0);
 		}
 #else
 		{
-			lamb_s_2 =
-			    siddonForwardProjection(lambda_data, lambda_params, lor_2_s);
+			ProjectorSiddon::projection<true, false, false>(
+			    RawImage{lambdaParams, const_cast<float*>(lambdaData)}, lor_2_s,
+			    lamb_s_2);
 		}
 #endif
 
@@ -583,7 +377,7 @@ HOST_DEVICE_CALLABLE inline float computeSingleScatterInLOR(
 #ifndef __CUDACC__
 
 // CPU convenience overload: takes Image objects, extracts raw data, and calls
-// the unified HOST_DEVICE_CALLABLE version.
+//  the unified HOST_DEVICE_CALLABLE version.
 inline float computeSingleScatterInLOR(
     const Line3D& lor, float tof_ps, int numSamples, const float* xSamples,
     const float* ySamples, const float* zSamples, float energyLLD,
@@ -592,48 +386,13 @@ inline float computeSingleScatterInLOR(
     const Cylinder& cyl1, const Cylinder& cyl2, const Plane& endPlate1,
     const Plane& endPlate2, const Image& mu, const Image& lambda)
 {
-	const float* mu_data = mu.getRawPointer();
-	const float* lambda_data = lambda.getRawPointer();
-	const ImageParams& mu_p = mu.getParams();
-	const ImageParams& lambda_p = lambda.getParams();
-
-	RawImageParams mu_params;
-	mu_params.nx = mu_p.nx;
-	mu_params.ny = mu_p.ny;
-	mu_params.nz = mu_p.nz;
-	mu_params.vx = mu_p.vx;
-	mu_params.vy = mu_p.vy;
-	mu_params.vz = mu_p.vz;
-	mu_params.length_x = mu_p.length_x;
-	mu_params.length_y = mu_p.length_y;
-	mu_params.length_z = mu_p.length_z;
-	mu_params.off_x = mu_p.off_x;
-	mu_params.off_y = mu_p.off_y;
-	mu_params.off_z = mu_p.off_z;
-	mu_params.fovRadius = mu_p.fovRadius;
-
-	RawImageParams lambda_params;
-	lambda_params.nx = lambda_p.nx;
-	lambda_params.ny = lambda_p.ny;
-	lambda_params.nz = lambda_p.nz;
-	lambda_params.vx = lambda_p.vx;
-	lambda_params.vy = lambda_p.vy;
-	lambda_params.vz = lambda_p.vz;
-	lambda_params.length_x = lambda_p.length_x;
-	lambda_params.length_y = lambda_p.length_y;
-	lambda_params.length_z = lambda_p.length_z;
-	lambda_params.off_x = lambda_p.off_x;
-	lambda_params.off_y = lambda_p.off_y;
-	lambda_params.off_z = lambda_p.off_z;
-	lambda_params.fovRadius = lambda_p.fovRadius;
-
-	const float3 imageOffset = {mu_p.off_x, mu_p.off_y, mu_p.off_z};
+	const RawImageConst muImg = getRawImage(mu);
+	const RawImageConst lambdaImg = getRawImage(lambda);
 
 	return computeSingleScatterInLOR(
 	    lor, tof_ps, numSamples, xSamples, ySamples, zSamples, energyLLD,
 	    sigmaEnergy, crystalDepth, axialFOV, collimatorRadius, crystalMaterial,
-	    cyl1, cyl2, endPlate1, endPlate2, mu_data, lambda_data, mu_params,
-	    lambda_params, imageOffset);
+	    cyl1, cyl2, endPlate1, endPlate2, muImg, lambdaImg);
 }
 
 #endif

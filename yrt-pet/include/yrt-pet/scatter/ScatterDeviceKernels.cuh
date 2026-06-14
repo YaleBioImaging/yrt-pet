@@ -18,15 +18,13 @@ namespace yrt::scatter
 {
 
 void launchComputeSingleScatterInLOR(
-    const float3* lorPoints1, const float3* lorPoints2, const float* tofValues,
-    float* results, int numLORs, const float* xSamples,
-    const float* ySamples, const float* zSamples, int numSamples,
-    float energyLLD, float sigmaEnergy, float crystalDepth, float axialFOV,
-    float collimatorRadius, CrystalMaterial crystalMaterial,
+    const Line3D* lorData, const float* tofValues, float* results, int numLORs,
+    const float* xSamples, const float* ySamples, const float* zSamples,
+    int numSamples, float energyLLD, float sigmaEnergy, float crystalDepth,
+    float axialFOV, float collimatorRadius, CrystalMaterial crystalMaterial,
     const Cylinder& cyl1, const Cylinder& cyl2, const Plane& endPlate1,
-    const Plane& endPlate2, const float* d_muData, const float* d_lambdaData, const RawImageParams& muParams,
-    const RawImageParams& lambdaParams, float3 imageOffset,
-    cudaStream_t stream = 0);
+    const Plane& endPlate2, const RawImageConst& d_mu,
+    const RawImageConst& d_lambda, cudaStream_t* stream = nullptr);
 
 }  // namespace yrt::scatter
 

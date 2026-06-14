@@ -33,11 +33,12 @@ public:
 	                       float numSampFrac = 2.f / 3.f);
 
 	void runSSS(ScatterSpace& outScatterSpace,
-	            bool onlyDirectPlanes = false);
+	            bool onlyDirectPlanes = false) const;
 
 #if BUILD_CUDA
-	void runSSSOnGPU(ScatterSpace& outScatterSpace,
-	              bool onlyDirectPlanes = false);
+	void runSSSDevice(ScatterSpace& outScatterSpace,
+	                 bool onlyDirectPlanes = false,
+	                 cudaStream_t* stream = nullptr) const;
 #endif
 
 	void setUseGPU(bool useGPU) { m_useGPU = useGPU; }

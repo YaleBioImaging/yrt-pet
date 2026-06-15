@@ -14,17 +14,18 @@
 #include "yrt-pet/scatter/Crystal.hpp"
 #include "yrt-pet/scatter/SingleScatterSimulatorUtils.cuh"
 
+#include <cuda_runtime.h>
+
 namespace yrt::scatter
 {
 
-void launchComputeSingleScatterInLOR(
+__global__ void computeSingleScatterInLORKernel(
     const Line3D* lorData, const float* tofValues, float* results, int numLORs,
-    const float* xSamples, const float* ySamples, const float* zSamples,
-    int numSamples, float energyLLD, float sigmaEnergy, float crystalDepth,
-    float axialFOV, float collimatorRadius, CrystalMaterial crystalMaterial,
-    const Cylinder& cyl1, const Cylinder& cyl2, const Plane& endPlate1,
-    const Plane& endPlate2, const RawImageConst& d_mu,
-    const RawImageConst& d_lambda, cudaStream_t* stream = nullptr);
+    int numSamples, const float* xSamples, const float* ySamples,
+    const float* zSamples, float energyLLD, float sigmaEnergy,
+    float crystalDepth, float axialFOV, float collimatorRadius,
+    CrystalMaterial crystalMaterial, Cylinder cyl1, Cylinder cyl2,
+    Plane endPlate1, Plane endPlate2, RawImageConst mu, RawImageConst lambda);
 
 }  // namespace yrt::scatter
 

@@ -45,10 +45,15 @@ struct RawImageConst
 };
 
 RawScannerParams getRawScannerParams(const Scanner& scanner);
+
 RawImageParams getRawImageParams(const ImageParams& imgParams);
+
 RawImage getRawImage(Image& img);
-RawImage getRawImage(ImageDevice& img);
 RawImageConst getRawImage(const Image& img);
+
+#if BUILD_CUDA
+RawImage getRawImage(ImageDevice& img);
 RawImageConst getRawImage(const ImageDevice& img);
+#endif
 
 }  // namespace yrt

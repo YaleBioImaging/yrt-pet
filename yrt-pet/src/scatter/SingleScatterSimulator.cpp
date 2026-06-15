@@ -15,7 +15,6 @@
 #include "yrt-pet/utils/Globals.hpp"
 #include "yrt-pet/utils/ProgressDisplayMultiThread.hpp"
 #include "yrt-pet/utils/ReconstructionUtils.hpp"
-#include "yrt-pet/utils/Tools.hpp"
 
 
 #if BUILD_PYBIND11
@@ -44,7 +43,6 @@ void py_setup_singlescattersimulator(py::module& m)
 	    { self.runSSSDevice(outScs, onlyDirectPlanes); },
 	    "out_scatter_space"_a, "only_direct_planes"_a = false);
 #endif
-	c.def("setUseGPU", &scatter::SingleScatterSimulator::setUseGPU, "use"_a);
 	c.def("computeSingleScatterInLOR",
 	      &scatter::SingleScatterSimulator::computeSingleScatterInLOR, "lor"_a,
 	      "tof"_a);
@@ -182,12 +180,6 @@ void SingleScatterSimulator::runSSS(ScatterSpace& outScatterSpace,
 {
 	ASSERT_MSG(outScatterSpace.isMemoryValid(),
 	           "Destination scatter-space array is unallocated");
-
-	if (m_useGPU)
-	{
-		runSSSDevice(outScatterSpace, onlyDirectPlanes);
-		return;
-	}
 
 	const size_t numTOFBins = outScatterSpace.getNumTOFBins();
 	const size_t numPlanes = outScatterSpace.getNumPlanes();

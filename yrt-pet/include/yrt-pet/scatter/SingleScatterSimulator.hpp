@@ -37,11 +37,9 @@ public:
 
 #if BUILD_CUDA
 	void runSSSDevice(ScatterSpace& outScatterSpace,
-	                 bool onlyDirectPlanes = false,
-	                 cudaStream_t* stream = nullptr) const;
+	                  bool onlyDirectPlanes = false,
+	                  cudaStream_t* stream = nullptr) const;
 #endif
-
-	void setUseGPU(bool useGPU) { m_useGPU = useGPU; }
 
 	float computeSingleScatterInLOR(const Line3D& lor, float tof_ps) const;
 
@@ -70,8 +68,6 @@ private:
 
 	// Updater for forward and back-projection
 	std::unique_ptr<OperatorProjector> mp_proj;
-
-	bool m_useGPU = false;
 };
 
 }  // namespace scatter

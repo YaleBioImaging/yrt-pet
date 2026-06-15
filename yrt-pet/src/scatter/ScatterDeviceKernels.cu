@@ -24,11 +24,16 @@ __global__ void computeSingleScatterInLORKernel(
 	if (idx < numLORs)
 	{
 		Line3D lor = lorData[idx];
+		float result = 0.0f;
 
-		results[idx] = computeSingleScatterInLOR(
-		    lor, tofValues[idx], numSamples, xSamples, ySamples, zSamples,
-		    energyLLD, sigmaEnergy, crystalDepth, axialFOV, collimatorRadius,
-		    crystalMaterial, cyl1, cyl2, endPlate1, endPlate2, mu, lambda);
+		if (lor.isValid())
+		{
+			result = computeSingleScatterInLOR(
+			    lor, tofValues[idx], numSamples, xSamples, ySamples, zSamples,
+			    energyLLD, sigmaEnergy, crystalDepth, axialFOV, collimatorRadius,
+			    crystalMaterial, cyl1, cyl2, endPlate1, endPlate2, mu, lambda);
+		}
+		results[idx] = result;
 	}
 }
 

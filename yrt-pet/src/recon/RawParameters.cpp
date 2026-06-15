@@ -6,10 +6,12 @@
 #include "yrt-pet/recon/RawParameters.hpp"
 
 #include "yrt-pet/datastruct/image/Image.hpp"
-#include "yrt-pet/datastruct/image/ImageDevice.cuh"
 #include "yrt-pet/datastruct/image/ImageParams.hpp"
 #include "yrt-pet/datastruct/scanner/Scanner.hpp"
 
+#if BUILD_CUDA
+#include "yrt-pet/datastruct/image/ImageDevice.cuh"
+#endif
 
 namespace yrt
 {
@@ -54,19 +56,23 @@ RawImage getRawImage(Image& img)
 	return {getRawImageParams(img.getParams()), img.getRawPointer()};
 }
 
-RawImage getRawImage(ImageDevice& img)
-{
-	return {getRawImageParams(img.getParams()), img.getDevicePointer()};
-}
-
 RawImageConst getRawImage(const Image& img)
 {
 	return {getRawImageParams(img.getParams()), img.getRawPointer()};
+}
+
+#if BUILD_CUDA
+
+RawImage getRawImage(ImageDevice& img)
+{
+	return {getRawImageParams(img.getParams()), img.getDevicePointer()};
 }
 
 RawImageConst getRawImage(const ImageDevice& img)
 {
 	return {getRawImageParams(img.getParams()), img.getDevicePointer()};
 }
+
+#endif
 
 }  // namespace yrt

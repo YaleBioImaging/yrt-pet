@@ -44,6 +44,7 @@ set(SOURCES_ALGORITHMS
     recon/test_ApplyThreshold.cpp
     recon/test_TimeAverageMove.cpp
     recon/test_UpdateEM.cpp
+    scatter/test_SSS.cpp
     utils/test_Concurrency.cpp
 )
 

@@ -73,6 +73,7 @@ set(SOURCES
     utils/ProgressDisplay.cpp
     utils/ProgressDisplayMultiThread.cpp
     utils/RangeList.cpp
+    utils/ImageUtils.cpp
     utils/ReconstructionUtils.cpp
     utils/Timer.cpp
     utils/Tools.cpp
@@ -106,6 +107,7 @@ if (USE_CUDA)
         utils/GPUKernelUtils.cu
         utils/PageLockedBuffer.cu
         utils/ReconstructionUtilsDevice.cu
+        utils/ImageUtilsDevice.cu
     )
 endif (USE_CUDA)
 

@@ -12,6 +12,8 @@
 #include "yrt-pet/utils/Globals.hpp"
 #include "yrt-pet/utils/ProgressDisplay.hpp"
 #include "yrt-pet/utils/ReconstructionUtils.hpp"
+#include "yrt-pet/utils/ImageUtils.hpp"
+#include "yrt-pet/utils/ImageUtilsDevice.cuh"
 #include "yrt-pet/utils/ReconstructionUtilsDevice.cuh"
 #include "yrt-pet/utils/Timer.hpp"
 #include "yrt-pet/utils/Tools.hpp"

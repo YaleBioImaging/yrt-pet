@@ -6,7 +6,7 @@
 #include "catch.hpp"
 
 #include "../test_utils.hpp"
-#include "yrt-pet/utils/ReconstructionUtils.hpp"
+#include "yrt-pet/utils/ImageUtils.hpp"
 
 #include <random>
 

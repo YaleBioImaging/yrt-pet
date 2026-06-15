@@ -8,7 +8,6 @@
 #include "yrt-pet/recon/OSEM.hpp"
 
 #include <memory>
-#include <yrt-pet/datastruct/projection/DynamicFraming.hpp>
 
 namespace yrt
 {
@@ -32,32 +31,6 @@ size_t compareListModes(const ListMode& lm1, const ListMode& lm2);
 std::tuple<timestamp_t, timestamp_t>
     getFullTimeRange(const LORMotion& lorMotion);
 
-template <bool PrintProgress = true>
-std::unique_ptr<ImageOwned> timeAverageMoveImage(const LORMotion& lorMotion,
-                                                 const Image* unmovedImage);
-template <bool PrintProgress = true>
-void timeAverageMoveImage(const LORMotion& lorMotion, const Image* unmovedImage,
-                          Image* outImage, frame_t outDynamicFrame = 0);
-
-template <bool PrintProgress = true>
-std::unique_ptr<ImageOwned>
-    timeAverageMoveImage(const LORMotion& lorMotion, const Image* unmovedImage,
-                         timestamp_t timeStart, timestamp_t timeStop);
-template <bool PrintProgress = true>
-void timeAverageMoveImage(const LORMotion& lorMotion, const Image* unmovedImage,
-                          Image* outImage, timestamp_t timeStart,
-                          timestamp_t timeStop, frame_t outDynamicFrame = 0);
-
-template <bool PrintProgress = true>
-std::unique_ptr<ImageOwned>
-    timeAverageMoveImageDynamic(const LORMotion& lorMotion,
-                                const Image* unmovedImage,
-                                const DynamicFraming& dynamicFraming);
-template <bool PrintProgress = true>
-void timeAverageMoveImageDynamic(const LORMotion& lorMotion,
-                                 const Image* unmovedImage, Image* outImage,
-                                 const DynamicFraming& dynamicFraming);
-
 template <bool RequiresAtomic, bool PrintProgress = true>
 void convertToHistogram3D(const ProjectionData& pr_dat,
                           Histogram3D& pr_histoOut,
@@ -75,41 +48,6 @@ std::unique_ptr<ListModeLUTOwned>
 
 bool doesDynamicFramingMatch(const ProjectionData& dataInput,
                              const ImageParams& params);
-
-void fillCircle(Image& image, float value, float centerX, float centerY,
-                float radius, ssize_t zSlice = 0, frame_t dynamicFrame = 0);
-
-void fillEllipse(Image& image, float value, float centerX, float centerY,
-                 float semiAxisX, float semiAxisY, float angle = 0.0f,
-                 ssize_t zSlice = 0, frame_t dynamicFrame = 0);
-
-std::unique_ptr<ImageOwned> getCircleImage(const ImageParams& imgParams,
-                                           float value, float centerX,
-                                           float centerY, float radius);
-
-std::unique_ptr<ImageOwned> getEllipseImage(const ImageParams& imgParams,
-                                            float value, float centerX,
-                                            float centerY, float semiAxisX,
-                                            float semiAxisY,
-                                            float angle = 0.0f);
-
-void fillSphere(Image& image, float value, float centerX, float centerY,
-                float centerZ, float radius, frame_t dynamicFrame = 0);
-
-void fillEllipsoid(Image& image, float value, float centerX, float centerY,
-                   float centerZ, float semiAxisX, float semiAxisY,
-                   float semiAxisZ, frame_t dynamicFrame = 0);
-
-std::unique_ptr<ImageOwned> getSphereImage(const ImageParams& imgParams,
-                                           float value, float centerX,
-                                           float centerY, float centerZ,
-                                           float radius);
-
-std::unique_ptr<ImageOwned> getEllipsoidImage(const ImageParams& imgParams,
-                                              float value, float centerX,
-                                              float centerY, float centerZ,
-                                              float semiAxisX, float semiAxisY,
-                                              float semiAxisZ);
 
 Line3D getNativeLOR(const Scanner& scanner, const ProjectionData& dat,
                     bin_t binId);

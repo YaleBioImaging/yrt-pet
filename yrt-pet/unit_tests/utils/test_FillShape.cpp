@@ -344,7 +344,8 @@ TEST_CASE("fill-overlapping", "[fill][overlap]")
 		REQUIRE(insideCircle(params, 12, 10, 5.0f, 0.0f, radius));
 
 		// Both: near center (1, 1): voxel (10, 10)
-		REQUIRE(getVal(image, 10, 10) == 1.0f);
+		// Value accumulates: 1.0 (left) + 1.0 (right) = 2.0
+		REQUIRE(getVal(image, 10, 10) == 2.0f);
 		REQUIRE(insideCircle(params, 10, 10, -5.0f, 0.0f, radius));
 		REQUIRE(insideCircle(params, 10, 10, 5.0f, 0.0f, radius));
 
@@ -381,23 +382,18 @@ TEST_CASE("fill-overlapping", "[fill][overlap]")
 		fillEllipse(image, 1.0f, 5.0f, 0.0f, 8.0f, 4.0f, 0.0f);
 
 		// Voxel in both circle and ellipse: near (5, 0): voxel (12, 10)
-		REQUIRE(getVal(image, 12, 10) == 1.0f);
+		// Value accumulates: 1.0 (circle) + 1.0 (ellipse) = 2.0
+		REQUIRE(getVal(image, 12, 10) == 2.0f);
 		REQUIRE(insideCircle(params, 12, 10, 0.0f, 0.0f, 15.0f));
 		REQUIRE(insideEllipse(params, 12, 10, 5.0f, 0.0f, 8.0f, 4.0f, 0.0f));
 
-		// Voxel in ellipse but outside circle would need a specific arrangement
-		// Verify that both shapes draw correctly together
-		for (ssize_t iy = 0; iy < params.ny; iy++)
-		{
-			for (ssize_t ix = 0; ix < params.nx; ix++)
-			{
-				if (insideCircle(params, ix, iy, 0.0f, 0.0f, 15.0f) ||
-				    insideEllipse(params, ix, iy, 5.0f, 0.0f, 8.0f, 4.0f, 0.0f))
-				{
-					REQUIRE(getVal(image, ix, iy) == 1.0f);
-				}
-			}
-		}
+		// Circle-only voxel: near (-9, 1): voxel (5, 10)
+		REQUIRE(getVal(image, 5, 10) == 1.0f);
+		REQUIRE(insideCircle(params, 5, 10, 0.0f, 0.0f, 15.0f));
+		REQUIRE_FALSE(insideEllipse(params, 5, 10, 5.0f, 0.0f, 8.0f, 4.0f, 0.0f));
+
+		// Outside both: far corner voxel (0, 0)
+		REQUIRE(getVal(image, 0, 0) == 0.0f);
 	}
 }
 

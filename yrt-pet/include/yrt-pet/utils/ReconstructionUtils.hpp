@@ -76,6 +76,41 @@ std::unique_ptr<ListModeLUTOwned>
 bool doesDynamicFramingMatch(const ProjectionData& dataInput,
                              const ImageParams& params);
 
+void fillCircle(Image& image, float value, float centerX, float centerY,
+                float radius, ssize_t zSlice = 0, frame_t dynamicFrame = 0);
+
+void fillEllipse(Image& image, float value, float centerX, float centerY,
+                 float semiAxisX, float semiAxisY, float angle = 0.0f,
+                 ssize_t zSlice = 0, frame_t dynamicFrame = 0);
+
+std::unique_ptr<ImageOwned> getCircleImage(const ImageParams& imgParams,
+                                           float value, float centerX,
+                                           float centerY, float radius);
+
+std::unique_ptr<ImageOwned> getEllipseImage(const ImageParams& imgParams,
+                                            float value, float centerX,
+                                            float centerY, float semiAxisX,
+                                            float semiAxisY,
+                                            float angle = 0.0f);
+
+void fillSphere(Image& image, float value, float centerX, float centerY,
+                float centerZ, float radius, frame_t dynamicFrame = 0);
+
+void fillEllipsoid(Image& image, float value, float centerX, float centerY,
+                   float centerZ, float semiAxisX, float semiAxisY,
+                   float semiAxisZ, frame_t dynamicFrame = 0);
+
+std::unique_ptr<ImageOwned> getSphereImage(const ImageParams& imgParams,
+                                           float value, float centerX,
+                                           float centerY, float centerZ,
+                                           float radius);
+
+std::unique_ptr<ImageOwned> getEllipsoidImage(const ImageParams& imgParams,
+                                              float value, float centerX,
+                                              float centerY, float centerZ,
+                                              float semiAxisX, float semiAxisY,
+                                              float semiAxisZ);
+
 Line3D getNativeLOR(const Scanner& scanner, const ProjectionData& dat,
                     bin_t binId);
 

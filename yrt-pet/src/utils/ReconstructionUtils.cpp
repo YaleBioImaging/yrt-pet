@@ -91,6 +91,28 @@ void py_setup_reconstructionutils(pybind11::module& m)
 	m.def("doesDynamicFramingMatch", &util::doesDynamicFramingMatch,
 	      "data_input"_a, "params"_a);
 
+	m.def("fillCircle", &util::fillCircle, "value"_a, "image"_a, "center_x"_a,
+	      "center_y"_a, "radius"_a, "z_slice"_a = 0, "dynamic_frame"_a = 0);
+	m.def("fillEllipse", &util::fillEllipse, "value"_a, "image"_a, "center_x"_a,
+	      "center_y"_a, "semi_axis_x"_a, "semi_axis_y"_a, "angle"_a = 0.0f,
+	      "z_slice"_a = 0, "dynamic_frame"_a = 0);
+	m.def("fillSphere", &util::fillSphere, "value"_a, "image"_a, "center_x"_a,
+	      "center_y"_a, "center_z"_a, "radius"_a, "dynamic_frame"_a = 0);
+	m.def("fillEllipsoid", &util::fillEllipsoid, "value"_a, "image"_a,
+	      "center_x"_a, "center_y"_a, "center_z"_a, "semi_axis_x"_a,
+	      "semi_axis_y"_a, "semi_axis_z"_a, "dynamic_frame"_a = 0);
+
+	m.def("getCircleImage", &util::getCircleImage, "value"_a, "img_params"_a,
+	      "center_x"_a, "center_y"_a, "radius"_a);
+	m.def("getEllipseImage", &util::getEllipseImage, "value"_a, "img_params"_a,
+	      "center_x"_a, "center_y"_a, "semi_axis_x"_a, "semi_axis_y"_a,
+	      "angle"_a = 0.0f);
+	m.def("getSphereImage", &util::getSphereImage, "value"_a, "img_params"_a,
+	      "center_x"_a, "center_y"_a, "center_z"_a, "radius"_a);
+	m.def("getEllipsoidImage", &util::getEllipsoidImage, "value"_a,
+	      "img_params"_a, "center_x"_a, "center_y"_a, "center_z"_a,
+	      "semi_axis_x"_a, "semi_axis_y"_a, "semi_axis_z"_a);
+
 	m.def(
 	    "createOSEM",
 	    [](const Scanner& scanner, bool useGPU, bool isLowRank)
@@ -240,9 +262,9 @@ void histogram3DToListModeLUT(const Histogram3D* histo, ListModeLUTOwned* lmOut,
 	// Phase 1: calculate sum of histogram values
 	double sum = 0.0;
 	std::atomic_ref<double> sumRef(sum);
-	util::parallelForChunked(histo->count(), globals::getNumThreads(),
-	                         [dataPtr, &sumRef](bin_t binId, size_t /*tid*/)
-	                         { sumRef.fetch_add(dataPtr[binId]); });
+	parallelForChunked(histo->count(), globals::getNumThreads(),
+	                   [dataPtr, &sumRef](bin_t binId, size_t /*tid*/)
+	                   { sumRef.fetch_add(dataPtr[binId]); });
 
 	// Default target number of events (histogram sum)
 	if (numEvents == 0)
@@ -252,7 +274,7 @@ void histogram3DToListModeLUT(const Histogram3D* histo, ListModeLUTOwned* lmOut,
 	// Phase 2: calculate actual number of events
 	size_t sumInt = 0.0;
 	std::atomic_ref<size_t> sumIntRef(sumInt);
-	util::parallelForChunked(
+	parallelForChunked(
 	    histo->count(), globals::getNumThreads(),
 	    [dataPtr, sum, numEvents, &sumIntRef](bin_t binId, size_t /*tid*/)
 	    {
@@ -674,7 +696,7 @@ void convertToHistogram3DInternal(const ProjectionData& dat,
 
 	const Histogram3D* histoOut_constptr = &histoOut;
 	const ProjectionData* dat_constptr = &dat;
-	util::parallelForChunked(
+	parallelForChunked(
 	    numDatBins, globals::getNumThreads(),
 	    [&progressBar, dat_constptr, histoOut_constptr, histoDataPointer,
 	     detectorMask](bin_t datBin, size_t tid)
@@ -815,7 +837,7 @@ std::unique_ptr<ListModeLUTOwned>
 
 	ProgressDisplay progressBar(numEvents, 5);
 
-	util::parallelForChunked(
+	parallelForChunked(
 	    numEvents, globals::getNumThreads(),
 	    [&progressBar, &lmOut, &lm, detectorMask, hasTOF,
 	     hasRandoms](size_t evId, size_t tid)
@@ -890,6 +912,185 @@ void convertProjectionValuesToACF(ProjectionData& dat, float unitFactor)
 		    return util::getAttenuationCoefficientFactor(
 		        dat.getProjectionValue(bin), unitFactor);
 	    });
+}
+
+void fillEllipse(Image& image, float value, float centerX, float centerY,
+                 float semiAxisX, float semiAxisY, float angle, ssize_t zSlice,
+                 frame_t dynamicFrame)
+{
+	const ImageParams& imgParams = image.getParams();
+	const float cosA = std::cos(angle);
+	const float sinA = std::sin(angle);
+	const float aSq = semiAxisX * semiAxisX;
+	const float bSq = semiAxisY * semiAxisY;
+	const ssize_t nx = imgParams.nx;
+	const ssize_t ny = imgParams.ny;
+
+	parallelForChunked(
+	    static_cast<size_t>(ny) * static_cast<size_t>(nx),
+	    globals::getNumThreads(),
+	    [&image, &imgParams, value, nx, zSlice, dynamicFrame, centerX, centerY,
+	     cosA, sinA, aSq, bSq](size_t index, size_t /*tid*/)
+	    {
+		    const ssize_t iy = static_cast<ssize_t>(index) / nx;
+		    const ssize_t ix = static_cast<ssize_t>(index) % nx;
+		    const Vector3D pos = imgParams.indexToPosition(ix, iy, 0);
+		    const float dx = pos.x - centerX;
+		    const float dy = pos.y - centerY;
+		    const float dxRot = dx * cosA + dy * sinA;
+		    const float dyRot = -dx * sinA + dy * cosA;
+		    if ((dxRot * dxRot) / aSq + (dyRot * dyRot) / bSq <= 1.0f)
+		    {
+			    image.getData().get({static_cast<size_t>(dynamicFrame),
+			                         static_cast<size_t>(zSlice),
+			                         static_cast<size_t>(iy),
+			                         static_cast<size_t>(ix)}) += value;
+		    }
+	    });
+}
+
+void fillCircle(Image& image, float value, float centerX, float centerY,
+                float radius, ssize_t zSlice, frame_t dynamicFrame)
+{
+	fillEllipse(image, value, centerX, centerY, radius, radius, 0.0f, zSlice,
+	            dynamicFrame);
+}
+
+std::unique_ptr<ImageOwned> getCircleImage(const ImageParams& imgParams,
+                                           float value, float centerX,
+                                           float centerY, float radius)
+{
+	auto image = std::make_unique<ImageOwned>(imgParams);
+	image->allocate();
+	image->fill(0.0f);
+	for (ssize_t iz = 0; iz < imgParams.nz; iz++)
+	{
+		for (frame_t it = 0; it < imgParams.nt; it++)
+		{
+			fillCircle(*image, value, centerX, centerY, radius, iz, it);
+		}
+	}
+	return image;
+}
+
+std::unique_ptr<ImageOwned> getEllipseImage(const ImageParams& imgParams,
+                                            float value, float centerX,
+                                            float centerY, float semiAxisX,
+                                            float semiAxisY, float angle)
+{
+	auto image = std::make_unique<ImageOwned>(imgParams);
+	image->allocate();
+	image->fill(0.0f);
+	for (ssize_t iz = 0; iz < imgParams.nz; iz++)
+	{
+		for (frame_t frameIdx = 0; frameIdx < imgParams.nt; frameIdx++)
+		{
+			fillEllipse(*image, value, centerX, centerY, semiAxisX, semiAxisY,
+			            angle, iz, frameIdx);
+		}
+	}
+	return image;
+}
+
+void fillSphere(Image& image, float value, float centerX, float centerY,
+                float centerZ, float radius, frame_t dynamicFrame)
+{
+	const ImageParams& imgParams = image.getParams();
+	const float radiusSq = radius * radius;
+	const ssize_t nx = imgParams.nx;
+	const ssize_t ny = imgParams.ny;
+	const ssize_t nz = imgParams.nz;
+	const size_t nxy = static_cast<size_t>(ny) * static_cast<size_t>(nx);
+
+	parallelForChunked(
+	    static_cast<size_t>(nz) * nxy, globals::getNumThreads(),
+	    [&image, &imgParams, value, nx, nxy, dynamicFrame, centerX, centerY,
+	     centerZ, radiusSq](size_t index, size_t /*tid*/)
+	    {
+		    const ssize_t iz = static_cast<ssize_t>(index) / nxy;
+		    const ssize_t remaining = static_cast<ssize_t>(index % nxy);
+		    const ssize_t iy = remaining / nx;
+		    const ssize_t ix = remaining % nx;
+		    const Vector3D pos = imgParams.indexToPosition(ix, iy, iz);
+		    const float dx = pos.x - centerX;
+		    const float dy = pos.y - centerY;
+		    const float dz = pos.z - centerZ;
+		    if (dx * dx + dy * dy + dz * dz <= radiusSq)
+		    {
+			    image.getData().get(
+			        {static_cast<size_t>(dynamicFrame), static_cast<size_t>(iz),
+			         static_cast<size_t>(iy), static_cast<size_t>(ix)}) +=
+			        value;
+		    }
+	    });
+}
+
+void fillEllipsoid(Image& image, float value, float centerX, float centerY,
+                   float centerZ, float semiAxisX, float semiAxisY,
+                   float semiAxisZ, frame_t dynamicFrame)
+{
+	const ImageParams& imgParams = image.getParams();
+	const float aSq = semiAxisX * semiAxisX;
+	const float bSq = semiAxisY * semiAxisY;
+	const float cSq = semiAxisZ * semiAxisZ;
+	const ssize_t nx = imgParams.nx;
+	const ssize_t ny = imgParams.ny;
+	const ssize_t nz = imgParams.nz;
+	const size_t nxy = static_cast<size_t>(ny) * static_cast<size_t>(nx);
+
+	parallelForChunked(
+	    static_cast<size_t>(nz) * nxy, globals::getNumThreads(),
+	    [&image, &imgParams, value, nx, nxy, dynamicFrame, centerX, centerY,
+	     centerZ, aSq, bSq, cSq](size_t index, size_t /*tid*/)
+	    {
+		    const ssize_t iz = static_cast<ssize_t>(index) / nxy;
+		    const size_t rem = index % nxy;
+		    const ssize_t iy = static_cast<ssize_t>(rem) / nx;
+		    const ssize_t ix = static_cast<ssize_t>(rem) % nx;
+		    const Vector3D pos = imgParams.indexToPosition(ix, iy, iz);
+		    const float dx = pos.x - centerX;
+		    const float dy = pos.y - centerY;
+		    const float dz = pos.z - centerZ;
+		    if ((dx * dx) / aSq + (dy * dy) / bSq + (dz * dz) / cSq <= 1.0f)
+		    {
+			    image.getData().get(
+			        {static_cast<size_t>(dynamicFrame), static_cast<size_t>(iz),
+			         static_cast<size_t>(iy), static_cast<size_t>(ix)}) +=
+			        value;
+		    }
+	    });
+}
+
+std::unique_ptr<ImageOwned> getSphereImage(const ImageParams& imgParams,
+                                           float value, float centerX,
+                                           float centerY, float centerZ,
+                                           float radius)
+{
+	auto image = std::make_unique<ImageOwned>(imgParams);
+	image->allocate();
+	image->fill(0.0f);
+	for (frame_t it = 0; it < imgParams.nt; it++)
+	{
+		fillSphere(*image, value, centerX, centerY, centerZ, radius, it);
+	}
+	return image;
+}
+
+std::unique_ptr<ImageOwned> getEllipsoidImage(const ImageParams& imgParams,
+                                              float value, float centerX,
+                                              float centerY, float centerZ,
+                                              float semiAxisX, float semiAxisY,
+                                              float semiAxisZ)
+{
+	auto image = std::make_unique<ImageOwned>(imgParams);
+	image->allocate();
+	image->fill(0.0f);
+	for (frame_t it = 0; it < imgParams.nt; it++)
+	{
+		fillEllipsoid(*image, value, centerX, centerY, centerZ, semiAxisX,
+		              semiAxisY, semiAxisZ, it);
+	}
+	return image;
 }
 
 std::tuple<Line3D, Vector3D, Vector3D>

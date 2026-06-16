@@ -33,7 +33,7 @@ void py_setup_scatterestimator(py::module& m)
 	               const ProjectionData&, size_t, size_t, size_t,
 	               const Histogram3D*, const Histogram3D*, timestamp_t,
 	               scatter::CrystalMaterial, int, size_t, float, float,
-	               const std::string&, bool, float>(),
+	               const std::string&, bool, bool, float>(),
 	      "scanner"_a, "lambda"_a, "mu"_a, "prompts"_a, "num_tof_bins"_a,
 	      "num_planes"_a, "num_angles"_a, "randoms_his"_a = nullptr,
 	      "sensitivity_his"_a = nullptr, "scan_duration"_a = 0,
@@ -44,6 +44,7 @@ void py_setup_scatterestimator(py::module& m)
 	      "att_threshold"_a = scatter::ScatterEstimator::DefaultAttThreshold,
 	      "num_samp_frac"_a = scatter::ScatterEstimator::DefaultNumSampFrac,
 	      "saveIntermediary_dir"_a = "", "only_direct_planes"_a = true,
+	      "use_gpu"_a = false,
 	      "lor_downsampling"_a =
 	          scatter::ScatterEstimator::DefaultLORDownsamplingFactor);
 
@@ -102,8 +103,8 @@ ScatterEstimator::ScatterEstimator(
     const Histogram* pp_sensitivityHis, timestamp_t p_scanDuration,
     CrystalMaterial p_crystalMaterial, int seedi,
     size_t p_scatterTailsMaskWidth, float p_attThreshold, float p_numSampFrac,
-    const std::string& p_saveIntermediary_dir, bool p_onlyDirectPlanes,
-    float p_lorDownsamplingFactor)
+    const std::string& p_saveIntermediary_dir, bool p_useGPU,
+    bool p_onlyDirectPlanes, float p_lorDownsamplingFactor)
     : mr_scanner(pr_scanner),
       m_sss(pr_scanner, pr_mu, pr_lambda, p_crystalMaterial, seedi,
             p_numSampFrac),
@@ -114,6 +115,7 @@ ScatterEstimator::ScatterEstimator(
       m_attThreshold(p_attThreshold),
       m_scanDuration(p_scanDuration),
       m_onlyEstimateDirectPlanes(p_onlyDirectPlanes),
+      m_useGPU(p_useGPU),
       m_lorDownsamplingFactor(p_lorDownsamplingFactor),
       m_saveIntermediary_dir(p_saveIntermediary_dir)
 {
@@ -256,7 +258,14 @@ void ScatterEstimator::computeScatterEstimate()
 	ASSERT_MSG(mp_scatter_scs->isMemoryValid(),
 	           "Scatter-space array is unallocated (for scatter estimates)");
 
-	m_sss.runSSS(*mp_scatter_scs, m_onlyEstimateDirectPlanes);
+	if (m_useGPU)
+	{
+		m_sss.runSSSDevice(*mp_scatter_scs, m_onlyEstimateDirectPlanes);
+	}
+	else
+	{
+		m_sss.runSSS(*mp_scatter_scs, m_onlyEstimateDirectPlanes);
+	}
 
 	if (m_onlyEstimateDirectPlanes)
 	{

@@ -325,7 +325,7 @@ int main(int argc, char** argv)
 		    *scanner, *sourceImage, *attImage, *prompts, numTOFBins, numPlanes,
 		    numAngles, randomsHis, sensitivityHis, scanDuration,
 		    crystalMaterial, seed, maskWidth, attThreshold, numSampFrac,
-		    saveIntermediary_dir, !fullEstimate, lorDownsamplingFactor);
+		    saveIntermediary_dir, !fullEstimate, useGPU, lorDownsamplingFactor);
 
 		scatterEstimator.allocate();
 

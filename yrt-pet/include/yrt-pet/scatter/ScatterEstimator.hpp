@@ -40,7 +40,7 @@ public:
 	    float p_attThreshold = DefaultAttThreshold,
 	    float p_numSampFrac = DefaultNumSampFrac,
 	    const std::string& p_saveIntermediary_dir = "",
-	    bool p_onlyDirectPlanes = true,
+	    bool p_onlyDirectPlanes = true, bool p_useGPU = false,
 	    float p_lorDownsamplingFactor = DefaultLORDownsamplingFactor);
 
 	// Allocate scatter-space buffers
@@ -98,6 +98,8 @@ private:
 	timestamp_t m_scanDuration;
 	// If true, only estimate direct plane and fill non-direct from average
 	bool m_onlyEstimateDirectPlanes;
+	// Use the GPU-accelerated version of the SSS calculation
+	bool m_useGPU;
 	// The ratio of LORs to consider for the estimation of sensitivity and
 	//  randoms for every possible LOR.
 	//  (example: 0.02 -> take 2% of LORs, 1.0 -> take all LORs)

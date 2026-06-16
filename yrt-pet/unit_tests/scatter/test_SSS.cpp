@@ -56,8 +56,7 @@ TEST_CASE("sss-gpu-vs-cpu", "[sss-gpu]")
 
 	// SSS (same seed)
 	yrt::scatter::SingleScatterSimulator sss(
-	    *scanner, *mu, *lambda, yrt::scatter::CrystalMaterial::LYSO, 42,
-	    2.0f / 3.0f);
+	    *scanner, *mu, *lambda, yrt::scatter::CrystalMaterial::LYSO, 13);
 
 	// Initialize scatter spaces
 	constexpr size_t nTOF = 1;  // TODO: Change this once SSS supports TOF

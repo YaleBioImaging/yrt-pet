@@ -425,8 +425,7 @@ void OperatorPsfDevice::convolveDevice(const ImageDevice& inputImage,
 	allocateTemporaryDeviceImageIfNeeded(params, {stream, true});
 	float* pd_intermediaryImage = mpd_intermediaryImage->getDevicePointer();
 
-	const size_t numVoxelsPerFrame =
-	    static_cast<size_t>(params.nx) * params.ny * params.nz;
+	const size_t numVoxelsPerFrame = params.nx * params.ny * params.nz;
 
 	const float* pd_kernelX = kernelX.getDevicePointer();
 	const float* pd_kernelY = kernelY.getDevicePointer();

@@ -88,11 +88,6 @@ int main(int argc, char** argv)
 		                          false, io::TypeOfArgument::STRING, "",
 		                          outputGroup);
 		registry.registerArgument(
-		    "varpsf_2g",
-		    "Interpret the image-space Variant PSF LUT as a 2-Gaussian "
-		    "mixture table",
-		    false, io::TypeOfArgument::BOOL, false, outputGroup);
-		registry.registerArgument(
 		    "proj_psf",
 		    "Projection-space PSF kernel file (for DD projector only)", false,
 		    io::TypeOfArgument::STRING, "", projectorGroup);
@@ -261,7 +256,6 @@ int main(int argc, char** argv)
 		// Image-space PSF
 		auto imagePsf_fname = config.getValue<std::string>("psf");
 		auto varPsf_fname = config.getValue<std::string>("varpsf");
-		const bool useVarPsf2G = config.getValue<bool>("varpsf_2g");
 		if (!imagePsf_fname.empty())
 		{
 			ASSERT_MSG(varPsf_fname.empty(),
@@ -273,7 +267,7 @@ int main(int argc, char** argv)
 		else if (!varPsf_fname.empty())
 		{
 			const auto imagePsf = std::make_unique<OperatorVarPsf>(
-			    varPsf_fname, imgParams, useVarPsf2G);
+			    varPsf_fname, imgParams);
 			std::cout << "Applying variant Image-space PSF..." << std::endl;
 			auto tempBuffer = std::make_unique<ImageOwned>(imgParams);
 			tempBuffer->allocate();

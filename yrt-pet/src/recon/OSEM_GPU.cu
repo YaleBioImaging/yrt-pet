@@ -229,6 +229,7 @@ std::unique_ptr<Image> OSEM_GPU::generateSensitivityImageForCurrentSubset()
 	if (flagImagePSF)
 	{
 		// This will run in the main stream and will synchronize
+		mpd_tmpImage2->fillDevice(0.0f, true);
 		imagePsf->applyAH(mpd_sensImageBuffer.get(), mpd_tmpImage2.get());
 
 		mpd_tmpImage2->applyThresholdDevice(mpd_sensImageBuffer.get(), EPS_FLT,

@@ -54,8 +54,7 @@ void saveSummaryIfNeeded(const OSEM& osem, bool saveSummaryOption,
 }
 
 void addImagePSFtoReconIfNeeded(OSEM& osem, const std::string& psf_fname,
-                                const std::string& varpsf_fname,
-                                bool useVarPsf2G)
+                                const std::string& varpsf_fname)
 {
 	if (!osem.hasImagePSF())
 	{
@@ -67,9 +66,7 @@ void addImagePSFtoReconIfNeeded(OSEM& osem, const std::string& psf_fname,
 		}
 		else if (!varpsf_fname.empty())
 		{
-			const auto mode =
-			    useVarPsf2G ? ImagePSFMode::VARIANT_2G : ImagePSFMode::VARIANT;
-			osem.addImagePSF(varpsf_fname, mode);
+			osem.addImagePSF(varpsf_fname, ImagePSFMode::VARIANT);
 		}
 	}
 }
@@ -207,11 +204,6 @@ int main(int argc, char** argv)
 		registry.registerArgument(
 		    "varpsf", "Image-space Variant PSF look-up table file", false,
 		    io::TypeOfArgument::STRING, "", reconstructionGroup);
-		registry.registerArgument(
-		    "varpsf_2g",
-		    "Interpret the image-space Variant PSF LUT as a 2-Gaussian "
-		    "mixture table",
-		    false, io::TypeOfArgument::BOOL, false, reconstructionGroup);
 		registry.registerArgument("hard_threshold", "Hard Threshold", false,
 		                          io::TypeOfArgument::FLOAT,
 		                          OSEM::DEFAULT_HARD_THRESHOLD,
@@ -488,8 +480,7 @@ int main(int argc, char** argv)
 
 			addImagePSFtoReconIfNeeded(*osem,
 			                           config.getValue<std::string>("psf"),
-			                           config.getValue<std::string>("varpsf"),
-			                           config.getValue<bool>("varpsf_2g"));
+			                           config.getValue<std::string>("varpsf"));
 
 			ioTimer.pause();
 			sensTimer.run();
@@ -697,8 +688,7 @@ int main(int argc, char** argv)
 		}
 
 		addImagePSFtoReconIfNeeded(*osem, config.getValue<std::string>("psf"),
-		                           config.getValue<std::string>("varpsf"),
-		                           config.getValue<bool>("varpsf_2g"));
+		                           config.getValue<std::string>("varpsf"));
 
 		// Input data as listmode (used by LOR motion and dynamic framing)
 		auto* dataInput_lm = dynamic_cast<ListMode*>(dataInput.get());

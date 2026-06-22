@@ -315,15 +315,20 @@ void OperatorVarPsf::readFromFile(const std::string& imageVarPsf_fname,
 	const std::array<size_t, 2> dims = data.getDims();
 
 	ASSERT_MSG(dims[0] > 3, "CSV file format error: At least 4 rows expected");
+	bool useTwoGaussian = false;
 	if (p_useTwoGaussian)
 	{
 		ASSERT_MSG(dims[1] == 7,
 		           "CSV file format error: 7 columns expected for 2-Gaussian "
 		           "VarPSF");
+		useTwoGaussian = true;
 	}
 	else
 	{
-		ASSERT_MSG(dims[1] == 3, "CSV file format error: 3 columns expected");
+		ASSERT_MSG(dims[1] == 3 || dims[1] == 7,
+		           "CSV file format error: 3 columns expected for 1-Gaussian "
+		           "VarPSF or 7 columns expected for 2-Gaussian VarPSF");
+		useTwoGaussian = dims[1] == 7;
 	}
 
 	m_xRange = data[0][0];
@@ -340,7 +345,7 @@ void OperatorVarPsf::readFromFile(const std::string& imageVarPsf_fname,
 	for (size_t i = 3; i < dims[0]; ++i)
 	{
 		std::unique_ptr<ConvolutionKernel> kernel;
-		if (p_useTwoGaussian)
+		if (useTwoGaussian)
 		{
 			kernel = std::make_unique<ConvolutionKernelGaussianMixture>(
 			    data[i][0], data[i][1], data[i][2], data[i][3], data[i][4],

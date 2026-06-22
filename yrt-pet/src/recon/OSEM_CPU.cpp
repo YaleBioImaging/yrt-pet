@@ -158,6 +158,7 @@ std::unique_ptr<Image> OSEM_CPU::generateSensitivityImageForCurrentSubset()
 
 	if (flagImagePSF)
 	{
+		mp_imageTmpPsf->fill(0.0f);
 		imagePsf->applyAH(mp_tempSensImageBuffer.get(), mp_imageTmpPsf.get());
 
 		mp_imageTmpPsf->applyThreshold(mp_tempSensImageBuffer.get(), EPS_FLT,

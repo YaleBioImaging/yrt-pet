@@ -288,7 +288,7 @@ void copyVarPsfToDeviceIfNeeded(OperatorVarPsfDevice& op)
 #endif
 
 template <typename OperatorType>
-void runVarPsfTest(std::default_random_engine& engine,
+void runVarPSFtest(std::default_random_engine& engine,
                    const std::string& suffix, bool useTwoGaussian)
 {
 	for (int i = 0; i < 100; ++i)
@@ -716,7 +716,7 @@ TEST_CASE("VarPSF", "[varpsf]")
 	const unsigned int randomSeed =
 	    static_cast<unsigned int>(std::time(nullptr));
 	std::default_random_engine engine(randomSeed);
-	runVarPsfTest<OperatorVarPsf>(engine, "", false);
+	runVarPSFtest<OperatorVarPsf>(engine, "", false);
 }
 TEST_CASE("VarPSF_readFromFile_auto_detect", "[varpsf]")
 {
@@ -751,7 +751,7 @@ TEST_CASE("VarPSF_2G", "[varpsf_2g]")
 	const unsigned int randomSeed =
 	    static_cast<unsigned int>(std::time(nullptr));
 	std::default_random_engine engine(randomSeed);
-	runVarPsfTest<OperatorVarPsf>(engine, "", true);
+	runVarPSFtest<OperatorVarPsf>(engine, "", true);
 }
 #if BUILD_CUDA
 TEST_CASE("VarPSF_GPU", "[varpsf_gpu]")
@@ -759,14 +759,14 @@ TEST_CASE("VarPSF_GPU", "[varpsf_gpu]")
 	const unsigned int randomSeed =
 	    static_cast<unsigned int>(std::time(nullptr));
 	std::default_random_engine engine(randomSeed);
-	runVarPsfTest<OperatorVarPsfDevice>(engine, "_gpu", false);
+	runVarPSFtest<OperatorVarPsfDevice>(engine, "_gpu", false);
 }
 TEST_CASE("VarPSF_2G_GPU", "[varpsf_2g_gpu]")
 {
 	const unsigned int randomSeed =
 	    static_cast<unsigned int>(std::time(nullptr));
 	std::default_random_engine engine(randomSeed);
-	runVarPsfTest<OperatorVarPsfDevice>(engine, "_gpu", true);
+	runVarPSFtest<OperatorVarPsfDevice>(engine, "_gpu", true);
 }
 #endif  // BUILD_CUDA
 }  // namespace yrt::util::test

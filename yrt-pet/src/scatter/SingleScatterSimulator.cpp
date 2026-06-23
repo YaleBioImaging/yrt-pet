@@ -37,7 +37,7 @@ void py_setup_singlescattersimulator(py::module& m)
 	      "out_scatter_space"_a, "only_direct_planes"_a = false);
 #if BUILD_CUDA
 	c.def(
-	    "runSSSOnGPU",
+	    "runSSSDevice",
 	    [](const scatter::SingleScatterSimulator& self, ScatterSpace& outScs,
 	       bool onlyDirectPlanes)
 	    { self.runSSSDevice(outScs, onlyDirectPlanes); },

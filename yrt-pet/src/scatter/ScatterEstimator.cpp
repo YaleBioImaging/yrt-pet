@@ -260,7 +260,12 @@ void ScatterEstimator::computeScatterEstimate()
 
 	if (m_useGPU)
 	{
+#if BUILD_CUDA
 		m_sss.runSSSDevice(*mp_scatter_scs, m_onlyEstimateDirectPlanes);
+#else
+		throw std::runtime_error("GPU SSS unavailable if project was not "
+		                         "compiled with CUDA enabled");
+#endif
 	}
 	else
 	{

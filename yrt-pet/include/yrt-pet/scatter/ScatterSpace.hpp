@@ -217,6 +217,8 @@ public:
 	det_id_t getDetector1(bin_t id) const override;
 	det_id_t getDetector2(bin_t id) const override;
 	det_pair_t getDetectorPair(bin_t id) const override;
+	bool hasArbitraryLORs() const override;
+	Line3D getArbitraryLOR(bin_t id) const override;
 	std::unique_ptr<BinIterator> getBinIter(int numSubsets,
 	                                        int idxSubset) const override;
 

@@ -7,9 +7,10 @@
 
 #include "yrt-pet/geometry/Constants.hpp"
 
-#define FORBID_INPUT_ERROR_MESSAGE                                          \
-	"The scatter space should not be used to gather LORs, do projections, " \
-	"or reconstructions. It is meant only for corrections."
+#define FORBID_INPUT_ERROR_MESSAGE                                             \
+	"The scatter space should not be used to gather LORs using the scanner's " \
+	"look-up table. The scatter space is meant to be used only for "           \
+	"corrections."
 
 #if BUILD_PYBIND11
 #include <pybind11/numpy.h>
@@ -900,7 +901,8 @@ void ScatterSpace::clearProjections(float value)
 float ScatterSpace::getProjectionValueFromHistogramBin(
     histo_bin_t histoBinId) const
 {
-	ScatterSpacePosition pos = histogramBinToScatterSpacePosition(histoBinId);
+	const ScatterSpacePosition pos =
+	    histogramBinToScatterSpacePosition(histoBinId);
 	// Do linear interpolation on the scatter-space value and return
 	return getLinearInterpolationValue(pos);
 }
@@ -920,10 +922,27 @@ det_pair_t ScatterSpace::getDetectorPair(bin_t /*id*/) const
 	throw std::runtime_error(FORBID_INPUT_ERROR_MESSAGE);
 }
 
-std::unique_ptr<BinIterator> ScatterSpace::getBinIter(int /*numSubsets*/,
-                                                      int /*idxSubset*/) const
+bool ScatterSpace::hasArbitraryLORs() const
 {
-	throw std::runtime_error(FORBID_INPUT_ERROR_MESSAGE);
+	return true;
+}
+
+Line3D ScatterSpace::getArbitraryLOR(bin_t id) const
+{
+	const auto idx = unravelIndex(id);
+	return getLORFromIndex(idx);
+}
+
+std::unique_ptr<BinIterator> ScatterSpace::getBinIter(int numSubsets,
+                                                      int idxSubset) const
+{
+	ASSERT_MSG(idxSubset < numSubsets,
+	           "The subset index has to be smaller than the number of subsets");
+	ASSERT_MSG(idxSubset == 0 && numSubsets == 1,
+	           "Multiple subsets are not supported in sparse histograms");
+
+	return std::make_unique<BinIteratorChronological>(numSubsets, count(),
+	                                                  idxSubset);
 }
 
 void ScatterSpace::initStepSizes()

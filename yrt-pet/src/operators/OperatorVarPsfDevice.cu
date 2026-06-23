@@ -22,16 +22,13 @@ void py_setup_operatorvarpsfdevice(py::module& m)
 	    m, "OperatorVarPsfDevice");
 	c.def(py::init<const ImageParams&>());
 	c.def(py::init(
-	          [](const std::string& fname, const ImageParams& imageParams,
-	             bool useTwoGaussian)
+	          [](const std::string& fname, const ImageParams& imageParams)
 	          {
 		          return std::make_unique<OperatorVarPsfDevice>(
-		              fname, imageParams, nullptr, useTwoGaussian);
+		              fname, imageParams, nullptr);
 	          }),
-	      py::arg("fname"), py::arg("image_params"),
-	      py::arg("use_two_gaussian") = false);
+	      py::arg("fname"), py::arg("image_params"));
 	c.def("readFromFile", &OperatorVarPsf::readFromFile, py::arg("fname"),
-	      py::arg("use_two_gaussian") = false,
 	      "Read the variant PSF from CSV LUT");
 	c.def("copyVarPsfToDevice", &OperatorVarPsfDevice::copyVarPsfToDevice,
 	      py::arg("synchronize") = true, "Upload the PSF kernels to the GPU");
@@ -75,10 +72,9 @@ OperatorVarPsfDevice::OperatorVarPsfDevice(const ImageParams& p_imageParams,
 
 OperatorVarPsfDevice::OperatorVarPsfDevice(const std::string& pr_imagePsf_fname,
                                            const ImageParams& p_imageParams,
-                                           const cudaStream_t* pp_stream,
-                                           bool p_useTwoGaussian)
+                                           const cudaStream_t* pp_stream)
     : DeviceSynchronized{pp_stream, pp_stream},
-      OperatorVarPsf{pr_imagePsf_fname, p_imageParams, p_useTwoGaussian}
+      OperatorVarPsf{pr_imagePsf_fname, p_imageParams}
 {
 	initDeviceArraysIfNeeded();
 	copyVarPsfToDevice(true);

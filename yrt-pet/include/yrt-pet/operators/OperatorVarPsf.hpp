@@ -72,12 +72,10 @@ public:
 
 	explicit OperatorVarPsf(const ImageParams& p_imageParams);
 	OperatorVarPsf(const std::string& imageVarPsf_fname,
-	               const ImageParams& p_imageParams,
-	               bool p_useTwoGaussian = false);
+	               const ImageParams& p_imageParams);
 	~OperatorVarPsf() override = default;
 
-	void readFromFile(const std::string& imageVarPsf_fname,
-	                  bool p_useTwoGaussian = false);
+	void readFromFile(const std::string& imageVarPsf_fname);
 
 	void applyA(const Variable* in, Variable* out) override;
 	void applyAH(const Variable* in, Variable* out) override;

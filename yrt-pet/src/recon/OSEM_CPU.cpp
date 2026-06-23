@@ -58,10 +58,9 @@ void OSEM_CPU::addImagePSF(const std::string& p_imagePsf_fname,
 		ASSERT_MSG(imageParams.isValid(),
 		           "For spatially variant PSF, image parameters have to be set "
 		           "before calling addImagePSF");
-		const bool useTwoGaussian = p_imagePSFMode == ImagePSFMode::VARIANT_2G;
-		imagePsf = std::make_unique<OperatorVarPsf>(
-		    p_imagePsf_fname, imageParams, useTwoGaussian);
-		m_imagePSFMode = p_imagePSFMode;
+		imagePsf =
+		    std::make_unique<OperatorVarPsf>(p_imagePsf_fname, imageParams);
+		m_imagePSFMode = ImagePSFMode::VARIANT;
 	}
 	flagImagePSF = true;
 }

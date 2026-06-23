@@ -22,11 +22,9 @@ void py_setup_operatorvarpsf(py::module& m)
 {
 	auto c = py::class_<OperatorVarPsf, Operator>(m, "OperatorVarPsf");
 	c.def(py::init<const ImageParams&>());
-	c.def(py::init<const std::string&, const ImageParams&, bool>(),
-	      py::arg("fname"), py::arg("image_params"),
-	      py::arg("use_two_gaussian") = false);
+	c.def(py::init<const std::string&, const ImageParams&>(),
+	      py::arg("fname"), py::arg("image_params"));
 	c.def("readFromFile", &OperatorVarPsf::readFromFile, py::arg("fname"),
-	      py::arg("use_two_gaussian") = false,
 	      "Read the variant PSF from CSV LUT");
 	c.def(
 	    "applyA", [](OperatorVarPsf& self, const Image* img_in, Image* img_out)
@@ -272,11 +270,10 @@ OperatorVarPsf::OperatorVarPsf(const ImageParams& pr_imageParams)
 }
 
 OperatorVarPsf::OperatorVarPsf(const std::string& imageVarPsf_fname,
-                               const ImageParams& pr_imageParams,
-                               bool p_useTwoGaussian)
+                               const ImageParams& pr_imageParams)
     : OperatorVarPsf{pr_imageParams}
 {
-	readFromFile(imageVarPsf_fname, p_useTwoGaussian);
+	readFromFile(imageVarPsf_fname);
 }
 
 const ConvolutionKernel& OperatorVarPsf::findNearestKernel(float x, float y,
@@ -307,29 +304,17 @@ const ConvolutionKernel& OperatorVarPsf::findNearestKernel(float x, float y,
 	return *m_kernelLUT[index];
 }
 
-void OperatorVarPsf::readFromFile(const std::string& imageVarPsf_fname,
-                                  bool p_useTwoGaussian)
+void OperatorVarPsf::readFromFile(const std::string& imageVarPsf_fname)
 {
 	Array2DOwned<float> data;
 	util::readCSV<float>(imageVarPsf_fname, data);
 	const std::array<size_t, 2> dims = data.getDims();
 
 	ASSERT_MSG(dims[0] > 3, "CSV file format error: At least 4 rows expected");
-	bool useTwoGaussian = false;
-	if (p_useTwoGaussian)
-	{
-		ASSERT_MSG(dims[1] == 7,
-		           "CSV file format error: 7 columns expected for 2-Gaussian "
-		           "VarPSF");
-		useTwoGaussian = true;
-	}
-	else
-	{
-		ASSERT_MSG(dims[1] == 3 || dims[1] == 7,
-		           "CSV file format error: 3 columns expected for 1-Gaussian "
-		           "VarPSF or 7 columns expected for 2-Gaussian VarPSF");
-		useTwoGaussian = dims[1] == 7;
-	}
+	ASSERT_MSG(dims[1] == 3 || dims[1] == 7,
+	           "CSV file format error: 3 columns expected for 1-Gaussian "
+	           "VarPSF or 7 columns expected for 2-Gaussian VarPSF");
+	const bool useTwoGaussian = dims[1] == 7;
 
 	m_xRange = data[0][0];
 	m_yRange = data[0][1];

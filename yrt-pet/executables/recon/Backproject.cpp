@@ -266,8 +266,8 @@ int main(int argc, char** argv)
 		}
 		else if (!varPsf_fname.empty())
 		{
-			const auto imagePsf = std::make_unique<OperatorVarPsf>(
-			    varPsf_fname, imgParams);
+			const auto imagePsf =
+			    std::make_unique<OperatorVarPsf>(varPsf_fname, imgParams);
 			std::cout << "Applying variant Image-space PSF..." << std::endl;
 			auto tempBuffer = std::make_unique<ImageOwned>(imgParams);
 			tempBuffer->allocate();

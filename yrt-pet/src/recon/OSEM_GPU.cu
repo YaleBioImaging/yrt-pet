@@ -60,10 +60,9 @@ void OSEM_GPU::addImagePSF(const std::string& p_imagePsf_fname,
 		ASSERT_MSG(imageParams.isValid(),
 		           "For spatially variant PSF, image parameters have to be set "
 		           "before calling addImagePSF");
-		const bool useTwoGaussian = p_imagePSFMode == ImagePSFMode::VARIANT_2G;
 		imagePsf = std::make_unique<OperatorVarPsfDevice>(
-		    p_imagePsf_fname, imageParams, getMainStream(), useTwoGaussian);
-		m_imagePSFMode = p_imagePSFMode;
+		    p_imagePsf_fname, imageParams, getMainStream());
+		m_imagePSFMode = ImagePSFMode::VARIANT;
 	}
 
 	flagImagePSF = true;

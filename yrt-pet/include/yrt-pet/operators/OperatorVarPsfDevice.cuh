@@ -30,8 +30,7 @@ public:
 	                              const cudaStream_t* pp_stream = nullptr);
 	explicit OperatorVarPsfDevice(const std::string& pr_imagePsf_fname,
 	                              const ImageParams& p_imageParams,
-	                              const cudaStream_t* pp_stream = nullptr,
-	                              bool p_useTwoGaussian = false);
+	                              const cudaStream_t* pp_stream = nullptr);
 
 	void copyVarPsfToDevice(
 	    bool synchronize =

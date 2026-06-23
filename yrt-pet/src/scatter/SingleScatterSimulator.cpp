@@ -5,6 +5,8 @@
 
 #include "yrt-pet/scatter/SingleScatterSimulator.hpp"
 #include "yrt-pet/scatter/SingleScatterSimulatorUtils.cuh"
+#include "yrt-pet/geometry/Cylinder3DBase.hpp"
+#include "yrt-pet/geometry/Plane3DBase.hpp"
 
 #include "yrt-pet/datastruct/image/Image.hpp"
 #include "yrt-pet/datastruct/projection/Histogram3D.hpp"
@@ -81,17 +83,17 @@ SingleScatterSimulator::SingleScatterSimulator(
 
 	const Vector3D c{0., 0., 0.};
 	// YP: creates 2 cylinders of axial extent "afov" in millimiters xs
-	m_cyl1 = Cylinder{c, m_axialFOV, m_scannerRadius};
-	m_cyl2 = Cylinder{c, m_axialFOV, m_scannerRadius + m_crystalDepth};
+	m_cyl1 = makeCylinder3D(c, m_axialFOV, m_scannerRadius);
+	m_cyl2 = makeCylinder3D(c, m_axialFOV, m_scannerRadius + m_crystalDepth);
 	// YP 3 points located in the last ring of the scanner
 	Vector3D p1{1.0f, 0.0f, -m_axialFOV / 2.0f},
 	    p2{0.0f, 1.0f, -m_axialFOV / 2.0f}, p3{0.0f, 0.0f, -m_axialFOV / 2.0f};
 	// YP defines a plane according to these 3 points
-	m_endPlate1 = Plane{p1, p2, p3};
+	m_endPlate1 = makePlane3D(p1, p2, p3);
 
 	// YP other plane located at the first ring of the scanner
 	p1.z = p2.z = p3.z = m_axialFOV / 2.0;
-	m_endPlate2 = Plane{p1, p2, p3};
+	m_endPlate2 = makePlane3D(p1, p2, p3);
 
 	int seed = std::abs(seedi);  // YP random seed
 	int init = -1;

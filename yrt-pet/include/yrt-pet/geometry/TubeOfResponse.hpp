@@ -5,11 +5,11 @@
 
 #pragma once
 
+#include "yrt-pet/geometry/Cylinder3DBase.hpp"
 #include "yrt-pet/geometry/Line3D.hpp"
 
 namespace yrt
 {
-class Cylinder;
 
 class TubeOfResponse
 {
@@ -30,7 +30,7 @@ public:
 
 	const Line3D& getAverageLine() const;
 	const Line3D& getAvgLine() const;  // Alias
-	bool clip(const Cylinder& cyl);
+	bool clip(const Cylinder3D& cyl);
 
 private:
 	void updateAvgLine();

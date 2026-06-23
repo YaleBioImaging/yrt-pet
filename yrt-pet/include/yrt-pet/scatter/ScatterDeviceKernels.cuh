@@ -7,9 +7,9 @@
 
 #ifdef __CUDACC__
 
-#include "yrt-pet/geometry/Cylinder.hpp"
-#include "yrt-pet/geometry/Line3D.hpp"
-#include "yrt-pet/geometry/Plane.hpp"
+#include "yrt-pet/geometry/Cylinder3D.cuh"
+#include "yrt-pet/geometry/Line3D.cuh"
+#include "yrt-pet/geometry/Plane3D.cuh"
 #include "yrt-pet/recon/RawParameters.hpp"
 #include "yrt-pet/scatter/Crystal.hpp"
 #include "yrt-pet/scatter/SingleScatterSimulatorUtils.cuh"
@@ -24,8 +24,8 @@ __global__ void computeSingleScatterInLORKernel(
     int numSamples, const float* xSamples, const float* ySamples,
     const float* zSamples, float energyLLD, float sigmaEnergy,
     float crystalDepth, float axialFOV, float collimatorRadius,
-    CrystalMaterial crystalMaterial, Cylinder cyl1, Cylinder cyl2,
-    Plane endPlate1, Plane endPlate2, RawImageConst mu, RawImageConst lambda);
+    CrystalMaterial crystalMaterial, Cylinder3D cyl1, Cylinder3D cyl2,
+    Plane3D endPlate1, Plane3D endPlate2, RawImageConst mu, RawImageConst lambda);
 
 }  // namespace yrt::scatter
 

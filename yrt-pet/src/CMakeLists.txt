@@ -30,11 +30,11 @@ set(SOURCES
     datastruct/image/nifti/nifti1_io.cpp
     datastruct/image/nifti/znzlib.cpp
     datastruct/IO.cpp
-    geometry/Cylinder.cpp
+    geometry/Cylinder3D.cpp
     geometry/Line3D.cpp
     geometry/Matrix.cpp
     geometry/MultiRayGenerator.cpp
-    geometry/Plane.cpp
+    geometry/Plane3D.cpp
     geometry/TransformUtils.cpp
     geometry/TubeOfResponse.cpp
     geometry/Vector3D.cpp

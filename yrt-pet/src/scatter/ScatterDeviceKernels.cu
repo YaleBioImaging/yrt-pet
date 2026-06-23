@@ -16,8 +16,8 @@ __global__ void computeSingleScatterInLORKernel(
     int numSamples, const float* xSamples, const float* ySamples,
     const float* zSamples, float energyLLD, float sigmaEnergy,
     float crystalDepth, float axialFOV, float collimatorRadius,
-    CrystalMaterial crystalMaterial, Cylinder cyl1, Cylinder cyl2,
-    Plane endPlate1, Plane endPlate2, RawImageConst mu, RawImageConst lambda)
+    CrystalMaterial crystalMaterial, Cylinder3D cyl1, Cylinder3D cyl2,
+    Plane3D endPlate1, Plane3D endPlate2, RawImageConst mu, RawImageConst lambda)
 {
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
 

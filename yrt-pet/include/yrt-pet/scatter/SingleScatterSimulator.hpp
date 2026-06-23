@@ -5,8 +5,8 @@
 
 #pragma once
 
-#include "yrt-pet/geometry/Cylinder.hpp"
-#include "yrt-pet/geometry/Plane.hpp"
+#include "yrt-pet/geometry/Cylinder3DBase.hpp"
+#include "yrt-pet/geometry/Plane3DBase.hpp"
 #include "yrt-pet/operators/OperatorProjector.hpp"
 #include "yrt-pet/operators/ProjectorUpdater.hpp"
 #include "yrt-pet/scatter/Crystal.hpp"
@@ -63,8 +63,8 @@ private:
 	const Image& mr_mu;      // Attenuation image
 	const Image& mr_lambda;  // Image from 2 MLEM iterations
 	CrystalMaterial m_crystalMaterial;
-	Cylinder m_cyl1, m_cyl2;
-	Plane m_endPlate1, m_endPlate2;
+	Cylinder3D m_cyl1, m_cyl2;
+	Plane3D m_endPlate1, m_endPlate2;
 
 	// Updater for forward and back-projection
 	std::unique_ptr<OperatorProjector> mp_proj;

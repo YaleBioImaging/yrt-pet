@@ -8,8 +8,13 @@
 #include "yrt-pet/utils/GPUUtils.cuh"
 
 #include "yrt-pet/geometry/Constants.hpp"
-#include "yrt-pet/geometry/Cylinder.hpp"
-#include "yrt-pet/geometry/Plane.hpp"
+#ifdef __CUDACC__
+#include "yrt-pet/geometry/Cylinder3D.cuh"
+#include "yrt-pet/geometry/Plane3D.cuh"
+#else
+#include "yrt-pet/geometry/Cylinder3DBase.hpp"
+#include "yrt-pet/geometry/Plane3DBase.hpp"
+#endif
 #include "yrt-pet/recon/RawParameters.hpp"
 #include "yrt-pet/scatter/Crystal.hpp"
 #include "yrt-pet/utils/Tools.hpp"
@@ -64,8 +69,8 @@ HOST_DEVICE_CALLABLE inline float getMuScalingFactor(float energy)
 // The first point of lor must be the detector, the second point must be the
 // scatter point.
 HOST_DEVICE_CALLABLE inline float
-    getIntersectionLengthLORCrystalRaw(const Line3D& lor, const Cylinder& cyl1,
-                                       const Cylinder& cyl2)
+    getIntersectionLengthLORCrystalRaw(const Line3D& lor, const Cylinder3D& cyl1,
+                                       const Cylinder3D& cyl2)
 {
 	Vector3D a1, a2, inter1, inter2;
 	const Vector3D n1 = lor.point1 - lor.point2;
@@ -92,8 +97,8 @@ HOST_DEVICE_CALLABLE inline float
 HOST_DEVICE_CALLABLE inline bool passCollimatorRaw(const Line3D& lor,
                                                    float collimatorRadius,
                                                    float /*axialFOV*/,
-                                                   const Plane& endPlate1,
-                                                   const Plane& endPlate2)
+                                                   const Plane3D& endPlate1,
+                                                   const Plane3D& endPlate2)
 {
 	if (collimatorRadius < 1e-7f)
 		return true;
@@ -107,14 +112,14 @@ HOST_DEVICE_CALLABLE inline bool passCollimatorRaw(const Line3D& lor,
 }
 
 // Unified HOST_DEVICE_CALLABLE computeSingleScatterInLOR.
-// Uses raw data pointers + RawImageParams (works on both CPU and GPU).
+// Uses RawImageConst objects (works on both CPU and GPU).
 HOST_DEVICE_CALLABLE inline float computeSingleScatterInLOR(
     const Line3D& lor, float /*tof_ps*/, int numSamples, const float* xSamples,
     const float* ySamples, const float* zSamples, float energyLLD,
     float sigmaEnergy, float crystalDepth, float axialFOV,
     float collimatorRadius, CrystalMaterial crystalMaterial,
-    const Cylinder& cyl1, const Cylinder& cyl2, const Plane& endPlate1,
-    const Plane& endPlate2, RawImageConst muImg, RawImageConst lambdaImg)
+    const Cylinder3D& cyl1, const Cylinder3D& cyl2, const Plane3D& endPlate1,
+    const Plane3D& endPlate2, RawImageConst muImg, RawImageConst lambdaImg)
 {
 	int i;
 	double res = 0.0;
@@ -383,8 +388,8 @@ inline float computeSingleScatterInLOR(
     const float* ySamples, const float* zSamples, float energyLLD,
     float sigmaEnergy, float crystalDepth, float axialFOV,
     float collimatorRadius, CrystalMaterial crystalMaterial,
-    const Cylinder& cyl1, const Cylinder& cyl2, const Plane& endPlate1,
-    const Plane& endPlate2, const Image& mu, const Image& lambda)
+    const Cylinder3D& cyl1, const Cylinder3D& cyl2, const Plane3D& endPlate1,
+    const Plane3D& endPlate2, const Image& mu, const Image& lambda)
 {
 	const RawImageConst muImg = getRawImage(mu);
 	const RawImageConst lambdaImg = getRawImage(lambda);

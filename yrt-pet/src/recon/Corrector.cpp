@@ -591,7 +591,6 @@ float Corrector::getScatterEstimate(const histo_bin_t& histoBin) const
 		if (m_isScatterSCS)
 		{
 			scatterEstimate *= getSensitivity(histoBin);
-			scatterEstimate *= m_globalScalingFactor;
 		}
 		return scatterEstimate;
 	}

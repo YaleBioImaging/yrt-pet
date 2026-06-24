@@ -54,63 +54,109 @@ TEST_CASE("sss-gpu-vs-cpu", "[sss-gpu]")
 	yrt::util::fillSphere(*lambda, 1.0f, -30.0f, 0.0f, 0.0f, 25.0f);
 	yrt::util::fillSphere(*lambda, 1.0f, 30.0f, 0.0f, 0.0f, 25.0f);
 
-	// SSS (same seed)
+	// SSS (same seed for both sections)
 	yrt::scatter::SingleScatterSimulator sss(
 	    *scanner, *mu, *lambda, yrt::scatter::CrystalMaterial::LYSO, 13);
 
-	// Initialize scatter spaces
 	constexpr size_t nTOF = 1;  // TODO: Change this once SSS supports TOF
 	constexpr size_t nPlanes = 6;
 	constexpr size_t nAngles = 20;
 
-	yrt::ScatterSpace cpuOut(*scanner, nTOF, nPlanes, nAngles);
-	cpuOut.allocate();
-	cpuOut.fill(0.0f);
-
-	yrt::ScatterSpace gpuOut(*scanner, nTOF, nPlanes, nAngles);
-	gpuOut.allocate();
-	gpuOut.fill(0.0f);
-
-	// CPU run
-	sss.runSSS(cpuOut);
-
-	// GPU run
-	sss.runSSSDevice(gpuOut);
-
-	// Compare
-	const size_t numBins = cpuOut.count();
-	REQUIRE(numBins == static_cast<size_t>(gpuOut.count()));
-	const double numBins_double = static_cast<double>(numBins);
-
-	double sqSum = 0.0, sumCPU = 0.0, sumGPU = 0.0;
-	size_t nNonZero = 0;
-
-	for (yrt::bin_t i = 0; i < numBins; ++i)
+	SECTION("non-direct planes")
 	{
-		const float cpuVal = static_cast<double>(cpuOut.getProjectionValue(i));
-		const float gpuVal = static_cast<double>(gpuOut.getProjectionValue(i));
-		const float diff = static_cast<double>(cpuVal - gpuVal);
-		sqSum += diff * diff;
-		sumCPU += cpuVal;
-		sumGPU += gpuVal;
-		if (cpuVal > 0.0f || gpuVal > 0.0f)
+		yrt::ScatterSpace cpuOut(*scanner, nTOF, nPlanes, nAngles);
+		cpuOut.allocate();
+		cpuOut.fill(0.0f);
+
+		yrt::ScatterSpace gpuOut(*scanner, nTOF, nPlanes, nAngles);
+		gpuOut.allocate();
+		gpuOut.fill(0.0f);
+
+		sss.runSSS(cpuOut);
+		sss.runSSSDevice(gpuOut);
+
+		const size_t numBins = cpuOut.count();
+		REQUIRE(numBins == static_cast<size_t>(gpuOut.count()));
+		const double numBins_double = static_cast<double>(numBins);
+
+		double sqSum = 0.0, sumCPU = 0.0, sumGPU = 0.0;
+		size_t numNonZero = 0;
+
+		for (yrt::bin_t i = 0; i < numBins; ++i)
 		{
-			++nNonZero;
+			const double cpuVal = cpuOut.getProjectionValue(i);
+			const double gpuVal = gpuOut.getProjectionValue(i);
+			const double diff = cpuVal - gpuVal;
+			sqSum += diff * diff;
+			sumCPU += cpuVal;
+			sumGPU += gpuVal;
+			if (cpuVal > 0.0f || gpuVal > 0.0f)
+			{
+				++numNonZero;
+			}
 		}
+
+		const double meanCPU = sumCPU / numBins_double;
+		const double meanGPU = sumGPU / numBins_double;
+		REQUIRE(sumCPU > 0.0);
+		REQUIRE(sumGPU > 0.0);
+
+		INFO("mean CPU: " << meanCPU << ", mean GPU: " << meanGPU
+		                  << ", non-zero bins: " << numNonZero);
+
+		const double nrmse = std::sqrt(sqSum / numBins_double) / meanCPU;
+		INFO("NRMSE: " << nrmse);
+
+		CHECK(nrmse < 1e-4);
 	}
 
-	const double meanCPU = sumCPU / numBins_double;
-	const double meanGPU = sumGPU / numBins_double;
-	REQUIRE(sumCPU > 0.0);
-	REQUIRE(sumGPU > 0.0);
+	SECTION("direct planes only")
+	{
+		yrt::ScatterSpace cpuOut(*scanner, nTOF, nPlanes, nAngles);
+		cpuOut.allocate();
+		cpuOut.fill(0.0f);
 
-	INFO("mean CPU: " << meanCPU << ", mean GPU: " << meanGPU
-	                  << ", non-zero bins: " << nNonZero);
+		yrt::ScatterSpace gpuOut(*scanner, nTOF, nPlanes, nAngles);
+		gpuOut.allocate();
+		gpuOut.fill(0.0f);
 
-	const double nrmse = std::sqrt(sqSum / numBins_double) / meanCPU;
-	INFO("NRMSE: " << nrmse);
+		sss.runSSS(cpuOut, true);
+		sss.runSSSDevice(gpuOut, true);
 
-	CHECK(nrmse < 1e-4);
+		const size_t numBins = cpuOut.count();
+		REQUIRE(numBins == static_cast<size_t>(gpuOut.count()));
+		const double numBins_double = static_cast<double>(numBins);
+
+		double sqSum = 0.0, sumCPU = 0.0, sumGPU = 0.0;
+		size_t numNonZero = 0;
+
+		for (yrt::bin_t i = 0; i < numBins; ++i)
+		{
+			const double cpuVal = cpuOut.getProjectionValue(i);
+			const double gpuVal = gpuOut.getProjectionValue(i);
+			const double diff = cpuVal - gpuVal;
+			sqSum += diff * diff;
+			sumCPU += cpuVal;
+			sumGPU += gpuVal;
+			if (cpuVal > 0.0f || gpuVal > 0.0f)
+			{
+				++numNonZero;
+			}
+		}
+
+		const double meanCPU = sumCPU / numBins_double;
+		const double meanGPU = sumGPU / numBins_double;
+		REQUIRE(sumCPU > 0.0);
+		REQUIRE(sumGPU > 0.0);
+
+		INFO("mean CPU: " << meanCPU << ", mean GPU: " << meanGPU
+		                  << ", non-zero bins: " << numNonZero);
+
+		const double nrmse = std::sqrt(sqSum / numBins_double) / meanCPU;
+		INFO("NRMSE: " << nrmse);
+
+		CHECK(nrmse < 1e-4);
+	}
 }
 
 #endif

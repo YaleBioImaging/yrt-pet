@@ -216,6 +216,8 @@ int main(int argc, char** argv)
 			return -1;
 #endif
 		}
+		util::Timer totalTimer;
+		totalTimer.run();
 
 		globals::setNumThreads(numThreads);
 		std::cout << "Initializing scanner..." << std::endl;
@@ -333,6 +335,9 @@ int main(int argc, char** argv)
 
 		scatterEstimator.getScatterEstimate().writeToFile(scatterOut_fname);
 
+		totalTimer.pause();
+		std::cout << "Total time: " << totalTimer.getElapsedSeconds() << " sec"
+		          << std::endl;
 		std::cout << "Done." << std::endl;
 	}
 	catch (const cxxopts::exceptions::exception& e)

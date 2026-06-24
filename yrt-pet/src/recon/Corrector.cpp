@@ -6,6 +6,7 @@
 #include "yrt-pet/recon/Corrector.hpp"
 
 #include "yrt-pet/operators/ProjectorSiddon.hpp"
+#include "yrt-pet/scatter/ScatterEstimator.hpp"
 #include "yrt-pet/utils/Assert.hpp"
 #include "yrt-pet/utils/Concurrency.hpp"
 #include "yrt-pet/utils/Globals.hpp"
@@ -180,6 +181,11 @@ void Corrector::setRandomsHistogram(const Histogram* pp_randoms)
 void Corrector::setScatterHistogram(const Histogram* pp_scatter)
 {
 	mp_scatter = pp_scatter;
+
+	// Check if the scatter given is a scatter-space object. If so, it would
+	//  require the application of the sensitivity into the scatter estimates
+	const auto scatterAsSCS = dynamic_cast<const ScatterSpace*>(mp_scatter);
+	m_isScatterSCS = scatterAsSCS != nullptr;
 }
 
 void Corrector::setAttenuationImage(const Image* pp_attenuationImage)
@@ -577,9 +583,17 @@ float Corrector::getScatterEstimate(const histo_bin_t& histoBin) const
 {
 	if (mp_scatter != nullptr)
 	{
-		// TODO: If the scatter estimate comes from a "scatter-space",
-		//  apply the sensitivity on the returned value
-		return mp_scatter->getProjectionValueFromHistogramBin(histoBin);
+		float scatterEstimate =
+		    mp_scatter->getProjectionValueFromHistogramBin(histoBin);
+
+		// If the scatter histogram given is a downsampled scatter-space, we
+		//  must apply the sensitivity
+		if (m_isScatterSCS)
+		{
+			scatterEstimate *= getSensitivity(histoBin);
+			scatterEstimate *= m_globalScalingFactor;
+		}
+		return scatterEstimate;
 	}
 	return 0.0f;
 }

@@ -6,18 +6,15 @@
 #include "../ArgumentReader.hpp"
 #include "../PluginOptionsHelper.hpp"
 #include "yrt-pet/datastruct/IO.hpp"
-#include "yrt-pet/datastruct/projection/Histogram3D.hpp"
 #include "yrt-pet/datastruct/projection/ListMode.hpp"
 #include "yrt-pet/datastruct/projection/RandomsHistogram.hpp"
 #include "yrt-pet/datastruct/scanner/Scanner.hpp"
-#include "yrt-pet/geometry/Constants.hpp"
 #include "yrt-pet/scatter/ScatterEstimator.hpp"
 #include "yrt-pet/utils/Assert.hpp"
 #include "yrt-pet/utils/Globals.hpp"
 #include "yrt-pet/utils/ReconstructionUtils.hpp"
 #include "yrt-pet/utils/Timer.hpp"
 #include "yrt-pet/utils/Tools.hpp"
-#include "yrt-pet/utils/Version.hpp"
 
 #include <cxxopts.hpp>
 #include <iostream>
@@ -336,7 +333,7 @@ int main(int argc, char** argv)
 		scatterEstimator.getScatterEstimate().writeToFile(scatterOut_fname);
 
 		totalTimer.pause();
-		std::cout << "Total time: " << totalTimer.getElapsedSeconds() << " sec"
+		std::cout << "Total time: " << totalTimer.getElapsedSeconds() << "s"
 		          << std::endl;
 		std::cout << "Done." << std::endl;
 	}

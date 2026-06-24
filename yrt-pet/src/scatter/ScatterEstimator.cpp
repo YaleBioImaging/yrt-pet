@@ -178,6 +178,8 @@ void ScatterEstimator::initScanDuration()
 			m_scanDuration = 1;
 		}
 	}
+	std::cout << "Scan duration to be used: " << m_scanDuration << " sec"
+	          << std::endl;
 	ASSERT_MSG(m_scanDuration != 0.0f, "Scan duration cannot be zero");
 }
 
@@ -194,7 +196,7 @@ void ScatterEstimator::computeTailFittedScatterEstimate()
 	{
 		timer.run();
 		oper();
-		std::cout << "Time taken: " << timer.getElapsedSeconds() << " sec"
+		std::cout << "Time taken: " << timer.getElapsedSeconds() << "s"
 		          << std::endl;
 		timer.reset();
 	};

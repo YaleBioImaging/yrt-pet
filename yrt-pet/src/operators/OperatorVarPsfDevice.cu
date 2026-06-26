@@ -21,7 +21,13 @@ void py_setup_operatorvarpsfdevice(py::module& m)
 	auto c = py::class_<OperatorVarPsfDevice, OperatorVarPsf>(
 	    m, "OperatorVarPsfDevice");
 	c.def(py::init<const ImageParams&>());
-	c.def(py::init<const std::string&, const ImageParams&>());
+	c.def(py::init(
+	          [](const std::string& fname, const ImageParams& imageParams)
+	          {
+		          return std::make_unique<OperatorVarPsfDevice>(
+		              fname, imageParams, nullptr);
+	          }),
+	      py::arg("fname"), py::arg("image_params"));
 	c.def("readFromFile", &OperatorVarPsf::readFromFile, py::arg("fname"),
 	      "Read the variant PSF from CSV LUT");
 	c.def("copyVarPsfToDevice", &OperatorVarPsfDevice::copyVarPsfToDevice,

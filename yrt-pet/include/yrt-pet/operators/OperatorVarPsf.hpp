@@ -45,6 +45,25 @@ private:
 	float m_nStdX, m_nStdY, m_nStdZ;
 };
 
+class ConvolutionKernelGaussianMixture : public ConvolutionKernel
+{
+public:
+	ConvolutionKernelGaussianMixture(
+	    float p_sigmaX1, float p_sigmaY1, float p_sigmaZ1, float p_sigmaX2,
+	    float p_sigmaY2, float p_sigmaZ2, float p_weight2, float p_nStdX,
+	    float p_nStdY, float p_nStdZ, const ImageParams& pr_imageParams);
+	void setSigmas(float p_sigmaX1, float p_sigmaY1, float p_sigmaZ1,
+	               float p_sigmaX2, float p_sigmaY2, float p_sigmaZ2,
+	               float p_weight2, float p_nStdX, float p_nStdY,
+	               float p_nStdZ, const ImageParams& pr_imageParams);
+
+private:
+	float m_sigmaX1, m_sigmaY1, m_sigmaZ1;
+	float m_sigmaX2, m_sigmaY2, m_sigmaZ2;
+	float m_weight2;
+	float m_nStdX, m_nStdY, m_nStdZ;
+};
+
 class OperatorVarPsf : public Operator
 {
 public:

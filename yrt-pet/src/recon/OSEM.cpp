@@ -1023,8 +1023,18 @@ void OSEM::initializeOutImageBuffer()
 
 void OSEM::initializeSensImageBuffer()
 {
+	const timestamp_t scanDuration_ms = mp_dataInput->getScanDuration();
+
+	float scanDuration_s = 1.0f;
+	if (scanDuration_ms > 0)  // We assume the timestamps increase over time
+	{
+		scanDuration_s = scanDuration_ms / 1000.0f;
+	}
+
 	if (usingListModeInput)
 	{
+		const float scalarToMultiplyWith =
+		    scanDuration_s * 1.0f / (static_cast<float>(num_OSEM_subsets));
 		if (needToMakeCopyOfSensImage)
 		{
 			std::cout << "Arranging sensitivity image scaling for ListMode in "
@@ -1038,15 +1048,13 @@ void OSEM::initializeSensImageBuffer()
 			    std::make_unique<ImageOwned>(imageSensParams);
 			mp_copiedSensitivityImage->allocate();
 			mp_copiedSensitivityImage->copyFromImage(m_sensitivityImages.at(0));
-			mp_copiedSensitivityImage->multWithScalar(
-			    1.0f / (static_cast<float>(num_OSEM_subsets)));
+			mp_copiedSensitivityImage->multWithScalar(scalarToMultiplyWith);
 		}
 		else if (num_OSEM_subsets != 1)
 		{
 			std::cout << "Arranging sensitivity image scaling for ListMode..."
 			          << std::endl;
-			m_sensitivityImages[0]->multWithScalar(
-			    1.0f / (static_cast<float>(num_OSEM_subsets)));
+			m_sensitivityImages[0]->multWithScalar(scalarToMultiplyWith);
 		}
 	}
 }

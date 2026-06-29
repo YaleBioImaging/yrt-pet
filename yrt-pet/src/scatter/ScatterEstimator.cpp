@@ -103,8 +103,8 @@ ScatterEstimator::ScatterEstimator(
     const Histogram* pp_sensitivityHis, timestamp_t p_scanDuration,
     CrystalMaterial p_crystalMaterial, int seedi,
     size_t p_scatterTailsMaskWidth, float p_attThreshold, float p_numSampFrac,
-    const std::string& p_saveIntermediary_dir, bool p_useGPU,
-    bool p_onlyDirectPlanes, float p_lorDownsamplingFactor)
+    const std::string& p_saveIntermediary_dir, bool p_onlyDirectPlanes,
+    bool p_useGPU, float p_lorDownsamplingFactor)
     : mr_scanner(pr_scanner),
       m_sss(pr_scanner, pr_mu, pr_lambda, p_crystalMaterial, seedi,
             p_numSampFrac),

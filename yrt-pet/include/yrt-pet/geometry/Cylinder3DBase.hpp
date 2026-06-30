@@ -7,7 +7,6 @@
 
 #include <cmath>
 
-#include "yrt-pet/geometry/Constants.hpp"
 #include "yrt-pet/geometry/Line3D.hpp"
 #include "yrt-pet/geometry/Vector3D.hpp"
 #include "yrt-pet/utils/GPUUtils.cuh"

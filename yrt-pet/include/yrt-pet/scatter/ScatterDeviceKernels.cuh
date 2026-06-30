@@ -25,7 +25,8 @@ __global__ void computeSingleScatterInLORKernel(
     const float* zSamples, float energyLLD, float sigmaEnergy,
     float crystalDepth, float axialFOV, float collimatorRadius,
     CrystalMaterial crystalMaterial, Cylinder3D cyl1, Cylinder3D cyl2,
-    Plane3D endPlate1, Plane3D endPlate2, RawImageConst mu, RawImageConst lambda);
+    Plane3D endPlate1, Plane3D endPlate2, RawImageConst mu,
+    RawImageConst lambda);
 
 }  // namespace yrt::scatter
 

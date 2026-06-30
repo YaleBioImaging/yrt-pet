@@ -68,9 +68,8 @@ HOST_DEVICE_CALLABLE inline float getMuScalingFactor(float energy)
 
 // The first point of lor must be the detector, the second point must be the
 // scatter point.
-HOST_DEVICE_CALLABLE inline float
-    getIntersectionLengthLORCrystalRaw(const Line3D& lor, const Cylinder3D& cyl1,
-                                       const Cylinder3D& cyl2)
+HOST_DEVICE_CALLABLE inline float getIntersectionLengthLORCrystalRaw(
+    const Line3D& lor, const Cylinder3D& cyl1, const Cylinder3D& cyl2)
 {
 	Vector3D a1, a2, inter1, inter2;
 	const Vector3D n1 = lor.point1 - lor.point2;
@@ -169,11 +168,13 @@ HOST_DEVICE_CALLABLE inline float computeSingleScatterInLOR(
 			continue;
 
 		u.update(ps - p1);
+		v.update(p2 - ps);
+		if (u.scalProd(v) < 0.0f)
+			continue;
 		dist1 = u.getNorm();
 		u.x /= dist1;
 		u.y /= dist1;
 		u.z /= dist1;
-		v.update(p2 - ps);
 		dist2 = v.getNorm();
 		v.x /= dist2;
 		v.y /= dist2;

@@ -17,7 +17,8 @@ __global__ void computeSingleScatterInLORKernel(
     const float* zSamples, float energyLLD, float sigmaEnergy,
     float crystalDepth, float axialFOV, float collimatorRadius,
     CrystalMaterial crystalMaterial, Cylinder3D cyl1, Cylinder3D cyl2,
-    Plane3D endPlate1, Plane3D endPlate2, RawImageConst mu, RawImageConst lambda)
+    Plane3D endPlate1, Plane3D endPlate2, RawImageConst mu,
+    RawImageConst lambda)
 {
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -30,8 +31,9 @@ __global__ void computeSingleScatterInLORKernel(
 		{
 			result = computeSingleScatterInLOR(
 			    lor, tofValues[idx], numSamples, xSamples, ySamples, zSamples,
-			    energyLLD, sigmaEnergy, crystalDepth, axialFOV, collimatorRadius,
-			    crystalMaterial, cyl1, cyl2, endPlate1, endPlate2, mu, lambda);
+			    energyLLD, sigmaEnergy, crystalDepth, axialFOV,
+			    collimatorRadius, crystalMaterial, cyl1, cyl2, endPlate1,
+			    endPlate2, mu, lambda);
 		}
 		results[idx] = result;
 	}

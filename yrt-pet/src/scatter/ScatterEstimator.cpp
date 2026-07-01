@@ -9,9 +9,8 @@
 #include "yrt-pet/datastruct/projection/Histogram3D.hpp"
 #include "yrt-pet/datastruct/projection/ListMode.hpp"
 #include "yrt-pet/datastruct/scanner/Scanner.hpp"
-#include "yrt-pet/geometry/Constants.hpp"
-#include "yrt-pet/operators/ProjectorSiddon.hpp"
 #include "yrt-pet/scatter/Crystal.hpp"
+#include "yrt-pet/scatter/SingleScatterSimulatorUtils.cuh"
 #include "yrt-pet/utils/Assert.hpp"
 #include "yrt-pet/utils/ProgressDisplayMultiThread.hpp"
 #include "yrt-pet/utils/ReconstructionUtils.hpp"
@@ -53,7 +52,11 @@ void py_setup_scatterestimator(py::module& m)
 
 	// Main function
 	c.def("computeTailFittedScatterEstimate",
-	      &scatter::ScatterEstimator::computeTailFittedScatterEstimate);
+	      &scatter::ScatterEstimator::computeTailFittedScatterEstimate,
+	      "unscaled_scatter_estimate"_a = nullptr,
+	      "Compute the scatter estimate and perform the tail fitting. To skip "
+	      "the scatter estimation calculation and only perform the "
+	      "tail-fitting, provide an unscaled scatter estimate as a parameter.");
 
 	// Steps
 	c.def("computeScatterEstimate",
@@ -183,7 +186,8 @@ void ScatterEstimator::initScanDuration()
 	ASSERT_MSG(m_scanDuration != 0.0f, "Scan duration cannot be zero");
 }
 
-void ScatterEstimator::computeTailFittedScatterEstimate()
+void ScatterEstimator::computeTailFittedScatterEstimate(
+    const ScatterSpace* unscaledScatterEstimate)
 {
 	const bool saveIntermediate = !m_saveIntermediary_dir.empty();
 
@@ -201,7 +205,16 @@ void ScatterEstimator::computeTailFittedScatterEstimate()
 		timer.reset();
 	};
 
-	measureTimeTaken([this]() { computeScatterEstimate(); });
+	if (unscaledScatterEstimate != nullptr)
+	{
+		// Copy it into the member field
+		mp_scatter_scs->copyFrom(*unscaledScatterEstimate);
+	}
+	else
+	{
+		// Perform the estimation
+		measureTimeTaken([this]() { computeScatterEstimate(); });
+	}
 	if (saveIntermediate)
 	{
 		mp_scatter_scs->writeToFile(
@@ -297,14 +310,16 @@ void ScatterEstimator::computeInsideMaskInScatterSpace()
 
 	const size_t numSamples = mp_insideMask_scs->getSizeTotal();
 
+	const RawImageConst attImage = getRawImage(m_sss.getAttenuationImage());
+
 	// Only used for printing purposes
 	const int numThreads = globals::getNumThreads();
 	const size_t progressMax = numSamples;
-	util::ProgressDisplayMultiThread progressBar(numThreads, progressMax, 5);
+	util::ProgressDisplayMultiThread progressBar(numThreads, progressMax, 10);
 
 	util::parallelForChunked(
 	    numSamples, numThreads,
-	    [&progressBar, this](size_t sampleId, size_t threadId)
+	    [&progressBar, attImage, this](size_t sampleId, size_t threadId)
 	    {
 		    progressBar.incrementProgress(threadId);
 
@@ -315,12 +330,10 @@ void ScatterEstimator::computeInsideMaskInScatterSpace()
 		    const Line3D lor = mp_insideMask_scs->getLORFromIndex(scsIdx);
 
 		    // Forward-project the attenuation image
-		    const float att = ProjectorSiddon::singleForwardProjection(
-		        &m_sss.getAttenuationImage(), lor);
+		    const bool inside =
+		        doesLineIntersectImageThreshold(lor, attImage, m_attThreshold);
 
-		    const float inside = (att > m_attThreshold) ? 1.0f : 0.0f;
-
-		    mp_insideMask_scs->setValueFlat(sampleId, inside);
+		    mp_insideMask_scs->setValueFlat(sampleId, inside ? 1.0f : 0.0f);
 	    });
 }
 

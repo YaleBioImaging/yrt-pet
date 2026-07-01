@@ -67,8 +67,8 @@ int main(int argc, char** argv)
 		                          io::TypeOfArgument::STRING, "", sssGroup);
 		registry.registerArgument(
 		    "att_threshold",
-		    "Tail fitting attenuation threshold for the scatter tails mask "
-		    "(Default: " +
+		    "Tail fitting attenuation threshold (in 1/cm) for the scatter "
+		    "tails mask (Default: " +
 		        std::to_string(scatter::ScatterEstimator::DefaultAttThreshold) +
 		        ")",
 		    false, io::TypeOfArgument::FLOAT,
@@ -130,6 +130,11 @@ int main(int argc, char** argv)
 		        io::possibleFormats(plugin::InputFormatsChoice::ONLYHISTOGRAMS),
 		    false, io::TypeOfArgument::STRING, "", tailFittingGroup);
 		registry.registerArgument(
+		    "unscaled_scatter",
+		    "Unscaled scatter estimate (optional, providing this would skip "
+		    "the scatter estimation step and only perform the tail-fitting)",
+		    false, io::TypeOfArgument::STRING, "", tailFittingGroup);
+		registry.registerArgument(
 		    "mask_width",
 		    "Tail fitting mask width (Default: " +
 		        std::to_string(
@@ -188,6 +193,8 @@ int main(int argc, char** argv)
 		auto attImage_fname = config.getValue<std::string>("att");
 		auto attThreshold = config.getValue<float>("att_threshold");
 		auto crystalMaterial_name = config.getValue<std::string>("crystal_mat");
+		auto unscaledScatter_fname =
+		    config.getValue<std::string>("unscaled_scatter");
 		size_t numTOFBins = config.getValue<int>("n_tof");
 		size_t numPlanes = config.getValue<int>("n_planes");
 		size_t numAngles = config.getValue<int>("n_angles");
@@ -290,6 +297,15 @@ int main(int argc, char** argv)
 			timer.reset();
 		}
 
+		std::unique_ptr<ScatterSpace> unscaledScatter;
+		if (!unscaledScatter_fname.empty())
+		{
+			std::cout << "Reading the unscaled scatter estimate file..."
+			          << std::endl;
+			unscaledScatter =
+			    std::make_unique<ScatterSpace>(*scanner, unscaledScatter_fname);
+		}
+
 		Histogram* sensitivityHis = nullptr;
 		std::unique_ptr<ProjectionData> sensitivityHisProjData = nullptr;
 		if (!sensitivityHis_fname.empty())
@@ -328,7 +344,8 @@ int main(int argc, char** argv)
 
 		scatterEstimator.allocate();
 
-		scatterEstimator.computeTailFittedScatterEstimate();
+		scatterEstimator.computeTailFittedScatterEstimate(
+		    unscaledScatter.get());
 
 		scatterEstimator.getScatterEstimate().writeToFile(scatterOut_fname);
 

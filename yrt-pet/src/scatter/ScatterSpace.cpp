@@ -80,8 +80,10 @@ void py_setup_scatterspace(py::module& m)
 	// ScatterSpace class
 	auto c = py::class_<ScatterSpace, Histogram>(m, "ScatterSpace",
 	                                             py::buffer_protocol());
-	c.def(py::init<const Scanner&, const std::string&>());
-	c.def(py::init<const Scanner&, size_t, size_t, size_t>());
+	c.def(py::init<const Scanner&, const std::string&>(), "sanner"_a,
+	      "fname"_a);
+	c.def(py::init<const Scanner&, size_t, size_t, size_t>(), "scanner"_a,
+	      "num_tof_bins"_a, "num_planes"_a, "num_angles"_a);
 	c.def("allocate", &ScatterSpace::allocate);
 	c.def("isMemoryValid", &ScatterSpace::isMemoryValid);
 
@@ -284,6 +286,20 @@ void ScatterSpace::allocate()
 bool ScatterSpace::isMemoryValid() const
 {
 	return mp_values != nullptr && mp_values->getRawPointer() != nullptr;
+}
+
+void ScatterSpace::copyFrom(const ScatterSpace& other)
+{
+	const auto dims = mp_values->getDims();
+	const auto otherdims = other.mp_values->getDims();
+
+	ASSERT_MSG(dims[0] == otherdims[0], "Number of TOF bins mismatch");
+	ASSERT_MSG(dims[1] == otherdims[1], "Number of plane1 bins mismatch");
+	ASSERT_MSG(dims[2] == otherdims[2], "Number of angle1 bins mismatch");
+	ASSERT_MSG(dims[3] == otherdims[3], "Number of plane2 bins mismatch");
+	ASSERT_MSG(dims[4] == otherdims[4], "Number of angle2 bins mismatch");
+
+	mp_values->copy(*other.mp_values);
 }
 
 void ScatterSpace::readFromFile(const std::string& fname)

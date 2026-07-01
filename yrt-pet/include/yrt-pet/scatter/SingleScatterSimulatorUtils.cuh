@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include "yrt-pet/datastruct/image/ImageUtils.cuh"
 #include "yrt-pet/utils/GPUUtils.cuh"
 
 #include "yrt-pet/geometry/Constants.hpp"
@@ -108,6 +109,97 @@ HOST_DEVICE_CALLABLE inline bool passCollimatorRaw(const Line3D& lor,
 		inter = endPlate2.findInterLine(lor);
 	const float r = sqrtf(inter.x * inter.x + inter.y * inter.y);
 	return r < collimatorRadius;
+}
+
+HOST_DEVICE_CALLABLE inline bool
+    doesLineIntersectImageThreshold(const Line3D& line,
+                                    const RawImageConst& image, float threshold)
+{
+	const Vector3D& p1 = line.point1;
+	const Vector3D& p2 = line.point2;
+	const Vector3D pDiff = p1 - p2;
+	const RawImageParams& params = image.rawParams;
+	const ssize_t nx = params.nx;
+	const ssize_t ny = params.ny;
+	const ssize_t nz = params.nz;
+	const float* imageData = image.rawPointer;
+
+	Vector3D pIdx1, pIdx2;  // The same points (p1 and p2) but in image indices
+	pIdx1.x = rintf(
+	    util::positionToIndex(p1.x, params.vx, params.length_x, params.off_x));
+	pIdx1.y = rintf(
+	    util::positionToIndex(p1.y, params.vy, params.length_y, params.off_y));
+	pIdx1.z = rintf(
+	    util::positionToIndex(p1.z, params.vz, params.length_z, params.off_z));
+	pIdx2.x = rintf(
+	    util::positionToIndex(p2.x, params.vx, params.length_x, params.off_x));
+	pIdx2.y = rintf(
+	    util::positionToIndex(p2.y, params.vy, params.length_y, params.off_y));
+	pIdx2.z = rintf(
+	    util::positionToIndex(p2.z, params.vz, params.length_z, params.off_z));
+
+	// Direction cosines (l,m,n) for the line
+	float distance1 = GET_SQ(pDiff.x) + GET_SQ(pDiff.y) + GET_SQ(pDiff.z);
+	float distance2 = 0.0;
+	const float d = sqrt(distance1);
+	const float l = (p2.x - p1.x) / d;
+	const float m = (p2.y - p1.y) / d;
+	const float n = (p2.z - p1.z) / d;
+
+	// Begin the ray tracing
+	constexpr float delta = 1.0;  // distance to step in ray sum
+	ssize_t jx = pIdx1.x;
+	ssize_t jy = pIdx1.y;
+	ssize_t jz = pIdx1.z;
+
+	// Iterators
+	ssize_t i = 0;
+
+	// Iterate through the line
+	while ((jx != pIdx2.x) || (jy != pIdx2.y) || (jz != pIdx2.z))
+	{
+		if ((jx >= 0 && jx < nx) && (jy >= 0 && jy < ny) &&
+		    (jz >= 0 && jz < nz))
+		{
+			const ssize_t flatIdx = jz * nx * ny + jy * nx + jx;
+
+			if (imageData[flatIdx] > threshold)
+			{
+				return true;
+			}
+		}
+
+		++i;
+
+		// Current physical position (mm)
+		const float x = p1.x + i * l * delta;
+		const float y = p1.y + i * m * delta;
+		const float z = p1.z + i * n * delta;
+
+		distance2 = GET_SQ(x - p2.x) + GET_SQ(y - p2.y) + GET_SQ(z - p2.z);
+		// If the distance from the current point to point2 starts increasing
+		//  again, then we have reached beyond point2
+		if (distance2 > distance1)
+		{
+			// Reached end of the line
+			return false;
+		}
+		distance1 = distance2;
+
+		// Current position in image indices (voxels)
+		const ssize_t indexX = rintf(
+		    util::positionToIndex(x, params.vx, params.length_x, params.off_x));
+		const ssize_t indexY = rintf(
+		    util::positionToIndex(y, params.vy, params.length_y, params.off_y));
+		const ssize_t indexZ = rintf(
+		    util::positionToIndex(z, params.vz, params.length_z, params.off_z));
+
+		jx = indexX;
+		jy = indexY;
+		jz = indexZ;
+	}
+	// Reached end of the image
+	return false;
 }
 
 // Unified HOST_DEVICE_CALLABLE computeSingleScatterInLOR.

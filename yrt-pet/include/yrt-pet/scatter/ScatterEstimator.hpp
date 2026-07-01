@@ -21,7 +21,7 @@ namespace scatter
 class ScatterEstimator
 {
 public:
-	static constexpr float DefaultAttThreshold = 0.9523809f;  // 1/1.05
+	static constexpr float DefaultAttThreshold = 0.05;  // 1/cm
 	static constexpr float DefaultNumSampFrac = 2.f / 3.f;
 	static constexpr float DefaultLORDownsamplingFactor = 0.1f;
 	static constexpr int DefaultSeed = 13;
@@ -48,7 +48,8 @@ public:
 	void initScanDuration();
 
 	// This function calls all the steps
-	void computeTailFittedScatterEstimate();
+	void computeTailFittedScatterEstimate(
+	    const ScatterSpace* unscaledScatterEstimate = nullptr);
 
 	// Steps (YN: Maybe they should be protected/private)
 	void computeScatterEstimate();

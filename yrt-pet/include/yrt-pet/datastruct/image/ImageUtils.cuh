@@ -100,4 +100,10 @@ inline HOST_DEVICE_CALLABLE float indexToPosition(int index, float voxelSize,
 	       0.5f * voxelSize;
 }
 
+inline HOST_DEVICE_CALLABLE float
+    positionToIndex(float position, float voxelSize, float length, float offset)
+{
+	return (position - voxelSize * 0.5f - offset + 0.5f * length) / voxelSize;
+}
+
 }  // namespace yrt::util

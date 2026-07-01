@@ -104,6 +104,7 @@ public:
 	// Memory management
 	void allocate();
 	bool isMemoryValid() const;
+	void copyFrom(const ScatterSpace& other);
 
 	// I/O
 	void readFromFile(const std::string& fname);

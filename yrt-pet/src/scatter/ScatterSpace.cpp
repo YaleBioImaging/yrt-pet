@@ -111,6 +111,15 @@ void py_setup_scatterspace(py::module& m)
 		    return py::make_tuple(planePos1, angle1, planePos2, angle2);
 	    },
 	    "lor"_a, "Compute cylindrical coordinates from an LOR");
+	c.def("getVirtualDetectorPos", &ScatterSpace::getVirtualDetectorPos,
+	      "plane_idx"_a, "angle_idx"_a,
+	      "Get the coordinates of a detector in the virtual scanner used by "
+	      "the scatter space using the corresponding plane and angle index");
+	c.def("cylindricalCoordinatesToPoint",
+	      &ScatterSpace::cylindricalCoordinatesToPoint, "plane_pos"_a,
+	      "angle_pos"_a,
+	      "Get the cartesian coordinates from the given cylindrical "
+	      "coordinates (uses the member scanner radius)");
 	c.def("lineFromCylindricalCoordinates",
 	      &ScatterSpace::lineFromCylindricalCoordinates, "plane_pos1"_a,
 	      "angle1"_a, "plane_pos2"_a, "angle2"_a,
@@ -469,6 +478,27 @@ void ScatterSpace::computeCylindricalCoordinates(const Line3D& lor,
 	angle2 = wrapAngle(angle2);
 }
 
+Vector3D ScatterSpace::getVirtualDetectorPos(size_t planeIndex,
+                                             size_t angleIndex) const
+{
+	const float planePosition = getPlanePosition(planeIndex);
+	const float angle = getAngle(angleIndex);
+
+	return cylindricalCoordinatesToPoint(planePosition, angle);
+}
+
+Vector3D ScatterSpace::cylindricalCoordinatesToPoint(float planePosition,
+                                                     float angle) const
+{
+	Vector3D point;
+	const float radius = getRadius();
+
+	point.x = std::cos(angle) * radius;
+	point.y = std::sin(angle) * radius;
+	point.z = planePosition;
+	return point;
+}
+
 Line3D ScatterSpace::lineFromCylindricalCoordinates(float planePosition1,
                                                     float angle1,
                                                     float planePosition2,
@@ -476,17 +506,8 @@ Line3D ScatterSpace::lineFromCylindricalCoordinates(float planePosition1,
 {
 	Line3D lor;
 
-	auto coordinatesToPoint =
-	    [this](float angle, float planePosition, Vector3D& point)
-	{
-		point.x = std::cos(angle) * getRadius();
-		point.y = std::sin(angle) * getRadius();
-		point.z = planePosition;
-	};
-
-	coordinatesToPoint(angle1, planePosition1, lor.point1);
-	coordinatesToPoint(angle2, planePosition2, lor.point2);
-
+	lor.point1 = cylindricalCoordinatesToPoint(planePosition1, angle1);
+	lor.point2 = cylindricalCoordinatesToPoint(planePosition2, angle2);
 	return lor;
 }
 

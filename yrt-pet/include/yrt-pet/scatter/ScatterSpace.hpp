@@ -123,6 +123,8 @@ public:
 	                                          float& angle1,
 	                                          float& planePosition2,
 	                                          float& angle2);
+	Vector3D getVirtualDetectorPos(size_t planeIndex, size_t angleIndex) const;
+	Vector3D cylindricalCoordinatesToPoint(float planePosition, float angle) const;
 	Line3D lineFromCylindricalCoordinates(float planePosition1, float angle1,
 	                                      float planePosition2,
 	                                      float angle2) const;

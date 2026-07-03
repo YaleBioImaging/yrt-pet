@@ -15,3 +15,4 @@ define_target_exe(yrtpet_build_k kernel/BuildK.cpp)
 
 define_target_exe(yrtpet_accumulate_to_detectors utils/AccumulateToDetectors.cpp PluginOptionsHelper.cpp ArgumentReader.cpp)
 define_target_exe(yrtpet_post_recon_motion_correction utils/PostReconMotionCorrection.cpp)
+define_target_exe(yrtpet_generate_scanner_crystal_image utils/GenerateScannerCrystalImage.cpp ArgumentReader.cpp)

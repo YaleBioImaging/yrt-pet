@@ -41,6 +41,9 @@ int main(int argc, char* argv[])
 		registry.registerArgument("num_threads", "Number of threads to use",
 		                          false, io::TypeOfArgument::INT, -1,
 		                          coreGroup);
+		registry.registerArgument(
+		    "spacing_scaling", "Number of pixels in smallest dimension", false,
+		    io::TypeOfArgument::FLOAT, 3.0f, coreGroup);
 
 		// Output file
 		registry.registerArgument("out", "Output image filename", true,
@@ -75,9 +78,9 @@ int main(int argc, char* argv[])
 		numThreads = globals::getNumThreads();
 
 		auto scanner = std::make_unique<Scanner>(scanner_fname);
-		float hsx = scanner->crystalDepth / 2;
-		float hsy = scanner->crystalSize_trans / 2;
-		float hsz = scanner->crystalSize_z / 2;
+		float hsx = scanner->crystalDepth / 2.0f;
+		float hsy = scanner->crystalSize_trans / 2.0f;
+		float hsz = scanner->crystalSize_z / 2.0f;
 		Array2DOwned<float> lut;
 		scanner->createLUT(lut);
 		size_t numDets = scanner->getNumDets();
@@ -102,6 +105,9 @@ int main(int argc, char* argv[])
 				z_max = std::abs(lut[di][2]);
 			}
 		}
+		x_max += scanner->crystalDepth / 2.0f;
+		y_max += scanner->crystalDepth / 2.0f;
+		z_max += scanner->crystalSize_z / 2.0f;
 
 		float spacing =
 		    std::min({scanner->crystalDepth, scanner->crystalSize_trans,
@@ -112,9 +118,9 @@ int main(int argc, char* argv[])
 		ssize_t n_sc_y = std::ceil(2.02f * y_max / spacing);
 		ssize_t n_sc_z = std::ceil(2.02f * z_max / spacing);
 
-		float c_sc_x = -(static_cast<float>(n_sc_x) - 1.0) / 2.0;
-		float c_sc_y = -(static_cast<float>(n_sc_y) - 1.0) / 2.0;
-		float c_sc_z = -(static_cast<float>(n_sc_z) - 1.0) / 2.0;
+		float c_sc_x = -(static_cast<float>(n_sc_x) - 1.0f) / 2.0f;
+		float c_sc_y = -(static_cast<float>(n_sc_y) - 1.0f) / 2.0f;
+		float c_sc_z = -(static_cast<float>(n_sc_z) - 1.0f) / 2.0f;
 		ImageParams imageParams(n_sc_x, n_sc_y, n_sc_z, spacing * n_sc_x,
 		                        spacing * n_sc_y, spacing * n_sc_z);
 		std::unique_ptr<ImageOwned> image;
@@ -146,13 +152,13 @@ int main(int argc, char* argv[])
 				        reinterpret_cast<float(&)[6]>(lutPtr[6 * di]);
 				    float axis_u_x = nx;
 				    float axis_u_y = ny;
-				    float axis_u_z = 0.0;
+				    float axis_u_z = 0.0f;
 				    float axis_v_x = -ny;
 				    float axis_v_y = nx;
-				    float axis_v_z = 0.0;
-				    float axis_w_x = 0.0;
-				    float axis_w_y = 0.0;
-				    float axis_w_z = 1.0;
+				    float axis_v_z = 0.0f;
+				    float axis_w_x = 0.0f;
+				    float axis_w_y = 0.0f;
+				    float axis_w_z = 1.0f;
 				    float dx = x - cx;
 				    float dy = y - cy;
 				    float dz = z - cz;

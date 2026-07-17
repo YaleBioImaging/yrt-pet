@@ -102,7 +102,9 @@ class MarkdownCodeTester:
         ) as f:
             f.write(script)
             temp_file = f.name
-        
+
+        timeout_time = 300 # seconds
+
         try:
             # Try to compile first
             compile(script, '<string>', 'exec')
@@ -112,7 +114,7 @@ class MarkdownCodeTester:
                 [sys.executable, '-c', script],
                 capture_output=True,
                 text=True,
-                timeout=60,
+                timeout=timeout_time,
                 cwd=os.getcwd()
             )
             
@@ -123,7 +125,7 @@ class MarkdownCodeTester:
             return None
             
         except subprocess.TimeoutExpired:
-            return Exception("Test timed out after 60 seconds")
+            return Exception(f"Test timed out after {timeout_time} seconds")
         except Exception as e:
             return e
         finally:

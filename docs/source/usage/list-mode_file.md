@@ -34,7 +34,7 @@ counts per second (cps).
 
 If using python bindings, here's how to read a ListModeLUT:
 
-```python
+```python3
 import pyyrtpet as yrt
 
 scanner = yrt.Scanner("<myscanner>.json")

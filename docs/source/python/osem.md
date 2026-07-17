@@ -6,7 +6,7 @@ OSEM (Ordered Subsets Expectation Maximization) is the main reconstruction algor
 
 This is an example usage performing the OSEM reconstruction of a list-mode dataset.
 
-```python
+```python3
 import pyyrtpet as yrt
 
 scanner = yrt.Scanner("<MyScannerFile.json>")
@@ -46,23 +46,20 @@ result = osem.reconstruct("recon_image.nii.gz")
 
 ### Reconstruction Parameters
 
-```python
-#<>
+```python3
 osem.num_MLEM_iterations = 20  # Number of iterations
 osem.num_OSEM_subsets = 8      # Number of subsets
 ```
 
 ### Data Input
 
-```python
-#<>
+```python3
 osem.setDataInput(projection_data)
 ```
 
 ### Projector
 
-```python
-#<>
+```python3
 osem.setProjector("DD")      # For the distance-driven projector
 osem.setProjector("SIDDON")  # For the Siddon projector
 
@@ -90,8 +87,7 @@ event (overloaded in the `getRandomsEstimate` member function)
 Scatter correction (Not to be confused with scatter *estimation*) is perfomed by providing
 a histogram of the scatter estimate for every detector pair.
 
-```python
-#<>
+```python3
 osem.setSensitivityHistogram(sensitivity_his)
 osem.setAttenuationImage(att_image)   # Attenuation correction (From mu-map)
 osem.setACFHistogram(acf_his)         # Attenuation correction (From histogram)
@@ -101,8 +97,7 @@ osem.setScatterHistogram(scatter_his) # Scatter correction
 
 ### Point Spread Function (Image-space)
 
-```python
-#<>
+```python3
 osem.addImagePSF("<psf.csv>")                           # Uniform PSF
 osem.addImagePSF("<psf_variant.csv>", yrt.ImagePSFMode.VARIANT)  # Spatially variant PSF
 ```
@@ -115,7 +110,7 @@ osem.addImagePSF("<psf_variant.csv>", yrt.ImagePSFMode.VARIANT)  # Spatially var
 ### Output Options
 
 To save intermediate iteration, you must provide a `RangeList` object
-```python
+```python3
 # Save intermediate iterations
 range_list = yrt.RangeList()
 range_list.insertSorted(0,1) # Save iterations 0 and 1
@@ -125,8 +120,7 @@ range_list.insertSorted(10,10) # Save iteration 10
 
 to the `OSEM` object
 
-```python
-#<>
+```python3
 # The filename given will be added a prefix to specify which iteration is was saved
 osem.setSaveIterRanges(range_list, "./iterations/recon_image_intermediate.nii.gz")
 
@@ -141,8 +135,7 @@ osem.setMaskImage(mask_image)
 
 The `reconstruct()` method returns an `ImageOwned` object, but can also save the reconstructed image to disk if provided a filename.
 
-```python
-#<>
+```python3
 result = osem.reconstruct() # Will not save to disk
 result = osem.reconstruct("recon_image.nii.gz") # Will save to disk
 

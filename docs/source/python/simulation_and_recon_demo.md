@@ -426,7 +426,7 @@ recon_image_np = np.array(recon_image)
 
 Then, to visualize the result, you can do:
 
-```python
+```python3
 import matplotlib.pyplot as plt
 
 fig, axes = plt.subplots(ncols=2, figsize=(6.4, 3.2))
@@ -448,6 +448,6 @@ Which gives an image like this:
 
 Or you can save the image in the hard drive as a NIfTI file.
 
-```python
+```python3
 recon_image.writeToFile("recon_image.nii.gz")
 ```

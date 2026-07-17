@@ -23,7 +23,6 @@ class MarkdownCodeTester:
     def __init__(self, merge_blocks: bool = False):
         self.merge_blocks = merge_blocks
         self.results: Dict[str, List[Tuple[int, str, Optional[Exception]]]] = {}
-        self.skipped_tests = []
         
     def extract_code_blocks(self, content: str) -> List[Tuple[int, str]]:
         """Extract Python code blocks from markdown content."""
@@ -32,6 +31,8 @@ class MarkdownCodeTester:
         # Match fenced code blocks with python language
         pattern = r'```python\n(.*?)```'
         matches = re.finditer(pattern, content, re.DOTALL)
+        # Trick: If we write "python3" instead of "python", it will ignore the
+        #  code block
         
         for match in matches:
             code = match.group(1)
@@ -137,20 +138,13 @@ class MarkdownCodeTester:
         
         results = {
             'passed': [],
-            'failed': [],
-            'skipped': []
+            'failed': []
         }
 
         if self.merge_blocks and code_blocks:
             passed_blocks = []
-            skipped_blocks = []
             for line_num, code in code_blocks:
-                if '...' in code and 'def ' not in code:
-                    skipped_blocks.append((line_num, code[:50] + '...'))
-                elif '<' in code and '>' in code:
-                    skipped_blocks.append((line_num, code[:50] + '...'))
-                else:
-                    passed_blocks.append((line_num, code))
+                passed_blocks.append((line_num, code))
             
             if passed_blocks:
                 merged_code = '\n\n'.join(code for _, code in passed_blocks)
@@ -159,23 +153,11 @@ class MarkdownCodeTester:
                     results['passed'].append((passed_blocks[0][0], merged_code[:50] + '...'))
                 else:
                     results['failed'].append((passed_blocks[0][0], merged_code[:50] + '...', str(error)))
-            
-            for line_num, code_snippet in skipped_blocks:
-                results['skipped'].append((line_num, code_snippet))
-            
+
             return results
         
         for line_num, code in code_blocks:
-            # Skip if it looks like pseudocode or incomplete
-            if '...' in code and 'def ' not in code:
-                results['skipped'].append((line_num, code[:50] + '...'))
-                continue
-            
-            # Skip if it has placeholders
-            if '<' in code and '>' in code:
-                results['skipped'].append((line_num, code[:50] + '...'))
-                continue
-            
+
             block_name = f"{Path(file_path).name}:{line_num}"
             
             error = self.test_code_block(code, block_name)
@@ -196,7 +178,6 @@ class MarkdownCodeTester:
         
         total_passed = 0
         total_failed = 0
-        total_skipped = 0
         
         for md_file in md_files:
             print(f"\nTesting: {md_file}")
@@ -206,7 +187,6 @@ class MarkdownCodeTester:
             
             total_passed += len(results['passed'])
             total_failed += len(results['failed'])
-            total_skipped += len(results['skipped'])
             
             if results['passed']:
                 print(f"  [SUCCESS] Passed: {len(results['passed'])}")
@@ -215,15 +195,12 @@ class MarkdownCodeTester:
                 for line, code_snippet, error in results['failed']:
                     print(f"      Line {line}: {code_snippet}")
                     print(f"      Error: {error[:200]}")
-            if results['skipped']:
-                print(f" [SKIP] Skipped: {len(results['skipped'])}")
         
         print("\n" + "=" * 60)
         print("SUMMARY")
         print("=" * 60)
         print(f"Total passed:    {total_passed}")
         print(f"Total failed:    {total_failed}")
-        print(f"Total skipped:  {total_skipped}")
         
         if total_failed > 0:
             print(f"\n[FAILED] {total_failed} test(s) failed!")
@@ -256,7 +233,6 @@ def main():
         print(f"Testing: {args.path}")
         print(f"Passed: {len(results['passed'])}")
         print(f"Failed: {len(results['failed'])}")
-        print(f"Skipped: {len(results['skipped'])}")
         
         for line, code, error in results['failed']:
             print(f"\nFailed at line {line}:")

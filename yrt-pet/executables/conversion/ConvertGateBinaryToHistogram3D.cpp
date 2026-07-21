@@ -126,7 +126,7 @@ int main(int argc, char** argv)
 		    "YRT-PET Histogram3D");
 
 		/* clang-format off */
-			options.add_options()
+		options.add_options()
 			("s,scanner", "Scanner parameters file",
 			 cxxopts::value<std::string>(scanner_fname))
 			("i,input", "Comma-separated list of Gate binary coincidence files",

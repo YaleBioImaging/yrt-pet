@@ -4,7 +4,7 @@ Bin iterators define how to iterate over projection data structures.
 
 ## Python Types
 
-```python
+```python3
 import pyyrtpet as yrt
 
 scanner = yrt.Scanner("<MyScanner.json>")

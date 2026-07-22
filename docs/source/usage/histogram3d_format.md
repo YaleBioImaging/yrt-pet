@@ -25,7 +25,7 @@ The file in `yrt-pet/python/pyyrtpet/_pyyrtpet.py` contains a class named
 Moreover, with the Python bindings, it is possible to use the fact that the
 Histogram3D class respects the Python buffer protocol:
 
-```python
+```python3
 import pyyrtpet as yrt
 import numpy as np
 

@@ -43,7 +43,10 @@ img_np = np.array(img_yrt, copy=False)
 
 # Example: This will write in img_yrt's memory
 img_np[:] = 1 # The "[:]" is important to avoid reassignment
+```
 
+To save an image into disk:
+```python3
 # This will write the image into a file
 img_yrt.writeToFile("<my_image.nii>")
 ```
@@ -51,6 +54,7 @@ img_yrt.writeToFile("<my_image.nii>")
 ### Example usage of `Alias` object
 Since most data structure objects respect the Python buffer protocol, one can
 bind a numpy array into an `Alias` object.
+
 ```python
 import pyyrtpet as yrt
 import numpy as np
@@ -72,7 +76,10 @@ img_yrt.bind(img_np)
 
 # Example: This will write in img_yrt's memory
 img_np[:, 0, :] = 2
+```
 
+To save the image:
+```python3
 # This will write the image into a file
 img_yrt.writeToFile("<my_image.nii>")
 ```
@@ -158,7 +165,9 @@ his_dev.setProjValuesDevicePointer(ones_proj.data_ptr())
 
 # Do the backprojection on the image
 oper.applyAH(his_dev, img_dev)
-
+```
+To save the reulting image:
+```python3
 # Save image
 img_dev.writeToFile("<my_image.nii>") # save img
 ```

@@ -124,7 +124,7 @@ The LUT's elements should be ordered in the following way:
 
 Due to the simplicity of this format, it can be read using the following lines:
 
-```python
+```python3
 import numpy as np
 
 lut = np.fromfile("<myscanner>.lut", dtype=np.float32).reshape((-1, 6))
@@ -132,17 +132,16 @@ lut = np.fromfile("<myscanner>.lut", dtype=np.float32).reshape((-1, 6))
 
 Then, one can use matplotlib to display the scanner's detector positions:
 
-```python
-#<>
+```python3
 import matplotlib.pyplot as plt
+
 N = 800 # Example: The number of crystals per ring is 800
 plt.scatter(lut[:N, 0], lut[:N, 1])
 ```
 
 Or the scanner's detector orientations:
 
-```python
-#<>
+```python3
 plt.plot(lut[:N, 3])  # X orientation
 plt.plot(lut[:N, 4])  # Y orientation
 ```
@@ -155,7 +154,7 @@ can do that using [VTK](https://vtk.org/).
 
 One can also generate the LUT using Python and save it using:
 
-```python
+```python3
 lut.tofile("<mynewscanner>.lut")
 ```
 Note: The code above assumes the data type of `lut` to be `np.float32`.

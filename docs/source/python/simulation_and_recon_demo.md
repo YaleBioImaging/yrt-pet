@@ -111,7 +111,7 @@ We will define a set of frames of varying length.
 scan_duration_ms = 5 * 60 * 1000
 
 # Seven frames. The framing starts at 0 ms
-# Here we define how the dynamic framing looks w.r.t. the duration fo each frame
+# Here we define how the dynamic framing looks w.r.t. the duration of each frame
 num_dynamic_frames = 7
 dynamic_framing_lengths = [15  * 1000, # 15 s
                            15  * 1000, # 15 s
@@ -229,8 +229,11 @@ for motion_frame_i in range(num_motion_frames):
            break
         curr_dynamic_frame += 1 
 
+
+    transform_t = transform.getInverse()
     transformed_phantom_np[:] = dynamic_phantom[curr_dynamic_frame]
-    transformed_phantom = transformed_phantom.transformImage(transform)
+    transformed_phantom = transformed_phantom.transformImage(transform_t)
+
     # Re-init the NumPy array since the image was re-allocated
     transformed_phantom_np = np.array(transformed_phantom, copy=False)
 
@@ -277,8 +280,17 @@ for frame_i in tqdm.trange(num_motion_frames):
 
 ### Adding Poisson noise to the histograms
 
+In order to make the simulation more realistic, we will add Poisson
+noise to the histograms. The noise is amplified if the histograms
+are downscaled, which simulates a lower count (or lower dose).
+In this demo, we use `0.1`.
+Since these histograms will later be converted into a list-mode, a
+higher count will require more memory.
+If you are working under low memory constraints, you can use a lower
+factor to simulate an even lower count.
+
 ```python
-histo_scaling = 0.05
+histo_scaling = 0.1  # Adjust this if working with low memory.
 for frame_i in range(num_motion_frames):
     frame_forw_his = forw_his_list[frame_i]
     frame_forw_his_np = np.array(frame_forw_his, copy=False)
@@ -338,6 +350,7 @@ osem = yrt.createOSEM(scanner, use_gpu=False)
 osem.setDataInput(lm_total)
 osem.setImageParams(img_params_dyn)
 osem.setProjector("S")
+osem.setNumRays(4) # 4-rays Siddon
 
 osem.num_MLEM_iterations = 10 # iterations
 osem.num_OSEM_subsets = 1 # subsets (We keep it simple at one here)
@@ -406,9 +419,35 @@ Then, launch the reconstruction
 recon_image = osem.reconstruct()
 ```
 
-You can then visualize the reconstructed image as a numpy array using:
+You can interpret the reconstructed image as a numpy array:
 ```python
 recon_image_np = np.array(recon_image)
-dynamic_frame_to_show = 2 # Say you want to display the third dynamic frame
-# Then use matplotlib to display `recon_image_np[dynamic_frame_to_show, 0]`
+```
+
+Then, to visualize the result, you can do:
+
+```python3
+import matplotlib.pyplot as plt
+
+fig, axes = plt.subplots(ncols=2, figsize=(6.4, 3.2))
+frame_to_show = 2
+
+axes[0].matshow(dynamic_phantom[frame_to_show, 0, 20:130, 20:130], cmap='gray')
+axes[1].matshow(recon_image_np[frame_to_show, 0, 20:130, 20:130], cmap='gray')
+for ax in axes:
+    ax.xaxis.set_visible(False)
+    ax.yaxis.set_visible(False)
+fig.tight_layout()
+fig.savefig('demo_result.png')
+fig.show()
+```
+
+Which gives an image like this:
+
+![Resulting image](demo_result.png)
+
+Or you can save the image in the hard drive as a NIfTI file.
+
+```python3
+recon_image.writeToFile("recon_image.nii.gz")
 ```

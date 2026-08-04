@@ -18,8 +18,8 @@ void build_K_neighbors(float* x, float* k, int* k_i, int* k_j, ssize_t nz,
 void build_K_full(float* x, float* k, int* k_i, int* k_j, ssize_t nz,
                   ssize_t ny, ssize_t nx, int num_k, float sigma2,
                   int numThreads);
-void build_K_knn_neighbors(float* x, float* k, int* k_i, int* k_j, ssize_t nz,
-                           ssize_t ny, ssize_t nx, int W, int P, int num_k,
-                           float sigma2, int numThreads);
+void build_K_knn_neighbors(float* x, float* k, int* k_i, int* k_j, ssize_t nf,
+                           ssize_t nz, ssize_t ny, ssize_t nx, int W, int P,
+                           int num_k, float sigma2, int numThreads);
 }  // namespace kernel
 }  // namespace yrt

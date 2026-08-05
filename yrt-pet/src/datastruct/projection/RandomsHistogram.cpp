@@ -7,6 +7,10 @@
 #include "yrt-pet/datastruct/projection/BinIterator.hpp"
 #include "yrt-pet/utils/Assert.hpp"
 
+#include <fstream>
+#include <limits>
+#include <vector>
+
 #if BUILD_PYBIND11
 #include <pybind11/pybind11.h>
 
@@ -23,6 +27,7 @@ void py_setup_randomsHistogram(py::module& m)
 	      "filename"_a, "tau"_a = 0.f);
 	c.def("populateFromListMode", &RandomsHistogram::populateFromListMode,
 	      "list_mode"_a);
+	c.def("setSinglesRates", &RandomsHistogram::setSinglesRates, "singles"_a);
 	c.def("readFromFile", &RandomsHistogram::readFromFile, "filename"_a);
 	c.def("writeToFile", &RandomsHistogram::writeToFile, "filename"_a);
 }
@@ -57,6 +62,24 @@ void RandomsHistogram::populateFromListMode(const ListMode& listMode)
 	}
 }
 
+void RandomsHistogram::setSinglesRates(const Array1DBase<float>& singles)
+{
+	const size_t numDetectors = mr_scanner.getNumDets();
+	ASSERT_MSG(singles.getSizeTotal() == numDetectors,
+	           "The number of singles rates does not match the number of "
+	           "detectors of the scanner");
+	mp_singles->allocate(numDetectors);
+	for (det_id_t det = 0; det < numDetectors; det++)
+	{
+		(*mp_singles)[det] = singles[det];
+	}
+}
+
+float RandomsHistogram::estimateRandoms(det_id_t d1, det_id_t d2) const
+{
+	return (*mp_singles)[d1] * (*mp_singles)[d2] * (2.0f * m_timeWindow);
+}
+
 float RandomsHistogram::getProjectionValueFromHistogramBin(
     histo_bin_t histoBinId) const
 {
@@ -83,7 +106,7 @@ float RandomsHistogram::getProjectionValueFromHistogramBin(
 
 	ASSERT_MSG(mp_singles != nullptr && mp_singles->isMemoryValid(),
 	           "RandomsHistogram singles array is not allocated");
-	return (*mp_singles)[d1] * (*mp_singles)[d2] * (2.0f * m_timeWindow);
+	return estimateRandoms(d1, d2);
 }
 
 size_t RandomsHistogram::count() const
@@ -126,12 +149,51 @@ void RandomsHistogram::writeToFile(const std::string& filename) const
 {
 	ASSERT_MSG(mp_singles != nullptr && mp_singles->isMemoryValid(),
 	           "RandomsHistogram singles array is not allocated");
-	mp_singles->writeToFile(filename);
+	std::ofstream outfile(filename);
+	ASSERT_MSG(outfile.is_open(),
+	           ("Error opening file \"" + filename + "\"").c_str());
+	// The file format is: first line, the coincidence time window in
+	//  seconds, then one singles rate (in counts per second) per line, in
+	//  detector id order.
+	outfile.precision(std::numeric_limits<float>::max_digits10);
+	outfile << m_timeWindow << "\n";
+	for (det_id_t det = 0; det < mp_singles->getSizeTotal(); det++)
+	{
+		outfile << (*mp_singles)[det] << "\n";
+	}
 }
 
 void RandomsHistogram::readFromFile(const std::string& filename)
 {
-	mp_singles->readFromFile(filename);
+	std::ifstream infile(filename);
+	ASSERT_MSG(infile.is_open(),
+	           ("Error opening file \"" + filename + "\"").c_str());
+
+	float timeWindow;
+	infile >> timeWindow;
+	ASSERT_MSG(!infile.fail(),
+	           "The randoms histogram file does not start with the coincidence "
+	           "time window (in seconds)");
+
+	std::vector<float> singles;
+	float value;
+	while (infile >> value)
+	{
+		singles.push_back(value);
+	}
+
+	const size_t numDetectors = mr_scanner.getNumDets();
+	ASSERT_MSG(
+	    singles.size() == numDetectors,
+	    "The number of singles rates in the randoms histogram file does not "
+	    "match the number of detectors of the scanner");
+
+	m_timeWindow = timeWindow;
+	mp_singles->allocate(numDetectors);
+	for (det_id_t det = 0; det < numDetectors; det++)
+	{
+		(*mp_singles)[det] = singles[det];
+	}
 }
 
 std::unique_ptr<ProjectionData>

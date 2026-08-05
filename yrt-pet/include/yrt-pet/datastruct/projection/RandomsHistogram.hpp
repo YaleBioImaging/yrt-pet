@@ -38,6 +38,7 @@ public:
 	det_id_t getDetector2(bin_t id) const override;
 	std::unique_ptr<BinIterator> getBinIter(int numSubsets,
 	                                        int idxSubset) const override;
+	float getRandomsEstimate(bin_t id) const override;
 
 	// I/O
 	void writeToFile(const std::string& filename) const;

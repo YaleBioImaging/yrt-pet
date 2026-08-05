@@ -112,10 +112,12 @@ int main(int argc, char** argv)
 		// Build K matrix
 		if (mode.compare("full") == 0)
 		{
+			ASSERT_MSG(shape[0] == 1,
+			           "Full mode requires first dimension of input to be 1");
 			yrt::kernel::build_K_full(
 			    x_in.getRawPointer(), k_out.getRawPointer(),
-			    k_i_out.getRawPointer(), k_j_out.getRawPointer(), shape[0],
-			    shape[1], shape[2], num_k, sigma2, num_threads);
+			    k_i_out.getRawPointer(), k_j_out.getRawPointer(), shape[1],
+			    shape[2], shape[3], num_k, sigma2, num_threads);
 		}
 		else if (mode.compare("knn") == 0)
 		{
@@ -126,10 +128,13 @@ int main(int argc, char** argv)
 		}
 		else if (mode.compare("neighbors") == 0)
 		{
+			ASSERT_MSG(
+			    shape[0] == 1,
+			    "Neighbors mode requires first dimension of input to be 1");
 			yrt::kernel::build_K_neighbors(
 			    x_in.getRawPointer(), k_out.getRawPointer(),
-			    k_i_out.getRawPointer(), k_j_out.getRawPointer(), shape[0],
-			    shape[1], shape[2], W, sigma2, num_threads);
+			    k_i_out.getRawPointer(), k_j_out.getRawPointer(), shape[1],
+			    shape[2], shape[3], W, sigma2, num_threads);
 		}
 
 		k_out.writeToFile(out_fname);

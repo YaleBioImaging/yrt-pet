@@ -34,6 +34,8 @@ void py_setup_randomshistogram(py::module& m)
 	      "Change the time window (in seconds) used for estimating randoms");
 	c.def("getTimeWindow", &RandomsHistogram::getTimeWindow,
 	      "Get the time window (in seconds) used for estimating randoms");
+	c.def("getSinglesRates", &RandomsHistogram::getSinglesRates, "det_id"_a,
+	      "Get the singles rates of a given detector");
 	c.def("writeToFile", &RandomsHistogram::writeToFile, "filename"_a);
 	c.def("readFromFile", &RandomsHistogram::readFromFile, "filename"_a);
 }
@@ -94,6 +96,11 @@ void RandomsHistogram::setTimeWindow(float timeWindow)
 float RandomsHistogram::getTimeWindow() const
 {
 	return m_timeWindow;
+}
+
+float RandomsHistogram::getSinglesRates(det_id_t d) const
+{
+	return mp_singles->getFlat(d);
 }
 
 float RandomsHistogram::getProjectionValueFromHistogramBin(

@@ -49,3 +49,11 @@ defined in the `json` file [described earlier](scanner).
 
 See [Documentation on the histogram format](histogram3d_format) for more information.
 When used as input, the format name is `H`.
+
+## Randoms histogram (`RandomsHistogram`)
+
+Randoms histograms store the singles count rate of every detector together
+with the coincidence time window, from which the randoms estimate of any
+detector pair can be computed.
+The file format is described in [the randoms histogram documentation](randoms_histogram).
+When used as input, the format name is `RH`.

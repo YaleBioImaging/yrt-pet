@@ -73,15 +73,15 @@ public:
 
 	float dotProduct(const Image& y) const;
 	float nearestNeighbor(const Vector3D& pt, frame_t frame = 0) const;
-	float nearestNeighbor(const Vector3D& pt, ssize_t* pi, ssize_t* pj, ssize_t* pk,
-	                      frame_t frame = 0) const;
+	float nearestNeighbor(const Vector3D& pt, ssize_t* pi, ssize_t* pj,
+	                      ssize_t* pk, frame_t frame = 0) const;
 	template <bool MULT_FLAG>
 	void updateImageNearestNeighbor(const Vector3D& pt, float value,
 	                                frame_t frame = 0);
 	void assignImageNearestNeighbor(const Vector3D& pt, float value,
 	                                frame_t frame = 0);
-	bool getNearestNeighborIdx(const Vector3D& pt, ssize_t* pi, ssize_t* pj, ssize_t* pk,
-	                           frame_t frame = 0) const;
+	bool getNearestNeighborIdx(const Vector3D& pt, ssize_t* pi, ssize_t* pj,
+	                           ssize_t* pk, frame_t frame = 0) const;
 
 	float interpolateImage(const Vector3D& pt, frame_t frame = 0) const;
 	float interpolateImage(const Vector3D& pt, const Image& sens,
@@ -107,7 +107,8 @@ protected:
 private:
 	// Helper
 	template <int OPERATION>  // operations 0: assign, 1: multiply, 2: add
-	void operationImageInterpolate(const Vector3D& pt, float value, frame_t frame);
+	void operationImageInterpolate(const Vector3D& pt, float value,
+	                               frame_t frame);
 
 	void updateEMThresholdDynamicWith4DSens(Image* updateImg,
 	                                        const Image* sensImg,
@@ -136,7 +137,8 @@ private:
 	void checkImageParamsWithGivenImage(float voxelSpacing[3],
 	                                    float imgOrigin[3],
 	                                    const int dim[8]) const;
-	void readNIfTIData(int datatype, void* data, float slope, float intercept);
+	void readNIfTIData(int datatype, void* data, float slopeFromFile,
+	                   float interceptFromFile);
 	static void checkIfTransformMatrixIsSupported(const mat44& matrix);
 	static void adjustAffineMatrix(mat44& matrix);
 };

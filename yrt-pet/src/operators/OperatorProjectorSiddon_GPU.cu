@@ -12,7 +12,7 @@
 #include "yrt-pet/operators/ProjectorUpdaterDevice.cuh"
 #include "yrt-pet/operators/SiddonKernels.cuh"
 #include "yrt-pet/operators/TimeOfFlight.hpp"
-#include "yrt-pet/recon/CUParameters.hpp"
+#include "yrt-pet/recon/RawParameters.hpp"
 #include "yrt-pet/utils/Assert.hpp"
 #include "yrt-pet/utils/GPUUtils.cuh"
 
@@ -91,8 +91,8 @@ void OperatorProjectorSiddon_GPU::applyOnLoadedBatch(ProjectionListDevice& dat,
 	// TODO: Maybe the setBatchSize logic should be in OperatorProjectorDevice
 	//  rather than in the Siddon or DD implementation
 	setBatchSize(dat.getLoadedBatchSize());
-	const auto cuScannerParams = getCUScannerParams(getScanner());
-	const auto cuImageParams = getCUImageParams(img.getParams());
+	const auto rawScannerParams = getRawScannerParams(getScanner());
+	const auto rawImageParams = getRawImageParams(img.getParams());
 
 	float* pd_image = img.getDevicePointer();
 	float* pd_projValues = dat.getProjValuesDevicePointer();
@@ -111,15 +111,15 @@ void OperatorProjectorSiddon_GPU::applyOnLoadedBatch(ProjectionListDevice& dat,
 			launchKernel<IsForward, false, false>(
 			    pd_projValues, pd_image, pd_updater, pd_projPropManager,
 			    pd_projProp, nullptr /*No TOF*/, 1 /* Single ray */,
-			    cuScannerParams, cuImageParams, getBatchSize(), getGridSize(),
+			    rawScannerParams, rawImageParams, getBatchSize(), getGridSize(),
 			    getBlockSize(), getMainStream(), synchronize);
 		}
 		else
 		{
 			launchKernel<IsForward, true, false>(
 			    pd_projValues, pd_image, pd_updater, pd_projPropManager,
-			    pd_projProp, pd_tofHelper, 1 /* Single ray */, cuScannerParams,
-			    cuImageParams, getBatchSize(), getGridSize(), getBlockSize(),
+			    pd_projProp, pd_tofHelper, 1 /* Single ray */, rawScannerParams,
+			    rawImageParams, getBatchSize(), getGridSize(), getBlockSize(),
 			    getMainStream(), synchronize);
 		}
 	}
@@ -129,16 +129,16 @@ void OperatorProjectorSiddon_GPU::applyOnLoadedBatch(ProjectionListDevice& dat,
 		{
 			launchKernel<IsForward, false, true>(
 			    pd_projValues, pd_image, pd_updater, pd_projPropManager,
-			    pd_projProp, nullptr /*No TOF*/, m_numRays, cuScannerParams,
-			    cuImageParams, getBatchSize(), getGridSize(), getBlockSize(),
+			    pd_projProp, nullptr /*No TOF*/, m_numRays, rawScannerParams,
+			    rawImageParams, getBatchSize(), getGridSize(), getBlockSize(),
 			    getMainStream(), synchronize);
 		}
 		else
 		{
 			launchKernel<IsForward, true, true>(
 			    pd_projValues, pd_image, pd_updater, pd_projPropManager,
-			    pd_projProp, pd_tofHelper, m_numRays, cuScannerParams,
-			    cuImageParams, getBatchSize(), getGridSize(), getBlockSize(),
+			    pd_projProp, pd_tofHelper, m_numRays, rawScannerParams,
+			    rawImageParams, getBatchSize(), getGridSize(), getBlockSize(),
 			    getMainStream(), synchronize);
 		}
 	}
@@ -150,7 +150,7 @@ void OperatorProjectorSiddon_GPU::launchKernel(
     const ProjectionPropertyManager* pd_projPropManager,
     const PropertyUnit* pd_projProperties,
     const TimeOfFlightHelper* pd_tofHelper, int numRays,
-    CUScannerParams scannerParams, CUImageParams imgParams, size_t batchSize,
+    RawScannerParams scannerParams, RawImageParams imgParams, size_t batchSize,
     unsigned int gridSize, unsigned int blockSize, const cudaStream_t* stream,
     bool synchronize)
 {

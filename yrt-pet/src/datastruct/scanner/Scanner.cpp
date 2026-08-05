@@ -56,11 +56,9 @@ void py_setup_scanner(pybind11::module& m)
 	c.def_readwrite("crystalSize_trans", &Scanner::crystalSize_trans);
 	c.def_readwrite("crystalDepth", &Scanner::crystalDepth);
 	c.def_readwrite("scannerRadius", &Scanner::scannerRadius);
-	c.def_readwrite("collimatorRadius", &Scanner::collimatorRadius);
-	c.def_readwrite("fwhm", &Scanner::fwhm);
+	c.def_readwrite("energyResolution", &Scanner::energyResolution);
 	c.def_readwrite("energyLLD", &Scanner::energyLLD);
 	c.def_readwrite("detsPerRing", &Scanner::detsPerRing);
-	c.def_readwrite("fwhm", &Scanner::fwhm);
 	c.def_readwrite("numRings", &Scanner::numRings);
 	c.def_readwrite("numDOI", &Scanner::numDOI);
 	c.def_readwrite("maxRingDiff", &Scanner::maxRingDiff);
@@ -111,8 +109,7 @@ Scanner::Scanner(std::string pr_scannerName, float p_axialFOV,
       crystalSize_trans(p_crystalSize_trans),
       crystalDepth(p_crystalDepth),
       scannerRadius(p_scannerRadius),
-      collimatorRadius(p_scannerRadius - p_crystalDepth),
-      fwhm(0.2),
+      energyResolution(0.15),
       energyLLD(400),
       detsPerRing(p_detsPerRing),
       numRings(p_numRings),
@@ -258,9 +255,18 @@ void Scanner::readFromString(const std::string& fileContents)
 	    "Missing z-axis crystal size in scanner definition file");
 
 	// Optional values for Scatter estimation only
+	float collimatorRadius = -1.0f;  // Legacy argument. To be ignored
 	util::getParam<float>(&j, &collimatorRadius, "collimatorRadius", -1.0,
 	                      false);
-	util::getParam<float>(&j, &fwhm, "fwhm", -1.0, false);
+	if (collimatorRadius != -1.0f)
+	{
+		std::cout << "Note: The \'collimatorRadius\' parameter is no longer "
+		             "used."
+		          << std::endl;
+	}
+
+	util::getParam<float>(&j, &energyResolution, {"energyResolution", "fwhm"},
+	                      -1.0, false);
 	util::getParam<float>(&j, &energyLLD, "energyLLD", -1.0, false);
 
 	util::getParam<float>(&j, &crystalDepth, "crystalDepth", 0.0, true,

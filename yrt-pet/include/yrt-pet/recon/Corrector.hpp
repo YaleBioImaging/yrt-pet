@@ -122,6 +122,7 @@ protected:
 
 	// Can also be a sinogram (once the format exists)
 	const Histogram* mp_scatter;
+	bool m_isScatterSCS;
 
 	// Histogram of ACFs in case ACFs were already calculated
 	const Histogram* mp_acf;           // total ACF

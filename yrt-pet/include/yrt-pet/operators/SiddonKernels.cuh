@@ -8,6 +8,7 @@
 #include "yrt-pet/datastruct/projection/ProjectionProperties.hpp"
 #include "yrt-pet/operators/OperatorProjectorDevice.cuh"
 #include "yrt-pet/operators/ProjectorUtils.hpp"
+#include "yrt-pet/recon/RawParameters.hpp"
 #include "yrt-pet/utils/GPUKernelUtils.cuh"
 
 #include <cfloat>
@@ -48,7 +49,7 @@ __device__ void moveLineToRandomOffset(curandState& state, float3& p1,
                                        const float3& parallelToTrans1,
                                        const float3& parallelToTrans2,
                                        const float3& n1, const float3& n2,
-                                       const CUScannerParams& scannerParams)
+                                       const RawScannerParams& scannerParams)
 {
 	constexpr float3 vectParallelToZ{0, 0, 1};
 
@@ -110,8 +111,8 @@ __device__ void
     projectSiddon(float& value, float* pd_image, UpdaterPointer pd_updater,
                   float3 p1Init, float3 p2Init, float3 n1, float3 n2,
                   frame_t dynamicFrame, const TimeOfFlightHelper* pd_tofHelper,
-                  float tofValue, CUScannerParams scannerParams,
-                  CUImageParams imgParams, int numRays, size_t randomId)
+                  float tofValue, RawScannerParams scannerParams,
+                  RawImageParams imgParams, int numRays, size_t randomId)
 {
 	float localValue = 0.0f;
 
@@ -453,7 +454,7 @@ __device__ void projectSiddonDefault(
     float& value, float* pd_image, UpdaterPointer pd_updater, float3 p1Init,
     float3 p2Init, float3 n1, float3 n2, frame_t dynamicFrame,
     const TimeOfFlightHelper* pd_tofHelper, float tofValue,
-    CUScannerParams scannerParams, CUImageParams imgParams, int numRays,
+    RawScannerParams scannerParams, RawImageParams imgParams, int numRays,
     size_t randomId)
 {
 	if (pd_tofHelper == nullptr)
@@ -505,8 +506,8 @@ __global__ void projectSiddon_kernel(
     float* pd_projValues, float* pd_image, UpdaterPointer pd_updater,
     const ProjectionPropertyManager* pd_projPropManager,
     const PropertyUnit* pd_projectionProperties,
-    const TimeOfFlightHelper* pd_tofHelper, CUScannerParams scannerParams,
-    CUImageParams imgParams, int p_numRays, size_t batchSize)
+    const TimeOfFlightHelper* pd_tofHelper, RawScannerParams scannerParams,
+    RawImageParams imgParams, int p_numRays, size_t batchSize)
 {
 	const long eventId = blockIdx.x * blockDim.x + threadIdx.x;
 

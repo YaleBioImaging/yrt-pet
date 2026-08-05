@@ -117,66 +117,6 @@ void py_setup_reconstructionutils(pybind11::module& m)
 	m.def("getFullTimeRange", util::getFullTimeRange, "lor_motion"_a,
 	      "Get the maximum time range occupied by an LORMotion");
 
-	m.def("timeAverageMoveImage",
-	      static_cast<std::unique_ptr<ImageOwned> (*)(
-	          const LORMotion&, const Image*)>(&util::timeAverageMoveImage),
-	      "lor_motion"_a, "unmoved_image"_a,
-	      "Blur a given image based on given motion information. Return the "
-	      "resulting image.");
-
-	m.def(
-	    "timeAverageMoveImage",
-	    static_cast<void (*)(const LORMotion&, const Image*, Image*, frame_t)>(
-	        &util::timeAverageMoveImage),
-	    "lor_motion"_a, "unmoved_image"_a, "out_image"_a,
-	    "out_dynamic_frame"_a = 0,
-	    "Blur a given image based on given motion information. Write directly "
-	    "in \"out_image\" in the dynamic frame \"out_dynamic_frame\".");
-
-	m.def("timeAverageMoveImage",
-	      static_cast<std::unique_ptr<ImageOwned> (*)(
-	          const LORMotion&, const Image*, timestamp_t, timestamp_t)>(
-	          &util::timeAverageMoveImage),
-	      "lor_motion"_a, "unmoved_image"_a, "time_start"_a, "time_stop"_a,
-	      "Blur a given image based on given motion information. Return the "
-	      "resulting image. Use \"time_start\" and \"time_stop\" to define how "
-	      "motion frames are selected and weighted.");
-
-	m.def("timeAverageMoveImage",
-	      static_cast<void (*)(const LORMotion&, const Image*, Image*,
-	                           timestamp_t, timestamp_t, frame_t)>(
-	          &util::timeAverageMoveImage),
-	      "lor_motion"_a, "unmoved_image"_a, "out_image"_a, "time_start"_a,
-	      "time_stop"_a, "out_dynamic_frame"_a = 0,
-	      "Blur a given image based on given motion information. Write "
-	      "directly in \"out_image\" in the dynamic frame "
-	      "\"out_dynamic_frame\". Use \"time_start\" and \"time_stop\" to "
-	      "define how motion frames are selected and weighted.");
-
-	m.def("timeAverageMoveImageDynamic",
-	      static_cast<std::unique_ptr<ImageOwned> (*)(
-	          const LORMotion& lorMotion, const Image* unmovedImage,
-	          const DynamicFraming& dynamicFraming)>(
-	          &util::timeAverageMoveImageDynamic),
-	      "lor_motion"_a, "unmoved_image"_a, "dynamic_framing"_a,
-	      "Blur a given image based on the given motion information, but "
-	      "follow the dynamic framing provided. The dynamic framing provided "
-	      "will be used to select the motion frames to use for each blurring. "
-	      "This is used for generating a 4-dimensional sensitivity image "
-	      "with both a dynamic framing and rigid motion correction. Return the "
-	      "resulting image.");
-	m.def("timeAverageMoveImageDynamic",
-	      static_cast<void (*)(const LORMotion&, const Image*, Image*,
-	                           const DynamicFraming&)>(
-	          &util::timeAverageMoveImageDynamic),
-	      "lor_motion"_a, "unmoved_image"_a, "out_image"_a, "dynamic_framing"_a,
-	      "Blur a given image based on the given motion information, but "
-	      "follow the dynamic framing provided. The dynamic framing provided "
-	      "will be used to select the motion frames to use for each blurring. "
-	      "This is used for generating a 4-dimensional sensitivity image "
-	      "with both a dynamic framing and rigid motion correction. The "
-	      "resulting image will be written in \"out_image\".");
-
 	m.def("generateTORRandomDOI", &util::generateTORRandomDOI, "scanner"_a,
 	      "d1"_a, "d2"_a, "vmax"_a);
 
@@ -240,9 +180,9 @@ void histogram3DToListModeLUT(const Histogram3D* histo, ListModeLUTOwned* lmOut,
 	// Phase 1: calculate sum of histogram values
 	double sum = 0.0;
 	std::atomic_ref<double> sumRef(sum);
-	util::parallelForChunked(histo->count(), globals::getNumThreads(),
-	                         [dataPtr, &sumRef](bin_t binId, size_t /*tid*/)
-	                         { sumRef.fetch_add(dataPtr[binId]); });
+	parallelForChunked(histo->count(), globals::getNumThreads(),
+	                   [dataPtr, &sumRef](bin_t binId, size_t /*tid*/)
+	                   { sumRef.fetch_add(dataPtr[binId]); });
 
 	// Default target number of events (histogram sum)
 	if (numEvents == 0)
@@ -252,7 +192,7 @@ void histogram3DToListModeLUT(const Histogram3D* histo, ListModeLUTOwned* lmOut,
 	// Phase 2: calculate actual number of events
 	size_t sumInt = 0.0;
 	std::atomic_ref<size_t> sumIntRef(sumInt);
-	util::parallelForChunked(
+	parallelForChunked(
 	    histo->count(), globals::getNumThreads(),
 	    [dataPtr, sum, numEvents, &sumIntRef](bin_t binId, size_t /*tid*/)
 	    {
@@ -494,167 +434,6 @@ std::tuple<timestamp_t, timestamp_t>
 	        startingTimestampLastFrame + duration2ndToLastFrame};
 }
 
-template <bool PrintProgress>
-std::unique_ptr<ImageOwned> timeAverageMoveImage(const LORMotion& lorMotion,
-                                                 const Image* unmovedImage)
-{
-	auto [timeStart, timeStop] = getFullTimeRange(lorMotion);
-	return timeAverageMoveImage<PrintProgress>(lorMotion, unmovedImage,
-	                                           timeStart, timeStop);
-}
-template std::unique_ptr<ImageOwned>
-    timeAverageMoveImage<true>(const LORMotion&, const Image*);
-template std::unique_ptr<ImageOwned>
-    timeAverageMoveImage<false>(const LORMotion&, const Image*);
-
-template <bool PrintProgress>
-void timeAverageMoveImage(const LORMotion& lorMotion, const Image* unmovedImage,
-                          Image* outImage, frame_t outDynamicFrame)
-{
-	auto [timeStart, timeStop] = getFullTimeRange(lorMotion);
-	timeAverageMoveImage<PrintProgress>(lorMotion, unmovedImage, outImage,
-	                                    timeStart, timeStop, outDynamicFrame);
-}
-template void timeAverageMoveImage<true>(const LORMotion&, const Image*, Image*,
-                                         frame_t);
-template void timeAverageMoveImage<false>(const LORMotion&, const Image*,
-                                          Image*, frame_t);
-
-template <bool PrintProgress>
-std::unique_ptr<ImageOwned>
-    timeAverageMoveImage(const LORMotion& lorMotion, const Image* unmovedImage,
-                         timestamp_t timeStart, timestamp_t timeStop)
-{
-	ASSERT_MSG(unmovedImage != nullptr, "Null input image given");
-	const ImageParams& params = unmovedImage->getParams();
-	ASSERT_MSG(params.isValid(), "Image parameters incomplete");
-	ASSERT_MSG(unmovedImage->isMemoryValid(),
-	           "Sensitivity image given is not allocated");
-
-	auto outImage = std::make_unique<ImageOwned>(params);
-	outImage->allocate();
-
-	timeAverageMoveImage<PrintProgress>(lorMotion, unmovedImage, outImage.get(),
-	                                    timeStart, timeStop, 0);
-
-	return outImage;
-}
-template std::unique_ptr<ImageOwned>
-    timeAverageMoveImage<true>(const LORMotion&, const Image*, timestamp_t,
-                               timestamp_t);
-template std::unique_ptr<ImageOwned>
-    timeAverageMoveImage<false>(const LORMotion&, const Image*, timestamp_t,
-                                timestamp_t);
-
-template <bool PrintProgress>
-void timeAverageMoveImage(const LORMotion& lorMotion, const Image* unmovedImage,
-                          Image* outImage, timestamp_t timeStart,
-                          timestamp_t timeStop, frame_t outDynamicFrame)
-{
-	ASSERT_MSG(unmovedImage != nullptr, "Null input image given");
-	ASSERT_MSG(outImage->isMemoryValid(), "Output image not allocated");
-
-	const int64_t numFrames = lorMotion.getNumFrames();
-	const auto scanDuration = static_cast<float>(timeStop - timeStart);
-
-	ProgressDisplay progress{numFrames};
-
-	// TODO: Consider edge case:
-	//  timeStart precedes the first frame's start time, therefore, we must
-	//  add an *unmoved* image that has a weight scaled by:
-	//  <time between timeStart and lorMotion.getStartingTimestamp(0)>/
-	//  scanDuration
-	//  This would be done in order to take into account the cases
-	//  when the camera has been started after the scan start.
-
-	for (frame_t frame = 0; frame < numFrames; frame++)
-	{
-		if constexpr (PrintProgress)
-		{
-			progress.progress(frame);
-		}
-
-		const timestamp_t startingTimestamp =
-		    lorMotion.getStartingTimestamp(frame);
-		if (startingTimestamp >= timeStart)
-		{
-			if (startingTimestamp > timeStop)
-			{
-				break;
-			}
-			transform_t transform = lorMotion.getTransform(frame);
-			const float weight = lorMotion.getDuration(frame) / scanDuration;
-			unmovedImage->transformImage(transform, *outImage, weight,
-			                             outDynamicFrame);
-		}
-	}
-}
-template void timeAverageMoveImage<true>(const LORMotion&, const Image*, Image*,
-                                         timestamp_t, timestamp_t, frame_t);
-template void timeAverageMoveImage<false>(const LORMotion&, const Image*,
-                                          Image*, timestamp_t, timestamp_t,
-                                          frame_t);
-
-
-template <bool PrintProgress>
-std::unique_ptr<ImageOwned>
-    timeAverageMoveImageDynamic(const LORMotion& lorMotion,
-                                const Image* unmovedImage,
-                                const DynamicFraming& dynamicFraming)
-{
-	ASSERT_MSG(unmovedImage != nullptr, "Null input image given");
-
-	ImageParams params = unmovedImage->getParams();
-	params.nt = dynamicFraming.getNumFrames();
-
-	auto outImage = std::make_unique<ImageOwned>(params);
-	outImage->allocate();
-
-	timeAverageMoveImageDynamic<PrintProgress>(lorMotion, unmovedImage,
-	                                           outImage.get(), dynamicFraming);
-
-	return outImage;
-}
-template std::unique_ptr<ImageOwned>
-    timeAverageMoveImageDynamic<true>(const LORMotion&, const Image*,
-                                      const DynamicFraming&);
-template std::unique_ptr<ImageOwned>
-    timeAverageMoveImageDynamic<false>(const LORMotion&, const Image*,
-                                       const DynamicFraming&);
-
-template <bool PrintProgress>
-void timeAverageMoveImageDynamic(const LORMotion& lorMotion,
-                                 const Image* unmovedImage, Image* outImage,
-                                 const DynamicFraming& dynamicFraming)
-{
-	ASSERT_MSG(unmovedImage != nullptr, "Null input image given");
-	ASSERT_MSG(outImage != nullptr, "Output image given is null");
-
-	const ssize_t numDynamicFrames = dynamicFraming.getNumFrames();
-
-	ASSERT_MSG(outImage->getNumFrames() == numDynamicFrames,
-	           "Output image does not have the same number of frames as the "
-	           "given dynamic framing.");
-
-	const auto numDynamicFrames_signed = static_cast<frame_t>(numDynamicFrames);
-
-	for (frame_t dynamicFrame = 0; dynamicFrame < numDynamicFrames_signed;
-	     dynamicFrame++)
-	{
-		const timestamp_t dynamicFrameStart =
-		    dynamicFraming.getStartingTimestamp(dynamicFrame);
-		const timestamp_t dynamicFrameStop =
-		    dynamicFraming.getStoppingTimestamp(dynamicFrame);
-		timeAverageMoveImage<PrintProgress>(lorMotion, unmovedImage, outImage,
-		                                    dynamicFrameStart, dynamicFrameStop,
-		                                    dynamicFrame);
-	}
-}
-template void timeAverageMoveImageDynamic<true>(const LORMotion&, const Image*,
-                                                Image*, const DynamicFraming&);
-template void timeAverageMoveImageDynamic<false>(const LORMotion&, const Image*,
-                                                 Image*, const DynamicFraming&);
-
 // Helper function
 template <bool RequiresAtomicAccumulation, bool UseDetectorMask,
           bool PrintProgress>
@@ -674,7 +453,7 @@ void convertToHistogram3DInternal(const ProjectionData& dat,
 
 	const Histogram3D* histoOut_constptr = &histoOut;
 	const ProjectionData* dat_constptr = &dat;
-	util::parallelForChunked(
+	parallelForChunked(
 	    numDatBins, globals::getNumThreads(),
 	    [&progressBar, dat_constptr, histoOut_constptr, histoDataPointer,
 	     detectorMask](bin_t datBin, size_t tid)
@@ -815,7 +594,7 @@ std::unique_ptr<ListModeLUTOwned>
 
 	ProgressDisplay progressBar(numEvents, 5);
 
-	util::parallelForChunked(
+	parallelForChunked(
 	    numEvents, globals::getNumThreads(),
 	    [&progressBar, &lmOut, &lm, detectorMask, hasTOF,
 	     hasRandoms](size_t evId, size_t tid)

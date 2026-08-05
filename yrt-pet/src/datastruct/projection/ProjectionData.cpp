@@ -121,6 +121,11 @@ bool ProjectionData::hasRandomsEstimates() const
 	return false;
 }
 
+float ProjectionData::getRandomsTimeWindow() const
+{
+	return 0.f;
+}
+
 bool ProjectionData::hasMotion() const
 {
 	return false;

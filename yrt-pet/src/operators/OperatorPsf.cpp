@@ -170,6 +170,11 @@ std::vector<float> OperatorPsf::createGaussianKernel1D(float sigma,
 	{
 		constexpr size_t DEFAULT_NUM_SIGMAS = 5;
 		size = std::rintf(DEFAULT_NUM_SIGMAS * sigma / voxSize);
+		if (size % 2 == 0)
+		{
+			// Ensure kernel size is never an even number
+			size++;
+		}
 	}
 
 	std::vector<float> kernel;
@@ -204,9 +209,9 @@ std::unique_ptr<OperatorPsf> OperatorPsf::createGaussianFromFWHM(
     float fwhmX, float fwhmY, float fwhmZ, float vx, float vy, float vz,
     const size_t* kerSizeX, const size_t* kerSizeY, const size_t* kerSizeZ)
 {
-	const float sigmaX = fwhmX / static_cast<float>(SIGMA_TO_FWHM);
-	const float sigmaY = fwhmY / static_cast<float>(SIGMA_TO_FWHM);
-	const float sigmaZ = fwhmZ / static_cast<float>(SIGMA_TO_FWHM);
+	const float sigmaX = fwhmX / SIGMA_TO_FWHM_FLT;
+	const float sigmaY = fwhmY / SIGMA_TO_FWHM_FLT;
+	const float sigmaZ = fwhmZ / SIGMA_TO_FWHM_FLT;
 
 	return createGaussianFromSigma(sigmaX, sigmaY, sigmaZ, vx, vy, vz, kerSizeX,
 	                               kerSizeY, kerSizeZ);

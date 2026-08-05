@@ -46,6 +46,7 @@ void py_setup_osem(py::module& m);
 void py_setup_osem_cpu(py::module& m);
 void py_setup_lrem(py::module& m);
 void py_setup_lrem_cpu(py::module& m);
+void py_setup_imageutils(py::module& m);
 void py_setup_reconstructionutils(py::module& m);
 void py_setup_scanner(py::module& m);
 void py_setup_detcoord(py::module& m);
@@ -86,6 +87,7 @@ void py_setup_operatorvarpsfdevice(py::module& m);
 void py_setup_operatorprojectordevice(py::module& m);
 void py_setup_operatorprojectordd_gpu(py::module& m);
 void py_setup_operatorprojectorsiddon_gpu(py::module& m);
+void py_setup_imageutilsdevice(py::module& m);
 void py_setup_reconstructionutilsdevice(py::module& m);
 void py_setup_osem_gpu(py::module& m);
 void py_setup_lrem_gpu(py::module& m);
@@ -148,6 +150,7 @@ PYBIND11_MODULE(pyyrtpet, m)
 	py_setup_osem_cpu(m);
 	py_setup_lrem(m);
 	py_setup_lrem_cpu(m);
+	py_setup_imageutils(m);
 	py_setup_reconstructionutils(m);
 
 	py_setup_globals(m);
@@ -167,6 +170,7 @@ PYBIND11_MODULE(pyyrtpet, m)
 	py_setup_operatorprojectordevice(m);
 	py_setup_operatorprojectordd_gpu(m);
 	py_setup_operatorprojectorsiddon_gpu(m);
+	py_setup_imageutilsdevice(m);
 	py_setup_reconstructionutilsdevice(m);
 	py_setup_osem_gpu(m);
 	py_setup_lrem_gpu(m);

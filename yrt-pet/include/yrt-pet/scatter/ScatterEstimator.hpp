@@ -21,10 +21,8 @@ namespace scatter
 class ScatterEstimator
 {
 public:
-	static constexpr float DefaultAttThreshold = 0.9523809f;  // 1/1.05
-	static constexpr float DefaultNumSampFrac = 2.f / 3.f;
-	static constexpr int DefaultSeed = 13;
-	static constexpr auto DefaultCrystal = CrystalMaterial::LYSO;
+	static constexpr float DefaultAttThresholdTail = 0.05;  // 1/cm
+	static constexpr float DefaultLORDownsamplingFactor = 0.1f;
 	static constexpr size_t DefaultScatterTailsMaskWidth = 2ull;
 
 	ScatterEstimator(
@@ -32,26 +30,44 @@ public:
 	    const ProjectionData& pr_prompts, size_t numTOFBins, size_t numPlanes,
 	    size_t numAngles, const Histogram* pp_randomsHis = nullptr,
 	    const Histogram* pp_sensitivityHis = nullptr,
-	    CrystalMaterial p_crystalMaterial = DefaultCrystal,
-	    int seedi = DefaultSeed,
-	    size_t scatterTailsMaskWidth = DefaultScatterTailsMaskWidth,
-	    float attThreshold = DefaultAttThreshold,
-	    float p_numSampFrac = 2.f / 3.f,
-	    const std::string& saveIntermediary_dir = "");
+	    timestamp_t p_scanDuration = 0,
+	    int seedi = SingleScatterSimulator::DefaultSeed,
+	    size_t p_scatterTailsMaskWidth = DefaultScatterTailsMaskWidth,
+	    float p_attThresholdTail = DefaultAttThresholdTail,
+	    float p_attThresholdSampling =
+	        SingleScatterSimulator::DefaultAttThresholdSampling,
+	    float p_numSampFrac = SingleScatterSimulator::DefaultNumSampFrac,
+	    float p_detectionThreshold =
+	        SingleScatterSimulator::DefaultDetectionThreshold,
+	    const std::string& p_saveIntermediary_dir = "",
+	    bool p_onlyDirectPlanes = true, bool p_useGPU = false,
+	    float p_lorDownsamplingFactor = DefaultLORDownsamplingFactor);
 
+	// Allocate scatter-space buffers
 	void allocate();
+	void initScanDuration();
 
 	// This function calls all the steps
-	void computeTailFittedScatterEstimate();
+	void computeTailFittedScatterEstimate(
+	    const ScatterSpace* unscaledScatterEstimate = nullptr);
 
 	// Steps (YN: Maybe they should be protected/private)
 	void computeScatterEstimate();
-	void computeInsideMaskInScatterSpace();
+	void computeAttenuationInsideMaskInScatterSpace();
+	static void computeInsideMaskInScatterSpace(const Image& image,
+	                                            float threshold,
+	                                            ScatterSpace& insideMask);
 	void computeScatterTailsMask();
-	void computePromptsAndRandomsInScatterSpace();
+	static void
+	    computeTailsMask(const ScatterSpace& insideMask,
+	                     ScatterSpace& tailsMask,
+	                     size_t maskWidth = DefaultScatterTailsMaskWidth);
+	void computePromptsInScatterSpace();
+	void computeSensitivityAndRandomsInScatterSpace();
 	float computeTailFittingFactor() const;
 
 	// Getters
+	bool isPromptsListMode() const;  // Return true if prompts are a list-mode
 	const ScatterSpace& getScatterEstimate() const;
 	const ScatterSpace& getPromptsInScatterSpace() const;
 	const ScatterSpace& getRandomsInScatterSpace() const;
@@ -79,9 +95,19 @@ private:
 	// For the scatter tails mask:
 	// Number of neighboring virtual detectors
 	const size_t m_scatterTailsMaskWidth;
-	// Threshold on the forward projection of the attenuation image to consider
-	// an LOR "inside" the object
-	const float m_attThreshold;
+	// Threshold on the attenuation image to consider a voxel "inside" the
+	//  object
+	const float m_attThresholdTail;
+	// Duration of the scan (in seconds)
+	timestamp_t m_scanDuration;
+	// If true, only estimate direct plane and fill non-direct from average
+	bool m_onlyEstimateDirectPlanes;
+	// Use the GPU-accelerated version of the SSS calculation
+	bool m_useGPU;
+	// The ratio of LORs to consider for the estimation of sensitivity and
+	//  randoms for every possible LOR.
+	//  (example: 0.02 -> take 2% of LORs, 1.0 -> take all LORs)
+	float m_lorDownsamplingFactor;
 
 	// Where to save intermediary scatter-space values
 	std::filesystem::path m_saveIntermediary_dir;
@@ -99,9 +125,8 @@ private:
 	std::unique_ptr<ScatterSpace> mp_prompts_scs;
 	// Populated from randoms estimates
 	std::unique_ptr<ScatterSpace> mp_randoms_scs;
-
-	// TODO: We might need to also store a scatter-space vector for the
-	//  sensitivity (multiplied by livetime if available)
+	// Populated from the sensitivity histogram
+	std::unique_ptr<ScatterSpace> mp_sensitivity_scs;
 
 	// LOR inside the object: 1.0; Outside the object: 0.0
 	std::unique_ptr<ScatterSpace> mp_insideMask_scs;

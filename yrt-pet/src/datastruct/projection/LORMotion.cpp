@@ -78,6 +78,12 @@ float LORMotion::getDuration(frame_t frame) const
 	{
 		return m_records[frame + 1].timestamp - m_records[frame].timestamp;
 	}
+	if (numFrames == 1)
+	{
+		// No possible way to calculate the frame duration, we can simply return
+		//  1 ms to avoid a crash
+		return 1.0f;
+	}
 	if (frame == lastFrame)
 	{
 		// Last frame, take duration of second-to-last frame
@@ -202,8 +208,7 @@ void LORMotion::readFromFile(const std::string& filename)
 		m_records.push_back(rec);
 	}
 
-	ASSERT_MSG_WARNING(m_records.size() > 0,
-	                   "The file seems to contain no records");
+	ASSERT_MSG(m_records.size() > 0, "The file seems to contain no records");
 }
 
 void LORMotion::writeToFile(const std::string& filename) const
@@ -233,8 +238,14 @@ void LORMotion::writeToFile(const std::string& filename) const
 float LORMotion::getTotalDuration() const
 {
 	const frame_t lastFrame = getNumFrames() - 1;
-	return m_records[lastFrame].timestamp - m_records[0].timestamp +
-	       getDuration(lastFrame);
+	if (lastFrame > 0)
+	{
+		return m_records[lastFrame].timestamp - m_records[0].timestamp +
+		       getDuration(lastFrame);
+	}
+	// Only one frame in the file, no way to get the total duration, simply
+	//  return 1 ms to avoid a crash
+	return 1.0f;
 }
 
 timestamp_t LORMotion::getStartingTimestamp_safe(frame_t frame) const

@@ -11,9 +11,8 @@
 #include "yrt-pet/datastruct/projection/LORMotion.hpp"
 #include "yrt-pet/geometry/Constants.hpp"
 #include "yrt-pet/geometry/TransformUtils.hpp"
-#include "yrt-pet/utils/ReconstructionUtils.hpp"
-
-#include "yrt-pet/utils/ReconstructionUtilsDevice.cuh"
+#include "yrt-pet/utils/ImageUtils.hpp"
+#include "yrt-pet/utils/ImageUtilsDevice.cuh"
 
 // This test validates that the image time-averaging is consistent between the
 //  CPU and the GPU implementations (in 3D only)

@@ -7,6 +7,7 @@
 
 #include "yrt-pet/geometry/MultiRayGenerator.hpp"
 #include "yrt-pet/operators/OperatorProjector.hpp"
+#include "yrt-pet/recon/RawParameters.hpp"
 
 namespace yrt
 {
@@ -40,14 +41,12 @@ public:
 	                    float tofValue = 0.f) const;
 
 	// Without Multi-ray siddon
-	static float
-	    singleForwardProjection(const Image* img, const Line3D& lor,
-	                            frame_t dynamicFrame = 0,
-	                            const TimeOfFlightHelper* tofHelper = nullptr,
-	                            float tofValue = 0.f);
+	static float singleForwardProjection(
+	    const Image* img, const Line3D& lor, frame_t dynamicFrame = 0,
+	    const TimeOfFlightHelper* tofHelper = nullptr, float tofValue = 0.f);
 	static void
 	    singleBackProjection(Image* img, const Line3D& lor, float projValue,
-	                            frame_t dynamicFrame = 0,
+	                         frame_t dynamicFrame = 0,
 	                         const TimeOfFlightHelper* tofHelper = nullptr,
 	                         float tofValue = 0.f);
 	static float singleForwardProjection(
@@ -59,14 +58,14 @@ public:
 	    ProjectorUpdater* updater, frame_t dynamicFrame = 0,
 	    const TimeOfFlightHelper* tofHelper = nullptr, float tofValue = 0.f);
 
-
 	template <bool IS_FWD, bool FLAG_INCR, bool FLAG_TOF,
 	          bool USE_UPDATER = false>
-	static void project_helper(Image* img, const Line3D& lor, float& projValue,
-	                           ProjectorUpdater* updater = nullptr,
-	                           frame_t dynamicFrame = 0, int tid = 0,
-	                           const TimeOfFlightHelper* tofHelper = nullptr,
-	                           float tofValue = 0.f);
+	static void projection(const RawImage& img, const Line3D& lor,
+	                       float& projValue,
+	                       ProjectorUpdater* updater = nullptr,
+	                       frame_t dynamicFrame = 0, int tid = 0,
+	                       const TimeOfFlightHelper* tofHelper = nullptr,
+	                       float tofValue = 0.f);
 
 	int getNumRays() const;
 	void setNumRays(int n);

@@ -7,6 +7,7 @@
 
 #include "yrt-pet/datastruct/projection/ProjectionProperties.hpp"
 #include "yrt-pet/operators/OperatorProjectorDevice.cuh"
+#include "yrt-pet/recon/RawParameters.hpp"
 
 namespace yrt
 {
@@ -39,16 +40,14 @@ private:
 	                        bool synchronize);
 
 	template <bool IsForward, bool HasTOF, bool IsMultiRay>
-	static void launchKernel(float* pd_projValues, float* pd_image,
-	                  UpdaterPointer pd_updater,
-	                  const ProjectionPropertyManager* pd_projPropManager,
-	                  const PropertyUnit* pd_projProperties,
-	                  const TimeOfFlightHelper* pd_tofHelper,
-	                  int numRays,
-	                  CUScannerParams scannerParams, CUImageParams imgParams,
-	                  size_t batchSize, unsigned int gridSize,
-	                  unsigned int blockSize, const cudaStream_t* stream,
-	                  bool synchronize);
+	static void launchKernel(
+	    float* pd_projValues, float* pd_image, UpdaterPointer pd_updater,
+	    const ProjectionPropertyManager* pd_projPropManager,
+	    const PropertyUnit* pd_projProperties,
+	    const TimeOfFlightHelper* pd_tofHelper, int numRays,
+	    RawScannerParams scannerParams, RawImageParams imgParams,
+	    size_t batchSize, unsigned int gridSize, unsigned int blockSize,
+	    const cudaStream_t* stream, bool synchronize);
 
 	int m_numRays;
 };

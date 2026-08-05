@@ -41,13 +41,19 @@ void py_setup_listmode(py::module& m)
 
 	c.def("getLORMotion", &ListMode::getLORMotion);
 	c.def("getDynamicFraming", &ListMode::getDynamicFraming);
+	c.def("getRandomsTimeWindow", &ListMode::getRandomsTimeWindow);
+	c.def("getSinglesRate", &ListMode::getSinglesRate);
 }
 }  // namespace yrt
 #endif  // if BUILD_PYBIND11
 
 namespace yrt
 {
-ListMode::ListMode(const Scanner& pr_scanner) : ProjectionData{pr_scanner} {}
+
+ListMode::ListMode(const Scanner& pr_scanner, float p_timeWindow)
+    : ProjectionData{pr_scanner}, m_timeWindow(p_timeWindow)
+{
+}
 
 float ListMode::getProjectionValue(bin_t /*id*/) const
 {
@@ -242,6 +248,16 @@ float ListMode::getDurationOfMotionFrame(frame_t frame) const
 	}
 	// For the events before the beginning of the frame
 	return ProjectionData::getDurationOfMotionFrame(frame);
+}
+
+float ListMode::getRandomsTimeWindow() const
+{
+	return m_timeWindow;
+}
+
+float ListMode::getSinglesRate(det_id_t /*det*/) const
+{
+	return 0.f;
 }
 
 const LORMotion* ListMode::getLORMotion() const

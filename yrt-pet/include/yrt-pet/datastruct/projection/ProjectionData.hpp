@@ -42,7 +42,9 @@ public:
 	virtual frame_t getDynamicFrame(bin_t id) const;
 	virtual frame_t getMotionFrame(bin_t id) const;
 	virtual bool isUniform() const;
+	// Randoms
 	virtual bool hasRandomsEstimates() const;
+	virtual float getRandomsTimeWindow() const;
 	virtual float getRandomsEstimate(bin_t id) const;
 	// Time-of-flight
 	virtual bool hasTOF() const;

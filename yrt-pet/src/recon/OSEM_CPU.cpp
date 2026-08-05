@@ -348,6 +348,15 @@ void OSEM_CPU::computeEMUpdateImage()
 			    update += corrector.getPrecomputedScatterEstimate(bin);
 		    }
 
+		    // Gather dynamic frame and multiply the denominator by its duration
+		    frame_t dynamicFrame = 0;
+		    if (propManager.has(ProjectionPropertyType::DYNAMIC_FRAME))
+		    {
+			    dynamicFrame = propManager.getDataValue<frame_t>(
+			        props, pos, ProjectionPropertyType::DYNAMIC_FRAME);
+		    }
+		    update *= m_frameDurations.at(dynamicFrame);
+
 		    if (hasInVivoAttenuation)
 		    {
 			    update *= corrector.getPrecomputedInVivoAttenuationFactor(bin);
@@ -399,7 +408,7 @@ void OSEM_CPU::applyImageUpdate()
 
 	// Apply the update on the outImage buffer
 	outImage->updateEMThresholdDynamic(mp_mlemImageTmpEMRatio.get(), sensImage,
-	                                   EPS_FLT);
+	                                   denomThreshold);
 }
 
 

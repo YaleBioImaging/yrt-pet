@@ -13,7 +13,7 @@
 #include "yrt-pet/operators/ProjectorDD.hpp"
 #include "yrt-pet/operators/ProjectorUpdaterDevice.cuh"
 #include "yrt-pet/operators/TimeOfFlight.hpp"
-#include "yrt-pet/recon/CUParameters.hpp"
+#include "yrt-pet/recon/RawParameters.hpp"
 #include "yrt-pet/utils/Assert.hpp"
 #include "yrt-pet/utils/GPUUtils.cuh"
 
@@ -78,8 +78,8 @@ void OperatorProjectorDD_GPU::applyOnLoadedBatch(ProjectionListDevice& dat,
                                                  bool synchronize)
 {
 	setBatchSize(dat.getLoadedBatchSize());
-	const auto cuScannerParams = getCUScannerParams(getScanner());
-	const auto cuImageParams = getCUImageParams(img.getParams());
+	const auto rawScannerParams = getRawScannerParams(getScanner());
+	const auto rawImageParams = getRawImageParams(img.getParams());
 
 	float* pd_image = img.getDevicePointer();
 	float* pd_projValues = dat.getProjValuesDevicePointer();
@@ -98,7 +98,7 @@ void OperatorProjectorDD_GPU::applyOnLoadedBatch(ProjectionListDevice& dat,
 			launchKernel<IsForward, false, false>(
 			    pd_projValues, pd_image, pd_updater, pd_projPropManager,
 			    pd_projProp, nullptr /*No TOF*/, {} /*No ProjPSF*/,
-			    nullptr /*No ProjPSF*/, cuScannerParams, cuImageParams,
+			    nullptr /*No ProjPSF*/, rawScannerParams, rawImageParams,
 			    getBatchSize(), getGridSize(), getBlockSize(), getMainStream(),
 			    synchronize);
 		}
@@ -107,7 +107,7 @@ void OperatorProjectorDD_GPU::applyOnLoadedBatch(ProjectionListDevice& dat,
 			launchKernel<IsForward, true, false>(
 			    pd_projValues, pd_image, pd_updater, pd_projPropManager,
 			    pd_projProp, pd_tofHelper, {} /*No ProjPSF*/,
-			    nullptr /*No ProjPSF*/, cuScannerParams, cuImageParams,
+			    nullptr /*No ProjPSF*/, rawScannerParams, rawImageParams,
 			    getBatchSize(), getGridSize(), getBlockSize(), getMainStream(),
 			    synchronize);
 		}
@@ -122,7 +122,7 @@ void OperatorProjectorDD_GPU::applyOnLoadedBatch(ProjectionListDevice& dat,
 			launchKernel<IsForward, false, true>(
 			    pd_projValues, pd_image, pd_updater, pd_projPropManager,
 			    pd_projProp, nullptr /*No TOF*/, projectionPsfProperties,
-			    pd_projPsfKernels, cuScannerParams, cuImageParams,
+			    pd_projPsfKernels, rawScannerParams, rawImageParams,
 			    getBatchSize(), getGridSize(), getBlockSize(), getMainStream(),
 			    synchronize);
 		}
@@ -131,7 +131,7 @@ void OperatorProjectorDD_GPU::applyOnLoadedBatch(ProjectionListDevice& dat,
 			launchKernel<IsForward, true, true>(
 			    pd_projValues, pd_image, pd_updater, pd_projPropManager,
 			    pd_projProp, pd_tofHelper, projectionPsfProperties,
-			    pd_projPsfKernels, cuScannerParams, cuImageParams,
+			    pd_projPsfKernels, rawScannerParams, rawImageParams,
 			    getBatchSize(), getGridSize(), getBlockSize(), getMainStream(),
 			    synchronize);
 		}
@@ -145,8 +145,8 @@ void OperatorProjectorDD_GPU::launchKernel(
     const PropertyUnit* pd_projProperties,
     const TimeOfFlightHelper* pd_tofHelper,
     ProjectionPsfProperties projectionPsfProperties,
-    const float* pd_projPsfKernels, CUScannerParams scannerParams,
-    CUImageParams imgParams, size_t batchSize, unsigned int gridSize,
+    const float* pd_projPsfKernels, RawScannerParams scannerParams,
+    RawImageParams imgParams, size_t batchSize, unsigned int gridSize,
     unsigned int blockSize, const cudaStream_t* stream, bool synchronize)
 {
 	ASSERT_MSG(pd_projValues != nullptr && pd_projProperties != nullptr,

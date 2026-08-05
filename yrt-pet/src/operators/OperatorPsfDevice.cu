@@ -135,9 +135,9 @@ std::unique_ptr<OperatorPsfDevice> OperatorPsfDevice::createGaussianFromFWHM(
     float fwhmX, float fwhmY, float fwhmZ, float vx, float vy, float vz,
     const size_t* kerSizeX, const size_t* kerSizeY, const size_t* kerSizeZ)
 {
-	const float sigmaX = fwhmX / static_cast<float>(SIGMA_TO_FWHM);
-	const float sigmaY = fwhmY / static_cast<float>(SIGMA_TO_FWHM);
-	const float sigmaZ = fwhmZ / static_cast<float>(SIGMA_TO_FWHM);
+	const float sigmaX = fwhmX / SIGMA_TO_FWHM_FLT;
+	const float sigmaY = fwhmY / SIGMA_TO_FWHM_FLT;
+	const float sigmaZ = fwhmZ / SIGMA_TO_FWHM_FLT;
 
 	return OperatorPsfDevice::createGaussianFromSigma(
 	    sigmaX, sigmaY, sigmaZ, vx, vy, vz, kerSizeX, kerSizeY, kerSizeZ);

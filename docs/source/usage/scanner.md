@@ -40,8 +40,8 @@ histogram shapes:
 
 The following properties are used only in scatter estimation:
 
-- `collimatorRadius` : Collimator radius (mm). Only used in scatter estimation.
-- `fwhm` : Energy resolution FWHM (keV). Only used in scatter estimation.
+- `energyResolution` : Energy resolution FWHM as fraction of true energy
+  (between 0 and 1). Only used in scatter estimation.
 - `energyLLD` : Energy Low-Level-Discriminant (keV). Only used in Scatter
   estimation.
 
@@ -73,9 +73,8 @@ Here's an example of a Scanner's JSON file
   "maxRingDiff": 50,
   "minAngDiff": 230,
   "detsPerBlock": 40,
-  "fwhm": 0.2,
-  "energyLLD": 400,
-  "collimatorRadius": 100
+  "energyResolution": 0.2,
+  "energyLLD": 400
 }
 ```
 

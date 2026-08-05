@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include "yrt-pet/datastruct/PluginFramework.hpp"
 #include "yrt-pet/datastruct/projection/Histogram.hpp"
 
 namespace yrt
@@ -51,11 +52,43 @@ public:
 	struct ScatterSpaceIndex
 	{
 		size_t tofBin, planeIndex1, angleIndex1, planeIndex2, angleIndex2;
+		ScatterSpaceIndex()
+		    : tofBin(0),
+		      planeIndex1(0),
+		      angleIndex1(0),
+		      planeIndex2(0),
+		      angleIndex2(0)
+		{
+		}
+		ScatterSpaceIndex(size_t t, size_t p1, size_t a1, size_t p2, size_t a2)
+		    : tofBin(t),
+		      planeIndex1(p1),
+		      angleIndex1(a1),
+		      planeIndex2(p2),
+		      angleIndex2(a2)
+		{
+		}
 	};
 
 	struct ScatterSpacePosition
 	{
 		float tof_ps, planePosition1, angle1, planePosition2, angle2;
+		ScatterSpacePosition()
+		    : tof_ps(0),
+		      planePosition1(0),
+		      angle1(0),
+		      planePosition2(0),
+		      angle2(0)
+		{
+		}
+		ScatterSpacePosition(float t, float p1, float a1, float p2, float a2)
+		    : tof_ps(t),
+		      planePosition1(p1),
+		      angle1(a1),
+		      planePosition2(p2),
+		      angle2(a2)
+		{
+		}
 	};
 
 	static constexpr size_t MinNumAngles = 4ull;
@@ -71,6 +104,7 @@ public:
 	// Memory management
 	void allocate();
 	bool isMemoryValid() const;
+	void copyFrom(const ScatterSpace& other);
 
 	// I/O
 	void readFromFile(const std::string& fname);
@@ -90,6 +124,8 @@ public:
 	                                          float& angle1,
 	                                          float& planePosition2,
 	                                          float& angle2);
+	Vector3D getVirtualDetectorPos(size_t planeIndex, size_t angleIndex) const;
+	Vector3D cylindricalCoordinatesToPoint(float planePosition, float angle) const;
 	Line3D lineFromCylindricalCoordinates(float planePosition1, float angle1,
 	                                      float planePosition2,
 	                                      float angle2) const;
@@ -101,6 +137,8 @@ public:
 	Line3D getLORFromIndex(const ScatterSpaceIndex& idx) const;  // Ignore TOF
 	ScatterSpacePosition
 	    histogramBinToScatterSpacePosition(const histo_bin_t& histoBinId) const;
+	Array5DBase<float>& getData() { return *mp_values; }
+	const Array5DBase<float>& getData() const { return *mp_values; }
 
 	// Get the continuous position from the logical index
 	float getTOF_ps(size_t TOFBin) const;             // in picoseconds
@@ -127,9 +165,14 @@ public:
 	                    size_t planeIndex2, size_t angleIndex2, float value);
 	void incrementValueFlat(size_t flatIdx, float value);
 	void scaleValues(float scale);
+	void fill(float value);
 
 	// To avoid d1-d2 vs d2-d1 problems (for no TOF)
 	void symmetrizeIfNeeded();
+
+	// Fill non-direct planes from the nearest direct plane
+	// estimate(p1, p2) := estimate(avg, avg) where avg = round((p1+p2)/2)
+	void fillNonDirectPlanes();
 
 	// Clamp and wrap
 	float clampTOF(float tof_ps) const;
@@ -177,9 +220,16 @@ public:
 	det_id_t getDetector1(bin_t id) const override;
 	det_id_t getDetector2(bin_t id) const override;
 	det_pair_t getDetectorPair(bin_t id) const override;
+	bool hasArbitraryLORs() const override;
+	Line3D getArbitraryLOR(bin_t id) const override;
 	std::unique_ptr<BinIterator> getBinIter(int numSubsets,
 	                                        int idxSubset) const override;
 
+	// For registering the plugin
+	static std::unique_ptr<ProjectionData>
+	    create(const Scanner& scanner, const std::string& filename,
+	           const io::OptionsResult& options);
+	static plugin::OptionsListPerPlugin getOptions();
 
 private:
 	void initStepSizes();

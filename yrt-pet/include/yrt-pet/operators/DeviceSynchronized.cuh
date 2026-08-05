@@ -6,10 +6,6 @@
 #pragma once
 
 #include "yrt-pet/datastruct/image/ImageBase.hpp"
-#include "yrt-pet/datastruct/image/ImageDevice.cuh"
-#include "yrt-pet/datastruct/scanner/Scanner.hpp"
-#include "yrt-pet/recon/CUParameters.hpp"
-#include "yrt-pet/utils/GPUStream.cuh"
 #include "yrt-pet/utils/GPUTypes.cuh"
 
 #include <cuda_runtime_api.h>
@@ -34,10 +30,6 @@ class DeviceSynchronized
 public:
 	const cudaStream_t* getMainStream() const;
 	const cudaStream_t* getAuxStream() const;
-
-	static CUScannerParams getCUScannerParams(const Scanner& scanner);
-	static CUImageParams getCUImageParams(const ImageParams& imgParams);
-	static CUImage getCUImage(ImageDevice& img);
 
 protected:
 	explicit DeviceSynchronized(const cudaStream_t* pp_mainStream = nullptr,

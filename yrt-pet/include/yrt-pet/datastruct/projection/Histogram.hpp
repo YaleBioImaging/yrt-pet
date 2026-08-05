@@ -14,6 +14,8 @@ class Histogram : public ProjectionData
 public:
 	static constexpr bool IsListMode() { return false; }
 
+	timestamp_t getScanDuration() const override;
+
 	virtual float
 	    getProjectionValueFromHistogramBin(histo_bin_t histoBinId) const = 0;
 

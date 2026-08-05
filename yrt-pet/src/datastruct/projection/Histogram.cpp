@@ -7,13 +7,18 @@
 
 #if BUILD_PYBIND11
 #include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
+
 namespace py = pybind11;
+using namespace py::literals;
 
 namespace yrt
 {
 void py_setup_histogram(py::module& m)
 {
 	auto c = py::class_<Histogram, ProjectionData>(m, "Histogram");
+	c.def("getProjectionValueFromHistogramBin",
+	      &Histogram::getProjectionValueFromHistogramBin, "histo_bin_id"_a);
 }
 }  // namespace yrt
 
@@ -21,5 +26,14 @@ void py_setup_histogram(py::module& m)
 
 namespace yrt
 {
+
 Histogram::Histogram(const Scanner& pr_scanner) : ProjectionData{pr_scanner} {}
+
+timestamp_t Histogram::getScanDuration() const
+{
+	// By default, return 1 s since the histograms are usually in "counts"
+	//  and "counts/sec", so no scaling needed.
+	return 1.0f;
+}
+
 }  // namespace yrt

@@ -5,7 +5,11 @@
 
 #pragma once
 
+#ifndef __CUDACC__
 #include <string>
+#endif
+
+#include "yrt-pet/utils/GPUUtils.cuh"
 
 namespace yrt
 {
@@ -19,7 +23,11 @@ enum class CrystalMaterial
 };
 
 // units: 1/cm
+#if defined(__CUDACC__) && defined(__CUDA_ARCH__)
+__device__ constexpr double MuLSO[] = {
+#else
 constexpr double MuLSO[] = {
+#endif
     24383.65625, 21532.91992, 10306.70703, 5117.02002, 2927.146,   1847.06445,
     1237.6792,   878.22833,   642.3717,    1248.95557, 1543.65076, 1209.2229,
     991.36914,   829.62213,   705.55652,   601.2627,   514.13275,  441.59787,
@@ -188,7 +196,11 @@ constexpr double MuLSO[] = {
     0.47559,     0.47525,     0.4749,      0.47456,    0.47421,    0.47387,
     0.47353,     0.47319,     0.47284,     0.4725};
 
+#if defined(__CUDACC__) && defined(__CUDA_ARCH__)
+__device__ constexpr double MuLYSO[] = {
+#else
 constexpr double MuLYSO[] = {
+#endif
     23897.703539, 19875.320193, 9870.436524, 4894.459491, 2802.145033,
     1767.494966,  1307.637103,  847.779240,  639.788614,  1164.257137,
     1445.269497,  1245.486611,  1045.703725, 845.920839,  646.137954,
@@ -390,10 +402,25 @@ constexpr double MuLYSO[] = {
     0.459829,     0.459413,     0.458997,    0.458581,    0.458166,
     0.457750,     0.457334,     0.456918,    0.456503,    0.456087};
 
+#ifndef __CUDACC__
 double getMuDet(double energy, CrystalMaterial crystalMat);
 
 CrystalMaterial
     getCrystalMaterialFromName(const std::string& crystalMaterial_name);
+#endif
+
+#ifdef __CUDACC__
+__host__ __device__ inline double getMuDet(double energy,
+                                           CrystalMaterial crystalMat)
+{
+	const int e = static_cast<int>(energy) - 1;
+	if (crystalMat == CrystalMaterial::LSO)
+	{
+		return MuLSO[e];
+	}
+	return MuLYSO[e];
+}
+#endif
 
 }  // namespace scatter
 }  // namespace yrt

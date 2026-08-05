@@ -20,7 +20,7 @@ namespace yrt
 class Scanner
 {
 public:
-	static constexpr float SCANNER_FILE_VERSION = 3.2;
+	static constexpr float SCANNER_FILE_VERSION = 3.3;
 
 	// Create a scanner while using the parameters to generate a regular
 	//  structure. The structure can still later be overridden by a LUT
@@ -60,7 +60,7 @@ public:
 	std::string scannerName;
 	float axialFOV, crystalSize_z, crystalSize_trans, crystalDepth,
 	    scannerRadius;
-	float collimatorRadius, fwhm, energyLLD;  // Optional, for scatter only
+	float energyResolution, energyLLD;  // Optional, for scatter only
 
 	// detsPerRing : Number of detectors per ring (not counting DOI)
 	// numRings : Number of rings in total (not counting DOI)

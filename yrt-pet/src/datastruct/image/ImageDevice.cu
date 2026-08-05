@@ -9,6 +9,7 @@
 #include "yrt-pet/datastruct/image/ImageSpaceKernels.cuh"
 #include "yrt-pet/operators/DeviceSynchronized.cuh"
 #include "yrt-pet/utils/Assert.hpp"
+#include "yrt-pet/utils/DeviceArray.cuh"
 #include "yrt-pet/utils/GPUMemory.cuh"
 #include "yrt-pet/utils/GPUTypes.cuh"
 #include "yrt-pet/utils/GPUUtils.cuh"

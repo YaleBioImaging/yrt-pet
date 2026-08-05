@@ -4,9 +4,7 @@
  */
 
 #include "yrt-pet/geometry/Line3D.hpp"
-#include "yrt-pet/geometry/Constants.hpp"
-
-#include <limits>
+#include "yrt-pet/geometry/Line3D_impl.inl"
 
 #if BUILD_PYBIND11
 #include <pybind11/operators.h>
@@ -76,44 +74,10 @@ void py_setup_line3dall(py::module& m)
 
 namespace yrt
 {
-
-template <typename TFloat>
-TFloat Line3DBase<TFloat>::getNorm() const
-{
-	return (point1 - point2).getNorm();
-}
-
-template <typename TFloat>
-template <typename TargetType>
-Line3DBase<TargetType> Line3DBase<TFloat>::to() const
-{
-	const Vector3DBase<TargetType> newPoint1{static_cast<TargetType>(point1.x),
-	                                         static_cast<TargetType>(point1.y),
-	                                         static_cast<TargetType>(point1.z)};
-	const Vector3DBase<TargetType> newPoint2{static_cast<TargetType>(point2.x),
-	                                         static_cast<TargetType>(point2.y),
-	                                         static_cast<TargetType>(point2.z)};
-
-	return Line3DBase<TargetType>{newPoint1, newPoint2};
-}
 template Line3DBase<double> Line3DBase<float>::to() const;
 template Line3DBase<float> Line3DBase<double>::to() const;
 
-template <typename TFloat>
-bool Line3DBase<TFloat>::isValid() const
-{
-	return std::abs(point1.x - point2.x) > EPS_FLT ||
-	       std::abs(point1.y - point2.y) > EPS_FLT ||
-	       std::abs(point1.z - point2.z) > EPS_FLT;
-}
-
-template <typename TFloat>
-Line3DBase<TFloat> Line3DBase<TFloat>::nullLine()
-{
-	return Line3DBase{Vector3DBase<TFloat>{0., 0., 0.},
-	                  Vector3DBase<TFloat>{0., 0., 0.}};
-}
-
+#ifndef __CUDACC__
 template <typename TFloat>
 std::ostream& operator<<(std::ostream& oss, const Line3DBase<TFloat>& l)
 {
@@ -121,67 +85,14 @@ std::ostream& operator<<(std::ostream& oss, const Line3DBase<TFloat>& l)
 	return oss;
 }
 
-template <typename TFloat>
-void Line3DBase<TFloat>::update(const Vector3DBase<TFloat>& pt1,
-                                const Vector3DBase<TFloat>& pt2)
-{
-	point1 = pt1;
-	point2 = pt2;
-}
-
-template <typename TFloat>
-bool Line3DBase<TFloat>::isEqual(Line3DBase<TFloat>& line) const
-{
-	const Vector3DBase point1Diff = point1 - line.point1;
-	const TFloat distPointSquared1 = point1Diff.getNormSquared();
-	if (distPointSquared1 > std::numeric_limits<TFloat>::epsilon())
-	{
-		return false;
-	}
-	const Vector3DBase point2Diff = point2 - line.point2;
-	const TFloat distPointSquared2 = point2Diff.getNormSquared();
-	if (distPointSquared2 > std::numeric_limits<TFloat>::epsilon())
-	{
-		return false;
-	}
-	return true;
-}
-
-template <typename TFloat>
-bool Line3DBase<TFloat>::isParallel(Line3DBase<TFloat>& line) const
-{
-	const TFloat b = point1.x;
-	const TFloat d = point1.y;
-	const TFloat f = point1.z;
-	const TFloat a = point2.x - b;
-	const TFloat c = point2.y - d;
-	const TFloat e = point2.z - f;
-
-	const TFloat lb = line.point1.x;
-	const TFloat ld = line.point1.y;
-	const TFloat lf = line.point1.z;
-	const TFloat la = line.point2.x - lb;
-	const TFloat lc = line.point2.y - ld;
-	const TFloat le = line.point2.z - lf;
-
-	Vector3DBase<TFloat> tmp1{a, c, e};  // Orientation of current line
-	tmp1.normalize();
-	Vector3DBase<TFloat> tmp2{la, lc, le};  // Orientation of other line
-	tmp2.normalize();
-	const Vector3DBase<TFloat> crossProd{tmp1.y * tmp2.z - tmp1.z * tmp2.y,
-	                                     tmp1.z * tmp2.x - tmp1.x * tmp2.z,
-	                                     tmp1.x * tmp2.y - tmp1.y * tmp2.x};
-	const TFloat norm = crossProd.getNorm();
-	return norm <= std::numeric_limits<TFloat>::epsilon();
-}
-
-template class Line3DBase<double>;
-template class Line3DBase<float>;
-
 template std::ostream& operator<<(std::ostream& oss,
                                   const Line3DBase<double>& l);
 template std::ostream& operator<<(std::ostream& oss,
                                   const Line3DBase<float>& l);
+#endif
+
+template class Line3DBase<double>;
+template class Line3DBase<float>;
 
 static_assert(std::is_trivially_constructible<Line3DBase<double>>());
 static_assert(std::is_trivially_destructible<Line3DBase<double>>());

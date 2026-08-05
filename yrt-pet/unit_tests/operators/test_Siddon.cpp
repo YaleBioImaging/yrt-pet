@@ -39,8 +39,8 @@ double bp_dot_slow(const Line3D& lor, Image* img_bp, const Image* img,
                    float proj_val, ProjectorUpdater* updater = nullptr)
 {
 	img_bp->fill(0.0);
-	ProjectorSiddon::project_helper<false, false, false>(img_bp, lor, proj_val,
-	                                                     updater);
+	ProjectorSiddon::projection<false, false, false>(getRawImage(*img_bp), lor,
+	                                                 proj_val, updater);
 	return img->dotProduct(*img_bp);
 }
 }  // namespace yrt
@@ -93,8 +93,8 @@ TEST_CASE("Siddon-simple", "[siddon]")
 
 			// Slow version of ray tracing
 			float proj_val_slow;
-			yrt::ProjectorSiddon::project_helper<true, false, false>(
-			    img.get(), lor, proj_val_slow);
+			yrt::ProjectorSiddon::projection<true, false, false>(
+			    getRawImage(*img), lor, proj_val_slow);
 			REQUIRE(proj_val == Approx(proj_val_slow));
 			double dot_x_Aty_slow =
 			    bp_dot_slow(lor, img_bp.get(), img.get(), proj_val_t);
@@ -128,8 +128,8 @@ TEST_CASE("Siddon-simple", "[siddon]")
 
 			// Slow version of ray tracing
 			float proj_val_slow;
-			yrt::ProjectorSiddon::project_helper<true, false, false>(
-			    img.get(), lor, proj_val_slow);
+			yrt::ProjectorSiddon::projection<true, false, false>(
+			    getRawImage(*img), lor, proj_val_slow);
 			REQUIRE(proj_val == Approx(proj_val_slow));
 			double dot_x_Aty_slow =
 			    bp_dot_slow(lor, img_bp.get(), img.get(), proj_val_t);
@@ -161,8 +161,8 @@ TEST_CASE("Siddon-simple", "[siddon]")
 
 			// Slow version of ray tracing
 			float proj_val_slow;
-			yrt::ProjectorSiddon::project_helper<true, false, false>(
-			    img.get(), lor, proj_val_slow);
+			yrt::ProjectorSiddon::projection<true, false, false>(
+			    getRawImage(*img), lor, proj_val_slow);
 			REQUIRE(proj_val == Approx(proj_val_slow));
 			double dot_x_Aty_slow =
 			    bp_dot_slow(lor, img_bp.get(), img.get(), proj_val_t);
@@ -188,8 +188,8 @@ TEST_CASE("Siddon-simple", "[siddon]")
 
 			// Slow version of ray tracing
 			float proj_val_slow;
-			yrt::ProjectorSiddon::project_helper<true, false, false>(
-			    img.get(), lor, proj_val_slow);
+			yrt::ProjectorSiddon::projection<true, false, false>(
+			    getRawImage(*img), lor, proj_val_slow);
 			REQUIRE(proj_val == Approx(proj_val_slow));
 			double dot_x_Aty_slow =
 			    bp_dot_slow(lor, img_bp.get(), img.get(), proj_val_t);
@@ -210,8 +210,8 @@ TEST_CASE("Siddon-simple", "[siddon]")
 
 			// Slow version of ray tracing
 			float proj_val_slow;
-			yrt::ProjectorSiddon::project_helper<true, false, false>(
-			    img.get(), lor, proj_val_slow);
+			yrt::ProjectorSiddon::projection<true, false, false>(
+			    getRawImage(*img), lor, proj_val_slow);
 			REQUIRE(proj_val == Approx(proj_val_slow));
 			double dot_x_Aty_slow =
 			    bp_dot_slow(lor, img_bp.get(), img.get(), proj_val_t);
@@ -234,8 +234,8 @@ TEST_CASE("Siddon-simple", "[siddon]")
 
 			// Slow version of ray tracing
 			float proj_val_slow;
-			yrt::ProjectorSiddon::project_helper<true, false, false>(
-			    img.get(), lor, proj_val_slow);
+			yrt::ProjectorSiddon::projection<true, false, false>(
+			    getRawImage(*img), lor, proj_val_slow);
 			REQUIRE(proj_val == Approx(proj_val_slow));
 			double dot_x_Aty_slow =
 			    bp_dot_slow(lor, img_bp.get(), img.get(), proj_val_t);
@@ -268,8 +268,8 @@ TEST_CASE("Siddon-simple", "[siddon]")
 
 			// Slow version of ray tracing
 			float proj_val_slow;
-			yrt::ProjectorSiddon::project_helper<true, false, false>(
-			    img.get(), lor, proj_val_slow);
+			yrt::ProjectorSiddon::projection<true, false, false>(
+			    getRawImage(*img), lor, proj_val_slow);
 			REQUIRE(proj_val == Approx(proj_val_slow));
 			double dot_x_Aty_slow =
 			    bp_dot_slow(lor, img_bp.get(), img.get(), proj_val_t);
@@ -332,8 +332,8 @@ TEST_CASE("Siddon-simple", "[siddon]")
 
 			// Slow version of ray tracing
 			float proj_val_slow;
-			yrt::ProjectorSiddon::project_helper<true, false, false>(
-			    img.get(), lor, proj_val_slow);
+			yrt::ProjectorSiddon::projection<true, false, false>(
+			    getRawImage(*img), lor, proj_val_slow);
 			REQUIRE(proj_val == Approx(proj_val_slow));
 			double dot_x_Aty_slow =
 			    bp_dot_slow(lor, img_bp.get(), img.get(), proj_val_t);
@@ -491,8 +491,8 @@ TEST_CASE("Siddon-random", "[siddon]")
 
 			// Slow version of ray tracing
 			float proj_val_slow;
-			yrt::ProjectorSiddon::project_helper<true, false, false>(
-			    img.get(), lor, proj_val_slow);
+			yrt::ProjectorSiddon::projection<true, false, false>(
+			    getRawImage(*img), lor, proj_val_slow);
 			REQUIRE(proj_val == Approx(proj_val_slow).epsilon(0.001));
 			double dot_x_Aty_slow =
 			    bp_dot_slow(lor, img_bp.get(), img.get(), proj_val_t);
@@ -572,8 +572,8 @@ TEST_CASE("Siddon-bugs", "[siddon]")
 		REQUIRE(projVal > 0.0f);
 
 		float projValSlow;
-		yrt::ProjectorSiddon::project_helper<true, false, false>(img.get(), lor,
-		                                                         projValSlow);
+		yrt::ProjectorSiddon::projection<true, false, false>(getRawImage(*img),
+		                                                     lor, projValSlow);
 		REQUIRE(projVal == Approx(projValSlow));
 	}
 
@@ -617,8 +617,8 @@ TEST_CASE("Siddon-bugs", "[siddon]")
 			double proj_val =
 			    yrt::ProjectorSiddon::singleForwardProjection(img.get(), lor);
 			float proj_val_slow;
-			yrt::ProjectorSiddon::project_helper<true, false, false>(
-			    img.get(), lor, proj_val_slow);
+			yrt::ProjectorSiddon::projection<true, false, false>(
+			    getRawImage(*img), lor, proj_val_slow);
 			REQUIRE(proj_val == Approx(proj_val_slow));
 		}
 
@@ -630,8 +630,8 @@ TEST_CASE("Siddon-bugs", "[siddon]")
 			double proj_val =
 			    yrt::ProjectorSiddon::singleForwardProjection(img.get(), lor);
 			float proj_val_slow;
-			yrt::ProjectorSiddon::project_helper<true, false, false>(
-			    img.get(), lor, proj_val_slow);
+			yrt::ProjectorSiddon::projection<true, false, false>(
+			    getRawImage(*img), lor, proj_val_slow);
 			REQUIRE(proj_val == Approx(proj_val_slow));
 		}
 
@@ -643,8 +643,9 @@ TEST_CASE("Siddon-bugs", "[siddon]")
 			double proj_val =
 			    yrt::ProjectorSiddon::singleForwardProjection(img.get(), lor);
 			float proj_val_slow;
-			yrt::ProjectorSiddon::project_helper<true, false, false>(
-			    img.get(), lor, proj_val_slow);
+			const auto rawImg = getRawImage(*img);
+			yrt::ProjectorSiddon::projection<true, false, false>(rawImg, lor,
+			                                                     proj_val_slow);
 			REQUIRE(proj_val == Approx(proj_val_slow));
 		}
 
@@ -656,8 +657,9 @@ TEST_CASE("Siddon-bugs", "[siddon]")
 			double proj_val =
 			    yrt::ProjectorSiddon::singleForwardProjection(img.get(), lor);
 			float proj_val_slow;
-			yrt::ProjectorSiddon::project_helper<true, false, false>(
-			    img.get(), lor, proj_val_slow);
+			const auto rawImg = getRawImage(*img);
+			yrt::ProjectorSiddon::projection<true, false, false>(rawImg, lor,
+			                                                     proj_val_slow);
 			REQUIRE(proj_val == Approx(proj_val_slow));
 		}
 	}

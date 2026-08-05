@@ -351,35 +351,10 @@ bool Image::getNearestNeighborIdx(const Vector3D& pt, ssize_t* pi, ssize_t* pj,
                                   ssize_t* pk, frame_t frame) const
 {
 	const ImageParams& params = getParams();
-	const float x = pt.x - params.off_x;
-	const float y = pt.y - params.off_y;
-	const float z = pt.z - params.off_z;
-
-	const float dx = (x + params.length_x / 2.0f) / params.length_x *
-	                 static_cast<float>(params.nx);
-	const float dy = (y + params.length_y / 2.0f) / params.length_y *
-	                 static_cast<float>(params.ny);
-	const float dz = (z + params.length_z / 2.0f) / params.length_z *
-	                 static_cast<float>(params.nz);
-
-	const ssize_t ix = static_cast<ssize_t>(dx);
-	const ssize_t iy = static_cast<ssize_t>(dy);
-	const ssize_t iz = static_cast<ssize_t>(dz);
-
-	if (ix < 0 || ix >= static_cast<ssize_t>(params.nx) || iy < 0 ||
-	    iy >= static_cast<ssize_t>(params.ny) || iz < 0 ||
-	    iz >= static_cast<ssize_t>(params.nz) || frame < 0 ||
-	    frame >= static_cast<ssize_t>(getNumFrames()))
-	{
-		// Point outside grid
-		return false;
-	}
-
-	*pi = ix;
-	*pj = iy;
-	*pk = iz;
-
-	return true;
+	return util::getNearestNeighborIdx(
+	    pt.x, pt.y, pt.z, params.length_x, params.length_y, params.length_z,
+	    params.off_x, params.off_y, params.off_z, params.nx, params.ny,
+	    params.nz, params.nt, pi, pj, pk, frame);
 }
 
 // interpolation operation.
@@ -1150,10 +1125,23 @@ void ImageOwned::readFromFile(const std::string& fname)
 	nifti_image_free(niftiImage);
 }
 
-void ImageOwned::readNIfTIData(int datatype, void* data, float slope,
-                               float intercept)
+void ImageOwned::readNIfTIData(int datatype, void* data, float slopeFromFile,
+                               float interceptFromFile)
 {
 	const ImageParams& params = getParams();
+
+	float slope = slopeFromFile;
+	float intercept = interceptFromFile;
+	// NIfTI-1: scl_slope == 0 means "no scaling" (y = x).
+	// NaN (uninitialized) also means no scaling.
+	if (slope == 0.0f || std::isnan(slope))
+	{
+		slope = 1.0f;
+	}
+	if (std::isnan(intercept))
+	{
+		intercept = 0.0f;
+	}
 
 	float* imgData = getRawPointer();
 	const ssize_t numVoxels =

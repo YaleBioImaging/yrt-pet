@@ -9,6 +9,7 @@
 #include "yrt-pet/operators/OperatorProjectorDevice.cuh"
 #include "yrt-pet/operators/ProjectionPsfUtils.cuh"
 #include "yrt-pet/operators/ProjectorUtils.hpp"
+#include "yrt-pet/recon/RawParameters.hpp"
 #include "yrt-pet/utils/GPUKernelUtils.cuh"
 
 #include <cfloat>
@@ -39,7 +40,7 @@ __device__ void
               float3 p1, float3 p2, float3 n1, float3 n2, frame_t dynamicFrame,
               const TimeOfFlightHelper* pd_tofHelper, float tofValue,
               ProjectionPsfKernelStruct projPsfKernelStruct,
-              CUScannerParams scannerParams, CUImageParams imgParams)
+              RawScannerParams scannerParams, RawImageParams imgParams)
 {
 	ProjectionPsfProperties projectionPsfProperties =
 	    projPsfKernelStruct.properties;
@@ -402,7 +403,7 @@ __global__ void projectDD_kernel(
     const PropertyUnit* pd_projectionProperties,
     const TimeOfFlightHelper* pd_tofHelper,
     ProjectionPsfKernelStruct projPsfKernelStruct,
-    CUScannerParams scannerParams, CUImageParams imgParams, size_t batchSize)
+    RawScannerParams scannerParams, RawImageParams imgParams, size_t batchSize)
 {
 	const long eventId = blockIdx.x * blockDim.x + threadIdx.x;
 	if (eventId < batchSize)

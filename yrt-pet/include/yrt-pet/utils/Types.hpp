@@ -44,11 +44,13 @@ struct det_orient_t
 {
 	Vector3D d1, d2;
 };
+#ifndef __CUDACC__
 inline std::ostream& operator<<(std::ostream& oss, const det_orient_t& d)
 {
 	oss << "[" << d.d1 << ", " << d.d2 << "]";
 	return oss;
 }
+#endif
 
 // Defining an LOR
 using histo_bin_t = std::variant<det_pair_t, det_pair_tof_t, bin_t>;

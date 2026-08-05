@@ -27,6 +27,7 @@ public:
 	float estimateRandoms(det_id_t d1, det_id_t d2) const;
 	void setTimeWindow(float timeWindow);
 	float getTimeWindow() const;
+	float getSinglesRates(det_id_t d) const;
 
 	// Histogram interface
 	float getProjectionValueFromHistogramBin(

@@ -17,8 +17,7 @@ class RandomsHistogram : public Histogram
 {
 public:
 	explicit RandomsHistogram(const Scanner& pr_scanner, float p_tau = 0.f);
-	RandomsHistogram(const Scanner& pr_scanner, const std::string& filename,
-	                 float p_tau = 0.f);
+	RandomsHistogram(const Scanner& pr_scanner, const std::string& filename);
 
 	void populateFromListMode(const ListMode& listMode);
 	// Set the singles rate (in counts per second) of every detector from the

@@ -19,12 +19,12 @@ namespace py = pybind11;
 
 namespace yrt
 {
-void py_setup_randomsHistogram(py::module& m)
+void py_setup_randomshistogram(py::module& m)
 {
 	auto c = py::class_<RandomsHistogram, Histogram>(m, "RandomsHistogram");
 	c.def(py::init<const Scanner&, float>(), "scanner"_a, "tau"_a = 0.f);
-	c.def(py::init<const Scanner&, const std::string&, float>(), "scanner"_a,
-	      "filename"_a, "tau"_a = 0.f);
+	c.def(py::init<const Scanner&, const std::string&>(), "scanner"_a,
+	      "filename"_a);
 	c.def("populateFromListMode", &RandomsHistogram::populateFromListMode,
 	      "list_mode"_a);
 	c.def("setSinglesRates", &RandomsHistogram::setSinglesRates, "singles"_a);
@@ -46,8 +46,8 @@ RandomsHistogram::RandomsHistogram(const Scanner& pr_scanner, float p_tau)
 }
 
 RandomsHistogram::RandomsHistogram(const Scanner& pr_scanner,
-                                   const std::string& filename, float p_tau)
-    : RandomsHistogram(pr_scanner, p_tau)
+                                   const std::string& filename)
+    : Histogram(pr_scanner), mp_singles(std::make_unique<Array1DOwned<float>>())
 {
 	readFromFile(filename);
 }

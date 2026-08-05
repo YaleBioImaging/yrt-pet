@@ -8,6 +8,7 @@
 #include "yrt-pet/utils/Assert.hpp"
 #include "yrt-pet/utils/Concurrency.hpp"
 #include "yrt-pet/utils/Tools.hpp"
+#include "yrt-pet/utils/ProgressDisplayMultiThread.hpp"
 
 #include <cmath>
 #include <cstdio>
@@ -76,11 +77,16 @@ void kernel::build_K_knn_neighbors(float* x, float* k, int* k_i, int* k_j,
 	              const std::pair<ssize_t, float>& right)
 	{ return left.second < right.second; };
 
+	util::ProgressDisplayMultiThread progress(
+		numThreads, static_cast<int64_t>(numPixels), 5);
+
 	util::parallelForChunked(
 	    numPixels, numThreads,
-	    [idxBufferPtr, valBufferPtr, num_k, nx, ny, nz, nf, cmp, W, P, sc, x, k,
+	    [idxBufferPtr, valBufferPtr, &progress, num_k, nx, ny, nz, nf, cmp, W, P, sc, x, k,
 	     k_i, k_j](size_t i, size_t tid)
 	    {
+		    progress.incrementProgress(tid, 1);
+
 		    ssize_t* idxBufferT = idxBufferPtr + tid * num_k;
 		    float* valBufferT = valBufferPtr + tid * num_k;
 

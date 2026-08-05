@@ -25,6 +25,8 @@ public:
 	// scanner.
 	void setSinglesRates(const Array1DBase<float>& singles);
 	float estimateRandoms(det_id_t d1, det_id_t d2) const;
+	void setTimeWindow(float timeWindow);
+	float getTimeWindow() const;
 
 	// Histogram interface
 	float getProjectionValueFromHistogramBin(

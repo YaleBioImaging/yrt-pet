@@ -231,13 +231,24 @@ void OSEM::setSensitivityImages(const std::vector<Image*>& sensImages)
 
 		if (i == 0)
 		{
-			sensImageParams = sensImage->getParams();
+			if (imageParams.isValid())
+			{
+				ASSERT_MSG(
+				    sensImage->getParams().isSameAsIgnoreFrames(imageParams),
+				    "Image parameters mismatch between given image parameters "
+				    "and sensitivity image");
+				sensImageParams = imageParams;
+			}
+			else
+			{
+				sensImageParams = sensImage->getParams();
+			}
 		}
 		else
 		{
 			ASSERT_MSG(
 			    sensImage->getParams().isSameAsIgnoreFrames(sensImageParams),
-			    "Image parameters mismatch");
+			    "Image parameters mismatch between sensitivity images");
 		}
 		m_sensitivityImages.push_back(sensImage);
 	}
@@ -388,15 +399,19 @@ std::string OSEM::getSummary() const
 		ss << "Uses List-Mode data as input.\n";
 	}
 
+	ss << "Sensitivity images: " << std::endl;
 	int numberOfSensImagesSet = 0;
 	for (size_t i = 0; i < m_sensitivityImages.size(); i++)
 	{
 		if (m_sensitivityImages[i] != nullptr)
 		{
 			numberOfSensImagesSet++;
+			const ImageParams& p = m_sensitivityImages[i]->getParams();
+			ss << "\tSensitivity image " << i << " shape: [" << p.nt << ", "
+			   << p.nz << ", " << p.ny << ", " << p.nx << "]" << std::endl;
 		}
 	}
-	ss << "Number of sensitivity images set: " << numberOfSensImagesSet
+	ss << "\tNumber of sensitivity images set: " << numberOfSensImagesSet
 	   << std::endl;
 
 	ss << "Hard threshold: " << hardThreshold << std::endl;
@@ -462,7 +477,8 @@ std::string OSEM::getSummary() const
 	if (projectorParams.hasTOF())
 	{
 		ss << "Uses Time-of-flight.\n";
-		ss << "TOF width (ps): " << projectorParams.getTOFNumStd() << std::endl;
+		ss << "TOF width (ps): " << projectorParams.getTOFWidth_ps()
+		   << std::endl;
 		ss << "TOF number of STDs to use: " << projectorParams.getTOFNumStd()
 		   << std::endl;
 	}
@@ -608,6 +624,16 @@ const ProjectionData* OSEM::getDataInput() const
 	return mp_dataInput;
 }
 
+const ListMode* OSEM::getDataInputAsListMode() const
+{
+	return dynamic_cast<const ListMode*>(mp_dataInput);
+}
+
+const Histogram* OSEM::getDataInputAsHistogram() const
+{
+	return dynamic_cast<const Histogram*>(mp_dataInput);
+}
+
 void OSEM::setDataInput(const ProjectionData* pp_dataInput)
 {
 	ASSERT_MSG(pp_dataInput->count() > 0, "The input data given has no counts");
@@ -689,6 +715,11 @@ void OSEM::enableNeedToMakeCopyOfSensImage()
 void OSEM::setImageParams(const ImageParams& params)
 {
 	imageParams = params;
+}
+
+bool OSEM::isImageParamsSet() const
+{
+	return imageParams.isValid();
 }
 
 ImageParams OSEM::getImageParams() const
@@ -827,6 +858,44 @@ void OSEM::setupForDynamicRecon()
 	// This ensures that the image parameters used to allocate the
 	//  reconstruction image(s) are of the correct size
 	imageParams.nt = numDynamicFrames;
+
+	// Prepare the frame durations
+	m_frameDurations.clear();
+	if (numDynamicFrames == 1ull)  // Static reconstruction
+	{
+		const timestamp_t scanDuration_ms = mp_dataInput->getScanDuration();
+
+		float scanDuration_s = 1.0f;
+		if (scanDuration_ms > 0)  // We assume the timestamps increase over time
+		{
+			scanDuration_s = scanDuration_ms / 1000.0f;
+		}
+		m_frameDurations.push_back(scanDuration_s);
+	}
+	else // Dynamic reconstruction
+	{
+		const ListMode* dataInputAsLM = getDataInputAsListMode();
+		ASSERT(usingListModeInput == (dataInputAsLM != nullptr));
+		if (!usingListModeInput)
+		{
+			throw std::runtime_error("Dynamic reconstruction is only supported "
+			                         "with list-mode data types");
+		}
+
+		const DynamicFraming* dynamicFraming =
+		    dataInputAsLM->getDynamicFraming();
+		ASSERT(dynamicFraming != nullptr);
+
+		for (size_t frameIdx = 0; frameIdx < dynamicFraming->getNumFrames();
+		     frameIdx++)
+		{
+			const timestamp_t frameDuration_ms =
+			    dynamicFraming->getDuration(static_cast<frame_t>(frameIdx));
+			const float frameDuration_s = frameDuration_ms / 1000.0f;
+			m_frameDurations.push_back(frameDuration_s);
+		}
+	}
+	m_frameDurations.shrink_to_fit();
 }
 
 const Image* OSEM::getSensitivityImage(int subsetId) const
@@ -1008,6 +1077,9 @@ void OSEM::initializeSensImageBuffer()
 {
 	if (usingListModeInput)
 	{
+		const float scalarToMultiplyWith =
+		    1.0f / static_cast<float>(num_OSEM_subsets);
+
 		if (needToMakeCopyOfSensImage)
 		{
 			std::cout << "Arranging sensitivity image scaling for ListMode in "
@@ -1021,15 +1093,13 @@ void OSEM::initializeSensImageBuffer()
 			    std::make_unique<ImageOwned>(imageSensParams);
 			mp_copiedSensitivityImage->allocate();
 			mp_copiedSensitivityImage->copyFromImage(m_sensitivityImages.at(0));
-			mp_copiedSensitivityImage->multWithScalar(
-			    1.0f / (static_cast<float>(num_OSEM_subsets)));
+			mp_copiedSensitivityImage->multWithScalar(scalarToMultiplyWith);
 		}
-		else if (num_OSEM_subsets != 1)
+		else if (scalarToMultiplyWith != 1.0f)
 		{
 			std::cout << "Arranging sensitivity image scaling for ListMode..."
 			          << std::endl;
-			m_sensitivityImages[0]->multWithScalar(
-			    1.0f / (static_cast<float>(num_OSEM_subsets)));
+			m_sensitivityImages[0]->multWithScalar(scalarToMultiplyWith);
 		}
 	}
 }

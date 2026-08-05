@@ -37,7 +37,7 @@ void LORsDevice::precomputeBatchLORs(const BinIterator& binIter,
 
 		const size_t batchSize = batchSetup.getBatchSize(batchId);
 
-		allocateBinFilterIfNeeded(batchSize);
+		allocateBinLoaderIfNeeded(batchSize);
 
 		const size_t offset = batchId * batchSetup.getBatchSize(0);
 		const BinIteratorBatched binIterForBatch(&binIter, offset, batchSize);
@@ -177,7 +177,7 @@ void LORsDevice::allocateForPrecomputedLORsIfNeeded(
 	}
 }
 
-void LORsDevice::allocateBinFilterIfNeeded(size_t newBatchSize)
+void LORsDevice::allocateBinLoaderIfNeeded(size_t newBatchSize)
 {
 	if (mp_binLoader->getProjectionPropertiesSize() < newBatchSize)
 	{

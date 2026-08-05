@@ -15,6 +15,7 @@ set(SOURCES
     datastruct/projection/BinLoader.cpp
     datastruct/projection/Constraints.cpp
     datastruct/projection/ProjectionList.cpp
+    datastruct/projection/RandomsHistogram.cpp
     datastruct/projection/SparseHistogram.cpp
     datastruct/projection/UniformHistogram.cpp
     datastruct/projection/ProjectionProperties.cpp
@@ -29,11 +30,11 @@ set(SOURCES
     datastruct/image/nifti/nifti1_io.cpp
     datastruct/image/nifti/znzlib.cpp
     datastruct/IO.cpp
-    geometry/Cylinder.cpp
+    geometry/Cylinder3D.cpp
     geometry/Line3D.cpp
     geometry/Matrix.cpp
     geometry/MultiRayGenerator.cpp
-    geometry/Plane.cpp
+    geometry/Plane3D.cpp
     geometry/TransformUtils.cpp
     geometry/TubeOfResponse.cpp
     geometry/Vector3D.cpp
@@ -59,6 +60,7 @@ set(SOURCES
     recon/OSEM_CPU.cpp
     recon/LREM.cpp
     recon/LREM_CPU.cpp
+    recon/RawParameters.cpp
     scatter/Crystal.cpp
     scatter/ScatterEstimator.cpp
     scatter/ScatterSpace.cpp
@@ -71,6 +73,7 @@ set(SOURCES
     utils/ProgressDisplay.cpp
     utils/ProgressDisplayMultiThread.cpp
     utils/RangeList.cpp
+    utils/ImageUtils.cpp
     utils/ReconstructionUtils.cpp
     utils/Timer.cpp
     utils/Tools.cpp
@@ -96,12 +99,15 @@ if (USE_CUDA)
         recon/Corrector_GPU.cu
         recon/OSEM_GPU.cu
         recon/LREM_GPU.cu
+        scatter/ScatterDeviceKernels.cu
+        scatter/SingleScatterSimulatorGPU.cu
         utils/GPUStream.cu
         utils/GPUTypes.cu
         utils/GPUUtils.cu
         utils/GPUKernelUtils.cu
         utils/PageLockedBuffer.cu
         utils/ReconstructionUtilsDevice.cu
+        utils/ImageUtilsDevice.cu
     )
 endif (USE_CUDA)
 

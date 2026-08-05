@@ -7,9 +7,12 @@
 
 #include <atomic>
 #include <functional>
+#include <random>
 #include <stdexcept>
 #include <thread>
 #include <vector>
+
+#include "yrt-pet/utils/Assert.hpp"
 
 namespace yrt::util
 {
@@ -36,6 +39,77 @@ void parallelDoIndexed(size_t numThreads, F f, Args... args)
 		worker.join();
 }
 
+// Function given as a parameter has three arguments:
+//  - The position in the for loop (This increases by a random amount every
+//  step)
+//  - The number of elements preceding (This inceases by *one* every step)
+//  - The current thread's ID.
+template <typename Func>
+void parallelForChunkedRandomized(size_t total, size_t numThreads,
+                                  float probability, Func fn)
+{
+	ASSERT_MSG(probability > 0.0f && probability <= 1.0f,
+	           "Unsupported probability");
+
+	using RNGSuite =
+	    std::tuple<std::mt19937_64, std::geometric_distribution<size_t>>;
+
+	// Seed a master generator once, then derive per-thread generators from it
+	//  to avoid correlated seeds from repeated std::random_device calls.
+	std::random_device rd;
+	std::mt19937_64 masterGen(rd());
+
+	std::vector<RNGSuite> rngs;
+	rngs.reserve(numThreads);
+	for (size_t threadId = 0; threadId < numThreads; ++threadId)
+	{
+		rngs.emplace_back(std::mt19937_64{masterGen()},
+		                  std::geometric_distribution<size_t>{probability});
+	}
+
+	const size_t chunk = total / numThreads;
+	std::vector<std::thread> threads;
+	threads.reserve(numThreads);
+
+	for (unsigned int threadId = 0; threadId < numThreads; ++threadId)
+	{
+		const size_t start = threadId * chunk;
+		const size_t end = (threadId + 1 == numThreads) ? total : start + chunk;
+		threads.emplace_back(
+		    [start, end, threadId, &rngs, &fn]()
+		    {
+			    auto& rng = rngs[threadId];
+			    auto& gen = std::get<0>(rng);
+			    auto& distribution = std::get<1>(rng);
+
+			    size_t idx = start;
+			    size_t counter = start;
+			    while (idx < end)
+			    {
+				    // Ask the generator how many elements to skip
+				    const size_t skip = distribution(gen);
+
+				    idx += skip;
+
+				    // Don't overshoot to the end of the data
+				    if (idx < end)
+				    {
+					    fn(idx, counter, threadId);
+
+					    // Move to the next item after the selected one
+					    idx++;
+					    counter++;
+				    }
+			    }
+		    });
+	}
+
+	for (auto& th : threads)
+	{
+		th.join();
+	}
+}
+
 // Function given as a parameter has two arguments: The position in the for loop
 //  and the current thread's ID.
 template <typename Func>
@@ -45,16 +119,16 @@ void parallelForChunked(size_t total, size_t numThreads, Func fn)
 	std::vector<std::thread> threads;
 	threads.reserve(numThreads);
 
-	for (unsigned t = 0; t < numThreads; ++t)
+	for (unsigned int threadId = 0; threadId < numThreads; ++threadId)
 	{
-		const size_t start = t * chunk;
-		const size_t end = (t + 1 == numThreads) ? total : start + chunk;
+		const size_t start = threadId * chunk;
+		const size_t end = (threadId + 1 == numThreads) ? total : start + chunk;
 		threads.emplace_back(
-		    [=, &fn]()
+		    [start, end, threadId, &fn]()
 		    {
 			    for (size_t i = start; i < end; ++i)
 			    {
-				    fn(i, t);
+				    fn(i, threadId);
 			    }
 		    });
 	}

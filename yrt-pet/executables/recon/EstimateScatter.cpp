@@ -6,15 +6,15 @@
 #include "../ArgumentReader.hpp"
 #include "../PluginOptionsHelper.hpp"
 #include "yrt-pet/datastruct/IO.hpp"
-#include "yrt-pet/datastruct/projection/Histogram3D.hpp"
+#include "yrt-pet/datastruct/projection/ListMode.hpp"
+#include "yrt-pet/datastruct/projection/RandomsHistogram.hpp"
 #include "yrt-pet/datastruct/scanner/Scanner.hpp"
-#include "yrt-pet/geometry/Constants.hpp"
 #include "yrt-pet/scatter/ScatterEstimator.hpp"
 #include "yrt-pet/utils/Assert.hpp"
 #include "yrt-pet/utils/Globals.hpp"
 #include "yrt-pet/utils/ReconstructionUtils.hpp"
+#include "yrt-pet/utils/Timer.hpp"
 #include "yrt-pet/utils/Tools.hpp"
-#include "yrt-pet/utils/Version.hpp"
 
 #include <cxxopts.hpp>
 #include <iostream>
@@ -48,47 +48,72 @@ int main(int argc, char** argv)
 		                          coreGroup);
 		registry.registerArgument("seed", "Random number generator seed to use",
 		                          false, io::TypeOfArgument::INT,
-		                          scatter::ScatterEstimator::DefaultSeed,
+		                          scatter::SingleScatterSimulator::DefaultSeed,
 		                          coreGroup);
 		registry.registerArgument("out", "Output scatter estimate filename",
 		                          true, io::TypeOfArgument::STRING, "",
 		                          coreGroup, "o");
 
-		registry.registerArgument("source", "Input source image", true,
-		                          io::TypeOfArgument::STRING, "", sssGroup);
-		registry.registerArgument("att", "Attenuation image file", true,
-		                          io::TypeOfArgument::STRING, "", sssGroup);
 		registry.registerArgument(
-		    "att_threshold",
-		    "Tail fitting attenuation threshold for the scatter tails mask "
+		    "full_estimate",
+		    "When set to true, compute full scatter estimate for all plane "
+		    "pairs (slower but more accurate). When false (default), only "
+		    "estimate direct planes and fill non-direct planes from average "
+		    "of nearest direct plane.",
+		    false, io::TypeOfArgument::BOOL, false, sssGroup);
+		registry.registerArgument(
+		    "att_threshold_sampling",
+		    "Attenuation threshold (in 1/cm) for the scatter sample selection "
 		    "(Default: " +
-		        std::to_string(scatter::ScatterEstimator::DefaultAttThreshold) +
+		        std::to_string(scatter::SingleScatterSimulator::
+		                           DefaultAttThresholdSampling) +
 		        ")",
 		    false, io::TypeOfArgument::FLOAT,
-		    scatter::ScatterEstimator::DefaultAttThreshold, tailFittingGroup);
+		    scatter::SingleScatterSimulator::DefaultAttThresholdSampling,
+		    sssGroup);
+		registry.registerArgument("source", "Input source image", true,
+		                          io::TypeOfArgument::STRING, "", sssGroup);
+		registry.registerArgument("att", "Attenuation image (in 1/cm) file",
+		                          true, io::TypeOfArgument::STRING, "",
+		                          sssGroup);
 
-		// By default, no TOF
-		registry.registerArgument("n_tof",
-		                          "Number of TOF bins to consider for SSS",
-		                          false, io::TypeOfArgument::INT, 1, sssGroup);
+		// By default, we consider no TOF, so only one TOF bin
 		registry.registerArgument(
-		    "n_planes", "Number of axial planes to consider for SSS", false,
-		    io::TypeOfArgument::INT,
+		    "n_tof",
+		    "Number of TOF bins to consider for SSS. If this value is set to "
+		    "1, no TOF considered in the SSS (Default: 1)",
+		    false, io::TypeOfArgument::INT, 1, sssGroup);
+		registry.registerArgument(
+		    "n_planes",
+		    "Number of axial planes to consider for SSS (Default: " +
+		        std::to_string(ScatterSpace::RecommendedNumPlanes) + ")",
+		    false, io::TypeOfArgument::INT,
 		    static_cast<int>(ScatterSpace::RecommendedNumPlanes), sssGroup);
 		registry.registerArgument(
-		    "n_angles", "Number of angles to consider for SSS", false,
-		    io::TypeOfArgument::INT,
+		    "n_angles",
+		    "Number of angles to consider for SSS (Default: " +
+		        std::to_string(ScatterSpace::RecommendedNumAngles) + ")",
+		    false, io::TypeOfArgument::INT,
 		    static_cast<int>(ScatterSpace::RecommendedNumAngles), sssGroup);
 		registry.registerArgument(
 		    "num_samp_frac",
-		    "Fraction of pixels in each dimension to define samples", false,
-		    io::TypeOfArgument::FLOAT,
-		    scatter::ScatterEstimator::DefaultNumSampFrac, sssGroup);
-
-
+		    "Fraction of pixels in each dimension to define samples "
+		    "(Default: " +
+		        std::to_string(
+		            scatter::SingleScatterSimulator::DefaultNumSampFrac) +
+		        ")",
+		    false, io::TypeOfArgument::FLOAT,
+		    scatter::SingleScatterSimulator::DefaultNumSampFrac, sssGroup);
 		registry.registerArgument(
-		    "crystal_mat", "Crystal material name (default: LYSO)", false,
-		    io::TypeOfArgument::STRING, "LYSO", sssGroup);
+		    "detection_threshold",
+		    "Detection probability threshold to ignore scatters with low "
+		    "probability (Default: " +
+		        std::to_string(scatter::SingleScatterSimulator::
+		                           DefaultDetectionThreshold) +
+		        ")",
+		    false, io::TypeOfArgument::FLOAT,
+		    scatter::SingleScatterSimulator::DefaultDetectionThreshold,
+		    sssGroup);
 
 		registry.registerArgument(
 		    "prompts",
@@ -109,6 +134,12 @@ int main(int argc, char** argv)
 		        io::possibleFormats(plugin::InputFormatsChoice::ONLYHISTOGRAMS),
 		    false, io::TypeOfArgument::STRING, "", tailFittingGroup);
 		registry.registerArgument(
+		    "scan_duration",
+		    "Scan duration in seconds. This value is used to scale the "
+		    "randoms. If it is not provided, the scan duration used will be "
+		    "gathered from the list-mode.",
+		    false, io::TypeOfArgument::INT, 0, tailFittingGroup);
+		registry.registerArgument(
 		    "sensitivity", "Sensitivity histogram file (optional)", false,
 		    io::TypeOfArgument::STRING, "", tailFittingGroup);
 		registry.registerArgument(
@@ -116,6 +147,22 @@ int main(int argc, char** argv)
 		    "Sensitivity histogram format. Possible values: " +
 		        io::possibleFormats(plugin::InputFormatsChoice::ONLYHISTOGRAMS),
 		    false, io::TypeOfArgument::STRING, "", tailFittingGroup);
+		registry.registerArgument(
+		    "unscaled_scatter",
+		    "Unscaled scatter estimate (optional, providing this would skip "
+		    "the unscaled scatter estimation (SSS) step and only perform the "
+		    "tail-fitting)",
+		    false, io::TypeOfArgument::STRING, "", tailFittingGroup);
+		registry.registerArgument(
+		    "att_threshold_tail",
+		    "Tail fitting attenuation threshold (in 1/cm) for the scatter "
+		    "tails mask (Default: " +
+		        std::to_string(
+		            scatter::ScatterEstimator::DefaultAttThresholdTail) +
+		        ")",
+		    false, io::TypeOfArgument::FLOAT,
+		    scatter::ScatterEstimator::DefaultAttThresholdTail,
+		    tailFittingGroup);
 		registry.registerArgument(
 		    "mask_width",
 		    "Tail fitting mask width (Default: " +
@@ -126,6 +173,21 @@ int main(int argc, char** argv)
 		    static_cast<int>(
 		        scatter::ScatterEstimator::DefaultScatterTailsMaskWidth),
 		    tailFittingGroup);
+		registry.registerArgument(
+		    "lor_downsampling",
+		    "Fraction of LORs to use for the calculation of randoms and "
+		    "sensitivity factors per scatter-space bin (Default: " +
+		        std::to_string(
+		            scatter::ScatterEstimator::DefaultLORDownsamplingFactor) +
+		        ")",
+		    false, io::TypeOfArgument::FLOAT,
+		    scatter::ScatterEstimator::DefaultLORDownsamplingFactor,
+		    tailFittingGroup);
+		registry.registerArgument("detmask",
+								  "Detector mask (will override the "
+								  "\"detMask\" member in the scanner's JSON)",
+								  false, io::TypeOfArgument::STRING, "",
+								  tailFittingGroup);
 
 		plugin::addOptionsFromPlugins(registry,
 		                              plugin::InputFormatsChoice::ALL);
@@ -163,8 +225,12 @@ int main(int argc, char** argv)
 		    config.getValue<std::string>("sensitivity_format");
 		auto sourceImage_fname = config.getValue<std::string>("source");
 		auto attImage_fname = config.getValue<std::string>("att");
-		auto attThreshold = config.getValue<float>("att_threshold");
-		auto crystalMaterial_name = config.getValue<std::string>("crystal_mat");
+		auto attThresholdTail = config.getValue<float>("att_threshold_tail");
+		auto attThresholdSampling =
+		    config.getValue<float>("att_threshold_sampling");
+		auto unscaledScatter_fname =
+		    config.getValue<std::string>("unscaled_scatter");
+		auto detMask_fname = config.getValue<std::string>("detmask");
 		size_t numTOFBins = config.getValue<int>("n_tof");
 		size_t numPlanes = config.getValue<int>("n_planes");
 		size_t numAngles = config.getValue<int>("n_angles");
@@ -173,8 +239,15 @@ int main(int argc, char** argv)
 		    config.getValue<std::string>("save_intermediary");
 		int numThreads = config.getValue<int>("num_threads");
 		int maskWidth = config.getValue<int>("mask_width");
+		auto scanDuration =
+		    static_cast<timestamp_t>(config.getValue<int>("scan_duration"));
 		float numSampFrac = config.getValue<float>("num_samp_frac");
+		float detectionThreshold =
+		    config.getValue<float>("detection_threshold");
+		float lorDownsamplingFactor =
+		    config.getValue<float>("lor_downsampling");
 		int seed = config.getValue<int>("seed");
+		bool fullEstimate = config.getValue<bool>("full_estimate");
 
 		if (useGPU)
 		{
@@ -185,35 +258,46 @@ int main(int argc, char** argv)
 			return -1;
 #endif
 		}
+		util::Timer totalTimer;
+		totalTimer.run();
 
 		globals::setNumThreads(numThreads);
 		std::cout << "Initializing scanner..." << std::endl;
 		auto scanner = std::make_unique<Scanner>(scanner_fname);
+		if (!detMask_fname.empty())
+		{
+			scanner->addMask(detMask_fname);
+		}
 
 		// Check if scanner parameters have been set properly for scatter
-		// estimation
-		if (scanner->collimatorRadius < 0.0f || scanner->fwhm < 0.0f ||
-		    scanner->energyLLD < 0.0f)
+		//  estimation
+		if (scanner->energyResolution <= 0.0f || scanner->energyLLD <= 0.0f)
 		{
-			std::cerr
-			    << "The scanner parameters given need to have a value for "
-			       "\'collimatorRadius\',\'fwhm\', and \'energyLLD\'."
-			    << std::endl;
+			std::cerr << "The scanner parameters given need to have a valid "
+			             "value for, \'energyResolution\', and \'energyLLD\'."
+			          << std::endl;
 			return -1;
 		}
 
-		scatter::CrystalMaterial crystalMaterial =
-		    scatter::getCrystalMaterialFromName(crystalMaterial_name);
+		util::Timer timer;
 
+		timer.run();
 		std::cout << "Reading prompts..." << std::endl;
+
 		auto prompts = io::openProjectionData(
 		    prompts_fname, prompts_format, *scanner, config.getAllArguments());
+
+		std::cout << "Time taken to read prompts: " << timer.getElapsedSeconds()
+		          << " seconds" << std::endl;
+		timer.reset();
 
 		Histogram* randomsHis = nullptr;
 		std::unique_ptr<ProjectionData> randomsHisProjData = nullptr;
 		if (!randomsHis_fname.empty())
 		{
 			std::cout << "Reading randoms histogram..." << std::endl;
+			timer.run();
+
 			ASSERT_MSG(!io::isFormatListMode(randomsHis_format),
 			           "Randoms histogram format has to a histogram format");
 			randomsHisProjData =
@@ -222,6 +306,41 @@ int main(int argc, char** argv)
 
 			randomsHis = dynamic_cast<Histogram*>(randomsHisProjData.get());
 			ASSERT(randomsHis != nullptr);
+
+			std::cout << "Time taken to read randoms histogram: "
+			          << timer.getElapsedSeconds() << " seconds" << std::endl;
+			timer.reset();
+		}
+		else if (prompts->hasRandomsEstimates())
+		{
+			auto listMode = dynamic_cast<ListMode*>(prompts.get());
+			ASSERT_MSG(listMode != nullptr, "Randoms histogram generation can "
+			                                "only work with list-mode data.");
+
+			std::cout << "Generating randoms histogram using list-mode..."
+			          << std::endl;
+			timer.run();
+
+			randomsHisProjData = std::make_unique<RandomsHistogram>(
+			    *scanner.get(), listMode->getRandomsTimeWindow());
+			auto randomsHis_ptr =
+			    dynamic_cast<RandomsHistogram*>(randomsHisProjData.get());
+			randomsHis_ptr->populateFromListMode(*listMode);
+			randomsHis = dynamic_cast<Histogram*>(randomsHisProjData.get());
+			ASSERT(randomsHis != nullptr);
+
+			std::cout << "Time taken to generate randoms histogram: "
+			          << timer.getElapsedSeconds() << " seconds" << std::endl;
+			timer.reset();
+		}
+
+		std::unique_ptr<ScatterSpace> unscaledScatter;
+		if (!unscaledScatter_fname.empty())
+		{
+			std::cout << "Reading the unscaled scatter estimate file..."
+			          << std::endl;
+			unscaledScatter =
+			    std::make_unique<ScatterSpace>(*scanner, unscaledScatter_fname);
 		}
 
 		Histogram* sensitivityHis = nullptr;
@@ -229,6 +348,8 @@ int main(int argc, char** argv)
 		if (!sensitivityHis_fname.empty())
 		{
 			std::cout << "Reading sensitivity histogram..." << std::endl;
+			timer.run();
+
 			sensitivityHisProjData = io::openProjectionData(
 			    sensitivityHis_fname, sensitivityHis_format, *scanner,
 			    config.getAllArguments());
@@ -236,22 +357,39 @@ int main(int argc, char** argv)
 			sensitivityHis =
 			    dynamic_cast<Histogram*>(sensitivityHisProjData.get());
 			ASSERT(sensitivityHis != nullptr);
+
+			std::cout << "Time taken to read sensitivity histogram: "
+			          << timer.getElapsedSeconds() << " seconds" << std::endl;
+			timer.reset();
 		}
+
+		std::cout << "Reading attenuation and source image..." << std::endl;
+		timer.run();
 
 		auto attImage = std::make_unique<ImageOwned>(attImage_fname);
 		auto sourceImage = std::make_unique<ImageOwned>(sourceImage_fname);
 
+		std::cout << "Time taken to read attenuation and source images: "
+		          << timer.getElapsedSeconds() << " seconds" << std::endl;
+		timer.reset();
+
 		scatter::ScatterEstimator scatterEstimator(
 		    *scanner, *sourceImage, *attImage, *prompts, numTOFBins, numPlanes,
-		    numAngles, randomsHis, sensitivityHis, crystalMaterial, seed,
-		    maskWidth, attThreshold, numSampFrac, saveIntermediary_dir);
+		    numAngles, randomsHis, sensitivityHis, scanDuration, seed,
+		    maskWidth, attThresholdTail, attThresholdSampling, numSampFrac,
+		    detectionThreshold, saveIntermediary_dir, !fullEstimate, useGPU,
+		    lorDownsamplingFactor);
 
 		scatterEstimator.allocate();
 
-		scatterEstimator.computeTailFittedScatterEstimate();
+		scatterEstimator.computeTailFittedScatterEstimate(
+		    unscaledScatter.get());
 
 		scatterEstimator.getScatterEstimate().writeToFile(scatterOut_fname);
 
+		totalTimer.pause();
+		std::cout << "Total time: " << totalTimer.getElapsedSeconds() << "s"
+		          << std::endl;
 		std::cout << "Done." << std::endl;
 	}
 	catch (const cxxopts::exceptions::exception& e)

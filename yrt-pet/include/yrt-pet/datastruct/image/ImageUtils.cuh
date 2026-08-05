@@ -100,4 +100,51 @@ inline HOST_DEVICE_CALLABLE float indexToPosition(int index, float voxelSize,
 	       0.5f * voxelSize;
 }
 
+inline HOST_DEVICE_CALLABLE float
+    positionToIndex(float position, float voxelSize, float length, float offset)
+{
+	return (position - voxelSize * 0.5f - offset + 0.5f * length) / voxelSize;
+}
+
+inline HOST_DEVICE_CALLABLE bool
+    getNearestNeighborIdx(float px, float py, float pz, float length_x,
+                          float length_y, float length_z, float off_x,
+                          float off_y, float off_z, ssize_t nx, ssize_t ny,
+                          ssize_t nz, ssize_t nt, ssize_t* pi, ssize_t* pj,
+                          ssize_t* pk, frame_t frame = 0)
+{
+	const float x = px - off_x;
+	const float y = py - off_y;
+	const float z = pz - off_z;
+
+	const float vx = length_x / nx;
+	const float vy = length_y / ny;
+	const float vz = length_z / nz;
+
+	// const float dx = (x + length_x * 0.5f) / length_x *
+	// static_cast<float>(nx); const float dy = (y + length_y * 0.5f) / length_y
+	// * static_cast<float>(ny); const float dz = (z + length_z * 0.5f) /
+	// length_z * static_cast<float>(nz);
+	const float dx = positionToIndex(x, vx, length_x, off_x);
+	const float dy = positionToIndex(y, vy, length_y, off_y);
+	const float dz = positionToIndex(z, vz, length_z, off_z);
+
+	const ssize_t ix = dx;
+	const ssize_t iy = dy;
+	const ssize_t iz = dz;
+
+	if (ix < 0 || ix >= nx || iy < 0 || iy >= ny || iz < 0 || iz >= nz ||
+	    frame < 0 || frame >= nt)
+	{
+		// Point outside grid
+		return false;
+	}
+
+	*pi = ix;
+	*pj = iy;
+	*pk = iz;
+
+	return true;
+}
+
 }  // namespace yrt::util

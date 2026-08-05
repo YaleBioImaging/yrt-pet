@@ -21,6 +21,11 @@ public:
 	                 float p_tau = 0.f);
 
 	void populateFromListMode(const ListMode& listMode);
+	// Set the singles rate (in counts per second) of every detector from the
+	// given array, whose size must match the number of detectors of the
+	// scanner.
+	void setSinglesRates(const Array1DBase<float>& singles);
+	float estimateRandoms(det_id_t d1, det_id_t d2) const;
 
 	// Histogram interface
 	float getProjectionValueFromHistogramBin(
@@ -32,8 +37,8 @@ public:
 	void setProjectionValue(bin_t id, float val) override;
 	det_id_t getDetector1(bin_t id) const override;
 	det_id_t getDetector2(bin_t id) const override;
-	std::unique_ptr<BinIterator>
-	    getBinIter(int numSubsets, int idxSubset) const override;
+	std::unique_ptr<BinIterator> getBinIter(int numSubsets,
+	                                        int idxSubset) const override;
 
 	// I/O
 	void writeToFile(const std::string& filename) const;

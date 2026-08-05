@@ -557,7 +557,8 @@ std::string OSEM::getSummary() const
 			ss << "Has scatter estimates.\n";
 		}
 
-		ss << "Global scale factor: " << corrector.getGlobalScalingFactor();
+		ss << "Global scale factor: " << corrector.getGlobalScalingFactor()
+		   << std::endl;
 
 		const auto* listMode_ptr = dynamic_cast<const ListMode*>(dataInput_ptr);
 		if (listMode_ptr != nullptr)
@@ -872,7 +873,7 @@ void OSEM::setupForDynamicRecon()
 		}
 		m_frameDurations.push_back(scanDuration_s);
 	}
-	else // Dynamic reconstruction
+	else  // Dynamic reconstruction
 	{
 		const ListMode* dataInputAsLM = getDataInputAsListMode();
 		ASSERT(usingListModeInput == (dataInputAsLM != nullptr));

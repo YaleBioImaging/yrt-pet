@@ -34,6 +34,7 @@ void py_setup_histogram(py::module& m);
 void py_setup_histogram3d(py::module& m);
 void py_setup_uniformhistogram(py::module& m);
 void py_setup_sparsehistogram(py::module& m);
+void py_setup_randomshistogram(py::module& m);
 void py_setup_lormotion(py::module& m);
 void py_setup_dynaming_framing(py::module& m);
 void py_setup_listmode(py::module& m);
@@ -113,6 +114,7 @@ PYBIND11_MODULE(pyyrtpet, m)
 	py_setup_histogram3d(m);
 	py_setup_uniformhistogram(m);
 	py_setup_sparsehistogram(m);
+	py_setup_randomshistogram(m);
 	py_setup_lormotion(m);
 	py_setup_dynaming_framing(m);
 	py_setup_listmode(m);

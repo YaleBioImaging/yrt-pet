@@ -145,6 +145,13 @@ std::unique_ptr<BinIterator>
 	return nullptr;
 }
 
+float RandomsHistogram::getRandomsEstimate(bin_t /*id*/) const
+{
+	ASSERT_MSG(false, "To get the randoms estimate of a detector pair, use "
+	                  "`estimateRandoms(d1, d2)`.");
+	return 0.0f;
+}
+
 void RandomsHistogram::writeToFile(const std::string& filename) const
 {
 	ASSERT_MSG(mp_singles != nullptr && mp_singles->isMemoryValid(),

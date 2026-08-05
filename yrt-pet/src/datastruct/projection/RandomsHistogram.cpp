@@ -28,8 +28,14 @@ void py_setup_randomshistogram(py::module& m)
 	c.def("populateFromListMode", &RandomsHistogram::populateFromListMode,
 	      "list_mode"_a);
 	c.def("setSinglesRates", &RandomsHistogram::setSinglesRates, "singles"_a);
-	c.def("readFromFile", &RandomsHistogram::readFromFile, "filename"_a);
+	c.def("estimateRandoms", &RandomsHistogram::estimateRandoms, "d1"_a,
+	      "d2"_a);
+	c.def("setTimeWindow", &RandomsHistogram::setTimeWindow, "time_window"_a,
+	      "Change the time window (in seconds) used for estimating randoms");
+	c.def("getTimeWindow", &RandomsHistogram::getTimeWindow,
+	      "Get the time window (in seconds) used for estimating randoms");
 	c.def("writeToFile", &RandomsHistogram::writeToFile, "filename"_a);
+	c.def("readFromFile", &RandomsHistogram::readFromFile, "filename"_a);
 }
 }  // namespace yrt
 
@@ -78,6 +84,16 @@ void RandomsHistogram::setSinglesRates(const Array1DBase<float>& singles)
 float RandomsHistogram::estimateRandoms(det_id_t d1, det_id_t d2) const
 {
 	return (*mp_singles)[d1] * (*mp_singles)[d2] * (2.0f * m_timeWindow);
+}
+
+void RandomsHistogram::setTimeWindow(float timeWindow)
+{
+	m_timeWindow = timeWindow;
+}
+
+float RandomsHistogram::getTimeWindow() const
+{
+	return m_timeWindow;
 }
 
 float RandomsHistogram::getProjectionValueFromHistogramBin(

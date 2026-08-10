@@ -44,8 +44,8 @@ public:
 	float getRandomsEstimate(bin_t id) const override;
 
 	// I/O
-	void writeToFile(const std::string& filename) const;
-	void readFromFile(const std::string& filename);
+	virtual void writeToFile(const std::string& filename) const;
+	virtual void readFromFile(const std::string& filename);
 
 	// Plugin
 	static std::unique_ptr<ProjectionData>

@@ -11,7 +11,6 @@
 #include "yrt-pet/datastruct/scanner/Scanner.hpp"
 #include "yrt-pet/scatter/SingleScatterSimulatorUtils.cuh"
 #include "yrt-pet/utils/Assert.hpp"
-#include "yrt-pet/utils/GPUStream.cuh"
 #include "yrt-pet/utils/ProgressDisplayMultiThread.hpp"
 #include "yrt-pet/utils/ReconstructionUtils.hpp"
 #include "yrt-pet/utils/Timer.hpp"

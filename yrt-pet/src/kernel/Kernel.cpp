@@ -8,11 +8,13 @@
 #include "yrt-pet/utils/Assert.hpp"
 #include "yrt-pet/utils/Concurrency.hpp"
 #include "yrt-pet/utils/Tools.hpp"
+#include "yrt-pet/utils/ProgressDisplayMultiThread.hpp"
 
 #include <cmath>
 #include <cstdio>
 #include <memory>
 #include <queue>
+#include <sys/types.h>
 #include <utility>
 
 namespace yrt
@@ -57,9 +59,9 @@ void kernel::build_K_neighbors(float* x, float* k, int* k_i, int* k_j,
 }
 
 void kernel::build_K_knn_neighbors(float* x, float* k, int* k_i, int* k_j,
-                                   ssize_t nz, ssize_t ny, ssize_t nx, int W,
-                                   int P, int num_k, float sigma2,
-                                   int numThreads)
+                                   ssize_t nf, ssize_t nz, ssize_t ny,
+                                   ssize_t nx, int W, int P, int num_k,
+                                   float sigma2, int numThreads)
 {
 	const ssize_t numPixels = nx * ny * nz;
 	float sc = -1.0f / sigma2;
@@ -75,11 +77,16 @@ void kernel::build_K_knn_neighbors(float* x, float* k, int* k_i, int* k_j,
 	              const std::pair<ssize_t, float>& right)
 	{ return left.second < right.second; };
 
+	util::ProgressDisplayMultiThread progress(
+		numThreads, static_cast<int64_t>(numPixels), 5);
+
 	util::parallelForChunked(
 	    numPixels, numThreads,
-	    [idxBufferPtr, valBufferPtr, num_k, nx, ny, nz, cmp, W, P, sc, x, k,
+	    [idxBufferPtr, valBufferPtr, &progress, num_k, nx, ny, nz, nf, cmp, W, P, sc, x, k,
 	     k_i, k_j](size_t i, size_t tid)
 	    {
+		    progress.incrementProgress(tid, 1);
+
 		    ssize_t* idxBufferT = idxBufferPtr + tid * num_k;
 		    float* valBufferT = valBufferPtr + tid * num_k;
 
@@ -118,11 +125,14 @@ void kernel::build_K_knn_neighbors(float* x, float* k, int* k_i, int* k_j,
 								        util::reflect(nx, ix + px);
 								    const ssize_t v1_x =
 								        util::reflect(nx, jx + px);
-								    const float v0 =
-								        x[IDX3(v0_x, v0_y, v0_z, nx, ny)];
-								    const float v1 =
-								        x[IDX3(v1_x, v1_y, v1_z, nx, ny)];
-								    d += (v0 - v1) * (v0 - v1);
+								    for (ssize_t fi = 0; fi < nf; fi++)
+								    {
+									    const float v0 = x[IDX4(
+									        v0_x, v0_y, v0_z, fi, nx, ny, nz)];
+									    const float v1 = x[IDX4(
+									        v1_x, v1_y, v1_z, fi, nx, ny, nz)];
+									    d += (v0 - v1) * (v0 - v1);
+								    }
 							    }
 						    }
 					    }

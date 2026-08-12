@@ -86,10 +86,10 @@ int main(int argc, char** argv)
 		}
 
 		// Read input data
-		yrt::Array3DOwned<float> x_in;
+		yrt::Array4DOwned<float> x_in;
 		x_in.readFromFile(img_in_fname);
-		std::array<size_t, 3> shape = x_in.getDims();
-		size_t num_pixels = shape[0] * shape[1] * shape[2];
+		std::array<size_t, 4> shape = x_in.getDims();
+		size_t num_pixels = shape[1] * shape[2] * shape[3];
 		size_t num_neighbors = (2 * W + 1) * (2 * W + 1) * (2 * W + 1);
 		size_t num_cols = 0;
 		if (mode.compare("full") || mode.compare("knn"))
@@ -112,24 +112,29 @@ int main(int argc, char** argv)
 		// Build K matrix
 		if (mode.compare("full") == 0)
 		{
+			ASSERT_MSG(shape[0] == 1,
+			           "Full mode requires first dimension of input to be 1");
 			yrt::kernel::build_K_full(
 			    x_in.getRawPointer(), k_out.getRawPointer(),
-			    k_i_out.getRawPointer(), k_j_out.getRawPointer(), shape[0],
-			    shape[1], shape[2], num_k, sigma2, num_threads);
+			    k_i_out.getRawPointer(), k_j_out.getRawPointer(), shape[1],
+			    shape[2], shape[3], num_k, sigma2, num_threads);
 		}
 		else if (mode.compare("knn") == 0)
 		{
 			yrt::kernel::build_K_knn_neighbors(
-				x_in.getRawPointer(), k_out.getRawPointer(),
-				k_i_out.getRawPointer(), k_j_out.getRawPointer(), shape[0],
-				shape[1], shape[2], W, P, num_k, sigma2, num_threads);
+			    x_in.getRawPointer(), k_out.getRawPointer(),
+			    k_i_out.getRawPointer(), k_j_out.getRawPointer(), shape[0],
+			    shape[1], shape[2], shape[3], W, P, num_k, sigma2, num_threads);
 		}
 		else if (mode.compare("neighbors") == 0)
 		{
+			ASSERT_MSG(
+			    shape[0] == 1,
+			    "Neighbors mode requires first dimension of input to be 1");
 			yrt::kernel::build_K_neighbors(
-				x_in.getRawPointer(), k_out.getRawPointer(),
-				k_i_out.getRawPointer(), k_j_out.getRawPointer(), shape[0],
-				shape[1], shape[2], W, sigma2, num_threads);
+			    x_in.getRawPointer(), k_out.getRawPointer(),
+			    k_i_out.getRawPointer(), k_j_out.getRawPointer(), shape[1],
+			    shape[2], shape[3], W, sigma2, num_threads);
 		}
 
 		k_out.writeToFile(out_fname);

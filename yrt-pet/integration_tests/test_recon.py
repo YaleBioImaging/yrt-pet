@@ -558,7 +558,7 @@ def test_large_flat_panel_xcat_osem_tof_siddon():
         fold_out, 'test_large_flat_panel_xcat_osem_tof_siddon.nii'))
 
     ref_img = yrt.ImageOwned(img_params, os.path.join(
-        fold_large_flat_panel, 'ref', 'xcat_osem_siddon.nii'))
+        fold_large_flat_panel, 'ref', 'xcat_osem_tof_siddon.nii'))
 
     out_img_np = np.array(out_img, copy=False)
     ref_img_np = np.array(ref_img, copy=False)
@@ -598,7 +598,7 @@ def test_large_flat_panel_xcat_osem_tof_dd_gpu_exec():
                                               'img_params_3mm.json'))
     ref_img = yrt.ImageOwned(img_params,
                              os.path.join(fold_large_flat_panel, 'ref',
-                                          'xcat_osem_dd.nii'))
+                                          'xcat_osem_tof_dd.nii'))
     out_img = yrt.ImageOwned(img_params, out_path)
 
     out_img_np = np.array(out_img, copy=False)

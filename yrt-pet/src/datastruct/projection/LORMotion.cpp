@@ -9,6 +9,7 @@
 #include <charconv>
 #include <iomanip>
 #include <iostream>
+#include <fstream>
 
 #if BUILD_PYBIND11
 #include <pybind11/numpy.h>

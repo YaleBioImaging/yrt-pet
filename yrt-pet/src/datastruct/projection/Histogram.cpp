@@ -31,9 +31,9 @@ Histogram::Histogram(const Scanner& pr_scanner) : ProjectionData{pr_scanner} {}
 
 timestamp_t Histogram::getScanDuration() const
 {
-	// By default, return 1 s since the histograms are usually in "counts"
-	//  and "counts/sec", so no scaling needed.
-	return 1.0f;
+	// By default, return 1 seconds since the histograms are usually in "counts"
+	//  so no scaling needed.
+	return 1000u;
 }
 
 }  // namespace yrt

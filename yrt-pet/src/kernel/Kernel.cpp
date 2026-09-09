@@ -7,8 +7,8 @@
 #include "yrt-pet/utils/Array.hpp"
 #include "yrt-pet/utils/Assert.hpp"
 #include "yrt-pet/utils/Concurrency.hpp"
-#include "yrt-pet/utils/Tools.hpp"
 #include "yrt-pet/utils/ProgressDisplayMultiThread.hpp"
+#include "yrt-pet/utils/Tools.hpp"
 
 #include <cmath>
 #include <cstdio>
@@ -78,12 +78,12 @@ void kernel::build_K_knn_neighbors(float* x, float* k, int* k_i, int* k_j,
 	{ return left.second < right.second; };
 
 	util::ProgressDisplayMultiThread progress(
-		numThreads, static_cast<int64_t>(numPixels), 5);
+	    numThreads, static_cast<int64_t>(numPixels), 5);
 
 	util::parallelForChunked(
 	    numPixels, numThreads,
-	    [idxBufferPtr, valBufferPtr, &progress, num_k, nx, ny, nz, nf, cmp, W, P, sc, x, k,
-	     k_i, k_j](size_t i, size_t tid)
+	    [idxBufferPtr, valBufferPtr, &progress, num_k, nx, ny, nz, nf, cmp, W,
+	     P, sc, x, k, k_i, k_j](size_t i, size_t tid)
 	    {
 		    progress.incrementProgress(tid, 1);
 
@@ -99,6 +99,7 @@ void kernel::build_K_knn_neighbors(float* x, float* k, int* k_i, int* k_j,
 		                        std::vector<std::pair<ssize_t, float>>,
 		                        decltype(cmp)>
 		        n_list(cmp);
+		    n_list.push(std::pair<ssize_t, float>(i, 0.f));
 
 		    for (ssize_t jz = std::max(0l, iz - W);
 		         jz <= std::min(nz - 1l, iz + W); jz++)

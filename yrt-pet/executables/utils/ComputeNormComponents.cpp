@@ -2,16 +2,23 @@
  * This file is subject to the terms and conditions defined in
  * file 'LICENSE.txt', which is part of this source code package.
  *
- * Estimate component-based PET normalization from a measured norm histogram.
+ * Estimate detector efficiency from a measured reference histogram.
  *
- * Model: N(z,phi,r) = G x B(d1%bs,d2%bs) x d(d1%bs,d2%bs,r)
- *                      x A(z) x eps(d1) x eps(d2) x scale
+ * Model: N(z,phi,r) = G x B x d x A x eps(d1) x eps(d2) x scale
+ *
+ * Geometry components are computed sequentially from the scanner
+ * geometry (LUT):
+ *   B = average G per block pair (normalized to mean 1)
+ *   d = average G/B per block pair + ring (normalized to mean 1)
+ *   A = average G/(B*d) per z-bin (normalized to mean 1)
+ * Only detector efficiency (eps) is estimated from the reference.
  *
  * Steps:
  *   1. Compute geometric factor G per LOR (crystal positions/orientations)
- *   2. Estimate block profile B from direct planes
- *   3. Estimate crystal interference pattern d from direct planes
- *   4. Estimate plane efficiency A(z) from all z-planes
+ *   2. Compute block profile B from geometry (average G per block-pair)
+ *   3. Compute crystal interference d from geometry (average G/B per
+ *      block-pair and ring)
+ *   4. Compute plane efficiency A from geometry (average G/(B*d) per z-bin)
  *   5. Estimate crystal efficiency eps(d) via iterative fan-sum
  *   6. Compute global scale factor
  *   7. Write components to output files
@@ -102,8 +109,6 @@ static std::vector<float> precomputeGeoParity(const Scanner& scanner,
 							dr1 += static_cast<int>(nDetsRing);
 						if (dr2 < 0)
 							dr2 += static_cast<int>(nDetsRing);
-						// Python: parity // 2 == 0 always
-						// → shift = 0
 						int d1_ring = dr1
 						              % static_cast<int>(nDetsRing);
 						int d2_ring = dr2
@@ -156,29 +161,8 @@ static inline float lookupGeo(const float* geo, size_t parity, size_t dz,
 }
 
 // ---------------------------------------------------------------------------
-// Thread-local accumulators for each estimation step
+// Thread-local accumulator for epsilon estimation
 // ---------------------------------------------------------------------------
-struct ThreadAccumB
-{
-	std::vector<double> b_sum;
-	std::vector<uint64_t> b_cnt;
-	ThreadAccumB(size_t nblocks) : b_sum(nblocks, 0.0), b_cnt(nblocks, 0) {}
-};
-
-struct ThreadAccumD
-{
-	std::vector<double> d_sum;
-	std::vector<uint64_t> d_cnt;
-	ThreadAccumD(size_t nbins) : d_sum(nbins, 0.0), d_cnt(nbins, 0) {}
-};
-
-struct ThreadAccumA
-{
-	std::vector<double> a_sum;
-	std::vector<uint64_t> a_cnt;
-	ThreadAccumA(size_t nz) : a_sum(nz, 0.0), a_cnt(nz, 0) {}
-};
-
 struct ThreadAccumEps
 {
 	std::vector<double> eps_accum;
@@ -222,13 +206,20 @@ int main(int argc, char** argv)
 		                          "Min counts to include LOR (default: 0)",
 		                          false, io::TypeOfArgument::FLOAT, 0.0f,
 		                          coreGroup);
+		registry.registerArgument("is_norm",
+		                          "Reference is a norm (1/sensitivity);"
+		                          " invert when estimating eps",
+		                          false, io::TypeOfArgument::BOOL, false,
+		                          coreGroup);
 
 		io::ArgumentReader config{
 		    registry,
-		    "Estimate component-based PET normalization from a measured\n"
-		    "norm histogram.\n"
+		    "Estimate detector efficiency from a measured norm\n"
+		    "histogram.\n"
 		    "Model: N = G x B x d x A x eps(d1) x eps(d2) x scale\n"
-		    "Saves B, d, A, eps, scale to output directory."};
+		    "Geometry (G, B, d, A) computed from scanner LUT.\n"
+		    "Only detector efficiency (eps) estimated from reference.\n"
+		    "Saves eps and scale to output directory."};
 
 		if (!config.loadFromCommandLine(argc, argv)) return 0;
 		if (!config.validate()) return -1;
@@ -240,6 +231,7 @@ int main(int argc, char** argv)
 		int fan_sum_iters    = config.getValue<int>("fan_sum_iters");
 		float min_count      = config.getValue<float>("min_count");
 		int block_size_opt   = config.getValue<int>("block_size");
+		bool is_norm         = config.getValue<bool>("is_norm");
 
 		globals::setNumThreads(numThreads);
 		numThreads = globals::getNumThreads();
@@ -258,9 +250,9 @@ int main(int argc, char** argv)
 		size_t total_bins = histo->count();
 		size_t nRings    = scanner->numRings;
 		size_t nDetsRing = scanner->detsPerRing;
-	size_t nDOI      = scanner->numDOI;
-	size_t maxRingDiff = scanner->maxRingDiff;
-	size_t nZ        = histo->numZBin;
+		size_t nDOI      = scanner->numDOI;
+		size_t maxRingDiff = scanner->maxRingDiff;
+		size_t nZ        = histo->numZBin;
 		size_t nPhi      = histo->numPhi;
 		size_t nR        = histo->numR;
 		size_t bs        = (block_size_opt > 0)
@@ -316,69 +308,43 @@ int main(int argc, char** argv)
 		          << "]" << std::endl;
 
 		// -----------------------------------------------------------------
-		// Step 2: Estimate block profile B from direct planes
+		// Step 2: Compute block profile B from geometry
+		//   B(b1, b2) = average G over all LORs with same block-pair,
+		//               normalized to mean 1
 		// -----------------------------------------------------------------
-		std::cout << "\n[2/6] Estimating block profile B..." << std::endl;
+		std::cout << "\n[2/6] Computing block profile B from geometry..."
+		          << std::endl;
 
-		std::vector<ThreadAccumB> b_accums;
-		b_accums.reserve(numThreads);
-		for (int t = 0; t < numThreads; ++t)
-			b_accums.emplace_back(nblocks);
+		std::vector<double> B_accum(nblocks, 0.0);
+		std::vector<uint64_t> B_count(nblocks, 0);
 
-		util::ProgressDisplayMultiThread progressB(
-		    numThreads, static_cast<int64_t>(total_bins), 5);
-
-		util::parallelForChunked(
-		    total_bins, numThreads,
-		    [&](size_t binId, size_t threadId)
-		    {
-			    progressB.incrementProgress(threadId, 1);
-
-			    float m_val = data_ptr[binId];
-			    if (m_val <= 0.0f) return;
-
-			    det_pair_t dp = histo->getDetectorPair(binId);
-			    if (dp.d1 >= num_dets || dp.d2 >= num_dets) return;
-			    if (dp.d1 == dp.d2) return;
-
-			    // Get coordinates to check if this is a direct plane (z1 == z2)
-			    coord_t r, phi, z_bin;
-			    histo->getCoordsFromBinId(binId, r, phi, z_bin);
-			    coord_t z1, z2;
-			    histo->getZ1Z2(z_bin, z1, z2);
-			    if (z1 != z2) return;  // only direct planes for B
-
-			    // Compute geometric factor G from precomputed table
-			    coord_t r_ring_g = r / nDOIPoss;
-			    coord_t dz_g = (z1 > z2) ? (z1 - z2) : (z2 - z1);
-			    size_t doi_case_g = r % nDOIPoss;
-			    size_t doi1_g = doi_case_g % nDOI;
-			    size_t doi2_g = doi_case_g / nDOI;
-			    float G = lookupGeo(geo_ptr, phi % 2, dz_g, r_ring_g,
-			                        doi1_g, doi2_g,
-			                        maxRingDiff, nR_ring, nDOI);
-			    if (G <= 0.0f) return;
-
-			    double ratio = static_cast<double>(m_val)
-			                   / static_cast<double>(G);
-			    size_t b1 = dp.d1 % bs;
-			    size_t b2 = dp.d2 % bs;
-			    size_t bidx = b1 * bs + b2;
-
-			    b_accums[threadId].b_sum[bidx] += ratio;
-			    b_accums[threadId].b_cnt[bidx]++;
-		    });
-
-		// Merge thread-local B accumulators
-		std::vector<double> B_sum(nblocks, 0.0);
-		std::vector<uint64_t> B_cnt(nblocks, 0);
-		for (auto& acc : b_accums)
+		for (size_t binId = 0; binId < total_bins; ++binId)
 		{
-			for (size_t i = 0; i < nblocks; ++i)
-			{
-				B_sum[i] += acc.b_sum[i];
-				B_cnt[i] += acc.b_cnt[i];
-			}
+			det_pair_t dp = histo->getDetectorPair(binId);
+			if (dp.d1 >= num_dets || dp.d2 >= num_dets) continue;
+			if (dp.d1 == dp.d2) continue;
+
+			coord_t r, phi, z_bin;
+			histo->getCoordsFromBinId(binId, r, phi, z_bin);
+			coord_t z1, z2;
+			histo->getZ1Z2(z_bin, z1, z2);
+			coord_t dz_g = (z1 > z2) ? (z1 - z2) : (z2 - z1);
+
+			coord_t r_ring_g = r / nDOIPoss;
+			size_t doi_case_g = r % nDOIPoss;
+			size_t doi1_g = doi_case_g % nDOI;
+			size_t doi2_g = doi_case_g / nDOI;
+			float G = lookupGeo(geo_ptr, phi % 2, dz_g, r_ring_g,
+			                    doi1_g, doi2_g,
+			                    maxRingDiff, nR_ring, nDOI);
+			if (G <= 0.0f) continue;
+
+			size_t b1 = dp.d1 % bs;
+			size_t b2 = dp.d2 % bs;
+			size_t bidx = b1 * bs + b2;
+
+			B_accum[bidx] += G;
+			B_count[bidx]++;
 		}
 
 		std::vector<float> B(nblocks, 1.0f);
@@ -386,19 +352,23 @@ int main(int argc, char** argv)
 		size_t B_count_valid = 0;
 		for (size_t i = 0; i < nblocks; ++i)
 		{
-			if (B_cnt[i] > 0)
+			if (B_count[i] > 0)
 			{
-				B[i] = static_cast<float>(B_sum[i]
-				                          / static_cast<double>(B_cnt[i]));
+				B[i] = static_cast<float>(
+				    B_accum[i] / static_cast<double>(B_count[i]));
 				B_sum_valid += B[i];
 				B_count_valid++;
 			}
 		}
 		float B_mean = (B_count_valid > 0)
-		                   ? static_cast<float>(B_sum_valid
-		                                        / B_count_valid)
+		                   ? static_cast<float>(
+		                         B_sum_valid / B_count_valid)
 		                   : 1.0f;
-		for (auto& b : B) b /= B_mean;
+		for (size_t i = 0; i < nblocks; ++i)
+		{
+			if (B_count[i] > 0)
+				B[i] /= B_mean;
+		}
 
 		float B_min = *std::min_element(B.begin(), B.end());
 		float B_max = *std::max_element(B.begin(), B.end());
@@ -407,73 +377,50 @@ int main(int argc, char** argv)
 		          << std::endl;
 
 		// -----------------------------------------------------------------
-		// Step 3: Estimate crystal interference d(b1,b2,r)
+		// Step 3: Compute crystal interference d from geometry (sequential)
+		//   d(b1, b2, r) = average G/B over all LORs with same block-pair
+		//                   and ring, normalized to mean 1
 		// -----------------------------------------------------------------
-		std::cout << "\n[3/6] Estimating crystal interference d..." << std::endl;
+		std::cout << "\n[3/6] Computing crystal interference d from geometry..."
+		          << std::endl;
 
 		size_t n_bins_d = nR * nblocks;
-		std::vector<ThreadAccumD> d_accums;
-		d_accums.reserve(numThreads);
-		for (int t = 0; t < numThreads; ++t)
-			d_accums.emplace_back(n_bins_d);
+		std::vector<double> D_accum(n_bins_d, 0.0);
+		std::vector<uint64_t> D_count(n_bins_d, 0);
 
-		util::ProgressDisplayMultiThread progressD(
-		    numThreads, static_cast<int64_t>(total_bins), 5);
-
-		util::parallelForChunked(
-		    total_bins, numThreads,
-		    [&](size_t binId, size_t threadId)
-		    {
-			    progressD.incrementProgress(threadId, 1);
-
-			    float m_val = data_ptr[binId];
-			    if (m_val <= 0.0f) return;
-
-			    det_pair_t dp = histo->getDetectorPair(binId);
-			    if (dp.d1 >= num_dets || dp.d2 >= num_dets) return;
-			    if (dp.d1 == dp.d2) return;
-
-			    coord_t r, phi, z_bin;
-			    histo->getCoordsFromBinId(binId, r, phi, z_bin);
-			    coord_t z1, z2;
-			    histo->getZ1Z2(z_bin, z1, z2);
-			    if (z1 != z2) return;  // only direct planes for d
-
-			    // Compute G from precomputed table
-			    coord_t r_ring_g = r / nDOIPoss;
-			    coord_t dz_g = (z1 > z2) ? (z1 - z2) : (z2 - z1);
-			    size_t doi_case_g = r % nDOIPoss;
-			    size_t doi1_g = doi_case_g % nDOI;
-			    size_t doi2_g = doi_case_g / nDOI;
-			    float G = lookupGeo(geo_ptr, phi % 2, dz_g, r_ring_g,
-			                        doi1_g, doi2_g,
-			                        maxRingDiff, nR_ring, nDOI);
-			    if (G <= 0.0f) return;
-
-			    size_t b1 = dp.d1 % bs;
-			    size_t b2 = dp.d2 % bs;
-			    size_t bidx = b1 * bs + b2;
-			    float B_val = B[bidx];
-			    if (B_val <= 0.0f) return;
-
-			    double ratio = static_cast<double>(m_val)
-			                   / (static_cast<double>(G) * B_val);
-			    size_t ridx = r * nblocks + b1 * bs + b2;
-
-			    d_accums[threadId].d_sum[ridx] += ratio;
-			    d_accums[threadId].d_cnt[ridx]++;
-		    });
-
-		// Merge thread-local d accumulators
-		std::vector<double> D_sum(n_bins_d, 0.0);
-		std::vector<uint64_t> D_cnt(n_bins_d, 0);
-		for (auto& acc : d_accums)
+		for (size_t binId = 0; binId < total_bins; ++binId)
 		{
-			for (size_t i = 0; i < n_bins_d; ++i)
-			{
-				D_sum[i] += acc.d_sum[i];
-				D_cnt[i] += acc.d_cnt[i];
-			}
+			det_pair_t dp = histo->getDetectorPair(binId);
+			if (dp.d1 >= num_dets || dp.d2 >= num_dets) continue;
+			if (dp.d1 == dp.d2) continue;
+
+			coord_t r, phi, z_bin;
+			histo->getCoordsFromBinId(binId, r, phi, z_bin);
+			coord_t z1, z2;
+			histo->getZ1Z2(z_bin, z1, z2);
+			coord_t dz_g = (z1 > z2) ? (z1 - z2) : (z2 - z1);
+
+			coord_t r_ring_g = r / nDOIPoss;
+			size_t doi_case_g = r % nDOIPoss;
+			size_t doi1_g = doi_case_g % nDOI;
+			size_t doi2_g = doi_case_g / nDOI;
+			float G = lookupGeo(geo_ptr, phi % 2, dz_g, r_ring_g,
+			                    doi1_g, doi2_g,
+			                    maxRingDiff, nR_ring, nDOI);
+			if (G <= 0.0f) continue;
+
+			size_t b1 = dp.d1 % bs;
+			size_t b2 = dp.d2 % bs;
+			size_t bidx = b1 * bs + b2;
+			if (B[bidx] <= 0.0f) continue;
+
+			// Sequential: weight by G/B
+			double G_over_B = static_cast<double>(G)
+			                  / static_cast<double>(B[bidx]);
+			size_t ridx = r * nblocks + bidx;
+
+			D_accum[ridx] += G_over_B;
+			D_count[ridx]++;
 		}
 
 		std::vector<float> d_flat(n_bins_d, 1.0f);
@@ -481,98 +428,78 @@ int main(int argc, char** argv)
 		size_t D_count_valid = 0;
 		for (size_t i = 0; i < n_bins_d; ++i)
 		{
-			if (D_cnt[i] > 0)
+			if (D_count[i] > 0)
 			{
-				d_flat[i] = static_cast<float>(D_sum[i]
-				                               / static_cast<double>(D_cnt[i]));
+				d_flat[i] = static_cast<float>(
+				    D_accum[i] / static_cast<double>(D_count[i]));
 				D_sum_valid += d_flat[i];
 				D_count_valid++;
 			}
 		}
 		float D_mean = (D_count_valid > 0)
-		                   ? static_cast<float>(D_sum_valid / D_count_valid)
+		                   ? static_cast<float>(
+		                         D_sum_valid / D_count_valid)
 		                   : 1.0f;
-		for (auto& d : d_flat) d /= D_mean;
+		for (size_t i = 0; i < n_bins_d; ++i)
+		{
+			if (D_count[i] > 0)
+				d_flat[i] /= D_mean;
+		}
 
 		float d_min = *std::min_element(d_flat.begin(), d_flat.end());
 		float d_max = *std::max_element(d_flat.begin(), d_flat.end());
-		std::cout << "  d shape=(" << bs << "," << bs << "," << nR << ")"
+		std::cout << "  d shape=(" << nR << "," << bs << "," << bs << ")"
 		          << "  range=[" << d_min << "," << d_max << "]"
 		          << std::endl;
 
-		// Reshape: d_flat is r-major: [r][b1*bs+b2], need [b1][b2][r]
-		// Write as (nR, bs, bs) and Python can transpose
-		// For now keep flat storage, write dimensions alongside
-
 		// -----------------------------------------------------------------
-		// Step 4: Estimate plane efficiency A(z)
+		// Step 4: Compute plane efficiency A from geometry (sequential)
+		//   A(z_bin) = average G/(B*d) over all LORs in same z-bin,
+		//              normalized to mean 1
 		// -----------------------------------------------------------------
-		std::cout << "\n[4/6] Estimating plane efficiency A(z)..." << std::endl;
+		std::cout << "\n[4/6] Computing plane efficiency A from geometry..."
+		          << std::endl;
 
-		std::vector<ThreadAccumA> a_accums;
-		a_accums.reserve(numThreads);
-		for (int t = 0; t < numThreads; ++t)
-			a_accums.emplace_back(nZ);
+		std::vector<double> A_accum(nZ, 0.0);
+		std::vector<uint64_t> A_count(nZ, 0);
 
-		util::ProgressDisplayMultiThread progressA(
-		    numThreads, static_cast<int64_t>(total_bins), 5);
-
-		util::parallelForChunked(
-		    total_bins, numThreads,
-		    [&](size_t binId, size_t threadId)
-		    {
-			    progressA.incrementProgress(threadId, 1);
-
-			    float m_val = data_ptr[binId];
-			    if (m_val <= 0.0f) return;
-
-			    det_pair_t dp = histo->getDetectorPair(binId);
-			    if (dp.d1 >= num_dets || dp.d2 >= num_dets) return;
-			    if (dp.d1 == dp.d2) return;
-
-			    coord_t r, phi, z_bin;
-			    histo->getCoordsFromBinId(binId, r, phi, z_bin);
-
-			    // Compute G from precomputed table
-			    coord_t r_ring_g = r / nDOIPoss;
-			    coord_t z1_a, z2_a;
-			    histo->getZ1Z2(z_bin, z1_a, z2_a);
-			    coord_t dz_g = (z1_a > z2_a) ? (z1_a - z2_a) : (z2_a - z1_a);
-			    size_t doi_case_g = r % nDOIPoss;
-			    size_t doi1_g = doi_case_g % nDOI;
-			    size_t doi2_g = doi_case_g / nDOI;
-			    float G = lookupGeo(geo_ptr, phi % 2, dz_g, r_ring_g,
-			                        doi1_g, doi2_g,
-			                        maxRingDiff, nR_ring, nDOI);
-			    if (G <= 0.0f) return;
-
-			    size_t b1 = dp.d1 % bs;
-			    size_t b2 = dp.d2 % bs;
-			    size_t bidx = b1 * bs + b2;
-			    float B_val = B[bidx];
-			    if (B_val <= 0.0f) return;
-
-			    float d_val = d_flat[static_cast<size_t>(r) * nblocks
-			                         + b1 * bs + b2];
-			    if (d_val <= 0.0f) return;
-
-			    double gbd = static_cast<double>(G) * B_val * d_val;
-			    double ratio = static_cast<double>(m_val) / gbd;
-
-			    a_accums[threadId].a_sum[z_bin] += ratio;
-			    a_accums[threadId].a_cnt[z_bin]++;
-		    });
-
-		// Merge A
-		std::vector<double> A_sum(nZ, 0.0);
-		std::vector<uint64_t> A_cnt(nZ, 0);
-		for (auto& acc : a_accums)
+		for (size_t binId = 0; binId < total_bins; ++binId)
 		{
-			for (size_t i = 0; i < nZ; ++i)
-			{
-				A_sum[i] += acc.a_sum[i];
-				A_cnt[i] += acc.a_cnt[i];
-			}
+			det_pair_t dp = histo->getDetectorPair(binId);
+			if (dp.d1 >= num_dets || dp.d2 >= num_dets) continue;
+			if (dp.d1 == dp.d2) continue;
+
+			coord_t r, phi, z_bin;
+			histo->getCoordsFromBinId(binId, r, phi, z_bin);
+			coord_t z1_a, z2_a;
+			histo->getZ1Z2(z_bin, z1_a, z2_a);
+			coord_t dz_g = (z1_a > z2_a) ? (z1_a - z2_a)
+			                             : (z2_a - z1_a);
+
+			coord_t r_ring_g = r / nDOIPoss;
+			size_t doi_case_g = r % nDOIPoss;
+			size_t doi1_g = doi_case_g % nDOI;
+			size_t doi2_g = doi_case_g / nDOI;
+			float G = lookupGeo(geo_ptr, phi % 2, dz_g, r_ring_g,
+			                    doi1_g, doi2_g,
+			                    maxRingDiff, nR_ring, nDOI);
+			if (G <= 0.0f) continue;
+
+			size_t b1 = dp.d1 % bs;
+			size_t b2 = dp.d2 % bs;
+			size_t bidx = b1 * bs + b2;
+			if (B[bidx] <= 0.0f) continue;
+
+			float d_val = d_flat[r * nblocks + bidx];
+			if (d_val <= 0.0f) continue;
+
+			// Sequential: weight by G/(B*d)
+			double G_over_Bd = static_cast<double>(G)
+			                   / (static_cast<double>(B[bidx])
+			                      * static_cast<double>(d_val));
+
+			A_accum[z_bin] += G_over_Bd;
+			A_count[z_bin]++;
 		}
 
 		std::vector<float> A(nZ, 1.0f);
@@ -580,18 +507,23 @@ int main(int argc, char** argv)
 		size_t A_count_valid = 0;
 		for (size_t i = 0; i < nZ; ++i)
 		{
-			if (A_cnt[i] > 0)
+			if (A_count[i] > 0)
 			{
-				A[i] = static_cast<float>(A_sum[i]
-				                          / static_cast<double>(A_cnt[i]));
+				A[i] = static_cast<float>(
+				    A_accum[i] / static_cast<double>(A_count[i]));
 				A_sum_valid += A[i];
 				A_count_valid++;
 			}
 		}
 		float A_mean = (A_count_valid > 0)
-		                   ? static_cast<float>(A_sum_valid / A_count_valid)
+		                   ? static_cast<float>(
+		                         A_sum_valid / A_count_valid)
 		                   : 1.0f;
-		for (auto& a : A) a /= A_mean;
+		for (size_t i = 0; i < nZ; ++i)
+		{
+			if (A_count[i] > 0)
+				A[i] /= A_mean;
+		}
 
 		float A_min = *std::min_element(A.begin(), A.end());
 		float A_max = *std::max_element(A.begin(), A.end());
@@ -603,7 +535,8 @@ int main(int argc, char** argv)
 		// Step 5: Estimate epsilon via fan-sum iteration
 		// -----------------------------------------------------------------
 		std::cout << "\n[5/6] Estimating epsilon via fan-sum ("
-		          << fan_sum_iters << " iterations)..." << std::endl;
+		          << fan_sum_iters << " iterations)..."
+		          << (is_norm ? " [norm mode]" : "") << std::endl;
 
 		std::vector<double> log_eps(num_dets, 0.0);
 
@@ -662,7 +595,9 @@ int main(int argc, char** argv)
 
 				    double gbdA = static_cast<double>(G) * B_val * d_val
 				                  * A_val;
-				    double log_res = std::log(static_cast<double>(m_val))
+				    double log_m = std::log(
+				        static_cast<double>(m_val));
+				    double log_res = (is_norm ? -log_m : log_m)
 				                     - std::log(gbdA);
 
 				    auto& acc = e_accums[threadId];
@@ -691,13 +626,15 @@ int main(int argc, char** argv)
 			{
 				if (e_cnt[i] > 0)
 				{
-					log_eps[i] = e_accum[i] / static_cast<double>(e_cnt[i]);
+					log_eps[i] = e_accum[i]
+					             / static_cast<double>(e_cnt[i]);
 					log_eps_sum += log_eps[i];
 					e_valid++;
 				}
 			}
 			double log_eps_mean = (e_valid > 0)
-			                          ? log_eps_sum / static_cast<double>(e_valid)
+			                          ? log_eps_sum
+			                            / static_cast<double>(e_valid)
 			                          : 0.0;
 			for (auto& le : log_eps) le -= log_eps_mean;
 
@@ -791,7 +728,10 @@ int main(int argc, char** argv)
 			              * A[z_bin] * eps[dp.d1] * eps[dp.d2];
 			if (pred <= 0.0) continue;
 
-			sum_ref += m_val;
+			if (is_norm)
+				sum_ref += 1.0 / m_val;
+			else
+				sum_ref += m_val;
 			sum_pred += pred;
 		}
 

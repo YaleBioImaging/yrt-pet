@@ -15,7 +15,7 @@ class MultiRayGenerator
 {
 public:
 	static constexpr bool USE_PARALLEL_LINES = false;
-	static constexpr bool USE_DEPTH = false;
+	static constexpr bool USE_DEPTH = true;
 	MultiRayGenerator(float thickness_z_i, float thickness_trans_i,
 	                  float depth_i = 0.f,
 	                  bool isParallel_i = USE_PARALLEL_LINES,

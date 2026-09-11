@@ -76,6 +76,7 @@ void OSEM_CPU::addUniformGaussianImagePSFFromFWHM(float fwhmX, float fwhmY,
 	    fwhmX, fwhmY, fwhmZ, imageParams.vx, imageParams.vy, imageParams.vz,
 	    kerSizeX, kerSizeY, kerSizeZ);
 	m_imagePSFMode = ImagePSFMode::UNIFORM;
+	flagImagePSF = true;
 }
 
 void OSEM_CPU::addUniformGaussianImagePSFFromSigma(float sigmaX, float sigmaY,
@@ -89,6 +90,7 @@ void OSEM_CPU::addUniformGaussianImagePSFFromSigma(float sigmaX, float sigmaY,
 	    sigmaX, sigmaY, sigmaZ, imageParams.vx, imageParams.vy, imageParams.vz,
 	    kerSizeX, kerSizeY, kerSizeZ);
 	m_imagePSFMode = ImagePSFMode::UNIFORM;
+	flagImagePSF = true;
 }
 
 void OSEM_CPU::setupProjectorForSensImgGen()

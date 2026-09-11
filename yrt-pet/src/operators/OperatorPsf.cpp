@@ -40,8 +40,7 @@ void py_setup_operatorpsf(py::module& m)
 
 	c.def_static(
 	    "createGaussianKernel1D",
-	    [](float sigma, float voxelSize)
-	    {
+	    [](float sigma, float voxelSize) {
 		    return OperatorPsf::createGaussianKernel1D(sigma, voxelSize,
 		                                               nullptr);
 	    },
@@ -170,6 +169,10 @@ std::vector<float> OperatorPsf::createGaussianKernel1D(float sigma,
 	{
 		constexpr size_t DEFAULT_NUM_SIGMAS = 5;
 		size = std::rintf(DEFAULT_NUM_SIGMAS * sigma / voxSize);
+	}
+	if (size % 2 == 0)
+	{
+		size++;
 	}
 
 	std::vector<float> kernel;

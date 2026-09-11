@@ -79,6 +79,7 @@ void OSEM_GPU::addUniformGaussianImagePSFFromFWHM(float fwhmX, float fwhmY,
 	    fwhmX, fwhmY, fwhmZ, imageParams.vx, imageParams.vy, imageParams.vz,
 	    kerSizeX, kerSizeY, kerSizeZ);
 	m_imagePSFMode = ImagePSFMode::UNIFORM;
+	flagImagePSF = true;
 }
 
 void OSEM_GPU::addUniformGaussianImagePSFFromSigma(float sigmaX, float sigmaY,
@@ -92,6 +93,7 @@ void OSEM_GPU::addUniformGaussianImagePSFFromSigma(float sigmaX, float sigmaY,
 	    sigmaX, sigmaY, sigmaZ, imageParams.vx, imageParams.vy, imageParams.vz,
 	    kerSizeX, kerSizeY, kerSizeZ);
 	m_imagePSFMode = ImagePSFMode::UNIFORM;
+	flagImagePSF = true;
 }
 
 void OSEM_GPU::setupProjectorForSensImgGen()

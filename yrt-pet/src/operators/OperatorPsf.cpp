@@ -170,7 +170,17 @@ std::vector<float> OperatorPsf::createGaussianKernel1D(float sigma,
 	{
 		constexpr size_t DEFAULT_NUM_SIGMAS = 5;
 		size = std::rintf(DEFAULT_NUM_SIGMAS * sigma / voxSize);
+		if (size % 2 == 0)
+		{
+			size++;
+		}
+		if (size < 3)
+		{
+			size = 3;
+		}
 	}
+	ASSERT_MSG(size >= 3 && size % 2 == 1,
+	           "The given size must be an odd number larger than 3");
 
 	std::vector<float> kernel;
 	for (std::size_t i = 0; i < size; i++)

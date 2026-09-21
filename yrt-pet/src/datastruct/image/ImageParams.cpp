@@ -10,6 +10,7 @@
 #include "yrt-pet/utils/JSONUtils.hpp"
 
 #include "nlohmann/json.hpp"
+#include <sstream>
 #include <fstream>
 
 using json = nlohmann::json;

@@ -147,6 +147,67 @@ TEST_CASE("imageparams-crop", "[image]")
 		CHECK_THROWS(params.crop(20, 10, 0, ny - 1, 0, nz - 1));
 		CHECK_THROWS(params.crop(0, nx - 1, 0, ny - 1, 0, nz));
 	}
+
+	SECTION("padding by nothing changes nothing")
+	{
+		CHECK(params.pad(0, 0, 0, 0, 0, 0).isSameAs(params));
+	}
+
+	SECTION("pad undoes crop")
+	{
+		const ssize_t x0 = 5, x1 = 39, y0 = 11, y1 = 69, z0 = 13, z1 = 60;
+		const yrt::ImageParams restored =
+		    params.crop(x0, x1, y0, y1, z0, z1)
+		        .pad(x0, nx - 1 - x1, y0, ny - 1 - y1, z0, nz - 1 - z1);
+		CHECK(restored.isSameAs(params));
+	}
+
+	SECTION("the original sits at the given margins in the padded grid")
+	{
+		const ssize_t x0 = 3, y0 = 7, z0 = 11;
+		const yrt::ImageParams padded = params.pad(x0, 5, y0, 2, z0, 9);
+
+		CHECK(padded.nx == nx + x0 + 5);
+		CHECK(padded.ny == ny + y0 + 2);
+		CHECK(padded.nz == nz + z0 + 9);
+		CHECK(padded.vx == Approx(params.vx));
+		CHECK(padded.vy == Approx(params.vy));
+		CHECK(padded.vz == Approx(params.vz));
+		CHECK(padded.nt == params.nt);
+
+		for (ssize_t iz = 0; iz < params.nz; iz += 11)
+		{
+			for (ssize_t iy = 0; iy < params.ny; iy += 13)
+			{
+				for (ssize_t ix = 0; ix < params.nx; ix += 7)
+				{
+					const yrt::Vector3D posOrig =
+					    params.indexToPosition(ix, iy, iz);
+					const yrt::Vector3D posPadded = padded.indexToPosition(
+					    ix + x0, iy + y0, iz + z0);
+					CHECK(posPadded.x == Approx(posOrig.x));
+					CHECK(posPadded.y == Approx(posOrig.y));
+					CHECK(posPadded.z == Approx(posOrig.z));
+				}
+			}
+		}
+	}
+
+	SECTION("crop undoes pad")
+	{
+		const ssize_t x0 = 3, x1 = 5, y0 = 7, y1 = 2, z0 = 11, z1 = 9;
+		const yrt::ImageParams padded = params.pad(x0, x1, y0, y1, z0, z1);
+		const yrt::ImageParams restored =
+		    padded.crop(x0, x0 + nx - 1, y0, y0 + ny - 1, z0, z0 + nz - 1);
+		CHECK(restored.isSameAs(params));
+	}
+
+	SECTION("negative margins are rejected")
+	{
+		CHECK_THROWS(params.pad(-1, 0, 0, 0, 0, 0));
+		CHECK_THROWS(params.pad(0, 0, 0, -2, 0, 0));
+		CHECK_THROWS(params.pad(0, 0, 0, 0, 0, -3));
+	}
 }
 
 TEST_CASE("image-readwrite", "[image]")

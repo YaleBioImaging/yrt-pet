@@ -65,6 +65,13 @@ public:
 	ImageParams crop(ssize_t x0, ssize_t x1, ssize_t y0, ssize_t y1, ssize_t z0,
 	                 ssize_t z1) const;
 
+	// Pad by the given number of voxels on each side, in the same physical
+	// space.  The inverse of crop: for any valid box,
+	// crop(x0, x1, ...).pad(x0, nx - 1 - x1, ...) reproduces this grid.  The
+	// number of frames is not changed.
+	ImageParams pad(ssize_t x0, ssize_t x1, ssize_t y0, ssize_t y1, ssize_t z0,
+	                ssize_t z1) const;
+
 	// Dimensions: 0: Z, 1: Y, 2: X
 	template <int Dimension>
 	float indexToPositionInDimension(ssize_t index) const;

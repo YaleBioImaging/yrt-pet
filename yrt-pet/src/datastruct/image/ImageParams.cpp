@@ -11,6 +11,7 @@
 
 #include "nlohmann/json.hpp"
 #include <fstream>
+#include <sstream>
 
 using json = nlohmann::json;
 
@@ -80,6 +81,10 @@ void py_setup_imageparams(py::module& m)
 	c.def("isSameOffsetAs", &ImageParams::isSameOffsetAs, "other"_a);
 	c.def("isSameLengthsAs", &ImageParams::isSameLengthsAs, "other"_a);
 	c.def("isSameDimensionsAs", &ImageParams::isSameDimensionsAs, "other"_a);
+	c.def("crop", &ImageParams::crop, "x0"_a, "x1"_a, "y0"_a, "y1"_a, "z0"_a,
+	      "z1"_a);
+	c.def("pad", &ImageParams::pad, "x0"_a, "x1"_a, "y0"_a, "y1"_a, "z0"_a,
+	      "z1"_a);
 	c.def("indexToPositionInZDimension",
 	      &ImageParams::indexToPositionInDimension<0>, "index"_a);
 	c.def("indexToPositionInYDimension",
@@ -441,6 +446,71 @@ bool ImageParams::isSameAsIgnoreFrames(const ImageParams& other) const
 {
 	return isSameDimensionsAs(other) && isSameLengthsAs(other) &&
 	       isSameOffsetAs(other);
+}
+
+ImageParams ImageParams::crop(ssize_t x0, ssize_t x1, ssize_t y0, ssize_t y1,
+                              ssize_t z0, ssize_t z1) const
+{
+	ASSERT_MSG(isValid(), "Cannot crop invalid image parameters");
+	// Bounds are inclusive: [x0, x1] keeps x1 - x0 + 1 voxels
+	ASSERT_MSG(x0 >= 0 && x1 >= x0 && x1 < nx, "Crop bounds out of range in X");
+	ASSERT_MSG(y0 >= 0 && y1 >= y0 && y1 < ny, "Crop bounds out of range in Y");
+	ASSERT_MSG(z0 >= 0 && z1 >= z0 && z1 < nz, "Crop bounds out of range in Z");
+
+	const ssize_t newNx = x1 - x0 + 1;
+	const ssize_t newNy = y1 - y0 + 1;
+	const ssize_t newNz = z1 - z0 + 1;
+
+	// The offset is the centre of the grid, so it moves to the centre of the
+	// sub-volume.  Written from the origin (the centre of voxel 0) so that
+	// voxel (0,0,0) of the result lands exactly on voxel (x0,y0,z0) of this
+	// grid: see indexToPositionInDimension.
+	const float newOffX =
+	    off_x - 0.5f * length_x +
+	    vx * (static_cast<float>(x0) + 0.5f * static_cast<float>(newNx));
+	const float newOffY =
+	    off_y - 0.5f * length_y +
+	    vy * (static_cast<float>(y0) + 0.5f * static_cast<float>(newNy));
+	const float newOffZ =
+	    off_z - 0.5f * length_z +
+	    vz * (static_cast<float>(z0) + 0.5f * static_cast<float>(newNz));
+
+	return ImageParams(newNx, newNy, newNz, vx * static_cast<float>(newNx),
+	                   vy * static_cast<float>(newNy),
+	                   vz * static_cast<float>(newNz), newOffX, newOffY,
+	                   newOffZ, nt);
+}
+
+ImageParams ImageParams::pad(ssize_t x0, ssize_t x1, ssize_t y0, ssize_t y1,
+                             ssize_t z0, ssize_t z1) const
+{
+	ASSERT_MSG(isValid(), "Cannot pad invalid image parameters");
+	// Margins are voxel counts added before and after, so zero is a no-op
+	ASSERT_MSG(x0 >= 0 && x1 >= 0, "Pad margins must be positive in X");
+	ASSERT_MSG(y0 >= 0 && y1 >= 0, "Pad margins must be positive in Y");
+	ASSERT_MSG(z0 >= 0 && z1 >= 0, "Pad margins must be positive in Z");
+
+	const ssize_t newNx = nx + x0 + x1;
+	const ssize_t newNy = ny + y0 + y1;
+	const ssize_t newNz = nz + z0 + z1;
+
+	// Same reasoning as crop, read backwards: the origin of the larger grid
+	// is this origin moved back by the leading margin, and the offset is the
+	// centre of that grid.
+	const float newOffX = off_x - 0.5f * length_x -
+	                      vx * static_cast<float>(x0) +
+	                      vx * 0.5f * static_cast<float>(newNx);
+	const float newOffY = off_y - 0.5f * length_y -
+	                      vy * static_cast<float>(y0) +
+	                      vy * 0.5f * static_cast<float>(newNy);
+	const float newOffZ = off_z - 0.5f * length_z -
+	                      vz * static_cast<float>(z0) +
+	                      vz * 0.5f * static_cast<float>(newNz);
+
+	return ImageParams(newNx, newNy, newNz, vx * static_cast<float>(newNx),
+	                   vy * static_cast<float>(newNy),
+	                   vz * static_cast<float>(newNz), newOffX, newOffY,
+	                   newOffZ, nt);
 }
 
 template <int Dimension>

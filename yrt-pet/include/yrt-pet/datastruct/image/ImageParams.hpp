@@ -46,11 +46,12 @@ public:
 	            ssize_t p_nt = 1);
 	ImageParams(const ImageParams& in);
 	ImageParams& operator=(const ImageParams& in);
-	static ImageParams fromParams(ssize_t nx, ssize_t ny, ssize_t nz, float vx, float vy,
-	                              float vz, float originx, float originy,
-	                              float originz, ssize_t p_nt = 1);
-	static ImageParams fromParams(ssize_t nx, ssize_t ny, ssize_t nz, float vx, float vy,
-	                              float vz, ssize_t p_nt = 1);
+	static ImageParams fromParams(ssize_t nx, ssize_t ny, ssize_t nz, float vx,
+	                              float vy, float vz, float originx,
+	                              float originy, float originz,
+	                              ssize_t p_nt = 1);
+	static ImageParams fromParams(ssize_t nx, ssize_t ny, ssize_t nz, float vx,
+	                              float vy, float vz, ssize_t p_nt = 1);
 	explicit ImageParams(const std::string& fname);
 	bool isSameNumFramesAs(const ImageParams& other) const;
 	bool isSameDimensionsAs(const ImageParams& other) const;
@@ -58,6 +59,18 @@ public:
 	bool isSameOffsetAs(const ImageParams& other) const;
 	bool isSameAs(const ImageParams& other) const;
 	bool isSameAsIgnoreFrames(const ImageParams& other) const;
+
+	// Crop to [x0, x1] x [y0, y1] x [z0, z1] (inclusive bounds).  The number of
+	// frames is not changed.
+	ImageParams crop(ssize_t x0, ssize_t x1, ssize_t y0, ssize_t y1, ssize_t z0,
+	                 ssize_t z1) const;
+
+	// Pad by the given number of voxels on each side, in the same physical
+	// space.  The inverse of crop: for any valid box,
+	// crop(x0, x1, ...).pad(x0, nx - 1 - x1, ...) reproduces this grid.  The
+	// number of frames is not changed.
+	ImageParams pad(ssize_t x0, ssize_t x1, ssize_t y0, ssize_t y1, ssize_t z0,
+	                ssize_t z1) const;
 
 	// Dimensions: 0: Z, 1: Y, 2: X
 	template <int Dimension>

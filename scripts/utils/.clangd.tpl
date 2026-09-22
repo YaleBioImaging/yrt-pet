@@ -7,16 +7,27 @@ CompileFlags:
     - "--compiler-options*"
     - "-Xcompiler*"
 
-  # 2. Add them back relative to the .clangd file (portable!)
+  # 2. Add them back relative to the .clangd file
   Add:
-    - "-xcuda"
-    - "--cuda-gpu-arch=sm_70"
     - "-I{{ yrt_pet_src_dir }}/include"
     - "-I{{ yrt_pet_src_dir }}/src"
     - "-I{{ yrt_pet_build_dir }}/external/JSON/include"
     - "-I{{ yrt_pet_build_dir }}/external/Catch/include"
-    - "-I{{ python_include_dir }}"
     - "-Wno-unknown-cuda-version"
 
 Index:
   Background: Build
+
+---
+If:
+  PathMatch: ".*\\.cu[h]?$"
+CompileFlags:
+  Add:
+    - "-xcuda"
+    - "--cuda-gpu-arch={{ gpu_arch }}"
+{% if python_include_dir %}
+    - "-I{{ python_include_dir }}"
+{% endif %}
+{% if pybind11_include_dir %}
+    - "-I{{ pybind11_include_dir }}"
+{% endif %}

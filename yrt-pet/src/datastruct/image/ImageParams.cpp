@@ -10,8 +10,8 @@
 #include "yrt-pet/utils/JSONUtils.hpp"
 
 #include "nlohmann/json.hpp"
-#include <sstream>
 #include <fstream>
+#include <sstream>
 
 using json = nlohmann::json;
 
@@ -475,16 +475,10 @@ ImageParams ImageParams::crop(ssize_t x0, ssize_t x1, ssize_t y0, ssize_t y1,
 	    off_z - 0.5f * length_z +
 	    vz * (static_cast<float>(z0) + 0.5f * static_cast<float>(newNz));
 
-	return ImageParams{newNx,
-	                   newNy,
-	                   newNz,
-	                   vx * static_cast<float>(newNx),
+	return ImageParams(newNx, newNy, newNz, vx * static_cast<float>(newNx),
 	                   vy * static_cast<float>(newNy),
-	                   vz * static_cast<float>(newNz),
-	                   newOffX,
-	                   newOffY,
-	                   newOffZ,
-	                   nt};
+	                   vz * static_cast<float>(newNz), newOffX, newOffY,
+	                   newOffZ, nt);
 }
 
 ImageParams ImageParams::pad(ssize_t x0, ssize_t x1, ssize_t y0, ssize_t y1,

@@ -34,6 +34,7 @@ YRT-PET documentation
    usage/rawd_file
    usage/sparse-histogram
    usage/imagepsf_file
+   usage/projpsf_file
 
 .. toctree::
    :maxdepth: 2
@@ -48,6 +49,7 @@ YRT-PET documentation
    python/projectionlist
    python/owned_vs_alias
    python/osem
+   python/image-psf
    python/constraints
 
 .. toctree::

@@ -14,7 +14,7 @@ scanner = yrt.Scanner("<MyScannerFile.json>")
 lm = yrt.ListModeLUTOwned(scanner, "<MyListMode.lmDat>")
 
 # Create OSEM with scanner
-osem = yrt.OSEM(scanner)
+osem = yrt.createOSEM(scanner)
 
 # Set reconstruction parameters
 osem.num_MLEM_iterations = 10
@@ -97,15 +97,32 @@ osem.setScatterHistogram(scatter_his) # Scatter correction
 
 ### Point Spread Function (Image-space)
 
+Set the image parameters before adding a PSF. Choose one of the following
+file-based models before generating sensitivity images or reconstructing:
+
 ```python3
-osem.addImagePSF("<psf.csv>")                           # Uniform PSF
-osem.addImagePSF("<psf_variant.csv>", yrt.ImagePSFMode.VARIANT)  # Spatially variant PSF
+osem.setImageParams(img_params)
+
+# Uniform: four-row CSV containing separable 1D kernels
+osem.addImagePSF("uniform_psf.csv")
+
+# Alternatively, spatially variant: three-column or seven-column LUT
+osem.addImagePSF("dual_gaussian.csv", yrt.ImagePSFMode.VARIANT)
 ```
 
 #### PSF Modes
 
-- `yrt.ImagePSFMode.UNIFORM` - Same PSF for all voxels
-- `yrt.ImagePSFMode.VARIANT` - Spatially variant PSF
+- `yrt.ImagePSFMode.UNIFORM` - Same separable PSF for all voxels. This is the
+  default when the second argument is omitted.
+- `yrt.ImagePSFMode.VARIANT` - Spatially variant single or dual Gaussian PSF.
+  The CSV reader automatically selects one Gaussian for three columns or two
+  Gaussians for seven columns.
+
+In particular, a variant LUT must be loaded with `yrt.ImagePSFMode.VARIANT`, even though both file types use `.csv`.
+Calling `addImagePSF` again replaces the previous image-space PSF.
+
+See [Image-Based PSF File Format](../usage/imagepsf_file.md) for complete CSV
+examples, units, LUT ordering, and mixture weights.
 
 ### Output Options
 

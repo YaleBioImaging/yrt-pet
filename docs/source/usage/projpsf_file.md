@@ -1,9 +1,9 @@
 # Projection-Based PSF File Format
 
-Projection-space PSF models a sampled 1D response in the Distance-Driven
-(DD) projector. It is available on CPU and GPU. It is separate from
-[image-space PSF](imagepsf_file.md); the single and dual Gaussian variant LUT
-formats must not be passed to the projection-space reader.
+Projection-space PSF models a sampled 1D transverse response in the
+Distance-Driven (DD) projector on CPU and GPU. Kernels may vary with the
+radial position of the LOR. This model uses a different CSV format from
+[image-space PSF](imagepsf_file.md).
 
 ## CSV Format
 
@@ -17,28 +17,23 @@ s_step,k_spacing,kernel_size,kernel_0_values...,kernel_1_values...,...
 |-------|---------|
 | `s_step` | Positive spacing in mm between radial kernel-selection bins |
 | `k_spacing` | Positive spacing in mm between samples within a kernel |
-| `kernel_size` | Positive odd number of samples in every kernel |
+| `kernel_size` | Positive odd integer specifying the number of samples in every kernel |
 | Remaining values | One or more kernels, concatenated in increasing radial-bin order |
 
-The number of values after the first three must be an exact multiple of
-`kernel_size`. Do not add a text header, split kernels onto separate rows, or
-pad the row with extra zeros. The reader takes the metadata and kernels from
-the first row.
+Provide exactly `kernel_size` values per kernel, without a text header or
+extra padding. Samples are equally spaced and centered around zero, with
+the middle sample at zero. The reader does not normalize coefficients;
+for a nonnegative response with unit integral, use
+`k_spacing * sum(kernel) = 1` for each kernel.
 
-For each LOR, let `s` be its absolute transverse distance from the scanner
-origin. The selected kernel index is `floor(s / s_step)`, capped at the last
-available kernel. Thus a single kernel applies to all LORs. This is radial
-bin selection, not the X/Y/Z nearest-neighbor lookup of image-space PSF.
+For each LOR, `s` is its absolute transverse distance from the image center,
+accounting for the image offset. The zero-based kernel index is
+`floor(s / s_step)`, capped at the last available kernel, without interpolation
+between kernels. A file containing one kernel applies it to all LORs.
 
 ## Example
 
-A single three-sample kernel with 1 mm sample spacing can be written as:
-
-```text
-50,1,3,0.25,0.5,0.25
-```
-
-Two radial bins with three samples each can be written as:
+Two radial bins with three samples per kernel and 1 mm sample spacing:
 
 ```text
 50,1,3,0.25,0.5,0.25,0.3,0.4,0.3
@@ -47,14 +42,6 @@ Two radial bins with three samples each can be written as:
 Here, the first kernel is selected for `0 <= s < 50` mm, and the second for
 `s >= 50` mm. These illustrative kernels should be replaced with an
 appropriate measured or fitted response.
-
-Samples are centered around zero at offsets
-`(j - (kernel_size - 1) / 2) * k_spacing`. The projector integrates a linearly
-interpolated response with one zero sample beyond each end. The support
-half-width is `(kernel_size + 1) / 2 * k_spacing` mm. The reader does not
-normalize coefficients. For a nonnegative response with unit integral under
-this interpolation, normalize so that `k_spacing * sum(kernel) = 1`.
-The adjoint uses the reversed kernel.
 
 ## Usage
 
@@ -66,11 +53,6 @@ For OSEM in Python, configure the PSF before generating sensitivity images:
 osem.setProjector("DD")
 osem.addProjPSF("proj_psf.csv")
 ```
-
-For direct projection, set `proj_params.projPsf_fname = "proj_psf.csv"` before
-constructing the projector, or call `addProjPSF("proj_psf.csv")` on the DD
-projector or its `OperatorProjector` before applying it. The GPU projection
-operator provides the same configuration method.
 
 Projection-space PSF may be combined with one uniform or variant image-space
 PSF and with TOF. Use the same PSF configuration for sensitivity generation

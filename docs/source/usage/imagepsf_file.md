@@ -87,7 +87,7 @@ The first three rows contain numeric metadata:
 |-----|--------------------|-------|
 | 1 | `range_x,range_y,range_z`: maximum offset from the center at which PSF kernels are sampled along each axis | mm |
 | 2 | `gap_x,gap_y,gap_z`: spacing between adjacent PSF kernel locations along each axis | mm |
-| 3 | `nStd_x,nStd_y,nStd_z`: number of Gaussian standard deviations included in the kernel support along each axis | Dimensionless |
+| 3 | `nStd_x,nStd_y,nStd_z`: kernel support controls in units of sigma; for dual Gaussian kernels, the larger sigma along each axis is used | Dimensionless |
 
 All remaining rows contain kernel parameters. Use plain numeric values,
 with no column-name header, blank lines, comments, missing fields, or extra

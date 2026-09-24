@@ -3,10 +3,22 @@
 YRT-PET supports image-based point spread function (PSF) input files in two
 forms:
 
-- **Uniform PSF kernel**
-- **Spatially variant PSF kernel (PSF Look-Up Table or LUT)**
+- **Uniform PSF kernel**: three separable 1D kernels, used at every voxel.
+- **Spatially variant PSF kernel (PSF Look-Up Table or LUT)**: a regular grid
+  of single Gaussian or dual Gaussian 3D kernels.
 
 Both formats use standard **CSV (comma-separated values)** files.
+
+## Selecting the PSF Format
+
+| Image-space model | Command line option | Python OSEM mode | File contents |
+|-------------------|---------------------|------------------|---------------|
+| Uniform | `--psf uniform_psf.csv` | `yrt.ImagePSFMode.UNIFORM` (default) | Four rows containing separable kernels and their sizes |
+| Spatially variant, single Gaussian | `--varpsf single_gaussian.csv` | `yrt.ImagePSFMode.VARIANT` | Three columns |
+| Spatially variant, dual Gaussian | `--varpsf dual_gaussian.csv` | `yrt.ImagePSFMode.VARIANT` | Seven columns |
+
+For a variant LUT, the reader **automatically selects single or dual Gaussian
+from the number of CSV columns**.
 
 ---
 
@@ -54,64 +66,99 @@ image-based PSF kernels.
 
 ## Spatially Variant PSF Kernel (PSF LUT)
 
-YRT-PET also supports **spatially varying 3D symmetric Gaussian kernels**,
-organized in a structured CSV file (PSF LUT).
+Each LUT entry defines an axis-aligned, centered 3D Gaussian or a mixture of
+two such Gaussians. The widths may differ in X, Y, and Z and between grid
+locations. Dual Gaussian refers to **two 3D components**, not a 2D kernel.
 
 ### Assumptions and Behavior
 
-1. **Symmetry**: PSF kernels are symmetric in X, Y, and Z. Distance to the
-   center is treated as absolute.
-2. **Regular Grid**: PSF kernels are placed on a uniform grid. Each “gap”
-   defines the spacing between kernel locations, and the specified "range" must
-   be divisible by the gap.
-3. **Interpolation**: Nearest-neighbor interpolation is used to determine which
-   kernel to apply. Out-of-range queries fall back to edge values.
+1. **Symmetry**: PSF kernels are symmetric in X, Y, and Z. Distance to the center is treated as absolute.
+2. **Regular Grid**: Ranges are nonnegative and gaps must be positive, in mm.
+   Each “gap” defines the spacing between kernel locations, and the specified “range” must be divisible by the gap. The
+   number of samples along each axis is `floor(range / gap) + 1`.
+3. **Interpolation**: Nearest-neighbor interpolation is used to determine which kernel to apply. Out-of-range queries fall back to edge values. There is no interpolation of widths or mixture weights.
 4. **Order**: PSF kernels are stored in the order: X → Y → Z.
 
 ### PSF LUT CSV Format
 
-```
-X,Y,Z range of PSF kernel grid in mm (max offset from center), float
-X,Y,Z gap of PSF kernel grid in mm (spacing between kernels), float
-X,Y,Z kernel size control (determines how many sigmas are included in kernel), float
-SigmaX1,SigmaY1,SigmaZ1  # (kernel at 0,0,0)
-SigmaX2,SigmaY2,SigmaZ2  # (kernel at xgap,0,0)
-SigmaX3,SigmaY3,SigmaZ3  # (kernel at xgap*2,0,0)
-...
-```
+The first three rows contain numeric metadata:
 
-### Example
+| Row | First three values | Units |
+|-----|--------------------|-------|
+| 1 | `range_x,range_y,range_z`: maximum offset from the center at which PSF kernels are sampled along each axis | mm |
+| 2 | `gap_x,gap_y,gap_z`: spacing between adjacent PSF kernel locations along each axis | mm |
+| 3 | `nStd_x,nStd_y,nStd_z`: kernel support controls in units of sigma; for dual Gaussian kernels, the larger sigma along each axis is used | Dimensionless |
 
-For:
-- XYZ range = 50 mm (maximum distance from the scanner center at which spatially
-  varying PSF kernels are sampled in each direction, forming the outer boundary
-  of the PSF LUT grid.)
-- XYZ gap = 50 mm (distance between each kernel center)
-- XYZ kernel size control = 4
-(number of standard deviation for the gaussian kernels)
+All remaining rows contain kernel parameters. Use plain numeric values,
+with no column-name header, blank lines, comments, missing fields, or extra
+columns.
 
-Kernels are located in these positions:
-```
-(0,0,0)
-(50,0,0)
-(0,50,0)
-(50,50,0)
-(0,0,50)
-(50,0,50)
-(0,50,50)
-(50,50,50)
-```
-The file would be structured like this:
-```
+#### Single Gaussian (Three Columns)
+
+Each kernel row contains `sigma_x,sigma_y,sigma_z`, in mm. These are standard
+deviations, not FWHM values or voxel counts. For an individual Gaussian,
+`sigma = FWHM / 2.3548`.
+
+For ranges of 50 mm and gaps of 50 mm in all directions, the eight entries
+are ordered as `(0,0,0)`, `(50,0,0)`, `(0,50,0)`, `(50,50,0)`, `(0,0,50)`,
+`(50,0,50)`, `(0,50,50)`, `(50,50,50)`. A complete example is:
+
+```text
 50,50,50
 50,50,50
 4,4,4
-sigmaX1,sigmaY1,sigmaZ1
-sigmaX2,sigmaY2,sigmaZ2
-sigmaX3,sigmaY3,sigmaZ3
-sigmaX4,sigmaY4,sigmaZ4
-sigmaX5,sigmaY5,sigmaZ5
-sigmaX6,sigmaY6,sigmaZ6
-sigmaX7,sigmaY7,sigmaZ7
-sigmaX8,sigmaY8,sigmaZ8
+1.0,1.0,1.0
+1.2,1.0,1.0
+1.0,1.2,1.0
+1.2,1.2,1.0
+1.0,1.0,1.4
+1.2,1.0,1.4
+1.0,1.2,1.4
+1.2,1.2,1.4
 ```
+
+#### Dual Gaussian (Seven Columns)
+
+Each kernel row contains, in order:
+
+```text
+sigma_x1,sigma_y1,sigma_z1,sigma_x2,sigma_y2,sigma_z2,weight2
+```
+
+- The first three values are the standard deviations of component 1 in mm.
+- The next three values are the standard deviations of component 2 in mm.
+- `weight2` is the fraction assigned to component 2, between 0 and 1 inclusive.
+  Component 1 has weight `1 - weight2`; no separate first weight is supplied.
+- All six standard deviations must be positive, including when `weight2` is
+  0 or 1. The code does not require component 2 to be broader than component 1.
+
+**Pad the first three metadata rows with four zeros** to make seven columns.
+Only their first three values are used. With the same grid and entry order
+as the single Gaussian example, a complete dual Gaussian LUT is:
+
+```text
+50,50,50,0,0,0,0
+50,50,50,0,0,0,0
+4,4,4,0,0,0,0
+1.0,1.0,1.0,2.0,2.0,2.0,0.20
+1.2,1.0,1.0,2.4,2.0,2.0,0.25
+1.0,1.2,1.0,2.0,2.4,2.0,0.25
+1.2,1.2,1.0,2.4,2.4,2.0,0.30
+1.0,1.0,1.4,2.0,2.0,2.8,0.20
+1.2,1.0,1.4,2.4,2.0,2.8,0.25
+1.0,1.2,1.4,2.0,2.4,2.8,0.25
+1.2,1.2,1.4,2.4,2.4,2.8,0.30
+```
+
+The example parameters illustrate the format; replace them with parameters
+appropriate to your scanner and acquisition.
+
+Each component is sampled and normalized separately on the same finite 3D
+support. The combined kernel is
+
+$$
+K = (1-w_2)\frac{G_1}{\sum G_1} + w_2\frac{G_2}{\sum G_2}.
+$$
+
+Thus `weight2` is a mixture fraction after discrete normalization, not a
+ratio of peak amplitudes. The resulting kernel is nonnegative and sums to one.

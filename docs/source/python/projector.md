@@ -119,6 +119,7 @@ The two projector implementations have different characteristics:
 | Accuracy | Lower | Higher |
 | Time-of-Flight support | Yes | Yes |
 | Projection-space PSF | No | Yes |
+| Image-space PSF through OSEM or a separate image operator | Yes | Yes |
 | Modeling crystal thickness | Only with multi-ray Siddon | Yes |
 
 ## Siddon-specific Methods

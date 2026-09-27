@@ -67,8 +67,9 @@ image-based PSF kernels.
 ## Spatially Variant PSF Kernel (PSF LUT)
 
 Each LUT entry defines an axis-aligned, centered 3D Gaussian or a mixture of
-two such Gaussians. The widths may differ in X, Y, and Z and between grid
-locations. Dual Gaussian refers to **two 3D components**, not a 2D kernel.
+two such Gaussians sharing the same center. The widths may differ in X, Y,
+and Z and between grid locations. Dual Gaussian refers to **two 3D components**,
+not a 2D kernel.
 
 ### Assumptions and Behavior
 

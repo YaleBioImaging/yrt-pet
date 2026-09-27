@@ -38,7 +38,8 @@ psf.applyAH(image, adjoint_image)
 ```
 
 The constructor automatically reads either a three-column single Gaussian
-or a seven-column dual Gaussian LUT.
+or a seven-column dual Gaussian LUT. In the dual Gaussian model, both
+components share the same center.
 
 Use distinct input and output images with matching dimensions and voxel sizes.
 **Clear the output before each CPU call**: both `applyA` and `applyAH` add

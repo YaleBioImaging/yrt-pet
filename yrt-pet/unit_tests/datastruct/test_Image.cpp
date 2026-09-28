@@ -69,6 +69,147 @@ TEST_CASE("imageparams-fromParams", "[image]")
 	}
 }
 
+TEST_CASE("imageparams-crop", "[image]")
+{
+	const ssize_t nx = 64, ny = 70, nz = 80;
+	const float vx = 0.8f, vy = 0.9f, vz = 1.2f;
+	const yrt::ImageParams params{nx,      ny,   nz,    nx * vx, ny * vy,
+	                              nz * vz, 3.7f, -2.1f, 11.9f,   3};
+
+	// Bounds are inclusive: crop(0, nx - 1, ...) is the whole grid
+	SECTION("cropping to the whole grid changes nothing")
+	{
+		const yrt::ImageParams cropped =
+		    params.crop(0, nx - 1, 0, ny - 1, 0, nz - 1);
+		CHECK(cropped.isSameAs(params));
+	}
+
+	SECTION("the sub-volume stays in the same physical space")
+	{
+		const ssize_t x0 = 5, x1 = 39, y0 = 11, y1 = 69, z0 = 13, z1 = 60;
+		const yrt::ImageParams cropped = params.crop(x0, x1, y0, y1, z0, z1);
+
+		CHECK(cropped.nx == x1 - x0 + 1);
+		CHECK(cropped.ny == y1 - y0 + 1);
+		CHECK(cropped.nz == z1 - z0 + 1);
+
+		// Voxel sizes must be untouched: deriving the lengths from the
+		// original lengths rather than from the voxel sizes would shift them
+		CHECK(cropped.vx == Approx(params.vx));
+		CHECK(cropped.vy == Approx(params.vy));
+		CHECK(cropped.vz == Approx(params.vz));
+
+		// The frame count is carried over (it is the rank for a low-rank W)
+		CHECK(cropped.nt == params.nt);
+
+		// Every voxel of the sub-volume sits where the corresponding voxel of
+		// the original grid sits
+		for (ssize_t iz = 0; iz < cropped.nz; iz += 7)
+		{
+			for (ssize_t iy = 0; iy < cropped.ny; iy += 9)
+			{
+				for (ssize_t ix = 0; ix < cropped.nx; ix += 5)
+				{
+					const yrt::Vector3D posCropped =
+					    cropped.indexToPosition(ix, iy, iz);
+					const yrt::Vector3D posFull =
+					    params.indexToPosition(ix + x0, iy + y0, iz + z0);
+					CHECK(posCropped.x == Approx(posFull.x));
+					CHECK(posCropped.y == Approx(posFull.y));
+					CHECK(posCropped.z == Approx(posFull.z));
+				}
+			}
+		}
+	}
+
+	SECTION("a single slice is a valid crop")
+	{
+		const yrt::ImageParams slice =
+		    params.crop(0, nx - 1, 0, ny - 1, 13, 13);
+		CHECK(slice.nz == 1);
+		CHECK(slice.length_z == Approx(params.vz));
+		CHECK(slice.indexToPosition(0, 0, 0).z ==
+		      Approx(params.indexToPosition(0, 0, 13).z));
+	}
+
+	SECTION("cropping twice is the same as cropping once")
+	{
+		const yrt::ImageParams once = params.crop(5, 39, 11, 69, 13, 60);
+		const yrt::ImageParams twice =
+		    params.crop(2, 49, 4, 69, 10, 69).crop(3, 37, 7, 65, 3, 50);
+		CHECK(once.isSameAs(twice));
+	}
+
+	SECTION("out of range bounds are rejected")
+	{
+		CHECK_THROWS(params.crop(-1, 10, 0, ny - 1, 0, nz - 1));
+		CHECK_THROWS(params.crop(0, nx, 0, ny - 1, 0, nz - 1));
+		CHECK_THROWS(params.crop(20, 10, 0, ny - 1, 0, nz - 1));
+		CHECK_THROWS(params.crop(0, nx - 1, 0, ny - 1, 0, nz));
+	}
+
+	SECTION("padding by nothing changes nothing")
+	{
+		CHECK(params.pad(0, 0, 0, 0, 0, 0).isSameAs(params));
+	}
+
+	SECTION("pad undoes crop")
+	{
+		const ssize_t x0 = 5, x1 = 39, y0 = 11, y1 = 69, z0 = 13, z1 = 60;
+		const yrt::ImageParams restored =
+		    params.crop(x0, x1, y0, y1, z0, z1)
+		        .pad(x0, nx - 1 - x1, y0, ny - 1 - y1, z0, nz - 1 - z1);
+		CHECK(restored.isSameAs(params));
+	}
+
+	SECTION("the original sits at the given margins in the padded grid")
+	{
+		const ssize_t x0 = 3, y0 = 7, z0 = 11;
+		const yrt::ImageParams padded = params.pad(x0, 5, y0, 2, z0, 9);
+
+		CHECK(padded.nx == nx + x0 + 5);
+		CHECK(padded.ny == ny + y0 + 2);
+		CHECK(padded.nz == nz + z0 + 9);
+		CHECK(padded.vx == Approx(params.vx));
+		CHECK(padded.vy == Approx(params.vy));
+		CHECK(padded.vz == Approx(params.vz));
+		CHECK(padded.nt == params.nt);
+
+		for (ssize_t iz = 0; iz < params.nz; iz += 11)
+		{
+			for (ssize_t iy = 0; iy < params.ny; iy += 13)
+			{
+				for (ssize_t ix = 0; ix < params.nx; ix += 7)
+				{
+					const yrt::Vector3D posOrig =
+					    params.indexToPosition(ix, iy, iz);
+					const yrt::Vector3D posPadded = padded.indexToPosition(
+					    ix + x0, iy + y0, iz + z0);
+					CHECK(posPadded.x == Approx(posOrig.x));
+					CHECK(posPadded.y == Approx(posOrig.y));
+					CHECK(posPadded.z == Approx(posOrig.z));
+				}
+			}
+		}
+	}
+
+	SECTION("crop undoes pad")
+	{
+		const ssize_t x0 = 3, x1 = 5, y0 = 7, y1 = 2, z0 = 11, z1 = 9;
+		const yrt::ImageParams padded = params.pad(x0, x1, y0, y1, z0, z1);
+		const yrt::ImageParams restored =
+		    padded.crop(x0, x0 + nx - 1, y0, y0 + ny - 1, z0, z0 + nz - 1);
+		CHECK(restored.isSameAs(params));
+	}
+
+	SECTION("negative margins are rejected")
+	{
+		CHECK_THROWS(params.pad(-1, 0, 0, 0, 0, 0));
+		CHECK_THROWS(params.pad(0, 0, 0, -2, 0, 0));
+		CHECK_THROWS(params.pad(0, 0, 0, 0, 0, -3));
+	}
+}
+
 TEST_CASE("image-readwrite", "[image]")
 {
 	std::default_random_engine engine(

@@ -54,24 +54,24 @@ def osem_3d_data():
         img_params,
         os.path.join(fold_uhr2d_ref,
                      f"shepp_logan_mlem_lm_{OSEM_3D_NUM_ITER}.nii"))
-    np_ref_img = np.array(ref_img, copy=False)
+    ref_img_np = np.array(ref_img, copy=False)
 
     return {"scanner": scanner,
             "dataset": dataset,
             "img_params": img_params,
-            "np_ref_img": np_ref_img}
+            "ref_img_np": ref_img_np}
 
 
 @pytest.fixture(scope="module")
 def osem_4d_data():
     scanner = yrt.Scanner(scanner_path)
-    ref_fname = (f"shepp_logan_mlem_lm_it{OSEM_4D_NUM_ITER}_" +
-                 f"sub{OSEM_NUM_SUBSETS}.pik")
-    load_ref_dict = pickle.load(open(os.path.join(fold_uhr2d_ref,
-                                                  ref_fname), "rb"))
-    np_ref_img = load_ref_dict["x"]
-    dynamic_framing_array = load_ref_dict["dynamic_framing"]
-    elapsed_cpu = load_ref_dict["elapsed_time"]
+    ref_img_fname = (f"shepp_logan_mlem_lm_it{OSEM_4D_NUM_ITER}_" +
+                 f"sub{OSEM_NUM_SUBSETS}.nii")
+    ref_img_path = os.path.join(fold_uhr2d_ref, ref_img_fname)
+    ref_img_y = yrt.ImageOwned(ref_img_path)
+    ref_img_np = np.array(ref_img_y)
+    dynamic_framing_array = yrt.DynamicFraming(os.path.join(
+        fold_uhr2d,"dynamic_framing_osem4d.dyn"))
 
     dataset = yrt.ListModeLUTOwned(
         scanner, os.path.join(fold_uhr2d, "shepp_logan_dyn.lmDat")
@@ -84,8 +84,7 @@ def osem_4d_data():
     return {"scanner": scanner,
             "dataset": dataset,
             "img_params": img_params,
-            "np_ref_img": np_ref_img,
-            "elapsed_cpu": elapsed_cpu}
+            "ref_img_np": ref_img_np}
 
 
 @pytest.fixture(scope="module")
@@ -97,11 +96,10 @@ def osem_lr_W_data():
     )
     load_ref_dict = pickle.load(open(os.path.join(fold_uhr2d_ref,
                                                   ref_fname), "rb"))
-    np_ref_img = load_ref_dict["x"]
+    ref_img_np = load_ref_dict["x"]
     np_ref_W = load_ref_dict["W"]
     HBasis_np = load_ref_dict["H_orig"]
     dynamic_framing_array = load_ref_dict["dynamic_framing"]
-    elapsed_cpu = load_ref_dict["elapsed_time"]
 
     dataset = yrt.ListModeLUTOwned(
         scanner, os.path.join(fold_uhr2d, "shepp_logan_dyn.lmDat")
@@ -116,10 +114,9 @@ def osem_lr_W_data():
         "scanner": scanner,
         "dataset": dataset,
         "img_params": img_params,
-        "np_ref_img": np_ref_img,
+        "ref_img_np": ref_img_np,
         "np_ref_W": np_ref_W,
         "HBasis_np": HBasis_np,
-        "elapsed_cpu": elapsed_cpu,
     }
 
 
@@ -164,7 +161,6 @@ def osem_lr_H_data():
         load_H_ref_dict = pickle.load(fid)
 
     assert np.allclose(HBasis_np_orig, load_H_ref_dict["H_orig"])
-    elapsed_cpu = load_H_ref_dict["elapsed_time"]
 
     return {
         "scanner": scanner,
@@ -174,8 +170,7 @@ def osem_lr_H_data():
         "np_W_init": np_W_init,
         "HBasis_np": HBasis_np,
         "HBasis_np_orig": HBasis_np_orig,
-        "H_ref": load_H_ref_dict["H"],
-        "elapsed_cpu": elapsed_cpu,
+        "H_ref": load_H_ref_dict["H"]
     }
 
 
@@ -186,7 +181,7 @@ def test_uhr2d_shepp_logan_osem3d(osem_3d_data):
     d = osem_3d_data
     scanner = d["scanner"]
     img_params = d["img_params"]
-    np_ref_img = d["np_ref_img"]
+    ref_img_np = d["ref_img_np"]
     lm = d["dataset"]
 
     osem = yrt.createOSEM(scanner, use_gpu=True)
@@ -206,14 +201,14 @@ def test_uhr2d_shepp_logan_osem3d(osem_3d_data):
 
     np_out_img = np.array(out_img, copy=True)
     _helper.assert_allclose_with_threshold(
-        np_out_img, np_ref_img, atol=0, rtol=0.01, threshold=1e-5)
+        np_out_img, ref_img_np, atol=0, rtol=0.01, threshold=1e-5)
 
 
 def test_uhr2d_shepp_logan_osem4d(osem_4d_data):
     d = osem_4d_data
     scanner = d["scanner"]
     img_params = d["img_params"]
-    np_ref_img = d["np_ref_img"]
+    ref_img_np = d["ref_img_np"]
     lm = d["dataset"]
 
     osem = yrt.createOSEM(scanner, use_gpu=True)
@@ -233,7 +228,7 @@ def test_uhr2d_shepp_logan_osem4d(osem_4d_data):
 
     np_out_img = np.array(out_img, copy=True)
     _helper.assert_allclose_with_threshold(
-        np_out_img, np_ref_img, atol=0, rtol=0.01, threshold=1e-5
+        np_out_img, ref_img_np, atol=0, rtol=0.01, threshold=1e-5
     )
 
 
@@ -242,7 +237,7 @@ def test_uhr2d_shepp_logan_lrem_updatew(osem_lr_W_data):
     scanner = d["scanner"]
     img_params = d["img_params"]
     HBasis_np = d["HBasis_np"]
-    np_ref_img = d["np_ref_img"]
+    ref_img_np = d["ref_img_np"]
     np_ref_W = d["np_ref_W"]
     lm = d["dataset"]
 
@@ -282,7 +277,7 @@ def test_uhr2d_shepp_logan_lrem_updatew(osem_lr_W_data):
 
     # Check allclose
     _helper.assert_allclose_with_threshold(
-        np_out_img, np_ref_img, atol=0, rtol=2e-2, threshold=1e-5)
+        np_out_img, ref_img_np, atol=0, rtol=2e-2, threshold=1e-5)
 
 
 def test_uhr2d_shepp_logan_lrem_updateh(osem_lr_H_data):

@@ -10,8 +10,8 @@ randoms(d1, d2) = 2 * time_window * singles_rate(d1) * singles_rate(d2)
 ```
 
 When used as input, the format name is `RH`. This is a `Histogram` format, it
-can therefore be used to correct for randoms for the reconstructions or for the
-scatter estimation's tail-fitting step.
+can therefore be used to correct for random events for reconstructions or for
+the scatter estimation's tail-fitting step.
 
 ## File format
 

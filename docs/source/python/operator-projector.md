@@ -154,7 +154,8 @@ print(f"Required properties: {prop_types}")
 - `applyA(image, projection_data)` - Forward projection: image -> projection data
 - `applyAH(projection_data, image)` - Back projection: projection data -> image
 - `addTOF(tof_width_ps, tof_num_std)` - Add time-of-flight configuration
-- `addProjPSF(fname)` - Add projection-space PSF
+- `addProjPSF(fname)` - Add projection-space PSF (DD only), using the
+  [projection-space CSV format](../usage/projpsf_file.md)
 
 **Note**: Configuration methods must be called AFTER creating the
 OperatorProjector but BEFORE calling any projection operations.

@@ -70,15 +70,14 @@ def osem_4d_data():
     ref_img_path = os.path.join(fold_uhr2d_ref, ref_img_fname)
     ref_img_y = yrt.ImageOwned(ref_img_path)
     ref_img_np = np.array(ref_img_y)
-    dynamic_framing_array = yrt.DynamicFraming(os.path.join(
-        fold_uhr2d,"dynamic_framing_osem4d.dyn"))
+    df = yrt.DynamicFraming(os.path.join(fold_uhr2d,
+                                         "dynamic_framing_osem4d.dyn"))
 
     dataset = yrt.ListModeLUTOwned(
         scanner, os.path.join(fold_uhr2d, "shepp_logan_dyn.lmDat")
     )
     img_params = yrt.ImageParams(os.path.join(fold_uhr2d,
                                               "img_params_2d_dyn.json"))
-    df = yrt.DynamicFraming(dynamic_framing_array)
     dataset.addDynamicFraming(df)
 
     return {"scanner": scanner,

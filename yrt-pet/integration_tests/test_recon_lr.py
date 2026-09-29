@@ -97,7 +97,8 @@ def osem_lr_W_data():
     Wref_np = np.array(Wref, copy=True)
     Hinit_np = np.genfromtxt(os.path.join(fold_uhr2d_ref,
                                            f"{ref_fname_prefix}_Hinit.csv"),
-                              delimiter=",")
+                              delimiter=",",
+                              dtype=np.float32)
     df = yrt.DynamicFraming(os.path.join(fold_uhr2d,
                                          "dynamic_framing_shepp_logan.dyn"))
 
@@ -131,9 +132,11 @@ def osem_lr_H_data():
 
     # Load reference W reconstruction used as the initial estimate
     Hinit_np = np.genfromtxt(os.path.join(
-        fold_uhr2d_ref, f"{lr_recon_fname_prefix}_Hinit.csv"))
+        fold_uhr2d_ref, f"{lr_recon_fname_prefix}_Hinit.csv"),
+        dtype=np.float32)
     Href_np = np.genfromtxt(os.path.join(
-        fold_uhr2d_ref, f"{lr_recon_fname_prefix}_Href.csv"))
+        fold_uhr2d_ref, f"{lr_recon_fname_prefix}_Href.csv"),
+        dtype=np.float32)
 
     dataset = yrt.ListModeLUTOwned(
         scanner, os.path.join(fold_uhr2d, "shepp_logan_dyn.lmDat")
@@ -278,7 +281,7 @@ def test_uhr2d_shepp_logan_lrem_updateh(osem_lr_H_data):
     scanner = d["scanner"]
     img_params = d["img_params"]
     HBasis_np = d["Hinit_np"]
-    HBasis_np_orig = np.copy(HBasis_np)
+    HBasis_np_orig = np.array(HBasis_np, copy=True)
     Winit = d["Winit"]
     Winit_np = d["Winit_np"]
     lm = d["dataset"]

@@ -17,7 +17,8 @@ public:
 
 	// Return sensitivity*attenuation. This computes the attenuation factor
 	//  on-the-fly instead of using the precomputed ProjectionList. This is
-	//  useful only for the sensitivity image generation
+	//  useful only for the sensitivity image generation. Note that this does
+	//  not include the global scale factor
 	float getMultiplicativeCorrectionFactor(const ProjectionData& measurements,
 	                                        bin_t binId) const;
 

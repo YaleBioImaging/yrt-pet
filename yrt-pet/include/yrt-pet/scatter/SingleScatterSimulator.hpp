@@ -5,11 +5,6 @@
 
 #pragma once
 
-#include "yrt-pet/geometry/Cylinder.hpp"
-#include "yrt-pet/geometry/Plane.hpp"
-#include "yrt-pet/operators/OperatorProjector.hpp"
-#include "yrt-pet/operators/ProjectorUpdater.hpp"
-#include "yrt-pet/scatter/Crystal.hpp"
 #include "yrt-pet/scatter/ScatterSpace.hpp"
 
 #include <vector>
@@ -27,42 +22,54 @@ namespace scatter
 class SingleScatterSimulator
 {
 public:
-	SingleScatterSimulator(const Scanner& pr_scanner, const Image& pr_mu,
-	                       const Image& pr_lambda,
-	                       CrystalMaterial p_crystalMaterial, int seedi,
-	                       float numSampFrac = 2.f / 3.f);
+	// Attenuation in 1/cm
+	static constexpr float DefaultAttThresholdSampling = 0.01;
+	static constexpr int DefaultSeed = 13;
+	// Fraction between 0 and 1
+	static constexpr float DefaultNumSampFrac = 2.f / 3.f;
+	// Probability between 0 and 1
+	static constexpr float DefaultDetectionThreshold = 0.05;
 
-	void runSSS(ScatterSpace& outScatterSpace);
+	SingleScatterSimulator(
+	    const Scanner& pr_scanner, const Image& pr_mu, const Image& pr_lambda,
+	    int p_seed = DefaultSeed,
+	    float p_attThresholdSampling = DefaultAttThresholdSampling,
+	    float p_numSampFrac = DefaultNumSampFrac,
+	    float p_detectionThreshold = DefaultDetectionThreshold);
+
+	void runSSS(ScatterSpace& outScatterSpace,
+	            bool onlyDirectPlanes = false) const;
+
+#if BUILD_CUDA
+	void runSSSDevice(ScatterSpace& outScatterSpace,
+	                  bool onlyDirectPlanes = false,
+	                  size_t maxVRAM_bytes = 0ull,
+	                  const cudaStream_t* stream0 = nullptr,
+	                  const cudaStream_t* stream1 = nullptr) const;
+#endif
 
 	float computeSingleScatterInLOR(const Line3D& lor, float tof_ps) const;
 
 	Vector3D getSamplePoint(int i) const;
 	int getNumSamples() const;
-	bool passCollimator(const Line3D& lor) const;
 	const Image& getAttenuationImage() const;
 
 private:
 	static float ran1(int* idum);
-	static float getKleinNishina(float cosa);
-	static float getMuScalingFactor(float energy);
-
-	float getIntersectionLengthLORCrystal(const Line3D& lor) const;
 
 	// Attenuation image samples
 	int m_numSamples;
 	std::vector<float> m_xSamples, m_ySamples, m_zSamples;
+	// Threshold on the attenuation image to consider a voxel as a potential
+	//  scatter point
+	float m_attThresholdSampling;
+	float m_detectionThreshold;
 
-	float m_energyLLD, m_sigmaEnergy;
-	float m_scannerRadius, m_crystalDepth, m_axialFOV, m_collimatorRadius;
+	float m_energyLLD, m_energyResolution;
+	float m_scannerRadius;
 	const Scanner& mr_scanner;
 	const Image& mr_mu;      // Attenuation image
 	const Image& mr_lambda;  // Image from 2 MLEM iterations
-	CrystalMaterial m_crystalMaterial;
-	Cylinder m_cyl1, m_cyl2;
-	Plane m_endPlate1, m_endPlate2;
-
-	// Updater for forward and back-projection
-	std::unique_ptr<OperatorProjector> mp_proj;
 };
 
 }  // namespace scatter

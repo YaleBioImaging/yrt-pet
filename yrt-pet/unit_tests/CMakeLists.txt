@@ -19,6 +19,7 @@ set(SOURCES_DATASTRUCT
     operators/test_TimeOfFlight.cpp
     scatter/test_ScatterSpace.cpp
     utils/test_BinIterator.cpp
+    utils/test_FillShape.cpp
     datastruct/test_BinFilter.cpp)
 
 if (${USE_CUDA})
@@ -43,6 +44,8 @@ set(SOURCES_ALGORITHMS
     recon/test_ApplyThreshold.cpp
     recon/test_TimeAverageMove.cpp
     recon/test_UpdateEM.cpp
+    scatter/test_SSS.cpp
+    utils/test_Concurrency.cpp
 )
 
 if (${USE_CUDA})
@@ -60,7 +63,8 @@ add_test(test_runner_algorithms test_runner_algorithms)
 
 set(SOURCES_MISC
     ${SOURCES_COMMON}
-    utils/test_Utilities.cpp)
+    utils/test_Utilities.cpp
+    utils/test_FillShape.cpp)
 define_target_exe(test_runner_misc "${SOURCES_MISC}")
 if (${USE_CUDA})
     set_property(TARGET test_runner_misc PROPERTY

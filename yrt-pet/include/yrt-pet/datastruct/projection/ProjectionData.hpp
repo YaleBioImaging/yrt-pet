@@ -42,7 +42,9 @@ public:
 	virtual frame_t getDynamicFrame(bin_t id) const;
 	virtual frame_t getMotionFrame(bin_t id) const;
 	virtual bool isUniform() const;
+	// Randoms
 	virtual bool hasRandomsEstimates() const;
+	virtual float getRandomsTimeWindow() const;
 	virtual float getRandomsEstimate(bin_t id) const;
 	// Time-of-flight
 	virtual bool hasTOF() const;
@@ -53,8 +55,8 @@ public:
 	virtual size_t getNumDynamicFrames() const;
 	virtual size_t getNumMotionFrames() const;
 	virtual transform_t getTransformOfMotionFrame(frame_t frame) const;
-	virtual float getDurationOfMotionFrame(frame_t frame) const;
-	virtual timestamp_t getScanDuration() const;
+	virtual float getDurationOfMotionFrame(frame_t frame) const; // In ms
+	virtual timestamp_t getScanDuration() const; // In milliseconds
 	// Special case when the LOR is not defined directly from the scanner's LUT
 	virtual bool hasArbitraryLORs() const;
 	virtual Line3D getArbitraryLOR(bin_t id) const;

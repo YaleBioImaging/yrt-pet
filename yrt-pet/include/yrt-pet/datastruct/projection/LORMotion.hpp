@@ -5,7 +5,6 @@
 
 #pragma once
 
-#include "yrt-pet/datastruct/fancyarray/trivial_struct_of_arrays.hpp"
 #include "yrt-pet/utils/Types.hpp"
 
 #include <vector>
@@ -17,7 +16,7 @@ class LORMotion
 public:
 	struct Record
 	{
-		timestamp_t timestamp;
+		timestamp_t timestamp; // In milliseconds
 		transform_t transform;
 		float error;
 	};

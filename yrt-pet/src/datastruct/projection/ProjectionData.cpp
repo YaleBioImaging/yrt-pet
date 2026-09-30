@@ -63,7 +63,8 @@ void py_setup_projectiondata(py::module& m)
 	      &ProjectionData::getTransformOfMotionFrame, "frame"_a);
 	c.def("getDurationOfMotionFrame", &ProjectionData::getDurationOfMotionFrame,
 	      "frame"_a);
-	c.def("getScanDuration", &ProjectionData::getScanDuration);
+	c.def("getScanDuration", &ProjectionData::getScanDuration,
+	      "Return the duration of the scan in milliseconds");
 	c.def("hasArbitraryLORs", &ProjectionData::hasArbitraryLORs);
 	c.def(
 	    "getArbitraryLOR",
@@ -119,6 +120,11 @@ bool ProjectionData::isUniform() const
 bool ProjectionData::hasRandomsEstimates() const
 {
 	return false;
+}
+
+float ProjectionData::getRandomsTimeWindow() const
+{
+	return 0.f;
 }
 
 bool ProjectionData::hasMotion() const

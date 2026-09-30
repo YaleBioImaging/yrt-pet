@@ -4,7 +4,7 @@
  */
 
 #include "yrt-pet/geometry/TubeOfResponse.hpp"
-#include "yrt-pet/geometry/Cylinder.hpp"
+#include "yrt-pet/geometry/Cylinder3DBase.hpp"
 
 #include <cmath>
 #include <cstdlib>
@@ -146,7 +146,7 @@ TubeOfResponse::TubeOfResponse(const Vector3D& p1, const Vector3D& p2,
 	    (std::abs(tubevector.y) < std::abs(tubevector.x));
 }
 
-bool TubeOfResponse::clip(const Cylinder& cyl)
+bool TubeOfResponse::clip(const Cylinder3D& cyl)
 {
 	bool allIntersect = true;
 	allIntersect &= cyl.clipLine(leftLine);

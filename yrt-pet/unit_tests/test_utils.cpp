@@ -265,7 +265,7 @@ std::unique_ptr<Scanner> makeFakeScanner(float axialFOV, float crystalSize_z,
 	if (!scanner->isValid())
 	{
 		throw std::runtime_error(
-		    "Unknown error in yrt::util::test::makeScanner");
+		    "Unknown error in yrt::util::test::makeFakeScanner");
 	}
 
 	return scanner;

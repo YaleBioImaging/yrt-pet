@@ -6,6 +6,7 @@
 #pragma once
 
 #include "yrt-pet/datastruct/image/Image.hpp"
+#include "yrt-pet/datastruct/projection/ListMode.hpp"
 #include "yrt-pet/operators/Operator.hpp"
 #include "yrt-pet/operators/ProjectorParams.hpp"
 #include "yrt-pet/recon/Corrector.hpp"
@@ -93,6 +94,7 @@ public:
 	bool hasImagePSF() const;
 	void enableNeedToMakeCopyOfSensImage();  // For Python
 	void setImageParams(const ImageParams& params);
+	bool isImageParamsSet() const;
 	ImageParams getImageParams() const;
 	ImageParams getImageParamsForSensImgGen() const;
 	void setRandomsHistogram(const Histogram* pp_randoms);
@@ -154,6 +156,8 @@ protected:
 	int getCurrentOSEMSubset() const;
 	int getCurrentMLEMIteration() const;
 	const BinIterator* getBinIterator(int subsetId) const;
+	const ListMode* getDataInputAsListMode() const;
+	const Histogram* getDataInputAsHistogram() const;
 
 	// Protected members
 	ProjectorParams projectorParams;
@@ -172,6 +176,7 @@ protected:
 	std::unique_ptr<Image> outImage;  // Note: This is a host image
 	std::vector<std::unique_ptr<BinIterator>> m_binIterators;
 	std::vector<std::unique_ptr<Constraint>> m_constraints;
+	std::vector<float> m_frameDurations;  // in seconds
 
 private:
 	void loadSubsetInternal(int p_subsetId, bool p_forRecon);

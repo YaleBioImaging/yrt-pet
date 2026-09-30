@@ -9,7 +9,7 @@
 #include "yrt-pet/datastruct/image/Image.hpp"
 #include "yrt-pet/datastruct/projection/ListModeLUT.hpp"
 #include "yrt-pet/operators/SiddonKernels.cuh"
-#include "yrt-pet/recon/CUParameters.hpp"
+#include "yrt-pet/recon/RawParameters.hpp"
 #include "yrt-pet/utils/ReconstructionUtils.hpp"
 #include <limits>
 #include <memory>
@@ -94,7 +94,7 @@ TEST_CASE("siddon_gpu_vs_cpu", "[siddon-gpu]")
 
 __global__ void getMultiRayPos(float3 p1Init, float3 p2Init, float3 n1,
                                float3 n2, int numRays,
-                               yrt::CUScannerParams scannerParams, float3* pos1,
+                               yrt::RawScannerParams scannerParams, float3* pos1,
                                float3* pos2)
 {
 	float3 parallelToTrans1, parallelToTrans2;
@@ -119,7 +119,7 @@ TEST_CASE("multiray-gpu", "[siddon-gpu]")
 	float3 p2Init{-10, 0, 0};
 	float3 n1{-1, 0, 0};
 	float3 n2{1, 0, 0};
-	yrt::CUScannerParams scannerParams;
+	yrt::RawScannerParams scannerParams;
 	scannerParams.crystalSize_trans = scanner->crystalSize_trans;
 	scannerParams.crystalSize_z = scanner->crystalSize_z;
 	scannerParams.crystalDepth = scanner->crystalDepth;

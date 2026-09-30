@@ -64,7 +64,7 @@ private:
 	    const std::vector<Constraint*>& constraints = {},
 	    const std::set<ProjectionPropertyType>& projProperties = {});
 	void allocateForPrecomputedLORsIfNeeded(GPULaunchConfig launchConfig);
-	void allocateBinFilterIfNeeded(size_t newBatchSize);
+	void allocateBinLoaderIfNeeded(size_t newBatchSize);
 
 	// Contains temporary projection-space data in the host waiting to be loaded
 	//  on the GPU

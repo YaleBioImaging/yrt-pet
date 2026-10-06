@@ -11,6 +11,8 @@ set(SOURCES_DATASTRUCT
     datastruct/test_DynamicFraming.cpp
     datastruct/test_SparseHistogram.cpp
     datastruct/test_Histogram3D.cpp
+    datastruct/test_Sinogram3D.cpp
+    datastruct/test_SinogramConverter.cpp
     datastruct/test_LORMotion.cpp
     datastruct/test_Image.cpp
     datastruct/test_ListModeLUT.cpp

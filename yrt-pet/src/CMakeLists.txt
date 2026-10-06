@@ -6,6 +6,8 @@ set(SOURCES
     datastruct/projection/DynamicFraming.cpp
     datastruct/projection/Histogram.cpp
     datastruct/projection/Histogram3D.cpp
+    datastruct/projection/Sinogram3D.cpp
+    datastruct/projection/SinogramConverter.cpp
     datastruct/projection/ListMode.cpp
     datastruct/projection/ListModeLUT.cpp
     datastruct/projection/ListModeLUTDOI.cpp

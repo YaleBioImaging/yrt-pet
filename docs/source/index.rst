@@ -31,6 +31,7 @@ YRT-PET documentation
    usage/list-mode_file
    usage/motion_file
    usage/histogram3d_format
+   usage/sinogram3d_format
    usage/rawd_file
    usage/sparse-histogram
    usage/imagepsf_file

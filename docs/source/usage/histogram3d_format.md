@@ -3,8 +3,8 @@
 This page will describe how the *Histogram3D* structure is organised in YRT-PET.
 
 Semantics: The word "Histogram" refers to an array of which the bins are in
-logical indices. The word "Sinogram", which are not supported yet in YRT-PET,
-refers to an array of which the bins point to physical coordinates, regardless
+logical indices. The word "Sinogram" (see `sinogram3d_format`) refers to an
+array of which the bins point to physical coordinates (phi, r, z), regardless
 of how irregular the scanner is.
 
 This means that Histograms point to real detector pairs present in the scanner.

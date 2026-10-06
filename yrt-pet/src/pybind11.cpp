@@ -32,6 +32,8 @@ void py_setup_projectiondata(py::module& m);
 void py_setup_biniterator(py::module& m);
 void py_setup_histogram(py::module& m);
 void py_setup_histogram3d(py::module& m);
+void py_setup_sinogram3d(py::module& m);
+void py_setup_sinogram_converter(py::module& m);
 void py_setup_uniformhistogram(py::module& m);
 void py_setup_sparsehistogram(py::module& m);
 void py_setup_lormotion(py::module& m);
@@ -109,6 +111,8 @@ PYBIND11_MODULE(pyyrtpet, m)
 	py_setup_projectiondata(m);
 	py_setup_histogram(m);
 	py_setup_histogram3d(m);
+	py_setup_sinogram3d(m);
+	py_setup_sinogram_converter(m);
 	py_setup_uniformhistogram(m);
 	py_setup_sparsehistogram(m);
 	py_setup_lormotion(m);

@@ -120,7 +120,7 @@ protected:
 	// if nullptr, use getRandomsEstimate()
 	const Histogram* mp_randoms;
 
-	// Can also be a sinogram (once the format exists)
+	// Can also be a Sinogram3D
 	const Histogram* mp_scatter;
 
 	// Histogram of ACFs in case ACFs were already calculated

@@ -7,6 +7,8 @@
 
 #include "yrt-pet/geometry/Constants.hpp"
 
+#include <algorithm>
+
 #define FORBID_INPUT_ERROR_MESSAGE                                          \
 	"The scatter space should not be used to gather LORs, do projections, " \
 	"or reconstructions. It is meant only for corrections."

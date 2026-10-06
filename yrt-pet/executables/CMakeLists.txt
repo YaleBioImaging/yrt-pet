@@ -5,6 +5,7 @@ define_target_exe(yrtpet_forward_project recon/ForwardProject.cpp ArgumentReader
 define_target_exe(yrtpet_backproject recon/Backproject.cpp PluginOptionsHelper.cpp ArgumentReader.cpp)
 define_target_exe(yrtpet_estimate_scatter recon/EstimateScatter.cpp PluginOptionsHelper.cpp ArgumentReader.cpp)
 
+define_target_exe(yrtpet_make_sinogram conversion/MakeSinogram.cpp PluginOptionsHelper.cpp ArgumentReader.cpp)
 define_target_exe(yrtpet_convert_to_histogram conversion/ConvertToHistogram.cpp PluginOptionsHelper.cpp ArgumentReader.cpp)
 define_target_exe(yrtpet_convert_to_listmodelut conversion/ConvertToListModeLUT.cpp PluginOptionsHelper.cpp ArgumentReader.cpp)
 define_target_exe(yrtpet_convert_to_low_count_listmodelut conversion/ConvertToLowCountListModeLUT.cpp PluginOptionsHelper.cpp ArgumentReader.cpp)

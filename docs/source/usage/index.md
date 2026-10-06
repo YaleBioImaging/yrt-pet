@@ -9,6 +9,8 @@ The following executables might be of interest:
 - `yrtpet_backproject`: Backproject a list-mode or a histogram into an image
 - `yrtpet_convert_to_histogram`: Convert a list-mode (or any other datatype
   input) into a fully 3D histogram or a sparse histogram
+- `yrtpet_make_sinogram`: Bin list-mode data into per-frame Sinogram3D files
+  (`.sino` format) compatible with the projector and corrector pipeline
 - (Subject to change) `yrtpet_estimate_scatter`: Prepare a fully 3D
   histogram for usage in OSEM as scatter estimate. Currently experimental and
   incomplete

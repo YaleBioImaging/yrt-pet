@@ -77,6 +77,7 @@ public:
 
 	void readFromFile(const std::string& imageVarPsf_fname);
 
+	// Overwrite the output; input and output must use distinct storage.
 	void applyA(const Variable* in, Variable* out) override;
 	void applyAH(const Variable* in, Variable* out) override;
 	template <bool IS_FWD>

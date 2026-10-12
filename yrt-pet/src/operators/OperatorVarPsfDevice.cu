@@ -292,6 +292,12 @@ void OperatorVarPsfDevice::varconvolveDevice(const ImageDevice& inputImage,
 
 	const cudaStream_t* stream = getMainStream();
 	const GPULaunchParams3D launchParams = inputImage.getLaunchParams();
+	if constexpr (!IS_FWD)
+	{
+		// The adjoint kernel scatters contributions with atomicAdd.
+		util::memsetDevice(pd_output, 0, static_cast<size_t>(nx) * ny * nz,
+		                   {stream, false});
+	}
 
 	if (stream != nullptr)
 	{

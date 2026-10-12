@@ -381,6 +381,7 @@ void OperatorVarPsf::varconvolve(const Image* in, Image* out) const
 	ASSERT_MSG(params.isSameDimensionsAs(out->getParams()),
 	           "Dimensions mismatch between the two images");
 	ASSERT_MSG(m_kernelLUT.size() > 0, "LUT not defined");
+	out->fill(0.0f);
 	const float* inPtr = in->getRawPointer();
 	float* outPtr = out->getRawPointer();
 	const ssize_t nx = params.nx;

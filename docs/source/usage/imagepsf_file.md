@@ -5,7 +5,8 @@ forms:
 
 - **Uniform PSF kernel**: three separable 1D kernels, used at every voxel.
 - **Spatially variant PSF kernel (PSF Look-Up Table or LUT)**: a regular grid
-  of single Gaussian or dual Gaussian 3D kernels.
+  of single Gaussian or dual Gaussian 3D kernels. At each image location,
+  the nearest LUT grid point is used to select the PSF kernel.
 
 Both formats use standard **CSV (comma-separated values)** files.
 

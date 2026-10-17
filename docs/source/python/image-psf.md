@@ -3,7 +3,8 @@
 Image-space PSF operators filter an image without running a reconstruction.
 They can be used for image processing or combined with an
 [OperatorProjector](operator-projector.md). For OSEM reconstruction, use
-[`addImagePSF`](osem.md) so that OSEM applies the PSF and its adjoint (transpose) internally.
+[`addImagePSF`](osem.md) so that OSEM applies the PSF and its adjoint
+(transpose) internally.
 
 ## Python Types
 
@@ -13,14 +14,17 @@ They can be used for image processing or combined with an
 | Spatially variant single or dual Gaussian | `yrt.OperatorVarPsf` | `yrt.OperatorVarPsfDevice` |
 
 Both models provide `applyA(img_in, img_out)` for the forward operation and
-`applyAH(img_in, img_out)` for adjoint operation. A spatially varying PSF generally has different forward and
-adjoint operations, even though each local Gaussian kernel is symmetric.
+`applyAH(img_in, img_out)` for adjoint operation. A spatially varying PSF
+generally has different forward and adjoint operations, even though each local
+Gaussian kernel is symmetric.
 
-## Imports
+## Demo
 
-Run the following sections in order in the same Python session. Will
-generate the input image and PSF CSV files, so no external data is
-needed.
+The following blocks demonstrate the setup and use of the operators.  Run the
+following sections in order in the same Python session. Will generate the input
+image and PSF CSV files, so no external data is needed.
+
+### Imports
 
 ```python
 import itertools
@@ -29,11 +33,11 @@ import numpy as np
 import pyyrtpet as yrt
 ```
 
-## Preparing an Image
+### Preparing an Image
 
-Below we created a small random image with 33 x 31 x 32 voxels of 1 mm.
-NumPy stores the image in `(nz, ny, nx)` order, while `ImageParams` takes
-`(nx, ny, nz)` followed by the physical lengths in mm.
+Below we create a small random image with 33 x 31 x 32 voxels of 1 mm.  NumPy
+stores the image in `(nz, ny, nx)` order, while `ImageParams` takes `(nx, ny,
+nz)` followed by the physical lengths in mm.
 
 ```python
 rng = np.random.default_rng(0)
@@ -44,9 +48,9 @@ image = yrt.ImageAlias(img_params)
 image.bind(x)
 ```
 
-## Uniform PSF
+### Uniform PSF
 
-### Generating a Kernel File
+#### Generating a Kernel File
 
 A uniform PSF applies the same three separable 1D kernels at every voxel.
 `sigma` and `voxel_size` are in mm; `size` is an odd number of samples.
@@ -73,7 +77,7 @@ uniform_lut[3, :3] = sizes
 np.savetxt("uniform_psf.csv", uniform_lut, delimiter=",")
 ```
 
-### Applying the Forward and Adjoint Operators
+#### Applying the Forward and Adjoint Operators
 
 Load the file and allocate output images with the same image parameters:
 
@@ -89,19 +93,19 @@ psf_uniform.applyA(image, filtered)
 psf_uniform.applyAH(image, adjoint_image)
 
 np.testing.assert_allclose(
-    np.asarray(filtered), np.asarray(adjoint_image), rtol=1e-5, atol=1e-6
-)
+    np.asarray(filtered), np.asarray(adjoint_image), rtol=1e-5, atol=1e-6)
 print("Uniform Gaussian forward and adjoint results match")
 ```
 
-`OperatorPsf` overwrites its output, so no `fill(0.0)` is needed. The adjoint uses the reversed 1D kernels.
+`OperatorPsf` overwrites its output, so no `fill(0.0)` is needed. The adjoint
+uses the reversed 1D kernels.
 
-### Constructing a Custom Kernel Directly
+#### Constructing a Custom Kernel Directly
 
-Alternatively, pass three nonempty odd-length coefficient arrays directly.
-The operator uses them as supplied; normalize each axis to unit sum for a
-normalized PSF. Here the X kernel is asymmetric, so the forward and adjoint
-operations generally give different results on the same input:
+Alternatively, pass three nonempty odd-length coefficient arrays directly.  The
+operator uses them as supplied; normalize each axis to unit sum for a normalized
+PSF. Here the X kernel is asymmetric, so the forward and adjoint operations
+generally give different results on the same input:
 
 ```python
 kernel_x = [0.1, 0.2, 0.7]
@@ -115,20 +119,20 @@ difference = np.abs(np.asarray(filtered) - np.asarray(adjoint_image)).max()
 print(f"Custom kernel: max |A x - A^H x| = {difference:.6f}")
 ```
 
-## Spatially Variant PSF
+### Spatially Variant PSF
 
-### Generating a Dual Gaussian LUT
+#### Generating a Dual Gaussian LUT
 
-A spatially variant PSF selects a kernel from a regular grid using the
-nearest absolute distance from the image center along each axis. Locations
-outside the grid use its edge values. Each entry can contain one Gaussian
-or a mixture of **two Gaussians sharing the same center**.
+A spatially variant PSF selects a kernel from a regular grid using the nearest
+absolute distance from the image center along each axis. Locations outside the
+grid use its edge values. Each entry can contain one Gaussian or a mixture of
+**two Gaussians sharing the same center**.
 
-Below is an example of generating a dual Gaussian LUT covering the voxel centers of our image.
-We sample every 8 mm from 0 to 16 mm along each axis, giving
-`(16 / 8 + 1)^3 = 27` kernels. Each kernel has a narrow core and a broad
-tail whose widths increase with distance from the image center.
-These parameters are illustrative, not scanner calibration values.
+Below is an example of generating a dual Gaussian LUT covering the voxel centers
+of our image.  We sample every 8 mm from 0 to 16 mm along each axis, giving `(16
+/ 8 + 1)^3 = 27` kernels. Each kernel has a narrow core and a broad tail whose
+widths increase with distance from the image center.  These parameters are
+illustrative, not scanner calibration values.
 
 ```python
 xyz_range = (16.0, 16.0, 16.0)  # mm
@@ -136,8 +140,7 @@ xyz_gap = (8.0, 8.0, 8.0)  # mm
 xyz_nstd = (2.5, 2.5, 2.5)  # Kernel support controls, in sigmas
 nx_lut, ny_lut, nz_lut = (
     int(np.floor(extent / gap)) + 1
-    for extent, gap in zip(xyz_range, xyz_gap)
-)
+    for extent, gap in zip(xyz_range, xyz_gap))
 
 # Seven columns in every row, including the three metadata rows.
 variant_lut = np.zeros((3 + nx_lut * ny_lut * nz_lut, 7))
@@ -160,18 +163,17 @@ np.savetxt("dual_gaussian.csv", variant_lut, delimiter=",")
 print(f"Wrote {len(variant_lut) - 3} dual Gaussian kernels")
 ```
 
-The first three rows contain ranges, gaps, and support controls, padded
-with four zeros. Each remaining row contains
-`sigma_x1, sigma_y1, sigma_z1, sigma_x2, sigma_y2, sigma_z2, weight2`.
-Component 1 has weight `1 - weight2`. See the
+The first three rows contain ranges, gaps, and support controls, padded with
+four zeros. Each remaining row contains `sigma_x1, sigma_y1, sigma_z1, sigma_x2,
+sigma_y2, sigma_z2, weight2`.  Component 1 has weight `1 - weight2`. See the
 [PSF LUT format](../usage/imagepsf_file.md) for details.
 
-### Applying the Forward and Adjoint Operators
+#### Applying the Forward and Adjoint Operators
 
 The constructor automatically selects the single Gaussian model for a
-three-column CSV or the dual Gaussian model for a seven-column CSV.
-The variant operator works on a single 3D frame, as in our input image.
-We will reuse the output images allocated in the Uniform PSF section.
+three-column CSV or the dual Gaussian model for a seven-column CSV.  The variant
+operator works on a single 3D frame, as in our input image.  We will reuse the
+output images allocated in the Uniform PSF section.
 
 Use distinct input and output images with matching dimensions and voxel
 sizes. Both `applyA` and `applyAH` overwrite the output, just like
@@ -189,11 +191,11 @@ print(f"Forward sum: {np.asarray(filtered).sum():.6f}")
 print(f"Adjoint sum: {np.asarray(adjoint_image).sum():.6f}")
 ```
 
-### Checking the Adjoint
+#### Checking the Adjoint
 
-For an independent image `y`, the inner products should satisfy
-`<A x, y> = <x, A^H y>` within floating-point tolerance. `filtered` already
-contains `A x`, so we only need to compute `A^H y`:
+For an independent image `y`, the inner products should satisfy `<A x, y> = <x,
+A^H y>` within floating-point tolerance. `filtered` already contains `A x`, so
+we only need to compute `A^H y`:
 
 ```python
 y = rng.random(x.shape).astype(np.float32)
@@ -209,13 +211,13 @@ np.testing.assert_allclose(lhs, rhs, rtol=1e-4, atol=1e-6)
 print("Adjoint test passed")
 ```
 
-## Combining with a Projector
+### Combining with a Projector
 
-### Preparing a Scanner and Projector
+#### Preparing a Scanner and Projector
 
-Below we combine the variant `psf` with a small cylindrical scanner and a
-Siddon projector. This creates the scanner and projection data directly,
-using the same image as above:
+Below we combine the variant `psf` with a small cylindrical scanner and a Siddon
+projector. This creates the scanner and projection data directly, using the same
+image as above:
 
 ```python
 scanner = yrt.Scanner(
@@ -229,9 +231,8 @@ scanner = yrt.Scanner(
     num_rings=4,
     num_doi=1,
     max_ring_diff=3,
-    min_ang_diff=1,
-    dets_per_block=8,
-)
+    min_ang_diff=2,
+    dets_per_block=8)
 projection_data = yrt.Histogram3DOwned(scanner)
 projection_data.allocate()
 bin_iter = projection_data.getBinIter(num_subsets=1, idx_subset=0)
@@ -240,10 +241,10 @@ proj_params.setProjector("S")
 oper = yrt.createOperatorProjector(proj_params, bin_iter)
 ```
 
-### Forward Projection and Backprojection
+#### Forward Projection and Backprojection
 
-The forward operation applies the PSF before projecting. Its adjoint
-reverses that order: backproject first, then apply the adjoint PSF.
+The forward operation applies the PSF before projecting. Its adjoint reverses
+that order: backproject first, then apply the adjoint PSF.
 
 ```python
 # Forward: image -> PSF -> projection
@@ -265,20 +266,20 @@ assert np.isfinite(backprojection_np).all() and backprojection_np.max() > 0
 print("PSF forward projection and backprojection completed")
 ```
 
-For OSEM, use [`addImagePSF`](osem.md) to configure these operations
-internally rather than applying them manually.
+For OSEM, use [`addImagePSF`](osem.md) to configure these operations internally
+rather than applying them manually.
 
-## GPU Usage (Optional)
+### GPU Usage (Optional)
 
 The following examples require a CUDA-enabled YRT-PET build and a usable
-GPU. Run them after the CPU sections above; they reuse the generated CSV
-files, input image, and allocated outputs.
+GPU. Run them after the CPU sections above; they reuse the generated CSV files,
+input image, and allocated outputs.
 
-### Uniform PSF
+#### Uniform PSF
 
 `OperatorPsfDevice` accepts host or device images and overwrites the output.
-Each kernel length must be no larger than the corresponding image
-dimension; use a one-tap kernel for an axis containing only one voxel.
+Each kernel length must be no larger than the corresponding image dimension; use
+a one-tap kernel for an axis containing only one voxel.
 
 ```python3
 psf_uniform_gpu = yrt.OperatorPsfDevice("uniform_psf.csv")
@@ -286,7 +287,7 @@ psf_uniform_gpu.applyA(image, filtered)
 psf_uniform_gpu.applyAH(image, adjoint_image)
 ```
 
-### Spatially Variant PSF
+#### Spatially Variant PSF
 
 The file-loading constructor transfers the LUT to GPU memory automatically:
 
@@ -296,8 +297,7 @@ psf_gpu.applyA(image, filtered)
 psf_gpu.applyAH(image, adjoint_image)
 ```
 
-The GPU operator accepts host `Image` objects as above (copying data to and
-from the GPU) or device `ImageDevice` objects. Both `applyA` and `applyAH`
-overwrite the output for either image type, matching the CPU operator.
-No `fill(0.0)` is needed before either call, including when reusing a device
-output.
+The GPU operator accepts host `Image` objects as above (copying data to and from
+the GPU) or device `ImageDevice` objects. Both `applyA` and `applyAH` overwrite
+the output for either image type, matching the CPU operator.  No `fill(0.0)` is
+needed before either call, including when reusing a device output.

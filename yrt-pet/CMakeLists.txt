@@ -111,6 +111,10 @@ if (USE_CUDA)
 
     set(CMAKE_CUDA_ARCHITECTURES ${YRTPET_CUDA_ARCHITECTURES})
 
+    if (USE_CUDA AND NOT CMAKE_CUDA_HOST_COMPILER)
+	set(CMAKE_CUDA_HOST_COMPILER ${CMAKE_CXX_COMPILER})
+    endif()
+
     find_package(CUDAToolkit)
     enable_language(CUDA)
     add_compile_definitions(BUILD_CUDA)
@@ -162,6 +166,12 @@ function(setup_target TARGET JSON CXXOPTS PYBIND11)
         target_compile_definitions(${TARGET} PUBLIC BUILD_PYBIND11)
     endif ()
     add_compile_definitions(HAVE_ZLIB)
+    if (USE_CUDA)
+        get_target_property(TARGET_TYPE ${TARGET} TYPE)
+        if (NOT TARGET_TYPE STREQUAL "STATIC_LIBRARY")
+            set_property(TARGET ${TARGET} PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS ON)
+        endif ()
+    endif ()
 endfunction()
 
 # Wrapper for library target
@@ -174,6 +184,9 @@ function(define_yrtpet_lib SOURCES)
     target_compile_options(${YRTPET_LIB_NAME} PRIVATE
         $<$<COMPILE_LANGUAGE:CXX>:-fPIC>
         "$<$<COMPILE_LANGUAGE:CUDA>:--compiler-options=-fPIC>")
+    if (USE_CUDA)
+        set_property(TARGET ${YRTPET_LIB_NAME} PROPERTY CUDA_SEPARABLE_COMPILATION ON)
+    endif ()
     install(TARGETS ${YRTPET_LIB_NAME}
         ARCHIVE DESTINATION lib
         INCLUDES DESTINATION include)
@@ -183,11 +196,11 @@ function(define_yrtpet_lib SOURCES)
         target_sources(${YRTPET_LIB_NAME}_shared PRIVATE ${SOURCES})
         setup_target(${YRTPET_LIB_NAME}_shared ${JSON} ${CXXOPTS} ${BUILD_PYBIND11})
         target_compile_options(${YRTPET_LIB_NAME}_shared PRIVATE
-                $<$<COMPILE_LANGUAGE:CXX>:-fPIC>
-                "$<$<COMPILE_LANGUAGE:CUDA>:--compiler-options=-fPIC>")
+            $<$<COMPILE_LANGUAGE:CXX>:-fPIC>
+            "$<$<COMPILE_LANGUAGE:CUDA>:--compiler-options=-fPIC>")
         install(TARGETS ${YRTPET_LIB_NAME}_shared
-                ARCHIVE DESTINATION lib
-                INCLUDES DESTINATION include)
+            ARCHIVE DESTINATION lib
+            INCLUDES DESTINATION include)
     endif()
 endfunction()
 
@@ -205,10 +218,10 @@ function(define_target_exe TARGET)
     set(CXXOPTS ${ARGC} GREATER 2 AND ${ARGV2})
     set(JSON OFF)
     setup_target(${TARGET} ${JSON} ${CXXOPTS} ${BUILD_PYBIND11})
-
     target_link_options(${TARGET} PUBLIC
-        -Wl,--whole-archive $<TARGET_FILE:${YRTPET_LIB_NAME}> -Wl,--no-whole-archive
-    )
+	"$<HOST_LINK:-Wl$<COMMA>--whole-archive>"
+	"$<HOST_LINK:$<TARGET_FILE:${YRTPET_LIB_NAME}>>"
+	"$<HOST_LINK:-Wl$<COMMA>--no-whole-archive>")
     target_link_libraries(${TARGET} PUBLIC ${YRTPET_LIB_NAME})
     install(TARGETS ${TARGET} RUNTIME DESTINATION bin)
 endfunction()
@@ -220,7 +233,11 @@ if (BUILD_PYBIND11)
         set(JSON ON)
         set(CXXOPTS OFF)
         setup_target(${TARGET} ${JSON} ${CXXOPTS} ON)
-        target_link_libraries(${TARGET} PUBLIC ${YRTPET_LIB_NAME})
+	target_link_options(${TARGET} PUBLIC
+            "$<HOST_LINK:-Wl$<COMMA>--whole-archive>"
+            "$<HOST_LINK:$<TARGET_FILE:${YRTPET_LIB_NAME}>>"
+            "$<HOST_LINK:-Wl$<COMMA>--no-whole-archive>")
+	target_link_libraries(${TARGET} PUBLIC ${YRTPET_LIB_NAME})
         set_target_properties(${TARGET} PROPERTIES
             LIBRARY_OUTPUT_NAME ${TARGET}
             LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/pyyrtpet/${TARGET}_wrapper/")

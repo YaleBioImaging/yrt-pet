@@ -14,7 +14,8 @@ Current features include:
 - Siddon, multi-ray Siddon and Distance-Driven projectors
     - Time-of-Flight Support
     - Projection-space PSF support for the Distance-Driven projector
-- Image-space PSF
+- Image-space PSF: uniform separable kernels and spatially variant single
+  or dual Gaussian kernels (CPU and GPU)
 - Image-space post-reconstruction motion correction
 - Additive corrections (Scatter & Randoms)
 - Normalization correction (Detector sensitivity)

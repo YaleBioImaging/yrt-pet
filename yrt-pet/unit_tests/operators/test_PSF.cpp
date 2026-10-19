@@ -711,6 +711,130 @@ TEST_CASE("PSF_4D", "[psf]")
 	}
 }
 
+TEST_CASE("PSF_overwrite", "[psf][varpsf][overwrite]")
+{
+	const int model =
+	    GENERATE(0, 1, 2);  // Uniform, single Gaussian, dual Gaussian
+	const bool transpose = GENERATE(false, true);
+	CAPTURE(model, transpose);
+	const ImageParams params{9, 7, 5, 9.0f, 7.0f, 5.0f};
+	ImageOwned input(params), expected(params), output(params);
+	input.allocate();
+	expected.allocate();
+	output.allocate();
+	for (size_t i = 0; i < input.getData().getSizeTotal(); ++i)
+	{
+		input.getRawPointer()[i] = 0.1f + static_cast<float>(i % 17) / 17.0f;
+	}
+
+	const std::vector<float> kernelX{0.1f, 0.2f, 0.7f};
+	const std::vector<float> kernelYZ{0.25f, 0.5f, 0.25f};
+	OperatorVarPsf::ConvolutionKernelCollection kernels;
+	for (float sigma : {0.7f, 1.0f})
+	{
+		if (model == 2)
+		{
+			kernels.push_back(
+			    std::make_unique<ConvolutionKernelGaussianMixture>(
+			        sigma, sigma, sigma, 1.2f, 1.2f, 1.2f, 0.3f, 3.0f, 3.0f,
+			        3.0f, params));
+		}
+		else
+		{
+			kernels.push_back(std::make_unique<ConvolutionKernelGaussian>(
+			    sigma, sigma, sigma, 3.0f, 3.0f, 3.0f, params));
+		}
+	}
+	const auto configureVariant = [&kernels](OperatorVarPsf& op)
+	{
+		op.setRangeAndGap(4.0f, 4.0f, 0.0f, 1.0f, 0.0f, 1.0f);
+		op.setKernelCollection(kernels);
+	};
+	std::unique_ptr<Operator> cpu;
+	if (model == 0)
+	{
+		cpu = std::make_unique<OperatorPsf>(kernelX, kernelYZ, kernelYZ);
+	}
+	else
+	{
+		auto variant = std::make_unique<OperatorVarPsf>(params);
+		configureVariant(*variant);
+		cpu = std::move(variant);
+	}
+	const auto apply =
+	    [transpose](Operator& op, const Variable* in, Variable* out)
+	{
+		if (transpose)
+		{
+			op.applyAH(in, out);
+		}
+		else
+		{
+			op.applyA(in, out);
+		}
+	};
+	expected.fill(0.0f);
+	apply(*cpu, &input, &expected);
+
+	SECTION("CPU host output")
+	{
+		for (float initialValue : {0.0f, 1.0f})
+		{
+			output.fill(initialValue);
+			for (int repeat = 0; repeat < 2; ++repeat)
+			{
+				apply(*cpu, &input, &output);
+				CHECK(allclose(expected, output, 1e-5f, 1e-6f));
+			}
+		}
+	}
+
+#if BUILD_CUDA
+	SECTION("GPU host and device outputs")
+	{
+		const bool useStream = GENERATE(false, true);
+		CAPTURE(useStream);
+		GPUStream gpuStream;
+		const cudaStream_t* stream =
+		    useStream ? &gpuStream.getStream() : nullptr;
+		std::unique_ptr<Operator> gpu;
+		if (model == 0)
+		{
+			gpu = std::make_unique<OperatorPsfDevice>(kernelX, kernelYZ,
+			                                          kernelYZ, stream);
+		}
+		else
+		{
+			auto variant =
+			    std::make_unique<OperatorVarPsfDevice>(params, stream);
+			configureVariant(*variant);
+			variant->copyVarPsfToDevice();
+			gpu = std::move(variant);
+		}
+		ImageDeviceOwned inputDevice(params, stream),
+		    outputDevice(params, stream);
+		inputDevice.allocate();
+		inputDevice.copyFromHostImage(&input, true);
+		outputDevice.allocate();
+		ImageOwned deviceResult(params);
+		deviceResult.allocate();
+		for (float initialValue : {0.0f, 1.0f})
+		{
+			output.fill(initialValue);
+			outputDevice.fill(initialValue);
+			for (int repeat = 0; repeat < 2; ++repeat)
+			{
+				apply(*gpu, &input, &output);
+				CHECK(allclose(expected, output, 1e-4f, 1e-6f));
+				apply(*gpu, &inputDevice, &outputDevice);
+				outputDevice.transferToHostMemory(&deviceResult, true);
+				CHECK(allclose(expected, deviceResult, 1e-4f, 1e-6f));
+			}
+		}
+	}
+#endif
+}
+
 TEST_CASE("VarPSF", "[varpsf]")
 {
 	const unsigned int randomSeed =

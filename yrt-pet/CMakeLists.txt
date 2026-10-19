@@ -112,7 +112,7 @@ if (USE_CUDA)
     set(CMAKE_CUDA_ARCHITECTURES ${YRTPET_CUDA_ARCHITECTURES})
 
     if (USE_CUDA AND NOT CMAKE_CUDA_HOST_COMPILER)
-	set(CMAKE_CUDA_HOST_COMPILER ${CMAKE_CXX_COMPILER})
+        set(CMAKE_CUDA_HOST_COMPILER ${CMAKE_CXX_COMPILER})
     endif()
 
     find_package(CUDAToolkit)
@@ -219,9 +219,9 @@ function(define_target_exe TARGET)
     set(JSON OFF)
     setup_target(${TARGET} ${JSON} ${CXXOPTS} ${BUILD_PYBIND11})
     target_link_options(${TARGET} PUBLIC
-	"$<HOST_LINK:-Wl$<COMMA>--whole-archive>"
-	"$<HOST_LINK:$<TARGET_FILE:${YRTPET_LIB_NAME}>>"
-	"$<HOST_LINK:-Wl$<COMMA>--no-whole-archive>")
+        "$<HOST_LINK:-Wl$<COMMA>--whole-archive>"
+        "$<HOST_LINK:$<TARGET_FILE:${YRTPET_LIB_NAME}>>"
+        "$<HOST_LINK:-Wl$<COMMA>--no-whole-archive>")
     target_link_libraries(${TARGET} PUBLIC ${YRTPET_LIB_NAME})
     install(TARGETS ${TARGET} RUNTIME DESTINATION bin)
 endfunction()
@@ -233,11 +233,11 @@ if (BUILD_PYBIND11)
         set(JSON ON)
         set(CXXOPTS OFF)
         setup_target(${TARGET} ${JSON} ${CXXOPTS} ON)
-	target_link_options(${TARGET} PUBLIC
+        target_link_options(${TARGET} PUBLIC
             "$<HOST_LINK:-Wl$<COMMA>--whole-archive>"
             "$<HOST_LINK:$<TARGET_FILE:${YRTPET_LIB_NAME}>>"
             "$<HOST_LINK:-Wl$<COMMA>--no-whole-archive>")
-	target_link_libraries(${TARGET} PUBLIC ${YRTPET_LIB_NAME})
+        target_link_libraries(${TARGET} PUBLIC ${YRTPET_LIB_NAME})
         set_target_properties(${TARGET} PROPERTIES
             LIBRARY_OUTPUT_NAME ${TARGET}
             LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/pyyrtpet/${TARGET}_wrapper/")
@@ -354,15 +354,15 @@ if (BUILD_TESTS)
     include(CTest)
     # Code coverage
     # if(uppercase_CMAKE_BUILD_TYPE MATCHES DEBUG)
-    # 	list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake-modules")
-    # 	if(CMAKE_COMPILER_IS_GNUCXX)
-    # 	  include(CodeCoverage)
-    # 	  append_coverage_compiler_flags()
-    # 	  setup_target_for_coverage_lcov(NAME coverage
-    # 		EXECUTABLE ctest
-    # 		DEPENDENCIES
-    # 	    test_runner)
-    # 	endif()
+    #     list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake-modules")
+    #     if(CMAKE_COMPILER_IS_GNUCXX)
+    #         include(CodeCoverage)
+    #         append_coverage_compiler_flags()
+    #         setup_target_for_coverage_lcov(NAME coverage
+    #             EXECUTABLE ctest
+    #             DEPENDENCIES
+    #             test_runner)
+    #     endif()
     # endif()
 
     # Enable tests

@@ -1,0 +1,70 @@
+name: GPU Simulator
+
+# Optional, non-required check. The hosted runners have no GPU, so this builds
+# YRT-PET with CUDA and runs the Catch2 unit tests (test_runner_datastruct,
+# test_runner_algorithms and test_runner_misc, which include the GPU tests) on
+# a simulated NVIDIA H100 (https://github.com/pantheongpu/pantheonsim). A
+# simulator cannot reproduce hardware-specific behavior or timing, so it
+# complements real-GPU testing and does not replace it.
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - "yrt-pet/**"
+      - ".github/workflows/gpu-sim.yml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  unit-tests:
+    name: Unit tests (CUDA 13.0 and simulated H100)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          persist-credentials: false
+
+      - name: Set up the simulated GPU and CUDA toolkit
+        uses: pantheongpu/setup-pantheonsim@68edfd58c091361dd6baf060b63de412e544d858 # v0.1.7
+        with:
+          gpu: nvidia/h100
+          cuda-toolkit: "13.0"
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zlib1g-dev
+
+      # The simulator runs PTX and needs a shared CUDA runtime, so build for
+      # 90-virtual (PTX only) instead of the default "native". The Python
+      # bindings are off: the only Python unit test does not use the GPU.
+      - name: Configure
+        run: |
+          cmake -S yrt-pet -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DUSE_CUDA=ON \
+            -DBUILD_PYBIND11=OFF \
+            -DBUILD_TESTS=ON \
+            -DCMAKE_CUDA_COMPILER=/usr/local/cuda-13.0/bin/nvcc \
+            -DCMAKE_CUDA_ARCHITECTURES=90-virtual \
+            -DCMAKE_CUDA_RUNTIME_LIBRARY=Shared
+
+      # Some .cpp files include cuda_runtime.h, and CMake adds the toolkit
+      # include directory only to the CUDA sources, so point the C++ compiler
+      # at the 13.0 headers.
+      - name: Build
+        env:
+          CPATH: /usr/local/cuda-13.0/include
+        run: cmake --build build -j3
+
+      - name: Test
+        run: vgpu run ctest --test-dir build --output-on-failure --no-tests=error --timeout 3600
